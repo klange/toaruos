@@ -75,6 +75,8 @@ extern uint8_t startswith(const char * str, const char * accept);
 extern void gdt_install(void);
 extern void gdt_set_gate(uint8_t num, uint64_t base, uint64_t limit, uint8_t access, uint8_t gran);
 extern void set_kernel_stack(uintptr_t stack);
+extern void gdt_set_gsbase(uintptr_t base);
+extern uintptr_t gdt_get_gsbase(void);
 
 /* IDT */
 extern void idt_install(void);
@@ -86,7 +88,7 @@ extern void idt_set_gate(uint8_t num, void (*base)(void), uint16_t sel, uint8_t 
  * the correct offsets as well.
  */
 struct regs {
-	unsigned int gs, fs, es, ds;
+	unsigned int _unused, fs, es, ds;
 	unsigned int edi, esi, ebp, esp, ebx, edx, ecx, eax;
 	unsigned int int_no, err_code;
 	unsigned int eip, cs, eflags, useresp, ss;

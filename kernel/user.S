@@ -32,6 +32,8 @@ enter_userspace:
     mov %eax, %ds
     mov %eax, %es
     mov %eax, %fs
+
+    mov $0x33, %ax
     mov %eax, %gs
     /* %ss is handled by iret */
 

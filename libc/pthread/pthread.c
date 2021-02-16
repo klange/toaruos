@@ -11,6 +11,7 @@
 #include <errno.h>
 
 #include <sys/wait.h>
+#include <sys/sysfunc.h>
 
 DEFN_SYSCALL3(clone, SYS_CLONE, uintptr_t, uintptr_t, void *);
 DEFN_SYSCALL0(gettid, SYS_GETTID);
@@ -24,11 +25,39 @@ int gettid() {
 	return syscall_gettid(); /* never fails */
 }
 
+struct pthread {
+	void * (*entry)(void *);
+	void * arg;
+};
+
+void * ___tls_get_addr(void* input) {
+	return NULL;
+}
+
+void __make_tls(void) {
+	char * tlsSpace = calloc(1,4096);
+	char ** tlsSelf  = (char **)(tlsSpace + 4096 - sizeof(char *));
+	*tlsSelf = (char*)tlsSelf;
+	sysfunc(TOARU_SYS_FUNC_SETGSBASE, (char*[]){(char*)tlsSelf});
+}
+
+void * __thread_start(void * thread) {
+	__make_tls();
+	struct pthread * me = ((pthread_t *)thread)->ret_val;
+	((pthread_t *)thread)->ret_val = 0;
+	return me->entry(me->arg);
+}
+
 int pthread_create(pthread_t * thread, pthread_attr_t * attr, void *(*start_routine)(void *), void * arg) {
 	char * stack = malloc(PTHREAD_STACK_SIZE);
 	uintptr_t stack_top = (uintptr_t)stack + PTHREAD_STACK_SIZE;
+
 	thread->stack = stack;
-	thread->id = clone(stack_top, (uintptr_t)start_routine, arg);
+	struct pthread * data = malloc(sizeof(struct pthread));
+	data->entry = start_routine;
+	data->arg   = arg;
+	thread->ret_val = data;
+	thread->id = clone(stack_top, (uintptr_t)__thread_start, thread);
 	return 0;
 }
 

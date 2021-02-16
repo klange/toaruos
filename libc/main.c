@@ -30,8 +30,11 @@ void _exit(int val){
 	__builtin_unreachable();
 }
 
+extern void __make_tls(void);
+
 __attribute__((constructor))
 static void _libc_init(void) {
+	__make_tls();
 	__stdio_init_buffers();
 
 	unsigned int x = 0;

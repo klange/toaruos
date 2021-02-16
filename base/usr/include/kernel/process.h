@@ -35,6 +35,8 @@ typedef struct thread {
 	uint8_t    padding[32]; /* I don't know */
 
 	page_directory_t * page_directory; /* Page Directory */
+	uintptr_t  gsbase;
+
 } thread_t;
 
 /* Portable image struct */

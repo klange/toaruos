@@ -218,6 +218,7 @@ uint32_t fork(void) {
 
 	new_proc->thread.esp = esp;
 	new_proc->thread.ebp = ebp;
+	new_proc->thread.gsbase = current_process->thread.gsbase;
 
 	new_proc->is_tasklet = parent->is_tasklet;
 
@@ -272,6 +273,7 @@ int create_kernel_tasklet(tasklet_t tasklet, char * name, void * argp) {
 
 	new_proc->thread.esp = esp;
 	new_proc->thread.ebp = ebp;
+	new_proc->thread.gsbase = current_process->thread.gsbase;
 
 	new_proc->thread.eip = (uintptr_t)tasklet;
 
@@ -339,6 +341,7 @@ clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 
 	new_proc->thread.esp = esp;
 	new_proc->thread.ebp = ebp;
+	new_proc->thread.gsbase = current_process->thread.gsbase;
 
 	new_proc->is_tasklet = parent->is_tasklet;
 
@@ -405,6 +408,7 @@ void switch_task(uint8_t reschedule) {
 	current_process->thread.eip = eip;
 	current_process->thread.esp = esp;
 	current_process->thread.ebp = ebp;
+	current_process->thread.gsbase = gdt_get_gsbase();
 	current_process->running = 0;
 
 	/* Save floating point state */
@@ -432,6 +436,7 @@ void switch_next(void) {
 	eip = current_process->thread.eip;
 	esp = current_process->thread.esp;
 	ebp = current_process->thread.ebp;
+	gdt_set_gsbase(current_process->thread.gsbase);
 	unswitch_fpu();
 
 	/* Validate */

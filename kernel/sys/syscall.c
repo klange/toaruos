@@ -784,6 +784,12 @@ static int sys_sysfunc(int fn, char ** args) {
 
 			return 0;
 
+		case 14:
+			PTR_VALIDATE(args);
+			current_process->thread.gsbase = (uintptr_t)args[0];
+			gdt_set_gsbase(current_process->thread.gsbase);
+			return 0;
+
 		default:
 			debug_print(ERROR, "Bad system function %d", fn);
 			break;

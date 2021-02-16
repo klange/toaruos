@@ -75,6 +75,8 @@ typedef int (*entry_point_t)(int, char *[], char**);
 static hashmap_t * dumb_symbol_table;
 static hashmap_t * glob_dat;
 static hashmap_t * objects_map;
+static hashmap_t * tls_map;
+static size_t current_tls_offset = 0;
 
 /* Used for dlerror */
 static char * last_error = NULL;
@@ -388,6 +390,7 @@ static int need_symbol_for_type(unsigned char type) {
 		case 5:
 		case 6:
 		case 7:
+		case 14:
 			return 1;
 		default:
 			return 0;
@@ -470,6 +473,20 @@ static int object_relocate(elf_t * object) {
 						break;
 					case 5: /* COPY */
 						memcpy((void *)(table->r_offset + object->base), (void *)x, sym->st_size);
+						break;
+					case 14: /* TLS_TPOFF */
+						x = *((ssize_t *)(table->r_offset + object->base));
+						if (!hashmap_has(tls_map, symname)) {
+							if (!sym->st_size) {
+								fprintf(stderr, "Haven't placed %s in static TLS yet but don't know its size?\n", symname);
+							}
+							current_tls_offset += sym->st_size; /* TODO alignment restrictions */
+							hashmap_set(tls_map, symname, (void*)(current_tls_offset));
+							x -= current_tls_offset;
+						} else {
+							x -= (size_t)hashmap_get(tls_map, symname);
+						}
+						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
 						break;
 					default:
 						TRACE_LD("Unknown relocation type: %d", type);
@@ -751,6 +768,7 @@ int main(int argc, char * argv[]) {
 	dumb_symbol_table = hashmap_create(10);
 	glob_dat = hashmap_create(10);
 	objects_map = hashmap_create(10);
+	tls_map = hashmap_create(10);
 
 	/* Setup symbols for built-in exports */
 	ld_exports_t * ex = ld_builtin_exports;

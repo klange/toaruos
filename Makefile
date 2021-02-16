@@ -101,6 +101,7 @@ KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/*/*/*.c))
 ##
 # Kernel objects from kernel/ assembly sources
 KERNEL_ASMOBJS = $(filter-out kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard kernel/*.S)))
+HEADERS = $(wildcard base/usr/include/kernel/*.h base/usr/include/kernel/*/*.h)
 
 # Kernel
 
@@ -141,7 +142,6 @@ fatbase/mod:
 ##
 # Modules need to be installed on the boot image
 MODULES = $(patsubst modules/%.c,fatbase/mod/%.ko,$(wildcard modules/*.c))
-HEADERS = $(wildcard base/usr/include/kernel/*.h base/usr/include/kernel/*/*.h)
 
 fatbase/mod/%.ko: modules/%.c ${HEADERS} | fatbase/mod
 	${KCC} -nostdlib ${KCFLAGS} -c -o $@ $<

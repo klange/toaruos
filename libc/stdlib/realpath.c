@@ -41,9 +41,7 @@ char *realpath(const char *path, char *resolved_path) {
 	}
 
 	if (!resolved_path) {
-		/* Can't support this yet. */
-		errno = -EINVAL;
-		return NULL;
+		resolved_path = malloc(PATH_MAX+1);
 	}
 
 	/* If we're lucky, we can do this with no allocations, so let's start here... */

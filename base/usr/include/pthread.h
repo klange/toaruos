@@ -12,6 +12,12 @@ typedef struct {
 } pthread_t;
 typedef unsigned int pthread_attr_t;
 
+typedef struct {
+	int volatile atomic_lock;
+	int volatile readers;
+	int writerPid;
+} pthread_rwlock_t;
+
 extern int pthread_create(pthread_t * thread, pthread_attr_t * attr, void *(*start_routine)(void *), void * arg);
 extern void pthread_exit(void * value);
 extern int pthread_kill(pthread_t thread, int sig);
@@ -38,5 +44,10 @@ extern int pthread_mutex_destroy(pthread_mutex_t *mutex);
 extern int pthread_attr_init(pthread_attr_t *attr);
 extern int pthread_attr_destroy(pthread_attr_t *attr);
 
+extern int pthread_rwlock_init(pthread_rwlock_t * lock, void * args);
+extern int pthread_rwlock_wrlock(pthread_rwlock_t * lock);
+extern int pthread_rwlock_rdlock(pthread_rwlock_t * lock);
+extern int pthread_rwlock_unlock(pthread_rwlock_t * lock);
+extern int pthread_rwlock_destroy(pthread_rwlock_t * lock);
 
 _End_C_Header

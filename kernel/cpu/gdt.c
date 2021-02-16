@@ -30,9 +30,9 @@ typedef struct {
 
 /* In the future we may need to put a lock on the access of this */
 static struct {
-    gdt_entry_t entries[6];
-    gdt_pointer_t pointer;
-    tss_entry_t tss;
+	gdt_entry_t entries[7];
+	gdt_pointer_t pointer;
+	tss_entry_t tss;
 } gdt __attribute__((used));
 
 extern void gdt_flush(uintptr_t);
@@ -53,6 +53,17 @@ void gdt_set_gate(uint8_t num, uint64_t base, uint64_t limit, uint8_t access, ui
 	ENTRY(num).access = access;
 }
 
+void gdt_set_gsbase(uintptr_t base) {
+	ENTRY(6).base_low = (base & 0xFFFF);
+	ENTRY(6).base_middle = (base >> 16) & 0xFF;
+	ENTRY(6).base_high = (base >> 24) & 0xFF;
+	asm volatile ("mov %0, %%gs" :: "r"((6 << 3) | 0x3));
+}
+
+uintptr_t gdt_get_gsbase(void) {
+	return (ENTRY(6).base_low) | (ENTRY(6).base_middle << 16) | (ENTRY(6).base_high << 24);
+}
+
 static void write_tss(int32_t num, uint16_t ss0, uint32_t esp0);
 
 void gdt_install(void) {
@@ -65,8 +76,8 @@ void gdt_install(void) {
 	gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xCF); /* Data segment */
 	gdt_set_gate(3, 0, 0xFFFFFFFF, 0xFA, 0xCF); /* User code */
 	gdt_set_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xCF); /* User data */
-
 	write_tss(5, 0x10, 0x0);
+	gdt_set_gate(6, 0, 0xFFFFFFFF, 0xF2, 0xCF);
 
 	/* Go go go */
 	gdt_flush((uintptr_t)gdtp);
