@@ -11,6 +11,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
+#include <errno.h>
 
 #ifdef __toaru__
 #include <toaru/rline.h>
@@ -33,13 +34,13 @@
 
 static int enableRline = 1;
 static int exitRepl = 0;
-static KrkValue exitFunc(int argc, KrkValue argv[]) {
+static KrkValue exitFunc(int argc, KrkValue argv[], int hasKw) {
 	exitRepl = 1;
 	return NONE_VAL();
 }
 
 static int pasteEnabled = 0;
-static KrkValue paste(int argc, KrkValue argv[]) {
+static KrkValue paste(int argc, KrkValue argv[], int hasKw) {
 	pasteEnabled = !pasteEnabled;
 	fprintf(stderr, "Pasting is %s.\n", pasteEnabled ? "enabled" : "disabled");
 	return NONE_VAL();
@@ -123,7 +124,7 @@ static void tab_complete_func(rline_context_t * c) {
 
 		if (n <= count) {
 			/* Now work forwards, starting from the current globals. */
-			KrkValue root = OBJECT_VAL(vm.module);
+			KrkValue root = OBJECT_VAL(krk_currentThread.module);
 			int isGlobal = 1;
 			while (n > base) {
 				/* And look at the potential fields for instances/classes */
@@ -148,10 +149,10 @@ static void tab_complete_func(rline_context_t * c) {
 			int matchCount = 0;
 
 			/* Take the last symbol name from the chain and get its member list from dir() */
-			KRK_PAUSE_GC();
 
 			for (;;) {
-				KrkValue dirList = krk_dirObject(1,(KrkValue[]){root});
+				KrkValue dirList = krk_dirObject(1,(KrkValue[]){root},0);
+				krk_push(dirList);
 				if (!IS_INSTANCE(dirList)) {
 					fprintf(stderr,"\nInternal error while tab completting.\n");
 					goto _cleanup;
@@ -159,13 +160,17 @@ static void tab_complete_func(rline_context_t * c) {
 
 				for (size_t i = 0; i < AS_LIST(dirList)->count; ++i) {
 					KrkString * s = AS_STRING(AS_LIST(dirList)->values[i]);
+					krk_push(OBJECT_VAL(s));
 					KrkToken asToken = {.start = s->chars, .literalWidth = s->length};
 					KrkValue thisValue = findFromProperty(root, asToken);
+					krk_push(thisValue);
 					if (IS_CLOSURE(thisValue) || IS_BOUND_METHOD(thisValue) ||
 						(IS_NATIVE(thisValue) && ((KrkNative*)AS_OBJECT(thisValue))->isMethod != 2)) {
 						char * tmp = malloc(s->length + 2);
 						sprintf(tmp, "%s(", s->chars);
 						s = krk_takeString(tmp, strlen(tmp));
+						krk_pop();
+						krk_push(OBJECT_VAL(s));
 					}
 
 					/* If this symbol is shorter than the current submatch, skip it. */
@@ -192,16 +197,17 @@ static void tab_complete_func(rline_context_t * c) {
 				 * If the object we were scanning was the current module,
 				 * then we should also throw the builtins into the ring.
 				 */
-				if (isGlobal && AS_OBJECT(root) == (KrkObj*)vm.module) {
+				if (isGlobal && AS_OBJECT(root) == (KrkObj*)krk_currentThread.module) {
 					root = OBJECT_VAL(vm.builtins);
 					continue;
 				} else if (isGlobal && AS_OBJECT(root) == (KrkObj*)vm.builtins) {
 					extern char * syn_krk_keywords[];
-					KrkInstance * fakeKeywordsObject = krk_newInstance(vm.objectClass);
+					KrkInstance * fakeKeywordsObject = krk_newInstance(vm.baseClasses->objectClass);
+					root = OBJECT_VAL(fakeKeywordsObject);
+					krk_push(root);
 					for (char ** keyword = syn_krk_keywords; *keyword; keyword++) {
 						krk_attachNamedValue(&fakeKeywordsObject->fields, *keyword, NONE_VAL());
 					}
-					root = OBJECT_VAL(fakeKeywordsObject);
 					continue;
 				} else {
 					break;
@@ -262,15 +268,15 @@ _toomany:
 _cleanup:
 		free(tmp);
 		free(space);
-		KRK_RESUME_GC();
+		krk_resetStack();
 		return;
 	}
 }
 #endif
 
 static void handleSigint(int sigNum) {
-	if (vm.frameCount) {
-		krk_runtimeError(vm.exceptions.keyboardInterrupt, "Keyboard interrupt.");
+	if (krk_currentThread.frameCount) {
+		krk_runtimeError(vm.exceptions->keyboardInterrupt, "Keyboard interrupt.");
 	}
 
 	signal(sigNum, handleSigint);
@@ -282,7 +288,7 @@ static void findInterpreter(char * argv[]) {
 #else
 	/* Try asking /proc */
 	char * binpath = realpath("/proc/self/exe", NULL);
-	if (!binpath) {
+	if (!binpath || (access(binpath, X_OK) != 0)) {
 		if (strchr(argv[0], '/')) {
 			binpath = realpath(argv[0], NULL);
 		} else {
@@ -295,7 +301,7 @@ static void findInterpreter(char * argv[]) {
 
 				char tmp[4096];
 				sprintf(tmp, "%s/%s", path, argv[0]);
-				if (access(tmp, X_OK)) {
+				if (access(tmp, X_OK) == 0) {
 					binpath = strdup(tmp);
 					break;
 				}
@@ -310,12 +316,55 @@ static void findInterpreter(char * argv[]) {
 #endif
 }
 
-static int runString(char * argv[], char * string) {
+static int runString(char * argv[], int flags, char * string) {
 	findInterpreter(argv);
-	krk_initVM(0);
+	krk_initVM(flags);
+	krk_startModule("__main__");
 	krk_interpret(string, 1, "<stdin>","<stdin>");
 	krk_freeVM();
 	return 0;
+}
+
+/* This isn't normally exposed. */
+extern KrkFunction * krk_compile(const char * src, int newScope, char * fileName);
+static int compileFile(char * argv[], int flags, char * fileName) {
+	findInterpreter(argv);
+	krk_initVM(flags);
+
+	/* Open the file. */
+	FILE * f = fopen(fileName,"r");
+	if (!f) {
+		fprintf(stderr, "%s: could not read file '%s': %s\n", argv[0], fileName, strerror(errno));
+		return 1;
+	}
+
+	/* Read it like we normally do... */
+	fseek(f, 0, SEEK_END);
+	size_t size = ftell(f);
+	fseek(f, 0, SEEK_SET);
+	char * buf = malloc(size+1);
+	if (fread(buf, 1, size, f) != size) return 2;
+	fclose(f);
+	buf[size] = '\0';
+
+	/* Set up a module scope */
+	krk_startModule("__main__");
+
+	/* Call the compiler directly. */
+	KrkFunction * func = krk_compile(buf, 0, fileName);
+
+	/* See if there was an exception. */
+	if (krk_currentThread.flags & KRK_HAS_EXCEPTION) {
+		krk_dumpTraceback();
+	}
+
+	/* Free the source string */
+	free(buf);
+
+	/* Close out the compiler */
+	krk_freeVM();
+
+	return func == NULL;
 }
 
 #ifdef BUNDLE_LIBS
@@ -332,10 +381,10 @@ int main(int argc, char * argv[]) {
 	int flags = 0;
 	int moduleAsMain = 0;
 	int opt;
-	while ((opt = getopt(argc, argv, "c:dgm:rstMV-:")) != -1) {
+	while ((opt = getopt(argc, argv, "+c:C:dgm:rstMV-:")) != -1) {
 		switch (opt) {
 			case 'c':
-				return runString(argv, optarg);
+				return runString(argv, flags, optarg);
 			case 'd':
 				/* Disassemble code blocks after compilation. */
 				flags |= KRK_ENABLE_DISASSEMBLY;
@@ -360,12 +409,14 @@ int main(int argc, char * argv[]) {
 				enableRline = 0;
 				break;
 			case 'M':
-				return runString(argv,"import kuroko; print(kuroko.module_paths)\n");
+				return runString(argv,0,"import kuroko; print(kuroko.module_paths)\n");
 			case 'V':
-				return runString(argv,"import kuroko; print('Kuroko',kuroko.version)\n");
+				return runString(argv,0,"import kuroko; print('Kuroko',kuroko.version)\n");
+			case 'C':
+				return compileFile(argv,flags,optarg);
 			case '-':
 				if (!strcmp(optarg,"version")) {
-					return runString(argv,"import kuroko; print('Kuroko',kuroko.version)\n");
+					return runString(argv,0,"import kuroko; print('Kuroko',kuroko.version)\n");
 				} else if (!strcmp(optarg,"help")) {
 					fprintf(stderr,"usage: %s [flags] [FILE...]\n"
 						"\n"
@@ -376,6 +427,8 @@ int main(int argc, char * argv[]) {
 						" -r          Disable complex line editing in the REPL.\n"
 						" -s          Debug output from the scanner/tokenizer.\n"
 						" -t          Disassemble instructions as they are exceuted.\n"
+						" -C file     Compile 'file', but do not execute it.\n"
+						" -M          Print the default module import paths.\n"
 						" -V          Print version information.\n"
 						"\n"
 						" --version   Print version information.\n"
@@ -401,7 +454,7 @@ _finishArgs:
 	for (int arg = optind; arg < argc; ++arg) {
 		krk_push(OBJECT_VAL(krk_copyString(argv[arg],strlen(argv[arg]))));
 	}
-	KrkValue argList = krk_list_of(argc - optind + (optind == argc), &vm.stackTop[-(argc - optind + (optind == argc))]);
+	KrkValue argList = krk_list_of(argc - optind + (optind == argc), &krk_currentThread.stackTop[-(argc - optind + (optind == argc))],0);
 	krk_push(argList);
 	krk_attachNamedValue(&vm.system->fields, "argv", argList);
 	krk_pop();
@@ -432,7 +485,7 @@ _finishArgs:
 			AS_STRING(AS_LIST(argList)->values[0]),
 			&module,
 			AS_STRING(krk_peek(0)));
-		if (vm.flags & KRK_HAS_EXCEPTION) {
+		if (krk_currentThread.flags & KRK_HAS_EXCEPTION) {
 			krk_dumpTraceback();
 			krk_resetStack();
 		}
@@ -445,7 +498,7 @@ _finishArgs:
 		/* The repl runs in the context of a top-level module so each input
 		 * line can share a globals state with the others. */
 		krk_startModule("<module>");
-		krk_attachNamedValue(&vm.module->fields,"__doc__", NONE_VAL());
+		krk_attachNamedValue(&krk_currentThread.module->fields,"__doc__", NONE_VAL());
 
 #ifndef NO_RLINE
 		/* Set ^D to send EOF */
@@ -646,6 +699,7 @@ _finishArgs:
 			(void)blockWidth;
 		}
 	} else {
+		krk_startModule("__main__");
 		result = krk_runfile(argv[optind],1,"__main__",argv[optind]);
 	}
 

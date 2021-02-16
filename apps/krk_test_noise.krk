@@ -1,0 +1,47 @@
+#!/bin/kuroko
+import os
+if 'KUROKO_TEST_ENV' in os.environ:
+    return 0
+
+from time import sleep
+from fileio import open, stdin
+from threading import Thread
+
+let d = {}
+let stop = False
+
+for y in range(0x40):
+    for x in range(0x40):
+        d[(y,x)] = 0
+
+class NoisePainter(Thread):
+    def run(self):
+        let myRando = open('/dev/urandom','rb')
+        while not stop:
+            let bytes = myRando.read(3)
+            let x = bytes[0] & 0x3F
+            let y = bytes[1] & 0x3F
+            d[(y,x)] = bytes[2]
+
+let painters = [NoisePainter() for i in range(5)]
+
+for painter in painters:
+    painter.start()
+
+def drawScreen():
+    print("\[[H",end="")
+    for y in range(0x20):
+        for x in range(0x40):
+            let top = d[(y*2,x)]
+            let bottom = d[(y*2+1,x)]
+            print("\[[38","2",top,top,top,"48","2",bottom,bottom,bottom,sep=";",end="m▀")
+        print("\[[0m")
+
+for i in range(5):
+    drawScreen()
+
+stop = True
+for painter in painters:
+    painter.join()
+
+drawScreen()

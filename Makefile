@@ -164,7 +164,7 @@ base/cdrom:
 	mkdir -p $@
 base/var:
 	mkdir -p $@
-base/usr/local/lib/kuroko:
+base/lib/kuroko:
 	mkdir -p $@
 fatbase/efi/boot:
 	mkdir -p $@
@@ -172,7 +172,7 @@ cdrom:
 	mkdir -p $@
 .make:
 	mkdir -p .make
-dirs: base/dev base/tmp base/proc base/bin base/lib base/cdrom base/usr/local/lib/kuroko cdrom base/var fatbase/efi/boot .make
+dirs: base/dev base/tmp base/proc base/bin base/lib base/cdrom base/lib/kuroko cdrom base/var fatbase/efi/boot .make
 
 # C Library
 
@@ -201,13 +201,13 @@ kuroko/%.o: kuroko/%.c
 	$(CC) $(CFLAGS) -DDEBUG -fPIC -c -o $@ $^
 
 KUROKO_CMODS=$(patsubst kuroko/src/module_%.c,%,$(wildcard kuroko/src/module_*.c)) $(patsubst lib/kuroko/%.c,%,$(wildcard lib/kuroko/*.c))
-KUROKO_CMODS_X=$(foreach lib,$(KUROKO_CMODS),base/usr/local/lib/kuroko/$(lib).so)
+KUROKO_CMODS_X=$(foreach lib,$(KUROKO_CMODS),base/lib/kuroko/$(lib).so)
 KUROKO_CMODS_Y=$(foreach lib,$(KUROKO_CMODS),.make/$(lib).kmak)
-KUROKO_KRK_MODS=$(patsubst kuroko/modules/%.krk,base/usr/local/lib/kuroko/%.krk,$(wildcard kuroko/modules/*.krk kuroko/modules/*/*.krk))
+KUROKO_KRK_MODS=$(patsubst kuroko/modules/%.krk,base/lib/kuroko/%.krk,$(wildcard kuroko/modules/*.krk kuroko/modules/*/*.krk))
 
 KUROKO_FILES=$(KUROKO_CMODS_X) $(KUROKO_KRK_MODS) base/lib/libkuroko.so
 
-base/usr/local/lib/kuroko/%.krk: kuroko/modules/%.krk
+base/lib/kuroko/%.krk: kuroko/modules/%.krk
 	@mkdir -p `dirname $@`
 	cp $< $@
 

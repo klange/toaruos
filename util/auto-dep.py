@@ -179,7 +179,7 @@ if __name__ == "__main__":
     elif command == "--makekurokomod":
         libname = os.path.basename(filename).replace(".c","").replace("module_","")
         _libs = [x for x in c.libs if not x.startswith('-ltoaru_') or x.replace("-ltoaru_","") != libname]
-        print("base/usr/local/lib/kuroko/{lib}.so: {source} {headers} util/auto-dep.py | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) -DDEBUG {includes} -shared -fPIC -o $@ $< {libraries}".format(
+        print("base/lib/kuroko/{lib}.so: {source} {headers} util/auto-dep.py | {libraryfiles} $(LC)\n\t$(CC) $(CFLAGS) -DDEBUG {includes} -shared -fPIC -o $@ $< {libraries}".format(
             lib=libname,
             source=filename,
             headers=" ".join([toheader(x) for x in c.libs]),

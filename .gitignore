@@ -8,6 +8,7 @@
 
 /.make/*
 /base/bin/*
+/base/lib/kuroko
 /base/src
 /_base
 /cdrom/extra
