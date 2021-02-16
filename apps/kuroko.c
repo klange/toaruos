@@ -311,7 +311,7 @@ static void findInterpreter(char * argv[]) {
 		}
 	}
 	if (binpath) {
-		vm.binpath = binpath;
+		vm.binpath = strdup(binpath);
 	} /* Else, give up at this point and just don't attach it at all. */
 #endif
 }
@@ -465,10 +465,6 @@ _finishArgs:
 
 #ifdef BUNDLE_LIBS
 	/* Add any other modules you want to include that are normally built as shared objects. */
-	BUNDLED(fileio);
-	BUNDLED(dis);
-	BUNDLED(os);
-	BUNDLED(time);
 	BUNDLED(math);
 #endif
 
