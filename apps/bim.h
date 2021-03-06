@@ -22,6 +22,11 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#ifdef __toaru__
+#include "vm.h"
+#else
+#include <kuroko/vm.h>
+#endif
 
 #ifdef __DATE__
 # define BIM_BUILD_DATE " built " __DATE__ " at " __TIME__
@@ -35,7 +40,7 @@
 # define TAG "-alpha"
 #endif
 
-#define BIM_VERSION   "3.0.0" TAG
+#define BIM_VERSION   "2.99.0" TAG
 #define BIM_COPYRIGHT "Copyright 2012-2021 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096

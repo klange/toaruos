@@ -14,15 +14,16 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-#include "bim-core.h"
+#define ENABLE_THREADING
+#include "bim.h"
 #ifdef __toaru__
 #include <kuroko.h>
 #include "vm.h"
 #include "debug.h"
 #else
-#include "kuroko/src/kuroko.h"
-#include "kuroko/src/vm.h"
-#include "kuroko/src/debug.h"
+#include <kuroko/kuroko.h>
+#include <kuroko/vm.h>
+#include <kuroko/debug.h>
 #endif
 
 global_config_t global_config = {
@@ -712,24 +713,7 @@ _done:
 	return 0;
 }
 
-/**
- * Close a buffer
- */
-buffer_t * buffer_close(buffer_t * buf) {
-	int i;
-
-	/* Locate the buffer in the buffer list */
-	for (i = 0; i < buffers_len; i++) {
-		if (buf == buffers[i])
-			break;
-	}
-
-	/* This buffer doesn't exist? */
-	if (i == buffers_len) {
-		return NULL;
-	}
-
-	/* Cancel any background tasks for this env */
+void cancel_background_tasks(buffer_t * buf) {
 	background_task_t * t = global_config.background_task;
 	background_task_t * last = NULL;
 	while (t) {
@@ -750,6 +734,27 @@ buffer_t * buffer_close(buffer_t * buf) {
 			t = t->next;
 		}
 	}
+}
+
+/**
+ * Close a buffer
+ */
+buffer_t * buffer_close(buffer_t * buf) {
+	int i;
+
+	/* Locate the buffer in the buffer list */
+	for (i = 0; i < buffers_len; i++) {
+		if (buf == buffers[i])
+			break;
+	}
+
+	/* This buffer doesn't exist? */
+	if (i == buffers_len) {
+		return NULL;
+	}
+
+	/* Cancel any background tasks for this env */
+	cancel_background_tasks(buf);
 
 	update_biminfo(buf, 0);
 
@@ -909,6 +914,14 @@ int syntax_space = 0;
 struct syntax_definition * syntaxes = NULL;
 
 void add_syntax(struct syntax_definition def) {
+	/* See if a name match already exists for this def. */
+	for (struct syntax_definition * s = syntaxes; syntaxes && s->name; ++s) {
+		if (!strcmp(def.name,s->name)) {
+			*s = def;
+			return;
+		}
+	}
+
 	if (syntax_space == 0) {
 		syntax_space = 4;
 		syntaxes = calloc(sizeof(struct syntax_definition), syntax_space);
@@ -920,6 +933,8 @@ void add_syntax(struct syntax_definition def) {
 	syntaxes[syntax_count] = def;
 	syntax_count++;
 }
+
+void redraw_all(void);
 
 /**
  * Calculate syntax highlighting for the given line, and lines after
@@ -958,21 +973,15 @@ void recalculate_syntax(line_t * line, int line_no) {
 			krk_push(OBJECT_VAL(s));
 			KrkValue result = krk_callSimple(OBJECT_VAL(env->syntax->krkFunc), 1, 0);
 			krk_currentThread.stackTop = krk_currentThread.stack + before;
-			if (IS_NONE(result) && (krk_currentThread.flags & KRK_HAS_EXCEPTION)) {
+			if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
 				render_error("Exception occurred in plugin: %s", AS_INSTANCE(krk_currentThread.currentException)->_class->name->chars);
+				render_commandline_message("\n");
 				krk_dumpTraceback();
-				fprintf(stderr,"\n\nThis syntax highlighter will be disabled in this environment.\n\n");
-				int key = 0;
-				while ((key = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
-				env->syntax = NULL;
-				return;
+				goto _syntaxError;
 			} else if (!IS_NONE(result) && !IS_INTEGER(result)) {
-				fprintf(stderr, "Instead of an integer, got %s\n", krk_typeName(result));
-				fprintf(stderr,"\n\nThis syntax highlighter will be disabled in this environment.\n\n");
-				int key = 0;
-				while ((key = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
-				env->syntax = NULL;
-				return;
+				render_error("Instead of an integer, got %s", krk_typeName(result));
+				render_commandline_message("\n");
+				goto _syntaxError;
 			}
 			s->state.state = IS_NONE(result) ? -1 : AS_INTEGER(result);
 
@@ -996,6 +1005,14 @@ void recalculate_syntax(line_t * line, int line_no) {
 _next:
 		(void)0;
 	}
+
+_syntaxError:
+	krk_resetStack();
+	fprintf(stderr,"This syntax highlighter will be disabled in this environment.");
+	env->syntax = NULL;
+	cancel_background_tasks(env);
+	pause_for_key();
+	redraw_all();
 }
 
 /**
@@ -3686,8 +3703,6 @@ void run_onload(buffer_t * env) {
 static void render_syntax_async(background_task_t * task) {
 	buffer_t * old_env = env;
 	env = task->env;
-	struct syntax_definition * old_syn = env->syntax;
-	env->syntax = task->_private_p;
 	int line_no = task->_private_i;
 
 	if (env->line_count && line_no < env->line_count) {
@@ -3699,8 +3714,6 @@ static void render_syntax_async(background_task_t * task) {
 			redraw_line(line_no);
 		}
 	}
-
-	env->syntax = old_syn;
 	env = old_env;
 }
 
@@ -3717,7 +3730,6 @@ static void schedule_complete_recalc(void) {
 		background_task_t * task = malloc(sizeof(background_task_t));
 		task->env  = env;
 		task->_private_i = i;
-		task->_private_p = env->syntax;
 		task->func = render_syntax_async;
 		task->next = NULL;
 		if (global_config.tail_task) {
@@ -5480,7 +5492,7 @@ BIM_COMMAND(theme,"theme","Set color theme") {
 				ptrdiff_t before = krk_currentThread.stackTop - krk_currentThread.stack;
 				KrkValue result = krk_callSimple(OBJECT_VAL(d->callable), 0, 0);
 				krk_currentThread.stackTop = krk_currentThread.stack + before;
-				if (IS_NONE(result) && (krk_currentThread.flags & KRK_HAS_EXCEPTION)) {
+				if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
 					render_error("Exception occurred in theme: %s", AS_INSTANCE(krk_currentThread.currentException)->_class->name->chars);
 					krk_dumpTraceback();
 					int key = 0;
@@ -6610,7 +6622,12 @@ void find_match_backwards(int from_line, int from_col, int * out_line, int * out
 void rehighlight_search(line_t * line) {
 	if (!global_config.search) return;
 	int j = 0;
+	while (j < line->actual) {
+		line->text[j].flags &= ~(FLAG_SEARCH);
+		j++;
+	}
 	int ignorecase = smart_case(global_config.search);
+	j = 0;
 	while (j < line->actual) {
 		int matchlen = 0;
 		if (subsearch_matches(line, j, global_config.search, ignorecase, &matchlen)) {
@@ -9932,7 +9949,7 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 	 * get printed by the interpreter and we can't catch it here. */
 	krk_currentThread.frames[0].outSlots = 1;
 	/* Call the interpreter */
-	KrkValue out = krk_interpret(cmd,0,"<bim>","<bim>");
+	KrkValue out = krk_interpret(cmd,"<bim>");
 	/* If the user typed just a command name, try to execute it. */
 	if (krk_isInstanceOf(out,CommandDef)) {
 		krk_push(out);
@@ -9942,7 +9959,7 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 	int retval = (IS_INTEGER(out)) ? AS_INTEGER(out) : 0;
 	int hadOutput = 0;
 	/* If we got an exception during execution, print it now */
-	if (krk_currentThread.flags & KRK_HAS_EXCEPTION) {
+	if (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION) {
 		if (krk_isInstanceOf(krk_currentThread.currentException, vm.exceptions->syntaxError)) {
 		}
 		set_fg_color(COLOR_RED);
@@ -10028,7 +10045,7 @@ BIM_COMMAND(runkrk,"runkrk", "Run a kuroko script") {
 	/* In case we're running in a weird context? */
 	int previousExitFrame = krk_currentThread.exitOnFrame;
 	krk_currentThread.exitOnFrame = krk_currentThread.frameCount;
-	krk_runfile(argv[1],1,"<bim>",argv[1]);
+	krk_runfile(argv[1],argv[1]);
 	krk_currentThread.exitOnFrame = previousExitFrame;
 
 	redraw_all();
@@ -10175,7 +10192,7 @@ static KrkValue krk_bim_register_syntax(int argc, KrkValue argv[], int hasKw) {
 	if (!IS_STRING(name))
 		return krk_runtimeError(vm.exceptions->typeError, "%s.name must be str", AS_CLASS(argv[0])->name->chars);
 	if (!IS_TUPLE(extensions))
-		return krk_runtimeError(vm.exceptions->typeError, "%s.extensions must by tuple<str>", AS_CLASS(argv[0])->name->chars);
+		return krk_runtimeError(vm.exceptions->typeError, "%s.extensions must be tuple<str>", AS_CLASS(argv[0])->name->chars);
 	if (!IS_BOOLEAN(spaces))
 		return krk_runtimeError(vm.exceptions->typeError, "%s.spaces must be bool", AS_CLASS(argv[0])->name->chars);
 	if (!IS_CLOSURE(calculate))
@@ -10528,7 +10545,7 @@ void import_directory(char * dirName) {
 			"if '%s%s' not in kuroko.module_paths:\n"
 			" kuroko.module_paths.insert(0,'%s%s')\n",
 			dirpath, extra, dirpath, extra);
-		krk_interpret(tmp,1,"<bim>","<bim>");
+		krk_interpret(tmp,"<bim>");
 	}
 
 	if (dirpath) free(dirpath);
@@ -10538,7 +10555,7 @@ void import_directory(char * dirName) {
 			char * tmp = malloc(strlen(dirName) + 1 + strlen(ent->d_name) + 1 + 7);
 			snprintf(tmp, strlen(dirName) + 1 + strlen(ent->d_name) + 1 + 7, "import %s.%s", dirName, ent->d_name);
 			tmp[strlen(tmp)-4] = '\0';
-			krk_interpret(tmp,1,"<bim>",ent->d_name);
+			krk_interpret(tmp,ent->d_name);
 			free(tmp);
 		}
 		ent = readdir(dirp);
@@ -10574,6 +10591,33 @@ static void findBim(char * argv[]) {
 	if (binpath) {
 		vm.binpath = binpath;
 	} /* Else, give up at this point and just don't attach it at all. */
+}
+
+BIM_COMMAND(reload,"reload","Reloads all the Kuroko stuff.") {
+	/* Unload everything syntax-y */
+	KrkValue result = krk_interpret(
+		"if True:\n"
+		" import kuroko\n"
+		" for mod in kuroko.modules():\n"
+		"  if mod.startswith('syntax.') or mod.startswith('themes.'):\n"
+		"   kuroko.unload(mod)\n", "<bim>");
+
+	if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
+		krk_dumpTraceback();
+		return 1;
+	}
+
+	/* Reload everything */
+	krk_resetStack();
+	krk_startModule("<bim-syntax>");
+	import_directory("syntax");
+	krk_startModule("<bim-themes>");
+	import_directory("themes");
+	krk_startModule("<bim-repl>");
+	/* Re-run the RC file */
+	load_bimrc();
+	krk_resetStack();
+	return 0;
 }
 
 /**
@@ -10614,9 +10658,7 @@ void initialize(void) {
 	global_config.tab_indicator = strdup(">");
 	global_config.space_indicator = strdup("-");
 
-	fprintf(stderr, "init vm\n");
 	krk_initVM(0); /* no debug flags */
-	fprintf(stderr, "done\n");
 
 	KrkInstance * bimModule = krk_newInstance(vm.baseClasses->moduleClass);
 	krk_attachNamedObject(&vm.modules, "bim", (KrkObj*)bimModule);
@@ -10707,6 +10749,9 @@ void initialize(void) {
 	/* Load bimrc */
 	load_bimrc();
 	krk_resetStack();
+
+	/* Disable default traceback printing */
+	vm.globalFlags |= KRK_GLOBAL_CLEAN_OUTPUT;
 
 	/* Initialize space for buffers */
 	buffers_avail = 4;
