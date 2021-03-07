@@ -342,6 +342,7 @@ clean:
 	rm -f ${MODULES}
 	rm -f ${APPS_Y} ${LIBS_Y} ${EXT_LIBS_Y}
 	rm -f ${KUROKO_FILES}
+	rm -f kuroko/src/*.o
 
 ifneq (,$(findstring Microsoft,$(shell uname -r)))
   QEMU_ARGS=-serial mon:stdio -m 1G -rtc base=localtime -vnc :0
