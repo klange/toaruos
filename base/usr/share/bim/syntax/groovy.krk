@@ -1,0 +1,79 @@
+from syntax import Highlighter, bind
+from syntax.c import CHighlighter
+
+class GroovyHighlighter(Highlighter):
+    name = 'groovy'
+    extensions = ('.groovy','.jenkinsfile','.gradle')
+    keywords = [
+        "as","assert","break","case",
+        "catch","class","const","continue",
+        "def","default","do","else","enum",
+        "extends","finally","for",
+        "goto","if","implements","import",
+        "in","instanceof","interface","new",
+        "package","return","super",
+        "switch","throw","throws",
+        "trait","try","while","final",
+    ]
+    constants = [
+        'true','false','null','this',
+    ]
+    primitives = [
+        'byte','char','short','int','long','BigInteger'
+    ]
+    def paintTriple():
+        while self[0]:
+            if self[0] == "'":
+                self.paint(1, self.FLAG_STRING)
+                if self[0] == "'" and self[1] == "'":
+                    self.paint(2, self.FLAG_STRING)
+                    return 0
+            else:
+                self.paint(1, self.FLAG_STRING)
+        return 2
+    def calculate():
+        if self.state <= 0:
+            if self.lineno == 0 and self.i == 0 and self[0] == '#':
+                self.paintComment()
+                return None
+            else if self[0] == '/' and self[1] == '/':
+                self.paintComment()
+                return None
+            else if self[0] == '/' and self[1] == '*':
+                if CHighlighter.paintCComment(self) == 1: return 1
+            else if self[0] == '"':
+                self.paintSimpleString()
+                return 0
+            else if self[0] == "'":
+                self.paintSingleString()
+                return 0
+            else if self.findKeywords(self.keywords, self.FLAG_KEYWORD, self.cKeywordQualifier):
+                return 0
+            else if self.findKeywords(self.primitives, self.FLAG_TYPE, self.cKeywordQualifier):
+                return 0
+            else if self.findKeywords(self.constants, self.FLAG_NUMERAL, self.cKeywordQualifier):
+                return 0
+            else if not self.cKeywordQualifier(self[-1]) and self.isdigit(self[0]):
+                CHighlighter.paintCNumeral(self)
+                return 0
+            else if self[0] == '@':
+                self.paint(1, self.FLAG_TYPE)
+                while self.cKeywordQualifier(self[0]):
+                    self.paint(1, self.FLAG_TYPE)
+                return 0
+            else if not self.cKeywordQualifier(self[-1]) and self[0] in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
+                while self.cKeywordQualifier(self[0]):
+                    self.paint(1, self.FLAG_TYPE)
+                return 0
+            else if self[0]:
+                self.skip()
+                return 0
+            return None
+        else if self.state == 1:
+            if CHighlighter.paintCComment(self) == 1: return 1
+            return 0
+        else if self.state == 2:
+            return self.paintTriple()
+        return None
+
+bind(GroovyHighlighter)

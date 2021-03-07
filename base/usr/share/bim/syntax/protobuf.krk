@@ -1,0 +1,45 @@
+from syntax import Highlighter, bind
+from syntax.c import CHighlighter
+
+class ProtobufHighlighter(Highlighter):
+    name = 'protobuf'
+    extensions = ('.proto',)
+    keywords = [
+        "syntax","import","option","package","message","group","oneof",
+        "optional","required","repeated","default","extend","extensions","to","max","reserved",
+        "service","rpc","returns","stream",
+    ]
+    types = [
+        "int32","int64","uint32","uint64","sint32","sint64",
+        "fixed32","fixed64","sfixed32","sfixed64",
+        "float","double","bool","string","bytes",
+        "enum",
+    ]
+    special = ['true','false']
+    def calculate():
+        if self.state < 1:
+            if self[0] == '/' and self[1] == '/':
+                self.paintComment()
+            else if self[0] == '/' and self[1] == '*':
+                if CHighlighter.paintCComment(self) == 1: return 1
+            else if self.findKeywords(self.keywords, self.FLAG_KEYWORD, self.cKeywordQualifier):
+                return 0
+            else if self.findKeywords(self.types, self.FLAG_TYPE, self.cKeywordQualifier):
+                return 0
+            else if self.findKeywords(self.special, self.FLAG_NUMERAL, self.cKeywordQualifier):
+                return 0
+            else if self[0] == '"':
+                self.paintSimpleString()
+                return 0
+            else if not self.cKeywordQualifier(self[-1]) and self.isdigit(self[0]):
+                CHighlighter.paintCNumeral(self)
+                return 0
+            else if self[0]:
+                self.skip()
+                return 0
+            return None
+        else:
+            if CHighlighter.paintCComment(self) == 1: return 1
+            return 0
+
+bind(ProtobufHighlighter)

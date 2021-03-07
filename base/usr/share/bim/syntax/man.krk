@@ -1,0 +1,33 @@
+from syntax import Highlighter, bind
+
+class ManpageHighlighter(Highlighter):
+    name = 'man'
+    extensions = ('.1','.2','.3','.4','.5','.6','.7','.8')
+    def calculate():
+        while self[0]:
+            if self.i == 0 and self[0] == '.':
+                if self[1] == 'S' and self[2] == 'H' and self[3] == ' ':
+                    self.paint(3, self.FLAG_KEYWORD)
+                    self.paint(-1, self.FLAG_STRING)
+                else if self[1] == 'B' and self[2] == ' ':
+                    self.paint(2, self.FLAG_KEYWORD)
+                    self.paint(-1, self.FLAG_BOLD)
+                else if self.isalpha(self[1]):
+                    self.paint(1, self.FLAG_KEYWORD)
+                    while self[0] and self.isalpha(self[0]):
+                        self.paint(1, self.FLAG_KEYWORD)
+                else if self[1] == '\\' and self[2] == '"':
+                    self.paint(1, self.FLAG_COMMENT)
+                else:
+                    self.skip()
+            else if self[0] == '\\':
+                if self[1] == 'f':
+                    self.paint(2, self.FLAG_NUMERAL)
+                    self.paint(1, self.FLAG_PRAGMA)
+                else:
+                    self.paint(2, self.FLAG_ESCAPE)
+            else:
+                self.skip()
+        return None
+
+bind(ManpageHighlighter)

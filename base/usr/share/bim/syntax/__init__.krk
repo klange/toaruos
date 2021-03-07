@@ -1,0 +1,49 @@
+from bim import SyntaxState, bindHighlighter as bind
+
+class Highlighter(SyntaxState):
+
+    def matchPrefix(prefix):
+        let i = 0
+        while True:
+            if i == len(prefix): return True
+            if prefix[i] != self[i]: return False
+            if not self[i]: return False
+            i++
+
+    def paintSingleString():
+        self.paint(1, self.FLAG_STRING)
+        while self[0]:
+            if self[0] == '\\' and self[1] == "'":
+                self.paint(2, self.FLAG_ESCAPE)
+            else if self[0] == "'":
+                self.paint(1, self.FLAG_STRING)
+                return
+            else if self[0] == '\\':
+                self.paint(2, self.FLAG_ESCAPE)
+            else:
+                self.paint(1, self.FLAG_STRING)
+
+    def paintSimpleString():
+        self.paint(1, self.FLAG_STRING)
+        while self[0]:
+            if self[0] == '\\' and self[1] == '"':
+                self.paint(2, self.FLAG_ESCAPE)
+            else if self[0] == '"':
+                self.paint(1, self.FLAG_STRING)
+                return
+            else if self[0] == '\\':
+                self.paint(2, self.FLAG_ESCAPE)
+            else:
+                self.paint(1, self.FLAG_STRING)
+
+    def isalpha(c):
+        if isinstance(c,int):
+            if c <= 0: return False
+            c = chr(c)
+        return c in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
+    def isalnum(c):
+        if isinstance(c,int):
+            if c <= 0: return False
+            c = chr(c)
+        return c in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'

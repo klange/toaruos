@@ -1,0 +1,18 @@
+from syntax import Highlighter, bind
+
+class DiffHighlighter(Highlighter):
+    name = 'diff'
+    extensions = ('.patch','.diff')
+    mapping = {
+        '+': Highlighter.FLAG_DIFFPLUS,
+        '-': Highlighter.FLAG_DIFFMINUS,
+        '@': Highlighter.FLAG_TYPE,
+        ' ': Highlighter.FLAG_KEYWORD,
+    }
+    def calculate():
+        if self.i == 0:
+            let flag = self.mapping[self[0]] if self[0] in self.mapping else 0
+            self.paint(-1, flag)
+        return None
+
+bind(DiffHighlighter)

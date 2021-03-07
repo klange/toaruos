@@ -1,0 +1,38 @@
+from syntax import Highlighter, bind
+
+class GitcommitHighlighter(Highlighter):
+    name = 'gitcommit'
+    extensions = ('COMMIT_EDITMSG',)
+    def calculate():
+        if self.i == 0 and self[0] == '#':
+            return self.paintComment()
+        else if self.lineno == 0:
+            while self[0] and self.i < 50:
+                self.paint(1, self.FLAG_KEYWORD)
+            self.paint(-1, self.FLAG_DIFFMINUS)
+        else if self.lineno == 1:
+            self.paint(-1, self.FLAG_DIFFMINUS)
+        else if self[0]:
+            self.paint(-1, self.FLAG_NONE)
+        return None
+
+bind(GitcommitHighlighter)
+
+class GitrebaseHighlighter(Highlighter):
+    name = 'gitrebase'
+    extensions = ('git-rebase-todo',)
+    commands = [
+        "p","r","e","s","f","x","d",
+        "pick","reword","edit","squash","fixup",
+        "exec","drop"
+    ]
+    def calculate():
+        if self.i == 0 and self[0] == '#':
+            return self.paintComment()
+        else if self.i == 0 and self.findKeywords(self.commands, self.FLAG_KEYWORD, self.cKeywordQualifier):
+            while self[0] == ' ': self.skip()
+            while self.isxdigit(self[0]): self.paint(1, self.FLAG_NUMERAL)
+            return None
+        return None
+
+bind(GitrebaseHighlighter)
