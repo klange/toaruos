@@ -1186,7 +1186,7 @@ KrkValue krk_module_onload__yutani(void) {
 	Message->allocSize = sizeof(struct MessageClass);
 	Message->_ongcsweep = _message_sweep;
 	/* All the MSG_ constants */
-#define TYPE(type) krk_attachNamedValue(&Message->fields, "MSG_" #type, INTEGER_VAL(YUTANI_MSG_ ## type))
+#define TYPE(type) krk_attachNamedValue(&Message->methods, "MSG_" #type, INTEGER_VAL(YUTANI_MSG_ ## type))
 	TYPE(HELLO); TYPE(WINDOW_NEW); TYPE(FLIP); TYPE(KEY_EVENT); TYPE(MOUSE_EVENT);
 	TYPE(WINDOW_MOVE); TYPE(WINDOW_CLOSE); TYPE(WINDOW_SHOW); TYPE(WINDOW_HIDE);
 	TYPE(WINDOW_STACK); TYPE(WINDOW_FOCUS_CHANGE); TYPE(WINDOW_MOUSE_EVENT);
@@ -1347,7 +1347,7 @@ KrkValue krk_module_onload__yutani(void) {
 		"  Calculate the rendered width of the given string when drawn with this font.";
 	krk_defineNative(&YutaniFont->methods, ":size", _font_size);
 	/* Some static values */
-#define ATTACH_FONT(name) krk_attachNamedValue(&YutaniFont->fields, #name, INTEGER_VAL(SDF_ ## name))
+#define ATTACH_FONT(name) krk_attachNamedValue(&YutaniFont->methods, #name, INTEGER_VAL(SDF_ ## name))
 	ATTACH_FONT(FONT_THIN);
 	ATTACH_FONT(FONT_BOLD);
 	ATTACH_FONT(FONT_MONO);
@@ -1387,11 +1387,11 @@ KrkValue krk_module_onload__yutani(void) {
 	krk_finalizeClass(MenuEntrySeparatorClass);
 
 	Decorator = krk_createClass(module, "Decorator", NULL);
-	krk_defineNative(&Decorator->fields, "get_bounds", _decor_get_bounds);
-	krk_defineNative(&Decorator->fields, "render", _decor_render);
-	krk_defineNative(&Decorator->fields, "handle_event", _decor_handle_event);
-	krk_defineNative(&Decorator->fields, "show_default_menu", _decor_show_default_menu);
-#define ATTACH_CONSTANT(name) krk_attachNamedValue(&Decorator->fields, #name, INTEGER_VAL(name))
+	krk_defineNative(&Decorator->methods, "get_bounds", _decor_get_bounds);
+	krk_defineNative(&Decorator->methods, "render", _decor_render);
+	krk_defineNative(&Decorator->methods, "handle_event", _decor_handle_event);
+	krk_defineNative(&Decorator->methods, "show_default_menu", _decor_show_default_menu);
+#define ATTACH_CONSTANT(name) krk_attachNamedValue(&Decorator->methods, #name, INTEGER_VAL(name))
 	ATTACH_CONSTANT(DECOR_OTHER);
 	ATTACH_CONSTANT(DECOR_CLOSE);
 	ATTACH_CONSTANT(DECOR_RESIZE);

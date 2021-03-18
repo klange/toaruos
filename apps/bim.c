@@ -16,15 +16,10 @@
  */
 #define ENABLE_THREADING
 #include "bim.h"
-#ifdef __toaru__
-#include <kuroko.h>
-#include "vm.h"
-#include "debug.h"
-#else
 #include <kuroko/kuroko.h>
 #include <kuroko/vm.h>
 #include <kuroko/debug.h>
-#endif
+#include <kuroko/util.h>
 
 global_config_t global_config = {
 	/* State */
@@ -80,6 +75,7 @@ global_config_t global_config = {
 	.smart_complete = 0,
 	.has_terminal = 0,
 	.search_wraps = 1,
+	.had_error = 0,
 	/* Integer config values */
 	.cursor_padding = 4,
 	.split_percent = 50,
@@ -3183,6 +3179,7 @@ void render_error(char * message, ...) {
 
 		/* Draw the message */
 		printf("%s", buf);
+		global_config.had_error = 1;
 	} else {
 		printf("bim: error during startup: %s\n", buf);
 	}
@@ -9938,7 +9935,7 @@ struct CommandDef {
 
 int process_krk_command(const char * cmd, KrkValue * outVal) {
 	place_cursor(global_config.term_width, global_config.term_height);
-	fprintf(stdout,"\n");
+	fprintf(stdout, "\n");
 	/* By resetting, we're at 0 frames. */
 	krk_resetStack();
 	/* Push something so we're not at the bottom of the stack when an
@@ -9998,7 +9995,8 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 		}
 	}
 	global_config.break_from_selection = 1;
-	redraw_all();
+	if (!global_config.had_error) redraw_all();
+	global_config.had_error = 0;
 	return retval;
 }
 
@@ -10184,11 +10182,11 @@ static KrkValue krk_bim_register_syntax(int argc, KrkValue argv[], int hasKw) {
 	if (argc < 1 || !IS_CLASS(argv[0]) || !checkClass(AS_CLASS(argv[0]), syntaxStateClass))
 		return krk_runtimeError(vm.exceptions->typeError, "Can not register '%s' as a syntax highlighter, expected subclass of SyntaxState.", krk_typeName(argv[0]));
 
-	KrkValue name = NONE_VAL(), extensions = NONE_VAL(), spaces = BOOLEAN_VAL(0), calculate = NONE_VAL();
-	krk_tableGet(&AS_CLASS(argv[0])->fields, OBJECT_VAL(S("name")), &name);
-	krk_tableGet(&AS_CLASS(argv[0])->fields, OBJECT_VAL(S("extensions")), &extensions);
-	krk_tableGet(&AS_CLASS(argv[0])->fields, OBJECT_VAL(S("spaces")), &spaces);
-	krk_tableGet(&AS_CLASS(argv[0])->methods, OBJECT_VAL(S("calculate")), &calculate);
+	KrkValue name = krk_valueGetAttribute_default(argv[0], "name", NONE_VAL());
+	KrkValue extensions = krk_valueGetAttribute_default(argv[0], "extensions", NONE_VAL());
+	KrkValue spaces = krk_valueGetAttribute_default(argv[0], "spaces", BOOLEAN_VAL(0));
+	KrkValue calculate = krk_valueGetAttribute_default(argv[0], "calculate", NONE_VAL());
+
 	if (!IS_STRING(name))
 		return krk_runtimeError(vm.exceptions->typeError, "%s.name must be str", AS_CLASS(argv[0])->name->chars);
 	if (!IS_TUPLE(extensions))
@@ -10527,7 +10525,7 @@ void import_directory(char * dirName) {
 	if (!dirp) {
 		/* Try one last fallback */
 		if (dirpath) free(dirpath);
-		dirpath = strdup("/usr/share/bim");
+		dirpath = strdup("/usr/local/share/bim");
 		sprintf(file, "%s/%s", dirpath, dirName);
 		extra = "/";
 		dirp = opendir(file);
@@ -10620,6 +10618,37 @@ BIM_COMMAND(reload,"reload","Reloads all the Kuroko stuff.") {
 	return 0;
 }
 
+static KrkValue krk_bim_getDocumentText(int argc, KrkValue argv[], int hasKw) {
+	struct StringBuilder sb = {0};
+
+	int i, j;
+	for (i = 0; i < env->line_count; ++i) {
+		line_t * line = env->lines[i];
+		for (j = 0; j < line->actual; j++) {
+			char_t c = line->text[j];
+			if (c.codepoint == 0) {
+				pushStringBuilder(&sb, 0);
+			} else {
+				char tmp[8] = {0};
+				int len = to_eight(c.codepoint, tmp);
+				pushStringBuilderStr(&sb, tmp, len);
+			}
+		}
+		pushStringBuilder(&sb, '\n');
+	}
+
+	return finishStringBuilder(&sb);
+}
+
+static KrkValue krk_bim_renderError(int argc, KrkValue argv[], int hasKw) {
+	if (argc != 1 || !IS_STRING(argv[0])) return TYPE_ERROR(str,argv[0]);
+	if (AS_STRING(argv[0])->length == 0)
+		redraw_commandline();
+	else
+		render_error(AS_CSTRING(argv[0]));
+	return NONE_VAL();
+}
+
 /**
  * Run global initialization tasks
  */
@@ -10671,6 +10700,9 @@ void initialize(void) {
 	krk_bim_syntax_dict = krk_dict_of(0,NULL,0);
 	krk_attachNamedValue(&bimModule->fields, "highlighters", krk_bim_syntax_dict);
 
+	krk_defineNative(&bimModule->fields, "getDocumentText", krk_bim_getDocumentText);
+	krk_defineNative(&bimModule->fields, "renderError", krk_bim_renderError);
+
 	makeClass(bimModule, &ActionDef, "Action", vm.baseClasses->objectClass);
 	ActionDef->allocSize = sizeof(struct ActionDef);
 	krk_defineNative(&ActionDef->methods, ".__call__", bim_krk_action_call);
@@ -10718,21 +10750,21 @@ void initialize(void) {
 	krk_defineNative(&syntaxStateClass->methods, ".matchAndPaint", bim_krk_state_matchAndPaint);
 	krk_defineNative(&syntaxStateClass->methods, ".commentBuzzwords", bim_krk_state_commentBuzzwords);
 	krk_defineNative(&syntaxStateClass->methods, ".rewind", bim_krk_state_rewind);
-	krk_defineNative(&syntaxStateClass->methods, ".__get__", bim_krk_state_get);
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_NONE", INTEGER_VAL(FLAG_NONE));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_KEYWORD", INTEGER_VAL(FLAG_KEYWORD));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_STRING", INTEGER_VAL(FLAG_STRING));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_COMMENT", INTEGER_VAL(FLAG_COMMENT));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_TYPE", INTEGER_VAL(FLAG_TYPE));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_PRAGMA", INTEGER_VAL(FLAG_PRAGMA));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_NUMERAL", INTEGER_VAL(FLAG_NUMERAL));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_ERROR", INTEGER_VAL(FLAG_ERROR));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_DIFFPLUS", INTEGER_VAL(FLAG_DIFFPLUS));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_DIFFMINUS", INTEGER_VAL(FLAG_DIFFMINUS));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_NOTICE", INTEGER_VAL(FLAG_NOTICE));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_BOLD", INTEGER_VAL(FLAG_BOLD));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_LINK", INTEGER_VAL(FLAG_LINK));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_ESCAPE", INTEGER_VAL(FLAG_ESCAPE));
+	krk_defineNative(&syntaxStateClass->methods, ".__getitem__", bim_krk_state_get);
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_NONE", INTEGER_VAL(FLAG_NONE));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_KEYWORD", INTEGER_VAL(FLAG_KEYWORD));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_STRING", INTEGER_VAL(FLAG_STRING));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_COMMENT", INTEGER_VAL(FLAG_COMMENT));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_TYPE", INTEGER_VAL(FLAG_TYPE));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_PRAGMA", INTEGER_VAL(FLAG_PRAGMA));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_NUMERAL", INTEGER_VAL(FLAG_NUMERAL));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_ERROR", INTEGER_VAL(FLAG_ERROR));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_DIFFPLUS", INTEGER_VAL(FLAG_DIFFPLUS));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_DIFFMINUS", INTEGER_VAL(FLAG_DIFFMINUS));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_NOTICE", INTEGER_VAL(FLAG_NOTICE));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_BOLD", INTEGER_VAL(FLAG_BOLD));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_LINK", INTEGER_VAL(FLAG_LINK));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_ESCAPE", INTEGER_VAL(FLAG_ESCAPE));
 
 	krk_finalizeClass(syntaxStateClass);
 

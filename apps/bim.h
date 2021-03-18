@@ -22,11 +22,7 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
-#ifdef __toaru__
-#include "vm.h"
-#else
 #include <kuroko/vm.h>
-#endif
 
 #ifdef __DATE__
 # define BIM_BUILD_DATE " built " __DATE__ " at " __TIME__
@@ -213,6 +209,7 @@ typedef struct {
 	unsigned int smart_complete:1;
 	unsigned int has_terminal:1;
 	unsigned int search_wraps:1;
+	unsigned int had_error:1;
 
 	int cursor_padding;
 	int split_percent;

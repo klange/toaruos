@@ -37,6 +37,7 @@ class Classifier(object):
         '<toaru/button.h>':      (None, '-ltoaru_button',      ['<toaru/graphics.h>','<toaru/sdf.h>', '<toaru/icon_cache.h>']),
         # Kuroko
         '<kuroko.h>':            ('../../../kuroko/src', '-lkuroko', []),
+        '<kuroko/kuroko.h>':     (None, '-lkuroko', []),
         # OPTIONAL third-party libraries, for extensions / ports
         '<ft2build.h>':        ('freetype2', '-lfreetype', []),
         '<pixman.h>':          ('pixman-1', '-lpixman-1', []),
