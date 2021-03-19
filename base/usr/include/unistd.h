@@ -97,4 +97,7 @@ extern unsigned int alarm(unsigned int seconds);
 
 extern void *sbrk(intptr_t increment);
 
+extern void sync(void);
+extern int truncate(const char *, off_t);
+
 _End_C_Header
