@@ -8,17 +8,21 @@ class KrkHighlighter(Highlighter):
     spaces = True
 
     doxygenDocstrings = False
+    enableChecking = False
+    checkKrkCode = None
 
     keywords = [
         'and','class','def','else','export','for','if','in','import','let','not',
         'or','return','while','try','except','raise','continue','break','as','from',
-        'elif', 'lambda', 'pass', 'with', 'is', 'del', 'assert', 'yield'
+        'elif', 'lambda', 'pass', 'with', 'is', 'del', 'assert', 'yield', 'finally',
     ]
 
     types = [
         'self','super','len','str','int','float','dir','repr','list','dict','range',
         'object','exception','isinstance','type','print','tuple','bool','any','all',
-        'hex','ord','chr','bytes','set','getattr',
+        'hex','ord','chr','bytes','set','getattr','setattr','input','zip','enumerate',
+        'property','staticmethod','classmethod','filter','min','max','id','map','bin',
+        'sum','sorted',
     ]
 
     special = [
@@ -112,6 +116,7 @@ class KrkHighlighter(Highlighter):
             else: self.paint(1, self.FLAG_COMMENT)
 
     def calculate(self):
+        if self.enableChecking and self.i == 0: self.checkKrkCode()
         if self.state <= 0:
             if self[0] == '#':
                 self.paintDoxyComment()

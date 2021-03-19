@@ -5,6 +5,8 @@ class CHighlighter(Highlighter):
     name = 'c'
     extensions = ('.c','.h','.cpp','.hpp','.c++','.h++','.cc','.hh')
 
+    doxygenDocstrings = False
+
     keywords = [
         "while","if","for","continue","return","break","switch","case","sizeof",
         "struct","union","typedef","do","default","else","goto",
@@ -62,6 +64,8 @@ class CHighlighter(Highlighter):
             else if self[0] == '\\' and self[1] == 'x':
                 self.paint(2, self.FLAG_ESCAPE)
                 while self.isxdigit(self[0]): self.paint(1, self.FLAG_ESCAPE)
+            else if self.doxygenDocstrings and tryDoxygenComment(self, self.FLAG_STRING):
+                continue
             else:
                 last = self[0]
                 self.paint(1, self.FLAG_STRING)

@@ -3,6 +3,7 @@ from syntax import Highlighter, bind
 class PythonHighlighter(Highlighter):
     name = 'python'
     extensions = ('.py',)
+    spaces = True
     keywords = [
         "class","def","return","del","if","else","elif","for","while","continue",
         "break","assert","as","and","or","except","finally","from","global",
@@ -18,6 +19,7 @@ class PythonHighlighter(Highlighter):
         "oct","open","ord","pow","print","property","range","repr","reverse",
         "round","set","setattr","slice","sorted","staticmethod","str","sum",
         "super","tuple","type","vars","zip",
+        'self',
     ]
     special = ['True','False','None']
     def paintPyTriple(quote):

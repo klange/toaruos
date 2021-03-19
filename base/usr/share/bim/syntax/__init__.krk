@@ -37,13 +37,9 @@ class Highlighter(SyntaxState):
                 self.paint(1, self.FLAG_STRING)
 
     def isalpha(c):
-        if isinstance(c,int):
-            if c <= 0: return False
-            c = chr(c)
-        return c in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        c = c if isinstance(c,int) else ord(c)
+        return (c >= ord('a') and c <= ord('z')) or (c >= ord('A') and c <= ord('Z'))
 
     def isalnum(c):
-        if isinstance(c,int):
-            if c <= 0: return False
-            c = chr(c)
-        return c in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+        c = c if isinstance(c,int) else ord(c)
+        return (c >= ord('a') and c <= ord('z')) or (c >= ord('A') and c <= ord('Z')) or (c >= ord('0') and c <= ord('9'))

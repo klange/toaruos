@@ -14,7 +14,7 @@ class JsonHighlighter(Highlighter):
                 if self[0] == ':':
                     self.rewind(end-start)
                     self.paint(1, self.FLAG_ESCAPE)
-                    while self.i < end:
+                    while self.i < end-1:
                         self.paint(1, self.FLAG_KEYWORD)
                     if self[0] == '"':
                         self.paint(1, self.FLAG_ESCAPE)
