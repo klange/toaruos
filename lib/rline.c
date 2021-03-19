@@ -535,7 +535,7 @@ char * syn_krk_keywords[] = {
 	"and","class","def","else","for","if","in","import","del",
 	"let","not","or","return","while","try","except","raise",
 	"continue","break","as","from","elif","lambda","with","is",
-	"pass",
+	"pass","assert","yield","finally",
 	NULL
 };
 
@@ -544,13 +544,22 @@ char * syn_krk_types[] = {
 	"self", "super", /* implicit in a class method */
 	"len", "str", "int", "float", "dir", "repr", /* global functions from __builtins__ */
 	"list","dict","range", /* builtin classes */
-	"object","exception","isinstance","type",
-	"print","set","any","all","bool","ord","chr","hex",
+	"object","exception","isinstance","type","tuple","reversed",
+	"print","set","any","all","bool","ord","chr","hex","oct","filter",
+	"sorted","bytes","getattr","sum","min","max","id","hash","map","bin",
+	"enumerate","zip","setattr","property","staticmethod","classmethod",
 	NULL
 };
 
 char * syn_krk_special[] = {
 	"True","False","None",
+	NULL
+};
+
+char * syn_krk_exception[] = {
+	"TypeError","ArgumentError","IndexError","KeyError","AttributeError",
+	"NameError","ImportError","IOError","ValueError","KeyboardInterrupt",
+	"ZeroDivisionError","SyntaxError","Exception",
 	NULL
 };
 
@@ -614,6 +623,8 @@ int syn_krk_calculate(struct syntax_state * state) {
 				return 0;
 			} else if (find_keywords(state, syn_krk_special, FLAG_NUMERAL, c_keyword_qualifier)) {
 				return 0;
+			} else if (find_keywords(state, syn_krk_exception, FLAG_PRAGMA, c_keyword_qualifier)) {
+				return 0;
 			} else if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
 				paint_krk_numeral(state);
 				return 0;
@@ -628,6 +639,52 @@ int syn_krk_calculate(struct syntax_state * state) {
 			return paint_krk_triple_string(state, '\'');
 	}
 	return -1;
+}
+
+char * syn_krk_dbg_commands[] = {
+	"s", "skip",
+	"c", "continue",
+	"q", "quit",
+	"e", "enable",
+	"d", "disable",
+	"r", "remove",
+	"bt", "backtrace",
+	"break",
+	"abort",
+	"help",
+	NULL,
+};
+
+char * syn_krk_dbg_info_types[] = {
+	"breakpoints",
+	NULL,
+};
+
+int syn_krk_dbg_calculate(struct syntax_state * state) {
+	if (state->state < 1) {
+		if (state->i == 0) {
+			if (match_and_paint(state, "p", FLAG_KEYWORD, c_keyword_qualifier) ||
+			    match_and_paint(state, "print", FLAG_KEYWORD, c_keyword_qualifier)) {
+				while (1) {
+					int result = syn_krk_calculate(state);
+					if (result == 0) continue;
+					if (result == -1) return -1;
+					return result + 1;
+				}
+			} else if (match_and_paint(state,"info", FLAG_KEYWORD, c_keyword_qualifier) ||
+			           match_and_paint(state,"i", FLAG_KEYWORD, c_keyword_qualifier)) {
+				skip();
+				find_keywords(state,syn_krk_dbg_info_types, FLAG_TYPE, c_keyword_qualifier);
+				return -1;
+			} else if (find_keywords(state, syn_krk_dbg_commands, FLAG_KEYWORD, c_keyword_qualifier)) {
+				return 0;
+			}
+		}
+		return -1;
+	} else {
+		state->state -= 1;
+		return syn_krk_calculate(state) + 1;
+	}
 }
 
 #ifdef __toaru__
@@ -1020,6 +1077,7 @@ struct syntax_definition {
 	int tabIndents;
 } syntaxes[] = {
 	{"krk",syn_krk_calculate, 1},
+	{"krk-dbg",syn_krk_dbg_calculate, 1},
 #ifdef __toaru__
 	{"python",syn_py_calculate, 1},
 	{"esh",syn_esh_calculate, 0},
