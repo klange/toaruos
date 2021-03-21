@@ -23,8 +23,8 @@
 #include <sys/ioctl.h>
 #else
 #include <windows.h>
-/* How do we get this in Windows? Seems WT asks the font? */
-#define wcwidth(c) (1)
+#include <io.h>
+#include "wcwidth._h"
 #endif
 #ifdef __toaru__
 #include <toaru/rline.h>
@@ -70,8 +70,9 @@ void rline_history_insert(char * str) {
 void rline_history_append_line(char * str) {
 	if (rline_history_count) {
 		char ** s = &rline_history[(rline_history_count - 1 + rline_history_offset) % RLINE_HISTORY_ENTRIES];
-		char * c = malloc(strlen(*s) + strlen(str) + 2);
-		sprintf(c, "%s\n%s", *s, str);
+		size_t len = strlen(*s) + strlen(str) + 2;
+		char * c = malloc(len);
+		snprintf(c, len, "%s\n%s", *s, str);
 		if (c[strlen(c)-1] == '\n') {
 			c[strlen(c)-1] = '\0';
 		}
@@ -232,10 +233,27 @@ static int getch(int timeout) {
 #ifndef _WIN32
 	return fgetc(stdin);
 #else
-	TCHAR buf[1];
+	static int bytesRead = 0;
+	static char  buf8[8];
+	static uint8_t * b;
+
+	if (bytesRead) {
+		bytesRead--;
+		return *(b++);
+	}
+
 	DWORD dwRead;
-	while (!ReadConsole(GetStdHandle(STD_INPUT_HANDLE),buf,1,&dwRead,NULL));
-	return buf[0];
+	uint16_t buf16[8] = {0};
+	if (ReadConsoleW(GetStdHandle(STD_INPUT_HANDLE),buf16,2,&dwRead,NULL)) {
+		int r = WideCharToMultiByte(CP_UTF8, 0, buf16, -1, buf8, 8, 0, 0);
+		if (r > 1 && buf8[r-1] == '\0') r--;
+		b = (uint8_t*)buf8;
+		bytesRead = r - 1;
+		return *(b++);
+	} else {
+		fprintf(stderr, "error on console read\n");
+		return -1;
+	}
 #endif
 }
 
@@ -406,7 +424,6 @@ static void rline_exp_load_colorscheme_sunsmoke(void) {
 #define FLAG_ESCAPE    13
 
 #define FLAG_SELECT    (1 << 5)
-#define FLAG_SEARCH    (1 << 6)
 
 struct syntax_state {
 	line_t * line;
@@ -522,6 +539,14 @@ void paint_krk_string(struct syntax_state * state, int type) {
 				paintNHex(state, 4);
 			} else if (nextchar() == 'U') {
 				paintNHex(state, 8);
+			} else if (nextchar() >= '0' && nextchar() <= '7') {
+				paint(2, FLAG_ESCAPE);
+				if (charat() >= '0' && charat() <= '7') {
+					paint(1, FLAG_ESCAPE);
+					if (charat() >= '0' && charat() <= '7') {
+						paint(1, FLAG_ESCAPE);
+					}
+				}
 			} else {
 				paint(2, FLAG_ESCAPE);
 			}
@@ -553,6 +578,7 @@ char * syn_krk_types[] = {
 
 char * syn_krk_special[] = {
 	"True","False","None",
+	/* Exception names */
 	NULL
 };
 
@@ -1058,8 +1084,6 @@ static const char * flag_to_color(int _flag) {
 			return COLOR_GREEN;
 		case FLAG_DIFFMINUS:
 			return COLOR_RED;
-		case FLAG_SELECT:
-			return COLOR_FG;
 //		case FLAG_BOLD:
 //			return COLOR_BOLD;
 //		case FLAG_LINK:
@@ -1088,6 +1112,10 @@ struct syntax_definition {
 static struct syntax_definition * syntax;
 
 int rline_exp_set_syntax(char * name) {
+	if (!name) {
+		syntax = NULL;
+		return 0;
+	}
 	for (struct syntax_definition * s = syntaxes; s->name; ++s) {
 		if (!strcmp(name,s->name)) {
 			syntax = s;
@@ -1326,10 +1354,15 @@ static void render_line(void) {
 
 			/* Syntax hilighting */
 			const char * color = flag_to_color(c.flags);
-			if ((c.flags & FLAG_SEARCH) || (c.flags == FLAG_NOTICE)) {
+			if (c.flags & FLAG_SELECT) {
+				set_colors(color, COLOR_BG);
+				fprintf(stdout,"\033[7m");
+				was_searching = 1;
+			} else if (c.flags == FLAG_NOTICE) {
 				set_colors(COLOR_SEARCH_FG, COLOR_SEARCH_BG);
 				was_searching = 1;
 			} else if (was_searching) {
+				fprintf(stdout,"\033[0m");
 				set_colors(color, COLOR_BG);
 				last_color = color;
 			} else if (!last_color || strcmp(color, last_color)) {
@@ -1606,6 +1639,82 @@ static void insert_char(uint32_t c) {
 	column++;
 }
 
+char * paren_pairs = "()[]{}<>";
+
+int is_paren(int c) {
+	char * p = paren_pairs;
+	while (*p) {
+		if (c == *p) return 1;
+		p++;
+	}
+	return 0;
+}
+
+void find_matching_paren(int * out_col, int in_col) {
+	if (column - in_col > the_line->actual) {
+		return; /* Invalid cursor position */
+	}
+
+	int paren_match = 0;
+	int direction = 0;
+	int start = the_line->text[column-in_col].codepoint;
+	int flags = the_line->text[column-in_col].flags & 0x1F;
+	int count = 0;
+
+	/* TODO what about unicode parens? */
+	for (int i = 0; paren_pairs[i]; ++i) {
+		if (start == paren_pairs[i]) {
+			direction = (i % 2 == 0) ? 1 : -1;
+			paren_match = paren_pairs[(i % 2 == 0) ? (i+1) : (i-1)];
+			break;
+		}
+	}
+
+	if (!paren_match) return;
+
+	/* Scan for match */
+	int col = column - in_col;
+
+	while (col > -1 && col < the_line->actual) {
+		/* Only match on same syntax */
+		if ((the_line->text[col].flags & 0x1F) == flags) {
+			/* Count up on same direction */
+			if (the_line->text[col].codepoint == start) count++;
+			/* Count down on opposite direction */
+			if (the_line->text[col].codepoint == paren_match) {
+				count--;
+				/* When count == 0 we have a match */
+				if (count == 0) goto _match_found;
+			}
+		}
+		col += direction;
+	}
+
+_match_found:
+	*out_col = col;
+}
+
+void redraw_matching_paren(int col) {
+	for (int j = 0; j < the_line->actual; ++j) {
+		if (j == col) {
+			the_line->text[j].flags |= FLAG_SELECT;
+		} else {
+			the_line->text[j].flags &= ~(FLAG_SELECT);
+		}
+	}
+}
+
+void highlight_matching_paren(void) {
+	int col = -1;
+	if (is_paren(the_line->text[column].codepoint)) {
+		find_matching_paren(&col, 0);
+	} else if (column > 0 && is_paren(the_line->text[column-1].codepoint)) {
+		find_matching_paren(&col, 1);
+	}
+	redraw_matching_paren(col);
+}
+
+
 /**
  * Move cursor left
  */
@@ -1856,10 +1965,21 @@ static unsigned int _EOF  = 4;
 static void get_initial_termios(void) {
 }
 static void set_unbuffered(void) {
+	/* Disables line input, echo, ^C processing, and a few others. */
 	SetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), ENABLE_VIRTUAL_TERMINAL_INPUT);
+	SetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING | ENABLE_WRAP_AT_EOL_OUTPUT);
 }
 static void set_buffered(void) {
-	SetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT);
+	/* These are the defaults */
+	SetConsoleMode(GetStdHandle(STD_INPUT_HANDLE),
+		ENABLE_ECHO_INPUT |
+		ENABLE_INSERT_MODE |
+		ENABLE_LINE_INPUT |
+		ENABLE_MOUSE_INPUT |
+		ENABLE_PROCESSED_INPUT |
+		ENABLE_QUICK_EDIT_MODE |
+		ENABLE_VIRTUAL_TERMINAL_INPUT
+	);
 }
 #endif
 
@@ -1976,14 +2096,12 @@ static int read_line(void) {
 	int this_buf[20];
 	uint32_t istate = 0;
 
-	#ifndef _WIN32
 	/* Let's disable this under Windows... */
 	set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 	fprintf(stdout, "◄\033[0m"); /* TODO: This could be retrieved from an envvar */
 	for (int i = 0; i < rline_terminal_width - 1; ++i) {
 		fprintf(stdout, " ");
 	}
-	#endif
 
 	if (rline_preload) {
 		char * c = rline_preload;
@@ -2020,6 +2138,7 @@ static int read_line(void) {
 						for (char *_c = rline_exit_string; *_c; ++_c) {
 							insert_char(*_c);
 						}
+						redraw_matching_paren(-1);
 						render_line();
 						rline_place_cursor();
 						if (!*rline_exit_string) {
@@ -2051,6 +2170,7 @@ static int read_line(void) {
 						/* Finished */
 						loading = 1;
 						column = the_line->actual;
+						redraw_matching_paren(-1);
 						render_line();
 						insert_char('\n');
 						return 1;
@@ -2101,6 +2221,7 @@ static int read_line(void) {
 					continue;
 				}
 			}
+			highlight_matching_paren();
 			render_line();
 			rline_place_cursor();
 		} else if (istate == UTF8_REJECT) {
@@ -2114,7 +2235,11 @@ static int read_line(void) {
  * Read a line of text with interactive editing.
  */
 int rline(char * buffer, int buf_size) {
+#ifndef _WIN32
 	setlocale(LC_ALL, "");
+#else
+	setlocale(LC_ALL, "C.UTF-8");
+#endif
 	get_initial_termios();
 	set_unbuffered();
 	get_size();
