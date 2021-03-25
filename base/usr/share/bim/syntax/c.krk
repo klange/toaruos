@@ -30,13 +30,17 @@ class CHighlighter(Highlighter):
         "STDIN_FILENO","STDOUT_FILENO","STDERR_FILENO"
     ]
 
+    preprocessor_base_state = 5
+
     def paintCString(self):
-        self.paint(1, self.FLAG_STRING)
         let last = None
         while self[0] != None:
             if last != '\\' and self[0] == '"':
                 self.paint(1, self.FLAG_STRING)
-                return
+                return 0
+            else if self[0] == '\\' and not self[1]:
+                self.paint(1, self.FLAG_ESCAPE)
+                return 4
             else if self[0] == '\\' and self[1] in 'nr\\':
                 self.paint(2, self.FLAG_ESCAPE)
                 last = None
@@ -69,6 +73,7 @@ class CHighlighter(Highlighter):
             else:
                 last = self[0]
                 self.paint(1, self.FLAG_STRING)
+        return 0
 
     def paintCChar(self):
         self.paint(1, self.FLAG_NUMERAL)
@@ -100,7 +105,9 @@ class CHighlighter(Highlighter):
     def paintCPragma(self):
         while self[0] != None:
             if self[0] == '"':
-                self.paintCString()
+                self.paint(1, self.FLAG_STRING)
+                let result = self.paintCString()
+                if result != 0: return result
             else if self[0] == "'":
                 self.paintCChar()
             else if self[0] == '\\' and self[1] == None:
@@ -167,7 +174,7 @@ class CHighlighter(Highlighter):
                         self.paint(2, self.FLAG_COMMENT)
                         self.rewind(6)
                         self.paint(-1, self.FLAG_COMMENT)
-                        return 4
+                        return self.preprocessor_base_state
                 else if self.matchAndPaint("else", self.FLAG_PRAGMA, self.cKeywordQualifier):
                     # Do nothing?
                 return self.paintCPragma()
@@ -183,8 +190,8 @@ class CHighlighter(Highlighter):
             else if self.findKeywords(self.special, self.FLAG_NUMERAL, self.cKeywordQualifier):
                 return 0
             else if self[0] == '"':
-                self.paintCString()
-                return 0
+                self.paint(1, self.FLAG_STRING)
+                return self.paintCString()
             else if self[0] == "'":
                 self.paintCChar()
                 return 0
@@ -202,6 +209,8 @@ class CHighlighter(Highlighter):
             if self.paintCComment() == 1:
                 return 3
             return self.paintCPragma()
+        else if cond == 4:
+            return self.paintCString()
         else:
             while self[0] == ' ' or self[0] == '\t': self.paint(1, self.FLAG_COMMENT)
             if self[0] == '#':
@@ -212,11 +221,11 @@ class CHighlighter(Highlighter):
                     return self.state + 1
                 else if self.matchAndPaint("else", self.FLAG_COMMENT, self.cKeywordQualifier) or self.matchAndPaint("elif", self.FLAG_COMMENT, self.cKeywordQualifier):
                     self.paint(-1, self.FLAG_COMMENT)
-                    if self.state == 4: return 0
+                    if self.state == self.preprocessor_base_state: return 0
                     return self.state
                 else if self.matchAndPaint("endif", self.FLAG_COMMENT, self.cKeywordQualifier):
                     self.paint(-1, self.FLAG_COMMENT)
-                    if self.state == 4: return 0
+                    if self.state == self.preprocessor_base_state: return 0
                     return self.state - 1
                 else:
                     self.paint(-1, self.FLAG_COMMENT)

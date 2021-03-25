@@ -12,7 +12,7 @@ class LispHighlighter(Highlighter):
     def parenFromState(i):
         return self.parens[i % len(self.parens)]
     def calculate():
-        if self.state == -1: self.state = 0
+        if self.state == -1: self.set_state(0)
         while self[0]:
             if self[0] == ';':
                 self.paintComment()

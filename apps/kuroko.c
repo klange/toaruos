@@ -13,23 +13,18 @@
 #include <signal.h>
 #include <errno.h>
 
-#ifdef __toaru__
 #include <toaru/rline.h>
-#include <kuroko.h>
-#else
-#ifndef NO_RLINE
-#include "rline.h"
-#endif
-#include "kuroko.h"
-#endif
 
-#include "chunk.h"
-#include "debug.h"
-#include "vm.h"
-#include "memory.h"
-#include "scanner.h"
-#include "compiler.h"
-#include "util.h"
+#define DEBUG
+#include <kuroko/kuroko.h>
+
+#include <kuroko/chunk.h>
+#include <kuroko/debug.h>
+#include <kuroko/vm.h>
+#include <kuroko/memory.h>
+#include <kuroko/scanner.h>
+#include <kuroko/compiler.h>
+#include <kuroko/util.h>
 
 #define PROMPT_MAIN  ">>> "
 #define PROMPT_BLOCK "  > "
@@ -263,7 +258,7 @@ static void tab_complete_func(rline_context_t * c) {
 					KrkValue thisValue = findFromProperty(root, asToken);
 					krk_push(thisValue);
 					if (IS_CLOSURE(thisValue) || IS_BOUND_METHOD(thisValue) ||
-						(IS_NATIVE(thisValue) && ((KrkNative*)AS_OBJECT(thisValue))->isMethod != 2)) {
+						(IS_NATIVE(thisValue) && !(((KrkNative*)AS_OBJECT(thisValue))->flags & KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY))) {
 						size_t allocSize = s->length + 2;
 						char * tmp = malloc(allocSize);
 						size_t len = snprintf(tmp, allocSize, "%s(", s->chars);

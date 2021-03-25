@@ -4,10 +4,10 @@
 #include <toaru/decorations.h>
 #include <toaru/sdf.h>
 #include <toaru/menu.h>
-#include "kuroko/src/kuroko.h"
-#include "kuroko/src/vm.h"
-#include "kuroko/src/value.h"
-#include "kuroko/src/object.h"
+#include <kuroko/kuroko.h>
+#include <kuroko/vm.h>
+#include <kuroko/value.h>
+#include <kuroko/object.h>
 
 static KrkInstance * module;
 static KrkInstance * yctxInstance = NULL;
@@ -48,9 +48,6 @@ struct YutaniSprite {
 	int doubleBuffered;
 	sprite_t sprite;
 };
-
-static KrkClass * Decorator;
-/* no additional fields */
 
 static KrkClass * YutaniColor;
 struct YutaniColor {
@@ -1199,7 +1196,7 @@ KrkValue krk_module_onload__yutani(void) {
 	TYPE(SPECIAL_REQUEST); TYPE(WELCOME); TYPE(WINDOW_INIT);
 #undef TYPE
 	/* Structure bindings */
-	krk_defineNative(&Message->methods, ".__getattr__", _message_getattr);
+	krk_defineNative(&Message->methods, "__getattr__", _message_getattr);
 	krk_finalizeClass(Message);
 
 	/**
@@ -1209,9 +1206,9 @@ KrkValue krk_module_onload__yutani(void) {
 	YutaniColor = krk_createClass(module, "color", NULL);
 	YutaniColor->allocSize = sizeof(struct YutaniColor);
 	YutaniColor->docstring = S("color(r,g,b,a=255)\n  Representation of an RGB(A) color.");
-	krk_defineNative(&YutaniColor->methods, ".__init__", _yutani_color_init);
-	krk_defineNative(&YutaniColor->methods, ".__repr__", _yutani_color_repr);
-	krk_defineNative(&YutaniColor->methods, ".__str__", _yutani_color_str);
+	krk_defineNative(&YutaniColor->methods, "__init__", _yutani_color_init);
+	krk_defineNative(&YutaniColor->methods, "__repr__", _yutani_color_repr);
+	krk_defineNative(&YutaniColor->methods, "__str__", _yutani_color_str);
 	krk_finalizeClass(YutaniColor);
 
 	/**
@@ -1225,22 +1222,22 @@ KrkValue krk_module_onload__yutani(void) {
 	Yutani = krk_createClass(module, "Yutani", NULL);
 	Yutani->allocSize = sizeof(struct YutaniClass);
 	Yutani->docstring = S("Yutani()\n  Establish a connection to the compositor display server.");
-	krk_defineNative(&Yutani->methods, ":display_width", _yutani_display_width);
-	krk_defineNative(&Yutani->methods, ":display_height", _yutani_display_height);
-	krk_defineNative(&Yutani->methods, ".__repr__", _yutani_repr);
-	krk_defineNative(&Yutani->methods, ".__init__", _yutani_init);
-	krk_defineNative(&Yutani->methods, ".poll", _yutani_poll);
-	krk_defineNative(&Yutani->methods, ".wait_for", _yutani_wait_for);
-	krk_defineNative(&Yutani->methods, ".subscribe", _yutani_subscribe);
-	krk_defineNative(&Yutani->methods, ".unsubscribe", _yutani_unsubscribe);
-	krk_defineNative(&Yutani->methods, ".query_windows", _yutani_query_windows);
-	krk_defineNative(&Yutani->methods, ".fileno", _yutani_fileno);
-	krk_defineNative(&Yutani->methods, ".query", _yutani_query);
-	krk_defineNative(&Yutani->methods, ".menu_process_event", _yutani_menu_process_event);
+	krk_defineNative(&Yutani->methods, "display_width", _yutani_display_width)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
+	krk_defineNative(&Yutani->methods, "display_height", _yutani_display_height)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
+	krk_defineNative(&Yutani->methods, "__repr__", _yutani_repr);
+	krk_defineNative(&Yutani->methods, "__init__", _yutani_init);
+	krk_defineNative(&Yutani->methods, "poll", _yutani_poll);
+	krk_defineNative(&Yutani->methods, "wait_for", _yutani_wait_for);
+	krk_defineNative(&Yutani->methods, "subscribe", _yutani_subscribe);
+	krk_defineNative(&Yutani->methods, "unsubscribe", _yutani_unsubscribe);
+	krk_defineNative(&Yutani->methods, "query_windows", _yutani_query_windows);
+	krk_defineNative(&Yutani->methods, "fileno", _yutani_fileno);
+	krk_defineNative(&Yutani->methods, "query", _yutani_query);
+	krk_defineNative(&Yutani->methods, "menu_process_event", _yutani_menu_process_event);
 	#if 0
-	krk_defineNative(&Yutani->methods, ".focus_window", _yutani_focus_window);
-	krk_defineNative(&Yutani->methods, ".session_end", _yutani_session_end);
-	krk_defineNative(&Yutani->methods, ".key_bind", _yutani_key_bind);
+	krk_defineNative(&Yutani->methods, "focus_window", _yutani_focus_window);
+	krk_defineNative(&Yutani->methods, "session_end", _yutani_session_end);
+	krk_defineNative(&Yutani->methods, "key_bind", _yutani_key_bind);
 	#endif
 	krk_finalizeClass(Yutani);
 
@@ -1250,28 +1247,28 @@ KrkValue krk_module_onload__yutani(void) {
 	 */
 	GraphicsContext = krk_createClass(module, "GraphicsContext", NULL);
 	GraphicsContext->allocSize = sizeof(struct GraphicsContext);
-	krk_defineNative(&GraphicsContext->methods, ":width", _gfx_width);
-	krk_defineNative(&GraphicsContext->methods, ":height", _gfx_height);
-	krk_defineNative(&GraphicsContext->methods, ".fill", _gfx_fill)->doc =
+	krk_defineNative(&GraphicsContext->methods, "width", _gfx_width)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
+	krk_defineNative(&GraphicsContext->methods, "height", _gfx_height)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
+	krk_defineNative(&GraphicsContext->methods, "fill", _gfx_fill)->doc =
 		"GraphicsContext.fill(color)\n"
 		"  Fill the entire context with the given color.";
-	krk_defineNative(&GraphicsContext->methods, ".flip", _gfx_flip)->doc =
+	krk_defineNative(&GraphicsContext->methods, "flip", _gfx_flip)->doc =
 		"GraphicsContext.flip()\n"
 		"  If the context is double-buffered, flip its backbuffer.";
-	krk_defineNative(&GraphicsContext->methods, ".blur", _gfx_blur)->doc =
+	krk_defineNative(&GraphicsContext->methods, "blur", _gfx_blur)->doc =
 		"GraphicsContext.blur(radius=2)\n"
 		"  Perform an in-place box blur on this graphics context.";
-	krk_defineNative(&GraphicsContext->methods, ".line", _gfx_line)->doc =
+	krk_defineNative(&GraphicsContext->methods, "line", _gfx_line)->doc =
 		"GraphicsContext.line(x0,x1,y0,y1,color,thickness=None)\n"
 		"  Draw a line between the given points. If thickness is not provided, uses a\n"
 		"  a simple Bresenham algorithm. If thickness is an int, draws with a box-shaped pen.\n"
 		"  If thickness is a float, draws using a point-distance antialiasing algorithm.";
-	krk_defineNative(&GraphicsContext->methods, ".rect", _gfx_rect)->doc =
+	krk_defineNative(&GraphicsContext->methods, "rect", _gfx_rect)->doc =
 		"GraphicsContext.rect(x,y,width,height,color,solid=False,radius=None)\n"
 		"  Draw a filled rectangle. If solid is True, paints the given color directly to\n"
 		"  the underlying backbuffer with no alpha calculations. If radius is provided,\n"
 		"  draws a rounded rectangle.";
-	krk_defineNative(&GraphicsContext->methods, ".draw_sprite", _gfx_draw_sprite)->doc =
+	krk_defineNative(&GraphicsContext->methods, "draw_sprite", _gfx_draw_sprite)->doc =
 		"GraphicsContext.draw_sprite(sprite,x,y,alpha=None,rotation=None,scale=None,color=None)\n"
 		"  Blit a sprite to this graphics context at the given coordinates.\n"
 		"  alpha:    float of opacity; 1.0 = fully opaque (default)\n"
@@ -1292,29 +1289,30 @@ KrkValue krk_module_onload__yutani(void) {
 	YutaniWindow->allocSize = sizeof(struct WindowClass);
 	YutaniWindow->docstring = S("Window(width,height,flags=0,title=None,icon=None,doublebuffer=False)\n"
 		"  Create a new window and initializes a graphics rendering context for it.");
-	krk_defineNative(&YutaniWindow->methods, ".__repr__", _window_repr);
-	krk_defineNative(&YutaniWindow->methods, ".__init__", _window_init);
-	krk_defineNative(&YutaniWindow->methods, ".flip", _window_flip);
-	krk_defineNative(&YutaniWindow->methods, ".move", _window_move);
-	krk_defineNative(&YutaniWindow->methods, ".set_focused", _window_set_focused);
-	krk_defineNative(&YutaniWindow->methods, ".close", _window_close);
-	krk_defineNative(&YutaniWindow->methods, ".set_stack", _window_set_stack);
-	krk_defineNative(&YutaniWindow->methods, ".special_request", _window_special_request);
-	krk_defineNative(&YutaniWindow->methods, ".resize", _window_resize);
-	krk_defineNative(&YutaniWindow->methods, ".resize_start", _window_resize_start);
-	krk_defineNative(&YutaniWindow->methods, ".resize_done", _window_resize_done);
-	krk_defineNative(&YutaniWindow->methods, ".resize_offer", _window_resize_offer);
-	krk_defineNative(&YutaniWindow->methods, ".resize_accept", _window_resize_accept);
-	krk_defineNative(&YutaniWindow->methods, ".update_shape", _window_update_shape);
-	krk_defineNative(&YutaniWindow->methods, ".show_mouse", _window_show_mouse);
-	krk_defineNative(&YutaniWindow->methods, ".warp_mouse", _window_warp_mouse);
-	krk_defineNative(&YutaniWindow->methods, ".set_stack", _window_set_stack);
-	krk_defineNative(&YutaniWindow->methods, ".advertise", _window_advertise);
-	krk_defineNative(&YutaniWindow->methods, ".reinit", _window_reinit);
-	krk_defineNative(&YutaniWindow->methods, ":wid", _window_wid);
-	krk_defineNative(&YutaniWindow->methods, ":x", _window_x);
-	krk_defineNative(&YutaniWindow->methods, ":y", _window_y);
-	krk_defineNative(&YutaniWindow->methods, ":focused", _window_focused);
+	krk_defineNative(&YutaniWindow->methods, "__repr__", _window_repr);
+	krk_defineNative(&YutaniWindow->methods, "__init__", _window_init);
+	krk_defineNative(&YutaniWindow->methods, "flip", _window_flip);
+	krk_defineNative(&YutaniWindow->methods, "move", _window_move);
+	krk_defineNative(&YutaniWindow->methods, "set_focused", _window_set_focused);
+	krk_defineNative(&YutaniWindow->methods, "close", _window_close);
+	krk_defineNative(&YutaniWindow->methods, "set_stack", _window_set_stack);
+	krk_defineNative(&YutaniWindow->methods, "special_request", _window_special_request);
+	krk_defineNative(&YutaniWindow->methods, "resize", _window_resize);
+	krk_defineNative(&YutaniWindow->methods, "resize_start", _window_resize_start);
+	krk_defineNative(&YutaniWindow->methods, "resize_done", _window_resize_done);
+	krk_defineNative(&YutaniWindow->methods, "resize_offer", _window_resize_offer);
+	krk_defineNative(&YutaniWindow->methods, "resize_accept", _window_resize_accept);
+	krk_defineNative(&YutaniWindow->methods, "update_shape", _window_update_shape);
+	krk_defineNative(&YutaniWindow->methods, "show_mouse", _window_show_mouse);
+	krk_defineNative(&YutaniWindow->methods, "warp_mouse", _window_warp_mouse);
+	krk_defineNative(&YutaniWindow->methods, "set_stack", _window_set_stack);
+	krk_defineNative(&YutaniWindow->methods, "advertise", _window_advertise);
+	krk_defineNative(&YutaniWindow->methods, "reinit", _window_reinit);
+
+	krk_defineNative(&YutaniWindow->methods, "wid", _window_wid)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
+	krk_defineNative(&YutaniWindow->methods, "x", _window_x)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
+	krk_defineNative(&YutaniWindow->methods, "y", _window_y)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
+	krk_defineNative(&YutaniWindow->methods, "focused", _window_focused)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
 	krk_finalizeClass(YutaniWindow);
 
 	/**
@@ -1326,8 +1324,8 @@ KrkValue krk_module_onload__yutani(void) {
 	YutaniSprite->allocSize = sizeof(struct YutaniSprite);
 	YutaniSprite->_ongcsweep = _sprite_sweep;
 	YutaniSprite->docstring = S("Sprite(filename)\n  Create a sprite from the requested texture file.");
-	krk_defineNative(&YutaniSprite->methods, ".__repr__", _sprite_repr);
-	krk_defineNative(&YutaniSprite->methods, ".__init__", _sprite_init);
+	krk_defineNative(&YutaniSprite->methods, "__repr__", _sprite_repr);
+	krk_defineNative(&YutaniSprite->methods, "__init__", _sprite_init);
 	krk_finalizeClass(YutaniSprite);
 
 	/**
@@ -1338,14 +1336,14 @@ KrkValue krk_module_onload__yutani(void) {
 	YutaniFont->allocSize = sizeof(struct YutaniFont);
 	YutaniFont->docstring = S("Font(type,size,gamma=1.7,stroke=0.75,color=color(0,0,0))\n"
 		"  Create a Font specification for rendering text.");
-	krk_defineNative(&YutaniFont->methods, ".__init__", _font_init);
-	krk_defineNative(&YutaniFont->methods, ".draw_string", _font_draw_string)->doc =
+	krk_defineNative(&YutaniFont->methods, "__init__", _font_init);
+	krk_defineNative(&YutaniFont->methods, "draw_string", _font_draw_string)->doc =
 		"Font.draw_string(gfxContext, string, x, y)\n"
 		"  Draw text to a graphics context with this font.";
-	krk_defineNative(&YutaniFont->methods, ".width", _font_width)->doc =
+	krk_defineNative(&YutaniFont->methods, "width", _font_width)->doc =
 		"Font.width(string)\n"
 		"  Calculate the rendered width of the given string when drawn with this font.";
-	krk_defineNative(&YutaniFont->methods, ":size", _font_size);
+	krk_defineNative(&YutaniFont->methods, "size", _font_size)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
 	/* Some static values */
 #define ATTACH_FONT(name) krk_attachNamedValue(&YutaniFont->methods, #name, INTEGER_VAL(SDF_ ## name))
 	ATTACH_FONT(FONT_THIN);
@@ -1361,37 +1359,38 @@ KrkValue krk_module_onload__yutani(void) {
 	MenuBarClass = krk_createClass(module, "MenuBar", NULL);
 	MenuBarClass->allocSize = sizeof(struct MenuBarClass);
 	MenuBarClass->_ongcsweep = _MenuBar_gcsweep;
-	krk_defineNative(&MenuBarClass->methods, ".__init__", _MenuBar_init);
-	krk_defineNative(&MenuBarClass->methods, ".place", _MenuBar_place);
-	krk_defineNative(&MenuBarClass->methods, ".render", _MenuBar_render);
-	krk_defineNative(&MenuBarClass->methods, ".mouse_event", _MenuBar_mouse_event);
-	krk_defineNative(&MenuBarClass->methods, ".insert", _MenuBar_insert);
+	krk_defineNative(&MenuBarClass->methods, "__init__", _MenuBar_init);
+	krk_defineNative(&MenuBarClass->methods, "place", _MenuBar_place);
+	krk_defineNative(&MenuBarClass->methods, "render", _MenuBar_render);
+	krk_defineNative(&MenuBarClass->methods, "mouse_event", _MenuBar_mouse_event);
+	krk_defineNative(&MenuBarClass->methods, "insert", _MenuBar_insert);
 	krk_finalizeClass(MenuBarClass);
 
 	MenuListClass = krk_createClass(module, "MenuList", NULL);
 	MenuListClass->allocSize = sizeof(struct MenuListClass);
-	krk_defineNative(&MenuListClass->methods, ".__init__", _MenuList_init);
-	krk_defineNative(&MenuListClass->methods, ".insert", _MenuList_insert);
+	krk_defineNative(&MenuListClass->methods, "__init__", _MenuList_init);
+	krk_defineNative(&MenuListClass->methods, "insert", _MenuList_insert);
 	krk_finalizeClass(MenuListClass);
 
 	MenuEntryClass = krk_createClass(module, "MenuEntry", NULL);
 	MenuEntryClass->allocSize = sizeof(struct MenuEntryClass);
-	krk_defineNative(&MenuEntryClass->methods, ".__init__", _MenuEntry_init);
+	krk_defineNative(&MenuEntryClass->methods, "__init__", _MenuEntry_init);
 	krk_finalizeClass(MenuEntryClass);
 
 	MenuEntrySubmenuClass = krk_createClass(module, "MenuEntrySubmenu", MenuEntryClass);
-	krk_defineNative(&MenuEntrySubmenuClass->methods, ".__init__", _MenuEntrySubmenu_init);
+	krk_defineNative(&MenuEntrySubmenuClass->methods, "__init__", _MenuEntrySubmenu_init);
 	krk_finalizeClass(MenuEntrySubmenuClass);
 	MenuEntrySeparatorClass = krk_createClass(module, "MenuEntrySeparator", MenuEntryClass);
-	krk_defineNative(&MenuEntrySeparatorClass->methods, ".__init__", _MenuEntrySeparator_init);
+	krk_defineNative(&MenuEntrySeparatorClass->methods, "__init__", _MenuEntrySeparator_init);
 	krk_finalizeClass(MenuEntrySeparatorClass);
 
-	Decorator = krk_createClass(module, "Decorator", NULL);
-	krk_defineNative(&Decorator->methods, "get_bounds", _decor_get_bounds);
-	krk_defineNative(&Decorator->methods, "render", _decor_render);
-	krk_defineNative(&Decorator->methods, "handle_event", _decor_handle_event);
-	krk_defineNative(&Decorator->methods, "show_default_menu", _decor_show_default_menu);
-#define ATTACH_CONSTANT(name) krk_attachNamedValue(&Decorator->methods, #name, INTEGER_VAL(name))
+	KrkInstance * Decorator = krk_newInstance(vm.baseClasses->objectClass);
+	krk_attachNamedObject(&module->fields, "Decorator", (KrkObj*)Decorator);
+	krk_defineNative(&Decorator->fields, "get_bounds", _decor_get_bounds);
+	krk_defineNative(&Decorator->fields, "render", _decor_render);
+	krk_defineNative(&Decorator->fields, "handle_event", _decor_handle_event);
+	krk_defineNative(&Decorator->fields, "show_default_menu", _decor_show_default_menu);
+#define ATTACH_CONSTANT(name) krk_attachNamedValue(&Decorator->fields, #name, INTEGER_VAL(name))
 	ATTACH_CONSTANT(DECOR_OTHER);
 	ATTACH_CONSTANT(DECOR_CLOSE);
 	ATTACH_CONSTANT(DECOR_RESIZE);
@@ -1409,7 +1408,6 @@ KrkValue krk_module_onload__yutani(void) {
 	ATTACH_CONSTANT(DECOR_FLAG_TILE_UP);
 	ATTACH_CONSTANT(DECOR_FLAG_TILE_DOWN);
 #undef ATTACH_CONSTANT
-	krk_finalizeClass(Decorator);
 
 	/* Pop the module object before returning; it'll get pushed again
 	 * by the VM before the GC has a chance to run, so it's safe. */

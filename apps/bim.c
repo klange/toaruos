@@ -3873,24 +3873,29 @@ void open_file(char * file) {
 
 	if (spaces) {
 		int one = 0, two = 0, three = 0, four = 0; /* If you use more than that, I don't like you. */
+		int lastCount = 0;
 		for (int i = 0; i < env->line_count; ++i) {
 			if (env->lines[i]->actual > 1 && !line_is_comment(env->lines[i])) {
 				/* Count spaces at beginning */
-				int c = 0;
+				int c = 0, diff = 0;
 				while (c < env->lines[i]->actual && env->lines[i]->text[c].codepoint == ' ') c++;
-				if (c) {
-					one += 1;
-					two += ((c % 2) == 0);
-					three += ((c % 3) == 0);
-					four += ((c % 4) == 0);
+				if (c > lastCount) {
+					diff = c - lastCount;
+				} else if (c < lastCount) {
+					diff = lastCount - c;
 				}
+				if (diff == 1) one++;
+				if (diff == 2) two++;
+				if (diff == 3) three++;
+				if (diff == 4) four++;
+				lastCount = c;
 			}
 		}
-		if (four && (four > three) && (four >= two)) {
+		if (four > three && four > two && four > one) {
 			env->tabstop = 4;
-		} else if (three && (three > two) && (three >= one)) {
+		} else if (three > two && three > one) {
 			env->tabstop = 3;
-		} else if (two && (two > (one / 2))) {
+		} else if (two > one) {
 			env->tabstop = 2;
 		} else {
 			env->tabstop = 1;
@@ -4904,9 +4909,7 @@ int convert_to_html(void) {
 		recalculate_tabs(env->lines[i]);
 	}
 	env->syntax = match_syntax(".htm");
-	for (int i = 0; i < env->line_count; ++i) {
-		recalculate_syntax(env->lines[i],i);
-	}
+	schedule_complete_recalc();
 
 	return 0;
 }
@@ -9757,7 +9760,10 @@ void normal_mode(void) {
 
 		if (env->mode == MODE_NORMAL) {
 			place_cursor_actual();
-			int key = bim_getkey(DEFAULT_KEY_WAIT);
+			int key = 0;
+			do {
+				key = bim_getkey(DEFAULT_KEY_WAIT);
+			} while (key == KEY_TIMEOUT);
 			if (handle_nav_buffer(key)) {
 				if (!handle_action(NORMAL_MAP, key))
 					if (!handle_action(NAVIGATION_MAP, key))
@@ -10252,6 +10258,11 @@ int c_keyword_qualifier(int c) {
 
 static KrkValue bim_krk_state_getstate(int argc, KrkValue argv[], int hasKw) {
 	BIM_STATE();
+	if (argc > 1 && IS_INTEGER(argv[1])) {
+		state->state = AS_INTEGER(argv[1]);
+	} else if (argc > 1 && IS_NONE(argv[1])) {
+		state->state = -1;
+	}
 	return INTEGER_VAL(state->state);
 }
 static KrkValue bim_krk_state_setstate(int argc, KrkValue argv[], int hasKw) {
@@ -10333,6 +10344,11 @@ static int callQualifier(KrkValue qualifier, int codepoint) {
 	if (IS_BOOLEAN(result)) return AS_BOOLEAN(result);
 	return 0;
 }
+
+#define KRK_STRING_FAST(string,offset)  (uint32_t)\
+	(string->type <= 1 ? ((uint8_t*)string->codes)[offset] : \
+	(string->type == 2 ? ((uint16_t*)string->codes)[offset] : \
+	((uint32_t*)string->codes)[offset]))
 
 static KrkValue bim_krk_state_findKeywords(int argc, KrkValue argv[], int hasKw) {
 	BIM_STATE();
@@ -10641,6 +10657,7 @@ static KrkValue krk_bim_getDocumentText(int argc, KrkValue argv[], int hasKw) {
 }
 
 static KrkValue krk_bim_renderError(int argc, KrkValue argv[], int hasKw) {
+	static const char * _method_name = "renderError";
 	if (argc != 1 || !IS_STRING(argv[0])) return TYPE_ERROR(str,argv[0]);
 	if (AS_STRING(argv[0])->length == 0)
 		redraw_commandline();
@@ -10705,7 +10722,7 @@ void initialize(void) {
 
 	makeClass(bimModule, &ActionDef, "Action", vm.baseClasses->objectClass);
 	ActionDef->allocSize = sizeof(struct ActionDef);
-	krk_defineNative(&ActionDef->methods, ".__call__", bim_krk_action_call);
+	krk_defineNative(&ActionDef->methods, "__call__", bim_krk_action_call);
 	krk_finalizeClass(ActionDef);
 
 	for (struct action_def * a = mappable_actions; mappable_actions && a->name; ++a) {
@@ -10716,7 +10733,7 @@ void initialize(void) {
 
 	makeClass(bimModule, &CommandDef, "Command", vm.baseClasses->objectClass);
 	CommandDef->allocSize = sizeof(struct CommandDef);
-	krk_defineNative(&CommandDef->methods, ".__call__", bim_krk_command_call);
+	krk_defineNative(&CommandDef->methods, "__call__", bim_krk_command_call);
 	krk_finalizeClass(CommandDef);
 
 	KrkInstance * global = krk_newInstance(vm.baseClasses->objectClass);
@@ -10734,23 +10751,23 @@ void initialize(void) {
 
 	makeClass(bimModule, &syntaxStateClass, "SyntaxState", vm.baseClasses->objectClass);
 	syntaxStateClass->allocSize = sizeof(struct SyntaxState);
-	krk_defineNative(&syntaxStateClass->methods, ":state", bim_krk_state_getstate);
-	krk_defineNative(&syntaxStateClass->methods, ".set_state", bim_krk_state_setstate); /* TODO property? */
-	krk_defineNative(&syntaxStateClass->methods, ":i", bim_krk_state_index);
-	krk_defineNative(&syntaxStateClass->methods, ":lineno", bim_krk_state_lineno);
-	krk_defineNative(&syntaxStateClass->methods, ".__init__", bim_krk_state_init);
+	krk_defineNative(&syntaxStateClass->methods, "set_state", bim_krk_state_setstate); /* TODO property? */
+	krk_defineNative(&syntaxStateClass->methods, "state", bim_krk_state_getstate)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
+	krk_defineNative(&syntaxStateClass->methods, "i", bim_krk_state_index)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
+	krk_defineNative(&syntaxStateClass->methods, "lineno", bim_krk_state_lineno)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
+	krk_defineNative(&syntaxStateClass->methods, "__init__", bim_krk_state_init);
 	/* These ones take argumens so they're methods instead of dynamic fields */
-	krk_defineNative(&syntaxStateClass->methods, ".findKeywords", bim_krk_state_findKeywords);
-	krk_defineNative(&syntaxStateClass->methods, ".cKeywordQualifier", bim_krk_state_cKeywordQualifier);
-	krk_defineNative(&syntaxStateClass->methods, ".isdigit", bim_krk_state_isdigit);
-	krk_defineNative(&syntaxStateClass->methods, ".isxdigit", bim_krk_state_isxdigit);
-	krk_defineNative(&syntaxStateClass->methods, ".paint", bim_krk_state_paint);
-	krk_defineNative(&syntaxStateClass->methods, ".paintComment", bim_krk_state_paintComment);
-	krk_defineNative(&syntaxStateClass->methods, ".skip", bim_krk_state_skip);
-	krk_defineNative(&syntaxStateClass->methods, ".matchAndPaint", bim_krk_state_matchAndPaint);
-	krk_defineNative(&syntaxStateClass->methods, ".commentBuzzwords", bim_krk_state_commentBuzzwords);
-	krk_defineNative(&syntaxStateClass->methods, ".rewind", bim_krk_state_rewind);
-	krk_defineNative(&syntaxStateClass->methods, ".__getitem__", bim_krk_state_get);
+	krk_defineNative(&syntaxStateClass->methods, "findKeywords", bim_krk_state_findKeywords);
+	krk_defineNative(&syntaxStateClass->methods, "cKeywordQualifier", bim_krk_state_cKeywordQualifier);
+	krk_defineNative(&syntaxStateClass->methods, "isdigit", bim_krk_state_isdigit);
+	krk_defineNative(&syntaxStateClass->methods, "isxdigit", bim_krk_state_isxdigit);
+	krk_defineNative(&syntaxStateClass->methods, "paint", bim_krk_state_paint);
+	krk_defineNative(&syntaxStateClass->methods, "paintComment", bim_krk_state_paintComment);
+	krk_defineNative(&syntaxStateClass->methods, "skip", bim_krk_state_skip);
+	krk_defineNative(&syntaxStateClass->methods, "matchAndPaint", bim_krk_state_matchAndPaint);
+	krk_defineNative(&syntaxStateClass->methods, "commentBuzzwords", bim_krk_state_commentBuzzwords);
+	krk_defineNative(&syntaxStateClass->methods, "rewind", bim_krk_state_rewind);
+	krk_defineNative(&syntaxStateClass->methods, "__getitem__", bim_krk_state_get);
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_NONE", INTEGER_VAL(FLAG_NONE));
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_KEYWORD", INTEGER_VAL(FLAG_KEYWORD));
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_STRING", INTEGER_VAL(FLAG_STRING));
@@ -11236,6 +11253,7 @@ int main(int argc, char * argv[]) {
 				global_config.go_to_line = 0;
 				open_file(optarg);
 				for (int i = 0; i < env->line_count; ++i) {
+					recalculate_syntax(env->lines[i], i);
 					if (opt == 'C') {
 						draw_line_number(i);
 					}
@@ -11312,6 +11330,9 @@ int main(int argc, char * argv[]) {
 					initialize();
 					global_config.go_to_line = 0;
 					open_file(argv[optind]);
+					for (int i = 0; i < env->line_count; ++i) {
+						recalculate_syntax(env->lines[i], i);
+					}
 					convert_to_html();
 					/* write to stdout */
 					output_file(env, stdout);
