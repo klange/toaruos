@@ -123,4 +123,7 @@ int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t
 	return -1;
 }
 
-
+int shutdown(int sockfd, int how) {
+	UNIMPLEMENTED;
+	return -1;
+}

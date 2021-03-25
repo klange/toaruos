@@ -18,6 +18,7 @@ _Begin_C_Header
 #define SOL_SOCKET 0
 
 #define SO_KEEPALIVE 1
+#define SO_REUSEADDR 2
 
 struct hostent {
 	char  *h_name;            /* official name of host */
@@ -73,6 +74,10 @@ struct msghdr {
 	int           msg_flags;      /* flags on received message */
 };
 
+struct sockaddr_storage {
+	unsigned short ss_family;
+	char _ss_pad[128];
+};
 
 typedef uint32_t in_addr_t;
 typedef uint16_t in_port_t;
@@ -99,6 +104,9 @@ extern int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 extern int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 extern int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
 extern int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
+
+extern int connect(int sockfd, const struct sockaddr * addr, socklen_t addrlen);
+extern int shutdown(int sockfd, int how);
 
 _End_C_Header
 
