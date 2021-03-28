@@ -1,12 +1,21 @@
 #!/bin/kuroko
-from _yutani import color, Yutani, Window, Decorator, Message, MenuBar, MenuList, MenuEntry
+from _yutani import (color, Yutani, Window, Decorator, Message,
+                     MenuBar, MenuList, MenuEntry, MenuEntrySeparator
+                    )
 
+let running = True
 let y = Yutani()
 let w = Window(640,480,title="Test Window",doublebuffer=True)
+
+w.move(200,200)
+
 let mb = MenuBar((("File",'file'),("Help",'help')))
 let _menu_File = MenuList()
-let _menu_File_test = MenuEntry("Test",lambda menu: print("hello, world"))
-_menu_File.insert(_menu_File_test)
+
+_menu_File.insert(MenuEntry("Test", lambda menu: print("hello, world")))
+_menu_File.insert(MenuEntrySeparator())
+_menu_File.insert(MenuEntry("Quit", lambda menu: (running = False)))
+
 mb.insert('file', _menu_File)
 let _menu_Help = MenuList()
 let _menu_Help_help = MenuEntry("Help",lambda menu: print("oh no!"))
@@ -43,7 +52,7 @@ def finishResize(msg):
     w.resize_done()
     w.flip()
 
-while True:
+while running:
     let msg = y.poll()
     if y.menu_process_event(msg):
         drawWindow()
@@ -62,4 +71,7 @@ while True:
     else if msg.type == Message.MSG_WINDOW_MOUSE_EVENT:
         if msg.wid == w.wid:
             if handleMouseEvent(msg): break
+    else if msg.type == Message.MSG_WINDOW_CLOSE:
+        w.close()
+        break
 
