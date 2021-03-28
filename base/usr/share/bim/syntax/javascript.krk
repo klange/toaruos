@@ -12,7 +12,7 @@ class JavascriptHighlighter(Highlighter):
         "if","implements","import","in","instanceof","interface","let","long",
         "native","new","package","private","protected","public","return",
         "static","super","switch","synchronized","this","throw","throws",
-        "transienttrue","try","typeof","volatile","while","with","yield",
+        "transient","true","try","typeof","volatile","while","with","yield",
     ]
     types = [
         "int","float","double","short","var","void","byte","char","boolean",

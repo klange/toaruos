@@ -152,55 +152,53 @@ class CHighlighter(Highlighter):
     def calculate(self):
         let cond = self.state
         if cond <= 0:
-            if self[0] == '#':
-                for i in range(self.i):
-                    if self[-i-1] != ' ' and self[-i-1] != '\t':
-                        self.skip()
-                        return 0
-                self.paint(1, self.FLAG_PRAGMA)
-                while self[0] == ' ':
+            while self[0]:
+                if self[0] == '#':
+                    for i in range(self.i):
+                        if self[-i-1] != ' ' and self[-i-1] != '\t':
+                            self.skip()
+                            continue
                     self.paint(1, self.FLAG_PRAGMA)
-                if self.matchAndPaint("include", self.FLAG_PRAGMA, self.cKeywordQualifier):
                     while self[0] == ' ':
                         self.paint(1, self.FLAG_PRAGMA)
-                    if self[0] == '<':
-                        self.paint(1, self.FLAG_STRING)
-                        while self[0] != '>' and self[0] != None:
+                    if self.matchAndPaint("include", self.FLAG_PRAGMA, self.cKeywordQualifier):
+                        while self[0] == ' ':
+                            self.paint(1, self.FLAG_PRAGMA)
+                        if self[0] == '<':
                             self.paint(1, self.FLAG_STRING)
-                        if self[0] != None:
-                            self.paint(1, self.FLAG_STRING)
-                else if self.matchAndPaint("if", self.FLAG_PRAGMA, self.cKeywordQualifier):
-                    if self[0] == ' ' and self[1] == '0' and self[2] == None:
-                        self.paint(2, self.FLAG_COMMENT)
-                        self.rewind(6)
-                        self.paint(-1, self.FLAG_COMMENT)
-                        return self.preprocessor_base_state
-                else if self.matchAndPaint("else", self.FLAG_PRAGMA, self.cKeywordQualifier):
-                    # Do nothing?
-                return self.paintCPragma()
-            else if self[0] == '/' and self[1] == '/':
-                self.paintComment()
-            else if self[0] == '/' and self[1] == '*':
-                self.paint(2, self.FLAG_COMMENT)
-                return self.paintCComment()
-            else if self.findKeywords(self.keywords, self.FLAG_KEYWORD, self.cKeywordQualifier):
-                return 0
-            else if self.findKeywords(self.types, self.FLAG_TYPE, self.cKeywordQualifier):
-                return 0
-            else if self.findKeywords(self.special, self.FLAG_NUMERAL, self.cKeywordQualifier):
-                return 0
-            else if self[0] == '"':
-                self.paint(1, self.FLAG_STRING)
-                return self.paintCString()
-            else if self[0] == "'":
-                self.paintCChar()
-                return 0
-            else if not self.cKeywordQualifier(self[-1]) and self.isdigit(self[0]):
-                self.paintCNumeral()
-                return 0
-            else if self[0] != None:
-                self.skip()
-                return 0
+                            while self[0] != '>' and self[0] != None:
+                                self.paint(1, self.FLAG_STRING)
+                            if self[0] != None:
+                                self.paint(1, self.FLAG_STRING)
+                    else if self.matchAndPaint("if", self.FLAG_PRAGMA, self.cKeywordQualifier):
+                        if self[0] == ' ' and self[1] == '0' and self[2] == None:
+                            self.paint(2, self.FLAG_COMMENT)
+                            self.rewind(6)
+                            self.paint(-1, self.FLAG_COMMENT)
+                            return self.preprocessor_base_state
+                    else if self.matchAndPaint("else", self.FLAG_PRAGMA, self.cKeywordQualifier):
+                        # Do nothing?
+                    return self.paintCPragma()
+                else if self[0] == '/' and self[1] == '/':
+                    self.paintComment()
+                else if self[0] == '/' and self[1] == '*':
+                    self.paint(2, self.FLAG_COMMENT)
+                    return self.paintCComment()
+                else if self.findKeywords(self.keywords, self.FLAG_KEYWORD, self.cKeywordQualifier):
+                    continue
+                else if self.findKeywords(self.types, self.FLAG_TYPE, self.cKeywordQualifier):
+                    continue
+                else if self.findKeywords(self.special, self.FLAG_NUMERAL, self.cKeywordQualifier):
+                    continue
+                else if self[0] == '"':
+                    self.paint(1, self.FLAG_STRING)
+                    return self.paintCString()
+                else if self[0] == "'":
+                    self.paintCChar()
+                else if not self.cKeywordQualifier(self[-1]) and self.isdigit(self[0]):
+                    self.paintCNumeral()
+                else:
+                    self.skip()
         else if cond == 1:
             return self.paintCComment()
         else if cond == 2:

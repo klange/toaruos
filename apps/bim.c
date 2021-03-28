@@ -76,6 +76,7 @@ global_config_t global_config = {
 	.has_terminal = 0,
 	.search_wraps = 1,
 	.had_error = 0,
+	.use_biminfo = 1,
 	/* Integer config values */
 	.cursor_padding = 4,
 	.split_percent = 50,
@@ -538,7 +539,8 @@ buffer_t * buffer_new(void) {
  * Open the biminfo file.
  */
 FILE * open_biminfo(void) {
-	/* TODO: biminfo paths should probably configurable with an arg, like bimrc */
+	if (!global_config.use_biminfo) return NULL;
+
 	char * home = getenv("HOME");
 	if (!home) {
 		/* ... but since it's not, we need $HOME, so fail if it isn't set. */
@@ -3695,6 +3697,25 @@ int line_matches(line_t * line, char * string) {
 
 void run_onload(buffer_t * env) {
 	/* TODO */
+	KrkValue onLoad;
+	if (krk_tableGet_fast(&krk_currentThread.module->fields, S("onload"), &onLoad)) {
+		krk_push(onLoad);
+		krk_push(krk_dict_of(0,NULL,0));
+
+		if (env->file_name) {
+			krk_attachNamedObject(AS_DICT(krk_peek(0)), "filename",
+				(KrkObj*)krk_copyString(env->file_name,strlen(env->file_name)));
+		}
+
+		if (env->syntax && env->syntax->krkClass) {
+			krk_attachNamedObject(AS_DICT(krk_peek(0)), "highlighter",
+				(KrkObj*)env->syntax->krkClass);
+		}
+
+		
+		krk_callSimple(onLoad, 1, 1);
+		krk_resetStack();
+	}
 }
 
 static void render_syntax_async(background_task_t * task) {
@@ -10251,10 +10272,12 @@ int c_keyword_qualifier(int c) {
 }
 
 #define BIM_STATE() \
-	if (argc < 1 || !krk_isInstanceOf(argv[0],syntaxStateClass)) return krk_runtimeError(vm.exceptions->typeError, "expected state"); \
+	if (unlikely(argc < 1 || !krk_isInstanceOf(argv[0],syntaxStateClass))) return krk_runtimeError(vm.exceptions->typeError, "expected state"); \
 	KrkInstance * _self = AS_INSTANCE(argv[0]); \
 	struct SyntaxState * self = (struct SyntaxState*)_self; \
 	struct syntax_state * state = &self->state;
+
+static KrkTuple * _bim_state_chars = NULL;
 
 static KrkValue bim_krk_state_getstate(int argc, KrkValue argv[], int hasKw) {
 	BIM_STATE();
@@ -10289,6 +10312,7 @@ static KrkValue bim_krk_state_get(int argc, KrkValue argv[], int hasKw) {
 	long arg = AS_INTEGER(argv[1]);
 	int charRel = charrel(arg);
 	if (charRel == -1) return NONE_VAL();
+	if (charRel >= 32 && charRel <= 126) return _bim_state_chars->values.values[charRel - 32];
 	char tmp[8] = {0};
 	size_t len = to_eight(charRel, tmp);
 	return OBJECT_VAL(krk_copyString(tmp,len));
@@ -10331,13 +10355,14 @@ static KrkValue bim_krk_state_skip(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 static KrkValue bim_krk_state_cKeywordQualifier(int argc, KrkValue argv[], int hasKw) {
-	if (IS_INTEGER(argv[1])) return BOOLEAN_VAL(!!c_keyword_qualifier(AS_INTEGER(argv[1])));
-	if (!IS_STRING(argv[1])) return BOOLEAN_VAL(0);
-	if (AS_STRING(argv[1])->length > 1) return BOOLEAN_VAL(0);
-	return BOOLEAN_VAL(!!c_keyword_qualifier(AS_CSTRING(argv[1])[0]));
+	if (IS_INTEGER(argv[0])) return BOOLEAN_VAL(!!c_keyword_qualifier(AS_INTEGER(argv[0])));
+	if (!IS_STRING(argv[0])) return BOOLEAN_VAL(0);
+	if (AS_STRING(argv[0])->length > 1) return BOOLEAN_VAL(0);
+	return BOOLEAN_VAL(!!c_keyword_qualifier(AS_CSTRING(argv[0])[0]));
 }
 
 static int callQualifier(KrkValue qualifier, int codepoint) {
+	if (IS_NATIVE(qualifier) && AS_NATIVE(qualifier)->function == bim_krk_state_cKeywordQualifier) return AS_BOOLEAN(!!c_keyword_qualifier(codepoint));
 	krk_push(qualifier);
 	krk_push(INTEGER_VAL(codepoint));
 	KrkValue result = krk_callSimple(krk_peek(1), 1, 1);
@@ -10352,7 +10377,7 @@ static int callQualifier(KrkValue qualifier, int codepoint) {
 
 static KrkValue bim_krk_state_findKeywords(int argc, KrkValue argv[], int hasKw) {
 	BIM_STATE();
-	if (argc < 4 || !krk_isInstanceOf(argv[1], vm.baseClasses->listClass) || !IS_INTEGER(argv[2]))
+	if (unlikely(argc < 4 || !(IS_INSTANCE(argv[1]) && AS_INSTANCE(argv[1])->_class == vm.baseClasses->listClass) || !IS_INTEGER(argv[2])))
 		return krk_runtimeError(vm.exceptions->typeError, "invalid arguments to SyntaxState.findKeywords");
 
 	KrkValue qualifier = argv[3];
@@ -10704,7 +10729,12 @@ void initialize(void) {
 	global_config.tab_indicator = strdup(">");
 	global_config.space_indicator = strdup("-");
 
+#if 0
+	krk_initVM(KRK_GLOBAL_CALLGRIND); /* no debug flags */
+	vm.callgrindFile = fopen("callgrind.out","w");
+#else
 	krk_initVM(0); /* no debug flags */
+#endif
 
 	KrkInstance * bimModule = krk_newInstance(vm.baseClasses->moduleClass);
 	krk_attachNamedObject(&vm.modules, "bim", (KrkObj*)bimModule);
@@ -10758,7 +10788,7 @@ void initialize(void) {
 	krk_defineNative(&syntaxStateClass->methods, "__init__", bim_krk_state_init);
 	/* These ones take argumens so they're methods instead of dynamic fields */
 	krk_defineNative(&syntaxStateClass->methods, "findKeywords", bim_krk_state_findKeywords);
-	krk_defineNative(&syntaxStateClass->methods, "cKeywordQualifier", bim_krk_state_cKeywordQualifier);
+	krk_defineNative(&syntaxStateClass->methods, "cKeywordQualifier", bim_krk_state_cKeywordQualifier)->flags |= KRK_NATIVE_FLAGS_IS_STATIC_METHOD;
 	krk_defineNative(&syntaxStateClass->methods, "isdigit", bim_krk_state_isdigit);
 	krk_defineNative(&syntaxStateClass->methods, "isxdigit", bim_krk_state_isxdigit);
 	krk_defineNative(&syntaxStateClass->methods, "paint", bim_krk_state_paint);
@@ -10782,6 +10812,13 @@ void initialize(void) {
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_BOLD", INTEGER_VAL(FLAG_BOLD));
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_LINK", INTEGER_VAL(FLAG_LINK));
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_ESCAPE", INTEGER_VAL(FLAG_ESCAPE));
+
+	_bim_state_chars = krk_newTuple(95);
+	krk_attachNamedObject(&syntaxStateClass->methods, "__chars__", (KrkObj*)_bim_state_chars);
+	for (int c = 0; c < 95; ++c) {
+		char tmp = c + 32;
+		_bim_state_chars->values.values[_bim_state_chars->values.count++] = OBJECT_VAL(krk_copyString(&tmp,1));
+	}
 
 	krk_finalizeClass(syntaxStateClass);
 
@@ -11250,6 +11287,7 @@ int main(int argc, char * argv[]) {
 			case 'C':
 				/* Print file to stdout using our syntax highlighting and color theme */
 				initialize();
+				global_config.use_biminfo = 0;
 				global_config.go_to_line = 0;
 				open_file(optarg);
 				for (int i = 0; i < env->line_count; ++i) {

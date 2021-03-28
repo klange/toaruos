@@ -1,39 +1,48 @@
-let doxygen_keywords_at = [
-    "@author","@brief","@class","@short","@retval",
-    "@since","@return","@returns","@throws","@bug",
-    "@version","@deprecated","@attention","@note",
-]
 
-def tryDoxygenComment(b,defaultflag=b.FLAG_COMMENT):
+def _make_dox():
+    from syntax import Highlighter
+
+    let doxygen_keywords_at = [
+        "@author","@brief","@class","@short","@retval",
+        "@since","@return","@returns","@throws","@bug",
+        "@version","@deprecated","@attention","@note",
+    ]
+
     let doxygen_word_commands = {
-        '@param': b.FLAG_TYPE,
-        '@exception': b.FLAG_PRAGMA,
-        '@def': b.FLAG_TYPE,
-        '@see': b.FLAG_LINK,
-        '@p': b.FLAG_TYPE,
-        '@c': b.FLAG_NONE,
-        '@file': b.FLAG_LINK,
-        '@memberof': b.FLAG_TYPE,
-        '@extends': b.FLAG_TYPE,
-        '@mainpage': b.FLAG_STRING,
-        '@section': b.FLAG_BOLD,
-        '@subsection': b.FLAG_BOLD,
-        '@package': b.FLAG_TYPE,
-        '@ref': b.FLAG_LINK,
+        '@param':      Highlighter.FLAG_TYPE,
+        '@exception':  Highlighter.FLAG_PRAGMA,
+        '@def':        Highlighter.FLAG_TYPE,
+        '@see':        Highlighter.FLAG_LINK,
+        '@p':          Highlighter.FLAG_TYPE,
+        '@c':          Highlighter.FLAG_NONE,
+        '@file':       Highlighter.FLAG_LINK,
+        '@memberof':   Highlighter.FLAG_TYPE,
+        '@extends':    Highlighter.FLAG_TYPE,
+        '@mainpage':   Highlighter.FLAG_STRING,
+        '@section':    Highlighter.FLAG_BOLD,
+        '@subsection': Highlighter.FLAG_BOLD,
+        '@package':    Highlighter.FLAG_TYPE,
+        '@ref':        Highlighter.FLAG_LINK,
     }
-    if b[0] == '@':
-        def qualifier(c):
-            if isinstance(c,int):
-                if c > 0: c = chr(c)
-                else: return False
-            return b.isalnum(c) or c in '_@'
-        if not b.findKeywords(doxygen_keywords_at, b.FLAG_ESCAPE, qualifier):
-            for keyword, flag in doxygen_word_commands.items():
-                if b.matchAndPaint(keyword, b.FLAG_ESCAPE, qualifier):
-                    while b[0] == ' ': b.skip()
-                    while b[0] and b[0] != ' ': b.paint(1, flag)
-                    return True
-            b.paint(1, defaultflag)
-        return True
-    return False
 
+    def doxygen_qualifier(c):
+        if isinstance(c,int):
+            if c > 0: c = chr(c)
+            else: return False
+        return Highlighter.isalnum(c) or c in '_@'
+
+    def tryDoxygenComment(b,defaultflag=b.FLAG_COMMENT):
+        if b[0] == '@':
+            if not b.findKeywords(doxygen_keywords_at, b.FLAG_ESCAPE, doxygen_qualifier):
+                for keyword, flag in doxygen_word_commands.items():
+                    if b.matchAndPaint(keyword, b.FLAG_ESCAPE, doxygen_qualifier):
+                        while b[0] == ' ': b.skip()
+                        while b[0] and b[0] != ' ': b.paint(1, flag)
+                        return True
+                b.paint(1, defaultflag)
+            return True
+        return False
+
+    return tryDoxygenComment
+
+let tryDoxygenComment = _make_dox()

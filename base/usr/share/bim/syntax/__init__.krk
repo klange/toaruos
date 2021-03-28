@@ -36,10 +36,12 @@ class Highlighter(SyntaxState):
             else:
                 self.paint(1, self.FLAG_STRING)
 
+    @staticmethod
     def isalpha(c):
         c = c if isinstance(c,int) else ord(c)
         return (c >= ord('a') and c <= ord('z')) or (c >= ord('A') and c <= ord('Z'))
 
+    @staticmethod
     def isalnum(c):
         c = c if isinstance(c,int) else ord(c)
         return (c >= ord('a') and c <= ord('z')) or (c >= ord('A') and c <= ord('Z')) or (c >= ord('0') and c <= ord('9'))

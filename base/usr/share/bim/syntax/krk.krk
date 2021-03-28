@@ -22,7 +22,7 @@ class KrkHighlighter(Highlighter):
         'object','exception','isinstance','type','print','tuple','bool','any','all',
         'hex','ord','chr','bytes','set','getattr','setattr','input','zip','enumerate',
         'property','staticmethod','classmethod','filter','min','max','id','map','bin',
-        'sum','sorted',
+        'sum','sorted','issubclass','hasattr','delattr',
     ]
 
     special = [
@@ -79,6 +79,12 @@ class KrkHighlighter(Highlighter):
                     else if self[0] == strType and not isTriple:
                         self.paint(-1, self.FLAG_ERROR)
                         return None
+                    else if self.findKeywords(self.keywords, self.FLAG_ESCAPE, self.cKeywordQualifier):
+                        continue
+                    else if self[-1] != '.' and self.findKeywords(self.types, self.FLAG_TYPE, self.cKeywordQualifier):
+                        continue
+                    else if self.findKeywords(self.exceptions, self.FLAG_PRAGMA, self.cKeywordQualifier):
+                        continue
                     self.paint(1, self.FLAG_NUMERAL)
             else if self.doxygenDocstrings and isTriple and tryDoxygenComment(self, self.FLAG_STRING):
                 continue
