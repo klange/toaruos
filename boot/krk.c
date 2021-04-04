@@ -19,28 +19,3 @@ void krk_printResult(KrkValue result) {
 	}
 }
 
-KRK_FUNC(uname,{
-	KrkValue result = krk_dict_of(0, NULL, 0);
-	krk_push(result);
-
-	krk_attachNamedObject(AS_DICT(result), "sysname",  (KrkObj*)S("?"));
-	krk_attachNamedObject(AS_DICT(result), "nodename", (KrkObj*)S("?"));
-	krk_attachNamedObject(AS_DICT(result), "release",  (KrkObj*)S("?"));
-	krk_attachNamedObject(AS_DICT(result), "version",  (KrkObj*)S("?"));
-	krk_attachNamedObject(AS_DICT(result), "machine",  (KrkObj*)S("?"));
-
-	return krk_pop();;
-})
-
-void _createAndBind_osMod(void) {
-	KrkInstance * module = krk_newInstance(vm.baseClasses->moduleClass);
-	krk_attachNamedObject(&vm.modules, "os", (KrkObj*)module);
-	krk_attachNamedObject(&module->fields, "__name__", (KrkObj*)S("os"));
-	krk_attachNamedValue(&module->fields, "__file__", NONE_VAL());
-	BIND_FUNC(module,uname);
-}
-
-/* Stubs */
-void _createAndBind_timeMod(void) {}
-void _createAndBind_fileioMod(void) {}
-

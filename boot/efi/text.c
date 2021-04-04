@@ -9,61 +9,42 @@
 int txt_debug = 0;
 int x = 0;
 int y = 0;
-int attr = 0x07;
 int scroll_disabled = 0;
 
-static void placech(unsigned char c, int x, int y, int attr) {
-	unsigned short ch;
+static unsigned short bad_ucs2(int c) {
 	switch (c) {
 		case '\030':
-			ch = L'↑';
-			break;
+			return L'↑';
 		case '\031':
-			ch = L'↓';
-			break;
+			return L'↓';
 		case '\032':
-			ch = L'←';
-			break;
+			return L'←';
 		case '\033':
-			ch = L'→';
-			break;
+			return L'→';
 		default:
-			ch = c;
-			break;
+			return c;
 	}
-	uint16_t string[] = {ch, 0};
-	uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, attr);
-	uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, x, y);
-	uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, string);
 }
 
 void print_(char * str) {
 	while (*str) {
-		if (*str == '\n') {
-			for (; x < 80; ++x) {
-				placech(' ', x, y, attr);
-			}
-			x = 0;
-			y += 1;
-			if (y == 25) {
-				y = 0;
-			}
-		} else {
-			placech(*str, x, y, attr);
-			x++;
-			if (x == 80) {
-				x = 0;
-				y += 1;
-				if (y == 25) {
-					y = 0;
-				}
-			}
-		}
+		if (*str == '\n') print_("\r");
+		uint16_t string[] = {bad_ucs2(*str), 0};
+		uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, string);
+		x = ST->ConOut->Mode->CursorColumn;
+		y = ST->ConOut->Mode->CursorRow;
 		str++;
 	}
 }
 
+void print_wchar(int wch) {
+	uint16_t string[] = {wch, 0};
+	uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, string);
+}
+
 void move_cursor(int _x, int _y) {
+	uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut,
+		_x, _y);
 	x = _x;
 	y = _y;
 }
@@ -71,36 +52,31 @@ void move_cursor(int _x, int _y) {
 void move_cursor_rel(int _x, int _y) {
 	x += _x; if (x < 0) x = 0;
 	y += _y; if (y < 0) y = 0;
+	move_cursor(x,y);
 }
 
-void set_attr(int _attr) {
-	attr = _attr;
+void move_cursor_x(int _x) {
+	uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut,
+		_x, ST->ConOut->Mode->CursorRow);
+}
+
+void set_attr(int attr) {
+	uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, attr);
 }
 
 void print_banner(char * str) {
-	if (!str) {
-		for (int i = 0; i < 80; ++i) {
-			placech(' ', i, y, attr);
-		}
-		y++;
-		return;
-	}
-	int len = 0;
-	char *c = str;
-	while (*c) {
-		len++;
-		c++;
-	}
-	int off = (80 - len) / 2;
+	int pad = (79 - strlen(str));
+	int left_pad = pad / 2;
+	int right_pad = pad - left_pad;
 
-	for (int i = 0; i < 80; ++i) {
-		placech(' ', i, y, attr);
+	for (int i = 0; i < left_pad; ++i) {
+		print_(" ");
 	}
-	for (int i = 0; i < len; ++i) {
-		placech(str[i], i + off, y, attr);
+	print_(str);
+	for (int i = 0; i < right_pad; ++i) {
+		print_(" ");
 	}
-
-	y++;
+	print_("\n");
 }
 
 void print_hex_(unsigned int value) {
@@ -112,13 +88,8 @@ void print_hex_(unsigned int value) {
 }
 
 void clear_() {
-	x = 0;
-	y = 0;
-	for (int y = 0; y < 24; ++y) {
-		for (int x = 0; x < 80; ++x) {
-			placech(' ', x, y, attr);
-		}
-	}
+	move_cursor(0,0);
+	uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
 }
 
 void print_int_(unsigned int value) {

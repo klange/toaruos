@@ -29,7 +29,7 @@
 #define DEFAULT_HEADLESS_CMDLINE "start=--headless "
 
 /* Where to dump kernel data while loading */
-#define KERNEL_LOAD_START 0x5000000
+extern uintptr_t KERNEL_LOAD_START;
 
 extern char * module_dir;
 extern char * kernel_path;

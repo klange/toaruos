@@ -364,6 +364,8 @@ done_video:
 
 #if defined(__x86_64__)
 	print_("&_xmain = "); print_hex_(((uintptr_t)&_xmain) >> 32); print_hex_((uint32_t)(uintptr_t)&_xmain); print_("\n");
+#else
+	print_("&_xmain = "); print_hex_((uint32_t)(uintptr_t)&_xmain); print_("\n");
 #endif
 
 	if (1) {
@@ -662,17 +664,17 @@ void show_menu(void) {
 
 		set_attr(0x07);
 		move_cursor(x,17);
-		print_("\n");
+		print_banner("");
 		print_banner(HELP_TEXT);
-		print_("\n");
+		print_banner("");
 
 		if (sel > BASE_SEL) {
 			print_banner(boot_options[sel-BASE_SEL-1].description_1);
 			print_banner(boot_options[sel-BASE_SEL-1].description_2);
-			print_("\n");
+			print_("");
 		} else {
 			print_banner(COPYRIGHT_TEXT);
-			print_("\n");
+			print_banner("");
 			print_banner(LINK_TEXT);
 		}
 
@@ -847,7 +849,7 @@ _try_module_again:
 				status = uefi_call_wrapper(file->Read,
 						3, file, &bytes, (void *)(KERNEL_LOAD_START + (uintptr_t)offset));
 				if (!EFI_ERROR(status)) {
-					print_("Loaded "); print_(*c); print_("\n");
+					print_("Loaded "); print_(*c); print_("at 0x"); print_hex_(KERNEL_LOAD_START + offset); print_("\n");
 					modules_mboot[j].mod_start = KERNEL_LOAD_START + offset;
 					modules_mboot[j].mod_end = KERNEL_LOAD_START + offset + bytes;
 					j++;
@@ -856,6 +858,9 @@ _try_module_again:
 				}
 			} else {
 				print_("Error opening "); print_(*c); print_(" "); print_hex_(status); print_("\n");
+				if (status == EFI_NOT_FOUND) {
+					print_("(not found)\n");
+				}
 				while (1) { };
 			}
 		} else {

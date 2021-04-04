@@ -13,6 +13,7 @@ void toggle(int ndx, int value, char *str) {
 		print_(" [ ] ");
 	}
 	print_(str);
+	set_attr(0x07);
 	if (x < 40) {
 		while (x < 39) {
 			print_(" ");

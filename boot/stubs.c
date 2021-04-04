@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 
 extern void print_(char * str);
 extern void print_hex_(unsigned int value);
@@ -174,10 +175,83 @@ long int strtol(const char *nptr, char **endptr, int base) {
 	strtox(LONG_MAX, unsigned long int);
 }
 
+#ifndef EFI_PLATFORM
 double strtod(const char *nptr, char **endptr) {
 	return strtol(nptr,endptr,10);
 }
+#else
+double strtod(const char *nptr, char **endptr) {
+	int sign = 1;
+	if (*nptr == '-') {
+		sign = -1;
+		nptr++;
+	}
 
+	long long decimal_part = 0;
+
+	while (*nptr && *nptr != '.') {
+		if (*nptr < '0' || *nptr > '9') {
+			break;
+		}
+		decimal_part *= 10LL;
+		decimal_part += (long long)(*nptr - '0');
+		nptr++;
+	}
+
+	double sub_part = 0;
+	double multiplier = 0.1;
+
+	if (*nptr == '.') {
+		nptr++;
+
+		while (*nptr) {
+			if (*nptr < '0' || *nptr > '9') {
+				break;
+			}
+
+			sub_part += multiplier * (*nptr - '0');
+			multiplier *= 0.1;
+			nptr++;
+		}
+	}
+
+	double expn = (double)sign;
+
+#if 0
+	if (*nptr == 'e' || *nptr == 'E') {
+		nptr++;
+
+		int exponent_sign = 1;
+
+		if (*nptr == '+') {
+			nptr++;
+		} else if (*nptr == '-') {
+			exponent_sign = -1;
+			nptr++;
+		}
+
+		int exponent = 0;
+
+		while (*nptr) {
+			if (*nptr < '0' || *nptr > '9') {
+				break;
+			}
+			exponent *= 10;
+			exponent += (*nptr - '0');
+			nptr++;
+		}
+
+		expn = __builtin_powpow(10.0,(double)(exponent * exponent_sign));
+	}
+#endif
+
+	if (endptr) {
+		*endptr = (char *)nptr;
+	}
+	double result = ((double)decimal_part + sub_part) * expn;
+	return result;
+}
+#endif
 
 FILE * stdout = NULL;
 FILE * stderr = NULL;
@@ -431,8 +505,10 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 				break;
 			case 'i':
 			case 'd': /* Decimal number */
+#ifndef EFI_PLATFORM
 			case 'g': /* supposed to also support e */
 			case 'f':
+#endif
 				{
 					long long val;
 					if (big == 2) {
@@ -464,10 +540,11 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 				}
 				b = buf + i;
 				break;
-#if 0
+#ifdef EFI_PLATFORM
 			case 'g': /* supposed to also support e */
 			case 'f':
 				{
+					if (precision == -1) precision = 8;
 					double val = (double)va_arg(args, double);
 					if (val < 0) {
 						*b++ = '-';
@@ -480,6 +557,7 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 					i = b - buf;
 					for (int j = 0; j < ((precision > -1 && precision < 8) ? precision : 8); ++j) {
 						if ((int)(val * 100000.0) % 100000 == 0 && j != 0) break;
+						val = val - (int)val;
 						val *= 10.0;
 						print_dec((int)(val) % 10, 0, buf, &i, 0, 0, 1);
 					}
@@ -524,84 +602,6 @@ int fprintf(FILE *stream, const char * fmt, ...) {
 	return out;
 }
 
-struct BadMallocHeader {
-	size_t actual;
-	size_t space;
-	char data[];
-};
-
-static void * _heap_start = NULL;
-static struct BadMallocHeader * first = NULL;
-static struct BadMallocHeader * last  = NULL;
-
-void bump_heap_setup(void * start) {
-	_heap_start = first = last = start;
-}
-
-#define FIT(size) (size <= 16 ? 16 : \
-				  (size <= 64 ? 64 : \
-				  (size <= 256 ? 256 : \
-				  (size <= 1024 ? 1024 : \
-				  (size <= 4096 ? 4096 : \
-				  (size <= 16384 ? 16384 : \
-				   -1))))))
-
-static void * findFirstFit(size_t size) {
-	struct BadMallocHeader * ptr = first;
-
-	while (ptr != last && (ptr->actual || ptr->space < size)) {
-		ptr = (struct BadMallocHeader*)((char*)ptr + sizeof(struct BadMallocHeader) + ptr->space);
-	}
-
-	if (ptr == last) {
-		ptr->actual = size;
-		ptr->space = FIT(size);
-		if (ptr->space == -1) {
-			print_("[alloc of size ");
-			print_hex_(size);
-			print_(" is too big]\n");
-		}
-		last = (struct BadMallocHeader*)((char*)ptr + sizeof(struct BadMallocHeader) + ptr->space);
-		return ptr;
-	} else {
-		ptr->actual = size;
-		return ptr;
-	}
-}
-
-static struct BadMallocHeader nil = {0,0};
-
-void * realloc(void * ptr, size_t size) {
-	if (!ptr) {
-		if (size == 0) return &nil;
-		struct BadMallocHeader * this = findFirstFit(size);
-		return ((char*)this) + sizeof(struct BadMallocHeader);
-	} else {
-		struct BadMallocHeader * this = (void*)((char*)ptr - sizeof(struct BadMallocHeader));
-		if (size < this->space) {
-			this->actual = size;
-			if (size == 0) return &nil;
-			return ptr;
-		}
-		struct BadMallocHeader * new = findFirstFit(size);
-		memmove(&new->data, &this->data, this->actual < size ? this->actual : size);
-		this->actual = 0;
-		return ((char*)new) + sizeof(struct BadMallocHeader);
-	}
-}
-void free(void *ptr) {
-	realloc(ptr,0);
-}
-void * malloc(size_t size) {
-	return realloc(NULL, size);
-}
-void * calloc(size_t nmemb, size_t size) {
-	char * out = realloc(NULL, nmemb * size);
-	for (size_t i = 0; i < nmemb * size; ++i) {
-		out[i] = '\0';
-	}
-	return out;
-}
 size_t strlen(const char *s) {
 	size_t out = 0;
 	while (*s) {

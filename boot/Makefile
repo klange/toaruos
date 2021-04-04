@@ -20,9 +20,9 @@ EFI32_OBJS=$(patsubst %.c,%.efi32.o, ${COMMON_SRC} ${EFI_SRC} ${KUROKO_SRC})
 EFI64_OBJS=$(patsubst %.c,%.efi64.o, ${COMMON_SRC} ${EFI_SRC} ${KUROKO_SRC})
 BIOS_OBJS=$(patsubst %.c,%.bios.o, ${COMMON_SRC} ${BIOS_SRC} ${KUROKO_SRC}) boot.o
 
-KUROKO_CFLAGS=-Ddouble=int -DSTATIC_ONLY -DKRK_NO_DOCUMENTATION -DSTRICTLY_NO_THREADS -DNO_SOURCE_IN_TRACEBACK -DNDEBUG -DNO_FILESYSTEM
+KUROKO_CFLAGS=-DSTATIC_ONLY -DKRK_NO_DOCUMENTATION -DSTRICTLY_NO_THREADS -DNO_SOURCE_IN_TRACEBACK -DNDEBUG -DNO_FILESYSTEM
 COMMON_CFLAGS=${KUROKO_CFLAGS} -ffreestanding -I. -nostdinc -Iinclude
-BIOS_CFLAGS=${COMMON_CFLAGS} -Os
+BIOS_CFLAGS=${COMMON_CFLAGS} -Os -Ddouble=int
 EFI_CFLAGS=${COMMON_CFLAGS} -fno-stack-protector -fpic -DEFI_PLATFORM -fshort-wchar -I /usr/include/efi -mno-red-zone
 EFI_SECTIONS=-j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel -j .rela -j .reloc
 

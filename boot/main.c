@@ -17,15 +17,15 @@ EFI_HANDLE ImageHandleIn;
 #include "kbd.h"
 #include "options.h"
 
-#ifndef EFI_PLATFORM
 extern void bump_heap_setup(void*);
-#endif
-
 extern void krk_initVM(int);
 extern unsigned long long krk_interpret(const char * src, char * fromFile);
 extern void * krk_startModule(const char * name);
 extern void krk_resetStack(void);
 extern void krk_printResult(unsigned long long val);
+extern int krk_repl(void);
+
+uintptr_t KERNEL_LOAD_START = 0;
 
 /* Basic text strings */
 char * module_dir = "MOD";
@@ -89,9 +89,13 @@ static void updateCursor(int x, int y) {
 }
 
 static void backspace(void) {
+#ifndef EFI_PLATFORM
 	move_cursor_rel(-1,0);
 	print_(" ");
 	move_cursor_rel(-1,0);
+#else
+	print_("\x08");
+#endif
 }
 
 #ifdef EFI_PLATFORM
@@ -192,17 +196,21 @@ int kmain() {
 #endif
 
 #ifndef EFI_PLATFORM
+	KERNEL_LOAD_START = 0x5000000;
 	outportb(0x3D4, 0x0A);
 	outportb(0x3D5, (inportb(0x3d5) & 0xc0) | 0x00);
 	outportb(0x3D4, 0x0B);
 	outportb(0x3D5, (inportb(0x3d5) & 0xe0) | 0x0F);
 	bump_heap_setup((void*)KERNEL_LOAD_START);
-#endif
-
 	set_attr(0x07);
 	clear_();
 	move_cursor(0,0);
 	updateCursor(0,0);
+#else
+	set_attr(0x07);
+	uefi_call_wrapper(ST->ConOut->EnableCursor, 2, ST->ConOut, 1);
+#endif
+
 
 	char * data = malloc(1024);
 	int read = 0;
@@ -211,6 +219,8 @@ int kmain() {
 	krk_startModule("__main__");
 	krk_interpret("if True:\n import kuroko\n print(f'Kuroko {kuroko.version} ({kuroko.builddate}) with {kuroko.buildenv}')", "<stdin>");
 	puts("Type `license` for copyright, `exit` to return to menu.");
+
+#ifndef EFI_PLATFORM
 	while(1) {
 		int inCont = 0;
 		char * prompt = ">>> ";
@@ -285,6 +295,13 @@ int kmain() {
 			read = 0;
 		}
 	}
+#else
+	krk_repl();
+
+	EFI_PHYSICAL_ADDRESS allocSpace;
+	uefi_call_wrapper(ST->BootServices->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, 8192, &allocSpace);
+	KERNEL_LOAD_START = allocSpace;
+#endif
 	scroll_disabled = 1;
 
 	/* Loop over rendering the menu */
