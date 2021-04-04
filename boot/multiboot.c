@@ -1,4 +1,27 @@
+#ifdef EFI_PLATFORM
+#  include <efi.h>
+#  include <efilib.h>
+extern EFI_HANDLE ImageHandleIn;
+extern int _efi_do_mode_set;
+#endif
 
+#include <string.h>
+#include "multiboot.h"
+#include "elf.h"
+#include "kbd.h"
+#include "options.h"
+#include "base.h"
+#include "util.h"
+#include "text.h"
+
+#ifndef EFI_PLATFORM
+# include "bios/atapi.h"
+# include "bios/iso9660.h"
+#endif
+
+char cmdline[1024] = {0};
+
+extern char * modules[26];
 static mboot_mod_t modules_mboot[sizeof(modules)/sizeof(*modules)] = {
 	{0,0,0,1}
 };
@@ -50,15 +73,6 @@ extern unsigned short lower_mem;
 char * final_offset = NULL;
 
 extern char do_the_nasty[];
-
-static int strlen(char * s) {
-	int out = 0;
-	while (*s) {
-		s++;
-		out++;
-	}
-	return out;
-}
 
 #ifdef EFI_PLATFORM
 static EFI_GUID efi_graphics_output_protocol_guid =
@@ -430,7 +444,6 @@ static void do_it(struct ata_device * _device) {
 		ata_device_read_sector_atapi(device, i, (uint8_t *)root);
 		switch (root->type) {
 			case 1:
-				root_sector = i;
 				goto done;
 			case 0xFF:
 				return;
@@ -526,7 +539,7 @@ struct fw_cfg_file {
 	char name[56];
 };
 
-static int boot_mode = 0;
+int boot_mode = 0;
 
 void swap_bytes(void * in, int count) {
 	char * bytes = in;
@@ -722,7 +735,7 @@ static EFI_GUID efi_simple_file_system_protocol_guid =
 static EFI_GUID efi_loaded_image_protocol_guid =
 	{0x5B1B31A1,0x9562,0x11d2, {0x8E,0x3F,0x00,0xA0,0xC9,0x69,0x72,0x3B}};
 
-static void boot(void) {
+void boot(void) {
 	UINTN count;
 	EFI_HANDLE * handles;
 	EFI_LOADED_IMAGE * loaded_image;
@@ -892,7 +905,7 @@ _try_module_again:
 
 #else
 /* BIOS boot uses native ATAPI drivers, need to find boot drive. */
-static void boot(void) {
+void boot(void) {
 
 	clear_();
 

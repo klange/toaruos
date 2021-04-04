@@ -1,9 +1,13 @@
-#pragma once
+#include <string.h>
+#include "ata.h"
+#include "atapi.h"
+#include "util.h"
+#include "text.h"
 
-static struct ata_device ata_primary_master   = {.io_base = 0x1F0, .control = 0x3F6, .slave = 0};
-static struct ata_device ata_primary_slave    = {.io_base = 0x1F0, .control = 0x3F6, .slave = 1};
-static struct ata_device ata_secondary_master = {.io_base = 0x170, .control = 0x376, .slave = 0};
-static struct ata_device ata_secondary_slave  = {.io_base = 0x170, .control = 0x376, .slave = 1};
+struct ata_device ata_primary_master   = {.io_base = 0x1F0, .control = 0x3F6, .slave = 0};
+struct ata_device ata_primary_slave    = {.io_base = 0x1F0, .control = 0x3F6, .slave = 1};
+struct ata_device ata_secondary_master = {.io_base = 0x170, .control = 0x376, .slave = 0};
+struct ata_device ata_secondary_slave  = {.io_base = 0x170, .control = 0x376, .slave = 1};
 
 static void ata_io_wait(struct ata_device * dev) {
 	inportb(dev->io_base + ATA_REG_ALTSTATUS);
@@ -130,7 +134,7 @@ atapi_error:
 	return;
 }
 
-static int ata_device_detect(struct ata_device * dev) {
+int ata_device_detect(struct ata_device * dev) {
 	ata_soft_reset(dev);
 	ata_io_wait(dev);
 	outportb(dev->io_base + ATA_REG_HDDEVSEL, 0xA0 | dev->slave << 4);
@@ -156,7 +160,7 @@ static int ata_device_detect(struct ata_device * dev) {
 	return 0;
 }
 
-static void ata_device_read_sectors_atapi(struct ata_device * dev, uint32_t lba, uint8_t * buf, int sectors) {
+void ata_device_read_sectors_atapi(struct ata_device * dev, uint32_t lba, uint8_t * buf, int sectors) {
 
 	if (!dev->is_atapi) return;
 
@@ -228,4 +232,3 @@ atapi_error_on_read_setup_cmd:
 }
 
 
-#define ata_device_read_sector_atapi(a,b,c) ata_device_read_sectors_atapi(a,b,c,1)

@@ -12,6 +12,7 @@ SECTIONS
 	.text : 
 	{
 		code = .;
+		*(.text.boot)
 		*(.text)
 	}
 

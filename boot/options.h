@@ -1,32 +1,14 @@
-static int sel_max = 0;
-static int sel = 0;
-
-void toggle(int ndx, int value, char *str) {
-	set_attr(sel == ndx ? 0x70 : 0x07);
-	if (value) {
-		print_(" [X] ");
-	} else {
-		print_(" [ ] ");
-	}
-	print_(str);
-	if (x < 40) {
-		while (x < 39) {
-			print_(" ");
-		}
-		x = 40;
-	} else {
-		print_("\n");
-	}
-}
+#pragma once
 
 struct option {
 	int * value;
 	char * title;
 	char * description_1;
 	char * description_2;
-} boot_options[20] = {{0}}; /* can't really hold more than that */
+};
 
-static int _boot_offset = 0;
+extern struct option boot_options[25];
+
 #define BOOT_OPTION(_value, default_val, option, d1, d2) \
 	int _value = default_val;\
 	boot_options[_boot_offset].value = &_value; \
@@ -41,5 +23,11 @@ struct bootmode {
 	char * title;
 };
 
-#define BASE_SEL ((sizeof(boot_mode_names)/sizeof(*boot_mode_names))-1)
+extern struct bootmode boot_mode_names[];
+extern unsigned int BASE_SEL;
+
+extern int sel_max;
+extern int sel;
+extern int _boot_offset;
+extern void toggle(int ndx, int value, char *str);
 

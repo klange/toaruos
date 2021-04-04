@@ -274,7 +274,7 @@ EFI_UPDATE=util/update-extents.py
 
 image.iso: ${EFI_BOOT} cdrom/boot.sys fatbase/netinit ${MODULES} util/update-extents.py
 	xorriso -as mkisofs -R -J -c bootcat \
-	  -b boot.sys -no-emul-boot -boot-load-size 24 \
+	  -b boot.sys -no-emul-boot -boot-load-size full \
 	  ${EFI_XORRISO} \
 	  -o image.iso cdrom
 	${EFI_UPDATE}
@@ -286,41 +286,12 @@ image.iso: ${EFI_BOOT} cdrom/boot.sys fatbase/netinit ${MODULES} util/update-ext
 # This is the filesystem the EFI loaders see, so it must contain
 # the kernel, modules, and ramdisk, plus anything else we want
 # available to the bootloader (eg., netinit).
-cdrom/fat.img: fatbase/ramdisk.img ${MODULES} fatbase/kernel fatbase/netinit fatbase/efi/boot/bootia32.efi fatbase/efi/boot/bootx64.efi util/mkdisk.sh | dirs
+cdrom/fat.img: fatbase/ramdisk.img ${MODULES} fatbase/kernel fatbase/netinit boot util/mkdisk.sh | dirs
 	util/mkdisk.sh $@ fatbase
 
-##
-# For EFI, we build two laoders: ia32 and x64
-# We build them as ELF shared objects and the use objcopy to convert
-# them to PE executables / DLLs (as expected by EFI).
-EFI_CFLAGS=-fno-stack-protector -fpic -DEFI_PLATFORM -ffreestanding -fshort-wchar -I /usr/include/efi -mno-red-zone
-EFI_SECTIONS=-j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel -j .rela -j .reloc
-
-# ia32
-boot/efi.so: boot/cstuff.c boot/*.h
-	$(CC) ${EFI_CFLAGS} -I /usr/include/efi/ia32 -c -o boot/efi.o $<
-	$(LD) boot/efi.o /usr/lib32/crt0-efi-ia32.o -nostdlib -znocombreloc -T /usr/lib32/elf_ia32_efi.lds -shared -Bsymbolic -L /usr/lib32 -lefi -lgnuefi -o boot/efi.so
-
-fatbase/efi/boot/bootia32.efi: boot/efi.so
-	objcopy ${EFI_SECTIONS} --target=efi-app-ia32 $< $@
-
-# x64
-boot/efi64.so: boot/cstuff.c boot/*.h
-	gcc ${EFI_CFLAGS} -I /usr/include/efi/x86_64 -DEFI_FUNCTION_WRAPPER -c -o boot/efi64.o $<
-	$(LD) boot/efi64.o /usr/lib/crt0-efi-x86_64.o -nostdlib -znocombreloc -T /usr/lib/elf_x86_64_efi.lds -shared -Bsymbolic -L /usr/lib -lefi -lgnuefi -o boot/efi64.so
-
-fatbase/efi/boot/bootx64.efi: boot/efi64.so
-	objcopy ${EFI_SECTIONS} --target=efi-app-x86_64 $< $@
-
-# BIOS loader
-cdrom/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld | dirs
-	${KLD} -T boot/link.ld -o $@ boot/boot.o boot/cstuff.o
-
-boot/cstuff.o: boot/cstuff.c boot/*.h
-	${CC} -c -Os -o $@ $<
-
-boot/boot.o: boot/boot.S
-	${AS} -o $@ $<
+.PHONY: boot
+boot:
+	$(MAKE) -C boot
 
 .PHONY: clean
 clean:

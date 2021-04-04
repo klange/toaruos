@@ -1,0 +1,3 @@
+#pragma once
+
+#define assert(...)

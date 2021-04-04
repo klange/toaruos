@@ -1,4 +1,5 @@
 .code16
+.section .text.boot
 main:
 	ljmp $0x0,$0x7c05
 main2:

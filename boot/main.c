@@ -6,47 +6,28 @@ EFI_HANDLE ImageHandleIn;
 #  include "types.h"
 #endif
 
-#include "ata.h"
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include "base.h"
 #include "text.h"
 #include "util.h"
-#ifndef EFI_PLATFORM
-#include "atapi_imp.h"
-#include "iso9660.h"
-#endif
 #include "elf.h"
 #include "multiboot.h"
 #include "kbd.h"
 #include "options.h"
 
-/* Basic text strings */
-#define BASE_VERSION "ToaruOS Bootloader v2.1"
-#ifdef EFI_PLATFORM
-#  if defined(__x86_64__)
-#    define VERSION_TEXT BASE_VERSION " (EFI, X64)"
-#  else
-#    define VERSION_TEXT BASE_VERSION " (EFI, IA32)"
-#  endif
-#else
-#  define VERSION_TEXT BASE_VERSION " (BIOS)"
+#ifndef EFI_PLATFORM
+extern void bump_heap_setup(void*);
 #endif
-#define HELP_TEXT "Press <Enter> or select a menu option with \030/\031/\032/\033."
-#define COPYRIGHT_TEXT "ToaruOS is free software under the NCSA license."
-#define LINK_TEXT "https://toaruos.org - https://github.com/klange/toaruos"
 
-/* Boot command line strings */
-#define DEFAULT_ROOT_CMDLINE "root=/dev/ram0 root_type=tar "
-#define DEFAULT_GRAPHICAL_CMDLINE "start=live-session "
-#define DEFAULT_SINGLE_CMDLINE "start=terminal\037-F "
-#define DEFAULT_TEXT_CMDLINE "start=--vga "
-#define DEFAULT_VID_CMDLINE "vid=auto,1440,900 "
-#define DEFAULT_PRESET_VID_CMDLINE "vid=preset "
-#define DEFAULT_NETINIT_CMDLINE "init=/dev/ram0 "
-#define NETINIT_REMOTE_URL "args=http://toaruos.org/ramdisk-1.9.3.img "
-#define MIGRATE_CMDLINE "migrate "
-#define DEBUG_LOG_CMDLINE "logtoserial=warning "
-#define DEBUG_SERIAL_CMDLINE "kdebug "
-#define DEFAULT_HEADLESS_CMDLINE "start=--headless "
+extern void krk_initVM(int);
+extern unsigned long long krk_interpret(const char * src, char * fromFile);
+extern void * krk_startModule(const char * name);
+extern void krk_resetStack(void);
+extern void krk_printResult(unsigned long long val);
 
+/* Basic text strings */
 char * module_dir = "MOD";
 char * kernel_path = "KERNEL.";
 char * ramdisk_path = "RAMDISK.IMG";
@@ -55,11 +36,8 @@ char * ramdisk_path = "RAMDISK.IMG";
 int _efi_do_mode_set = 0;
 #endif
 
-/* Where to dump kernel data while loading */
-#define KERNEL_LOAD_START 0x300000
-
 /* Module file names - need to be ordered. */
-static char * modules[] = {
+char * modules[] = {
 	"ZERO.KO",     // 0
 	"RANDOM.KO",   // 1
 	"SERIAL.KO",   // 2
@@ -89,7 +67,7 @@ static char * modules[] = {
 };
 
 /* Names of the available boot modes. */
-static struct bootmode boot_mode_names[] = {
+struct bootmode boot_mode_names[] = {
 	{1, "normal",   "Normal Boot"},
 #ifndef EFI_PLATFORM
 	{2, "vga",      "VGA Text Mode"},
@@ -98,8 +76,23 @@ static struct bootmode boot_mode_names[] = {
 	{4, "headless", "Headless"},
 };
 
-/* More bootloader implementation that depends on the module config */
-#include "moremultiboot.h"
+unsigned int BASE_SEL = ((sizeof(boot_mode_names)/sizeof(*boot_mode_names))-1);
+
+static void updateCursor(int x, int y) {
+#ifndef EFI_PLATFORM
+	unsigned short pos = (y * 80 + x);
+	outportb(0x3D4, 0x0F);
+	outportb(0x3D5, pos & 0xFF);
+	outportb(0x3D4, 0x0E);
+	outportb(0x3D5, (pos >> 8) & 0xFF);
+#endif
+}
+
+static void backspace(void) {
+	move_cursor_rel(-1,0);
+	print_(" ");
+	move_cursor_rel(-1,0);
+}
 
 #ifdef EFI_PLATFORM
 EFI_STATUS
@@ -197,6 +190,102 @@ int kmain() {
 			"Displays a y/n prompt for each possible mode.",
 			NULL);
 #endif
+
+#ifndef EFI_PLATFORM
+	outportb(0x3D4, 0x0A);
+	outportb(0x3D5, (inportb(0x3d5) & 0xc0) | 0x00);
+	outportb(0x3D4, 0x0B);
+	outportb(0x3D5, (inportb(0x3d5) & 0xe0) | 0x0F);
+	bump_heap_setup((void*)KERNEL_LOAD_START);
+#endif
+
+	set_attr(0x07);
+	clear_();
+	move_cursor(0,0);
+	updateCursor(0,0);
+
+	char * data = malloc(1024);
+	int read = 0;
+
+	krk_initVM(0);
+	krk_startModule("__main__");
+	krk_interpret("if True:\n import kuroko\n print(f'Kuroko {kuroko.version} ({kuroko.builddate}) with {kuroko.buildenv}')", "<stdin>");
+	puts("Type `license` for copyright, `exit` to return to menu.");
+	while(1) {
+		int inCont = 0;
+		char * prompt = ">>> ";
+		print_(prompt);
+		data[0] = 0;
+		while (1) {
+			updateCursor(x,y);
+			int resp = read_key();
+			if (resp == '\b') {
+				if (!read) continue;
+				read--;
+				data[read] = '\0';
+				backspace();
+			} else if (resp == 0xc) {
+				clear_();
+				print_(prompt);
+				if (read) {
+					char * c = &data[read-1];
+					while (c > data && *c != '\n') c--;
+					if (*c == '\n') c++;
+					print_(c);
+				}
+			} else if (resp == 0x17) {
+				if (read) {
+					char * c = &data[read-1];
+					while (c >= data && *c == ' ') {
+						read--;
+						data[read] = '\0';
+						backspace();
+						c--;
+					}
+					while (c >= data && *c != ' ') {
+						read--;
+						data[read] = '\0';
+						backspace();
+						c--;
+					}
+				}
+			} else if (resp == '\n' || resp == '\r') {
+				print_("\n");
+				if (inCont) {
+					int r = read-1;
+					while (r > 0 && data[r] != '\n') {
+						if (data[r] != ' ') break;
+						r--;
+					}
+					if (data[r] == '\n') break;
+				}
+				if (read && (data[read-1] == ':' || inCont)) {
+					prompt = "  > ";
+					print_(prompt);
+					data[read++] = '\n';
+					data[read] = '\0';
+					inCont = 1;
+					continue;
+				} else {
+					break;
+				}
+			} else {
+				data[read++] = resp;
+				data[read] = '\0';
+				char tmp[2] = {resp,0};
+				print_(tmp);
+			}
+		}
+		if (read) {
+			if (!strcmp(data,"exit")) break;
+			unsigned long long result = krk_interpret(data,"<stdin>");
+			krk_printResult(result);
+			krk_resetStack();
+			data[0] = '\0';
+			read = 0;
+		}
+	}
+	scroll_disabled = 1;
 
 	/* Loop over rendering the menu */
 	show_menu();

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "types.h"
+
 #define MULTIBOOT_MAGIC        0x1BADB002
 #define MULTIBOOT_EAX_MAGIC    0x2BADB002
 #define MULTIBOOT_FLAG_MEM     0x001
@@ -93,4 +95,9 @@ extern struct multiboot *copy_multiboot(struct multiboot *mboot_ptr);
 extern void dump_multiboot(struct multiboot *mboot_ptr);
 extern char * ramdisk;
 extern struct multiboot * mboot_ptr;
-static char cmdline[1024] = {0};
+extern char cmdline[1024];
+
+/* TODO Move the menu to a new thing */
+extern void show_menu(void);
+extern int boot_mode;
+extern void boot(void);
