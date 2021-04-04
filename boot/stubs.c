@@ -265,6 +265,7 @@ double strtod(const char *nptr, char **endptr) {
 
 FILE * stdout = NULL;
 FILE * stderr = NULL;
+FILE * stdin  = NULL;
 
 int fputc(int c, FILE * stream) {
 	if (stream == stdout) {

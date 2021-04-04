@@ -6,6 +6,7 @@ typedef void * FILE;
 
 extern FILE * stdout;
 extern FILE * stderr;
+extern FILE * stdin;
 
 extern int fprintf(FILE *stream, const char * fmt, ...);
 extern int snprintf(char * str, size_t size, const char * format, ...);
@@ -31,4 +32,7 @@ extern int stat(const char*,struct stat*);
 extern int errno;
 extern char * strerror(int errnum);
 extern int feof(FILE * stream);
+#define fflush(o)
+#define ferror(o) (0)
+#define fwrite(a,b,c,d) (0)
 #endif

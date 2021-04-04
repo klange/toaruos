@@ -15,7 +15,7 @@ KUROKO_CS=builtins.c chunk.c compiler.c debug.c exceptions.c memory.c obj_base.c
 KUROKO_SRC=$(patsubst %,../kuroko/src/%,${KUROKO_CS})
 COMMON_SRC=$(sort $(wildcard *.c))
 BIOS_SRC=$(sort $(wildcard bios/*.c))
-EFI_SRC=$(sort $(wildcard efi/*.c))
+EFI_SRC=$(sort $(wildcard efi/*.c)) ../kuroko/src/fileio.c
 
 EFI32_OBJS=$(patsubst %.c,%.efi32.o, ${COMMON_SRC} ${EFI_SRC} ${KUROKO_SRC})
 EFI64_OBJS=$(patsubst %.c,%.efi64.o, ${COMMON_SRC} ${EFI_SRC} ${KUROKO_SRC})

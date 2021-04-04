@@ -35,11 +35,6 @@ efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	 */
 	uefi_call_wrapper(ST->BootServices->SetWatchdogTimer, 4, 0, 0, 0, NULL);
 
-	FILE * test = fopen("kernel","r");
-	fprintf(stderr, "test = %p\n", test);
-
-	fclose(test);
-
 	/*
 	 * Start shell
 	 */

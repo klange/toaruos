@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <dirent.h>
 
 extern EFI_HANDLE ImageHandleIn;
 
@@ -146,4 +147,27 @@ int errno = 0;
 char * strerror(int errnum) {
 	if (errnum == 14) return "File not found";
 	return "unknown";
+}
+
+DIR * opendir(const char * name) {
+	return (DIR *)fopen(name,"r");
+}
+
+int closedir(DIR * dirp) {
+	return fclose((FILE*)dirp);
+}
+
+static char _dirInfo[1024];
+static struct dirent _dirOut;
+
+struct dirent * readdir(DIR *dirp) {
+	if (fread(&_dirInfo, 1, 1024, (FILE*)dirp)) {
+		_dirOut.d_ino = 0;
+		for (size_t i = 0; i < 255; ++i) {
+			_dirOut.d_name[i] = ((EFI_FILE_INFO*)&_dirInfo)->FileName[i];
+			_dirOut.d_name[i+1] = 0;
+		}
+		return &_dirOut;
+	}
+	return NULL;
 }
