@@ -308,9 +308,6 @@ int krk_repl(void) {
 		}
 		FREE_ARRAY(char *, lines, lineCapacity);
 		if (valid) {
-			if (!strcmp(allData, "boot\n")) {
-				break;
-			}
 			KrkValue result = krk_interpret(allData, "<stdin>");
 			krk_printResult(result);
 			krk_resetStack();

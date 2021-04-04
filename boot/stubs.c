@@ -76,6 +76,16 @@ char * strchr(const char * s, int c) {
 	return *s == c ? (char*)s : NULL;
 }
 
+char * strrchr(const char * s, int c) {
+	size_t l = strlen(s);
+	for (size_t i = 0; i < l; ++i) {
+		if (s[l-i-1] == c) {
+			return (char*)&s[l-i-1];
+		}
+	}
+	return NULL;
+}
+
 void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *)) {
 	if (!nmemb) return;
 	if (!size) return;

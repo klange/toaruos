@@ -1,0 +1,48 @@
+'''
+Implements the interactive help() command.
+'''
+from kuroko import version
+
+let __introText = ('''\
+Kuroko {version}
+
+Kuroko is a bytecode-compiled, duck-typed language with familiar indentation-
+driven block syntax. This documentation is incomplete. For more information,
+please consult the README or website (https://github.com/klange/kuroko).
+
+To leave the REPL, type `exit()` or press Ctrl-D on a blank line.
+
+The REPL will automatically indent blocks when a line ends with a `:`. To turn
+this functionality off, type `paste()`. Tab completion of global variable names
+and attribute field names is available.
+'''.format(version=version))
+
+def interactive():
+    '''Runs the detailed help tool. Currently that means just printing a longer help string.'''
+    print(__introText)
+
+def simple(obj):
+    try:
+        print(obj.__doc__)
+    except:
+        try:
+            print(obj.__class__.__doc__)
+        except:
+            print('No docstring avaialble for', obj)
+
+let __licenseText = '''
+Copyright (c) 2020-2021 K. Lange <klange@toaruos.org>
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED 'AS IS' AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+'''
+

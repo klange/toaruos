@@ -1,6 +1,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdint.h>
+#include "text.h"
 
 void * memset(void * dest, int c, size_t n) {
 	asm volatile("cld; rep stosb"

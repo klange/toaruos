@@ -1,0 +1,2 @@
+def raiseException():
+    raise ValueError()

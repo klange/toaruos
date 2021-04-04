@@ -11,6 +11,7 @@
 /base/lib/kuroko
 /base/src
 /_base
+/cdrom/krk
 /cdrom/extra
 /cdrom/kernel
 /cdrom/netinit
@@ -18,6 +19,7 @@
 /cdrom/ramdisk.img
 /cdrom/boot.sys
 /cdrom/fat.img
+/fatbase/krk
 /fatbase/extra
 /fatbase/kernel
 /fatbase/netinit

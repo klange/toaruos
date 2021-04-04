@@ -15,4 +15,20 @@ extern int puts(const char * s);
 
 #define printf(...) fprintf(stdout, __VA_ARGS__)
 
-
+#ifdef EFI_PLATFORM
+extern int fgetc(FILE * stream);
+extern FILE * fopen(const char * pathname, const char * mode);
+extern int fclose(FILE * stream);
+extern size_t fread(void * ptr, size_t size, size_t nmemb, FILE * stream);
+extern int fseek(FILE * stream, long offset, int whence);
+extern long ftell(FILE * stream);
+#define SEEK_SET 1
+#define SEEK_END 2
+struct stat {
+    int pad;
+};
+extern int stat(const char*,struct stat*);
+extern int errno;
+extern char * strerror(int errnum);
+extern int feof(FILE * stream);
+#endif

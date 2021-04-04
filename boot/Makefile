@@ -1,7 +1,8 @@
 # Make rules for the BIOS and EFI loaders
 TARGETS=../fatbase/efi/boot/bootx64.efi ../fatbase/efi/boot/bootia32.efi ../cdrom/boot.sys
+KRKFILES=$(patsubst krk/%,../fatbase/krk/%,$(sort $(wildcard krk/*.krk)))
 
-all: ${TARGETS}
+all: ${TARGETS} ${KRKFILES}
 
 export PATH := $(shell ../util/activate.sh)
 TARGET_TRIPLET=i686-pc-toaru
@@ -18,11 +19,11 @@ EFI_SRC=$(sort $(wildcard efi/*.c))
 
 EFI32_OBJS=$(patsubst %.c,%.efi32.o, ${COMMON_SRC} ${EFI_SRC} ${KUROKO_SRC})
 EFI64_OBJS=$(patsubst %.c,%.efi64.o, ${COMMON_SRC} ${EFI_SRC} ${KUROKO_SRC})
-BIOS_OBJS=$(patsubst %.c,%.bios.o, ${COMMON_SRC} ${BIOS_SRC} ${KUROKO_SRC}) boot.o
+BIOS_OBJS=$(patsubst %.c,%.bios.o, ${COMMON_SRC} ${BIOS_SRC} ${KUROKO_SRC}) bios/boot.o
 
-KUROKO_CFLAGS=-DSTATIC_ONLY -DKRK_NO_DOCUMENTATION -DSTRICTLY_NO_THREADS -DNO_SOURCE_IN_TRACEBACK -DNDEBUG -DNO_FILESYSTEM
+KUROKO_CFLAGS=-DSTATIC_ONLY -DSTRICTLY_NO_THREADS -DNDEBUG
 COMMON_CFLAGS=${KUROKO_CFLAGS} -ffreestanding -I. -nostdinc -Iinclude
-BIOS_CFLAGS=${COMMON_CFLAGS} -Os -Ddouble=int
+BIOS_CFLAGS=${COMMON_CFLAGS} -Os -Ddouble=int  -DNO_FILESYSTEM  -DNO_SOURCE_IN_TRACEBACK  -DKRK_NO_DOCUMENTATION
 EFI_CFLAGS=${COMMON_CFLAGS} -fno-stack-protector -fpic -DEFI_PLATFORM -fshort-wchar -I /usr/include/efi -mno-red-zone
 EFI_SECTIONS=-j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel -j .rela -j .reloc
 
@@ -44,10 +45,16 @@ efi64.so: ${EFI64_OBJS}
 ../fatbase/efi/boot/bootx64.efi: efi64.so
 	objcopy ${EFI_SECTIONS} --target=efi-app-x86_64 $< $@
 
+../fatbase/krk:
+	mkdir ../fatbase/krk
+
+../fatbase/krk/%.krk: krk/%.krk | ../fatbase/krk
+	cp $< $@
+
 %.bios.o: %.c
 	$(CC) ${BIOS_CFLAGS} -c -o $@ $<
 
-boot.o: boot.S
+bios/boot.o: bios/boot.S
 	${AS} -o $@ $<
 
 ../cdrom/boot.sys: ${BIOS_OBJS} link.ld

@@ -1,11 +1,4 @@
-#ifdef EFI_PLATFORM
-#  include <efi.h>
-#  include <efilib.h>
-EFI_HANDLE ImageHandleIn;
-#else
-#  include "types.h"
-#endif
-
+#include "types.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -31,10 +24,6 @@ uintptr_t KERNEL_LOAD_START = 0;
 char * module_dir = "MOD";
 char * kernel_path = "KERNEL.";
 char * ramdisk_path = "RAMDISK.IMG";
-
-#ifdef EFI_PLATFORM
-int _efi_do_mode_set = 0;
-#endif
 
 /* Module file names - need to be ordered. */
 char * modules[] = {
@@ -69,9 +58,7 @@ char * modules[] = {
 /* Names of the available boot modes. */
 struct bootmode boot_mode_names[] = {
 	{1, "normal",   "Normal Boot"},
-#ifndef EFI_PLATFORM
 	{2, "vga",      "VGA Text Mode"},
-#endif
 	{3, "single",   "Single-User Graphical Terminal"},
 	{4, "headless", "Headless"},
 };
@@ -79,39 +66,23 @@ struct bootmode boot_mode_names[] = {
 unsigned int BASE_SEL = ((sizeof(boot_mode_names)/sizeof(*boot_mode_names))-1);
 
 static void updateCursor(int x, int y) {
-#ifndef EFI_PLATFORM
 	unsigned short pos = (y * 80 + x);
 	outportb(0x3D4, 0x0F);
 	outportb(0x3D5, pos & 0xFF);
 	outportb(0x3D4, 0x0E);
 	outportb(0x3D5, (pos >> 8) & 0xFF);
-#endif
 }
 
 static void backspace(void) {
-#ifndef EFI_PLATFORM
 	move_cursor_rel(-1,0);
 	print_(" ");
 	move_cursor_rel(-1,0);
-#else
-	print_("\x08");
-#endif
 }
 
-#ifdef EFI_PLATFORM
-EFI_STATUS
-	EFIAPI
-efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
-{
-	InitializeLib(ImageHandle, SystemTable);
-	ST = SystemTable;
-	ImageHandleIn = ImageHandle;
-#else
 extern char _bss_start[];
 extern char _bss_end[];
 int kmain() {
 	memset(&_bss_start,0,(uintptr_t)&_bss_end-(uintptr_t)&_bss_start);
-#endif
 
 	BOOT_OPTION(_debug,       0, "Debug output",
 			"Enable debug output in the bootloader and enable the",
@@ -177,25 +148,6 @@ int kmain() {
 			"Downloads a userspace filesystem from a remote",
 			"HTTP server and extracts it at boot.");
 
-#ifdef EFI_PLATFORM
-	BOOT_OPTION(_efilargest,  0, "Prefer largest mode.",
-			"When using EFI mode setting, use the largest mode.",
-			NULL);
-
-	BOOT_OPTION(_efi1024,     0, "Prefer 1024x768",
-			"If a 1024x768x32 mode is found, set that.",
-			NULL);
-
-	BOOT_OPTION(_efi1080p,    0, "Prefer 1080p",
-			"If a 1920x1080 mode is found, set that.",
-			NULL);
-
-	BOOT_OPTION(_efiask,      0, "Ask for input on each mode.",
-			"Displays a y/n prompt for each possible mode.",
-			NULL);
-#endif
-
-#ifndef EFI_PLATFORM
 	KERNEL_LOAD_START = 0x5000000;
 	outportb(0x3D4, 0x0A);
 	outportb(0x3D5, (inportb(0x3d5) & 0xc0) | 0x00);
@@ -206,10 +158,6 @@ int kmain() {
 	clear_();
 	move_cursor(0,0);
 	updateCursor(0,0);
-#else
-	set_attr(0x07);
-	uefi_call_wrapper(ST->ConOut->EnableCursor, 2, ST->ConOut, 1);
-#endif
 
 
 	char * data = malloc(1024);
@@ -220,7 +168,6 @@ int kmain() {
 	krk_interpret("if True:\n import kuroko\n print(f'Kuroko {kuroko.version} ({kuroko.builddate}) with {kuroko.buildenv}')", "<stdin>");
 	puts("Type `license` for copyright, `exit` to return to menu.");
 
-#ifndef EFI_PLATFORM
 	while(1) {
 		int inCont = 0;
 		char * prompt = ">>> ";
@@ -295,13 +242,6 @@ int kmain() {
 			read = 0;
 		}
 	}
-#else
-	krk_repl();
-
-	EFI_PHYSICAL_ADDRESS allocSpace;
-	uefi_call_wrapper(ST->BootServices->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, 8192, &allocSpace);
-	KERNEL_LOAD_START = allocSpace;
-#endif
 	scroll_disabled = 1;
 
 	/* Loop over rendering the menu */
@@ -323,12 +263,6 @@ int kmain() {
 	}
 
 	char * _video_command_line = DEFAULT_VID_CMDLINE;
-#ifdef EFI_PLATFORM
-	_efi_do_mode_set = (_efilargest ? 1 : (_efi1024 ? 2 : (_efi1080p ? 3 : (_efiask ? 4 : 0))));
-	if (_efi_do_mode_set) {
-		_video_command_line = DEFAULT_PRESET_VID_CMDLINE;
-	}
-#endif
 
 	if (boot_mode == 1) {
 		strcat(cmdline, DEFAULT_GRAPHICAL_CMDLINE);
