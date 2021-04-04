@@ -36,12 +36,6 @@ static __attribute__((used)) int _isxdigit(int c) { if (c > 128) return 0; retur
 #define isdigit(c) _isdigit(c)
 #define isxdigit(c) _isxdigit(c)
 
-#define fflush(f)
-
-static int atoi(const char * c) {
-	return strtol(c,NULL,10);
-}
-
 char * rline_history[RLINE_HISTORY_ENTRIES];
 int rline_history_count  = 0;
 int rline_history_offset = 0;

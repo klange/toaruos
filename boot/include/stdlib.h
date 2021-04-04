@@ -14,3 +14,4 @@ extern void qsort(void *base, size_t nmemb, size_t size,
 
 extern void abort(void);
 extern void exit(int status);
+extern int atoi(const char * c);

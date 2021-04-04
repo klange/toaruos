@@ -31,3 +31,4 @@ extern char * strcat(char *dest, const char *src);
 extern char *strstr(const char *haystack, const char *needle);
 extern char * strchr(const char * s, int c);
 extern char * strrchr(const char * s, int c);
+extern char * strcpy(char * restrict dest, const char * restrict src);

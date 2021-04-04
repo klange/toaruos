@@ -24,7 +24,7 @@ BIOS_OBJS=$(patsubst %.c,%.bios.o, ${COMMON_SRC} ${BIOS_SRC} ${KUROKO_SRC}) bios
 KUROKO_CFLAGS=-DSTATIC_ONLY -DSTRICTLY_NO_THREADS -DNDEBUG
 COMMON_CFLAGS=${KUROKO_CFLAGS} -ffreestanding -I. -nostdinc -Iinclude
 BIOS_CFLAGS=${COMMON_CFLAGS} -Os -Ddouble=int  -DNO_FILESYSTEM  -DNO_SOURCE_IN_TRACEBACK  -DKRK_NO_DOCUMENTATION
-EFI_CFLAGS=${COMMON_CFLAGS} -fno-stack-protector -fpic -DEFI_PLATFORM -fshort-wchar -I /usr/include/efi -mno-red-zone
+EFI_CFLAGS=${COMMON_CFLAGS} -fno-stack-protector -fpic -DEFI_PLATFORM -fshort-wchar -I /usr/include/efi -mno-red-zone -DKRK_ENABLE_DEBUG
 EFI_SECTIONS=-j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel -j .rela -j .reloc
 
 %.efi32.o: %.c

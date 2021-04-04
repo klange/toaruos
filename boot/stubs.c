@@ -185,6 +185,16 @@ long int strtol(const char *nptr, char **endptr, int base) {
 	strtox(LONG_MAX, unsigned long int);
 }
 
+int atoi(const char * c) {
+	return strtol(c,NULL,10);
+}
+
+char * strcpy(char * restrict dest, const char * restrict src) {
+	char * out = dest;
+	for (; (*dest=*src); src++, dest++);
+	return out;
+}
+
 #ifndef EFI_PLATFORM
 double strtod(const char *nptr, char **endptr) {
 	return strtol(nptr,endptr,10);
