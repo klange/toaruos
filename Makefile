@@ -273,7 +273,7 @@ EFI_BOOT=cdrom/fat.img
 EFI_UPDATE=util/update-extents.py
 
 image.iso: ${EFI_BOOT} cdrom/boot.sys fatbase/netinit ${MODULES} util/update-extents.py
-	xorriso -as mkisofs -R -J -c bootcat \
+	xorriso -rockridge off -as mkisofs -c bootcat \
 	  -b boot.sys -no-emul-boot -boot-load-size full \
 	  ${EFI_XORRISO} \
 	  -o image.iso cdrom
