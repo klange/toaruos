@@ -12,9 +12,11 @@ class EshHighlighter(Highlighter):
         "then","else","echo",
     ]
     def variableQualifier(c):
-        return self.isalnum(c) or c == '_'
+        c = c if isinstance(c,int) else ord(c) if c else -1
+        return self.isalnum(c) or c == ord('_')
     def keywordQualifier(c):
-        return self.isalnum(c) or c in '?_-'
+        c = c if isinstance(c,int) else ord(c) if c else -1
+        return self.isalnum(c) or c > 0 and chr(c) in '?_-'
     def paintVariable():
         if self[0] == '{':
             self.paint(1, self.FLAG_TYPE)

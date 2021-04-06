@@ -13,7 +13,7 @@ class BashHighlighter(Highlighter):
     ]
 
     def popState(self, state):
-        let newState = state / 100
+        let newState = state // 100
         return newState * 10
 
     def pushState(self, state, newState):
@@ -135,7 +135,7 @@ class BashHighlighter(Highlighter):
         else if self.state >= 10:
             let outState = self.state
             while self[0] != None:
-                let s = (outState / 10) % 10
+                let s = (outState // 10) % 10
                 if s == 1: outState = self.paintString("'", outState, self.FLAG_STRING)
                 else if s == 2: outState = self.paintString('`', outState, self.FLAG_ESCAPE)
                 else if s == 3: outState = self.paintString(')', outState, self.FLAG_TYPE)

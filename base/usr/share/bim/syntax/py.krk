@@ -8,6 +8,7 @@ class PythonHighlighter(Highlighter):
         "class","def","return","del","if","else","elif","for","while","continue",
         "break","assert","as","and","or","except","finally","from","global",
         "import","in","is","lambda","with","nonlocal","not","pass","raise","try","yield",
+        "async","await",
     ]
     types = [
         "abs","all","any","ascii","bin","bool","breakpoint","bytes",

@@ -15,6 +15,7 @@ class KrkHighlighter(Highlighter):
         'and','class','def','else','export','for','if','in','import','let','not',
         'or','return','while','try','except','raise','continue','break','as','from',
         'elif', 'lambda', 'pass', 'with', 'is', 'del', 'assert', 'yield', 'finally',
+        'async', 'await',
     ]
 
     types = [
@@ -22,7 +23,7 @@ class KrkHighlighter(Highlighter):
         'object','exception','isinstance','type','print','tuple','bool','any','all',
         'hex','ord','chr','bytes','set','getattr','setattr','input','zip','enumerate',
         'property','staticmethod','classmethod','filter','min','max','id','map','bin',
-        'sum','sorted','issubclass','hasattr','delattr',
+        'sum','sorted','issubclass','hasattr','delattr', 'NotImplemented',
     ]
 
     special = [

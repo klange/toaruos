@@ -6,6 +6,7 @@ def _make_dox():
         "@author","@brief","@class","@short","@retval",
         "@since","@return","@returns","@throws","@bug",
         "@version","@deprecated","@attention","@note",
+        "@protected",
     ]
 
     let doxygen_word_commands = {

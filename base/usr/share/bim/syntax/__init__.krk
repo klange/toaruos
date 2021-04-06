@@ -38,10 +38,10 @@ class Highlighter(SyntaxState):
 
     @staticmethod
     def isalpha(c):
-        c = c if isinstance(c,int) else ord(c)
+        c = c if isinstance(c,int) else ord(c) if c else -1
         return (c >= ord('a') and c <= ord('z')) or (c >= ord('A') and c <= ord('Z'))
 
     @staticmethod
     def isalnum(c):
-        c = c if isinstance(c,int) else ord(c)
+        c = c if isinstance(c,int) else ord(c) if c else -1
         return (c >= ord('a') and c <= ord('z')) or (c >= ord('A') and c <= ord('Z')) or (c >= ord('0') and c <= ord('9'))
