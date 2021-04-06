@@ -2,36 +2,22 @@
 #include <string.h>
 #include <va_list.h>
 
-static void print_dec(unsigned int value, unsigned int width, char * buf, int * ptr, int fill_zero, int align_right, int precision) {
-	unsigned int n_width = 1;
-	unsigned int i = 9;
+static void print_dec(unsigned long long value, unsigned int width, char * buf, int * ptr, int fill_zero, int align_right, int precision) {
+	unsigned long long n_width = 1;
+	unsigned long long i = 9;
 	if (precision == -1) precision = 1;
 
 	if (value == 0) {
 		n_width = 0;
-	} else if (value < 10UL) {
-		n_width = 1;
-	} else if (value < 100UL) {
-		n_width = 2;
-	} else if (value < 1000UL) {
-		n_width = 3;
-	} else if (value < 10000UL) {
-		n_width = 4;
-	} else if (value < 100000UL) {
-		n_width = 5;
-	} else if (value < 1000000UL) {
-		n_width = 6;
-	} else if (value < 10000000UL) {
-		n_width = 7;
-	} else if (value < 100000000UL) {
-		n_width = 8;
-	} else if (value < 1000000000UL) {
-		n_width = 9;
 	} else {
-		n_width = 10;
+		unsigned long long val = value;
+		while (val >= 10UL) {
+			val /= 10UL;
+			n_width++;
+		}
 	}
 
-	if (n_width < (unsigned int)precision) n_width = precision;
+	if (n_width < (unsigned long long)precision) n_width = precision;
 
 	int printed = 0;
 	if (align_right) {
@@ -43,8 +29,8 @@ static void print_dec(unsigned int value, unsigned int width, char * buf, int * 
 
 		i = n_width;
 		while (i > 0) {
-			unsigned int n = value / 10;
-			int r = value % 10;
+			unsigned long long n = value / 10;
+			long long r = value % 10;
 			buf[*ptr + i - 1] = r + '0';
 			i--;
 			value = n;
@@ -53,15 +39,15 @@ static void print_dec(unsigned int value, unsigned int width, char * buf, int * 
 	} else {
 		i = n_width;
 		while (i > 0) {
-			unsigned int n = value / 10;
-			int r = value % 10;
+			unsigned long long n = value / 10;
+			long long r = value % 10;
 			buf[*ptr + i - 1] = r + '0';
 			i--;
 			value = n;
 			printed++;
 		}
 		*ptr += n_width;
-		while (printed < (int)width) {
+		while (printed < (long long)width) {
 			buf[*ptr] = fill_zero ? '0' : ' ';
 			*ptr += 1;
 			printed += 1;
@@ -72,26 +58,26 @@ static void print_dec(unsigned int value, unsigned int width, char * buf, int * 
 /*
  * Hexadecimal to string
  */
-static void print_hex(unsigned int value, unsigned int width, char * buf, int * ptr) {
+static void print_hex(unsigned long long value, unsigned int width, char * buf, int * ptr) {
 	int i = width;
 
 	if (i == 0) i = 8;
 
-	unsigned int n_width = 1;
-	unsigned int j = 0x0F;
-	while (value > j && j < UINT32_MAX) {
+	unsigned long long n_width = 1;
+	unsigned long long j = 0x0F;
+	while (value > j && j < UINT64_MAX) {
 		n_width += 1;
 		j *= 0x10;
 		j += 0x0F;
 	}
 
-	while (i > (int)n_width) {
+	while (i > (long long)n_width) {
 		buf[*ptr] = '0';
 		*ptr += 1;
 		i--;
 	}
 
-	i = (int)n_width;
+	i = (long long)n_width;
 	while (i-- > 0) {
 		buf[*ptr] = "0123456789abcdef"[(value>>(i*4))&0xF];
 		*ptr += + 1;
@@ -175,16 +161,7 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 				{
 					size_t count = 0;
 					if (big) {
-						wchar_t * ws = (wchar_t *)va_arg(args, wchar_t *);
-						if (ws == NULL) {
-							ws = L"(null)";
-						}
-						size_t count = 0;
-						while (*ws) {
-							*b++ = *ws++;
-							count++;
-							if (arg_width && count == arg_width) break;
-						}
+						return -1;
 					} else {
 						s = (char *)va_arg(args, char *);
 						if (s == NULL) {
@@ -218,23 +195,26 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 				if (!arg_width) {
 					arg_width = 8;
 					alt = 1;
+					if (sizeof(void*) == sizeof(long long)) big = 2;
 				}
 			case 'x': /* Hexadecimal number */
-				if (alt) {
-					*b++ = '0';
-					*b++ = 'x';
-				}
-				i = b - buf;
-				if (big == 2) {
-					unsigned long long val = (unsigned long long)va_arg(args, unsigned long long);
-					if (val > 0xFFFFFFFF) {
-						print_hex(val >> 32, arg_width > 8 ? (arg_width - 8) : 0, buf, &i);
+				{
+					if (alt) {
+						*b++ = '0';
+						*b++ = 'x';
 					}
-					print_hex(val & 0xFFFFFFFF, arg_width > 8 ? 8 : arg_width, buf, &i);
-				} else {
-					print_hex((unsigned long)va_arg(args, unsigned long), arg_width, buf, &i);
+					i = b - buf;
+					unsigned long long val;
+					if (big == 2) {
+						val = (unsigned long long)va_arg(args, unsigned long long);
+					} else if (big == 1) {
+						val = (unsigned long)va_arg(args, unsigned long);
+					} else {
+						val = (unsigned int)va_arg(args, unsigned int);
+					}
+					print_hex(val, arg_width, buf, &i);
+					b = buf + i;
 				}
-				b = buf + i;
 				break;
 			case 'i':
 			case 'd': /* Decimal number */
@@ -242,8 +222,10 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 					long long val;
 					if (big == 2) {
 						val = (long long)va_arg(args, long long);
-					} else {
+					} else if (big == 1) {
 						val = (long)va_arg(args, long);
+					} else {
+						val = (int)va_arg(args, int);
 					}
 					if (val < 0) {
 						*b++ = '-';
@@ -262,8 +244,10 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 					unsigned long long val;
 					if (big == 2) {
 						val = (unsigned long long)va_arg(args, unsigned long long);
-					} else {
+					} else if (big == 1) {
 						val = (unsigned long)va_arg(args, unsigned long);
+					} else {
+						val = (unsigned int)va_arg(args, unsigned int);
 					}
 					print_dec(val, arg_width, buf, &i, fill_zero, align, precision);
 				}
@@ -272,20 +256,63 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 			case 'g': /* supposed to also support e */
 			case 'f':
 				{
+					if (precision == -1) precision = 8;
 					double val = (double)va_arg(args, double);
-					if (val < 0) {
+					uint64_t asBits;
+					memcpy(&asBits,&val,sizeof(double));
+#define SIGNBIT(d) (d & 0x8000000000000000UL)
+
+					/* Extract exponent */
+					int64_t exponent = (asBits & 0x7ff0000000000000UL) >> 52;
+
+					/* Fraction part */
+					uint64_t fraction = (asBits & 0x000fffffffffffffUL);
+
+					if (exponent == 0x7ff) {
+						if (!fraction) {
+							if (SIGNBIT(asBits)) {
+								*b++ = '-';
+							}
+							*b++ = 'i';
+							*b++ = 'n';
+							*b++ = 'f';
+						} else {
+							*b++ = 'n';
+							*b++ = 'a';
+							*b++ = 'n';
+						}
+						break;
+					} else if (exponent == 0 && fraction == 0) {
+						if (SIGNBIT(asBits)) {
+							*b++ = '-';
+						}
+						*b++ = '0';
+						break;
+					}
+
+					/* Okay, now we can do some real work... */
+
+					int isNegative = !!SIGNBIT(asBits);
+					if (isNegative) {
 						*b++ = '-';
 						val = -val;
 					}
+
 					i = b - buf;
-					print_dec((long)val, arg_width, buf, &i, fill_zero, align, 1);
+					print_dec((unsigned long long)val, arg_width, buf, &i, fill_zero, align, 1);
 					b = buf + i;
 					*b++ = '.';
 					i = b - buf;
-					for (int j = 0; j < ((precision > -1 && precision < 8) ? precision : 8); ++j) {
-						if ((int)(val * 100000.0) % 100000 == 0 && j != 0) break;
+					for (int j = 0; j < ((precision > -1 && precision < 16) ? precision : 16); ++j) {
+						if ((unsigned long long)(val * 100000.0) % 100000 == 0 && j != 0) break;
+						val = val - (unsigned long long)val;
 						val *= 10.0;
-						print_dec((int)(val) % 10, 0, buf, &i, 0, 0, 1);
+						double roundy = ((double)(val - (unsigned long long)val) - 0.99999);
+						if (roundy < 0.00001 && roundy > -0.00001) {
+							print_dec((unsigned long long)(val) % 10 + 1, 0, buf, &i, 0, 0, 1);
+							break;
+						}
+						print_dec((unsigned long long)(val) % 10, 0, buf, &i, 0, 0, 1);
 					}
 					b = buf + i;
 				}
