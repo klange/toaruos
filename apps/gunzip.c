@@ -91,6 +91,8 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
+	fflush(ctx.output_priv);
+
 	if (!to_stdout) {
 		fclose(ctx.output_priv);
 	}

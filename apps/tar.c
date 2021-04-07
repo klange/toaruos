@@ -142,6 +142,7 @@ static void write_file(struct ustar * file, FILE * f, FILE * mf, char * name) {
 		fread( buf, 1, length, f);
 		fwrite(buf, 1, length, mf);
 	}
+	fflush(mf);
 	if (mf != stdout) {
 		fclose(mf);
 		chmod(name, interpret_mode(file));

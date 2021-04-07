@@ -2,7 +2,9 @@
 #include <string.h>
 #include <va_list.h>
 
-static void print_dec(unsigned long long value, unsigned int width, char * buf, int * ptr, int fill_zero, int align_right, int precision) {
+#define OUT(c) do { callback(userData, (c)); written++; } while (0)
+static size_t print_dec(unsigned long long value, unsigned int width, int (*callback)(void*,char), void * userData, int fill_zero, int align_right, int precision) {
+	size_t written = 0;
 	unsigned long long n_width = 1;
 	unsigned long long i = 9;
 	if (precision == -1) precision = 1;
@@ -22,43 +24,52 @@ static void print_dec(unsigned long long value, unsigned int width, char * buf, 
 	int printed = 0;
 	if (align_right) {
 		while (n_width + printed < width) {
-			buf[*ptr] = fill_zero ? '0' : ' ';
-			*ptr += 1;
+			OUT(fill_zero ? '0' : ' ');
 			printed += 1;
 		}
 
 		i = n_width;
+		char tmp[100];
 		while (i > 0) {
 			unsigned long long n = value / 10;
 			long long r = value % 10;
-			buf[*ptr + i - 1] = r + '0';
+			tmp[i - 1] = r + '0';
 			i--;
 			value = n;
 		}
-		*ptr += n_width;
+		while (i < n_width) {
+			OUT(tmp[i]);
+			i++;
+		}
 	} else {
 		i = n_width;
+		char tmp[100];
 		while (i > 0) {
 			unsigned long long n = value / 10;
 			long long r = value % 10;
-			buf[*ptr + i - 1] = r + '0';
+			tmp[i - 1] = r + '0';
 			i--;
 			value = n;
 			printed++;
 		}
-		*ptr += n_width;
+		while (i < n_width) {
+			OUT(tmp[i]);
+			i++;
+		}
 		while (printed < (long long)width) {
-			buf[*ptr] = fill_zero ? '0' : ' ';
-			*ptr += 1;
+			OUT(fill_zero ? '0' : ' ');
 			printed += 1;
 		}
 	}
+
+	return written;
 }
 
 /*
  * Hexadecimal to string
  */
-static void print_hex(unsigned long long value, unsigned int width, char * buf, int * ptr) {
+static size_t print_hex(unsigned long long value, unsigned int width, int (*callback)(void*,char), void* userData) {
+	size_t written = 0;
 	int i = width;
 
 	if (i == 0) i = 8;
@@ -72,29 +83,29 @@ static void print_hex(unsigned long long value, unsigned int width, char * buf, 
 	}
 
 	while (i > (long long)n_width) {
-		buf[*ptr] = '0';
-		*ptr += 1;
+		OUT('0');
 		i--;
 	}
 
 	i = (long long)n_width;
 	while (i-- > 0) {
-		buf[*ptr] = "0123456789abcdef"[(value>>(i*4))&0xF];
-		*ptr += + 1;
+		char c = "0123456789abcdef"[(value>>(i*4))&0xF];
+		OUT(c);
 	}
+
+	return written;
 }
 
 /*
  * vasprintf()
  */
-int xvasprintf(char * buf, const char * fmt, va_list args) {
-	int i = 0;
+size_t xvasprintf(int (*callback)(void *, char), void * userData, const char * fmt, va_list args) {
 	char * s;
-	char * b = buf;
 	int precision = -1;
+	size_t written = 0;
 	for (const char *f = fmt; *f; f++) {
 		if (*f != '%') {
-			*b++ = *f;
+			OUT(*f);
 			continue;
 		}
 		++f;
@@ -161,7 +172,7 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 				{
 					size_t count = 0;
 					if (big) {
-						return -1;
+						return written;
 					} else {
 						s = (char *)va_arg(args, char *);
 						if (s == NULL) {
@@ -169,27 +180,27 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 						}
 						if (precision >= 0) {
 							while (*s && precision > 0) {
-								*b++ = *s++;
+								OUT(*s++);
 								count++;
 								precision--;
 								if (arg_width && count == arg_width) break;
 							}
 						} else {
 							while (*s) {
-								*b++ = *s++;
+								OUT(*s++);
 								count++;
 								if (arg_width && count == arg_width) break;
 							}
 						}
 					}
 					while (count < arg_width) {
-						*b++ = ' ';
+						OUT(' ');
 						count++;
 					}
 				}
 				break;
 			case 'c': /* Single character */
-				*b++ = (char)va_arg(args, int);
+				OUT((char)va_arg(args,int));
 				break;
 			case 'p':
 				if (!arg_width) {
@@ -200,10 +211,9 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 			case 'x': /* Hexadecimal number */
 				{
 					if (alt) {
-						*b++ = '0';
-						*b++ = 'x';
+						OUT('0');
+						OUT('x');
 					}
-					i = b - buf;
 					unsigned long long val;
 					if (big == 2) {
 						val = (unsigned long long)va_arg(args, unsigned long long);
@@ -212,8 +222,7 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 					} else {
 						val = (unsigned int)va_arg(args, unsigned int);
 					}
-					print_hex(val, arg_width, buf, &i);
-					b = buf + i;
+					written += print_hex(val, arg_width, callback, userData);
 				}
 				break;
 			case 'i':
@@ -228,18 +237,15 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 						val = (int)va_arg(args, int);
 					}
 					if (val < 0) {
-						*b++ = '-';
+						OUT('-');
 						val = -val;
 					} else if (always_sign) {
-						*b++ = '+';
+						OUT('+');
 					}
-					i = b - buf;
-					print_dec(val, arg_width, buf, &i, fill_zero, align, precision);
-					b = buf + i;
+					written += print_dec(val, arg_width, callback, userData, fill_zero, align, precision);
 				}
 				break;
 			case 'u': /* Unsigned ecimal number */
-				i = b - buf;
 				{
 					unsigned long long val;
 					if (big == 2) {
@@ -249,9 +255,8 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 					} else {
 						val = (unsigned int)va_arg(args, unsigned int);
 					}
-					print_dec(val, arg_width, buf, &i, fill_zero, align, precision);
+					written += print_dec(val, arg_width, callback, userData, fill_zero, align, precision);
 				}
-				b = buf + i;
 				break;
 			case 'g': /* supposed to also support e */
 			case 'f':
@@ -271,22 +276,22 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 					if (exponent == 0x7ff) {
 						if (!fraction) {
 							if (SIGNBIT(asBits)) {
-								*b++ = '-';
+								OUT('-');
 							}
-							*b++ = 'i';
-							*b++ = 'n';
-							*b++ = 'f';
+							OUT('i');
+							OUT('n');
+							OUT('f');
 						} else {
-							*b++ = 'n';
-							*b++ = 'a';
-							*b++ = 'n';
+							OUT('n');
+							OUT('a');
+							OUT('n');
 						}
 						break;
 					} else if (exponent == 0 && fraction == 0) {
 						if (SIGNBIT(asBits)) {
-							*b++ = '-';
+							OUT('-');
 						}
-						*b++ = '0';
+						OUT('0');
 						break;
 					}
 
@@ -294,109 +299,150 @@ int xvasprintf(char * buf, const char * fmt, va_list args) {
 
 					int isNegative = !!SIGNBIT(asBits);
 					if (isNegative) {
-						*b++ = '-';
+						OUT('-');
 						val = -val;
 					}
 
-					i = b - buf;
-					print_dec((unsigned long long)val, arg_width, buf, &i, fill_zero, align, 1);
-					b = buf + i;
-					*b++ = '.';
-					i = b - buf;
+					written += print_dec((unsigned long long)val, arg_width, callback, userData, fill_zero, align, 1);
+					OUT('.');
 					for (int j = 0; j < ((precision > -1 && precision < 16) ? precision : 16); ++j) {
 						if ((unsigned long long)(val * 100000.0) % 100000 == 0 && j != 0) break;
 						val = val - (unsigned long long)val;
 						val *= 10.0;
 						double roundy = ((double)(val - (unsigned long long)val) - 0.99999);
 						if (roundy < 0.00001 && roundy > -0.00001) {
-							print_dec((unsigned long long)(val) % 10 + 1, 0, buf, &i, 0, 0, 1);
+							written += print_dec((unsigned long long)(val) % 10 + 1, 0, callback, userData, 0, 0, 1);
 							break;
 						}
-						print_dec((unsigned long long)(val) % 10, 0, buf, &i, 0, 0, 1);
+						written += print_dec((unsigned long long)(val) % 10, 0, callback, userData, 0, 0, 1);
 					}
-					b = buf + i;
 				}
 				break;
 			case '%': /* Escape */
-				*b++ = '%';
+				OUT('%');
 				break;
 			default: /* Nothing at all, just dump it */
-				*b++ = *f;
+				OUT(*f);
 				break;
 		}
 	}
-	/* Ensure the buffer ends in a null */
-	*b = '\0';
-	return b - buf;
+	return written;
+}
+
+/* Strings */
+struct CBData {
+	char * str;
+	size_t size;
+	size_t written;
+};
+
+static int cb_sprintf(void * user, char c) {
+	struct CBData * data = user;
+	if (data->size > data->written + 1) {
+		data->str[data->written] = c;
+		data->written++;
+		if (data->written < data->size) {
+			data->str[data->written] = '\0';
+		}
+	}
+	return 0;
+}
+
+int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
+	struct CBData data = {str,size,0};
+	int out = xvasprintf(cb_sprintf, &data, format, ap);
+	cb_sprintf(&data, '\0');
+	return out;
+}
+
+int snprintf(char * str, size_t size, const char * format, ...) {
+	struct CBData data = {str,size,0};
+	va_list args;
+	va_start(args, format);
+	int out = xvasprintf(cb_sprintf, &data, format, args);
+	va_end(args);
+	cb_sprintf(&data, '\0');
+	return out;
+}
+
+/* Unlimited strings */
+static int cb_sxprintf(void * user, char c) {
+	struct CBData * data = user;
+	data->str[data->written] = c;
+	data->written++;
+	return 0;
+}
+
+int vsprintf(char *str, const char *format, va_list ap) {
+	struct CBData data = {str,0,0};
+	int out = xvasprintf(cb_sxprintf, &data, format, ap);
+	cb_sxprintf(&data, '\0');
+	return out;
+}
+
+int sprintf(char * str, const char * format, ...) {
+	struct CBData data = {str,0,0};
+	va_list args;
+	va_start(args, format);
+	int out = xvasprintf(cb_sxprintf, &data, format, args);
+	va_end(args);
+	cb_sxprintf(&data, '\0');
+	return out;
+}
+
+/**
+ * String that needs to reallocate as it goes
+ */
+static int cb_asprintf(void * user, char c) {
+	struct CBData * data = user;
+
+	if (data->written + 1 > data->size) {
+		data->size = data->size < 8 ? 8 : data->size * 2;
+		data->str = realloc(data->str, data->size);
+	}
+
+	data->str[data->written] = c;
+	data->written++;
+	return 0;
 }
 
 int vasprintf(char ** buf, const char * fmt, va_list args) {
-	char * b = malloc(1024);
-	*buf = b;
-	return xvasprintf(b, fmt, args);
-}
-
-int vsprintf(char * buf, const char *fmt, va_list args) {
-	return xvasprintf(buf, fmt, args);
-}
-
-int vsnprintf(char * buf, size_t size, const char *fmt, va_list args) {
-	/* XXX */
-	return xvasprintf(buf, fmt, args);
-}
-
-int vfprintf(FILE * device, const char *fmt, va_list args) {
-	char * buffer;
-	vasprintf(&buffer, fmt, args);
-
-	int out = fwrite(buffer, 1, strlen(buffer), device);
-	free(buffer);
+	struct CBData data = {NULL,0,0};
+	int out = xvasprintf(cb_asprintf, &data, fmt, args);
+	cb_asprintf(&data, '\0');
+	*buf = data.str;
 	return out;
+}
+
+
+/* Streams */
+
+static int cb_fprintf(void * user, char c) {
+	fputc(c,(FILE*)user);
+	return 0;
+}
+
+int fprintf(FILE *stream, const char * fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	int out = xvasprintf(cb_fprintf, stream, fmt, args);
+	va_end(args);
+	return out;
+}
+
+int printf(const char * fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	int out = xvasprintf(cb_fprintf, stdout, fmt, args);
+	va_end(args);
+	return out;
+}
+
+int vfprintf(FILE * stream, const char *fmt, va_list args) {
+	return xvasprintf(cb_fprintf, stream, fmt, args);
 }
 
 int vprintf(const char *fmt, va_list args) {
-	return vfprintf(stdout, fmt, args);
+	return xvasprintf(cb_fprintf, stdout, fmt, args);
 }
-
-int fprintf(FILE * device, const char *fmt, ...) {
-	va_list args;
-	va_start(args, fmt);
-	char * buffer;
-	vasprintf(&buffer, fmt, args);
-	va_end(args);
-
-	int out = fwrite(buffer, 1, strlen(buffer), device);
-	free(buffer);
-	return out;
-}
-
-int printf(const char *fmt, ...) {
-	va_list args;
-	va_start(args, fmt);
-	char * buffer;
-	vasprintf(&buffer, fmt, args);
-	va_end(args);
-	int out = fwrite(buffer, 1, strlen(buffer), stdout);
-	free(buffer);
-	return out;
-}
-
-int sprintf(char * buf, const char *fmt, ...) {
-	va_list args;
-	va_start(args, fmt);
-	int out = xvasprintf(buf, fmt, args);
-	va_end(args);
-	return out;
-}
-
-int snprintf(char * buf, size_t size, const char * fmt, ...) {
-	/* XXX This is bad. */
-	(void)size;
-	va_list args;
-	va_start(args, fmt);
-	int out = xvasprintf(buf, fmt, args);
-	va_end(args);
-	return out;
-}
-
 
