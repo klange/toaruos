@@ -24,6 +24,9 @@ struct _FILE {
 	char * write_buf;
 	size_t written;
 	size_t wbufsiz;
+
+	struct _FILE * prev;
+	struct _FILE * next;
 };
 
 FILE _stdin = {
@@ -78,6 +81,8 @@ FILE * stdin = &_stdin;
 FILE * stdout = &_stdout;
 FILE * stderr = &_stderr;
 
+static FILE * _head = NULL;
+
 void __stdio_init_buffers(void) {
 	_stdin.read_buf = malloc(BUFSIZ);
 	_stdout.write_buf = malloc(BUFSIZ);
@@ -85,6 +90,14 @@ void __stdio_init_buffers(void) {
 	_stdin._name = strdup("stdin");
 	_stdout._name = strdup("stdout");
 	_stderr._name = strdup("stderr");
+}
+
+void __stdio_cleanup(void) {
+	if (stdout) fflush(stdout);
+	if (stderr) fflush(stderr);
+	while (_head) {
+		fclose(_head);
+	}
 }
 
 #if 0
@@ -250,6 +263,10 @@ FILE * fopen(const char *path, const char *mode) {
 	out->written = 0;
 	out->wbufsiz = BUFSIZ;
 
+	out->next = _head;
+	if (_head) _head->prev = out;
+	_head = out;
+
 	return out;
 }
 
@@ -319,9 +336,15 @@ int fclose(FILE * stream) {
 	int out = syscall_close(stream->fd);
 	free(stream->_name);
 	free(stream->read_buf);
+	if (stream->write_buf) free(stream->write_buf);
 	if (stream == &_stdin || stream == &_stdout || stream == &_stderr) {
 		return out;
 	} else {
+
+		if (stream->prev) stream->prev->next = stream->next;
+		if (stream->next) stream->next->prev = stream->prev;
+		if (stream == _head) _head = stream->next;
+
 		free(stream);
 		return out;
 	}

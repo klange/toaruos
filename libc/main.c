@@ -22,11 +22,12 @@ extern char ** __get_argv(void) {
 }
 
 extern void __stdio_init_buffers(void);
+extern void __stdio_cleanup(void);
 
 void _exit(int val){
 	_fini();
+	__stdio_cleanup();
 	syscall_exit(val);
-
 	__builtin_unreachable();
 }
 
