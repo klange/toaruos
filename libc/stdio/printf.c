@@ -68,11 +68,9 @@ static size_t print_dec(unsigned long long value, unsigned int width, int (*call
 /*
  * Hexadecimal to string
  */
-static size_t print_hex(unsigned long long value, unsigned int width, int (*callback)(void*,char), void* userData) {
+static size_t print_hex(unsigned long long value, unsigned int width, int (*callback)(void*,char), void* userData, int fill_zero, int alt, int caps, int align) {
 	size_t written = 0;
 	int i = width;
-
-	if (i == 0) i = 8;
 
 	unsigned long long n_width = 1;
 	unsigned long long j = 0x0F;
@@ -82,15 +80,37 @@ static size_t print_hex(unsigned long long value, unsigned int width, int (*call
 		j += 0x0F;
 	}
 
-	while (i > (long long)n_width) {
+	if (!fill_zero && align == 1) {
+		while (i > (long long)n_width + 2*!!alt) {
+			OUT(' ');
+			i--;
+		}
+	}
+
+	if (alt) {
 		OUT('0');
-		i--;
+		OUT(caps ? 'X' : 'x');
+	}
+
+	if (fill_zero && align == 1) {
+		while (i > (long long)n_width + 2*!!alt) {
+			OUT('0');
+			i--;
+		}
 	}
 
 	i = (long long)n_width;
 	while (i-- > 0) {
-		char c = "0123456789abcdef"[(value>>(i*4))&0xF];
+		char c = (caps ? "0123456789ABCDEF" : "0123456789abcdef")[(value>>(i*4))&0xF];
 		OUT(c);
+	}
+
+	if (align == 0) {
+		i = width;
+		while (i > (long long)n_width + 2*!!alt) {
+			OUT(' ');
+			i--;
+		}
 	}
 
 	return written;
@@ -131,6 +151,9 @@ size_t xvasprintf(int (*callback)(void *, char), void * userData, const char * f
 			} else if (*f == '+') {
 				always_sign = 1;
 				++f;
+			} else if (*f == ' ') {
+				always_sign = 2;
+				++f;
 			} else {
 				break;
 			}
@@ -162,8 +185,19 @@ size_t xvasprintf(int (*callback)(void *, char), void * userData, const char * f
 				++f;
 			}
 		}
+		if (*f == 'j') {
+			big = (sizeof(uintmax_t) == sizeof(unsigned long long) ? 2 :
+				   sizeof(uintmax_t) == sizeof(unsigned long) ? 1 : 0);
+			++f;
+		}
 		if (*f == 'z') {
-			big = 1;
+			big = (sizeof(size_t) == sizeof(unsigned long long) ? 2 :
+				   sizeof(size_t) == sizeof(unsigned long) ? 1 : 0);
+			++f;
+		}
+		if (*f == 't') {
+			big = (sizeof(ptrdiff_t) == sizeof(unsigned long long) ? 2 :
+				   sizeof(ptrdiff_t) == sizeof(unsigned long) ? 1 : 0);
 			++f;
 		}
 		/* fmt[i] == '%' */
@@ -203,17 +237,11 @@ size_t xvasprintf(int (*callback)(void *, char), void * userData, const char * f
 				OUT((char)va_arg(args,int));
 				break;
 			case 'p':
-				if (!arg_width) {
-					arg_width = 8;
-					alt = 1;
-					if (sizeof(void*) == sizeof(long long)) big = 2;
-				}
+				alt = 1;
+				if (sizeof(void*) == sizeof(long long)) big = 2;
+			case 'X':
 			case 'x': /* Hexadecimal number */
 				{
-					if (alt) {
-						OUT('0');
-						OUT('x');
-					}
 					unsigned long long val;
 					if (big == 2) {
 						val = (unsigned long long)va_arg(args, unsigned long long);
@@ -222,7 +250,7 @@ size_t xvasprintf(int (*callback)(void *, char), void * userData, const char * f
 					} else {
 						val = (unsigned int)va_arg(args, unsigned int);
 					}
-					written += print_hex(val, arg_width, callback, userData);
+					written += print_hex(val, arg_width, callback, userData, fill_zero, alt, !(*f & 32), align);
 				}
 				break;
 			case 'i':
@@ -240,7 +268,7 @@ size_t xvasprintf(int (*callback)(void *, char), void * userData, const char * f
 						OUT('-');
 						val = -val;
 					} else if (always_sign) {
-						OUT('+');
+						OUT(always_sign == 2 ? ' ' : '+');
 					}
 					written += print_dec(val, arg_width, callback, userData, fill_zero, align, precision);
 				}
@@ -258,6 +286,8 @@ size_t xvasprintf(int (*callback)(void *, char), void * userData, const char * f
 					written += print_dec(val, arg_width, callback, userData, fill_zero, align, precision);
 				}
 				break;
+			case 'G':
+			case 'F':
 			case 'g': /* supposed to also support e */
 			case 'f':
 				{
