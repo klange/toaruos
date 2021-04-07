@@ -130,8 +130,10 @@ int setvbuf(FILE * stream, char * buf, int mode, size_t size) {
 
 int fflush(FILE * stream) {
 	if (!stream->write_buf) return EOF;
-	syscall_write(stream->fd, stream->write_buf, stream->written);
-	stream->written = 0;
+	if (stream->written) {
+		syscall_write(stream->fd, stream->write_buf, stream->written);
+		stream->written = 0;
+	}
 	return 0;
 }
 
@@ -274,9 +276,8 @@ FILE * fopen(const char *path, const char *mode) {
 FILE * freopen(const char *path, const char *mode, FILE * stream) {
 
 	if (path) {
-		if (stream) {
-			fclose(stream);
-		}
+		fflush(stream);
+		syscall_close(stream->fd);
 		int flags, mask;
 		parse_mode(mode, &flags, &mask);
 		int fd = syscall_open(path, flags, mask);
@@ -288,9 +289,11 @@ FILE * freopen(const char *path, const char *mode, FILE * stream) {
 		stream->eof = 0;
 		stream->_name = strdup(path);
 		stream->written = 0;
-		stream->next = _head;
-		if (_head) _head->prev = stream;
-		_head = stream;
+		if (stream != &_stdin && stream != &_stdout && stream != &_stderr) {
+			stream->next = _head;
+			if (_head) _head->prev = stream;
+			_head = stream;
+		}
 		if (fd < 0) {
 			errno = -fd;
 			return NULL;
@@ -344,6 +347,7 @@ int fclose(FILE * stream) {
 	free(stream->_name);
 	free(stream->read_buf);
 	if (stream->write_buf) free(stream->write_buf);
+	stream->write_buf = NULL;
 	if (stream == &_stdin || stream == &_stdout || stream == &_stderr) {
 		return out;
 	} else {
