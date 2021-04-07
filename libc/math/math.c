@@ -15,31 +15,27 @@ double exp(double x) {
 }
 
 double ceil(double x) {
-	int _x = x;
-	if ((float)_x == x) return x;
-	if (x < 0.0) {
-		return (double)_x;
-	}
-	return (double)_x + 1;
+	if (x == 0.0) return x;
+
+	double out;
+	asm volatile (
+		"frndint\n"
+		: "=t"(out) : "0"(x)
+	);
+	if (out < x) return out + 1.0;
+	return out;
 }
 
 double floor(double x) {
-	MATH;
-	if (x > -1.0 && x < 1.0) {
-		if (x >= 0) {
-			return 0.0;
-		} else {
-			return -1.0;
-		}
-	}
+	if (x == 0.0) return x;
 
-	if (x < 0) {
-		int x_i = x;
-		return (double)(x_i - 1);
-	} else {
-		int x_i = x;
-		return (double)x_i;
-	}
+	double out;
+	asm volatile (
+		"frndint\n"
+		: "=t"(out) : "0"(x)
+	);
+	if (out > x) return out - 1.0;
+	return out;
 }
 
 int abs(int j) {
