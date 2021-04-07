@@ -288,6 +288,9 @@ FILE * freopen(const char *path, const char *mode, FILE * stream) {
 		stream->eof = 0;
 		stream->_name = strdup(path);
 		stream->written = 0;
+		stream->next = _head;
+		if (_head) _head->prev = stream;
+		_head = stream;
 		if (fd < 0) {
 			errno = -fd;
 			return NULL;
@@ -323,6 +326,10 @@ FILE * fdopen(int fd, const char *mode){
 	out->write_buf = malloc(BUFSIZ);
 	out->written = 0;
 	out->wbufsiz = BUFSIZ;
+
+	out->next = _head;
+	if (_head) _head->prev = out;
+	_head = out;
 
 	return out;
 }
@@ -369,6 +376,9 @@ int fseek(FILE * stream, long offset, int whence) {
 			whence = SEEK_SET;
 		}
 	}
+	if (stream->written) {
+		fflush(stream);
+	}
 	stream->offset = 0;
 	stream->read_from = 0;
 	stream->available = 0;
@@ -386,6 +396,9 @@ int fseek(FILE * stream, long offset, int whence) {
 long ftell(FILE * stream) {
 	if (_argv_0 && strcmp(_argv_0, "ld.so") && __libc_debug) {
 		fprintf(stderr, "%s: ftell(%s)\n", _argv_0, stream->_name);
+	}
+	if (stream->written) {
+		fflush(stream);
 	}
 	if (stream->read_from || stream->last_read_start) {
 		return stream->last_read_start + stream->read_from;
