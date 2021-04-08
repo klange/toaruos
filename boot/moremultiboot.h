@@ -418,6 +418,19 @@ done_video:
 		);
 #endif
 
+static uint8_t _get(struct inflate_context * ctx) {
+	uint8_t * x = ctx->input_priv;
+	uint8_t out = *x++;
+	ctx->input_priv = (void*)x;
+	return out;
+}
+
+static void _write(struct inflate_context * ctx, unsigned int sym) {
+	uint8_t * x = ctx->output_priv;
+	*x++ = (uint8_t)sym;
+	ctx->output_priv = (void*)x;
+}
+
 #ifndef EFI_PLATFORM
 static void do_it(struct ata_device * _device) {
 	device = _device;
@@ -480,30 +493,45 @@ done:
 			if (navigate(ramdisk_path)) {
 				//clear_();
 				ramdisk_off = KERNEL_LOAD_START + offset;
-				ramdisk_len = dir_entry->extent_length_LSB;
-				modules_mboot[multiboot_header.mods_count-1].mod_start = ramdisk_off;
-				modules_mboot[multiboot_header.mods_count-1].mod_end = ramdisk_off + ramdisk_len;
 
 				print_("Loading ramdisk");
 
 				int i = dir_entry->extent_start_LSB;
 				int sectors = dir_entry->extent_length_LSB / 2048 + 1;
+				size_t off = 0;
+#define RAMDISK_OFFSET 0x5000000
 #define SECTORS 512
 				while (sectors >= SECTORS) {
 					print_(".");
-					ata_device_read_sectors_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset, SECTORS);
+					ata_device_read_sectors_atapi(device, i, (uint8_t *)RAMDISK_OFFSET + off, SECTORS);
 
 					sectors -= SECTORS;
-					offset += 2048 * SECTORS;
+					off += 2048 * SECTORS;
 					i += SECTORS;
 				}
 				if (sectors > 0) {
 					print_("!");
-					ata_device_read_sectors_atapi(device, i, (uint8_t *)KERNEL_LOAD_START + offset, sectors);
-					offset += 2048 * sectors;
+					ata_device_read_sectors_atapi(device, i, (uint8_t *)RAMDISK_OFFSET + off, sectors);
+					off += 2048 * sectors;
 				}
 
-				final_offset = (uint8_t *)KERNEL_LOAD_START + offset;
+				struct inflate_context ctx;
+				ctx.input_priv = (char *)RAMDISK_OFFSET;
+				ctx.output_priv = (char *)ramdisk_off;
+				ctx.get_input = _get;
+				ctx.write_output = _write;
+				ctx.ring = NULL; /* Use the global one */
+				print_("\nDecompressing ramdisk... ");
+				if (gzip_decompress(&ctx)) {
+					print_("Failed?\n");
+				}
+				ramdisk_len = (uint32_t)ctx.output_priv - ramdisk_off;
+
+				modules_mboot[multiboot_header.mods_count-1].mod_start = ramdisk_off;
+				modules_mboot[multiboot_header.mods_count-1].mod_end = ramdisk_off + ramdisk_len;
+
+				final_offset = ((uint8_t *)ctx.output_priv) + ((uintptr_t)ctx.output_priv) % 4096;
+
 				set_attr(0x07);
 				print("Done.\n");
 				move_kernel();
@@ -868,12 +896,24 @@ _try_module_again:
 		status = uefi_call_wrapper(root->Open,
 				5, root, &file, name, EFI_FILE_MODE_READ, 0);
 		if (!EFI_ERROR(status)) {
+#define RAMDISK_OFFSET 0x5000000
 			status = uefi_call_wrapper(file->Read,
-					3, file, &bytes, (void *)(KERNEL_LOAD_START + (uintptr_t)offset));
+					3, file, &bytes, (void *)(RAMDISK_OFFSET));
 			if (!EFI_ERROR(status)) {
+				struct inflate_context ctx;
+				ctx.input_priv = (char *)RAMDISK_OFFSET;
+				ctx.output_priv = (char *)KERNEL_LOAD_START + offset;
+				ctx.get_input = _get;
+				ctx.write_output = _write;
+				ctx.ring = NULL; /* Use the global one */
+				print_("\nDecompressing ramdisk... ");
+				if (gzip_decompress(&ctx)) {
+					print_("Failed?\n");
+				}
+
 				print_("Loaded "); print_(c); print_("\n");
 				modules_mboot[multiboot_header.mods_count-1].mod_start = KERNEL_LOAD_START + offset;
-				modules_mboot[multiboot_header.mods_count-1].mod_end = KERNEL_LOAD_START + offset + bytes;
+				modules_mboot[multiboot_header.mods_count-1].mod_end = (uintptr_t)ctx.output_priv;
 				offset += bytes;
 				while (offset % 4096) offset++;
 				final_offset = (uint8_t *)KERNEL_LOAD_START + offset;

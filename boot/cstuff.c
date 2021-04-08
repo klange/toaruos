@@ -6,6 +6,18 @@ EFI_HANDLE ImageHandleIn;
 #  include "types.h"
 #endif
 
+#define _BOOT_LOADER
+struct huff_ring;
+struct inflate_context {
+	void * input_priv;
+	void * output_priv;
+	uint8_t (*get_input)(struct inflate_context * ctx);
+	void (*write_output)(struct inflate_context * ctx, unsigned int sym);
+	int bit_buffer;
+	int buffer_size;
+	struct huff_ring * ring;
+};
+#include "../lib/inflate.c"
 #include "ata.h"
 #include "text.h"
 #include "util.h"
@@ -49,7 +61,7 @@ EFI_HANDLE ImageHandleIn;
 
 char * module_dir = "MOD";
 char * kernel_path = "KERNEL.";
-char * ramdisk_path = "RAMDISK.IMG";
+char * ramdisk_path = "RAMDISK.IGZ";
 
 #ifdef EFI_PLATFORM
 int _efi_do_mode_set = 0;

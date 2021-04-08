@@ -26,7 +26,7 @@ TARGET_TRIPLET=i686-pc-toaru
 CC=$(TARGET_TRIPLET)-gcc
 AR=$(TARGET_TRIPLET)-ar
 AS=$(TARGET_TRIPLET)-as
-CFLAGS= -O3 -g -std=gnu99 -I. -Iapps -pipe -mmmx -msse -msse2 -fplan9-extensions -Wall -Wextra -Wno-unused-parameter
+CFLAGS= -O3 -s -std=gnu99 -I. -Iapps -pipe -mmmx -msse -msse2 -fplan9-extensions -Wall -Wextra -Wno-unused-parameter
 
 ##
 # C library objects from libc/ C sources (and setjmp, which is assembly)
@@ -259,8 +259,10 @@ base/bin/%.krk: apps/%.krk
 	chmod +x $@
 
 # Ramdisk
-fatbase/ramdisk.img: ${RAMDISK_FILES} $(shell find base) Makefile util/createramdisk.py | dirs
+fatbase/ramdisk.igz: ${RAMDISK_FILES} $(shell find base) Makefile util/createramdisk.py | dirs
 	python3 util/createramdisk.py
+	gzip -c fatbase/ramdisk.img > fatbase/ramdisk.igz
+	rm fatbase/ramdisk.img
 
 # CD image
 
@@ -274,7 +276,7 @@ EFI_UPDATE=util/update-extents.py
 
 image.iso: ${EFI_BOOT} cdrom/boot.sys fatbase/netinit ${MODULES} util/update-extents.py
 	xorriso -as mkisofs -R -J -c bootcat \
-	  -b boot.sys -no-emul-boot -boot-load-size 24 \
+	  -b boot.sys -no-emul-boot -boot-load-size full \
 	  ${EFI_XORRISO} \
 	  -o image.iso cdrom
 	${EFI_UPDATE}
@@ -286,7 +288,7 @@ image.iso: ${EFI_BOOT} cdrom/boot.sys fatbase/netinit ${MODULES} util/update-ext
 # This is the filesystem the EFI loaders see, so it must contain
 # the kernel, modules, and ramdisk, plus anything else we want
 # available to the bootloader (eg., netinit).
-cdrom/fat.img: fatbase/ramdisk.img ${MODULES} fatbase/kernel fatbase/netinit fatbase/efi/boot/bootia32.efi fatbase/efi/boot/bootx64.efi util/mkdisk.sh | dirs
+cdrom/fat.img: fatbase/ramdisk.igz ${MODULES} fatbase/kernel fatbase/netinit fatbase/efi/boot/bootia32.efi fatbase/efi/boot/bootx64.efi util/mkdisk.sh | dirs
 	util/mkdisk.sh $@ fatbase
 
 ##
@@ -317,7 +319,7 @@ cdrom/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld | dirs
 	${KLD} -T boot/link.ld -o $@ boot/boot.o boot/cstuff.o
 
 boot/cstuff.o: boot/cstuff.c boot/*.h
-	${CC} -c -Os -o $@ $<
+	${CC} -c -Os -s -o $@ $<
 
 boot/boot.o: boot/boot.S
 	${AS} -o $@ $<
@@ -329,7 +331,7 @@ clean:
 	rm -f ${APPS_X} ${APPS_SH_X}
 	rm -f libc/*.o libc/*/*.o
 	rm -f image.iso
-	rm -f fatbase/ramdisk.img
+	rm -f fatbase/ramdisk.img fatbase/ramdisk.igz
 	rm -f cdrom/boot.sys
 	rm -f boot/*.o
 	rm -f boot/*.efi
