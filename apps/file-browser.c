@@ -643,11 +643,17 @@ static void load_directory(const char * path, int modifies_history) {
 						sprintf(f->icon, "font");
 						sprintf(f->filetype, "TrueType Font");
 					} else if (has_extension(f, ".tgz") || has_extension(f, ".tar.gz")) {
-						sprintf(f->icon, "package");
+						sprintf(f->icon, "package_targz");
 						sprintf(f->filetype, "Compressed Archive File");
 					} else if (has_extension(f, ".tar")) {
-						sprintf(f->icon, "package");
+						sprintf(f->icon, "package_tar");
 						sprintf(f->filetype, "Archive File");
+					} else if (has_extension(f, ".a")) {
+						sprintf(f->icon, "package_a");
+						sprintf(f->filetype, "Archive File");
+					} else if (has_extension(f, ".zip")) {
+						sprintf(f->icon, "package_zip");
+						sprintf(f->filetype, "ZIP Archive File");
 					} else if (has_extension(f, ".sh")) {
 						sprintf(f->icon, "sh");
 						if (statbuf.st_mode & 0111) {
