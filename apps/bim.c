@@ -14,12 +14,12 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-#define ENABLE_THREADING
 #include "bim.h"
 #include <kuroko/kuroko.h>
 #include <kuroko/vm.h>
 #include <kuroko/debug.h>
 #include <kuroko/util.h>
+#include <kuroko/scanner.h>
 
 global_config_t global_config = {
 	/* State */
@@ -5897,6 +5897,17 @@ int compare_str(const void * a, const void * b) {
 const char * tab_complete_ignore[] = {".o",NULL};
 
 /**
+ * Wrapper around krk_valueGetAttribute...
+ */
+static KrkValue findFromProperty(KrkValue current, KrkToken next) {
+	KrkValue member = OBJECT_VAL(krk_copyString(next.start, next.literalWidth));
+	krk_push(member);
+	KrkValue value = krk_valueGetAttribute_default(current, AS_CSTRING(member), NONE_VAL());
+	krk_pop();
+	return value;
+}
+
+/**
  * Tab completion for command mode.
  */
 void command_tab_complete(char * buffer) {
@@ -5905,7 +5916,17 @@ void command_tab_complete(char * buffer) {
 	char * buf = strdup(buffer);
 	char * b = buf;
 
-	char * args[32];
+	int args_count = 0;
+	int args_space = 4;
+	char ** args = malloc(sizeof(char*)*args_space);
+#define add_arg(argument) \
+	do { \
+		if (args_count == args_space) { \
+			args_space *= 2; \
+			args = realloc(args, sizeof(char*) * args_space); \
+		} \
+		args[args_count++] = argument; \
+	} while (0)
 
 	int candidate_count= 0;
 	int candidate_space = 4;
@@ -5914,7 +5935,7 @@ void command_tab_complete(char * buffer) {
 	/* Accept whitespace before first argument */
 	while (*b == ' ') b++;
 	char * start = b;
-	args[0] = start;
+	add_arg(start);
 	while (*b && *b != ' ') b++;
 	while (*b) {
 		while (*b == ' ') {
@@ -5923,7 +5944,7 @@ void command_tab_complete(char * buffer) {
 		}
 		start = b;
 		arg++;
-		args[arg] = start;
+		add_arg(start);
 		break;
 	}
 
@@ -5937,6 +5958,11 @@ void command_tab_complete(char * buffer) {
 		char * _arg = args[arg]; \
 		int r = strncmp(_arg, candidate, strlen(_arg)); \
 		if (!r) { \
+			int skip = 0; \
+			for (int i = 0; i < candidate_count; ++i) { \
+				if (!strcmp(candidates[i],candidate)) { skip = 1; break; } \
+			} \
+			if (skip) break; \
 			if (candidate_count == candidate_space) { \
 				candidate_space *= 2; \
 				candidates = realloc(candidates,sizeof(char *) * candidate_space); \
@@ -5957,7 +5983,7 @@ void command_tab_complete(char * buffer) {
 			add_candidate(c->name);
 		}
 
-		goto _accept_candidate;
+		goto _try_kuroko;
 	}
 
 	if (arg == 1 && !strcmp(args[0], "syntax")) {
@@ -6000,12 +6026,8 @@ void command_tab_complete(char * buffer) {
 				}
 				start = &args[arg][i];
 				arg++;
-				args[arg] = start;
+				add_arg(start);
 				i = 0;
-				if (arg == 32) {
-					arg = 31;
-					break;
-				}
 			}
 		}
 
@@ -6126,6 +6148,145 @@ void command_tab_complete(char * buffer) {
 		goto _accept_candidate;
 	}
 
+	/* Hacky port of the kuroko repl completer */
+	{
+_try_kuroko:
+		for (int i = 0; args[arg][i]; ++i) {
+			if (args[arg][i] == ' ') {
+				while (args[arg][i] == ' ') {
+					args[arg][i] = '\0';
+					i++;
+				}
+				start = &args[arg][i];
+				arg++;
+				add_arg(start);
+				i = 0;
+			}
+		}
+
+		krk_initScanner(args[arg]);
+		KrkToken * space = malloc(sizeof(KrkToken) * (strlen(args[arg]) + 2));
+		int count = 0;
+		do {
+			space[count++] = krk_scanToken();
+		} while (space[count-1].type != TOKEN_EOF && space[count-1].type != TOKEN_ERROR);
+
+		if (count == 1) {
+			goto _cleanup;
+		}
+
+		int base = 2;
+		int n = base;
+		if (space[count-base].type == TOKEN_DOT) {
+			/* Dots we need to look back at the previous tokens for */
+			n--;
+			base--;
+		} else if (space[count-base].type >= TOKEN_IDENTIFIER && space[count-base].type <= TOKEN_WITH) {
+			/* Something alphanumeric; only for the last element */
+		} else {
+			/* Some other symbol */
+			goto _cleanup;
+		}
+
+		while (n < count) {
+			if (space[count-n-1].type != TOKEN_DOT) break;
+			n++;
+			if (n == count) break;
+			if (space[count-n-1].type != TOKEN_IDENTIFIER) break;
+			n++;
+		}
+
+		if (n <= count) {
+			/* Now work forwards, starting from the current globals. */
+			KrkValue root = OBJECT_VAL(krk_currentThread.module);
+			int isGlobal = 1;
+			while (n > base) {
+				/* And look at the potential fields for instances/classes */
+				KrkValue next = findFromProperty(root, space[count-n]);
+				if (IS_NONE(next)) {
+					/* If we hit None, we found something invalid (or literally hit a None
+					 * object, but really the difference is minimal in this case: Nothing
+					 * useful to tab complete from here. */
+					goto _cleanup;
+				}
+				isGlobal = 0;
+				root = next;
+				n -= 2; /* To skip every other dot. */
+			}
+
+			/* Now figure out what we're completing - did we already have a partial symbol name? */
+			int length = (space[count-base].type == TOKEN_DOT) ? 0 : (space[count-base].length);
+			isGlobal = isGlobal && (length != 0);
+
+			/* Take the last symbol name from the chain and get its member list from dir() */
+
+			for (;;) {
+				KrkValue dirList = krk_dirObject(1,(KrkValue[]){root},0);
+				krk_push(dirList);
+				if (!IS_INSTANCE(dirList)) {
+					render_error("Internal error while tab completing.");
+					goto _cleanup;
+				}
+
+				for (size_t i = 0; i < AS_LIST(dirList)->count; ++i) {
+					KrkString * s = AS_STRING(AS_LIST(dirList)->values[i]);
+					krk_push(OBJECT_VAL(s));
+					KrkToken asToken = {.start = s->chars, .literalWidth = s->length};
+					KrkValue thisValue = findFromProperty(root, asToken);
+					krk_push(thisValue);
+					if (IS_CLOSURE(thisValue) || IS_BOUND_METHOD(thisValue) ||
+						(IS_NATIVE(thisValue) && !(((KrkNative*)AS_OBJECT(thisValue))->flags & KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY))) {
+						size_t allocSize = s->length + 2;
+						char * tmp = malloc(allocSize);
+						size_t len = snprintf(tmp, allocSize, "%s(", s->chars);
+						s = krk_takeString(tmp, len);
+						krk_pop();
+						krk_push(OBJECT_VAL(s));
+					}
+
+					/* If this symbol is shorter than the current submatch, skip it. */
+					if (length && (int)s->length < length) continue;
+					if (!memcmp(s->chars, space[count-base].start, length)) {
+						char * tmp = malloc(strlen(args[arg]) + s->length + 1);
+						sprintf(tmp,"%s%s", args[arg], s->chars + length);
+						add_candidate(tmp);
+						free(tmp);
+					}
+				}
+
+				/*
+				 * If the object we were scanning was the current module,
+				 * then we should also throw the builtins into the ring.
+				 */
+				if (isGlobal && AS_OBJECT(root) == (KrkObj*)krk_currentThread.module) {
+					root = OBJECT_VAL(vm.builtins);
+					continue;
+				} else if (isGlobal && AS_OBJECT(root) == (KrkObj*)vm.builtins) {
+					static char * syn_krk_keywords[] = {
+						"and","class","def","else","for","if","in","import","del",
+						"let","not","or","return","while","try","except","raise",
+						"continue","break","as","from","elif","lambda","with","is",
+						"pass","assert","yield","finally","async","await",
+						NULL
+					};
+					KrkInstance * fakeKeywordsObject = krk_newInstance(vm.baseClasses->objectClass);
+					root = OBJECT_VAL(fakeKeywordsObject);
+					krk_push(root);
+					for (char ** keyword = syn_krk_keywords; *keyword; keyword++) {
+						krk_attachNamedValue(&fakeKeywordsObject->fields, *keyword, NONE_VAL());
+					}
+					continue;
+				} else {
+					break;
+				}
+			}
+		}
+
+_cleanup:
+		free(space);
+		krk_resetStack();
+	}
+
 _accept_candidate:
 	if (candidate_count == 0) {
 		redraw_statusbar();
@@ -6155,6 +6316,12 @@ _accept_candidate:
 			if (_candidates_are_files) {
 				for (char * c = printed_candidate; *c; ++c) {
 					if (c[0] == '/' && c[1] != '\0') {
+						printed_candidate = c+1;
+					}
+				}
+			} else {
+				for (char * c = printed_candidate; *c; ++c) {
+					if (c[0] == '.' && c[1] != '\0') {
 						printed_candidate = c+1;
 					}
 				}
