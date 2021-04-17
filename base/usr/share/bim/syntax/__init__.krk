@@ -1,4 +1,8 @@
-from bim import SyntaxState, bindHighlighter as bind
+from bim import SyntaxState, bindHighlighter
+
+def bind(cls):
+    bindHighlighter(cls)
+    return cls
 
 class Highlighter(SyntaxState):
 

@@ -952,8 +952,9 @@ static void _menubar_callback(struct menu_bar * _self) {
 	struct MenuBarClass * self = _self->_private;
 	KrkValue callback;
 	if (krk_tableGet(&self->inst.fields, OBJECT_VAL(S("callback")), &callback)) {
+		krk_push(callback);
 		krk_push(OBJECT_VAL(self));
-		krk_callSimple(callback, 1, 0);
+		krk_callStack(1);
 	}
 }
 
@@ -1094,8 +1095,9 @@ static void _MenuEntry_callback_internal(struct MenuEntry * _self) {
 	struct MenuEntryClass * self = (struct MenuEntryClass *)_self->_private;
 	KrkValue callback = NONE_VAL();
 	krk_tableGet(&self->inst.fields, OBJECT_VAL(S("callback")), &callback);
+	krk_push(callback);
 	krk_push(OBJECT_VAL(self));
-	krk_callSimple(callback, 1, 0);
+	krk_callStack(1);
 }
 
 static KrkValue _MenuEntry_init(int argc, KrkValue argv[], int hasKw) {

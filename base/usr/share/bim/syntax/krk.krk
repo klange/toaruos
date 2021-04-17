@@ -2,6 +2,7 @@ from bim import getCommands
 from syntax import Highlighter, bind
 from syntax.doxygen import tryDoxygenComment
 
+@bind
 class KrkHighlighter(Highlighter):
     name = 'krk'
     extensions = ('.krk',)
@@ -160,8 +161,7 @@ class KrkHighlighter(Highlighter):
             return self.paintString("'\""[self.state % 2], (self.state % 10) <= 2, self.state > 10)
         return None
 
-bind(KrkHighlighter)
-
+@bind
 class BimcmdHighlighter(KrkHighlighter):
     name = 'bimcmd'
     extensions = ('.bim3rc',)
@@ -172,4 +172,3 @@ class BimcmdHighlighter(KrkHighlighter):
                 return 0
         return super().calculate()
 
-bind(BimcmdHighlighter)

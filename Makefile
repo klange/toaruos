@@ -198,7 +198,7 @@ base/lib/libm.so: util/lm.c | dirs crts
 
 KUROKO_OBJS=$(patsubst %.c, %.o, $(filter-out kuroko/src/module_% kuroko/src/rline.c kuroko/src/kuroko.c, $(sort $(wildcard kuroko/src/*.c))))
 kuroko/%.o: kuroko/%.c
-	$(CC) $(CFLAGS) -DKRK_ENABLE_DEBUG -fPIC -c -o $@ $^
+	$(CC) $(CFLAGS) -fPIC -c -o $@ $^
 
 KUROKO_CMODS=$(patsubst kuroko/src/module_%.c,%,$(wildcard kuroko/src/module_*.c)) $(patsubst lib/kuroko/%.c,%,$(wildcard lib/kuroko/*.c))
 KUROKO_CMODS_X=$(foreach lib,$(KUROKO_CMODS),base/lib/kuroko/$(lib).so)
@@ -222,7 +222,7 @@ ifeq (,$(findstring clean,$(MAKECMDGOALS)))
 endif
 
 base/lib/libkuroko.so: $(KUROKO_OBJS)  | dirs crts ${LC}
-	$(CC) $(CFLAGS) -DKRK_ENABLE_DEBUG -shared -fPIC -o $@ $^ -lgcc
+	$(CC) $(CFLAGS) -shared -fPIC -o $@ $^ -lgcc
 
 # Userspace Linker/Loader
 
