@@ -7,17 +7,6 @@ EFI_HANDLE ImageHandleIn;
 #endif
 
 #define _BOOT_LOADER
-struct huff_ring;
-struct inflate_context {
-	void * input_priv;
-	void * output_priv;
-	uint8_t (*get_input)(struct inflate_context * ctx);
-	void (*write_output)(struct inflate_context * ctx, unsigned int sym);
-	int bit_buffer;
-	int buffer_size;
-	struct huff_ring * ring;
-};
-#include "../lib/inflate.c"
 #include "ata.h"
 #include "text.h"
 #include "util.h"
@@ -29,6 +18,7 @@ struct inflate_context {
 #include "multiboot.h"
 #include "kbd.h"
 #include "options.h"
+#include "inflate.h"
 
 /* Basic text strings */
 #define BASE_VERSION "ToaruOS Bootloader v2.1"
