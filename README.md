@@ -38,7 +38,7 @@ The following projects are currently in progress:
 
 - **Improve POSIX coverage** especially in regards to signals, synchronization primitives, as well as by providing more common utilities.
 - **Continue to improve the C library** which remains quite incomplete compared to Newlib and is a major source of issues with bringing back old ports.
-- **Implement a native dynamic, interpreted programming language** to replace Python, which was used prior to ToaruOS 1.6.x to provide most of the desktop environment.
+- **Implement a native dynamic, interpreted programming language** to replace Python, which was used prior to ToaruOS 1.6.x to provide most of the desktop environment. *Completed!*
 - **Replace third-party development tools** to get the OS to a state where it is self-hosting with just the addition of a C compiler.
 - **Implement a C compiler toolchain** in [toarucc](https://github.com/klange/toarucc).
 
@@ -203,6 +203,5 @@ ToaruOS has taken inspiration from Linux in its choice of binary formats, filesy
 
 ### Are there plans for a 64-bit port / SMP support?
 
-With the development of ToaruOS's "NIH" branch, a secondary goal in removing third-party dependencies was to make the operating system more viable for a 64-bit port. That said, the actual development of a 64-bit kernel is currently on pause while other goals are pursued. Due to the limited size of the development team, it is not feasible to continue work on the 64-bit kernel at this time.
+Yes, an x86-64/SMP-capable port is [https://github.com/toaruos](in progress) as of 2021.
 
-SMP support likely poses a larger challenge as the early toy design for ToaruOS did not take into account multiprocessor systems and thus many challenges exist in getting the kernel to a functioning state with SMP.
