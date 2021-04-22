@@ -67,17 +67,20 @@ static void atapi_device_init(struct ata_device * dev) {
 		buf[i] = inports(dev->io_base);
 	}
 
-	uint8_t * ptr = (uint8_t *)&dev->identity.model;
-	for (int i = 0; i < 39; i+=2) {
-		uint8_t tmp = ptr[i+1];
-		ptr[i+1] = ptr[i];
-		ptr[i] = tmp;
-	}
-
 	/* Detect medium */
 	atapi_command_t command;
-	memset(&command, 0, sizeof(command));
 	command.command_bytes[0] = 0x25;
+	command.command_bytes[1] = 0;
+	command.command_bytes[2] = 0;
+	command.command_bytes[3] = 0;
+	command.command_bytes[4] = 0;
+	command.command_bytes[5] = 0;
+	command.command_bytes[6] = 0;
+	command.command_bytes[7] = 0;
+	command.command_bytes[8] = 0; /* bit 0 = PMI (0, last sector) */
+	command.command_bytes[9] = 0; /* control */
+	command.command_bytes[10] = 0;
+	command.command_bytes[11] = 0;
 
 	uint16_t bus = dev->io_base;
 
@@ -112,7 +115,7 @@ static void atapi_device_init(struct ata_device * dev) {
 	}
 
 #define htonl(l)  ( (((l) & 0xFF) << 24) | (((l) & 0xFF00) << 8) | (((l) & 0xFF0000) >> 8) | (((l) & 0xFF000000) >> 24))
-	uint32_t lba, blocks;;
+	uint32_t lba, blocks;
 	memcpy(&lba, &data[0], sizeof(uint32_t));
 	lba = htonl(lba);
 	memcpy(&blocks, &data[2], sizeof(uint32_t));
@@ -124,9 +127,11 @@ static void atapi_device_init(struct ata_device * dev) {
 	return;
 
 atapi_error_read:
+	print_("ATAPI read error.\n");
 	return;
 
 atapi_error:
+	print_("ATAPI error.\n");
 	return;
 }
 
@@ -163,7 +168,7 @@ static void ata_device_read_sectors_atapi(struct ata_device * dev, uint32_t lba,
 
 	uint16_t bus = dev->io_base;
 
-_try_again:
+//_try_again:
 	outportb(dev->io_base + ATA_REG_HDDEVSEL, 0xA0 | dev->slave << 4);
 	ata_io_wait(dev);
 

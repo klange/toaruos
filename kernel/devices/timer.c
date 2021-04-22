@@ -82,7 +82,7 @@ void relative_time(unsigned long seconds, unsigned long subseconds, unsigned lon
  * Device installer for the PIT
  */
 void timer_install(void) {
-	debug_print(NOTICE,"Initializing interval timer");
+	//debug_print(NOTICE,"Initializing interval timer");
 	boot_time = read_cmos();
 	irq_install_handler(TIMER_IRQ, timer_handler, "pit timer");
 	timer_phase(SUBTICKS_PER_TICK); /* 100Hz */

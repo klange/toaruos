@@ -63,6 +63,9 @@ static int strlen(char * s) {
 #ifdef EFI_PLATFORM
 static EFI_GUID efi_graphics_output_protocol_guid =
   {0x9042a9de,0x23dc,0x4a38,  {0x96,0xfb,0x7a,0xde,0xd0,0x80,0x51,0x6a}};
+#define KERNEL_LOAD_START 0x1600000
+#else
+#define KERNEL_LOAD_START 0x300000
 #endif
 
 static void move_kernel(void) {
@@ -75,7 +78,8 @@ static void move_kernel(void) {
 	    header->e_ident[1] != ELFMAG1 ||
 	    header->e_ident[2] != ELFMAG2 ||
 	    header->e_ident[3] != ELFMAG3) {
-		print("Kernel is invalid?\n");
+		print_("Kernel is invalid?\n");
+		while (1) {};
 	}
 
 	uintptr_t entry = (uintptr_t)header->e_entry;
@@ -93,7 +97,11 @@ static void move_kernel(void) {
 			print("\n");
 #ifdef EFI_PLATFORM
 			EFI_PHYSICAL_ADDRESS addr = phdr->p_vaddr;
-			uefi_call_wrapper(ST->BootServices->AllocatePages, 3, AllocateAddress, 0x80000000, phdr->p_memsz / 4096 + 1, &addr);
+			EFI_STATUS status = uefi_call_wrapper(ST->BootServices->AllocatePages, 3, AllocateAddress, EfiLoaderData, phdr->p_memsz / 4096 + 1, &addr);
+			if (EFI_ERROR(status)) {
+				print_("Failed to allocate memory to load kernel.\n");
+				while (1) {};
+			}
 #endif
 			memcpy((uint8_t*)(uintptr_t)phdr->p_vaddr, (uint8_t*)KERNEL_LOAD_START + phdr->p_offset, phdr->p_filesz);
 			long r = phdr->p_filesz;
@@ -108,7 +116,7 @@ static void move_kernel(void) {
 #ifdef EFI_PLATFORM
 	mboot_memmap_t * mmap = (void*)KERNEL_LOAD_START;
 	memset((void*)KERNEL_LOAD_START, 0x00, 1024);
-	multiboot_header.mmap_addr = (uintptr_t)mmap;
+	multiboot_header.mmap_addr = (uint32_t)(uintptr_t)mmap;
 
 	EFI_STATUS e;
 	UINTN mapSize = 0, mapKey, descriptorSize;
@@ -125,6 +133,7 @@ static void move_kernel(void) {
 
 	if (EFI_ERROR(e)) {
 		print_("EFI error.\n");
+		while (1) {};
 	}
 
 	uint64_t upper_mem = 0;
@@ -132,7 +141,7 @@ static void move_kernel(void) {
 	for (int i = 0; i < descriptors; ++i) {
 		EFI_MEMORY_DESCRIPTOR * d = efi_memory;
 
-		mmap->size = sizeof(uint64_t) * 2 + sizeof(uintptr_t);
+		mmap->size = sizeof(uint64_t) * 2 + sizeof(uint32_t);
 		mmap->base_addr = d->PhysicalStart;
 		mmap->length = d->NumberOfPages * 4096;
 		switch (d->Type) {
@@ -159,9 +168,11 @@ static void move_kernel(void) {
 		if (mmap->type == 1 && mmap->base_addr >= 0x100000) {
 			upper_mem += mmap->length;
 		}
-		mmap = (mboot_memmap_t *) ((uintptr_t)mmap + mmap->size + sizeof(uintptr_t));
+		mmap = (mboot_memmap_t *) ((uintptr_t)mmap + mmap->size + sizeof(uint32_t));
 		efi_memory = (EFI_MEMORY_DESCRIPTOR *)((char *)efi_memory + descriptorSize);
 	}
+
+	multiboot_header.mmap_length = (uintptr_t)mmap - multiboot_header.mmap_addr;
 
 	multiboot_header.mem_lower = 1024;
 	multiboot_header.mem_upper = upper_mem / 1024;
@@ -323,6 +334,7 @@ done_video:
 		}
 		mmap = (mboot_memmap_t *) ((uintptr_t)mmap + mmap->size + sizeof(uintptr_t));
 	}
+	multiboot_header.mmap_length = (uintptr_t)mmap - multiboot_header.mmap_addr;
 
 	print("lower "); print_hex(lower_mem); print("KB\n");
 	multiboot_header.mem_lower = 1024;
@@ -340,16 +352,16 @@ done_video:
 	_xmain = entry;
 
 #ifdef EFI_PLATFORM
-	print_("\nExiting boot services and jumping to ");
-	print_hex_(_xmain);
-	print_(" with mboot_mag=");
-	print_hex_(_eax);
-	print_(" and mboot_ptr=");
-	print_hex_(_ebx);
-	print_("...\n");
+	//print_("\nExiting boot services and jumping to ");
+	//print_hex_(_xmain);
+	//print_(" with mboot_mag=");
+	//print_hex_(_eax);
+	//print_(" and mboot_ptr=");
+	//print_hex_(_ebx);
+	//print_("...\n");
 
 #if defined(__x86_64__)
-	print_("&_xmain = "); print_hex_(((uintptr_t)&_xmain) >> 32); print_hex_((uint32_t)(uintptr_t)&_xmain); print_("\n");
+	//print_("&_xmain = "); print_hex_(((uintptr_t)&_xmain) >> 32); print_hex_((uint32_t)(uintptr_t)&_xmain); print_("\n");
 #endif
 
 	if (1) {
@@ -362,6 +374,7 @@ done_video:
 		if (e != EFI_SUCCESS) { 
 			print_("Exit services failed. \n");
 			print_hex_(e);
+			while (1) {};
 		}
 	}
 #endif
@@ -380,10 +393,17 @@ done_video:
 			"retf\n"
 			 : : "g"(foobar));
 #else
+	uint32_t foo[3];
+	foo[0] = _eax;
+	foo[1] = _ebx;
+	foo[2] = _xmain;
 	__asm__ __volatile__ (
+		"mov %%cr0,%%eax\n"
+		"and $0x7FFFFFFF,%%eax\n"
+		"mov %%eax,%%cr0\n"
 		"mov %1,%%eax \n"
 		"mov %2,%%ebx \n"
-		"jmp *%0" : : "g"(_xmain), "g"(_eax), "g"(_ebx) : "eax", "ebx"
+		"jmp *%0" : : "g"(foo[2]), "g"(foo[0]), "g"(foo[1]) : "eax", "ebx"
 		);
 #endif
 }
@@ -431,8 +451,8 @@ static inline void _write(unsigned int sym) {
 static void do_it(struct ata_device * _device) {
 	device = _device;
 	if (device->atapi_sector_size != 2048) {
-		print_hex(device->atapi_sector_size);
-		print("\n - bad sector size\n");
+		print_hex_(device->atapi_sector_size);
+		print_("\n - bad sector size\n");
 		return;
 	}
 	for (int i = 0x10; i < 0x15; ++i) {
@@ -442,9 +462,11 @@ static void do_it(struct ata_device * _device) {
 				root_sector = i;
 				goto done;
 			case 0xFF:
+				print_("Bad read\n");
 				return;
 		}
 	}
+	print_("Early return?\n");
 	return;
 done:
 	restore_root();
@@ -742,6 +764,7 @@ static EFI_GUID efi_simple_file_system_protocol_guid =
 static EFI_GUID efi_loaded_image_protocol_guid =
 	{0x5B1B31A1,0x9562,0x11d2, {0x8E,0x3F,0x00,0xA0,0xC9,0x69,0x72,0x3B}};
 
+static char space[4096];
 static void boot(void) {
 	UINTN count;
 	EFI_HANDLE * handles;
@@ -750,6 +773,8 @@ static void boot(void) {
 	EFI_FILE *root;
 	EFI_STATUS status;
 
+	uefi_call_wrapper(ST->BootServices->SetWatchdogTimer, 4, 0, 0, 0, NULL);
+
 	clear_();
 
 	status = uefi_call_wrapper(ST->BootServices->HandleProtocol,
@@ -757,18 +782,18 @@ static void boot(void) {
 			(void **)&loaded_image);
 
 	if (EFI_ERROR(status)) {
-		print_("There was an error (init)\n");
+		print_("Could not obtain loaded_image_protocol\n");
 		while (1) {};
 	}
 
-	print_("Found loaded image...\n");
+	print("Found loaded image...\n");
 
 	status = uefi_call_wrapper(ST->BootServices->HandleProtocol,
 			3, loaded_image->DeviceHandle, &efi_simple_file_system_protocol_guid,
 			(void **)&efi_simple_filesystem);
 
 	if (EFI_ERROR(status)) {
-		print_("There was an error.\n");
+		print_("Could not obtain simple_file_system_protocol.\n");
 		while (1) {};
 	}
 
@@ -776,7 +801,7 @@ static void boot(void) {
 			2, efi_simple_filesystem, &root);
 
 	if (EFI_ERROR(status)) {
-		print_("There was an error.\n");
+		print_("Could not open volume.\n");
 		while (1) {};
 	}
 
@@ -802,8 +827,24 @@ static void boot(void) {
 			5, root, &file, kernel_name, EFI_FILE_MODE_READ, 0);
 
 	if (EFI_ERROR(status)) {
-		print_("There was an error.\n");
+		print_("Error opening kernel.\n");
 		while (1) {};
+	}
+
+	{
+		EFI_PHYSICAL_ADDRESS addr = KERNEL_LOAD_START;
+		EFI_ALLOCATE_TYPE type = AllocateAddress;
+		EFI_MEMORY_TYPE memtype = EfiLoaderData;
+		UINTN pages = 8192;
+		EFI_STATUS status = 0;
+		status = uefi_call_wrapper(ST->BootServices->AllocatePages, 4, type, memtype, pages, &addr);
+		if (EFI_ERROR(status)) {
+			print_("Could not allocate space to load boot payloads: ");
+			print_hex_(status);
+			print_(" ");
+			print_hex_(addr);
+			while (1) {};
+		}
 	}
 
 	unsigned int offset = 0;
@@ -812,16 +853,16 @@ static void boot(void) {
 			3, file, &bytes, (void *)KERNEL_LOAD_START);
 
 	if (EFI_ERROR(status)) {
-		print_("There was an error.\n");
+		print_("Error loading kernel.\n");
 		while (1) {};
 	}
 
-	print_("Read "); print_hex_(bytes); print_(" bytes\n");
+	print("Read "); print_hex(bytes); print(" bytes\n");
 
 	offset += bytes;
 	while (offset % 4096) offset++;
 
-	print_("Reading modules...\n");
+	print("Reading modules...\n");
 
 	char ** c = modules;
 	int j = 0;
@@ -843,9 +884,9 @@ static void boot(void) {
 			}
 			for (int i = 0; name[i]; ++i) {
 				char c[] = {name[i], 0};
-				print_(c);
+				print(c);
 			}
-			print_("\n");
+			print("\n");
 			bytes = 2097152;
 _try_module_again:
 			status = uefi_call_wrapper(root->Open,
@@ -854,7 +895,7 @@ _try_module_again:
 				status = uefi_call_wrapper(file->Read,
 						3, file, &bytes, (void *)(KERNEL_LOAD_START + (uintptr_t)offset));
 				if (!EFI_ERROR(status)) {
-					print_("Loaded "); print_(*c); print_("\n");
+					print("Loaded "); print(*c); print("\n");
 					modules_mboot[j].mod_start = KERNEL_LOAD_START + offset;
 					modules_mboot[j].mod_end = KERNEL_LOAD_START + offset + bytes;
 					j++;
@@ -871,6 +912,7 @@ _try_module_again:
 		c++;
 	}
 
+	print_("Loading ramdisk...\n");
 	{
 		char * c = ramdisk_path;
 		CHAR16 name[16] = {0};
@@ -888,13 +930,27 @@ _try_module_again:
 		status = uefi_call_wrapper(root->Open,
 				5, root, &file, name, EFI_FILE_MODE_READ, 0);
 		if (!EFI_ERROR(status)) {
-#define RAMDISK_OFFSET 0x5000000
+			uintptr_t RAMDISK_OFFSET;
+			{
+				EFI_PHYSICAL_ADDRESS addr;
+				EFI_STATUS status = uefi_call_wrapper(ST->BootServices->AllocatePages, 4, AllocateAnyPages, EfiLoaderData, 4096, &addr);
+				if (EFI_ERROR(status)) {
+					print_("Failed to allocate space for ramdisk.\n");
+					while (1) {};
+				}
+				print_("Placing ramdisk at ");
+				print_hex_(addr >> 32);
+				print_hex_(addr & 0xFFFFFFFF);
+				print_("\n");
+				RAMDISK_OFFSET = addr;
+			}
 			status = uefi_call_wrapper(file->Read,
-					3, file, &bytes, (void *)(RAMDISK_OFFSET));
+					3, file, &bytes, (void*)RAMDISK_OFFSET);
 			if (!EFI_ERROR(status)) {
+				print_("Read "); print_hex_(bytes); print_(" bytes.\n");
 				inputPtr = (uint8_t*)RAMDISK_OFFSET;
 				outputPtr = (uint8_t*)KERNEL_LOAD_START + offset;
-				print_("\nDecompressing ramdisk... ");
+				print_("Decompressing ramdisk... ");
 				if (gzip_decompress()) {
 					print_("Failed?\n");
 				}
@@ -902,9 +958,8 @@ _try_module_again:
 				print_("Loaded "); print_(c); print_("\n");
 				modules_mboot[multiboot_header.mods_count-1].mod_start = KERNEL_LOAD_START + offset;
 				modules_mboot[multiboot_header.mods_count-1].mod_end = (uintptr_t)outputPtr;
-				offset += bytes;
-				while (offset % 4096) offset++;
-				final_offset = (uint8_t *)KERNEL_LOAD_START + offset;
+				final_offset = (uint8_t *)outputPtr;
+				while ((uintptr_t)final_offset & 0xfff) final_offset++;
 			} else {
 				print_("Failed to read ramdisk\n");
 			}

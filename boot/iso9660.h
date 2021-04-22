@@ -112,10 +112,10 @@ typedef struct {
 #define FLAG_CONTINUES   0x80
 
 static int root_sector = 0;
-static iso_9660_volume_descriptor_t * root = (iso_9660_volume_descriptor_t *)((uint8_t *)0x20000);
-static iso_9660_directory_entry_t * dir_entry = (iso_9660_directory_entry_t *)((uint8_t *)0x20800);
-static uint8_t * mod_dir = (uint8_t *)0x21000;
-static uint8_t * dir_entries = (uint8_t *)(0x30000);
+static iso_9660_volume_descriptor_t * root = (iso_9660_volume_descriptor_t *)((char *)0x20000);
+static iso_9660_directory_entry_t * dir_entry = (iso_9660_directory_entry_t *)((char *)0x20800);
+static char * mod_dir = (char *)0x21000;
+static char * dir_entries = (char *)(0x30000);
 static struct ata_device * device = 0;
 
 static int navigate(char * name) {

@@ -37,7 +37,7 @@ static _inline void inportsm(unsigned short port, unsigned char * data, unsigned
 	asm volatile ("rep insw" : "+D" (data), "+c" (size) : "d" (port) : "memory");
 }
 
-static _inline void * memcpy(void * restrict dest, const void * restrict src, long n) {
+static void * memcpy(void * restrict dest, const void * restrict src, long n) {
 	asm volatile("cld; rep movsb"
 	            : "=c"((int){0})
 	            : "D"(dest), "S"(src), "c"(n)
@@ -45,7 +45,7 @@ static _inline void * memcpy(void * restrict dest, const void * restrict src, lo
 	return dest;
 }
 
-static _inline void * memset(void * dest, int c, long n) {
+static void * memset(void * dest, int c, long n) {
 	asm volatile("cld; rep stosb"
 	             : "=c"((int){0})
 	             : "D"(dest), "a"(c), "c"(n)

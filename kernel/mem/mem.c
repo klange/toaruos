@@ -351,7 +351,7 @@ void paging_finalize(void) {
 		get_page(i << 16UL, 1, kernel_directory);
 	}
 
-	debug_print(NOTICE, "Setting directory.");
+	debug_print(NOTICE, "Setting directory to 0x%x", kernel_directory);
 	current_directory = clone_directory(kernel_directory);
 	switch_page_directory(kernel_directory);
 }

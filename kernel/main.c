@@ -56,6 +56,7 @@ fs_node_t * ramdisk_mount(uintptr_t, size_t);
 
 #ifdef EARLY_BOOT_LOG
 #define EARLY_LOG_DEVICE 0x3F8
+//#define EARLY_LOG_DEVICE 0x504
 static uint32_t _early_log_write(fs_node_t *node, uint64_t offset, uint32_t size, uint8_t *buffer) {
 	for (unsigned int i = 0; i < size; ++i) {
 		outportb(EARLY_LOG_DEVICE, buffer[i]);
@@ -133,16 +134,27 @@ int kmain(struct multiboot *mboot, uint32_t mboot_mag, uintptr_t esp) {
 	}
 
 	if (mboot_ptr->flags & MULTIBOOT_FLAG_MMAP) {
-		debug_print(NOTICE, "Parsing memory map.");
+		debug_print(NOTICE, "Parsing memory map at 0x%x with length 0x%x", mboot_ptr->mmap_addr, mboot_ptr->mmap_length);
 		mboot_memmap_t * mmap = (void *)mboot_ptr->mmap_addr;
+		unsigned long long int previousEnd = 0;
 		while ((uintptr_t)mmap < mboot_ptr->mmap_addr + mboot_ptr->mmap_length) {
+			if (previousEnd < mmap->base_addr) {
+				debug_print(NOTICE, "Need to back fill from 0x%x%x to 0x%x%x as unavailable",
+					(uint32_t)(previousEnd >> 32), (uint32_t)(previousEnd & 0xFFFFFFFF),
+					(uint32_t)(mmap->base_addr >> 32), (uint32_t)(mmap->base_addr & 0xFFFFFFFF));
+				for (; previousEnd < mmap->base_addr; previousEnd += 0x1000) {
+					paging_mark_system((previousEnd) & 0xFFFFF000);
+				}
+			}
+			debug_print(NOTICE, "0x%x:0x%x %d", (uint32_t)mmap->base_addr, (uint32_t)mmap->length, mmap->type);
 			if (mmap->type == 2) {
 				for (unsigned long long int i = 0; i < mmap->length; i += 0x1000) {
 					if (mmap->base_addr + i > 0xFFFFFFFF) break; /* xxx */
-					debug_print(INFO, "Marking 0x%x", (uint32_t)(mmap->base_addr + i));
+					//debug_print(INFO, "Marking 0x%x", (uint32_t)(mmap->base_addr + i));
 					paging_mark_system((mmap->base_addr + i) & 0xFFFFF000);
 				}
 			}
+			previousEnd = mmap->base_addr + mmap->length;
 			mmap = (mboot_memmap_t *) ((uintptr_t)mmap + mmap->size + sizeof(uintptr_t));
 		}
 	}

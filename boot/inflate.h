@@ -1,19 +1,14 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#pragma GCC push_options
-#pragma GCC optimize ("O2")
-
-static struct inflate_context {
-	uint8_t bit_buffer;
-	char buffer_size;
-} ctx = {0,0};
+static uint8_t bit_buffer = 0;
+static char buffer_size = 0;
 
 static uint8_t * inputPtr = NULL;
 static uint8_t * outputPtr = NULL;
 
-static inline uint8_t read_byte(void);
-static inline void _write(unsigned int sym);
+static uint8_t read_byte(void);
+static void _write(unsigned int sym);
 
 /**
  * Decoded Huffman table
@@ -32,7 +27,7 @@ struct huff fixed_dists;
 /**
  * Read a little-endian short from the input.
  */
-static inline uint16_t read_16le(void) {
+static uint16_t read_16le(void) {
 	uint16_t a, b;
 	a = read_byte();
 	b = read_byte();
@@ -43,25 +38,24 @@ static inline uint16_t read_16le(void) {
  * Read a single bit from the source.
  * Fills the byte buffer with one byte when it runs out.
  */
-__attribute__((hot))
-static inline uint8_t read_bit(void) {
+static _Bool read_bit(void) {
 
 	/* When we run out of bits... */
-	if (ctx.buffer_size == 0) {
+	if (buffer_size == 0) {
 		/* Refill from the next input byte */
-		ctx.bit_buffer = read_byte();
+		bit_buffer = read_byte();
 		/* And restore bit buffer size to 8 bits */
-		ctx.buffer_size = 8;
+		buffer_size = 8;
 	}
 
 	/* Get the next available bit */
-	int out = ctx.bit_buffer & 1;
+	int out = bit_buffer & 1;
 
 	/* Shift the bit buffer forward */
-	ctx.bit_buffer >>= 1;
+	bit_buffer >>= 1;
 
 	/* There is now one less bit available */
-	ctx.buffer_size--;
+	buffer_size--;
 
 	return out;
 }
@@ -69,7 +63,7 @@ static inline uint8_t read_bit(void) {
 /**
  * Read multible bits, in bit order, from the source.
  */
-static inline uint32_t read_bits(unsigned int count) {
+static uint32_t read_bits(unsigned int count) {
 	uint32_t out = 0;
 	for (unsigned int bit = 0; bit < count; bit++) {
 		/* Read one bit at a time, from least to most significant */
@@ -81,7 +75,7 @@ static inline uint32_t read_bits(unsigned int count) {
 /**
  * Build a Huffman table from an array of lengths.
  */
-static inline void build_huffman(uint8_t * lengths, size_t size, struct huff * out) {
+static void build_huffman(uint8_t * lengths, size_t size, struct huff * out) {
 
 	uint16_t offsets[16];
 	unsigned int count = 0;
@@ -110,7 +104,7 @@ static inline void build_huffman(uint8_t * lengths, size_t size, struct huff * o
 /**
  * Build the fixed Huffman tables
  */
-static inline void build_fixed(void) {
+static void build_fixed(void) {
 	/* From 3.2.6:
 	 * Lit Value    Bits        Codes
 	 * ---------    ----        -----
@@ -144,8 +138,7 @@ static inline void build_fixed(void) {
 /**
  * Decode a symbol from the source using a Huffman table.
  */
-__attribute__((hot))
-static inline int decode(struct huff * huff) {
+static int decode(struct huff * huff) {
 	int count = 0, cur = 0;
 	for (int i = 1; cur >= 0; i++) {
 		cur = (cur << 1) | read_bit(); /* Shift */
@@ -155,18 +148,37 @@ static inline int decode(struct huff * huff) {
 	return huff->symbols[count + cur];
 }
 
+struct huff_ring {
+	size_t pointer;
+	uint8_t data[32768];
+};
+
+static struct huff_ring data = {0, {0}};
+
+/**
+ * Emit one byte to the output, maintaining the ringbuffer.
+ * The ringbuffer ensures we can always look back 32K bytes
+ * while keeping output streaming.
+ */
+static void emit(unsigned char byte) {
+	data.data[data.pointer++] = byte;
+	data.pointer &= 0x7FFF;
+	_write(byte);
+}
+
 /**
  * Look backwards in the output ring buffer.
  */
-__attribute__((hot))
-static inline void peek(unsigned int offset) {
-	_write(outputPtr[-offset]);
+static void peek(unsigned int offset) {
+	data.data[data.pointer] = data.data[(data.pointer + 0x8000 - offset) & 0x7FFF];
+	_write(data.data[data.pointer++]);
+	data.pointer &= 0x7FFF;
 }
 
 /**
  * Decompress a block of Huffman-encoded data.
  */
-static inline int inflate(struct huff * huff_len, struct huff * huff_dist) {
+static int inflate(struct huff * huff_len, struct huff * huff_dist) {
 
 	/* These are the extra bits for lengths from the tables in section 3.2.5
 	 *           Extra               Extra               Extra
@@ -219,7 +231,7 @@ static inline int inflate(struct huff * huff_len, struct huff * huff_dist) {
 	while (1) {
 		unsigned int symbol = decode(huff_len);
 		if (symbol < 256) {
-			_write(symbol);
+			emit(symbol);
 		} else if (symbol == 256) {
 			/* "The literal/length symbol 256 (end of data), ..." */
 			break;
@@ -241,7 +253,7 @@ static inline int inflate(struct huff * huff_len, struct huff * huff_dist) {
 /**
  * Decode a dynamic Huffman block.
  */
-static inline void decode_huffman(void) {
+static void decode_huffman(void) {
 
 	/* Ordering of code length codes:
 	 * (HCLEN + 4) x 3 bits: code lengths for the code length
@@ -310,10 +322,10 @@ static inline void decode_huffman(void) {
 /**
  * Decode an uncompressed block.
  */
-static inline int uncompressed(void) {
+static int uncompressed(void) {
 	/* Reset byte alignment */
-	ctx.bit_buffer = 0;
-	ctx.buffer_size = 0;
+	bit_buffer = 0;
+	buffer_size = 0;
 
 	/* "The rest of the block consists of the following information:"
 	 *    0   1   2   3   4...
@@ -331,7 +343,7 @@ static inline int uncompressed(void) {
 
 	/* Emit LEN bytes from the source to the output */
 	for (int i = 0; i < len; ++i) {
-		_write(read_byte());
+		emit(read_byte());
 	}
 
 	return 0;
@@ -340,9 +352,11 @@ static inline int uncompressed(void) {
 /**
  * Decompress DEFLATE-compressed data.
  */
+__attribute__((optimize("O2")))
+__attribute__((hot))
 int deflate_decompress(void) {
-	ctx.bit_buffer = 0;
-	ctx.buffer_size = 0;
+	bit_buffer = 0;
+	buffer_size = 0;
 
 	build_fixed();
 
@@ -384,7 +398,7 @@ int deflate_decompress(void) {
 #define GZIP_FLAG_NAME (1 << 3)
 #define GZIP_FLAG_COMM (1 << 4)
 
-static inline unsigned int read_32le(void) {
+static unsigned int read_32le(void) {
 	unsigned int a, b, c, d;
 	a = read_byte();
 	b = read_byte();
@@ -451,4 +465,3 @@ int gzip_decompress(void) {
 	return status;
 }
 
-#pragma GCC pop_options

@@ -319,7 +319,7 @@ cdrom/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld | dirs
 	${KLD} -T boot/link.ld -o $@ boot/boot.o boot/cstuff.o
 
 boot/cstuff.o: boot/cstuff.c boot/*.h
-	${CC} -c -Os -s -o $@ $<
+	${CC} -c -Os -fno-strict-aliasing -finline-functions -ffreestanding -o $@ $<
 
 boot/boot.o: boot/boot.S
 	${AS} -o $@ $<

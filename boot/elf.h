@@ -92,7 +92,7 @@ typedef struct {
 
 typedef struct {
 	uint32_t  id;
-	uintptr_t ptr;
+	uint32_t  ptr;
 } Elf32_auxv;
 
 typedef struct {
