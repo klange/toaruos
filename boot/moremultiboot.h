@@ -399,8 +399,13 @@ done_video:
 	foo[2] = _xmain;
 	__asm__ __volatile__ (
 		"mov %%cr0,%%eax\n"
-		"and $0x7FFFFFFF,%%eax\n"
+		/* Disable paging */
+		"and $0x7FFeFFFF, %%eax\n"
 		"mov %%eax,%%cr0\n"
+		/* Ensure PAE is not enabled */
+		"mov %%cr4,%%eax\n"
+		"and $0xffffffdf, %%eax\n"
+		"mov %%eax,%%cr4\n"
 		"mov %1,%%eax \n"
 		"mov %2,%%ebx \n"
 		"jmp *%0" : : "g"(foo[2]), "g"(foo[0]), "g"(foo[1]) : "eax", "ebx"
