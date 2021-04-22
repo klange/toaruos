@@ -203,5 +203,5 @@ ToaruOS has taken inspiration from Linux in its choice of binary formats, filesy
 
 ### Are there plans for a 64-bit port / SMP support?
 
-Yes, an x86-64/SMP-capable port is [https://github.com/toaruos](in progress) as of 2021.
+Yes, an x86-64/SMP-capable port is [in progress](https://github.com/toaruos) as of 2021.
 
