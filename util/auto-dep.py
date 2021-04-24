@@ -6,7 +6,7 @@ import sys
 
 import subprocess
 
-cflags = "-O3 -g -std=gnu99 -I. -Iapps -pipe -mmmx -msse -msse2 -fplan9-extensions -Wall -Wextra -Wno-unused-parameter"
+cflags = "-O2 -g -std=gnu99 -I. -Iapps -pipe -mmmx -msse -msse2 -fplan9-extensions -Wall -Wextra -Wno-unused-parameter"
 
 class Classifier(object):
 
