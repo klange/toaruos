@@ -34,6 +34,9 @@ def file_filter(tarinfo):
     elif tarinfo.name in restricted_files:
         tarinfo.mode = restricted_files[tarinfo.name]
 
+    if tarinfo.name.startswith('usr/include/kuroko') and tarinfo.type == tarfile.SYMTYPE:
+        return None
+
     if tarinfo.name.startswith('src'):
         # Let local own the files here
         tarinfo.uid = users.get('local')
@@ -57,6 +60,7 @@ with tarfile.open('fatbase/ramdisk.img','w') as ramdisk:
     ramdisk.add('modules',arcname='/src/modules',filter=file_filter)
     if os.path.exists('tags'):
         ramdisk.add('tags',arcname='/src/tags',filter=file_filter)
-    ramdisk.add('util/build-the-world.py',arcname='/usr/bin/build-the-world.py',filter=file_filter)
+    ramdisk.add('util/auto-dep.krk',arcname='/usr/bin/auto-dep.krk',filter=file_filter)
+    ramdisk.add('kuroko/src/kuroko',arcname='/usr/include/kuroko',filter=file_filter)
 
 

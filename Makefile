@@ -116,10 +116,10 @@ fatbase/kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o ${EXTRALIB}
 # build the kernel as a flat binary or load it with less-capable
 # multiboot loaders and still get symbols, which we need to
 # load kernel modules and link them properly.
-kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/generate_symbols.py ${EXTRALIB}
+kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/generate_symbols.krk ${EXTRALIB} | util/kuroko
 	-rm -f kernel/symbols.o
 	${KCC} -T kernel/link.ld ${KCFLAGS} -nostdlib -o .toaruos-kernel ${KERNEL_ASMOBJS} ${KERNEL_OBJS} ${LGCC}
-	${KNM} .toaruos-kernel -g | util/generate_symbols.py > kernel/symbols.S
+	${KNM} .toaruos-kernel -g | util/kuroko util/generate_symbols.krk > kernel/symbols.S
 	${KAS} ${KASFLAGS} kernel/symbols.S -o $@
 	-rm -f .toaruos-kernel
 
@@ -196,11 +196,11 @@ base/lib/libc.so: ${LIBC_OBJS} | dirs crts
 base/lib/libm.so: util/lm.c | dirs crts
 	$(CC) -nodefaultlibs -o $@ $(CFLAGS) -shared -fPIC $^ -lgcc
 
-KUROKO_OBJS=$(patsubst %.c, %.o, $(filter-out kuroko/src/module_% kuroko/src/rline.c kuroko/src/kuroko.c, $(sort $(wildcard kuroko/src/*.c))))
+KUROKO_OBJS=$(patsubst %.c, %.o, $(filter-out kuroko/src/kuroko.c,$(sort $(wildcard kuroko/src/*.c))))
 kuroko/%.o: kuroko/%.c
 	$(CC) $(CFLAGS) -fPIC -c -o $@ $^
 
-KUROKO_CMODS=$(patsubst kuroko/src/module_%.c,%,$(wildcard kuroko/src/module_*.c)) $(patsubst lib/kuroko/%.c,%,$(wildcard lib/kuroko/*.c))
+KUROKO_CMODS=$(patsubst kuroko/src/modules/module_%.c,%,$(wildcard kuroko/src/modules/module_*.c)) $(patsubst lib/kuroko/%.c,%,$(wildcard lib/kuroko/*.c))
 KUROKO_CMODS_X=$(foreach lib,$(KUROKO_CMODS),base/lib/kuroko/$(lib).so)
 KUROKO_CMODS_Y=$(foreach lib,$(KUROKO_CMODS),.make/$(lib).kmak)
 KUROKO_KRK_MODS=$(patsubst kuroko/modules/%.krk,base/lib/kuroko/%.krk,$(wildcard kuroko/modules/*.krk kuroko/modules/*/*.krk))
@@ -211,11 +211,15 @@ base/lib/kuroko/%.krk: kuroko/modules/%.krk
 	@mkdir -p `dirname $@`
 	cp $< $@
 
-.make/%.kmak: kuroko/src/module_%.c util/auto-dep.py | dirs
-	util/auto-dep.py --makekurokomod $< > $@
+MINIMAL_KUROKO = $(filter-out kuroko/src/modules/module_%,$(sort $(wildcard kuroko/src/*.c)))
+util/kuroko: $(MINIMAL_KUROKO)
+	gcc -Ikuroko/src -DNO_RLINE -DSTATIC_ONLY -DKRK_DISABLE_THREADS -o $@ $^
 
-.make/%.kmak: lib/kuroko/%.c util/auto-dep.py | dirs
-	util/auto-dep.py --makekurokomod $< > $@
+.make/%.kmak: kuroko/src/modules/module_%.c util/auto-dep.krk | dirs util/kuroko
+	util/kuroko util/auto-dep.krk --makekurokomod $< > $@
+
+.make/%.kmak: lib/kuroko/%.c util/auto-dep.krk | dirs util/kuroko
+	util/kuroko util/auto-dep.krk --makekurokomod $< > $@
 
 ifeq (,$(findstring clean,$(MAKECMDGOALS)))
 -include ${KUROKO_CMODS_Y}
@@ -230,8 +234,8 @@ base/lib/ld.so: linker/linker.c base/lib/libc.a | dirs
 	$(CC) -static -Wl,-static $(CFLAGS) -o $@ -Os -T linker/link.ld $<
 
 # Shared Libraries
-.make/%.lmak: lib/%.c util/auto-dep.py | dirs crts
-	util/auto-dep.py --makelib $< > $@
+.make/%.lmak: lib/%.c util/auto-dep.krk | dirs crts util/kuroko
+	util/kuroko util/auto-dep.krk --makelib $< > $@
 
 ifeq (,$(findstring clean,$(MAKECMDGOALS)))
 -include ${LIBS_Y}
@@ -243,8 +247,8 @@ fatbase/netinit: util/netinit.c base/lib/libc.a | dirs
 
 # Userspace applications
 
-.make/%.mak: apps/%.c util/auto-dep.py | dirs crts
-	util/auto-dep.py --make $< > $@
+.make/%.mak: apps/%.c util/auto-dep.krk | dirs crts util/kuroko
+	util/kuroko util/auto-dep.krk --make $< > $@
 
 ifeq (,$(findstring clean,$(MAKECMDGOALS)))
 -include ${APPS_Y}
@@ -343,8 +347,9 @@ clean:
 	rm -f base/lib/crt*.o
 	rm -f ${MODULES}
 	rm -f ${APPS_Y} ${LIBS_Y} ${EXT_LIBS_Y}
-	rm -f ${KUROKO_FILES}
+	rm -f ${KUROKO_FILES} ${KUROKO_CMODS_Y} ${KUROKO_CMODS_X}
 	rm -f kuroko/src/*.o
+	rm -f util/kuroko
 
 ifneq (,$(findstring Microsoft,$(shell uname -r)))
   QEMU_ARGS=-serial mon:stdio -m 1G -rtc base=localtime -vnc :0
@@ -419,8 +424,8 @@ EXT_LIBS=$(patsubst ext/%.c,%,$(wildcard ext/*.c))
 EXT_LIBS_X=$(foreach lib,$(EXT_LIBS),base/lib/libtoaru_$(lib).so)
 EXT_LIBS_Y=$(foreach lib,$(EXT_LIBS),.make/$(lib).elmak)
 
-.make/%.elmak: ext/%.c util/auto-dep.py | dirs
-	util/auto-dep.py --makelib $< > $@
+.make/%.elmak: ext/%.c util/auto-dep.krk | dirs util/kuroko
+	util/kuroko util/auto-dep.krk --makelib $< > $@
 
 ifeq (,$(findstring clean,$(MAKECMDGOALS)))
 -include ${EXT_LIBS_Y}

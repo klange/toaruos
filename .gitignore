@@ -31,6 +31,7 @@
 /util/local
 /util/devtable
 /util/tmp-gcc
+/util/kuroko
 /kernel/symbols.S
 /base/usr/python
 /base/usr/bin/*

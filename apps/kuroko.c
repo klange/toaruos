@@ -621,14 +621,39 @@ static void handleSigint(int sigNum) {
 	krk_currentThread.flags |= KRK_THREAD_SIGNALLED;
 }
 
+#ifndef _WIN32
 static void handleSigtrap(int sigNum) {
 	if (!krk_currentThread.frameCount) return;
 	krk_currentThread.flags |= KRK_THREAD_SINGLE_STEP;
 }
+#endif
 
 static void bindSignalHandlers(void) {
+#if !defined(_WIN32) && !defined(__toaru__)
+	struct sigaction sigIntAction;
+	sigIntAction.sa_handler = handleSigint;
+	sigemptyset(&sigIntAction.sa_mask);
+	sigIntAction.sa_flags = 0; /* Do not restore the default, do not restart syscalls, do not pass go, do not collect $500 */
+	sigaction(
+		SIGINT, /* ^C for keyboard interrupts */
+		&sigIntAction,
+		NULL);
+
+	struct sigaction sigTrapAction;
+	sigTrapAction.sa_handler = handleSigtrap;
+	sigemptyset(&sigTrapAction.sa_mask);
+	sigTrapAction.sa_flags = 0;
+	sigaction(
+		SIGTRAP,
+		&sigTrapAction,
+		NULL);
+#else
 	signal(SIGINT, handleSigint);
+# ifndef _WIN32
 	signal(SIGTRAP, handleSigtrap);
+	/* No SIGTRAP on windows? */
+# endif
+#endif
 }
 
 static void findInterpreter(char * argv[]) {
