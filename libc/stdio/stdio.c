@@ -38,6 +38,7 @@ FILE _stdin = {
 	.read_from = 0,
 	.ungetc = -1,
 	.eof = 0,
+	.error = 0,
 	.last_read_start = 0,
 	.bufsiz = BUFSIZ,
 
@@ -54,6 +55,7 @@ FILE _stdout = {
 	.read_from = 0,
 	.ungetc = -1,
 	.eof = 0,
+	.error = 0,
 	.last_read_start = 0,
 	.bufsiz = BUFSIZ,
 
@@ -70,6 +72,7 @@ FILE _stderr = {
 	.read_from = 0,
 	.ungetc = -1,
 	.eof = 0,
+	.error = 0,
 	.last_read_start = 0,
 	.bufsiz = BUFSIZ,
 
