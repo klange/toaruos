@@ -185,7 +185,7 @@ ToaruOS is regularly mirrored to multiple Git hosting sites.
 
 ### IRC
 
-`#toaruos` on Freenode (`irc.freenode.net`)
+`#toaruos` on Freenode (`irc.libera.chat`)
 
 ## FAQs
 
