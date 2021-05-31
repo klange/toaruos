@@ -60,7 +60,7 @@ You can skip the process of building the cross-compiler toolchain (which doesn't
     git clone --recursive https://github.com/klange/toaruos
     cd toaruos
     docker pull toaruos/build-tools:1.99.x
-    docker run -v `pwd`:/root/misaka -w /root/misaka -e LANG=C.UTF-8 -t toaruos/build-tools:1.8.x util/build-in-docker.sh
+    docker run -v `pwd`:/root/misaka -w /root/misaka -e LANG=C.UTF-8 -t toaruos/build-tools:1.99.x util/build-in-docker.sh
 
 After building like this, you can run the various utility targets (`make run`, etc.). Try `make shell` to run a ToaruOS shell (using QEMU and a network socket - you'll need netcat for this to work).
 
