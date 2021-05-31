@@ -135,8 +135,12 @@ static void baseline_dct(FILE * f, int len) {
 	fread(&dct, sizeof(struct dct), 1, f);
 
 	/* Read image dimensions, each as big-endian 16-bit values */
-	swap16(&dct.height);
-	swap16(&dct.width);
+	uint16_t h = dct.height;
+	uint16_t w = dct.width;
+	swap16(&h);
+	swap16(&w);
+	dct.height = h;
+	dct.width = w;
 
 	/* We read 7 bytes */
 	len -= sizeof(struct dct);

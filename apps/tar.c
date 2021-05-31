@@ -299,13 +299,13 @@ int main(int argc, char * argv[]) {
 				if (verbose) {
 					fprintf(stdout, "%.155s%.100s\n", file->prefix, file->filename);
 				}
-				char name[1024] = {0};
+				char name[1025] = {0};
 				if (last_was_long) {
-					strncat(name, tmpname, 1023);
+					strncat(name, tmpname, 1024);
 					last_was_long = 0;
 				} else {
-					strncat(name, file->prefix, 155);
-					strncat(name, file->filename, 100);
+					strncat(name, file->prefix, 167);
+					strncat(name, file->filename, 512);
 				}
 
 				if (file->type[0] == '0' || file->type[0] == 0) {
@@ -335,8 +335,8 @@ int main(int argc, char * argv[]) {
 					}
 				} else if (file->type[0] == '1') {
 					if (!to_stdout && (!only_matches || matches_files(argc,argv,optind,name))) {
-						char tmp[101] = {0};
-						strncat(tmp, file->link, 100);
+						char tmp[356] = {0};
+						strncat(tmp, file->link, 355);
 						FILE * mf = fopen(name,"w");
 						if (!mf) {
 							fprintf(stderr, "%s: %s: %s: %s\n", argv[0], fname, name, strerror(errno));
@@ -359,8 +359,8 @@ int main(int argc, char * argv[]) {
 					_seek_forward(f, interpret_size(file));
 				} else if (file->type[0] == '2') {
 					if (!to_stdout && (!only_matches || matches_files(argc,argv,optind,name))) {
-						char tmp[101] = {0};
-						strncat(tmp, file->link, 100);
+						char tmp[356] = {0};
+						strncat(tmp, file->link, 355);
 						if (symlink(tmp, name) < 0) {
 							fprintf(stderr, "%s: %s: %s: %s: %s\n", argv[0], fname, name, tmp, strerror(errno));
 						}

@@ -85,7 +85,7 @@ static int  nav_bar_cursor_x = 0;
 static int  nav_bar_focused = 0;
 
 /* Status bar displayed at the bottom of the window */
-static char window_status[512] = {0};
+static char window_status[1024] = {0};
 
 /* Button row visibility statuses */
 static int _button_hilights[4] = {3,3,3,3};
@@ -435,7 +435,7 @@ static void update_status(void) {
 	char tmp_size[50];
 	if (selected_count == 0) {
 		print_human_readable_size(tmp_size, total_size);
-		sprintf(window_status, "%d item%s (%s)", file_pointers_len, file_pointers_len == 1 ? "" : "s", tmp_size);
+		sprintf(window_status, "%zd item%s (%s)", file_pointers_len, file_pointers_len == 1 ? "" : "s", tmp_size);
 	} else if (selected_count == 1) {
 		print_human_readable_size(tmp_size, selected->size);
 		sprintf(window_status, "\"%s\" (%s) %s", selected->name, tmp_size, selected->filetype);
@@ -1955,7 +1955,7 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
 					{
 						struct yutani_msg_window_focus_change * wf = (void*)m->data;
-						yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
+						yutani_window_t * win = hashmap_get(yctx->windows, (void*)(uintptr_t)wf->wid);
 						if (win == main_window) {
 							win->focused = wf->focused;
 							redraw_files();
@@ -1994,7 +1994,7 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
 					{
 						struct yutani_msg_window_mouse_event * me = (void*)m->data;
-						yutani_window_t * win = hashmap_get(yctx->windows, (void*)me->wid);
+						yutani_window_t * win = hashmap_get(yctx->windows, (void*)(uintptr_t)me->wid);
 						struct decor_bounds bounds;
 						_decor_get_bounds(win, &bounds);
 

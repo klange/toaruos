@@ -1,10 +1,9 @@
 #pragma once
 
-#include <va_list.h>
+#include <kernel/types.h>
 
-#include <kernel/fs.h>
-
-extern size_t vasprintf(char * buf, const char *fmt, va_list args);
-extern int    sprintf(char *buf, const char *fmt, ...);
-extern int    fprintf(fs_node_t * device, char *fmt, ...);
-
+__attribute__((format(__printf__,1,2)))
+extern int printf(const char *fmt, ...);
+extern size_t (*printf_output)(size_t, uint8_t *);
+__attribute__((format(__printf__,3,4)))
+extern int snprintf(char * str, size_t size, const char * format, ...);

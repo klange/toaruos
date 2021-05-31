@@ -1,6 +1,8 @@
 #ifndef KERNEL_MOD_NET_H
 #define KERNEL_MOD_NET_H
 
+#include <stdint.h>
+
 typedef uint8_t* (*get_mac_func)(void);
 typedef struct ethernet_packet* (*get_packet_func)(void);
 typedef void (*send_packet_func)(uint8_t*, size_t);

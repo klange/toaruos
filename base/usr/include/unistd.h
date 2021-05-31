@@ -7,6 +7,8 @@
 
 _Begin_C_Header
 
+#define _POSIX_VERSION 200809L
+
 extern char **environ;
 
 extern pid_t getpid(void);
@@ -99,5 +101,8 @@ extern void *sbrk(intptr_t increment);
 
 extern void sync(void);
 extern int truncate(const char *, off_t);
+
+#define _PC_PATH_MAX 1
+extern long pathconf(const char *path, int name);
 
 _End_C_Header

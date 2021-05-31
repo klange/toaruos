@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 #define PCI_VENDOR_ID            0x00 // 2
 #define PCI_DEVICE_ID            0x02 // 2
 #define PCI_COMMAND              0x04 // 2
@@ -59,10 +61,10 @@ static inline uint32_t pci_box_device(int bus, int slot, int func) {
 uint32_t pci_read_field(uint32_t device, int field, int size);
 void pci_write_field(uint32_t device, int field, int size, uint32_t value);
 uint16_t pci_find_type(uint32_t dev);
-void pci_scan_hit(pci_func_t f, uint32_t dev, void * extra);
 void pci_scan_func(pci_func_t f, int type, int bus, int slot, int func, void * extra);
 void pci_scan_slot(pci_func_t f, int type, int bus, int slot, void * extra);
 void pci_scan_bus(pci_func_t f, int type, int bus, void * extra);
 void pci_scan(pci_func_t f, int type, void * extra);
 void pci_remap(void);
 int pci_get_interrupt(uint32_t device);
+

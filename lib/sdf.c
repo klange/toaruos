@@ -206,14 +206,14 @@ int draw_sdf_string_stroke(gfx_context_t * ctx, int32_t x, int32_t y, const char
 
 	sprite_t * tmp;
 	spin_lock(&_sdf_lock);
-	if (!hashmap_has(_font_cache, (void *)(scale_height | (font << 16)))) {
+	if (!hashmap_has(_font_cache, (void *)(uintptr_t)(scale_height | (font << 16)))) {
 		tmp = create_sprite(scale * _font_data->width, scale * _font_data->height, ALPHA_OPAQUE);
 		gfx_context_t * t = init_graphics_sprite(tmp);
 		draw_sprite_scaled(t, _font_data, 0, 0, tmp->width, tmp->height);
 		free(t);
-		hashmap_set(_font_cache, (void *)(scale_height | (font << 16)), tmp);
+		hashmap_set(_font_cache, (void *)(uintptr_t)(scale_height | (font << 16)), tmp);
 	} else {
-		tmp = hashmap_get(_font_cache, (void *)(scale_height | (font << 16)));
+		tmp = hashmap_get(_font_cache, (void *)(uintptr_t)(scale_height | (font << 16)));
 	}
 
 	uint32_t state = 0;

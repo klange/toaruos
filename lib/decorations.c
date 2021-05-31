@@ -254,7 +254,7 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 			case YUTANI_MSG_WINDOW_MOUSE_EVENT:
 				{
 					struct yutani_msg_window_mouse_event * me = (void*)m->data;
-					yutani_window_t * window = hashmap_get(yctx->windows, (void*)me->wid);
+					yutani_window_t * window = hashmap_get(yctx->windows, (void*)(uintptr_t)me->wid);
 					struct decor_bounds bounds;
 					decor_get_bounds(window, &bounds);
 					if (!window) return 0;

@@ -1,0 +1,32 @@
+#!/usr/bin/env kuroko
+'''
+@brief Generate symbol table.
+'''
+import fileio
+
+let size = 'quad'
+
+def extern(sym):
+    print(f'.extern {sym}')
+    print(f'.type {sym}, @function')
+
+def entry(sym):
+    print(f'.{size} {sym}')
+    print(f'.asciz "{sym}"')
+
+let ignore = ['abs','kernel_symbols_start','kernel_symbols_end']
+let lines  = [x.strip().split(' ')[2] for x in fileio.stdin.readlines() if x not in ignore]
+
+print('.section .symbols')
+print()
+for name in lines:
+    extern(name)
+
+print('.global kernel_symbols_start')
+print('kernel_symbols_start:')
+print()
+for name in lines:
+    entry(name)
+
+print('.global kernel_symbols_end')
+print('kernel_symbols_end:')

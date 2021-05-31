@@ -96,6 +96,7 @@ static int framebuffer_fd = 0;
 gfx_context_t * init_graphics_fullscreen() {
 	gfx_context_t * out = malloc(sizeof(gfx_context_t));
 	out->clips = NULL;
+	out->buffer = NULL;
 
 	if (!framebuffer_fd) {
 		framebuffer_fd = open("/dev/fb0", 0, 0);
@@ -770,8 +771,8 @@ uint32_t getBilinearFilteredPixelColor(sprite_t * tex, double u, double v) {
 	int y = floor(v);
 	if (x >= tex->width)  return 0;
 	if (y >= tex->height) return 0;
-	if (x <= 0) return 0;
-	if (y <= 0) return 0;
+	if (x < 0) return 0;
+	if (y < 0) return 0;
 	double u_ratio = u - x;
 	double v_ratio = v - y;
 	double u_o = 1 - u_ratio;
@@ -946,10 +947,10 @@ void draw_rounded_rectangle(gfx_context_t * ctx, int32_t x, int32_t y, uint16_t 
 			}
 
 			GFX(ctx, _x, _y) = alpha_blend_rgba(GFX(ctx, _x, _y), c);
-			GFX(ctx, _x, _z) = alpha_blend_rgba(GFX(ctx, _x, _z), c);
+			if (_z >= 0) GFX(ctx, _x, _z) = alpha_blend_rgba(GFX(ctx, _x, _z), c);
 			_x = x + radius - i - 1;
 			GFX(ctx, _x, _y) = alpha_blend_rgba(GFX(ctx, _x, _y), c);
-			GFX(ctx, _x, _z) = alpha_blend_rgba(GFX(ctx, _x, _z), c);
+			if (_z >= 0) GFX(ctx, _x, _z) = alpha_blend_rgba(GFX(ctx, _x, _z), c);
 		}
 	}
 }
@@ -989,10 +990,10 @@ void draw_rounded_rectangle_pattern(gfx_context_t * ctx, int32_t x, int32_t y, u
 
 			double alpha = (j_max - (double)j);
 			GFX(ctx, _x, _y) = alpha_blend_rgba(GFX(ctx, _x, _y), pattern(_x,_y,alpha,extra));
-			GFX(ctx, _x, _z) = alpha_blend_rgba(GFX(ctx, _x, _z), pattern(_x,_z,alpha,extra));
+			if (_z >= 0) GFX(ctx, _x, _z) = alpha_blend_rgba(GFX(ctx, _x, _z), pattern(_x,_z,alpha,extra));
 			_x = x + radius - i - 1;
 			GFX(ctx, _x, _y) = alpha_blend_rgba(GFX(ctx, _x, _y), pattern(_x,_y,alpha,extra));
-			GFX(ctx, _x, _z) = alpha_blend_rgba(GFX(ctx, _x, _z), pattern(_x,_z,alpha,extra));
+			if (_z >= 0) GFX(ctx, _x, _z) = alpha_blend_rgba(GFX(ctx, _x, _z), pattern(_x,_z,alpha,extra));
 		}
 	}
 }

@@ -423,8 +423,8 @@ static int install_packages(int argc, char * argv[]) {
 		}
 		fprintf(stderr, "\nContinue? [Y/n] ");
 		fflush(stderr);
-		char resp[4];
-		fgets(resp, 4, stdin);
+		char resp[5];
+		fgets(resp, 5, stdin);
 		if (!(!strcmp(resp,"\n") || !strcmp(resp,"y\n") || !strcmp(resp,"Y\n") || !strcmp(resp,"yes\n"))) {
 			fprintf(stderr, "Aborting.\n");
 			return 1;

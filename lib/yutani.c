@@ -81,7 +81,7 @@ static void _handle_internal(yutani_t * y, yutani_msg_t * out) {
 		case YUTANI_MSG_WINDOW_MOVE:
 			{
 				struct yutani_msg_window_move * wm = (void *)out->data;
-				yutani_window_t * win = hashmap_get(y->windows, (void *)wm->wid);
+				yutani_window_t * win = hashmap_get(y->windows, (void *)(uintptr_t)wm->wid);
 				if (win) {
 					win->x = wm->x;
 					win->y = wm->y;
@@ -91,7 +91,7 @@ static void _handle_internal(yutani_t * y, yutani_msg_t * out) {
 		case YUTANI_MSG_RESIZE_OFFER:
 			{
 				struct yutani_msg_window_resize * wr = (void *)out->data;
-				yutani_window_t * win = hashmap_get(y->windows, (void *)wr->wid);
+				yutani_window_t * win = hashmap_get(y->windows, (void *)(uintptr_t)wr->wid);
 				if (win) {
 					win->decorator_flags &= ~(DECOR_FLAG_TILED);
 					win->decorator_flags |= (wr->flags & YUTANI_RESIZE_TILED) << 2;
@@ -575,7 +575,7 @@ yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int height
 	win->ctx = y;
 	free(mm);
 
-	hashmap_set(y->windows, (void*)win->wid, win);
+	hashmap_set(y->windows, (void*)(uintptr_t)win->wid, win);
 
 	char key[1024];
 	YUTANI_SHMKEY(y->server_ident, key, 1024, win);
@@ -635,7 +635,7 @@ void yutani_close(yutani_t * y, yutani_window_t * win) {
 		shm_release(key);
 	}
 
-	hashmap_remove(y->windows, (void*)win->wid);
+	hashmap_remove(y->windows, (void*)(uintptr_t)win->wid);
 	free(win);
 }
 

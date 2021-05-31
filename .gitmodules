@@ -1,3 +1,9 @@
+[submodule "util/binutils-gdb"]
+	path = util/binutils-gdb
+	url = ../../toaruos/binutils-gdb.git
+[submodule "util/gcc"]
+	path = util/gcc
+	url = ../../toaruos/gcc
 [submodule "kuroko"]
 	path = kuroko
-	url = git@github.com:kuroko-lang/kuroko
+	url = ../../kuroko-lang/kuroko

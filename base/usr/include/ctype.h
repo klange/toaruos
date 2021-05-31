@@ -32,6 +32,6 @@ extern int toupper(int c);
 #define _X  0100
 #define _B  0200
 
-extern char _ctype_[256];
+extern unsigned char _ctype_[256];
 
 _End_C_Header

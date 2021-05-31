@@ -1,19 +1,15 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- */
 #pragma once
 
-/* Types */
-
-#define NULL ((void *)0UL)
-
+#include <limits.h>
 #include <stdint.h>
+#include <stddef.h>
 
-typedef int wchar_t;
-typedef unsigned long size_t;
-#define CHAR_BIT 8
+#define asm __asm__
+#define volatile __volatile__
 
-struct timeval {
-	uint32_t tv_sec;
-	uint32_t tv_usec;
-};
+#define ALIGN (sizeof(size_t))
+
+#define ONES ((size_t)-1/UCHAR_MAX)
+#define HIGHS (ONES * (UCHAR_MAX/2+1))
+#define HASZERO(X) (((X)-ONES) & ~(X) & HIGHS)
 

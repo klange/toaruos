@@ -32,11 +32,11 @@ int tcdrain(int i) {
 }
 
 int tcflow(int fd, int arg) {
-	return ioctl(fd, TCXONC, (void*)arg);
+	return ioctl(fd, TCXONC, (void*)(uintptr_t)arg);
 }
 
 int tcflush(int fd, int arg) {
-	return ioctl(fd, TCFLSH, (void*)arg);
+	return ioctl(fd, TCFLSH, (void*)(uintptr_t)arg);
 }
 
 pid_t tcgetsid(int fd) {
@@ -45,7 +45,7 @@ pid_t tcgetsid(int fd) {
 }
 
 int tcsendbreak(int fd, int arg) {
-	return ioctl(fd, TCSBRK, (void*)arg);
+	return ioctl(fd, TCSBRK, (void*)(uintptr_t)arg);
 }
 
 int tcgetattr(int fd, struct termios * tio) {

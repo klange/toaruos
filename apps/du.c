@@ -38,7 +38,7 @@ static int print_human_readable_size(char * _out, size_t s) {
 }
 
 static void print_size(uint64_t size, char * name) {
-	char sizes[8];
+	char sizes[30];
 	if (!human) {
 		sprintf(sizes, "%-7llu", size/1024LLU);
 	} else {

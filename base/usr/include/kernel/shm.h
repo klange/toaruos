@@ -2,7 +2,8 @@
  */
 #pragma once
 
-#include <kernel/system.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <kernel/types.h>
 
 #define SHM_PATH_SEPARATOR "."
@@ -13,9 +14,8 @@ struct shm_node;
 typedef struct {
 	struct shm_node * parent;
 	volatile uint8_t lock;
-	int32_t ref_count;
-
-	uint32_t num_frames;
+	ssize_t ref_count;
+	size_t num_frames;
 	uintptr_t *frames;
 } shm_chunk_t;
 
@@ -27,8 +27,7 @@ typedef struct shm_node {
 typedef struct {
 	shm_chunk_t * chunk;
 	uint8_t volatile lock;
-
-	uint32_t num_vaddrs;
+	size_t num_vaddrs;
 	uintptr_t *vaddrs;
 } shm_mapping_t;
 

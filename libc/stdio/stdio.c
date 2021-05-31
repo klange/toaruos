@@ -143,7 +143,7 @@ static size_t write_bytes(FILE * f, char * buf, size_t len) {
 	size_t newBytes = 0;
 	while (len > 0) {
 		f->write_buf[f->written++] = *buf;
-		if (f->written == (size_t)f->bufsiz || *buf == '\n') {
+		if (f->written == (size_t)f->wbufsiz || *buf == '\n') {
 			fflush(f);
 		}
 		newBytes++;
@@ -174,7 +174,7 @@ static size_t read_bytes(FILE * f, char * out, size_t len) {
 			if (f->offset == f->bufsiz) {
 				f->offset = 0;
 			}
-			f->last_read_start = syscall_lseek(f->fd, 0, SEEK_CUR);
+			f->last_read_start = syscall_seek(f->fd, 0, SEEK_CUR);
 			ssize_t r = read(fileno(f), &f->read_buf[f->offset], f->bufsiz - f->offset);
 			if (r < 0) {
 				//fprintf(stderr, "error condition\n");
@@ -389,7 +389,7 @@ int fseek(FILE * stream, long offset, int whence) {
 	stream->ungetc = -1;
 	stream->eof = 0;
 
-	int resp = syscall_lseek(stream->fd,offset,whence);
+	int resp = syscall_seek(stream->fd,offset,whence);
 	if (resp < 0) {
 		errno = -resp;
 		return -1;
@@ -412,7 +412,7 @@ long ftell(FILE * stream) {
 	stream->available = 0;
 	stream->ungetc = -1;
 	stream->eof = 0;
-	long resp = syscall_lseek(stream->fd, 0, SEEK_CUR);
+	long resp = syscall_seek(stream->fd, 0, SEEK_CUR);
 	if (resp < 0) {
 		errno = -resp;
 		return -1;

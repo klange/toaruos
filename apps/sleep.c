@@ -25,7 +25,7 @@ int main(int argc, char ** argv) {
 	unsigned int seconds = (unsigned int)time;
 	unsigned int subsecs = (unsigned int)((time - (float)seconds) * 100);
 
-	ret = syscall_nanosleep(seconds, subsecs);
+	ret = syscall_sleep(seconds, subsecs);
 
 	return ret;
 }

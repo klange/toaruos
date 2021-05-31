@@ -431,7 +431,7 @@ static void _ansi_put(term_state_t * s, char c) {
 						break;
 					case ANSI_DSR:
 						{
-							char out[24];
+							char out[27];
 							sprintf(out, "\033[%d;%dR", callbacks->get_csr_y() + 1, callbacks->get_csr_x() + 1);
 							callbacks->input_buffer_stuff(out);
 						}

@@ -135,7 +135,7 @@ _Begin_C_Header
 
 #ifndef _KERNEL_
 extern int errno;
-#define __sets_errno(...) int ret = __VA_ARGS__; if (ret < 0) { errno = -ret; ret = -1; } return ret
+#define __sets_errno(...) long ret = __VA_ARGS__; if (ret < 0) { errno = -ret; ret = -1; } return ret
 #endif
 
 _End_C_Header

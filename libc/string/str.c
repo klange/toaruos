@@ -348,8 +348,7 @@ long atol(const char * s) {
 	}
 	switch (*s) {
 		case '-':
-			neg = 1;
-			/* Fallthrough is intentional here */
+			neg = 1; /* fallthrough */
 		case '+':
 			s++;
 	}
@@ -370,8 +369,7 @@ int atoi(const char * s) {
 	}
 	switch (*s) {
 		case '-':
-			neg = 1;
-			/* Fallthrough is intentional here */
+			neg = 1; /* fallthrough */
 		case '+':
 			s++;
 	}

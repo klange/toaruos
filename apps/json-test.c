@@ -24,19 +24,19 @@ int main(int argc, char * argv[]) {
 	{
 		Value * result = json_parse("-123");
 		assert(result && result->type == JSON_TYPE_NUMBER);
-		assert(fabs(result->number - (-123.0) < 0.0001));
+		assert(fabs(result->number - (-123.0)) < 0.0001);
 	}
 
 	{
 		Value * result = json_parse("2e3");
 		assert(result && result->type == JSON_TYPE_NUMBER);
-		assert(fabs(result->number - (2000.0) < 0.0001));
+		assert(fabs(result->number - (2000.0)) < 0.0001);
 	}
 
 	{
 		Value * result = json_parse("0.124");
 		assert(result && result->type == JSON_TYPE_NUMBER);
-		assert(fabs(result->number - (0.124) < 0.0001));
+		assert(fabs(result->number - (0.124)) < 0.0001);
 	}
 
 	{

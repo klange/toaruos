@@ -325,6 +325,9 @@ int main(int argc, char * argv[]) {
 	decor_get_bounds(NULL, &bounds);
 
 	window = yutani_window_create(yctx, width + bounds.width, height + bounds.height);
+	req_center_x = yctx->display_width / 2;
+	req_center_y = yctx->display_height / 2;
+	yutani_window_move(yctx, window, req_center_x - window->width / 2, req_center_y - window->height / 2);
 
 	/* Load icons */
 	load_sprite(&logo, "/usr/share/logo_login.png");
@@ -335,9 +338,6 @@ int main(int argc, char * argv[]) {
 
 	load_page(0);
 
-	req_center_x = yctx->display_width / 2;
-	req_center_y = yctx->display_height / 2;
-	yutani_window_move(yctx, window, req_center_x - window->width / 2, req_center_y - window->height / 2);
 	yutani_window_advertise_icon(yctx, window, title_str, "star");
 
 	ctx = init_graphics_yutani_double_buffer(window);
@@ -371,7 +371,7 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
 					{
 						struct yutani_msg_window_focus_change * wf = (void*)m->data;
-						yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
+						yutani_window_t * win = hashmap_get(yctx->windows, (void*)(uintptr_t)wf->wid);
 						if (wf->wid == background->wid) {
 							yutani_focus_window(yctx, window->wid);
 						} else if (win) {

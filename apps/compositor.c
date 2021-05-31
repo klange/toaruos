@@ -46,7 +46,7 @@
 #include <toaru/list.h>
 #include <toaru/spinlock.h>
 
-//#define _DEBUG_YUTANI
+#define _DEBUG_YUTANI
 #ifdef _DEBUG_YUTANI
 #include <toaru/trace.h>
 #define TRACE_APP_NAME "yutani"
@@ -175,7 +175,7 @@ static int next_wid(void) {
 	return _next++;
 }
 
-uint32_t yutani_current_time(yutani_globals_t * yg) {
+uint64_t yutani_current_time(yutani_globals_t * yg) {
 	struct timeval t;
 	gettimeofday(&t, NULL);
 
@@ -187,13 +187,13 @@ uint32_t yutani_current_time(yutani_globals_t * yg) {
 		usec_diff = (1000000 + t.tv_usec) - yg->start_subtime;
 	}
 
-	return (uint32_t)(sec_diff * 1000 + usec_diff / 1000);
+	return (uint64_t)(sec_diff * 1000 + usec_diff / 1000);
 }
 
-uint32_t yutani_time_since(yutani_globals_t * yg, uint32_t start_time) {
+uint64_t yutani_time_since(yutani_globals_t * yg, uint64_t start_time) {
 
-	uint32_t now = yutani_current_time(yg);
-	uint32_t diff = now - start_time; /* Milliseconds */
+	uint64_t now = yutani_current_time(yg);
+	uint64_t diff = now - start_time; /* Milliseconds */
 
 	return diff;
 }
@@ -390,13 +390,13 @@ static int yutani_pick_animation(uint32_t flags, int direction) {
  *
  * Initializes a window of the particular size for a given client.
  */
-static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int width, int height, uint32_t owner, uint32_t flags) {
+static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int width, int height, uintptr_t owner, uint32_t flags) {
 	yutani_server_window_t * win = malloc(sizeof(yutani_server_window_t));
 
 	win->wid = next_wid();
 	win->owner = owner;
 	list_insert(yg->windows, win);
-	hashmap_set(yg->wids_to_windows, (void*)win->wid, win);
+	hashmap_set(yg->wids_to_windows, (void*)(uintptr_t)win->wid, win);
 
 	list_t * client_list = hashmap_get(yg->clients_to_windows, (void *)owner);
 	list_insert(client_list, win);
@@ -733,7 +733,7 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 				case YUTANI_EFFECT_FADE_OUT:
 					{
 						frame = yutani_animation_lengths[window->anim_mode] - frame;
-					}
+					} /* fallthrough */
 				case YUTANI_EFFECT_SQUEEZE_IN:
 				case YUTANI_EFFECT_FADE_IN:
 					{
@@ -1018,7 +1018,7 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 		if ((!yg->bottom_z || yg->bottom_z->anim_mode) && renderer_blit_screen) {
 			/* TODO: Need to clear with Cairo backend */
-			draw_fill(yg->backend_ctx, rgb(110,110,110));
+			draw_fill(yg->backend_ctx, rgb(5,5,5));
 		}
 
 		if (renderer_set_clip) renderer_set_clip(yg);
@@ -1252,7 +1252,7 @@ static void window_mark_for_close(yutani_globals_t * yg, yutani_server_window_t 
  * Remove a window from its owner's child set.
  */
 static void window_remove_from_client(yutani_globals_t * yg, yutani_server_window_t * w) {
-	list_t * client_list = hashmap_get(yg->clients_to_windows, (void *)w->owner);
+	list_t * client_list = hashmap_get(yg->clients_to_windows, (void *)(uintptr_t)w->owner);
 	if (client_list) {
 		node_t * n = list_find(client_list, w);
 		if (n) {
@@ -1267,7 +1267,7 @@ static void window_remove_from_client(yutani_globals_t * yg, yutani_server_windo
  */
 static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t * w) {
 	/* Remove from the wid -> window mapping */
-	hashmap_remove(yg->wids_to_windows, (void *)w->wid);
+	hashmap_remove(yg->wids_to_windows, (void *)(uintptr_t)w->wid);
 
 	/* Remove from the general list of windows. */
 	list_remove(yg->windows, list_index_of(yg->windows, w));
@@ -1319,7 +1319,7 @@ static uint32_t ad_flags(yutani_globals_t * yg, yutani_server_window_t * win) {
 /**
  * Send a result for a window query.
  */
-static void yutani_query_result(yutani_globals_t * yg, uint32_t dest, yutani_server_window_t * win) {
+static void yutani_query_result(yutani_globals_t * yg, uintptr_t dest, yutani_server_window_t * win) {
 	if (win && win->client_length) {
 		yutani_msg_buildx_window_advertise_alloc(response, win->client_length);
 		yutani_msg_buildx_window_advertise(response, win->wid, ad_flags(yg, win), win->client_offsets, win->client_length, win->client_strings);
@@ -1335,7 +1335,7 @@ static void notify_subscribers(yutani_globals_t * yg) {
 	yutani_msg_buildx_notify(response);
 	list_t * remove = NULL;
 	foreach(node, yg->window_subscribers) {
-		uint32_t subscriber = (uint32_t)node->value;
+		uintptr_t subscriber = (uintptr_t)node->value;
 		if (!hashmap_has(yg->clients_to_windows, (void *)subscriber)) {
 			if (!remove) {
 				remove = list_create();
@@ -1601,8 +1601,8 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 	 * External bindings registered by clients.
 	 */
 	uint32_t key_code = ((ke->event.modifiers << 24) | (ke->event.keycode));
-	if (hashmap_has(yg->key_binds, (void*)key_code)) {
-		struct key_bind * bind = hashmap_get(yg->key_binds, (void*)key_code);
+	if (hashmap_has(yg->key_binds, (void*)(uintptr_t)key_code)) {
+		struct key_bind * bind = hashmap_get(yg->key_binds, (void*)(uintptr_t)key_code);
 
 		yutani_msg_buildx_key_event_alloc(response);
 		yutani_msg_buildx_key_event(response,focused ? focused->wid : UINT32_MAX, &ke->event, &ke->state);
@@ -1630,9 +1630,9 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
  * req - bind message
  * owner - client to assign the binding to
  */
-static void add_key_bind(yutani_globals_t * yg, struct yutani_msg_key_bind * req, unsigned int owner) {
+static void add_key_bind(yutani_globals_t * yg, struct yutani_msg_key_bind * req, uintptr_t owner) {
 	uint32_t key_code = (((uint8_t)req->modifiers << 24) | ((uint32_t)req->key & 0xFFFFFF));
-	struct key_bind * bind = hashmap_get(yg->key_binds, (void*)key_code);
+	struct key_bind * bind = hashmap_get(yg->key_binds, (void*)(uintptr_t)key_code);
 
 	if (!bind) {
 		bind = malloc(sizeof(struct key_bind));
@@ -1640,7 +1640,7 @@ static void add_key_bind(yutani_globals_t * yg, struct yutani_msg_key_bind * req
 		bind->owner = owner;
 		bind->response = req->response;
 
-		hashmap_set(yg->key_binds, (void*)key_code, bind);
+		hashmap_set(yg->key_binds, (void*)(uintptr_t)key_code, bind);
 	} else {
 		bind->owner = owner;
 		bind->response = req->response;
@@ -2103,7 +2103,7 @@ int main(int argc, char * argv[]) {
 	yg->width = yg->backend_ctx->width;
 	yg->height = yg->backend_ctx->height;
 
-	draw_fill(yg->backend_ctx, rgb(110,110,110));
+	draw_fill(yg->backend_ctx, rgb(5,5,5));
 	flip(yg->backend_ctx);
 
 	yg->backend_framebuffer = yg->backend_ctx->backbuffer;
@@ -2388,10 +2388,10 @@ int main(int argc, char * argv[]) {
 		switch(m->type) {
 			case YUTANI_MSG_HELLO:
 				{
-					TRACE("And hello to you, %08x!", p->source);
+					TRACE("And hello to you, %p!", p->source);
 					list_t * client_list = hashmap_get(yg->clients_to_windows, (void *)p->source);
 					if (!client_list) {
-						TRACE("Client is new: %x", p->source);
+						TRACE("Client is new: %p", p->source);
 						client_list = list_create();
 						hashmap_set(yg->clients_to_windows, (void *)p->source, client_list);
 					}
@@ -2404,7 +2404,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_WINDOW_NEW_FLAGS:
 				{
 					struct yutani_msg_window_new_flags * wn = (void *)m->data;
-					TRACE("Client %08x requested a new window (%dx%d).", p->source, wn->width, wn->height);
+					TRACE("Client %p requested a new window (%dx%d).", p->source, wn->width, wn->height);
 					yutani_server_window_t * w = server_window_create(yg, wn->width, wn->height, p->source, m->type != YUTANI_MSG_WINDOW_NEW ? wn->flags : 0);
 					yutani_msg_buildx_window_init_alloc(response);
 					yutani_msg_buildx_window_init(response,w->wid, w->width, w->height, w->bufid);
@@ -2420,7 +2420,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_FLIP:
 				{
 					struct yutani_msg_flip * wf = (void *)m->data;
-					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wf->wid);
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)wf->wid);
 					if (w) {
 						mark_window(yg, w);
 					}
@@ -2429,7 +2429,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_FLIP_REGION:
 				{
 					struct yutani_msg_flip_region * wf = (void *)m->data;
-					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wf->wid);
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)wf->wid);
 					if (w) {
 						mark_window_relative(yg, w, wf->x, wf->y, wf->width, wf->height);
 					}
@@ -2457,7 +2457,7 @@ int main(int argc, char * argv[]) {
 						TRACE("Refusing to move window to these coordinates.");
 						break;
 					}
-					yutani_server_window_t * win = hashmap_get(yg->wids_to_windows, (void*)wm->wid);
+					yutani_server_window_t * win = hashmap_get(yg->wids_to_windows, (void*)(uintptr_t)wm->wid);
 					if (win) {
 						window_move(yg, win, wm->x, wm->y);
 					} else {
@@ -2468,7 +2468,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_WINDOW_CLOSE:
 				{
 					struct yutani_msg_window_close * wc = (void *)m->data;
-					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wc->wid);
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)wc->wid);
 					if (w) {
 						window_mark_for_close(yg, w);
 						window_remove_from_client(yg, w);
@@ -2478,7 +2478,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_WINDOW_STACK:
 				{
 					struct yutani_msg_window_stack * ws = (void *)m->data;
-					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)ws->wid);
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)ws->wid);
 					if (w) {
 						reorder_window(yg, w, ws->z);
 					}
@@ -2487,7 +2487,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_RESIZE_REQUEST:
 				{
 					struct yutani_msg_window_resize * wr = (void *)m->data;
-					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wr->wid);
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)wr->wid);
 					if (w) {
 						yutani_msg_buildx_window_resize_alloc(response);
 						yutani_msg_buildx_window_resize(response,YUTANI_MSG_RESIZE_OFFER, w->wid, wr->width, wr->height, 0, w->tiled);
@@ -2498,7 +2498,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_RESIZE_OFFER:
 				{
 					struct yutani_msg_window_resize * wr = (void *)m->data;
-					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wr->wid);
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)wr->wid);
 					if (w) {
 						yutani_msg_buildx_window_resize_alloc(response);
 						yutani_msg_buildx_window_resize(response,YUTANI_MSG_RESIZE_OFFER, w->wid, wr->width, wr->height, 0, w->tiled);
@@ -2509,7 +2509,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_RESIZE_ACCEPT:
 				{
 					struct yutani_msg_window_resize * wr = (void *)m->data;
-					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wr->wid);
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)wr->wid);
 					if (w) {
 						uint32_t newbufid = server_window_resize(yg, w, wr->width, wr->height);
 						yutani_msg_buildx_window_resize_alloc(response);
@@ -2521,7 +2521,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_RESIZE_DONE:
 				{
 					struct yutani_msg_window_resize * wr = (void *)m->data;
-					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wr->wid);
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)wr->wid);
 					if (w) {
 						server_window_resize_finish(yg, w, wr->width, wr->height);
 					}
@@ -2542,7 +2542,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_SUBSCRIBE:
 				{
 					foreach(node, yg->window_subscribers) {
-						if ((uint32_t)node->value == p->source) {
+						if ((uintptr_t)node->value == p->source) {
 							break;
 						}
 					}
@@ -2560,7 +2560,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_WINDOW_ADVERTISE:
 				{
 					struct yutani_msg_window_advertise * wa = (void *)m->data;
-					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)wa->wid);
 					if (w) {
 						if (w->client_strings) free(w->client_strings);
 
@@ -2587,7 +2587,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_WINDOW_FOCUS:
 				{
 					struct yutani_msg_window_focus * wa = (void *)m->data;
-					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)wa->wid);
 					if (w) {
 						set_focused_window(yg, w);
 					}
@@ -2602,7 +2602,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_WINDOW_DRAG_START:
 				{
 					struct yutani_msg_window_drag_start * wa = (void *)m->data;
-					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)wa->wid);
 					if (w) {
 						/* Start dragging */
 						mouse_start_drag(yg, w);
@@ -2612,7 +2612,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_WINDOW_UPDATE_SHAPE:
 				{
 					struct yutani_msg_window_update_shape * wa = (void *)m->data;
-					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)wa->wid);
 					if (w) {
 						/* Set shape parameter */
 						server_window_update_shape(yg, w, wa->set_shape);
@@ -2622,7 +2622,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_WINDOW_WARP_MOUSE:
 				{
 					struct yutani_msg_window_warp_mouse * wa = (void *)m->data;
-					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)wa->wid);
 					if (w) {
 						if (yg->focused_window == w) {
 							int32_t x, y;
@@ -2643,7 +2643,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_WINDOW_SHOW_MOUSE:
 				{
 					struct yutani_msg_window_show_mouse * wa = (void *)m->data;
-					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)wa->wid);
 					if (w) {
 						if (wa->show_mouse == -1) {
 							w->show_mouse = w->default_mouse;
@@ -2662,7 +2662,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_WINDOW_RESIZE_START:
 				{
 					struct yutani_msg_window_resize_start * wa = (void *)m->data;
-					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)wa->wid);
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)wa->wid);
 					if (w) {
 						if (yg->focused_window == w && !yg->resizing_window) {
 							yg->resizing_window = w;
@@ -2675,7 +2675,7 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_SPECIAL_REQUEST:
 				{
 					struct yutani_msg_special_request * sr = (void *)m->data;
-					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)sr->wid);
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)sr->wid);
 					switch (sr->request) {
 						case YUTANI_SPECIAL_REQUEST_MAXIMIZE:
 							if (w) {

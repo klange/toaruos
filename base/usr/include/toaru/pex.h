@@ -19,7 +19,7 @@ typedef struct pex_header {
 	uint8_t data[];
 } pex_header_t;
 
-extern size_t pex_send(FILE * sock, unsigned int rcpt, size_t size, char * blob);
+extern size_t pex_send(FILE * sock, uintptr_t rcpt, size_t size, char * blob);
 extern size_t pex_broadcast(FILE * sock, size_t size, char * blob);
 extern size_t pex_listen(FILE * sock, pex_packet_t * packet);
 

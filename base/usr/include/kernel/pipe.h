@@ -5,7 +5,10 @@
 
 #pragma once
 
-#include <kernel/types.h>
+#include <stddef.h>
+#include <kernel/vfs.h>
+#include <kernel/list.h>
+#include <kernel/spinlock.h>
 
 typedef struct _pipe_device {
 	uint8_t * buffer;
@@ -13,12 +16,16 @@ typedef struct _pipe_device {
 	size_t read_ptr;
 	size_t size;
 	size_t refcount;
-	volatile int lock_read[2];
-	volatile int lock_write[2];
 	list_t * wait_queue_readers;
 	list_t * wait_queue_writers;
 	int dead;
 	list_t * alert_waiters;
+
+	spin_lock_t lock_read;
+	spin_lock_t lock_write;
+	spin_lock_t alert_lock;
+	spin_lock_t wait_lock;
+	spin_lock_t ptr_lock;
 } pipe_device_t;
 
 fs_node_t * make_pipe(size_t size);

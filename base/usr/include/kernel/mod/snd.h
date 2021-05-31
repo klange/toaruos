@@ -4,9 +4,8 @@
 /* The format isn't really used for anything right now */
 #define SND_FORMAT_L16SLE 0  /* Linear 16-bit signed little endian */
 
+#include <stdint.h>
 #include <kernel/mod/sound.h>
-#include <kernel/logging.h>
-#include <kernel/system.h>
 
 #define SND_KNOB_VENDOR 1024
 

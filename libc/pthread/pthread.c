@@ -9,6 +9,7 @@
 #include <signal.h>
 #include <pthread.h>
 #include <errno.h>
+#include <string.h>
 
 #include <sys/wait.h>
 #include <sys/sysfunc.h>
@@ -30,12 +31,13 @@ struct pthread {
 	void * arg;
 };
 
-void * ___tls_get_addr(void* input) {
+void * __tls_get_addr(void* input) {
 	return NULL;
 }
 
 void __make_tls(void) {
-	char * tlsSpace = calloc(1,4096);
+	char * tlsSpace = valloc(4096);
+	memset(tlsSpace, 0x0, 4096);
 	char ** tlsSelf  = (char **)(tlsSpace + 4096 - sizeof(char *));
 	*tlsSelf = (char*)tlsSelf;
 	sysfunc(TOARU_SYS_FUNC_SETGSBASE, (char*[]){(char*)tlsSelf});
@@ -126,7 +128,7 @@ int pthread_join(pthread_t thread, void **retval) {
 	int status;
 	int result = waitpid(thread.id, &status, 0);
 	if (retval) {
-		*retval = (void*)status;
+		*retval = (void*)(uintptr_t)status;
 	}
 	return result;
 }

@@ -16,13 +16,10 @@ struct stat  {
 	uint16_t  st_uid;
 	uint16_t  st_gid;
 	uint16_t  st_rdev;
-	int32_t  st_size;
-	uint32_t  st_atime;
-	uint32_t  __unused1;
-	int32_t  st_mtime;
-	uint32_t  __unused2;
-	uint32_t  st_ctime;
-	uint32_t  __unused3;
+	uint32_t  st_size;
+	uint64_t  st_atime;
+	uint64_t  st_mtime;
+	uint64_t  st_ctime;
 	uint32_t  st_blksize;
 	uint32_t  st_blocks;
 };

@@ -14,53 +14,8 @@ double exp(double x) {
 	return pow(2.71828182846, x);
 }
 
-double ceil(double x) {
-	if (x == 0.0) return x;
-
-	double out;
-	asm volatile (
-		"frndint\n"
-		: "=t"(out) : "0"(x)
-	);
-	if (out < x) return out + 1.0;
-	return out;
-}
-
-double floor(double x) {
-	if (x == 0.0) return x;
-
-	double out;
-	asm volatile (
-		"frndint\n"
-		: "=t"(out) : "0"(x)
-	);
-	if (out > x) return out - 1.0;
-	return out;
-}
-
 int abs(int j) {
 	return (j < 0 ? -j : j);
-}
-
-double pow(double x, double y) {
-	MATH;
-	double out;
-	asm volatile (
-		"fyl2x;"
-		"fld %%st;"
-		"frndint;"
-		"fsub %%st,%%st(1);"
-		"fxch;"
-		"fchs;"
-		"f2xm1;"
-		"fld1;"
-		"faddp;"
-		"fxch;"
-		"fld1;"
-		"fscale;"
-		"fstp %%st(1);"
-		"fmulp;" : "=t"(out) : "0"(x),"u"(y) : "st(1)" );
-	return out;
 }
 
 double fabs(double x) {
@@ -70,19 +25,6 @@ double fabs(double x) {
 
 float fabsf(float x) {
 	return fabs(x);
-}
-
-double fmod(double x, double y) {
-	MATH;
-
-	long double out;
-	asm volatile (
-		"1: fprem;" /* Partial remainder */
-		"   fnstsw %%ax;" /* store status word */
-		"   sahf;" /* store AX (^ FPU status) into flags */
-		"   jp 1b;" /* jump back to 1 above if parity flag==1 */
-		: "=t"(out) : "0"(x), "u"(y) : "ax", "cc");
-	return out;
 }
 
 double sqrt(double x) {
@@ -479,36 +421,6 @@ double sin(double x) {
 
 double cos(double x) {
 	return sin(x + 3.141592654 / 2.0);
-}
-
-double tan(double x) {
-	MATH;
-	float out;
-	float _x = x;
-	float one;
-	asm volatile (
-		"fld %2\n"
-		"fptan\n"
-		"fstp %1\n"
-		"fstp %0\n"
-		: "=m"(out), "=m"(one) : "m"(_x)
-	);
-	return out;
-}
-
-double atan2(double y, double x) {
-	MATH;
-	float out;
-	float _x = x;
-	float _y = y;
-	asm volatile (
-		"fld %1\n"
-		"fld %2\n"
-		"fpatan\n"
-		"fstp %0\n"
-		: "=m"(out) : "m"(_y), "m"(_x)
-	);
-	return out;
 }
 
 double atan(double x) {

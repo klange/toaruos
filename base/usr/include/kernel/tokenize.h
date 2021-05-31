@@ -1,4 +1,3 @@
 #pragma once
 
-int tokenize(char *, char *, char **);
-
+int tokenize(char * str, const char * sep, char **buf);

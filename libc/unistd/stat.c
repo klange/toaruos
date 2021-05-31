@@ -4,11 +4,11 @@
 #include <sys/stat.h>
 #include <string.h>
 
-DEFN_SYSCALL2(stat,  SYS_STATF, char *, void *);
+DEFN_SYSCALL2(statf, SYS_STATF, char *, void *);
 DEFN_SYSCALL2(lstat, SYS_LSTAT, char *, void *);
 
 int stat(const char *file, struct stat *st){
-	int ret = syscall_stat((char *)file, (void *)st);
+	int ret = syscall_statf((char *)file, (void *)st);
 	if (ret >= 0) {
 		return ret;
 	} else {

@@ -33,8 +33,11 @@ void _exit(int val){
 
 extern void __make_tls(void);
 
+static int __libc_init_called = 0;
+
 __attribute__((constructor))
 static void _libc_init(void) {
+	__libc_init_called = 1;
 	__make_tls();
 	__stdio_init_buffers();
 
@@ -95,10 +98,19 @@ static void _libc_init(void) {
 	_argv_0 = __get_argv()[0];
 }
 
-void pre_main(int (*main)(int,char**), int argc, char * argv[]) {
+void pre_main(int argc, char * argv[], char ** envp, int (*main)(int,char**)) {
 	if (!__get_argv()) {
 		/* Statically loaded, must set __argv so __get_argv() works */
 		__argv = argv;
+		/* Run our initializers, because I'm pretty sure the kernel didn't... */
+		if (!__libc_init_called) {
+			extern uintptr_t __init_array_start;
+			extern uintptr_t __init_array_end;
+			for (uintptr_t * constructor = &__init_array_start; constructor < &__init_array_end; ++constructor) {
+				void (*constr)(void) = (void*)*constructor;
+				constr();
+			}
+		}
 	}
 	_init();
 	exit(main(argc, argv));

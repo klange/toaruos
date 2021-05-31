@@ -19,7 +19,7 @@
 
 #include <toaru/pex.h>
 
-size_t pex_send(FILE * sock, unsigned int rcpt, size_t size, char * blob) {
+size_t pex_send(FILE * sock, uintptr_t rcpt, size_t size, char * blob) {
 	assert(size <= MAX_PACKET_SIZE);
 	pex_header_t * broadcast = malloc(sizeof(pex_header_t) + size);
 	broadcast->target = rcpt;

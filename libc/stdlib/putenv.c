@@ -45,7 +45,7 @@ int unsetenv(const char * str) {
 
 
 int putenv(char * string) {
-	char name[strlen(string)];
+	char name[strlen(string)+1];
 	strcpy(name, string);
 	char * c = strchr(name, '=');
 	if (!c) {

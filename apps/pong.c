@@ -177,7 +177,7 @@ void update_stuff(void) {
 
 	if (colliding(&ball, &left)) {
 		ball.x = left.x + left.width + 2;
-		ball.vel_x   = (abs(ball.vel_x) < 8.0) ? -ball.vel_x * 1.05 : -ball.vel_x;
+		ball.vel_x   = (fabs(ball.vel_x) < 8.0) ? -ball.vel_x * 1.05 : -ball.vel_x;
 
 		double intersect = ((ball.y + ball.height/2) - (left.y)) / ((double)left.height) - 0.5;
 		ball.vel_y = intersect * 8.0;
@@ -186,7 +186,7 @@ void update_stuff(void) {
 
 	if (colliding(&ball, &right)) {
 		ball.x = right.x - ball.width - 2;
-		ball.vel_x   = (abs(ball.vel_x) < 8.0) ? -ball.vel_x * 1.05 : -ball.vel_x;
+		ball.vel_x   = (fabs(ball.vel_x) < 8.0) ? -ball.vel_x * 1.05 : -ball.vel_x;
 
 		double intersect = ((ball.y + ball.height/2) - (right.y)) / ((double)right.height/2.0);
 		ball.vel_y = intersect * 3.0;

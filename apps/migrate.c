@@ -217,7 +217,7 @@ int main(int argc, char * argv[]) {
 	}
 	char * root_type = hashmap_get(cmdline,"root_type");
 	if (!root_type) {
-		root_type = "ext2";
+		root_type = "tar";
 	}
 
 	char tmp[1024];

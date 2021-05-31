@@ -552,7 +552,7 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
 					{
 						struct yutani_msg_window_focus_change * wf = (void*)m->data;
-						yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
+						yutani_window_t * win = hashmap_get(yctx->windows, (void*)(uintptr_t)wf->wid);
 						if (win == main_window) {
 							win->focused = wf->focused;
 							redraw_packages();
@@ -571,7 +571,7 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
 					{
 						struct yutani_msg_window_mouse_event * me = (void*)m->data;
-						yutani_window_t * win = hashmap_get(yctx->windows, (void*)me->wid);
+						yutani_window_t * win = hashmap_get(yctx->windows, (void*)(uintptr_t)me->wid);
 
 						if (win == main_window) {
 							int result = decor_handle_event(yctx, m);

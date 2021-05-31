@@ -1,11 +1,16 @@
 #pragma once
 
+#include <stddef.h>
+#include <kernel/list.h>
+#include <kernel/vfs.h>
+#include <kernel/spinlock.h>
+
 typedef struct {
 	unsigned char * buffer;
 	size_t write_ptr;
 	size_t read_ptr;
 	size_t size;
-	volatile int lock[2];
+	spin_lock_t lock;
 	list_t * wait_queue_readers;
 	list_t * wait_queue_writers;
 	int internal_stop;

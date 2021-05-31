@@ -118,13 +118,13 @@ static void write_buffer(void) {
 
 static int parser_open(struct markup_state * self, void * user, struct markup_tag * tag) {
 	if (!strcmp(tag->name, "b")) {
-		list_insert(state, (void*)current_state);
+		list_insert(state, (void*)(uintptr_t)current_state);
 		current_state |= (1 << 0);
 	} else if (!strcmp(tag->name, "i")) {
-		list_insert(state, (void*)current_state);
+		list_insert(state, (void*)(uintptr_t)current_state);
 		current_state |= (1 << 1);
 	} else if (!strcmp(tag->name, "h1")) {
-		list_insert(state, (void*)current_state);
+		list_insert(state, (void*)(uintptr_t)current_state);
 		current_state |= (1 << 2);
 	} else if (!strcmp(tag->name, "br")) {
 		write_buffer();
@@ -138,18 +138,18 @@ static int parser_open(struct markup_state * self, void * user, struct markup_ta
 static int parser_close(struct markup_state * self, void * user, char * tag_name) {
 	if (!strcmp(tag_name, "b")) {
 		node_t * nstate = list_pop(state);
-		current_state = (int)nstate->value;
+		current_state = (int)(uintptr_t)nstate->value;
 		free(nstate);
 	} else if (!strcmp(tag_name, "i")) {
 		node_t * nstate = list_pop(state);
-		current_state = (int)nstate->value;
+		current_state = (int)(uintptr_t)nstate->value;
 		free(nstate);
 	} else if (!strcmp(tag_name, "h1")) {
 		write_buffer();
 		cursor_x = BASE_X;
 		cursor_y += current_line_height();
 		node_t * nstate = list_pop(state);
-		current_state = (int)nstate->value;
+		current_state = (int)(uintptr_t)nstate->value;
 		free(nstate);
 	}
 	return 0;
@@ -413,7 +413,7 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
 					{
 						struct yutani_msg_window_focus_change * wf = (void*)m->data;
-						yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
+						yutani_window_t * win = hashmap_get(yctx->windows, (void*)(uintptr_t)wf->wid);
 						if (win == main_window) {
 							win->focused = wf->focused;
 							redraw_window();
@@ -431,7 +431,7 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
 					{
 						struct yutani_msg_window_mouse_event * me = (void*)m->data;
-						yutani_window_t * win = hashmap_get(yctx->windows, (void*)me->wid);
+						yutani_window_t * win = hashmap_get(yctx->windows, (void*)(uintptr_t)me->wid);
 
 						if (win == main_window) {
 							int result = decor_handle_event(yctx, m);

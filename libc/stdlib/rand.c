@@ -12,7 +12,7 @@ int rand(void) {
 
 	t = x ^ (x << 11);
 	x = y; y = z; z = w;
-	return abs(w = w ^ (w >> 19) ^ t ^ (t >> 8));
+	return w = w ^ (w >> 19) ^ t ^ (t >> 8);
 }
 
 void srand(unsigned int seed) {

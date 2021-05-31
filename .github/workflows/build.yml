@@ -8,37 +8,19 @@ jobs:
         uses: actions/checkout@v2
         with:
             fetch-depth: 0
-            submodules: true
+      - name: Clone Kuroko
+        uses: actions/checkout@v2
+        with:
+          repository: kuroko-lang/kuroko
+          path: kuroko
       - name: Pull Builder Image
-        run: docker pull toaruos/build-tools:1.8.x
+        run: docker pull toaruos/build-tools:1.99.x
       - name: Run Builder
-        run: docker run -v ${GITHUB_WORKSPACE}:/root/toaruos -w /root/toaruos -e LANG=C.UTF-8 -t toaruos/build-tools:1.8.x util/build-in-docker.sh
+        run: docker run -v ${GITHUB_WORKSPACE}:/root/misaka -w /root/misaka -e LANG=C.UTF-8 -t toaruos/build-tools:1.99.x util/build-in-docker.sh
       - name: Upload Branch Image
         uses: actions/upload-artifact@v2
         with:
-          name: image
-          path: ./image.iso
-      - name: Draft Release notes
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: bash util/generate-release-notes.sh > notes.md
-      - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: actions/create-release@v1
-        id: create_release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: ToaruOS ${{ github.ref }}
-          body_path: ./notes.md
-          draft: true
-      - name: Upload Release Image
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./image.iso
-          asset_name: image.iso
-          asset_content_type: application/x-iso9660-image
+          name: build
+          path: |
+            ramdisk.tar
+            misaka-kernel

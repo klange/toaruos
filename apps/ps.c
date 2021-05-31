@@ -55,7 +55,7 @@ void print_username(int uid) {
 }
 
 struct process * process_entry(struct dirent *dent) {
-	char tmp[256];
+	char tmp[300];
 	FILE * f;
 	char line[LINE_LEN];
 

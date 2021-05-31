@@ -1,0 +1,4 @@
+import os, kuroko
+
+print('Kuroko',kuroko.version, kuroko.buildenv, kuroko.builddate)
+print('Running on:',os.uname())

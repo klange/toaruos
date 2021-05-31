@@ -99,6 +99,7 @@ extern uint16_t ntohs(uint16_t netshort);
 
 extern int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
 extern int accept(int sockfd, struct sockaddr * addr, socklen_t * addrlen);
+extern int accept4(int sockfd, struct sockaddr * addr, socklen_t * addrlen, int flags);
 extern int listen(int sockfd, int backlog);
 extern int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 extern int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);

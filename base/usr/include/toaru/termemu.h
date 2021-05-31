@@ -1,12 +1,7 @@
 #pragma once
 
 #include <_cheader.h>
-
-#ifdef _KERNEL_
-#	include <kernel/types.h>
-#else
-#	include <stdint.h>
-#endif
+#include <stdint.h>
 
 _Begin_C_Header
 

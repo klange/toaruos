@@ -1,13 +1,11 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2018 K. Lange
+/**
+ * @file  kernel/misc/tokenize.c
+ * @brief Wrapper around strtok_r, used to turn strings into arrays.
  */
-#include <kernel/system.h>
-#include <kernel/logging.h>
+#include <kernel/string.h>
 #include <kernel/tokenize.h>
 
-int tokenize(char * str, char * sep, char **buf) {
+int tokenize(char * str, const char * sep, char **buf) {
 	char * pch_i;
 	char * save_i;
 	int    argc = 0;

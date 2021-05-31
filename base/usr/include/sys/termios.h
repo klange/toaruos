@@ -2,11 +2,7 @@
 
 #include <_cheader.h>
 
-#ifndef _KERNEL_
 #include <sys/types.h>
-#else
-#include <kernel/types.h>
-#endif
 
 _Begin_C_Header
 

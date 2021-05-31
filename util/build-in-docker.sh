@@ -19,7 +19,7 @@ useradd -u $NEWUID local
 ln -s /root/gcc_local util/local
 
 # Run make as local
-runuser -u local -- make -j4
+runuser -u local -- sh -c 'make base/lib/libc.so && make -j4'
 
 # Remove the build tools
 rm util/local

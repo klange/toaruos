@@ -31,7 +31,7 @@ typedef struct process {
 #define LINE_LEN 4096
 
 p_t * build_entry(struct dirent * dent) {
-	char tmp[256];
+	char tmp[300];
 	FILE * f;
 	char line[LINE_LEN];
 

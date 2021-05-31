@@ -19,23 +19,10 @@
 #include "terminal-font.h"
 
 /**
- * For legacy backwards-compatibility reasons, the VGA
- * text-mode window is normalled mapped 1:1. If this
- * ever changes, a few applications will need to be updated.
- */
-static unsigned short * textmemptr = (unsigned short *)0xB8000;
-static void placech(unsigned char c, int x, int y, int attr) {
-	unsigned short *where;
-	unsigned att = attr << 8;
-	where = textmemptr + (y * 80 + x);
-	*where = c | att;
-}
-
-/**
  * Graphical framebuffer is a bit more straightforward.
  */
 static int framebuffer_fd = -1;
-static int width, height, depth;
+static long width, height, depth;
 static char * framebuffer;
 
 static void set_point(int x, int y, uint32_t value) {
@@ -65,62 +52,39 @@ static void write_char(int x, int y, int val, uint32_t color) {
 }
 
 static void update_message(char * c, int line) {
-	if (framebuffer_fd != -1) {
-		int x = 20;
-		int y = 20 + char_height * line;
-		while (*c) {
-			write_char(x, y, *c, FG_COLOR);
-			c++;
-			x += char_width;
-		}
-		while (x < width - char_width) {
-			write_char(x, y, ' ', FG_COLOR);
-			x += char_width;
-		}
-	} else {
-		int x = 2;
-		int y = 2 + line;
-		while (*c) {
-			placech(*c, x, y, 0x7);
-			c++;
-			x++;
-		}
-		while (x < 80) {
-			placech(' ', x, y, 0x7);
-			x++;
-		}
+	if (framebuffer_fd < 0) return;
+	int x = 20;
+	int y = 20 + char_height * line;
+	while (*c) {
+		write_char(x, y, *c, FG_COLOR);
+		c++;
+		x += char_width;
+	}
+	while (x < width - char_width) {
+		write_char(x, y, ' ', FG_COLOR);
+		x += char_width;
 	}
 }
 
 static void clear_screen(void) {
-	if (framebuffer_fd != -1) {
-		for (int y = 0; y < height; ++y) {
-			for (int x = 0; x < width; ++x) {
-				set_point(x,y,BG_COLOR);
-			}
-		}
+	if (framebuffer_fd < 0) return;
 
-	} else {
-		for (int y = 0; y < 24; ++y) {
-			for (int x = 0; x < 80; ++x) {
-				placech(' ', x, y, 0); /* Clear */
-			}
+	for (int y = 0; y < height; ++y) {
+		for (int x = 0; x < width; ++x) {
+			set_point(x,y,BG_COLOR);
 		}
 	}
 }
 
 static void check_framebuffer(void) {
-	int tmpfd = open("/proc/framebuffer", O_RDONLY);
-	if (tmpfd > 0) {
-		framebuffer_fd = open("/dev/fb0", O_RDONLY);
-		ioctl(framebuffer_fd, IO_VID_WIDTH,  &width);
-		ioctl(framebuffer_fd, IO_VID_HEIGHT, &height);
-		ioctl(framebuffer_fd, IO_VID_DEPTH,  &depth);
-		ioctl(framebuffer_fd, IO_VID_ADDR,   &framebuffer);
-		ioctl(framebuffer_fd, IO_VID_SIGNAL, NULL);
-	} else {
-		framebuffer_fd = -1;
-	}
+	framebuffer_fd = open("/dev/fb0", O_RDONLY);
+	if (framebuffer_fd < 0) return;
+
+	ioctl(framebuffer_fd, IO_VID_WIDTH,  &width);
+	ioctl(framebuffer_fd, IO_VID_HEIGHT, &height);
+	ioctl(framebuffer_fd, IO_VID_DEPTH,  &depth);
+	ioctl(framebuffer_fd, IO_VID_ADDR,   &framebuffer);
+	ioctl(framebuffer_fd, IO_VID_SIGNAL, NULL);
 }
 
 static FILE * pex_endpoint = NULL;
@@ -139,6 +103,7 @@ int main(int argc, char * argv[]) {
 
 	if (!fork()) {
 		check_framebuffer();
+		//printf("splash daemon is running, framebuffer (%ldx%ld) is at %p\n", width, height, framebuffer);
 		clear_screen();
 		update_message("ToaruOS is starting up...", 0);
 

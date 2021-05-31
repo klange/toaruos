@@ -29,7 +29,7 @@ typedef struct process {
 #define LINE_LEN 4096
 
 p_t * build_entry(struct dirent * dent) {
-	char tmp[256];
+	char tmp[300];
 	FILE * f;
 	char line[LINE_LEN];
 
@@ -87,7 +87,7 @@ p_t * build_entry(struct dirent * dent) {
 
 uint8_t find_pid(void * proc_v, void * pid_v) {
 	p_t * p = proc_v;
-	pid_t i = (pid_t)pid_v;
+	pid_t i = (pid_t)(uintptr_t)pid_v;
 
 	return (uint8_t)(p->pid == i);
 }
@@ -161,7 +161,7 @@ int main (int argc, char * argv[]) {
 			if (proc->ppid == 0 && proc->pid == 1) {
 				tree_set_root(procs, proc);
 			} else {
-				tree_node_t * parent = tree_find(procs,(void *)proc->ppid,find_pid);
+				tree_node_t * parent = tree_find(procs,(void *)(uintptr_t)proc->ppid,find_pid);
 				if (parent) {
 					tree_node_insert_child(procs, parent, proc);
 				}

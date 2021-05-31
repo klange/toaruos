@@ -3,9 +3,9 @@
 #include <syscall_nums.h>
 #include <errno.h>
 
-DEFN_SYSCALL2(send_signal, SYS_KILL, uint32_t, uint32_t);
+DEFN_SYSCALL2(kill, SYS_KILL, int, int);
 
 int kill(int pid, int sig) {
-	__sets_errno(syscall_send_signal(pid, sig));
+	__sets_errno(syscall_kill(pid, sig));
 }
 

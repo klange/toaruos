@@ -289,7 +289,7 @@ int main(int argc, char * argv[]) {
 	struct http_req my_req;
 	parse_url(argv[optind], &my_req);
 
-	char file[100];
+	char file[600];
 	sprintf(file, "/dev/net/%s", my_req.domain);
 
 	if (fetch_options.calculate_output) {

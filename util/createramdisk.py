@@ -47,7 +47,7 @@ def file_filter(tarinfo):
 
     return tarinfo
 
-with tarfile.open('fatbase/ramdisk.img','w') as ramdisk:
+with tarfile.open('ramdisk.igz','w:gz') as ramdisk:
     ramdisk.add('base',arcname='/',filter=file_filter)
 
     ramdisk.add('.',arcname='/src',filter=file_filter,recursive=False) # Add a src directory
@@ -56,8 +56,8 @@ with tarfile.open('fatbase/ramdisk.img','w') as ramdisk:
     ramdisk.add('linker',arcname='/src/linker',filter=file_filter)
     ramdisk.add('lib',arcname='/src/lib',filter=file_filter)
     ramdisk.add('libc',arcname='/src/libc',filter=file_filter)
-    ramdisk.add('boot',arcname='/src/boot',filter=file_filter)
-    ramdisk.add('modules',arcname='/src/modules',filter=file_filter)
+    #ramdisk.add('boot',arcname='/src/boot',filter=file_filter)
+    #ramdisk.add('modules',arcname='/src/modules',filter=file_filter)
     if os.path.exists('tags'):
         ramdisk.add('tags',arcname='/src/tags',filter=file_filter)
     ramdisk.add('util/auto-dep.krk',arcname='/usr/bin/auto-dep.krk',filter=file_filter)

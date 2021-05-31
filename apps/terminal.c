@@ -833,7 +833,7 @@ static void redraw_cell_image(uint16_t x, uint16_t y, term_cell_t * cell) {
 	if (x >= term_width || y >= term_height) return;
 
 	/* Draw the image data */
-	uint32_t * data = (uint32_t *)cell->fg;
+	uint32_t * data = (uint32_t *)((uintptr_t)cell->bg << 32 | cell->fg);
 	for (uint32_t yy = 0; yy < char_height; ++yy) {
 		for (uint32_t xx = 0; xx < char_width; ++xx) {
 			term_set_point(x * char_width + xx, y * char_height + yy, *data);
@@ -1066,7 +1066,8 @@ static void flush_unused_images(void) {
 		for (int x = 0; x < term_width; ++x) {
 			term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
 			if (cell->flags & ANSI_EXT_IMG) {
-				list_insert(tmp, (void *)cell->fg);
+				uint32_t * data = (uint32_t *)((uintptr_t)cell->bg << 32 | cell->fg);
+				list_insert(tmp, data);
 			}
 		}
 	}
@@ -1364,7 +1365,10 @@ static void term_set_cell_contents(int x, int y, char * data) {
 	char * cell_data = malloc(char_width * char_height * sizeof(uint32_t));
 	memcpy(cell_data, data, char_width * char_height * sizeof(uint32_t));
 	list_insert(images_list, cell_data);
-	cell_set(x, y, ' ', (uint32_t)cell_data, 0, ANSI_EXT_IMG);
+	cell_set(x, y, ' ',
+		(uintptr_t)(cell_data) & 0xFFFFFFFF,
+		(uintptr_t)(cell_data) >> 32,
+		ANSI_EXT_IMG);
 }
 
 /* ANSI callback to get character cell width */
@@ -1945,7 +1949,7 @@ static void * handle_incoming(void) {
 			case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
 				{
 					struct yutani_msg_window_focus_change * wf = (void*)m->data;
-					yutani_window_t * win = hashmap_get(yctx->windows, (void*)wf->wid);
+					yutani_window_t * win = hashmap_get(yctx->windows, (void*)(uintptr_t)wf->wid);
 					if (win == window) {
 						win->focused = wf->focused;
 						render_decors();
@@ -2461,8 +2465,8 @@ int main(int argc, char ** argv) {
 
 			if (res[1]) {
 				/* Read from PTY */
-				int r = read(fd_master, buf, 4096);
-				for (int i = 0; i < r; ++i) {
+				ssize_t r = read(fd_master, buf, 4096);
+				for (ssize_t i = 0; i < r; ++i) {
 					ansi_put(ansi_state, buf[i]);
 				}
 				display_flip();

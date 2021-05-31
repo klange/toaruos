@@ -134,7 +134,7 @@ void _menu_activate_MenuEntry_Normal(struct MenuEntry * self, int flags) {
 	list_t * menu_keys = hashmap_keys(menu_windows);
 	hovered_menu = NULL;
 	foreach(_key, menu_keys) {
-		yutani_window_t * window = hashmap_get(menu_windows, (void*)_key->value);
+		yutani_window_t * window = hashmap_get(menu_windows, (void*)(uintptr_t)_key->value);
 		if (window) {
 			struct MenuList * menu = window->user_data;
 			menu_definitely_close(menu);
@@ -546,7 +546,7 @@ void menu_show(struct MenuList * menu, yutani_t * yctx) {
 
 	_menu_redraw(menu_window, yctx, menu);
 
-	hashmap_set(menu_windows, (void*)menu_window->wid, menu_window);
+	hashmap_set(menu_windows, (void*)(uintptr_t)menu_window->wid, menu_window);
 }
 
 void menu_show_at(struct MenuList * menu, yutani_window_t * parent, int x, int y) {
@@ -603,7 +603,7 @@ int menu_definitely_close(struct MenuList * menu) {
 	yutani_wid_t wid = menu->window->wid;
 	yutani_close(menu->window->ctx, menu->window);
 	menu->window = NULL;
-	hashmap_remove(menu_windows, (void*)wid);
+	hashmap_remove(menu_windows, (void*)(uintptr_t)wid);
 
 	return 0;
 }
@@ -622,7 +622,7 @@ int menu_leave(struct MenuList * menu) {
 		/* Get all menus */
 		list_t * menu_keys = hashmap_keys(menu_windows);
 		foreach(_key, menu_keys) {
-			yutani_window_t * window = hashmap_get(menu_windows, (void *)_key->value);
+			yutani_window_t * window = hashmap_get(menu_windows, (void *)(uintptr_t)_key->value);
 			if (window) {
 				struct MenuList * menu = window->user_data;
 				if (!hovered_menu || (menu != hovered_menu->child && !menu_has_eventual_child(menu, hovered_menu)))  {
@@ -816,8 +816,8 @@ int menu_process_event(yutani_t * yctx, yutani_msg_t * m) {
 			case YUTANI_MSG_KEY_EVENT:
 				{
 					struct yutani_msg_key_event * me = (void*)m->data;
-					if (hashmap_has(menu_windows, (void*)me->wid)) {
-						yutani_window_t * window = hashmap_get(menu_windows, (void *)me->wid);
+					if (hashmap_has(menu_windows, (void*)(uintptr_t)me->wid)) {
+						yutani_window_t * window = hashmap_get(menu_windows, (void *)(uintptr_t)me->wid);
 						struct MenuList * menu = window->user_data;
 						menu_key_action(menu, me);
 					}
@@ -826,8 +826,8 @@ int menu_process_event(yutani_t * yctx, yutani_msg_t * m) {
 			case YUTANI_MSG_WINDOW_MOUSE_EVENT:
 				{
 					struct yutani_msg_window_mouse_event * me = (void*)m->data;
-					if (hashmap_has(menu_windows, (void*)me->wid)) {
-						yutani_window_t * window = hashmap_get(menu_windows, (void *)me->wid);
+					if (hashmap_has(menu_windows, (void*)(uintptr_t)me->wid)) {
+						yutani_window_t * window = hashmap_get(menu_windows, (void *)(uintptr_t)me->wid);
 						struct MenuList * menu = window->user_data;
 						if (me->new_x >= 0 && me->new_x < (int)window->width && me->new_y >= 0 && me->new_y < (int)window->height) {
 							if (hovered_menu != menu)  {
@@ -851,8 +851,8 @@ int menu_process_event(yutani_t * yctx, yutani_msg_t * m) {
 			case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
 				{
 					struct yutani_msg_window_focus_change * me = (void*)m->data;
-					if (hashmap_has(menu_windows, (void*)me->wid)) {
-						yutani_window_t * window = hashmap_get(menu_windows, (void *)me->wid);
+					if (hashmap_has(menu_windows, (void*)(uintptr_t)me->wid)) {
+						yutani_window_t * window = hashmap_get(menu_windows, (void *)(uintptr_t)me->wid);
 						struct MenuList * menu = window->user_data;
 						if (!me->focused) {
 							/* XXX leave menu */
@@ -898,7 +898,7 @@ void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx) {
 	}
 	while (_entries->title) {
 		int w = string_width(_entries->title) + 10;
-		if ((self->active_menu && hashmap_has(menu_get_windows_hash(), (void*)self->active_menu_wid)) && _entries == self->active_entry) {
+		if ((self->active_menu && hashmap_has(menu_get_windows_hash(), (void*)(uintptr_t)self->active_menu_wid)) && _entries == self->active_entry) {
 			for (int y = _y; y < _y + MENU_BAR_HEIGHT; ++y) {
 				for (int x = offset + 2; x < offset + 2 + w; ++x) {
 					GFX(ctx, x, y) = rgb(93,163,236);
@@ -959,7 +959,7 @@ int menu_bar_mouse_event(yutani_t * yctx, yutani_window_t * window, struct menu_
 		if (x >= offset && x < offset + w) {
 			if (me->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(me)) {
 				menu_bar_show_menu(yctx, window, self,offset,_entries);
-			} else if (self->active_menu && hashmap_has(menu_get_windows_hash(), (void*)self->active_menu_wid) && _entries != self->active_entry) {
+			} else if (self->active_menu && hashmap_has(menu_get_windows_hash(), (void*)(uintptr_t)self->active_menu_wid) && _entries != self->active_entry) {
 				menu_definitely_close(self->active_menu);
 				menu_bar_show_menu(yctx, window, self,offset,_entries);
 			}

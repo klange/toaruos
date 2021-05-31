@@ -11,6 +11,7 @@
 typedef struct JSON_Value Value;
 
 int main(int argc, char * argv[]) {
+	return 1;
 
 	Value * config = json_parse_file("/etc/weather.json");
 	if (!config) {

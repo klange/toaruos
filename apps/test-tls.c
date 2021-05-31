@@ -2,7 +2,7 @@
 #include <pthread.h>
 #include <sys/sysfunc.h>
 
-__thread int myvalue;
+__thread volatile int myvalue;
 
 void * getaddressinthread(void * _unused) {
 	fprintf(stderr, "in thread before:\n");

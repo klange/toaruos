@@ -1,44 +1,219 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2011-2018 K. Lange
- * Copyright (C) 2012 Markus Schober
- * Copyright (C) 2015 Dale Weiler
+/**
+ * @file   kernel/sys/process.c
+ * @brief  Task switch and thread scheduling.
  *
- * Processes
+ * Implements the primary scheduling primitives for the kernel.
  *
- * Internal format format for a process and functions to spawn
- * new processes and manage the process tree.
+ * Generally, what the kernel refers to as a "process" is an individual thread.
+ * The POSIX concept of a "process" is represented in Misaka as a collection of
+ * threads and their shared paging, signal, and file descriptor tables.
+ *
+ * Kernel threads are also "processes", referred to as "tasklets".
+ *
+ * Misaka allows nested kernel preemption, and task switching involves saving
+ * kernel state in a manner similar to setjmp/longjmp, as well as saving the
+ * outer context in the case of a nested task switch.
+ *
+ * @copyright This file is part of ToaruOS and is released under the terms
+ *            of the NCSA / University of Illinois License - see LICENSE.md
+ * @author    2011-2021 K. Lange
+ * @author    2012 Markus Schober
+ * @author    2015 Dale Weiler
  */
-#include <kernel/system.h>
+#include <errno.h>
 #include <kernel/process.h>
-#include <kernel/bitset.h>
-#include <kernel/logging.h>
-#include <kernel/shm.h>
 #include <kernel/printf.h>
-
+#include <kernel/string.h>
+#include <kernel/vfs.h>
+#include <kernel/spinlock.h>
+#include <kernel/tree.h>
+#include <kernel/list.h>
+#include <kernel/mmu.h>
+#include <kernel/shm.h>
+#include <kernel/signal.h>
+#include <kernel/time.h>
+#include <kernel/misc.h>
+#include <kernel/syscall.h>
 #include <sys/wait.h>
+#include <sys/signal_defs.h>
 
-#include <toaru/list.h>
-#include <toaru/tree.h>
+/* FIXME: This only needs the size of the regs struct... */
+#include <kernel/arch/x86_64/regs.h>
 
-tree_t * process_tree;  /* Parent->Children tree */
-list_t * process_list;  /* Flat storage */
-list_t * process_queue; /* Ready queue */
-list_t * sleep_queue;
-volatile process_t * current_process = NULL;
-process_t * kernel_idle_task = NULL;
+tree_t * process_tree;  /* Stores the parent-child process relationships; the root of this graph is 'init'. */
+list_t * process_list;  /* Stores all existing processes. Mostly used for sanity checking or for places where iterating over all processes is useful. */
+list_t * process_queue; /* Scheduler ready queue. This the round-robin source. The head is the next process to run. */
+list_t * sleep_queue;   /* Ordered list of processes waiting to be awoken by timeouts. The head is the earliest thread to awaken. */
 
+struct ProcessorLocal processor_local_data[32] = {0};
+int processor_count = 1;
+
+/* The following locks protect access to the process tree, scheduler queue,
+ * sleeping, and the very special wait queue... */
 static spin_lock_t tree_lock = { 0 };
 static spin_lock_t process_queue_lock = { 0 };
 static spin_lock_t wait_lock_tmp = { 0 };
 static spin_lock_t sleep_lock = { 0 };
 
-static bitset_t pid_set;
+/**
+ * @brief Restore the context of the next available process's kernel thread.
+ *
+ * Loads the next ready process from the scheduler queue and resumes it.
+ *
+ * If no processes are available, the local idle task will be run from the beginning
+ * of its function entry.
+ *
+ * If the next process in the queue has been marked as finished, it will be discard
+ * until a non-finished process is found.
+ *
+ * If the next process is new, it will be marked as started, and its entry point
+ * jumped to.
+ *
+ * For all other cases, the process's stored kernel thread state will be restored
+ * and execution will contain in @ref switch_task with a return value of 1.
+ *
+ * Note that switch_next does not return and should be called only when the current
+ * process has been properly added to a scheduling queue, or marked as awaiting cleanup,
+ * otherwise its return state if resumed is undefined and generally whatever the state
+ * was when that process last entered switch_task.
+ *
+ * @returns never.
+ */
+void switch_next(void) {
+	this_core->previous_process = this_core->current_process;
 
-/* Default process name string */
-char * default_name = "[unnamed]";
+	/* Get the next available process, discarded anything in the queue
+	 * marked as finished. */
+	do {
+		this_core->current_process = next_ready_process();
+	} while (this_core->current_process->flags & PROC_FLAG_FINISHED);
 
+	/* Restore paging and task switch context. */
+	mmu_set_directory(this_core->current_process->thread.page_directory->directory);
+	arch_set_kernel_stack(this_core->current_process->image.stack);
+
+	if ((this_core->current_process->flags & PROC_FLAG_FINISHED) ||  (!this_core->current_process->signal_queue)) {
+		printf("Should not have this process...\n");
+		if (this_core->current_process->flags & PROC_FLAG_FINISHED) printf("It is marked finished.\n");
+		if (!this_core->current_process->signal_queue) printf("It doesn't have a signal queue.\n");
+		arch_fatal();
+		__builtin_unreachable();
+	}
+
+	if (this_core->current_process->flags & PROC_FLAG_STARTED) {
+		/* If this process has a signal pending, we save its current context - including
+		 * the entire kernel stack - before resuming switch_task. */
+		if (!this_core->current_process->signal_kstack) {
+			if (this_core->current_process->signal_queue->length > 0) {
+				this_core->current_process->signal_kstack = malloc(KERNEL_STACK_SIZE);
+				memcpy(this_core->current_process->signal_kstack, (void*)(this_core->current_process->image.stack - KERNEL_STACK_SIZE), KERNEL_STACK_SIZE);
+				memcpy((thread_t*)&this_core->current_process->signal_state, (thread_t*)&this_core->current_process->thread, sizeof(thread_t));
+			}
+		}
+	}
+
+	/* Mark the process as running and started. */
+	__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_STARTED);
+
+	/* Jump to next */
+	arch_restore_context(&this_core->current_process->thread);
+	__builtin_unreachable();
+}
+
+extern void * _ret_from_preempt_source;
+
+/**
+ * @brief Yield the processor to the next available task.
+ *
+ * Yields the current process, allowing the next to run. Can be called both as
+ * part of general preemption or from blocking tasks; in the latter case,
+ * the process should be added to a scheduler queue to be awakoen later when the
+ * blocking operation is completed and @p reschedule should be set to 0.
+ *
+ * @param reschedule Non-zero if this process should be added to the ready queue.
+ */
+void switch_task(uint8_t reschedule) {
+
+	/* switch_task() called but the scheduler isn't enabled? Resume... this is probably a bug. */
+	if (!this_core->current_process) return;
+
+	if (this_core->current_process == this_core->kernel_idle_task && __builtin_return_address(0) != &_ret_from_preempt_source) {
+		printf("Context switch from kernel_idle_task triggered from somewhere other than pre-emption source. Halting.\n");
+		printf("This generally means that a driver responding to interrupts has attempted to yield in its interrupt context.\n");
+		printf("Ensure that all device drivers which respond to interrupts do so with non-blocking data structures.\n");
+		printf("   Return address of switch_task: %p\n", __builtin_return_address(0));
+		arch_fatal();
+	}
+
+	/* If a process got to switch_task but was not marked as running, it must be exiting and we don't
+	 * want to waste time saving context for it. Also, kidle is always resumed from the top of its
+	 * loop function, so we don't save any context for it either. */
+	if (!(this_core->current_process->flags & PROC_FLAG_RUNNING) || (this_core->current_process == this_core->kernel_idle_task)) {
+		switch_next();
+		return;
+	}
+
+	arch_save_floating((process_t*)this_core->current_process);
+
+	/* 'setjmp' - save the execution context. When this call returns '1' we are back
+	 * from a task switch and have been awoken if we were sleeping. */
+	if (arch_save_context(&this_core->current_process->thread) == 1) {
+		arch_restore_floating((process_t*)this_core->current_process);
+
+		fix_signal_stacks();
+		if (!(this_core->current_process->flags & PROC_FLAG_FINISHED)) {
+			if (this_core->current_process->signal_queue->length > 0) {
+				node_t * node = list_dequeue(this_core->current_process->signal_queue);
+				signal_t * sig = node->value;
+				free(node);
+				handle_signal((process_t*)this_core->current_process,sig);
+			}
+		}
+
+		return;
+	}
+
+	/* If this is a normal yield, we reschedule.
+	 * XXX: Is this going to work okay with SMP? I think this whole thing
+	 *      needs to be wrapped in a lock, but also what if we put the
+	 *      thread into a schedule queue previously but a different core
+	 *      picks it up before we saved the thread context or the FPU state... */
+	if (reschedule) {
+		make_process_ready((process_t*)this_core->current_process);
+	}
+
+	/* @ref switch_next() does not return. */
+	switch_next();
+}
+
+/**
+ * @brief Initial scheduler datastructures.
+ *
+ * Called by early system startup to allocate trees and lists
+ * the schedule uses to track processes.
+ */
+void initialize_process_tree(void) {
+	process_tree = tree_create();
+	process_list = list_create("global process list",NULL);
+	process_queue = list_create("global scheduler queue",NULL);
+	sleep_queue = list_create("global timed sleep queue",NULL);
+
+	/* TODO: PID bitset? */
+}
+
+/**
+ * @brief Determines if a process is alive and valid.
+ *
+ * Scans @ref process_list to see if @p process is a valid
+ * process object or not.
+ *
+ * XXX This is horribly inefficient, and its very existence
+ *     is likely indicative of bugs whereever it needed to
+ *     be called...
+ *
+ * @param process Process object to check.
+ * @returns 1 if the process is valid, 0 if it is not.
+ */
 int is_valid_process(process_t * process) {
 	foreach(lnode, process_list) {
 		if (lnode->value == process) {
@@ -49,263 +224,165 @@ int is_valid_process(process_t * process) {
 	return 0;
 }
 
-/*
- * This makes a nice 4096-byte bitmap. It also happens
- * to be pid_max on 32-bit Linux, so that's kinda nice.
- */
-#define MAX_PID 32768
-
-/*
- * Initialize the process tree and ready queue.
- */
-void initialize_process_tree(void) {
-	process_tree = tree_create();
-	process_list = list_create();
-	process_queue = list_create();
-	sleep_queue = list_create();
-
-	/* Start off with enough bits for 64 processes */
-	bitset_init(&pid_set, MAX_PID / 8);
-	/* First two bits are set by default */
-	bitset_set(&pid_set, 0);
-	bitset_set(&pid_set, 1);
-}
-
-/*
- * Recursively print a process node to the console.
+/**
+ * @brief Allocate a new file descriptor.
  *
- * @param node   Node to print.
- * @param height Current depth in the tree.
- */
-void debug_print_process_tree_node(tree_node_t * node, size_t height) {
-	/* End recursion on a blank entry */
-	if (!node) return;
-	char * tmp = malloc(512);
-	memset(tmp, 0, 512);
-	char * c = tmp;
-	/* Indent output */
-	for (uint32_t i = 0; i < height; ++i) {
-		c += sprintf(c, "  ");
-	}
-	/* Get the current process */
-	process_t * proc = (process_t *)node->value;
-	/* Print the process name */
-	c += sprintf(c, "%d.%d %s", proc->group ? proc->group : proc->id, proc->id, proc->name);
-	if (proc->description) {
-		/* And, if it has one, its description */
-		c += sprintf(c, " %s", proc->description);
-	}
-	if (proc->finished) {
-		c += sprintf(c, " [zombie]");
-	}
-	/* Linefeed */
-	debug_print(NOTICE, "%s", tmp);
-	free(tmp);
-	foreach(child, node->children) {
-		/* Recursively print the children */
-		debug_print_process_tree_node(child->value, height + 1);
-	}
-}
-
-/*
- * Print the process tree to the console.
- */
-void debug_print_process_tree(void) {
-	debug_print_process_tree_node(process_tree->root, 0);
-}
-
-/*
- * Retreive the next ready process.
- * XXX: POPs from the ready queue!
+ * Adds a new entry to the file descriptor table for @p proc
+ * pointing to the file @p node. The file descriptor's offset
+ * and file modes must be set by the caller afterwards.
  *
- * @return A pointer to the next process in the queue.
+ * @param proc Process whose file descriptor should be modified.
+ * @param node VFS object to add a reference to.
+ * @returns the new file descriptor index
  */
-process_t * next_ready_process(void) {
-	if (!process_available()) {
-		return kernel_idle_task;
-	}
-	if (process_queue->head->owner != process_queue) {
-		debug_print(ERROR, "Erroneous process located in process queue: node 0x%x has owner 0x%x, but process_queue is 0x%x", process_queue->head, process_queue->head->owner, process_queue);
-
-		process_t * proc = process_queue->head->value;
-
-		debug_print(ERROR, "PID associated with this node is %d", proc->id);
-	}
-	node_t * np = list_dequeue(process_queue);
-	assert(np && "Ready queue is empty.");
-	process_t * next = np->value;
-	return next;
-}
-
-/*
- * Reinsert a process into the ready queue.
- *
- * @param proc Process to reinsert
- */
-void make_process_ready(process_t * proc) {
-	if (proc->sleep_node.owner != NULL) {
-		if (proc->sleep_node.owner == sleep_queue) {
-			/* XXX can't wake from timed sleep */
-			if (proc->timed_sleep_node) {
-				IRQ_OFF;
-				spin_lock(sleep_lock);
-				list_delete(sleep_queue, proc->timed_sleep_node);
-				spin_unlock(sleep_lock);
-				IRQ_RES;
-				proc->sleep_node.owner = NULL;
-				free(proc->timed_sleep_node->value);
-			}
-			/* Else: I have no idea what happened. */
-		} else {
-			proc->sleep_interrupted = 1;
-			spin_lock(wait_lock_tmp);
-			list_delete((list_t*)proc->sleep_node.owner, &proc->sleep_node);
-			spin_unlock(wait_lock_tmp);
+unsigned long process_append_fd(process_t * proc, fs_node_t * node) {
+	spin_lock(proc->fds->lock);
+	/* Fill gaps */
+	for (unsigned long i = 0; i < proc->fds->length; ++i) {
+		if (!proc->fds->entries[i]) {
+			proc->fds->entries[i] = node;
+			/* modes, offsets must be set by caller */
+			proc->fds->modes[i] = 0;
+			proc->fds->offsets[i] = 0;
+			spin_unlock(proc->fds->lock);
+			return i;
 		}
 	}
-	if (proc->sched_node.owner) {
-		debug_print(WARNING, "Can't make process ready without removing from owner list: %d", proc->id);
-		debug_print(WARNING, "  (This is a bug) Current owner list is 0x%x (ready queue is 0x%x)", proc->sched_node.owner, process_queue);
-		return;
+	/* No gaps, expand */
+	if (proc->fds->length == proc->fds->capacity) {
+		proc->fds->capacity *= 2;
+		proc->fds->entries = realloc(proc->fds->entries, sizeof(fs_node_t *) * proc->fds->capacity);
+		proc->fds->modes   = realloc(proc->fds->modes,   sizeof(int) * proc->fds->capacity);
+		proc->fds->offsets = realloc(proc->fds->offsets, sizeof(uint64_t) * proc->fds->capacity);
 	}
-	spin_lock(process_queue_lock);
-	list_append(process_queue, &proc->sched_node);
-	spin_unlock(process_queue_lock);
+	proc->fds->entries[proc->fds->length] = node;
+	/* modes, offsets must be set by caller */
+	proc->fds->modes[proc->fds->length] = 0;
+	proc->fds->offsets[proc->fds->length] = 0;
+	proc->fds->length++;
+	spin_unlock(proc->fds->lock);
+	return proc->fds->length-1;
 }
 
-
-extern void tree_remove_reparent_root(tree_t * tree, tree_node_t * node);
-
-/*
- * Delete a process from the process tree
+/**
+ * @brief Allocate a process identifier.
  *
- * @param proc Process to find and remove.
+ * Obtains the next available process identifier.
+ *
+ * FIXME This used to use a bitset in Toaru32 so it could
+ *       handle overflow of the pid counter. We need to
+ *       bring that back.
  */
-void delete_process(process_t * proc) {
-	tree_node_t * entry = proc->tree_entry;
-
-	/* The process must exist in the tree, or the client is at fault */
-	if (!entry) return;
-
-	/* We can not remove the root, which is an error anyway */
-	assert((entry != process_tree->root) && "Attempted to kill init.");
-
-	if (process_tree->root == entry) {
-		/* We are init, don't even bother. */
-		return;
-	}
-
-	/* Remove the entry. */
-	spin_lock(tree_lock);
-	/* Reparent everyone below me to init */
-	int has_children = entry->children->length;
-	tree_remove_reparent_root(process_tree, entry);
-	list_delete(process_list, list_find(process_list, proc));
-	spin_unlock(tree_lock);
-
-	if (has_children) {
-		process_t * init = process_tree->root->value;
-		wakeup_queue(init->wait_queue);
-	}
-
-	bitset_clear(&pid_set, proc->id);
-
-	/* Uh... */
-	free(proc);
+pid_t get_next_pid(void) {
+	static pid_t _next_pid = 2;
+	return __sync_fetch_and_add(&_next_pid,1);
 }
 
+/**
+ * @brief The idle task.
+ *
+ * Sits in a loop forever. Scheduled whenever there is nothing
+ * else to do. Actually always enters from the top of the function
+ * whenever scheduled, as we don't both to save its state.
+ */
 static void _kidle(void) {
 	while (1) {
-		IRQ_ON;
-		PAUSE;
+		arch_pause();
 	}
 }
 
-/*
- * Spawn the idle "process".
+static void _kburn(void) {
+	while (1) {
+		//arch_pause();
+		if (((volatile list_t *)process_queue)->head) switch_next();
+	}
+}
+
+/**
+ * @brief Release a process's paging data.
+ *
+ * If this is a thread in a POSIX process with other
+ * living threads, the directory is not actually released
+ * but the reference count for it is decremented.
+ *
+ * XXX There's probably no reason for this to take an argument;
+ *     we only ever free directories in two places: on exec, or
+ *     when a thread exits, and that's always the current thread.
  */
-process_t * spawn_kidle(void) {
-	process_t * idle = malloc(sizeof(process_t));
-	memset(idle, 0x00, sizeof(process_t));
+void process_release_directory(page_directory_t * dir) {
+	spin_lock(dir->lock);
+	dir->refcount--;
+	if (dir->refcount < 1) {
+		mmu_free(dir->directory);
+		free(dir);
+	} else {
+		spin_unlock(dir->lock);
+	}
+}
+
+process_t * spawn_kidle(int bsp) {
+	process_t * idle = calloc(1,sizeof(process_t));
 	idle->id = -1;
 	idle->name = strdup("[kidle]");
-	idle->is_tasklet = 1;
+	idle->flags = PROC_FLAG_IS_TASKLET | PROC_FLAG_STARTED | PROC_FLAG_RUNNING;
+	idle->image.stack = (uintptr_t)valloc(KERNEL_STACK_SIZE)+ KERNEL_STACK_SIZE;
 
-	idle->image.stack = (uintptr_t)malloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
-	idle->thread.eip  = (uintptr_t)&_kidle;
-	idle->thread.esp  = idle->image.stack;
-	idle->thread.ebp  = idle->image.stack;
+	/* TODO arch_initialize_context(uintptr_t) ? */
+	idle->thread.context.ip = bsp ? (uintptr_t)&_kidle : (uintptr_t)&_kburn;
+	idle->thread.context.sp = idle->image.stack;
+	idle->thread.context.bp = idle->image.stack;
 
-	idle->started = 1;
-	idle->running = 1;
-	idle->wait_queue = list_create();
-	idle->shm_mappings = list_create();
-	idle->signal_queue = list_create();
-
+	/* FIXME Why does the idle thread have wait queues and shm mappings?
+	 *       Can we make sure these are never referenced and not allocate them? */
+	idle->wait_queue = list_create("process wait queue (kidle)",idle);
+	idle->shm_mappings = list_create("process shm mappings (kidle)",idle);
+	idle->signal_queue = list_create("process signal queue (kidle)",idle);
 	gettimeofday(&idle->start, NULL);
-
-	set_process_environment(idle, current_directory);
+	idle->thread.page_directory = malloc(sizeof(page_directory_t));
+	idle->thread.page_directory->refcount = 1;
+	idle->thread.page_directory->directory = mmu_clone(this_core->current_pml);
+	spin_init(idle->thread.page_directory->lock);
 	return idle;
 }
 
-/*
- * Spawn the initial process.
- *
- * @return A pointer to the new initial process entry
- */
 process_t * spawn_init(void) {
-	/* We can only do this once. */
-	assert((!process_tree->root) && "Tried to regenerate init!");
+	process_t * init = calloc(1,sizeof(process_t));
+	tree_set_root(process_tree, (void*)init);
 
-	/* Allocate space for a new process */
-	process_t * init = malloc(sizeof(process_t));
-	/* Set it as the root process */
-	tree_set_root(process_tree, (void *)init);
-	/* Set its tree entry pointer so we can keep track
-	 * of the process' entry in the process tree. */
 	init->tree_entry = process_tree->root;
-	init->id      = 1;       /* Init is PID 1 */
-	init->group   = 0; /* thread group id (real PID) */
-	init->job     = 1; /* process group id (jobs) */
-	init->session = 1; /* session leader id */
-	init->name    = strdup("init");  /* Um, duh. */
-	init->cmdline = NULL;
-	init->user    = 0;       /* UID 0 */
-	init->real_user = 0;
-	init->mask    = 022;     /* umask */
-	init->status  = 0;       /* Run status */
-	init->fds = malloc(sizeof(fd_table_t));
-	init->fds->refs = 1;
-	init->fds->length   = 0;  /* Initialize the file descriptors */
-	init->fds->capacity = 4;
-	init->fds->entries  = malloc(sizeof(fs_node_t *) * init->fds->capacity);
-	init->fds->modes    = malloc(sizeof(int) * init->fds->capacity);
-	init->fds->offsets  = malloc(sizeof(uint64_t) * init->fds->capacity);
+	init->id         = 1;
+	init->group      = 0;
+	init->job        = 1;
+	init->session    = 1;
+	init->name       = strdup("init");
+	init->cmdline    = NULL;
+	init->user       = USER_ROOT_UID;
+	init->real_user  = USER_ROOT_UID;
+	init->mask       = 022;
+	init->status     = 0;
 
-	/* Set the working directory */
+	init->fds           = malloc(sizeof(fd_table_t));
+	init->fds->refs     = 1;
+	init->fds->length   = 0;
+	init->fds->capacity = 4;
+	init->fds->entries  = malloc(init->fds->capacity * sizeof(fs_node_t *));
+	init->fds->modes    = malloc(init->fds->capacity * sizeof(int));
+	init->fds->offsets  = malloc(init->fds->capacity * sizeof(uint64_t));
+	spin_init(init->fds->lock);
+
 	init->wd_node = clone_fs(fs_root);
 	init->wd_name = strdup("/");
 
-	/* Heap and stack pointers (and actuals) */
-	init->image.entry       = 0;
-	init->image.heap        = 0;
-	init->image.heap_actual = 0;
-	init->image.stack       = initial_esp + 1;
-	init->image.user_stack  = 0;
-	init->image.size        = 0;
-	init->image.shm_heap    = SHM_START; /* Yeah, a bit of a hack. */
+	init->image.entry    = 0;
+	init->image.heap     = 0;
+	init->image.stack    = (uintptr_t)valloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
+	init->image.shm_heap = 0x200000000; /* That's 8GiB? That should work fine... */
 
-	spin_init(init->image.lock);
-
-	/* Process is not finished */
-	init->finished = 0;
-	init->suspended = 0;
-	init->started = 1;
-	init->running = 1;
-	init->wait_queue = list_create();
-	init->shm_mappings = list_create();
-	init->signal_queue = list_create();
-	init->signal_kstack = NULL; /* None yet initialized */
+	init->flags         = PROC_FLAG_STARTED | PROC_FLAG_RUNNING;
+	init->wait_queue    = list_create("process wait queue (init)", init);
+	init->shm_mappings  = list_create("process shm mapping (init)", init);
+	init->signal_queue  = list_create("process signal queue (init)", init);
+	init->signal_kstack = NULL; /* Initialized later */
 
 	init->sched_node.prev = NULL;
 	init->sched_node.next = NULL;
@@ -317,174 +394,374 @@ process_t * spawn_init(void) {
 
 	init->timed_sleep_node = NULL;
 
-	init->is_tasklet = 0;
-
-	set_process_environment(init, current_directory);
-
-	/* What the hey, let's also set the description on this one */
+	init->thread.page_directory = malloc(sizeof(page_directory_t));
+	init->thread.page_directory->refcount = 1;
+	init->thread.page_directory->directory = this_core->current_pml;
+	spin_init(init->thread.page_directory->lock);
 	init->description = strdup("[init]");
-	list_insert(process_list, (void *)init);
+	list_insert(process_list, (void*)init);
 
 	return init;
 }
 
-/*
- * Get the next available PID
- *
- * @return A usable PID for a new process.
- */
-static int _next_pid = 2;
-pid_t get_next_pid(void) {
-	if (_next_pid > MAX_PID) {
-		int index = bitset_ffub(&pid_set);
-		/*
-		 * Honestly, we don't have the memory to really risk reaching
-		 * the point where we have MAX_PID processes running
-		 * concurrently, so this assertion should be "safe enough".
-		 */
-		assert(index != -1);
-		bitset_set(&pid_set, index);
-		return index;
-	}
-	int pid = _next_pid;
-	_next_pid++;
-	assert(!bitset_test(&pid_set, pid) && "Next PID already allocated?");
-	bitset_set(&pid_set, pid);
-	return pid;
-}
+process_t * spawn_process(volatile process_t * parent, int flags) {
+	process_t * proc = calloc(1,sizeof(process_t));
 
-/*
- * Disown a process from its parent.
- */
-void process_disown(process_t * proc) {
-	assert(process_tree->root && "No init, has the process tree been initialized?");
+	proc->id          = get_next_pid();
+	proc->group       = proc->id;
+	proc->name        = strdup(parent->name);
+	proc->description = NULL;
+	proc->cmdline     = parent->cmdline; /* FIXME dup it? */
 
-	/* Find the process in the tree */
-	tree_node_t * entry = proc->tree_entry;
-	/* Break it of from its current parent */
-	spin_lock(tree_lock);
-	tree_break_off(process_tree, entry);
-	/* And insert it back elsewhere */
-	tree_node_insert_child_node(process_tree, process_tree->root, entry);
-	spin_unlock(tree_lock);
-}
+	proc->user        = parent->user;
+	proc->real_user   = parent->real_user;
+	proc->mask        = parent->mask;
+	proc->job         = parent->job;
+	proc->session     = parent->session;
 
-/*
- * Spawn a new process.
- *
- * @param parent The parent process to spawn the new one off of.
- * @return A pointer to the new process.
- */
-process_t * spawn_process(volatile process_t * parent, int reuse_fds) {
-	assert(process_tree->root && "Attempted to spawn a process without init.");
-
-	/* Allocate a new process */
-	debug_print(INFO,"   process_t {");
-	process_t * proc = malloc(sizeof(process_t));
-	memset(proc, 0, sizeof(process_t));
-	debug_print(INFO,"   }");
-	proc->id = get_next_pid(); /* Set its PID */
-	proc->group = proc->id;    /* Set the GID */
-	proc->name = strdup(parent->name); /* Use the default name */
-	proc->description = NULL;  /* No description */
-	proc->cmdline = parent->cmdline;
-
-	/* Copy permissions */
-	proc->user  = parent->user;
-	proc->real_user = parent->real_user;
-	proc->mask = parent->mask;
-
-	/* Until specified otherwise */
-	proc->job = parent->job;
-	proc->session = parent->session;
-
-	/* Zero out the ESP/EBP/EIP */
-	proc->thread.esp = 0;
-	proc->thread.ebp = 0;
-	proc->thread.eip = 0;
-	proc->thread.fpu_enabled = 0;
+	proc->thread.context.sp = 0;
+	proc->thread.context.bp = 0;
+	proc->thread.context.ip = 0;
 	memcpy((void*)proc->thread.fp_regs, (void*)parent->thread.fp_regs, 512);
 
-	/* Set the process image information from the parent */
+	/* Entry is only stored for reference. */
 	proc->image.entry       = parent->image.entry;
 	proc->image.heap        = parent->image.heap;
-	proc->image.heap_actual = parent->image.heap_actual;
-	proc->image.size        = parent->image.size;
-	debug_print(INFO,"    stack {");
-	proc->image.stack       = (uintptr_t)kvmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
-	debug_print(INFO,"    }");
-	proc->image.user_stack  = parent->image.user_stack;
-	proc->image.shm_heap    = SHM_START; /* Yeah, a bit of a hack. */
+	proc->image.stack       = (uintptr_t)valloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
+	proc->image.shm_heap    = 0x200000000; /* FIXME this should be a macro def */
 
-	spin_init(proc->image.lock);
-
-	assert(proc->image.stack && "Failed to allocate kernel stack for new process.");
-
-	/* Clone the file descriptors from the original process */
-	if (reuse_fds) {
+	if (flags & PROC_REUSE_FDS) {
+		spin_lock(parent->fds->lock);
 		proc->fds = parent->fds;
 		proc->fds->refs++;
+		spin_unlock(parent->fds->lock);
 	} else {
 		proc->fds = malloc(sizeof(fd_table_t));
-		proc->fds->refs     = 1;
-		proc->fds->length   = parent->fds->length;
+		spin_init(proc->fds->lock);
+		proc->fds->refs = 1;
+		spin_lock(parent->fds->lock);
+		proc->fds->length = parent->fds->length;
 		proc->fds->capacity = parent->fds->capacity;
-		debug_print(INFO,"    fds / files {");
-		proc->fds->entries  = malloc(sizeof(fs_node_t *) * proc->fds->capacity);
-		proc->fds->modes    = malloc(sizeof(int) * proc->fds->capacity);
-		proc->fds->offsets  = malloc(sizeof(uint64_t) * proc->fds->capacity);
-		assert(proc->fds->entries && "Failed to allocate file descriptor table for new process.");
-		debug_print(INFO,"    ---");
+		proc->fds->entries = malloc(proc->fds->capacity * sizeof(fs_node_t *));
+		proc->fds->modes   = malloc(proc->fds->capacity * sizeof(int));
+		proc->fds->offsets = malloc(proc->fds->capacity * sizeof(uint64_t));
 		for (uint32_t i = 0; i < parent->fds->length; ++i) {
 			proc->fds->entries[i] = clone_fs(parent->fds->entries[i]);
 			proc->fds->modes[i]   = parent->fds->modes[i];
 			proc->fds->offsets[i] = parent->fds->offsets[i];
 		}
-		debug_print(INFO,"    }");
+		spin_unlock(parent->fds->lock);
 	}
 
-	/* As well as the working directory */
 	proc->wd_node = clone_fs(parent->wd_node);
 	proc->wd_name = strdup(parent->wd_name);
 
-	/* Zero out the process status */
-	proc->status = 0;
-	proc->finished = 0;
-	proc->suspended = 0;
-	proc->started = 0;
-	proc->running = 0;
-	memset(proc->signals.functions, 0x00, sizeof(uintptr_t) * NUMSIGNALS);
-	proc->wait_queue = list_create();
-	proc->shm_mappings = list_create();
-	proc->signal_queue = list_create();
-	proc->signal_kstack = NULL; /* None yet initialized */
+	proc->wait_queue   = list_create("process wait queue",proc);
+	proc->shm_mappings = list_create("process shm mappings",proc);
+	proc->signal_queue = list_create("process signal queue",proc);
 
-	proc->sched_node.prev = NULL;
-	proc->sched_node.next = NULL;
 	proc->sched_node.value = proc;
-
-	proc->sleep_node.prev = NULL;
-	proc->sleep_node.next = NULL;
 	proc->sleep_node.value = proc;
 
-	proc->timed_sleep_node = NULL;
-
-	proc->is_tasklet = 0;
-
 	gettimeofday(&proc->start, NULL);
-
-	/* Insert the process into the process tree as a child
-	 * of the parent process. */
 	tree_node_t * entry = tree_node_create(proc);
-	assert(entry && "Failed to allocate a process tree node for new process.");
 	proc->tree_entry = entry;
+
 	spin_lock(tree_lock);
 	tree_node_insert_child_node(process_tree, parent->tree_entry, entry);
-	list_insert(process_list, (void *)proc);
+	list_insert(process_list, (void*)proc);
 	spin_unlock(tree_lock);
-
-	/* Return the new process */
 	return proc;
+}
+
+extern void tree_remove_reparent_root(tree_t * tree, tree_node_t * node);
+
+/**
+ * @brief Remove a process from the valid process list.
+ *
+ * Deletes a process from both the valid list and the process tree.
+ * Any the process has any children, they become orphaned and are
+ * moved under 'init', which is awoken if it was blocked on 'waitpid'.
+ *
+ * Finally, the process is freed.
+ */
+void process_delete(process_t * proc) {
+	tree_node_t * entry = proc->tree_entry;
+	if (!entry) return;
+	if (process_tree->root == entry) {
+		return;
+	}
+	spin_lock(tree_lock);
+	int has_children = entry->children->length;
+	tree_remove_reparent_root(process_tree, entry);
+	list_delete(process_list, list_find(process_list, proc));
+	spin_unlock(tree_lock);
+	if (has_children) {
+		process_t * init = process_tree->root->value;
+		wakeup_queue(init->wait_queue);
+	}
+	// FIXME bitset_clear(&pid_set, proc->id);
+	proc->tree_entry = NULL;
+
+	/* Free these later */
+	shm_release_all(proc);
+	free(proc->shm_mappings);
+
+	if (proc->signal_kstack) {
+		free(proc->signal_kstack);
+	}
+	free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
+	process_release_directory(proc->thread.page_directory);
+
+	free(proc->name);
+	free(proc);
+}
+
+/**
+ * @brief Place an available process in the ready queue.
+ *
+ * Marks a process as available for general scheduling.
+ * If the process was currently in a sleep queue, it is
+ * marked as having been interrupted and removed from its
+ * owning queue before being moved.
+ *
+ * The process must not otherwise have been in a scheduling
+ * queue before it is placed in the ready queue.
+ */
+void make_process_ready(volatile process_t * proc) {
+	if (proc->sleep_node.owner != NULL) {
+		if (proc->sleep_node.owner == sleep_queue) {
+			/* The sleep queue is slightly special... */
+			if (proc->timed_sleep_node) {
+				spin_lock(sleep_lock);
+				list_delete(sleep_queue, proc->timed_sleep_node);
+				spin_unlock(sleep_lock);
+				proc->sleep_node.owner = NULL;
+				free(proc->timed_sleep_node->value);
+			}
+		} else {
+			/* This was blocked on a semaphore we can interrupt. */
+			__sync_or_and_fetch(&proc->flags, PROC_FLAG_SLEEP_INT);
+			list_delete((list_t*)proc->sleep_node.owner, (node_t*)&proc->sleep_node);
+		}
+	}
+
+	if (proc->sched_node.owner) {
+		/* There's only one ready queue, so this means the process was already ready, which
+		 * is indicative of a bug somewhere as we shouldn't be added processes to the ready
+		 * queue multiple times. */
+		printf("Can't make process ready without removing it from owner list: %d\n", proc->id);
+		printf("  (This is a bug) Current owner list is %s@%p (ready queue is %p)\n",
+			proc->sched_node.owner->name, (void *)proc->sched_node.owner, (void*)process_queue);
+		return;
+	}
+
+	spin_lock(process_queue_lock);
+	list_append(process_queue, (node_t*)&proc->sched_node);
+	spin_unlock(process_queue_lock);
+
+	arch_wakeup_others();
+}
+
+/**
+ * @brief Pop the next available process from the queue.
+ *
+ * Gets the next available process from the round-robin scheduling
+ * queue. If there is no process to run, the idle task is returned.
+ *
+ * TODO This needs more locking for SMP...
+ */
+volatile process_t * next_ready_process(void) {
+	spin_lock(process_queue_lock);
+
+	if (!process_queue->head) {
+		spin_unlock(process_queue_lock);
+		return this_core->kernel_idle_task;
+	}
+
+	node_t * np = list_dequeue(process_queue);
+
+	if ((uintptr_t)np < 0xFFFFff0000000000UL || (uintptr_t)np > 0xFFFFff0000f00000UL) {
+		printf("Suspicious pointer in queue: %#zx\n", (uintptr_t)np);
+		arch_fatal();
+	}
+	volatile process_t * next = np->value;
+
+	if ((next->flags & PROC_FLAG_RUNNING) && (next->owner != this_core->cpu_id)) {
+		/* We pulled a process too soon, switch to idle for a bit so the
+		 * core that marked this process as ready can finish switching away from it. */
+		list_append(process_queue, (node_t*)&next->sched_node);
+		spin_unlock(process_queue_lock);
+		return this_core->kernel_idle_task;
+	}
+
+	spin_unlock(process_queue_lock);
+
+	__sync_or_and_fetch(&next->flags, PROC_FLAG_RUNNING);
+	next->owner = this_core->cpu_id;
+
+	return next;
+}
+
+/**
+ * @brief Signal a semaphore.
+ *
+ * Okay, so toaru32 used these general-purpose lists of processes
+ * as a sort of sempahore system, so often when you see 'queue' it
+ * can be read as 'semaphore' and be equally valid (outside of the
+ * 'ready queue', I guess). This will awaken all processes currently
+ * in the semaphore @p queue, unless they were marked as finished in
+ * which case they will be discarded.
+ *
+ * Note that these "semaphore queues" are binary semaphores - simple
+ * locks, but with smarter logic than the "spin_lock" primitive also
+ * used throughout the kernel, as that just blindly switches tasks
+ * until its atomic swap succeeds.
+ *
+ * @param queue The semaphore to signal
+ * @returns the number of processes successfully awoken
+ */
+int wakeup_queue(list_t * queue) {
+	int awoken_processes = 0;
+	spin_lock(wait_lock_tmp);
+	while (queue->length > 0) {
+		node_t * node = list_pop(queue);
+		if (!(((process_t *)node->value)->flags & PROC_FLAG_FINISHED)) {
+			make_process_ready(node->value);
+		}
+		awoken_processes++;
+	}
+	spin_unlock(wait_lock_tmp);
+	return awoken_processes;
+}
+
+/**
+ * @brief Signal a semaphore, exceptionally.
+ *
+ * Wake up everything in the semaphore @p queue but mark every
+ * waiter as having been interrupted, rather than gracefully awoken.
+ * Generally that means the event they were waiting for did not
+ * happen and may never happen.
+ *
+ * Otherwise, same semantics as @ref wakeup_queue.
+ */
+int wakeup_queue_interrupted(list_t * queue) {
+	int awoken_processes = 0;
+	spin_lock(wait_lock_tmp);
+	while (queue->length > 0) {
+		node_t * node = list_pop(queue);
+		if (!(((process_t *)node->value)->flags & PROC_FLAG_FINISHED)) {
+			process_t * proc = node->value;
+			__sync_or_and_fetch(&proc->flags, PROC_FLAG_SLEEP_INT);
+			make_process_ready(proc);
+		}
+		awoken_processes++;
+	}
+	spin_unlock(wait_lock_tmp);
+	return awoken_processes;
+}
+
+/**
+ * @brief Wait for a binary semaphore.
+ *
+ * Wait for an event with everyone else in @p queue.
+ *
+ * @returns 1 if the wait was interrupted (eg. the event did not occur); 0 otherwise.
+ */
+int sleep_on(list_t * queue) {
+	if (this_core->current_process->sleep_node.owner) {
+		switch_task(0);
+		return 0;
+	}
+	__sync_and_and_fetch(&this_core->current_process->flags, ~(PROC_FLAG_SLEEP_INT));
+	spin_lock(wait_lock_tmp);
+	list_append(queue, (node_t*)&this_core->current_process->sleep_node);
+	spin_unlock(wait_lock_tmp);
+	switch_task(0);
+	return !!(this_core->current_process->flags & PROC_FLAG_SLEEP_INT);
+}
+
+/**
+ * @brief Indicates whether a process is ready to be run but not currently running.
+ */
+int process_is_ready(process_t * proc) {
+	return (proc->sched_node.owner != NULL && !(proc->flags & PROC_FLAG_RUNNING));
+}
+
+/**
+ * @brief Wake up processes that were sleeping on timers.
+ *
+ * Reschedule all processes whose timed waits have expired as of
+ * the time indicated by @p seconds and @p subseconds. If the sleep
+ * was part of an fswait system call timing out, the call is marked
+ * as timed out before the process is rescheduled.
+ */
+void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
+	spin_lock(sleep_lock);
+	if (sleep_queue->length) {
+		sleeper_t * proc = ((sleeper_t *)sleep_queue->head->value);
+		while (proc && (proc->end_tick < seconds || (proc->end_tick == seconds && proc->end_subtick <= subseconds))) {
+
+			if (proc->is_fswait) {
+				proc->is_fswait = -1;
+				process_alert_node(proc->process,proc);
+			} else {
+				process_t * process = proc->process;
+				process->sleep_node.owner = NULL;
+				process->timed_sleep_node = NULL;
+				if (!process_is_ready(process)) {
+					spin_lock(wait_lock_tmp);
+					make_process_ready(process);
+					spin_unlock(wait_lock_tmp);
+				}
+			}
+			free(proc);
+			free(list_dequeue(sleep_queue));
+			if (sleep_queue->length) {
+				proc = ((sleeper_t *)sleep_queue->head->value);
+			} else {
+				break;
+			}
+		}
+	}
+	spin_unlock(sleep_lock);
+}
+
+/**
+ * @brief Wait until a given time.
+ *
+ * Suspends the current process until the given time. The process may
+ * still be resumed by a signal or other mechanism, in which case the
+ * sleep will not be resumed by the kernel.
+ */
+void sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds) {
+	spin_lock(sleep_lock);
+	if (this_core->current_process->sleep_node.owner) {
+		spin_unlock(sleep_lock);
+		/* Can't sleep, sleeping already */
+		return;
+	}
+	process->sleep_node.owner = sleep_queue;
+
+	node_t * before = NULL;
+	foreach(node, sleep_queue) {
+		sleeper_t * candidate = ((sleeper_t *)node->value);
+		if (!candidate) {
+			printf("null candidate?\n");
+			continue;
+		}
+		if (candidate->end_tick > seconds || (candidate->end_tick == seconds && candidate->end_subtick > subseconds)) {
+			break;
+		}
+		before = node;
+	}
+	sleeper_t * proc = malloc(sizeof(sleeper_t));
+	proc->process     = process;
+	proc->end_tick    = seconds;
+	proc->end_subtick = subseconds;
+	proc->is_fswait = 0;
+	process->timed_sleep_node = list_insert_after(sleep_queue, before, proc);
+	spin_unlock(sleep_lock);
 }
 
 uint8_t process_compare(void * proc_v, void * pid_v) {
@@ -506,121 +783,8 @@ process_t * process_from_pid(pid_t pid) {
 	return NULL;
 }
 
-process_t * process_get_parent(process_t * process) {
-	process_t * result = NULL;
-	spin_lock(tree_lock);
 
-	tree_node_t * entry = process->tree_entry;
-
-	if (entry->parent) {
-		result = entry->parent->value;
-	}
-
-	spin_unlock(tree_lock);
-	return result;
-}
-
-/*
- * Wait for children.
- *
- * @param process Process doing the waiting.
- * @param pid     PID to wait for
- * @param status  [out] Where to put the status conditions of the waited-for process
- * @param options Options (unused)
- * @return A pointer to the process that broke the wait
- */
-process_t * process_wait(process_t * process, pid_t pid, int * status, int options) {
-	/* `options` is ignored */
-	if (pid == -1) {
-		/* wait for any child process */
-	} else if (pid < 0) {
-		/* wait for any porcess whose ->group == processes[abs(pid)]->group */
-	} else if (pid == 0) {
-		/* wait for any process whose ->group == process->group */
-	} else {
-		/* wait for processes[pid] */
-	}
-	return NULL;
-}
-
-/*
- * Wake up a sleeping process
- *
- * @param process Process to wake up
- * @param caller  Who woke it up
- * @return Don't know yet, but I think it should return something.
- */
-int process_wake(process_t * process, process_t * caller) {
-
-	return 0;
-}
-
-/*
- * Set the directory for a process.
- *
- * @param proc      Process to set the directory for.
- * @param directory Directory to set.
- */
-void set_process_environment(process_t * proc, page_directory_t * directory) {
-	assert(proc);
-	assert(directory);
-
-	proc->thread.page_directory = directory;
-}
-
-/*
- * Are there any processes available in the queue?
- * (Queue not empty)
- *
- * @return 1 if there are processes available, 0 otherwise
- */
-uint8_t process_available(void) {
-	return (process_queue->head != NULL);
-}
-
-/*
- * Append a file descriptor to a process.
- *
- * @param proc Process to append to
- * @param node The VFS node
- * @return The actual fd, for use in userspace
- */
-uint32_t process_append_fd(process_t * proc, fs_node_t * node) {
-	/* Fill gaps */
-	for (unsigned int i = 0; i < proc->fds->length; ++i) {
-		if (!proc->fds->entries[i]) {
-			proc->fds->entries[i] = node;
-			/* modes, offsets must be set by caller */
-			proc->fds->modes[i] = 0;
-			proc->fds->offsets[i] = 0;
-			return i;
-		}
-	}
-	/* No gaps, expand */
-	if (proc->fds->length == proc->fds->capacity) {
-		proc->fds->capacity *= 2;
-		proc->fds->entries = realloc(proc->fds->entries, sizeof(fs_node_t *) * proc->fds->capacity);
-		proc->fds->modes   = realloc(proc->fds->modes,   sizeof(int) * proc->fds->capacity);
-		proc->fds->offsets = realloc(proc->fds->offsets, sizeof(uint64_t) * proc->fds->capacity);
-	}
-	proc->fds->entries[proc->fds->length] = node;
-	/* modes, offsets must be set by caller */
-	proc->fds->modes[proc->fds->length] = 0;
-	proc->fds->offsets[proc->fds->length] = 0;
-	proc->fds->length++;
-	return proc->fds->length-1;
-}
-
-/*
- * dup2() -> Move the file pointed to by `s(ou)rc(e)` into
- *           the slot pointed to be `dest(ination)`.
- *
- * @param proc  Process to do this for
- * @param src   Source file descriptor
- * @param dest  Destination file descriptor
- * @return The destination file descriptor, -1 on failure
- */
-uint32_t process_move_fd(process_t * proc, int src, int dest) {
+long process_move_fd(process_t * proc, long src, long dest) {
 	if ((size_t)src >= proc->fds->length || (dest != -1 && (size_t)dest >= proc->fds->length)) {
 		return -1;
 	}
@@ -637,176 +801,17 @@ uint32_t process_move_fd(process_t * proc, int src, int dest) {
 	return dest;
 }
 
-int wakeup_queue(list_t * queue) {
-	int awoken_processes = 0;
-	while (queue->length > 0) {
-		spin_lock(wait_lock_tmp);
-		node_t * node = list_pop(queue);
-		spin_unlock(wait_lock_tmp);
-		if (!((process_t *)node->value)->finished) {
-			make_process_ready(node->value);
-		}
-		awoken_processes++;
-	}
-	return awoken_processes;
+void tasking_start(void) {
+	this_core->current_process = spawn_init();
+	this_core->kernel_idle_task = spawn_kidle(1);
 }
 
-int wakeup_queue_interrupted(list_t * queue) {
-	int awoken_processes = 0;
-	while (queue->length > 0) {
-		spin_lock(wait_lock_tmp);
-		node_t * node = list_pop(queue);
-		spin_unlock(wait_lock_tmp);
-		if (!((process_t *)node->value)->finished) {
-			process_t * proc = node->value;
-			proc->sleep_interrupted = 1;
-			make_process_ready(proc);
-		}
-		awoken_processes++;
-	}
-	return awoken_processes;
-}
-
-
-int sleep_on(list_t * queue) {
-	if (current_process->sleep_node.owner) {
-		/* uh, we can't sleep right now, we're marked as ready */
-		switch_task(0);
-		return 0;
-	}
-	current_process->sleep_interrupted = 0;
-	spin_lock(wait_lock_tmp);
-	list_append(queue, (node_t *)&current_process->sleep_node);
-	spin_unlock(wait_lock_tmp);
-	switch_task(0);
-	return current_process->sleep_interrupted;
-}
-
-int process_is_ready(process_t * proc) {
-	return (proc->sched_node.owner != NULL);
-}
-
-
-void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
-	IRQ_OFF;
-	spin_lock(sleep_lock);
-	if (sleep_queue->length) {
-		sleeper_t * proc = ((sleeper_t *)sleep_queue->head->value);
-		while (proc && (proc->end_tick < seconds || (proc->end_tick == seconds && proc->end_subtick <= subseconds))) {
-
-			if (proc->is_fswait) {
-				proc->is_fswait = -1;
-				process_alert_node(proc->process,proc);
-			} else {
-				process_t * process = proc->process;
-				process->sleep_node.owner = NULL;
-				process->timed_sleep_node = NULL;
-				if (!process_is_ready(process)) {
-					make_process_ready(process);
-				}
-			}
-			free(proc);
-			free(list_dequeue(sleep_queue));
-			if (sleep_queue->length) {
-				proc = ((sleeper_t *)sleep_queue->head->value);
-			} else {
-				break;
-			}
-		}
-	}
-	spin_unlock(sleep_lock);
-	IRQ_RES;
-}
-
-void sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds) {
-	if (current_process->sleep_node.owner) {
-		/* Can't sleep, sleeping already */
-		return;
-	}
-	process->sleep_node.owner = sleep_queue;
-
-	IRQ_OFF;
-	spin_lock(sleep_lock);
-	node_t * before = NULL;
-	foreach(node, sleep_queue) {
-		sleeper_t * candidate = ((sleeper_t *)node->value);
-		if (candidate->end_tick > seconds || (candidate->end_tick == seconds && candidate->end_subtick > subseconds)) {
-			break;
-		}
-		before = node;
-	}
-	sleeper_t * proc = malloc(sizeof(sleeper_t));
-	proc->process     = process;
-	proc->end_tick    = seconds;
-	proc->end_subtick = subseconds;
-	proc->is_fswait = 0;
-	process->timed_sleep_node = list_insert_after(sleep_queue, before, proc);
-	spin_unlock(sleep_lock);
-	IRQ_RES;
-}
-
-void cleanup_process(process_t * proc, int retval) {
-	proc->status   = retval;
-	proc->finished = 1;
-
-	list_free(proc->wait_queue);
-	free(proc->wait_queue);
-	list_free(proc->signal_queue);
-	free(proc->signal_queue);
-	free(proc->wd_name);
-
-
-	if (proc->node_waits) {
-		list_free(proc->node_waits);
-		free(proc->node_waits);
-		proc->node_waits = NULL;
-	}
-	debug_print(INFO, "Releasing shared memory for %d", proc->id);
-	shm_release_all(proc);
-	free(proc->shm_mappings);
-	debug_print(INFO, "Freeing more mems %d", proc->id);
-	if (proc->signal_kstack) {
-		free(proc->signal_kstack);
-	}
-
-	release_directory(proc->thread.page_directory);
-
-	debug_print(INFO, "Dec'ing fds for %d", proc->id);
-	proc->fds->refs--;
-	if (proc->fds->refs == 0) {
-		debug_print(INFO, "Reached 0, all dependencies are closed for %d's file descriptors and page directories", proc->id);
-		debug_print(INFO, "Going to clear out the file descriptors %d", proc->id);
-		for (uint32_t i = 0; i < proc->fds->length; ++i) {
-			if (proc->fds->entries[i]) {
-				close_fs(proc->fds->entries[i]);
-				proc->fds->entries[i] = NULL;
-			}
-		}
-		debug_print(INFO, "... and their storage %d", proc->id);
-		free(proc->fds->entries);
-		free(proc->fds->offsets);
-		free(proc->fds->modes);
-		free(proc->fds);
-		debug_print(INFO, "... and the kernel stack (hope this ain't us) %d", proc->id);
-		free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
-	}
-}
-
-void reap_process(process_t * proc) {
-	debug_print(INFO, "Reaping process %d; mem before = %d", proc->id, memory_use());
-	free(proc->name);
-	debug_print(INFO, "Reaped  process %d; mem after = %d", proc->id, memory_use());
-
-	delete_process(proc);
-	debug_print_process_tree();
-}
-
-static int wait_candidate(process_t * parent, int pid, int options, process_t * proc) {
+static int wait_candidate(volatile process_t * parent, int pid, int options, volatile process_t * proc) {
 	if (!proc) return 0;
 
 	if (options & WNOKERN) {
 		/* Skip kernel processes */
-		if (proc->is_tasklet) return 0;
+		if (proc->flags & PROC_FLAG_IS_TASKLET) return 0;
 	}
 
 	if (pid < -1) {
@@ -824,15 +829,13 @@ static int wait_candidate(process_t * parent, int pid, int options, process_t * 
 }
 
 int waitpid(int pid, int * status, int options) {
-	process_t * proc = (process_t *)current_process;
+	volatile process_t * volatile proc = (process_t*)this_core->current_process;
 	if (proc->group) {
 		proc = process_from_pid(proc->group);
 	}
 
-	debug_print(INFO, "waitpid(%s%d, ..., %d) (from pid=%d.%d)", (pid >= 0) ? "" : "-", (pid >= 0) ? pid : -pid, options, current_process->id, current_process->group);
-
 	do {
-		process_t * candidate = NULL;
+		volatile process_t * candidate = NULL;
 		int has_children = 0;
 
 		/* First, find out if there is anyone to reap */
@@ -840,15 +843,15 @@ int waitpid(int pid, int * status, int options) {
 			if (!node->value) {
 				continue;
 			}
-			process_t * child = ((tree_node_t *)node->value)->value;
+			volatile process_t * volatile child = ((tree_node_t *)node->value)->value;
 
 			if (wait_candidate(proc, pid, options, child)) {
 				has_children = 1;
-				if (child->finished) {
+				if (child->flags & PROC_FLAG_FINISHED) {
 					candidate = child;
 					break;
 				}
-				if ((options & WSTOPPED) && child->suspended) {
+				if ((options & WSTOPPED) && child->flags & PROC_FLAG_SUSPENDED) {
 					candidate = child;
 					break;
 				}
@@ -857,28 +860,25 @@ int waitpid(int pid, int * status, int options) {
 
 		if (!has_children) {
 			/* No valid children matching this description */
-			debug_print(INFO, "No children matching description.");
 			return -ECHILD;
 		}
 
 		if (candidate) {
-			debug_print(INFO, "Candidate found (%x:%d), bailing early.", candidate, candidate->id);
 			if (status) {
 				*status = candidate->status;
 			}
 			int pid = candidate->id;
-			if (candidate->finished) {
-				reap_process(candidate);
+			if (candidate->flags & PROC_FLAG_FINISHED) {
+				while (*((volatile int *)&candidate->flags) & PROC_FLAG_RUNNING);
+				process_delete((process_t*)candidate);
 			}
 			return pid;
 		} else {
 			if (options & WNOHANG) {
 				return 0;
 			}
-			debug_print(INFO, "Sleeping until queue is done.");
 			/* Wait */
 			if (sleep_on(proc->wait_queue) != 0) {
-				debug_print(INFO, "wait() was interrupted");
 				return -EINTR;
 			}
 		}
@@ -886,15 +886,12 @@ int waitpid(int pid, int * status, int options) {
 }
 
 int process_wait_nodes(process_t * process,fs_node_t * nodes[], int timeout) {
-	assert(!process->node_waits && "Tried to wait on nodes while already waiting on nodes.");
-
 	fs_node_t ** n = nodes;
 	int index = 0;
 	if (*n) {
 		do {
 			int result = selectcheck_fs(*n);
 			if (result < 0) {
-				debug_print(NOTICE, "An invalid descriptor was specified: %d (0x%x) (pid=%d)", index, *n, current_process->id);
 				return -1;
 			}
 			if (result == 0) {
@@ -911,22 +908,21 @@ int process_wait_nodes(process_t * process,fs_node_t * nodes[], int timeout) {
 
 	n = nodes;
 
-	process->node_waits = list_create();
+	spin_lock(process->sched_lock);
+	process->node_waits = list_create("process fswaiters",process);
 	if (*n) {
 		do {
 			if (selectwait_fs(*n, process) < 0) {
-				debug_print(NOTICE, "Bad selectwait? 0x%x", *n);
+				printf("bad selectwait?\n");
 			}
 			n++;
 		} while (*n);
 	}
 
 	if (timeout > 0) {
-		debug_print(INFO, "fswait with a timeout of %d (pid=%d)", timeout, current_process->id);
 		unsigned long s, ss;
-		relative_time(0, timeout, &s, &ss);
+		relative_time(0, timeout * 1000, &s, &ss);
 
-		IRQ_OFF;
 		spin_lock(sleep_lock);
 		node_t * before = NULL;
 		foreach(node, sleep_queue) {
@@ -944,12 +940,13 @@ int process_wait_nodes(process_t * process,fs_node_t * nodes[], int timeout) {
 		list_insert(((process_t *)process)->node_waits, proc);
 		process->timeout_node = list_insert_after(sleep_queue, before, proc);
 		spin_unlock(sleep_lock);
-		IRQ_RES;
 	} else {
 		process->timeout_node = NULL;
 	}
 
 	process->awoken_index = -1;
+	spin_unlock(process->sched_lock);
+
 	/* Wait. */
 	switch_task(0);
 
@@ -970,20 +967,24 @@ int process_awaken_from_fswait(process_t * process, int index) {
 		}
 	}
 	process->timeout_node = NULL;
+	spin_lock(wait_lock_tmp);
 	make_process_ready(process);
+	spin_unlock(wait_lock_tmp);
+	spin_unlock(process->sched_lock);
 	return 0;
 }
 
 int process_alert_node(process_t * process, void * value) {
 
 	if (!is_valid_process(process)) {
-		debug_print(WARNING, "Invalid process in alert from fswait.");
+		printf("invalid process\n");
 		return 0;
 	}
 
-
+	spin_lock(process->sched_lock);
 
 	if (!process->node_waits) {
+		spin_unlock(process->sched_lock);
 		return 0; /* Possibly already returned. Wait for another call. */
 	}
 
@@ -995,6 +996,184 @@ int process_alert_node(process_t * process, void * value) {
 		index++;
 	}
 
+	spin_unlock(process->sched_lock);
 	return -1;
 }
 
+process_t * process_get_parent(process_t * process) {
+	process_t * result = NULL;
+	spin_lock(tree_lock);
+
+	tree_node_t * entry = process->tree_entry;
+
+	if (entry->parent) {
+		result = entry->parent->value;
+	}
+
+	spin_unlock(tree_lock);
+	return result;
+}
+
+void task_exit(int retval) {
+	this_core->current_process->status = retval;
+
+	/* free whatever we can */
+	list_free(this_core->current_process->wait_queue);
+	free(this_core->current_process->wait_queue);
+	list_free(this_core->current_process->signal_queue);
+	free(this_core->current_process->signal_queue);
+	free(this_core->current_process->wd_name);
+	if (this_core->current_process->node_waits) {
+		list_free(this_core->current_process->node_waits);
+		free(this_core->current_process->node_waits);
+		this_core->current_process->node_waits = NULL;
+	}
+
+	if (this_core->current_process->fds) {
+		this_core->current_process->fds->refs--;
+		if (this_core->current_process->fds->refs == 0) {
+			for (uint32_t i = 0; i < this_core->current_process->fds->length; ++i) {
+				if (this_core->current_process->fds->entries[i]) {
+					close_fs(this_core->current_process->fds->entries[i]);
+					this_core->current_process->fds->entries[i] = NULL;
+				}
+			}
+			free(this_core->current_process->fds->entries);
+			free(this_core->current_process->fds->offsets);
+			free(this_core->current_process->fds->modes);
+			free(this_core->current_process->fds);
+			this_core->current_process->fds = NULL;
+		}
+	}
+
+	process_t * parent = process_get_parent((process_t *)this_core->current_process);
+	__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_FINISHED);
+
+	if (parent && !(parent->flags & PROC_FLAG_FINISHED)) {
+		send_signal(parent->group, SIGCHLD, 1);
+		wakeup_queue(parent->wait_queue);
+	}
+	switch_next();
+}
+
+#define PUSH(stack, type, item) stack -= sizeof(type); \
+							*((type *) stack) = item
+
+pid_t fork(void) {
+	uintptr_t sp, bp;
+	process_t * parent = (process_t*)this_core->current_process;
+	union PML * directory = mmu_clone(parent->thread.page_directory->directory);
+	process_t * new_proc = spawn_process(parent, 0);
+	new_proc->thread.page_directory = malloc(sizeof(page_directory_t));
+	new_proc->thread.page_directory->refcount = 1;
+	new_proc->thread.page_directory->directory = directory;
+	spin_init(new_proc->thread.page_directory->lock);
+
+	struct regs r;
+	memcpy(&r, parent->syscall_registers, sizeof(struct regs));
+	sp = new_proc->image.stack;
+	bp = sp;
+
+	arch_syscall_return(&r, 0);
+	PUSH(sp, struct regs, r);
+	new_proc->syscall_registers = (void*)sp;
+	new_proc->thread.context.sp = sp;
+	new_proc->thread.context.bp = bp;
+	new_proc->thread.context.tls_base = parent->thread.context.tls_base;
+	new_proc->thread.context.ip = (uintptr_t)&arch_resume_user;
+	if (parent->flags & PROC_FLAG_IS_TASKLET) new_proc->flags |= PROC_FLAG_IS_TASKLET;
+	make_process_ready(new_proc);
+	return new_proc->id;
+}
+
+pid_t clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
+	uintptr_t sp, bp;
+	process_t * parent = (process_t *)this_core->current_process;
+	process_t * new_proc = spawn_process(this_core->current_process, 1);
+	new_proc->thread.page_directory = this_core->current_process->thread.page_directory;
+	spin_lock(new_proc->thread.page_directory->lock);
+	new_proc->thread.page_directory->refcount++;
+	spin_unlock(new_proc->thread.page_directory->lock);
+
+	struct regs r;
+	memcpy(&r, parent->syscall_registers, sizeof(struct regs));
+	sp = new_proc->image.stack;
+	bp = sp;
+
+	/* Set the gid */
+	if (this_core->current_process->group) {
+		new_proc->group = this_core->current_process->group;
+	} else {
+		/* We are the session leader */
+		new_proc->group = this_core->current_process->id;
+	}
+
+	/* different calling convention */
+	r.rdi = arg;
+	PUSH(new_stack, uintptr_t, (uintptr_t)0xFFFFB00F);
+	PUSH(sp, struct regs, r);
+	new_proc->syscall_registers = (void*)sp;
+	new_proc->syscall_registers->rsp = new_stack;
+	new_proc->syscall_registers->rbp = new_stack;
+	new_proc->syscall_registers->rip = thread_func;
+	new_proc->thread.context.sp = sp;
+	new_proc->thread.context.bp = bp;
+	new_proc->thread.context.tls_base = this_core->current_process->thread.context.tls_base;
+	new_proc->thread.context.ip = (uintptr_t)&arch_resume_user;
+	if (parent->flags & PROC_FLAG_IS_TASKLET) new_proc->flags |= PROC_FLAG_IS_TASKLET;
+	make_process_ready(new_proc);
+	return new_proc->id;
+}
+
+process_t * spawn_worker_thread(void (*entrypoint)(void * argp), const char * name, void * argp) {
+	process_t * proc = calloc(1,sizeof(process_t));
+
+	proc->flags = PROC_FLAG_IS_TASKLET | PROC_FLAG_STARTED;
+
+	proc->id          = get_next_pid();
+	proc->group       = proc->id;
+	proc->name        = strdup(name);
+	proc->description = NULL;
+	proc->cmdline     = NULL;
+
+	/* Are these necessary for tasklets? Should probably all be zero. */
+	proc->user        = 0;
+	proc->real_user   = 0;
+	proc->mask        = 0;
+	proc->job         = proc->id;
+	proc->session     = proc->id;
+
+	proc->thread.page_directory = malloc(sizeof(page_directory_t));
+	proc->thread.page_directory->refcount = 1;
+	proc->thread.page_directory->directory = mmu_clone(mmu_get_kernel_directory());
+	spin_init(proc->thread.page_directory->lock);
+
+	proc->image.stack       = (uintptr_t)valloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
+	PUSH(proc->image.stack, uintptr_t, (uintptr_t)entrypoint);
+	PUSH(proc->image.stack, void*, argp);
+
+	proc->thread.context.sp = proc->image.stack;
+	proc->thread.context.bp = proc->image.stack;
+	proc->thread.context.ip = (uintptr_t)&arch_enter_tasklet;
+
+
+	proc->wait_queue   = list_create("worker thread wait queue",proc);
+	proc->shm_mappings = list_create("worker thread shm mappings",proc);
+	proc->signal_queue = list_create("worker thread signal queue",proc);
+
+	proc->sched_node.value = proc;
+	proc->sleep_node.value = proc;
+
+	gettimeofday(&proc->start, NULL);
+	tree_node_t * entry = tree_node_create(proc);
+	proc->tree_entry = entry;
+
+	spin_lock(tree_lock);
+	tree_node_insert_child_node(process_tree, this_core->current_process->tree_entry, entry);
+	list_insert(process_list, (void*)proc);
+	spin_unlock(tree_lock);
+
+	make_process_ready(proc);
+
+	return proc;
+}

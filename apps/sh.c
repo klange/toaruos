@@ -1109,6 +1109,7 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 						*out_buffer = ++p;
 						goto _done;
 					}
+					goto _just_add;
 				case '#':
 					if (!quoted && !backtick) {
 						goto _done; /* Support comments; must not be part of an existing arg */
@@ -1782,7 +1783,7 @@ uint32_t shell_cmd_cd(int argc, char * argv[]) {
 				goto cd_error;
 			}
 		} else {
-			char home_path[512];
+			char home_path[1200];
 			sprintf(home_path, "/home/%s", username);
 			if (chdir(home_path)) {
 				goto cd_error;
