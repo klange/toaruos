@@ -14,6 +14,7 @@
 #define MULTIBOOT_FLAG_LOADER  0x200
 #define MULTIBOOT_FLAG_APM     0x400
 #define MULTIBOOT_FLAG_VBE     0x800
+#define MULTIBOOT_FLAG_FB     0x1000
 
 struct multiboot
 {
@@ -37,17 +38,16 @@ struct multiboot
 	uint32_t apm_table;
 	uint32_t vbe_control_info;
 	uint32_t vbe_mode_info;
-	uint32_t vbe_mode;
-	uint32_t vbe_interface_seg;
-	uint32_t vbe_interface_off;
-	uint32_t vbe_interface_len;
-	uint32_t framebuffer_addr;
+	uint16_t vbe_mode;
+	uint16_t vbe_interface_seg;
+	uint16_t vbe_interface_off;
+	uint16_t vbe_interface_len;
+	uint64_t framebuffer_addr;
 	uint32_t framebuffer_pitch;
 	uint32_t framebuffer_width;
 	uint32_t framebuffer_height;
-	uint8_t   framebuffer_bpp;
-	uint8_t   framebuffer_type;
-	/* Palette stuff goes here but we don't use it */
+	uint8_t  framebuffer_bpp;
+	uint8_t  framebuffer_type;
 } __attribute__ ((packed));
 
 typedef struct {

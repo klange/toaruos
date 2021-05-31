@@ -238,3 +238,30 @@ SOURCE_FILES += $(wildcard kuroko/src/*.c kuroko/src/*.h kuroko/src/*/*.c kuroko
 SOURCE_FILES += $(wildcard $(BASE)/usr/include/*.h $(BASE)/usr/include/*/*.h $(BASE)/usr/include/*/*/*.h)
 tags: $(SOURCE_FILES)
 	ctags -f tags $(SOURCE_FILES)
+
+# Loader stuff, legacy CDs
+fatbase/ramdisk.igz: ramdisk.igz
+	cp $< $@
+fatbase/kernel: misaka-kernel
+	cp $< $@
+	strip $@
+
+cdrom/fat.img: fatbase/ramdisk.igz fatbase/kernel util/mkdisk.sh | dirs
+	util/mkdisk.sh $@ fatbase
+
+cdrom/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld | dirs
+	${LD} -melf_i386 -T boot/link.ld -o $@ boot/boot.o boot/cstuff.o
+
+boot/cstuff.o: boot/cstuff.c boot/*.h
+	${CC} -m32 -c -Os -fno-strict-aliasing -finline-functions -ffreestanding -mgeneral-regs-only -o $@ $<
+
+boot/boot.o: boot/boot.S
+	${AS} --32 -o $@ $<
+
+image.iso: cdrom/fat.img cdrom/boot.sys util/update-extents.py
+	xorriso -as mkisofs -R -J -c bootcat \
+	  -b boot.sys -no-emul-boot -boot-load-size full \
+	  -eltorito-alt-boot -e fat.img -no-emul-boot -isohybrid-gpt-basdat \
+	  -o image.iso cdrom
+	python3 util/update-extents.py
+

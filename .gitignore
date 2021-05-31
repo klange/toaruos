@@ -26,3 +26,6 @@
 /base/usr/bin/*
 /base/usr/lib/*
 /.make/
+/cdrom
+/fatbase
+/image.iso
