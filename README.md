@@ -1,6 +1,6 @@
 # ToaruOS
 
-ToaruOS is a 64-bit, hobbyist, educational, Unix-like operating system built entirely from scratch. It includes a kernel, bootloader, dynamic linker, C standard library, composited windowing system, package manager, and several utilities and applications. All components of the core operating system are original, providing a complete environment in approximately 80,000 lines of C and assembly, all of which is included in this repository.
+ToaruOS is a 64-bit, hobbyist, educational, Unix-like operating system built entirely from scratch. It includes a kernel, bootloader, dynamic linker, C standard library, composited windowing system, and several utilities and applications. All components of the core operating system are original, providing a complete environment in approximately 80,000 lines of C and assembly, all of which is included in this repository.
 
 ![Screenshot](https://user-images.githubusercontent.com/223546/105782051-11f73680-5fb7-11eb-94ed-171334c3de74.png)
 *Demonstration of ToaruOS's UI, terminal emulator, and text editor.*
@@ -11,7 +11,7 @@ The ToaruOS project began in December 2010 and has its roots in an independent s
 
 ToaruOS 1.0 was released in January, 2017, and featured a Python userspace built on Newlib. Since 1.6.x, ToaruOS has had its own C library, dependencies on third-party libraries have been removed, and most of the Python userspace has been rewritten in C. More recent releases have focused on improving the C library support, providing more ports in our package repository, and adding new features.
 
-Work began on ToaruOS 2.0, which brings a rewritten kernel for x86-64 (and potentially other architectures) and support for SMP, in April 2021 and was merged upstream at the end of May.
+In April, 2021, work began on ToaruOS 2.0, which brings a rewritten kernel for x86-64 (and potentially other architectures) and support for SMP. The new "Misaka" kernel was merged upstream at the end of May. Completion of ToaruOS 2.0 is currently ongoing.
 
 ## Features
 
@@ -22,13 +22,12 @@ Work began on ToaruOS 2.0, which brings a rewritten kernel for x86-64 (and poten
 
 ### Notable Components
 
-- **Toaru Kernel**, [kernel/](kernel/), the core of the operating system. 
+- **Misaka Kernel**, [kernel/](kernel/), the core of the operating system.
 - **Yutani**  (window compositor), [apps/compositor.c](apps/compositor.c), manages window buffers, layout, and input routing.
 - **Bim** (text editor), [apps/bim.c](apps/bim.c), is a vim-inspired editor with syntax highlighting.
 - **Terminal**, [apps/terminal.c](apps/terminal.c), xterm-esque terminal emulator with 256 and 24-bit color support.
 - **ld.so** (dynamic linker/loader), [linker/linker.c](linker/linker.c), loads dynamically-linked ELF binaries.
 - **Esh** (shell), [apps/sh.c](apps/sh.c), supports pipes, redirections, variables, and more.
-- **MSK** (package manager), [apps/msk.c](apps/msk.c), with support for online package installation.
 - **Kuroko**, [kuroko/](https://kuroko-lang.github.io/), a dynamic bytecode-compiled programming language.
 
 ## Current Goals
@@ -46,7 +45,7 @@ The following projects are currently in progress:
 
 *This section is being updated to reflect changes in ToaruOS 2.0 and may be outdated or incorrect.*
 
-To build ToaruOS from source, it is currently recommended you use a recent Debian- or Ubuntu-derived Linux host environment.
+To build ToaruOS from source, it is currently recommended you use a recent Debian- or Ubuntu-derived Linux host environment. Our build machines generally run Ubuntu 20.04 (the current LTS as of writing).
 
 Several packages are necessary for the build system: `build-essential` (to build the cross-compiler), `xorriso` (to create CD images), `python3` (various build scripts), `mtools` (for building FAT EFI system partitions), `gnu-efi` (for building the EFI loaders).
 
@@ -71,39 +70,32 @@ The `Makefile` uses a Kuroko tool, `auto-dep.krk`, to generate additional Makefi
 
 In an indeterminate order, the C library, kernel, userspace librares and applications are built.
 
-### Third-Party Components
-
-Prior to ToaruOS 1.6.x, many third-party components were included by default (Python, libpng, zlib, Cairo, freetype, and so on). These are no longer part of the default distribution or build process and must be built manually. Complete guides for building these components are currently being drafted. The instructions for building Python are complete and [available from the wiki](https://github.com/klange/toaruos/wiki/How-to-Python) (note that a host installation of Python 3.6 is required to build Python 3.6 and satisfying this is left as an exercise to the reader).
-
-Freetype and Cairo have also been successfully built under the new in-house C library. When either of these are available, optional extension bindings may be built with `make ext-freetype` and `make ext-cairo` respectively. When the Freetype extension binding is available in the OS, alongside required Truetype font files, Freetype will be used to render text in several applications (including the terminal emulator, menus, and window decorations). When the Cairo extension binding is available, it is used by the compositor to provide improved performance.
-
 ### Project Layout
 
 - **apps** - Userspace applications, all first-party.
 - **base** - Ramdisk root filesystem staging directory. Includes C headers in `base/usr/include`, as well as graphical resources for the compositor and window decorator.
-- **boot** - Bootloader, including BIOS and EFI IA32 and X64 support.
-- **cdrom** - Staging area for ISO9660 CD image, containing mostly blank shadow files for the FAT image.
-- **ext** - Optional runtime-loaded bindings for third-party libraries.
-- **fatbase** - Staging area for FAT image used by EFI.
-- **kernel** - The Toaru kernel.
+- **boot** - Old bootloaders, not yet ready for ToaruOS 2.0.
+- **kernel** - The Misaka kernel.
 - **lib** - Userspace libraries.
 - **libc** - C standard library implementation.
 - **linker** - Userspace dynamic linker/loader, implements shared library support.
-- **modules** - Kernel modules/drivers.
+- **modules** - Where loadable module sources will go when they are re-implemented for Misaka.
 - **util** - Utility scripts, staging directory for the toolchain (binutils/gcc).
 - **.make** - Generated Makefiles.
 
 ## Running ToaruOS
 
-*This section is being updated to reflect changes in ToaruOS 2.0 and may be outdated or incorrect.*
+Currently, the build tools in this repository will produce a kernel binary and a compressed ramdisk, which can be used with a Multiboot-compliant loader such as GRUB. QEMU also provides direct support for loading Multiboot kernels:
 
 ### QEMU
 
 ```
-qemu-system-x86_64 -M q35 -kernel misaka-kernel -initrd ramdisk.tar -append "root=/dev/ram0 start=live-session migrate" -enable-kvm -m 1G
+qemu-system-x86_64 -M q35 -kernel misaka-kernel -initrd ramdisk.igz -append "root=/dev/ram0 start=live-session migrate" -enable-kvm -m 1G
 ```
 
-Additionally, a tool is available for running QEMU, under specific environments, with automatic support for resizing the guest display resolution when the QEMU window changes size: `util/qemu-harness.py`
+### Other
+
+Until the native bootloaders are ready for ToaruOS 2.0, testing in other virtual machines can be done [with GRUB](https://github.com/klange/toaruos-grub/tree/misaka).
 
 ## Community
 
@@ -124,9 +116,11 @@ ToaruOS is regularly mirrored to multiple Git hosting sites.
 
 ### Is ToaruOS self-hosting?
 
-With a capable compiler toolchain, ToaruOS is able to build its own kernel, userspace, libraries, and bootloader, and turn these into a working ISO CD image.
+Currently, in the development of ToaruOS 2.0, self-hosting builds have not been tested and some utilities may be missing.
 
-ToaruOS is not currently capable of building most of its ports, due to a lack of a proper Posix shell and Make implementation. These are eventual goals of the project.
+Previously, with a capable compiler toolchain, ToaruOS 1.x was able to build its own kernel, userspace, libraries, and bootloader, and turn these into a working ISO CD image.
+
+ToaruOS is not currently capable of building most of its ports, due to a lack of a proper POSIX shell and Make implementation. These are eventual goals of the project.
 
 ### Is ToaruOS a Linux distribution?
 
