@@ -114,7 +114,7 @@ shell: system
 
 misaka-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
 	${CC} -g -T kernel/arch/${ARCH}/link.ld ${KERNEL_CFLAGS} -o $@.64 ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o -lgcc
-	${OC} -I elf64-x86-64 -O elf32-i386 $@.64 $@
+	${OC} --strip-debug -I elf64-x86-64 -O elf32-i386 $@.64 $@
 
 kernel/sys/version.o: ${KERNEL_SOURCES}
 
