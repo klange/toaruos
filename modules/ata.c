@@ -521,9 +521,11 @@ static int atapi_device_init(struct ata_device * dev) {
 	outportb(bus + ATA_REG_COMMAND, ATA_CMD_PACKET);
 
 	/* poll */
+	int timeout = 100;
 	while (1) {
 		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
 		if ((status & ATA_SR_ERR)) goto atapi_error;
+		if (timeout-- < 100) goto atapi_timeout;
 		if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRDY)) break;
 	}
 
@@ -532,9 +534,11 @@ static int atapi_device_init(struct ata_device * dev) {
 	}
 
 	/* poll */
+	timeout = 100;
 	while (1) {
 		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
 		if ((status & ATA_SR_ERR)) goto atapi_error_read;
+		if (timeout-- < 100) goto atapi_timeout;
 		if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRDY)) break;
 		if ((status & ATA_SR_DRQ)) break;
 	}
@@ -568,6 +572,9 @@ atapi_error:
 	debug_print(ERROR, "ATAPI early error; unsure");
 	return 1;
 
+atapi_timeout:
+	debug_print(ERROR, "ATAPI device timeout, ignoring.");
+	return 1;
 }
 
 static int ata_device_detect(struct ata_device * dev) {
