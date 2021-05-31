@@ -1,6 +1,6 @@
 [submodule "util/binutils-gdb"]
 	path = util/binutils-gdb
-	url = ../../toaruos/binutils-gdb.git
+	url = ../../toaruos/binutils-gdb
 [submodule "util/gcc"]
 	path = util/gcc
 	url = ../../toaruos/gcc
