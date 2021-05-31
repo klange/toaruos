@@ -1,6 +1,6 @@
 # ToaruOS
 
-ToaruOS is a hobbyist, educational, Unix-like operating system built entirely from scratch and capable of hosting Python 3 and GCC. It includes a kernel, bootloader, dynamic linker, C standard library, composited windowing system, package manager, and several utilities and applications. All components of the core operating system are original, providing a complete environment in approximately 80,000 lines of C and assembly, all of which is included in this repository.
+ToaruOS is a 64-bit, hobbyist, educational, Unix-like operating system built entirely from scratch. It includes a kernel, bootloader, dynamic linker, C standard library, composited windowing system, package manager, and several utilities and applications. All components of the core operating system are original, providing a complete environment in approximately 80,000 lines of C and assembly, all of which is included in this repository.
 
 ![Screenshot](https://user-images.githubusercontent.com/223546/105782051-11f73680-5fb7-11eb-94ed-171334c3de74.png)
 *Demonstration of ToaruOS's UI, terminal emulator, and text editor.*
@@ -11,15 +11,14 @@ The ToaruOS project began in December 2010 and has its roots in an independent s
 
 ToaruOS 1.0 was released in January, 2017, and featured a Python userspace built on Newlib. Since 1.6.x, ToaruOS has had its own C library, dependencies on third-party libraries have been removed, and most of the Python userspace has been rewritten in C. More recent releases have focused on improving the C library support, providing more ports in our package repository, and adding new features.
 
+Work began on ToaruOS 2.0, which brings a rewritten kernel for x86-64 (and potentially other architectures) and support for SMP, in April 2021 and was merged upstream at the end of May.
+
 ## Features
 
 - **Dynamically linked userspace** with support for runtime `dlopen`ing of additional libraries.
 - **Composited graphical UI** with SSE-accelerated alpha blitting and optional Cairo backend.
-- **Extensible, modular kernel** with loadable drivers.
 - **VM integration** for absolute mouse and automatic display sizing in VirtualBox and VMware Workstation.
 - **Unix-like terminal interface** including a feature-rich terminal emulator and several familiar utilities.
-- **TCP/IPv4 support** with utilities to download from HTTP servers and connect to IRC.
-- **Optional third-party ports** including Python 3.6, GCC 6.4.0, Binutils, Cairo, and Freetype.
 
 ### Notable Components
 
@@ -36,13 +35,16 @@ ToaruOS 1.0 was released in January, 2017, and featured a Python userspace built
 
 The following projects are currently in progress:
 
+- **Stabilize SMP support** by cleaning up locks and other synchronization issues in the kernel.
+- **Support more hardware** with new device drivers for AHCI, USB, virtio devices, etc.
 - **Improve POSIX coverage** especially in regards to signals, synchronization primitives, as well as by providing more common utilities.
 - **Continue to improve the C library** which remains quite incomplete compared to Newlib and is a major source of issues with bringing back old ports.
-- **Implement a native dynamic, interpreted programming language** to replace Python, which was used prior to ToaruOS 1.6.x to provide most of the desktop environment. *Completed!*
 - **Replace third-party development tools** to get the OS to a state where it is self-hosting with just the addition of a C compiler.
 - **Implement a C compiler toolchain** in [toarucc](https://github.com/klange/toarucc).
 
 ## Building / Installation
+
+*This section is being updated to reflect changes in ToaruOS 2.0 and may be outdated or incorrect.*
 
 To build ToaruOS from source, it is currently recommended you use a recent Debian- or Ubuntu-derived Linux host environment.
 
@@ -50,7 +52,7 @@ Several packages are necessary for the build system: `build-essential` (to build
 
 Beyond package installation, no part of the build needs root privileges.
 
-The build process has two parts: building a cross-compiler, and building the operating system. The cross-compiler uses GCC 6.4.0 and will be built automatically by `make` if other dependencies have been met. This only needs to be done once, and the cross-compiler does not depend on any of the components built for the operating system itself, though it is attached to the base directory of the repository so you may need to rebuild the toolchain if you move your checkout. Once the cross-compiler has been built, `make` will continue to build the operating system itself.
+The build process has two parts: building a cross-compiler, and building the operating system. The cross-compiler uses GCC 10.3 and can be built by pulling the submodules `util/binutils-gdb` and `util/gcc` and running `util/build-toolchain.sh`. Generally, this only needs to be done once, and the cross-compiler does not depend on any of the components built for the operating system itself, though some components may have soft dependencies on the libc. Once the cross-compiler has been built, `make` will continue to build the operating system itself.
 
 ### Building With Docker
 
@@ -58,38 +60,16 @@ You can skip the process of building the cross-compiler toolchain (which doesn't
 
     git clone --recursive https://github.com/klange/toaruos
     cd toaruos
-    docker pull toaruos/build-tools:1.8.x
-    docker run -v `pwd`:/root/toaruos -w /root/toaruos -e LANG=C.UTF-8 -t toaruos/build-tools:1.8.x util/build-in-docker.sh
+    docker pull toaruos/build-tools:1.99.x
+    docker run -v `pwd`:/root/misaka -w /root/misaka -e LANG=C.UTF-8 -t toaruos/build-tools:1.8.x util/build-in-docker.sh
 
-After building like this, you can run the various utility targets (`make run`, etc.) by setting `TOOLCHAIN=none`. Try `TOOLCHAIN=none make shell` to run a ToaruOS shell (using QEMU and a network socket - you'll need netcat for this to work).
+After building like this, you can run the various utility targets (`make run`, etc.). Try `make shell` to run a ToaruOS shell (using QEMU and a network socket - you'll need netcat for this to work).
 
 ### Build Process Internals
 
-The `Makefile` first checks to see if a toolchain is available and activates it (appends its `bin` directory to `$PATH`). If a toolchain is not available, users are prompted if they would like to build one. This process downloads and patches both Binutils and GCC and then builds and installs them locally.
+The `Makefile` uses a Kuroko tool, `auto-dep.krk`, to generate additional Makefiles for the userspace applications libraries, automatically resolving dependencies based on `#include` directives.
 
-The `Makefile` then uses a Python tool, `auto-dep.py`, to generate additional Makefiles for the userspace applications libraries, automatically resolving dependencies based on `#include` directives.
-
-In an indeterminate order, C library, kernel, modules, userspace librares and applications are built. Three boot loaders (one BIOS ATAPI CD loader for emulators, and both a 32-bit and 64-bit EFI loader for general use) are then built. Deployed binaries are stored in `base` which is then compiled into a tar archive to use as a ramdisk image. This image, along with the bootloader files and kernel are then placed in `fatbase` which is converted into a FAT image for use as the EFI boot payload. That image is then placed in `cdbase` along with shadow files representing each of the files in the FAT image, and `cdbase` is compiled into an ISO 9660 CD El Torito image. The CD image is then passed through a tool to map the shadow files to their actual data from the FAT image, creating a hybrid ISO 9660 / FAT.
-
-### Clang
-
-The kernel and driver modules have been successfully built with Clang using the `i686-elf` target. If you would like to experiment with using Clang to build ToaruOS, pass `USE_CLANG=1` to `make` from a clean build. You may confirm that Clang was used to build the kernel by examining `/proc/compiler` within the OS.
-
-### Building in ToaruOS
-
-ToaruOS is self-hosting, though the native build environment is different from the hosted build.
-
-To build ToaruOS from within ToaruOS, follow these steps:
-
-    # Install the necessary tools (gcc, python)
-    sudo msk update; sudo msk install src-tools
-    # Update PATH
-    source ~/.eshrc; rehash
-    cd /src
-    # Build the ISO (root is needed as this process copies some protected files from /etc)
-    sudo build-the-world.py
-
-The resulting image can be booted in Bochs, or sent to the host for use in another VM.
+In an indeterminate order, the C library, kernel, userspace librares and applications are built.
 
 ### Third-Party Components
 
@@ -115,62 +95,15 @@ Freetype and Cairo have also been successfully built under the new in-house C li
 
 ## Running ToaruOS
 
-It is highly recommended that interested users run ToaruOS from virtual machines. While we have done some testing on real hardware, driver support is still limited and virtual machines provide easily tested environments where we can guarantee some level of useful functionality.
-
-QEMU and VirtualBox are recommended and provide the most functonality. Audio support is not yet available in VMware. In VirtualBox and VMware, automatic guest display resizing is available (and a tool is available to provide similar functionality in QEMU). All three of the major VMs also support absolute mouse input.
+*This section is being updated to reflect changes in ToaruOS 2.0 and may be outdated or incorrect.*
 
 ### QEMU
 
-1GB of RAM and an Intel AC'97 sound chip are recommended:
-
 ```
-qemu-system-i386 -cdrom image.iso -serial mon:stdio -m 1G -soundhw ac97,pcspk -enable-kvm -rtc base=localtime
-```
-
-You may also use OVMF with the appropriate QEMU system target. Our EFI loader supports both IA32 and X64 EFIs:
-
-```
-qemu-system-x86_64 -cdrom image.iso -serial mon:stdio -m 1G -soundhw ac97,pcspk -enable-kvm -rtc base=localtime \
-  -bios /usr/share/qemu/OVMF.fd
-```
-
-```
-qemu-system-i386 -cdrom image.iso -serial mon:stdio -m 1G -soundhw ac97,pcspk -enable-kvm -rtc base=localtime \
-  -bios /path/to/OVMFia32.fd
+qemu-system-x86_64 -M q35 -kernel misaka-kernel -initrd ramdisk.tar -append "root=/dev/ram0 start=live-session migrate" -enable-kvm -m 1G
 ```
 
 Additionally, a tool is available for running QEMU, under specific environments, with automatic support for resizing the guest display resolution when the QEMU window changes size: `util/qemu-harness.py`
-
-### VirtualBox
-
-ToaruOS should function either as an "Other/Unknown" guest or an "Other/Unknown 64-bit" guest with EFI.
-
-All network chipset options should work except for `virtio-net` (work on virtio drivers has not yet begun).
-
-It is highly recommended, due to the existence of Guest Additions drivers, that you provide your VM with at least 32MB of video memory to support larger display resolutions - especially if you are using a 4K display.
-
-Ensure that the audio controller is set to ICH AC97 and that audio output is enabled (as it is disabled by default in some versions of VirtualBox).
-
-Keep the system chipset set to PIIX3 for best compatibility. 1GB of RAM is recommended.
-
-### VMWare
-
-Support for VMWare is experimental, though it has improved significantly over the last year. Optional support is provided for VMware's automatic guest display sizing which can be enabled from the bootloader menu (note that the guest resize capability in VMware may be unstable - if your VM boots to an unresponsive black screen, try resetting or disabling the guest display resizing).
-
-- Create a virtual machine for a 64-bit guest. (ToaruOS is 32-bit, but this configuration selects some hardware defaults that are desirable)
-- Ensure the VM has 1GB of RAM.
-- It is recommended you remove the hard disk and the audio device.
-- For network settings, the NAT option is recommended.
-
-### Bochs
-
-Using Bochs to run ToaruOS is not advised; however the following configuration options are recommended if you wish to try it:
-
-- Attach the CD and set it as a boot device.
-- Ensure that the `pcivga` device is enabled or ToaruOS will not be able to find the video card through PCI.
-- Provide at least 512MB of RAM to the guest.
-- If available, enable the `e1000` network device using the `slirp` backend.
-- Clock settings of `sync=realtime, time0=local, rtc_sync=1` are recommended.
 
 ## Community
 
@@ -185,7 +118,7 @@ ToaruOS is regularly mirrored to multiple Git hosting sites.
 
 ### IRC
 
-`#toaruos` on Freenode (`irc.libera.chat`)
+`#toaruos` on Libera (`irc.libera.chat`)
 
 ## FAQs
 
@@ -200,8 +133,4 @@ ToaruOS is not currently capable of building most of its ports, due to a lack of
 ToaruOS is a completely independent project, and all code in this repository - which is the entire codebase of the operating system, including its kernel, bootloaders, libraries, and applications - is original, written by the ToaruOS developers over the course of eight years. The complete source history, going back to when ToaruOS was nothing more than a baremetal "hello world" can be tracked through this git repository.
 
 ToaruOS has taken inspiration from Linux in its choice of binary formats, filesystems, and its approach to kernel modules, but is not derived in any way from Linux code. ToaruOS's userspace is also influenced by the GNU utilities, but does not incorporate any GNU code.
-
-### Are there plans for a 64-bit port / SMP support?
-
-Yes, an x86-64/SMP-capable port is [in progress](https://github.com/toaruos) as of 2021.
 
