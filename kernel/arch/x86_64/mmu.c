@@ -13,6 +13,8 @@
 #include <kernel/arch/x86_64/pml.h>
 #include <kernel/arch/x86_64/mmu.h>
 
+extern void arch_tlb_shootdown(void);
+
 /**
  * bitmap page allocator for 4KiB pages
  */
@@ -630,6 +632,7 @@ void mmu_invalidate(uintptr_t addr) {
 	asm volatile (
 		"invlpg (%0)"
 		: : "r"(addr));
+	arch_tlb_shootdown();
 }
 
 static char * heapStart = NULL;

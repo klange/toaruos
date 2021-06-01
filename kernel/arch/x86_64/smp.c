@@ -294,3 +294,9 @@ void arch_wakeup_others(void) {
 	 * It should be gentle enough that busy cores dont't care. */
 	lapic_send_ipi(0, 0x7E | (3 << 18));
 }
+
+void arch_tlb_shootdown(void) {
+	if (!lapic_final || processor_count < 2) return;
+
+	lapic_send_ipi(0, 0x7C | (3 << 18));
+}

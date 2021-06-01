@@ -86,9 +86,10 @@ void idt_install(void) {
 	idt_set_gate(46, _irq14, 0x08, 0x8E, 0);
 	idt_set_gate(47, _irq15, 0x08, 0x8E, 0);
 
+	idt_set_gate(124, _isr124, 0x08, 0x8E, 0); /* Bad TLB shootdown. */
 	idt_set_gate(125, _isr125, 0x08, 0x8E, 0); /* Halts everyone. */
-	idt_set_gate(126, _isr126, 0x08, 0x8E, 0); /* Intentionally does nothing. */
-	idt_set_gate(127, _isr127, 0x08, 0x8E, 1);
+	idt_set_gate(126, _isr126, 0x08, 0x8E, 0); /* Does nothing, used to exit wait-for-interrupt sleep. */
+	idt_set_gate(127, _isr127, 0x08, 0x8E, 1); /* Legacy system call entry point, called by userspace. */
 
 	asm volatile (
 		"lidt %0"

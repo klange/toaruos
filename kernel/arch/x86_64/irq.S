@@ -80,6 +80,18 @@ IRQ 15, 47
 /* syscall entry point */
 ISR_NOERR 127
 
+.global _isr124
+.type _isr124, @function
+_isr124:
+    pushq %r12
+    mov %cr3, %r12
+    mov %r12, %cr3
+    mov (lapic_final), %r12
+    add $0xb0, %r12
+    movl $0, (%r12)
+    popq %r12
+    iretq
+
 /* No op, used to signal sleeping processor to wake and check the queue. */
 .extern lapic_final
 .global _isr126
