@@ -107,7 +107,7 @@ run: system
 	${EMU} ${EMU_ARGS} ${EMU_KVM} -append "root=/dev/ram0 start=live-session migrate $(EXTRA_ARGS)" -initrd ramdisk.igz
 
 shell: system
-	${EMU} -m $(RAM) ${EMU_KVM} -kernel misaka-kernel -append "root=/dev/ram0 start=--headless migrate" -initrd ramdisk.igz \
+	${EMU} -m $(RAM) -smp $(SMP) ${EMU_KVM} -kernel misaka-kernel -append "root=/dev/ram0 start=--headless migrate" -initrd ramdisk.igz \
 		-nographic -no-reboot -audiodev none,id=id -serial null -serial mon:stdio \
 		-fw_cfg name=opt/org.toaruos.gettyargs,string="-a local /dev/ttyS1" \
 		-fw_cfg name=opt/org.toaruos.term,string=${TERM}
