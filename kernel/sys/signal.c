@@ -152,7 +152,7 @@ void fix_signal_stacks(void) {
 			if (!p->signal_kstack) {
 				printf("Cannot restore signal stack for pid=%d - unset?\n", p->id);
 			} else {
-				memcpy((void *)(p->image.stack - KERNEL_STACK_SIZE), p->signal_kstack, KERNEL_STACK_SIZE);
+				memcpy((char *)(p->image.stack - KERNEL_STACK_SIZE + 0x1000), p->signal_kstack + 0x1000, KERNEL_STACK_SIZE - 0x1000);
 				free(p->signal_kstack);
 				p->signal_kstack = NULL;
 			}
