@@ -55,6 +55,8 @@ static spin_lock_t process_queue_lock = { 0 };
 static spin_lock_t wait_lock_tmp = { 0 };
 static spin_lock_t sleep_lock = { 0 };
 
+#define must_have_lock(lck) if (lck.owner != this_core->cpu_id+1) { printf("Failed lock check.\n"); arch_fatal(); }
+
 /**
  * @brief Restore the context of the next available process's kernel thread.
  *
@@ -530,19 +532,20 @@ void process_delete(process_t * proc) {
  */
 void make_process_ready(volatile process_t * proc) {
 	if (proc->sleep_node.owner != NULL) {
+		spin_lock(sleep_lock);
 		if (proc->sleep_node.owner == sleep_queue) {
 			/* The sleep queue is slightly special... */
 			if (proc->timed_sleep_node) {
-				spin_lock(sleep_lock);
 				list_delete(sleep_queue, proc->timed_sleep_node);
-				spin_unlock(sleep_lock);
 				proc->sleep_node.owner = NULL;
 				free(proc->timed_sleep_node->value);
 			}
+			spin_unlock(sleep_lock);
 		} else {
 			/* This was blocked on a semaphore we can interrupt. */
 			__sync_or_and_fetch(&proc->flags, PROC_FLAG_SLEEP_INT);
 			list_delete((list_t*)proc->sleep_node.owner, (node_t*)&proc->sleep_node);
+			spin_unlock(sleep_lock);
 		}
 	}
 
@@ -688,6 +691,8 @@ int process_is_ready(process_t * proc) {
 	return (proc->sched_node.owner != NULL && !(proc->flags & PROC_FLAG_RUNNING));
 }
 
+int process_alert_node_locked(process_t * process, void * value);
+
 /**
  * @brief Wake up processes that were sleeping on timers.
  *
@@ -704,7 +709,7 @@ void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
 
 			if (proc->is_fswait) {
 				proc->is_fswait = -1;
-				process_alert_node(proc->process,proc);
+				process_alert_node_locked(proc->process,proc);
 			} else {
 				process_t * process = proc->process;
 				process->sleep_node.owner = NULL;
@@ -954,10 +959,13 @@ int process_wait_nodes(process_t * process,fs_node_t * nodes[], int timeout) {
 }
 
 int process_awaken_from_fswait(process_t * process, int index) {
+	must_have_lock(sleep_lock);
+
 	process->awoken_index = index;
 	list_free(process->node_waits);
 	free(process->node_waits);
 	process->node_waits = NULL;
+
 	if (process->timeout_node && process->timeout_node->owner == sleep_queue) {
 		sleeper_t * proc = process->timeout_node->value;
 		if (proc->is_fswait != -1) {
@@ -967,6 +975,7 @@ int process_awaken_from_fswait(process_t * process, int index) {
 		}
 	}
 	process->timeout_node = NULL;
+
 	spin_lock(wait_lock_tmp);
 	make_process_ready(process);
 	spin_unlock(wait_lock_tmp);
@@ -974,7 +983,8 @@ int process_awaken_from_fswait(process_t * process, int index) {
 	return 0;
 }
 
-int process_alert_node(process_t * process, void * value) {
+int process_alert_node_locked(process_t * process, void * value) {
+	must_have_lock(sleep_lock);
 
 	if (!is_valid_process(process)) {
 		printf("invalid process\n");
@@ -998,6 +1008,13 @@ int process_alert_node(process_t * process, void * value) {
 
 	spin_unlock(process->sched_lock);
 	return -1;
+}
+
+int process_alert_node(process_t * process, void * value) {
+	spin_lock(sleep_lock);
+	int result = process_alert_node_locked(process, value);
+	spin_unlock(sleep_lock);
+	return result;
 }
 
 process_t * process_get_parent(process_t * process) {
@@ -1030,6 +1047,7 @@ void task_exit(int retval) {
 	}
 
 	if (this_core->current_process->fds) {
+		spin_lock(this_core->current_process->fds->lock);
 		this_core->current_process->fds->refs--;
 		if (this_core->current_process->fds->refs == 0) {
 			for (uint32_t i = 0; i < this_core->current_process->fds->length; ++i) {
@@ -1043,6 +1061,8 @@ void task_exit(int retval) {
 			free(this_core->current_process->fds->modes);
 			free(this_core->current_process->fds);
 			this_core->current_process->fds = NULL;
+		} else {
+			spin_unlock(this_core->current_process->fds->lock);
 		}
 	}
 
