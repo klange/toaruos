@@ -328,6 +328,9 @@ process_t * spawn_kidle(int bsp) {
 	idle->name = strdup("[kidle]");
 	idle->flags = PROC_FLAG_IS_TASKLET | PROC_FLAG_STARTED | PROC_FLAG_RUNNING;
 	idle->image.stack = (uintptr_t)valloc(KERNEL_STACK_SIZE)+ KERNEL_STACK_SIZE;
+	mmu_frame_allocate(
+		mmu_get_page(idle->image.stack - KERNEL_STACK_SIZE, 0),
+		MMU_FLAG_KERNEL | MMU_FLAG_NOEXECUTE);
 
 	/* TODO arch_initialize_context(uintptr_t) ? */
 	idle->thread.context.ip = bsp ? (uintptr_t)&_kidle : (uintptr_t)&_kburn;
@@ -378,6 +381,9 @@ process_t * spawn_init(void) {
 	init->image.entry    = 0;
 	init->image.heap     = 0;
 	init->image.stack    = (uintptr_t)valloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
+	mmu_frame_allocate(
+		mmu_get_page(init->image.stack - KERNEL_STACK_SIZE, 0),
+		MMU_FLAG_KERNEL | MMU_FLAG_NOEXECUTE);
 	init->image.shm_heap = 0x200000000; /* That's 8GiB? That should work fine... */
 
 	init->flags         = PROC_FLAG_STARTED | PROC_FLAG_RUNNING;
@@ -430,6 +436,9 @@ process_t * spawn_process(volatile process_t * parent, int flags) {
 	proc->image.entry       = parent->image.entry;
 	proc->image.heap        = parent->image.heap;
 	proc->image.stack       = (uintptr_t)valloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
+	mmu_frame_allocate(
+		mmu_get_page(proc->image.stack - KERNEL_STACK_SIZE, 0),
+		MMU_FLAG_KERNEL | MMU_FLAG_NOEXECUTE);
 	proc->image.shm_heap    = 0x200000000; /* FIXME this should be a macro def */
 
 	if (flags & PROC_REUSE_FDS) {
@@ -512,6 +521,12 @@ void process_delete(process_t * proc) {
 	if (proc->signal_kstack) {
 		free(proc->signal_kstack);
 	}
+
+	/* Unmark the stack bottom's fault detector */
+	mmu_frame_allocate(
+		mmu_get_page(proc->image.stack - KERNEL_STACK_SIZE, 0),
+		MMU_FLAG_KERNEL | MMU_FLAG_WRITABLE);
+
 	free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
 	process_release_directory(proc->thread.page_directory);
 
