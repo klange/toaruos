@@ -289,11 +289,8 @@ void smp_initialize(void) {
 }
 
 void arch_wakeup_others(void) {
-	/* Never wake up BSP, don't hit ourselves, easy. */
-	for (int i = 1; i < processor_count; ++i) {
-		if (i == this_core->cpu_id) continue;
-		if (processor_local_data[i].current_process == processor_local_data[i].kernel_idle_task) {
-			lapic_send_ipi(processor_local_data[i].lapic_id, 0x407E);
-		}
-	}
+	/* Send broadcast IPI to others; this is a soft interrupt
+	 * that just nudges idle cores out of their HLT states.
+	 * It should be gentle enough that busy cores dont't care. */
+	lapic_send_ipi(0, 0x7E | (3 << 18));
 }

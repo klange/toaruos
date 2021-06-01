@@ -87,7 +87,8 @@ ISR_NOERR 127
 _isr126:
     pushq %r12
     mov (lapic_final), %r12
-    movq $0, 0xb0(%r12)
+    add $0xb0, %r12
+    movl $0, (%r12)
     popq %r12
     iretq
 

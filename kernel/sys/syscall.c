@@ -135,6 +135,10 @@ static long sys_sysfunc(long fn, char ** args) {
 			this_core->current_process->thread.context.tls_base = (uintptr_t)args[0];
 			arch_set_tls_base(this_core->current_process->thread.context.tls_base);
 			return 0;
+
+		case 99:
+			arch_wakeup_others();
+			return 0;
 		default:
 			printf("Bad system function: %ld\n", fn);
 			return -EINVAL;

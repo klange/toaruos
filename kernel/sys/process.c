@@ -293,8 +293,8 @@ static void _kidle(void) {
 
 static void _kburn(void) {
 	while (1) {
-		//arch_pause();
-		if (((volatile list_t *)process_queue)->head) switch_next();
+		arch_pause();
+		switch_next();
 	}
 }
 
