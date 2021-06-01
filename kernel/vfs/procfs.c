@@ -659,6 +659,26 @@ static uint64_t pci_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_
 }
 #endif
 
+static uint64_t smp_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+	char * buf = malloc(4096);
+	unsigned int soffset = 0;
+
+	for (int i = 0; i < processor_count; ++i) {
+		soffset += snprintf(&buf[soffset], 100, "%d: %s [%d]\n", i, processor_local_data[i].current_process->name, processor_local_data[i].current_process->id);
+	}
+
+	size_t _bsize = strlen(buf);
+	if (offset > _bsize) {
+		free(buf);
+		return 0;
+	}
+	if (size > _bsize - offset) size = _bsize - offset;
+
+	memcpy(buffer, buf + offset, size);
+	free(buf);
+	return size;
+}
+
 static struct procfs_entry std_entries[] = {
 	{-1, "cpuinfo",  cpuinfo_func},
 	{-2, "meminfo",  meminfo_func},
@@ -670,10 +690,11 @@ static struct procfs_entry std_entries[] = {
 	{-8, "modules",  modules_func},
 	{-9, "filesystems", filesystems_func},
 	{-10,"loader",   loader_func},
+	{-11,"smp",      smp_func},
 #ifdef __x86_64__
-	{-11,"irq",      irq_func},
-	{-12,"pat",      pat_func},
-	{-13,"pci",      pci_func},
+	{-12,"irq",      irq_func},
+	{-13,"pat",      pat_func},
+	{-14,"pci",      pci_func},
 #endif
 };
 
