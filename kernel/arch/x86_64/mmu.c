@@ -16,7 +16,7 @@
 /**
  * bitmap page allocator for 4KiB pages
  */
-static uint32_t *frames;
+static volatile uint32_t *frames;
 static uint32_t nframes;
 
 #define PAGE_SHIFT     12
@@ -57,6 +57,7 @@ void mmu_frame_set(uintptr_t frame_addr) {
 		uint64_t index  = INDEX_FROM_BIT(frame);
 		uint32_t offset = OFFSET_FROM_BIT(frame);
 		frames[index]  |= ((uint32_t)1 << offset);
+		asm ("" ::: "memory");
 	}
 }
 
@@ -67,6 +68,7 @@ void mmu_frame_clear(uintptr_t frame_addr) {
 		uint64_t index  = INDEX_FROM_BIT(frame);
 		uint32_t offset = OFFSET_FROM_BIT(frame);
 		frames[index]  &= ~((uint32_t)1 << offset);
+		asm ("" ::: "memory");
 	}
 }
 
@@ -75,6 +77,7 @@ int mmu_frame_test(uintptr_t frame_addr) {
 	uint64_t frame  = frame_addr >> PAGE_SHIFT;
 	uint64_t index  = INDEX_FROM_BIT(frame);
 	uint32_t offset = OFFSET_FROM_BIT(frame);
+	asm ("" ::: "memory");
 	return !!(frames[index] & ((uint32_t)1 << offset));
 }
 
@@ -713,7 +716,7 @@ void mmu_init(size_t memsize, uintptr_t firstFreePage) {
 
 	/* We are now in the new stuff. */
 	frames = (void*)((uintptr_t)KERNEL_HEAP_START);
-	memset(frames, 0, bytesOfFrames);
+	memset((void*)frames, 0, bytesOfFrames);
 
 	/* Now mark everything up to (firstFreePage + bytesOfFrames) as in use */
 	for (uintptr_t i = 0; i < firstFreePage + bytesOfFrames; i += PAGE_SIZE) {
@@ -762,6 +765,8 @@ void * sbrk(size_t bytes) {
 		mmu_frame_allocate(page, MMU_FLAG_WRITABLE | MMU_FLAG_KERNEL);
 		mmu_invalidate(p);
 	}
+
+	memset(out, 0xAA, bytes);
 
 	heapStart += bytes;
 	spin_unlock(kheap_lock);
