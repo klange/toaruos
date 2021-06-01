@@ -156,6 +156,8 @@ void irq_uninstall_handler(size_t irq) {
 }
 
 struct regs * isr_handler(struct regs * r) {
+	this_core->interrupt_registers = r;
+
 	switch (r->int_no) {
 		case 14: /* Page fault */ {
 			uintptr_t faulting_address;

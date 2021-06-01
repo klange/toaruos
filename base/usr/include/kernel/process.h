@@ -153,6 +153,9 @@ struct ProcessorLocal {
 
 	int cpu_id;
 	union PML * current_pml;
+
+	struct regs * interrupt_registers;
+
 #ifdef __x86_64__
 	int lapic_id;
 	/* Processor information loaded at startup. */
