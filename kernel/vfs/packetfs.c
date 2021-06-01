@@ -66,22 +66,15 @@ typedef struct server_write_header {
 	uint8_t data[];
 } header_t;
 
-static void receive_packet(fs_node_t * socket, packet_t ** out) {
-	packet_t tmp;
-	read_fs(socket, 0, sizeof(struct packet), (uint8_t *)&tmp);
-	*out = malloc(tmp.size + sizeof(struct packet));
-	memcpy(*out, &tmp, sizeof(struct packet));
-
-	if (tmp.size) {
-		read_fs(socket, 0, tmp.size, (uint8_t *)(*out)->data);
-	}
+static void receive_packet(pex_ex_t * exchange, fs_node_t * socket, packet_t ** out) {
+	read_fs(socket, 0, sizeof(struct packet *), (uint8_t*)out);
 }
 
 static void send_to_server(pex_ex_t * p, pex_client_t * c, size_t size, void * data) {
 	size_t p_size = size + sizeof(struct packet);
 	packet_t * packet = malloc(p_size);
 	if ((uintptr_t)c < 0x800000000) {
-		printf("suspicious pex client received: %p\n", (void*)c);
+		printf("suspicious pex client received: %p\n", (char*)c);
 	}
 
 	packet->source = c;
@@ -91,21 +84,19 @@ static void send_to_server(pex_ex_t * p, pex_client_t * c, size_t size, void * d
 		memcpy(packet->data, data, size);
 	}
 
-	write_fs(p->server_pipe, 0, p_size, (uint8_t *)packet);
-
-	free(packet);
+	write_fs(p->server_pipe, 0, sizeof(struct packet*), (uint8_t*)&packet);
 }
 
 static int send_to_client(pex_ex_t * p, pex_client_t * c, size_t size, void * data) {
 	size_t p_size = size + sizeof(struct packet);
 
 	/* Verify there is space on the client */
-	if (pipe_unsize(c->pipe) < (int)p_size) {
+	if (pipe_unsize(c->pipe) < (int)sizeof(struct packet*)) {
 		return -1;
 	}
 
 	if ((uintptr_t)c < 0x800000000) {
-		printf("suspicious pex client received: %p\n", (void*)c);
+		printf("suspicious pex client received: %p\n", (char*)c);
 	}
 
 	packet_t * packet = malloc(p_size);
@@ -114,9 +105,8 @@ static int send_to_client(pex_ex_t * p, pex_client_t * c, size_t size, void * da
 	packet->source = NULL;
 	packet->size = size;
 
-	write_fs(c->pipe, 0, p_size, (uint8_t *)packet);
+	write_fs(c->pipe, 0, sizeof(struct packet*), (uint8_t*)&packet);
 
-	free(packet);
 	return size;
 }
 
@@ -133,11 +123,12 @@ static uint64_t read_server(fs_node_t * node, uint64_t offset, uint64_t size, ui
 
 	packet_t * packet;
 
-	receive_packet(p->server_pipe, &packet);
+	receive_packet(p, p->server_pipe, &packet);
 
 	debug_print(INFO, "Server recevied packet of size %zu, was waiting for at most %lu", packet->size, size);
 
 	if (packet->size + sizeof(packet_t) > size) {
+		printf("pex: read in server would be incomplete\n");
 		return -1;
 	}
 
@@ -155,6 +146,7 @@ static uint64_t write_server(fs_node_t * node, uint64_t offset, uint64_t size, u
 	header_t * head = (header_t *)buffer;
 
 	if (size - sizeof(header_t) > MAX_PACKET_SIZE) {
+		printf("pex: server write is too big\n");
 		return -1;
 	}
 
@@ -190,7 +182,7 @@ static int ioctl_server(fs_node_t * node, int request, void * argp) {
 static uint64_t read_client(fs_node_t * node, uint64_t offset, uint64_t size, uint8_t * buffer) {
 	pex_client_t * c = (pex_client_t *)node->inode;
 	if (c->parent != node->device) {
-		debug_print(WARNING, "[pex] Invalid device endpoint on client read?");
+		printf("pex: Invalid device endpoint on client read?\n");
 		return -1;
 	}
 
@@ -198,10 +190,10 @@ static uint64_t read_client(fs_node_t * node, uint64_t offset, uint64_t size, ui
 
 	packet_t * packet;
 
-	receive_packet(c->pipe, &packet);
+	receive_packet(c->parent, c->pipe, &packet);
 
 	if (packet->size > size) {
-		debug_print(WARNING, "[pex] Client is not reading enough bytes to hold packet of size %zu", packet->size);
+		printf("pex: Client is not reading enough bytes to hold packet of size %zu\n", packet->size);
 		return -1;
 	}
 
@@ -209,6 +201,9 @@ static uint64_t read_client(fs_node_t * node, uint64_t offset, uint64_t size, ui
 	uint32_t out = packet->size;
 
 	debug_print(INFO, "[pex] Client received packet of size %zu", packet->size);
+	if (out == 0) {
+		printf("pex: packet is empty?\n");
+	}
 
 	free(packet);
 	return out;
