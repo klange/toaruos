@@ -497,25 +497,52 @@ extern void tree_remove_reparent_root(tree_t * tree, tree_node_t * node);
  * Finally, the process is freed.
  */
 void process_delete(process_t * proc) {
+	if (proc == this_core->current_process) {
+		printf("proc: tried to delete running process\n");
+		arch_fatal();
+	}
 	tree_node_t * entry = proc->tree_entry;
-	if (!entry) return;
-	if (process_tree->root == entry) {
+	if (!entry) {
+		printf("Tried to delete process with no tree entry?\n");
 		return;
 	}
+	if (process_tree->root == entry) {
+		printf("Tried to delete process init...\n");
+		return;
+	}
+
 	spin_lock(tree_lock);
 	int has_children = entry->children->length;
 	tree_remove_reparent_root(process_tree, entry);
 	list_delete(process_list, list_find(process_list, proc));
 	spin_unlock(tree_lock);
+
 	if (has_children) {
+		/* Wake up init */
 		process_t * init = process_tree->root->value;
 		wakeup_queue(init->wait_queue);
 	}
+
 	// FIXME bitset_clear(&pid_set, proc->id);
 	proc->tree_entry = NULL;
 
+	/* Is someone using this process? */
+	for (int i = 0; i < processor_count; ++i) {
+		if (i == this_core->cpu_id) continue;
+		if (processor_local_data[i].current_process == proc) {
+			printf("Wanted to delete a process someone else was using.\n");
+		} else if (processor_local_data[i].previous_process == proc) {
+			printf("Wanted to delete a process but it's someone else's previous.\n");
+			printf("  pid = %d\n", proc->id);
+			printf("  name = %s\n", proc->name);
+			printf("  owned by = %d\n", proc->owner);
+		}
+		return;
+	}
+
 	/* Free these later */
 	shm_release_all(proc);
+
 	free(proc->shm_mappings);
 
 	if (proc->signal_kstack) {
