@@ -40,6 +40,8 @@ uint8_t * lfb_vid_memory = (uint8_t *)0xE0000000;
 size_t lfb_memsize = 0xFF0000;
 const char * lfb_driver_name = NULL;
 
+uintptr_t lfb_bochs_mmio = 0;
+
 fs_node_t * lfb_device = NULL;
 static int lfb_init(const char * c);
 
@@ -90,7 +92,7 @@ static int ioctl_vid(fs_node_t * node, int request, void * argp) {
 			*((size_t *)argp) = lfb_resolution_s;
 			return 0;
 		case IO_VID_ADDR:
-			/* Get framebuffer address - TODO: map the framebuffer? */
+			/* Map framebuffer into userspace process */
 			validate(argp);
 			{
 				uintptr_t lfb_user_offset;
@@ -194,61 +196,70 @@ static void finalize_graphics(const char * driver) {
 
 /* Bochs support {{{ */
 static void bochs_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra) {
+	uintptr_t * output = extra;
 	if ((v == 0x1234 && d == 0x1111) ||
-	    (v == 0x80EE && d == 0xBEEF) ||
 	    (v == 0x10de && d == 0x0a20))  {
 		uintptr_t t = pci_read_field(device, PCI_BAR0, 4);
+		uintptr_t m = pci_read_field(device, PCI_BAR2, 4);
+
 		if (t > 0) {
-			*((uint8_t **)extra) = mmu_map_from_physical(t & 0xFFFFFFF0);
+			output[0] = (uintptr_t)mmu_map_from_physical(t & 0xFFFFFFF0);
+			output[1] = (uintptr_t)mmu_map_from_physical(m & 0xFFFFFFF0);
+			/* Figure out size */
+			pci_write_field(device, PCI_BAR0, 4, 0xFFFFFFFF);
+			uint32_t s = pci_read_field(device, PCI_BAR0, 4);
+			s = ~(s & -15) + 1;
+			output[2] = s;
+			pci_write_field(device, PCI_BAR0, 4, (uint32_t)t);
 		}
 	}
 }
 
+#define BOCHS_MMIO_ID       0x00
+#define BOCHS_MMIO_FBWIDTH  0x02
+#define BOCHS_MMIO_FBHEIGHT 0x04
+#define BOCHS_MMIO_BPP      0x06
+#define BOCHS_MMIO_ENABLED  0x08
+#define BOCHS_MMIO_VIRTX    0x0c
+#define BOCHS_MMIO_VIRTY    0x0e
+
+static void bochs_mmio_out(int off, uint16_t val) {
+	*(volatile uint16_t*)(lfb_bochs_mmio + 0x500 + off) = val;
+}
+
+static uint16_t bochs_mmio_in(int off) {
+	return *(volatile uint16_t*)(lfb_bochs_mmio + 0x500 + off);
+}
+
 static void bochs_set_resolution(uint16_t x, uint16_t y) {
-	outports(0x1CE, 0x04);
-	outports(0x1CF, 0x00);
-	/* Uh oh, here we go. */
-	outports(0x1CE, 0x01);
-	outports(0x1CF, x);
-	/* Set Y resolution to 768 */
-	outports(0x1CE, 0x02);
-	outports(0x1CF, y);
-	/* Set bpp to 32 */
-	outports(0x1CE, 0x03);
-	outports(0x1CF, PREFERRED_B);
-	/* Set Virtual Height to stuff */
-	outports(0x1CE, 0x07);
-	outports(0x1CF, PREFERRED_VY);
-	/* Turn it back on */
-	outports(0x1CE, 0x04);
-	outports(0x1CF, 0x41);
+	bochs_mmio_out(BOCHS_MMIO_ENABLED,  0);
+	bochs_mmio_out(BOCHS_MMIO_FBWIDTH,  x);
+	bochs_mmio_out(BOCHS_MMIO_FBHEIGHT, y);
+	bochs_mmio_out(BOCHS_MMIO_BPP, PREFERRED_B);
+	bochs_mmio_out(BOCHS_MMIO_VIRTX, x * (PREFERRED_B  / 8));
+	bochs_mmio_out(BOCHS_MMIO_VIRTY, y);
+	bochs_mmio_out(BOCHS_MMIO_ENABLED,  1);
 
-	/* Read X to see if it's something else */
-	outports(0x1CE, 0x01);
-	uint16_t new_x = inports(0x1CF);
-	if (x != new_x) {
-		x = new_x;
-	}
-
-	lfb_resolution_x = x;
-	lfb_resolution_s = x * 4;
-	lfb_resolution_y = y;
-	lfb_resolution_b = 32;
+	lfb_resolution_x = bochs_mmio_in(BOCHS_MMIO_FBWIDTH);
+	lfb_resolution_y = bochs_mmio_in(BOCHS_MMIO_FBHEIGHT);
+	lfb_resolution_b = bochs_mmio_in(BOCHS_MMIO_BPP);
+	lfb_resolution_s = lfb_resolution_x * 4;
 }
 
 static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y) {
 
-	outports(0x1CE, 0x00);
-	uint16_t i = inports(0x1CF);
-	if (i < 0xB0C0 || i > 0xB0C6) {
-		return;
-	}
-	outports(0x1CF, 0xB0C4);
-	i = inports(0x1CF);
+	uintptr_t vals[3];
+	pci_scan(bochs_scan_pci, -1, vals);
+	lfb_vid_memory = (uint8_t*)vals[0];
+	lfb_bochs_mmio = vals[1];
+	lfb_memsize    = vals[2];
+
+	uint16_t i = bochs_mmio_in(BOCHS_MMIO_ID);
+	if (i < 0xB0C0 || i > 0xB0C6) return; /* Unsupported bochs device. */
+	bochs_mmio_out(BOCHS_MMIO_ID, 0xB0C4); /* We speak ver. 4 */
+
 	bochs_set_resolution(resolution_x, resolution_y);
 	resolution_x = lfb_resolution_x; /* may have changed */
-
-	pci_scan(bochs_scan_pci, -1, &lfb_vid_memory);
 
 	lfb_resolution_impl = &bochs_set_resolution;
 
@@ -257,6 +268,56 @@ static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y)
 		return;
 	}
 
+	finalize_graphics("bochs");
+}
+
+/* VirtualBox implements the portio-based interface, but not the MMIO one. */
+static void vbox_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra) {
+	if (v == 0x80EE && d == 0xBEEF) {
+		uintptr_t t = pci_read_field(device, PCI_BAR0, 4);
+		if (t > 0) {
+			*((uint8_t **)extra) = mmu_map_from_physical(t & 0xFFFFFFF0);
+		}
+	}
+}
+
+static void vbox_set_resolution(uint16_t x, uint16_t y) {
+	outports(0x1CE, 0x04);
+	outports(0x1CF, 0x00);
+	outports(0x1CE, 0x01);
+	outports(0x1CF, x);
+	outports(0x1CE, 0x02);
+	outports(0x1CF, y);
+	outports(0x1CE, 0x03);
+	outports(0x1CF, PREFERRED_B);
+	outports(0x1CE, 0x07);
+	outports(0x1CF, PREFERRED_VY);
+	outports(0x1CE, 0x04);
+	outports(0x1CF, 0x41);
+	outports(0x1CE, 0x01);
+	x = inports(0x1CF);
+	lfb_resolution_x = x;
+	lfb_resolution_s = x * 4;
+	lfb_resolution_y = y;
+	lfb_resolution_b = 32;
+}
+
+static void graphics_install_vbox(uint16_t resolution_x, uint16_t resolution_y) {
+	outports(0x1CE, 0x00);
+	uint16_t i = inports(0x1CF);
+	if (i < 0xB0C0 || i > 0xB0C6) {
+		return;
+	}
+	outports(0x1CF, 0xB0C4);
+	i = inports(0x1CF);
+	vbox_set_resolution(resolution_x, resolution_y);
+	resolution_x = lfb_resolution_x; /* may have changed */
+	pci_scan(vbox_scan_pci, -1, &lfb_vid_memory);
+	lfb_resolution_impl = &vbox_set_resolution;
+	if (!lfb_vid_memory) {
+		printf("failed to locate video memory\n");
+		return;
+	}
 	outports(0x1CE, 0x0a);
 	i = inports(0x1CF);
 	if (i > 1) {
@@ -264,8 +325,7 @@ static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y)
 	} else {
 		lfb_memsize = inportl(0x1CF);
 	}
-
-	finalize_graphics("bochs");
+	finalize_graphics("vbox");
 }
 
 extern struct multiboot * mboot_struct;
@@ -372,10 +432,12 @@ static void auto_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra)
 	struct disp_mode * mode = extra;
 	if (mode->set) return;
 	if ((v == 0x1234 && d == 0x1111) ||
-	    (v == 0x80EE && d == 0xBEEF) ||
 	    (v == 0x10de && d == 0x0a20))  {
 		mode->set = 1;
 		graphics_install_bochs(mode->x, mode->y);
+	} else if (v == 0x80EE && d == 0xBEEF) {
+		mode->set = 1;
+		graphics_install_vbox(mode->x, mode->y);
 	} else if ((v == 0x15ad && d == 0x0405)) {
 		mode->set = 1;
 		graphics_install_vmware(mode->x, mode->y);
