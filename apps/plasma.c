@@ -82,7 +82,7 @@ void * draw_thread(void * garbage) {
 					+ sin(dist(x, y, 64.0, 64.0) / 8.0)
 					+ sin(dist(x, y + time / 7, 192.0, 64) / 7.0)
 					+ sin(dist(x, y, 192.0, 100.0) / 8.0);
-				GFX(ctx, x + off_x, y + off_y) = palette[(int)((value + 4) * 32)];
+				GFX(ctx, x + off_x, y + off_y) = palette[(unsigned int)((value + 4) * 32) & 0xFF];
 			}
 		}
 		redraw_borders();
