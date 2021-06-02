@@ -238,7 +238,10 @@ static void bochs_set_resolution(uint16_t x, uint16_t y) {
 	bochs_mmio_out(BOCHS_MMIO_BPP, PREFERRED_B);
 	bochs_mmio_out(BOCHS_MMIO_VIRTX, x * (PREFERRED_B  / 8));
 	bochs_mmio_out(BOCHS_MMIO_VIRTY, y);
-	bochs_mmio_out(BOCHS_MMIO_ENABLED,  1);
+	bochs_mmio_out(BOCHS_MMIO_ENABLED,  0x41); /* 01h: enabled, 40h: lfb */
+
+	/* unblank vga; this should only be necessary on secondary displays */
+	*(volatile uint8_t*)(lfb_bochs_mmio + 0x400) = 0x20;
 
 	lfb_resolution_x = bochs_mmio_in(BOCHS_MMIO_FBWIDTH);
 	lfb_resolution_y = bochs_mmio_in(BOCHS_MMIO_FBHEIGHT);
