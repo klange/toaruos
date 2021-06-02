@@ -120,10 +120,12 @@ uint64_t read_pipe(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buf
 	size_t collected = 0;
 	while (collected == 0) {
 		spin_lock(pipe->lock_read);
-		while (pipe_unread(pipe) > 0 && collected < size) {
-			buffer[collected] = pipe->buffer[pipe->read_ptr];
-			pipe_increment_read(pipe);
-			collected++;
+		if (pipe_unread(pipe) >= size) {
+			while (pipe_unread(pipe) > 0 && collected < size) {
+				buffer[collected] = pipe->buffer[pipe->read_ptr];
+				pipe_increment_read(pipe);
+				collected++;
+			}
 		}
 		spin_unlock(pipe->lock_read);
 		wakeup_queue(pipe->wait_queue_writers);

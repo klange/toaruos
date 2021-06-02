@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <kernel/assert.h>
 #include <kernel/types.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
@@ -67,7 +68,12 @@ typedef struct server_write_header {
 } header_t;
 
 static void receive_packet(pex_ex_t * exchange, fs_node_t * socket, packet_t ** out) {
-	read_fs(socket, 0, sizeof(struct packet *), (uint8_t*)out);
+	int r;
+	do {
+		r = read_fs(socket, 0, sizeof(struct packet *), (uint8_t*)out);
+	} while (r == 0);
+	assert(r == sizeof(struct packet*));
+	assert((uintptr_t)*out >= 0xFFFFff0000000000UL && (uintptr_t)*out < 0xffffff1fc0000000UL);
 }
 
 static void send_to_server(pex_ex_t * p, pex_client_t * c, size_t size, void * data) {
@@ -121,9 +127,11 @@ static uint64_t read_server(fs_node_t * node, uint64_t offset, uint64_t size, ui
 	pex_ex_t * p = (pex_ex_t *)node->device;
 	debug_print(INFO, "[pex] server read(...)");
 
-	packet_t * packet;
+	packet_t * packet = NULL;
 
 	receive_packet(p, p->server_pipe, &packet);
+
+	if (!packet) return -1;
 
 	debug_print(INFO, "Server recevied packet of size %zu, was waiting for at most %lu", packet->size, size);
 
@@ -188,9 +196,11 @@ static uint64_t read_client(fs_node_t * node, uint64_t offset, uint64_t size, ui
 
 	debug_print(INFO, "[pex] client read(...)");
 
-	packet_t * packet;
+	packet_t * packet = NULL;
 
 	receive_packet(c->parent, c->pipe, &packet);
+
+	if (!packet) return -1;
 
 	if (packet->size > size) {
 		printf("pex: Client is not reading enough bytes to hold packet of size %zu\n", packet->size);
