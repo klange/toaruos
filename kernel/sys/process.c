@@ -21,6 +21,7 @@
  * @author    2015 Dale Weiler
  */
 #include <errno.h>
+#include <kernel/assert.h>
 #include <kernel/process.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
@@ -497,10 +498,8 @@ extern void tree_remove_reparent_root(tree_t * tree, tree_node_t * node);
  * Finally, the process is freed.
  */
 void process_delete(process_t * proc) {
-	if (proc == this_core->current_process) {
-		printf("proc: tried to delete running process\n");
-		arch_fatal();
-	}
+	assert(proc != this_core->current_process);
+
 	tree_node_t * entry = proc->tree_entry;
 	if (!entry) {
 		printf("Tried to delete process with no tree entry?\n");
@@ -626,7 +625,7 @@ volatile process_t * next_ready_process(void) {
 
 	node_t * np = list_dequeue(process_queue);
 
-	if ((uintptr_t)np < 0xFFFFff0000000000UL || (uintptr_t)np > 0xFFFFff0000f00000UL) {
+	if ((uintptr_t)np < 0xFFFFff0000000000UL || (uintptr_t)np > 0xFFFFfff000000000UL) {
 		printf("Suspicious pointer in queue: %#zx\n", (uintptr_t)np);
 		arch_fatal();
 	}

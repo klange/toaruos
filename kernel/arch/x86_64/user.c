@@ -96,11 +96,16 @@ void arch_pause(void) {
 }
 
 extern void lapic_send_ipi(int i, uint32_t val);
-void arch_fatal(void) {
+
+void arch_fatal_prepare(void) {
 	for (int i = 0; i < processor_count; ++i) {
 		if (i == this_core->cpu_id) continue;
 		lapic_send_ipi(processor_local_data[i].lapic_id, 0x447D);
 	}
+}
+
+void arch_fatal(void) {
+	arch_fatal_prepare();
 	while (1) {
 		asm volatile (
 			"cli\n"
