@@ -6,6 +6,14 @@
 #include <kernel/vfs.h>
 #include <kernel/args.h>
 
+#define REG_PIPEASRC      0x6001C
+#define REG_PIPEACONF     0x70008
+#define  PIPEACONF_ENABLE (1 << 31)
+#define  PIPEACONF_STATE  (1 << 30)
+#define REG_DSPALINOFF    0x70184
+#define REG_DSPASTRIDE    0x70188
+#define REG_DSPASURF      0x7019c
+
 extern uint32_t lfb_resolution_s;
 extern fs_node_t * lfb_device;
 static uintptr_t ctrl_regs = 0;
@@ -34,28 +42,28 @@ static void setup_framebuffer(uint32_t pcidev) {
 	ctrl_regs = (uintptr_t)mmu_map_mmio_region(ctrl_space, ctrl_size);
 
 	/* Disable pipe A while we update source size */
-	uint32_t pipe = i965_mmio_read(0x70008);
-	i965_mmio_write(0x70008, pipe & ~(1 << 31));
-	while (i965_mmio_read(0x70008) & (1 << 30));
+	uint32_t pipe = i965_mmio_read(REG_PIPEACONF);
+	i965_mmio_write(REG_PIPEACONF, pipe & ~PIPEACONF_ENABLE);
+	while (i965_mmio_read(REG_PIPEACONF) & PIPEACONF_STATE);
 
 	/* Set source size */
-	i965_mmio_write(0x6001c, ((1440 - 1) << 16) | (900 - 1));
+	i965_mmio_write(REG_PIPEASRC, ((1440 - 1) << 16) | (900 - 1));
 
 	/* Re-enable pipe */
-	pipe = i965_mmio_read(0x70008);
-	i965_mmio_write(0x70008, pipe | (1 << 31));
-	while (!(i965_mmio_read(0x70008) & (1 << 30)));
+	pipe = i965_mmio_read(REG_PIPEACONF);
+	i965_mmio_write(REG_PIPEACONF, pipe | PIPEACONF_ENABLE);
+	while (!(i965_mmio_read(REG_PIPEACONF) & PIPEACONF_STATE));
 
 	/* Keep the plane enabled while we update stride value */
-	i965_mmio_write(0x70184, 0);
-	i965_mmio_write(0x70188, 1440 * 4);
-	i965_mmio_write(0x7019c, 0);
+	i965_mmio_write(REG_DSPALINOFF, 0);        /* offset to default of 0 */
+	i965_mmio_write(REG_DSPASTRIDE, 1440 * 4); /* stride to 4 x width */
+	i965_mmio_write(REG_DSPASURF, 0);          /* write to surface address triggers change; use default of 0 */
 
 	/* Update the values we expose to userspace. */
 	lfb_resolution_x = 1440;
 	lfb_resolution_y = 900;
 	lfb_resolution_b = 32;
-	lfb_resolution_s = i965_mmio_read(0x70188);
+	lfb_resolution_s = i965_mmio_read(REG_DSPASTRIDE);
 	lfb_device->length  = lfb_resolution_s * lfb_resolution_y;
 }
 
