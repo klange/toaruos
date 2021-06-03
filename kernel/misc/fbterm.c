@@ -38,8 +38,10 @@ extern size_t lfb_memsize;
 static uint32_t fg_color = FG_COLOR;
 static uint32_t bg_color = BG_COLOR;
 
+extern uint32_t lfb_resolution_s;
+
 static void set_point(int x, int y, uint32_t value) {
-	((uint32_t*)lfb_vid_memory)[y * lfb_resolution_x + x] = value;
+	((uint32_t*)lfb_vid_memory)[y * (lfb_resolution_s/4) + x] = value;
 }
 
 static void write_char(int x, int y, int val, uint32_t color) {
