@@ -305,6 +305,9 @@ int kmain(struct multiboot * mboot, uint32_t mboot_mag, void* esp) {
 		vbox_initialize();
 	}
 
+	extern void i965_initialize(void);
+	i965_initialize();
+
 	extern void e1000_initialize(void);
 	e1000_initialize();
 
