@@ -215,8 +215,8 @@ void smp_initialize(void) {
 	for (tmp = (uint8_t *)scan; (uintptr_t)tmp < scan + sizeof(struct rsdp_descriptor); tmp++) {
 		check += *tmp;
 	}
-	if (check != 0) {
-		printf("smp: Bad checksum on RSDP\n");
+	if (check != 0 && !args_present("noacpichecksum")) {
+		printf("smp: Bad checksum on RSDP (add 'noacpichecksum' to ignore this)\n");
 		return; /* bad checksum */
 	}
 
