@@ -22,23 +22,99 @@ static Elf64_Shdr * elf_getSection(Elf64_Header * this, Elf64_Word index) {
 	return (Elf64_Shdr*)((uintptr_t)this + this->e_shoff + index * this->e_shentsize);
 }
 
-void elf_parseModuleFromMemory(void * atAddress) {
-	struct Elf64_Header * elfHeader = atAddress;
+static const char * sectionHeaderTypeToStr(Elf64_Word type) {
+	static char buf[64];
+	switch (type) {
+		case SHT_NULL: return "NULL";
+		case SHT_PROGBITS: return "PROGBITS";
+		case SHT_SYMTAB: return "SYMTAB";
+		case SHT_STRTAB: return "STRTAB";
+		case SHT_RELA: return "RELA";
+		case SHT_HASH: return "HASH";
+		case SHT_DYNAMIC: return "DYNAMIC";
+		case SHT_NOTE: return "NOTE";
+		case SHT_NOBITS: return "NOBITS";
+		case SHT_REL: return "REL";
+		case SHT_SHLIB: return "SHLIB";
+		case SHT_DYNSYM: return "DYNSYM";
 
-	if (elfHeader->e_ident[0] != ELFMAG0 ||
-	    elfHeader->e_ident[1] != ELFMAG1 ||
-	    elfHeader->e_ident[2] != ELFMAG2 ||
-	    elfHeader->e_ident[3] != ELFMAG3) {
-		printf("(Not an elf)\n");
-		return;
+		case 0xE: return "INIT_ARRAY";
+		case 0xF: return "FINI_ARRAY";
+		case 0x6ffffff6: return "GNU_HASH";
+		case 0x6ffffffe: return "VERNEED";
+		case 0x6fffffff: return "VERSYM";
+		default:
+			snprintf(buf, 63, "(%x)", type);
+			return buf;
 	}
-	if (elfHeader->e_ident[EI_CLASS] != ELFCLASS64) {
+}
+
+
+int elf_module(const char * path) {
+	Elf64_Header header;
+
+	fs_node_t * file = kopen(path,0);
+
+	if (!file) {
+		return -ENOENT;
+	}
+
+	read_fs(file, 0, sizeof(Elf64_Header), (uint8_t*)&header);
+
+	if (header.e_ident[0] != ELFMAG0 ||
+	    header.e_ident[1] != ELFMAG1 ||
+	    header.e_ident[2] != ELFMAG2 ||
+	    header.e_ident[3] != ELFMAG3) {
+		printf("Invalid file: Bad header.\n");
+		close_fs(file);
+		return -EINVAL;
+	}
+
+	if (header.e_ident[EI_CLASS] != ELFCLASS64) {
 		printf("(Wrong Elf class)\n");
-		return;
+		return -EINVAL;
 	}
-	if (elfHeader->e_type != ET_REL) {
+
+	if (header.e_type != ET_REL) {
 		printf("(Not a relocatable object)\n");
-		return;
+		return -EINVAL;
+	}
+
+	printf("Loading module...\n");
+
+	/**
+	 * Load the section string table, we'll want this for debugging, mostly.
+	 */
+	Elf64_Shdr shstr_hdr;
+	read_fs(file, header.e_shoff + header.e_shentsize * header.e_shstrndx, sizeof(Elf64_Shdr), (uint8_t*)&shstr_hdr);
+
+	char * stringTable = malloc(shstr_hdr.sh_size);
+	read_fs(file, shstr_hdr.sh_offset, shstr_hdr.sh_size, (uint8_t*)stringTable);
+
+	/**
+	 * Modules are relocatable objects, so we have to link them by sections,
+	 * not by PHDRs - they don't have those. We'll generally see a lot more
+	 * relocations but usually of a smaller set.
+	 */
+	printf("\nSection Headers:\n");
+	printf("  [Nr] Name              Type             Address           Offset\n");
+	printf("       Size              EntSize          Flags  Link  Info  Align\n");
+	for (unsigned int i = 0; i < header.e_shnum; ++i) {
+		Elf64_Shdr sectionHeader;
+		read_fs(file, header.e_shoff + header.e_shentsize * i, sizeof(Elf64_Shdr), (uint8_t*)&sectionHeader);
+		if (sectionHeader.sh_type == SHT_PROGBITS) {
+			printf("progbits: %s\n", stringTable + sectionHeader.sh_name);
+		} else if (sectionHeader.sh_type == SHT_NOBITS) {
+			printf("nobits: %s\n", stringTable + sectionHeader.sh_name);
+		}
+		#if 0
+		printf("  [%2d] %-17.17s %-16.16s %016lx  %08lx\n",
+			i, stringTable + sectionHeader.sh_name, sectionHeaderTypeToStr(sectionHeader.sh_type),
+			sectionHeader.sh_addr, sectionHeader.sh_offset);
+		printf("       %016lx  %016lx %4ld %6d %5d %5ld\n",
+			sectionHeader.sh_size, sectionHeader.sh_entsize, sectionHeader.sh_flags,
+			sectionHeader.sh_link, sectionHeader.sh_info, sectionHeader.sh_addralign);
+		#endif
 	}
 
 	/**
@@ -51,6 +127,7 @@ void elf_parseModuleFromMemory(void * atAddress) {
 	/**
 	 * First, we're going to check sections and update their addresses.
 	 */
+	#if 0
 	for (unsigned int i = 0; i < elfHeader->e_shnum; ++i) {
 		Elf64_Shdr * shdr = elf_getSection(elfHeader, i);
 		if (shdr->sh_type == SHT_NOBITS) {
@@ -63,6 +140,9 @@ void elf_parseModuleFromMemory(void * atAddress) {
 			shdr->sh_addr = (uintptr_t)atAddress + shdr->sh_offset;
 		}
 	}
+	#endif
+
+	return 0;
 }
 
 int elf_exec(const char * path, fs_node_t * file, int argc, const char *const argv[], const char *const env[], int interp) {

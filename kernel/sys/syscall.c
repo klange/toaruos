@@ -51,6 +51,8 @@ static long sys_sbrk(ssize_t size) {
 	return (long)out;
 }
 
+extern int elf_module(const char * path);
+
 static long sys_sysfunc(long fn, char ** args) {
 	/* FIXME: Most of these should be top-level, many are hacks/broken in Misaka */
 	switch (fn) {
@@ -76,8 +78,7 @@ static long sys_sysfunc(long fn, char ** args) {
 			return -EINVAL;
 		case TOARU_SYS_FUNC_INSMOD:
 			/* FIXME: Load module */
-			printf("insmod: not implemented\n");
-			return -EINVAL;
+			return elf_module(args[0]);
 		/* Begin unpriv */
 		case TOARU_SYS_FUNC_SETHEAP: {
 			volatile process_t * volatile proc = this_core->current_process;

@@ -28,7 +28,7 @@ KERNEL_ASMOBJS  = $(filter-out kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard ke
 KERNEL_SOURCES  = $(wildcard kernel/*.c) $(wildcard kernel/*/*.c) $(wildcard kernel/${ARCH}/*/*.c)
 KERNEL_SOURCES += $(wildcard kernel/arch/${ARCH}/*.S)
 
-MODULES = $(patsubst %.c,%.ko,$(wildcard modules/*.c))
+MODULES = $(patsubst modules/%.c,$(BASE)/mod/%.ko,$(wildcard modules/*.c))
 
 # Configs you can override.
 SMP ?= 1
@@ -84,8 +84,8 @@ LC = $(BASE)/lib/libc.so $(GCC_SHARED) $(LIBSTDCXX)
 all: system
 system: misaka-kernel $(MODULES) ramdisk.igz
 
-%.ko: %.c
-	${CC} -c ${KERNEL_CFLAGS} -o $@ $<
+$(BASE)/mod/%.ko: modules/%.c | dirs
+	${CC} -c ${KERNEL_CFLAGS} -mcmodel=large  -o $@ $<
 
 ramdisk.igz: $(wildcard $(BASE)/* $(BASE)/*/* $(BASE)/*/*/*) $(APPS_X) $(LIBS_X) $(KRK_MODS_X) $(BASE)/bin/kuroko $(BASE)/lib/ld.so $(APPS_KRK_X) $(KRK_MODS)
 	python3 util/createramdisk.py
@@ -182,6 +182,8 @@ $(BASE)/cdrom:
 	mkdir -p $@
 $(BASE)/var:
 	mkdir -p $@
+$(BASE)/mod:
+	mkdir -p $@
 $(BASE)/lib/kuroko:
 	mkdir -p $@
 $(BASE)/usr/lib:
@@ -192,7 +194,7 @@ cdrom:
 	mkdir -p $@
 .make:
 	mkdir -p .make
-dirs: $(BASE)/dev $(BASE)/tmp $(BASE)/proc $(BASE)/bin $(BASE)/lib $(BASE)/cdrom $(BASE)/usr/lib $(BASE)/lib/kuroko cdrom $(BASE)/var fatbase/efi/boot .make
+dirs: $(BASE)/dev $(BASE)/tmp $(BASE)/proc $(BASE)/bin $(BASE)/lib $(BASE)/cdrom $(BASE)/usr/lib $(BASE)/lib/kuroko cdrom $(BASE)/var fatbase/efi/boot .make $(BASE)/mod
 
 ifeq (,$(findstring clean,$(MAKECMDGOALS)))
 -include ${APPS_Y}
