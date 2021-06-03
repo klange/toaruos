@@ -289,6 +289,7 @@ void smp_initialize(void) {
 }
 
 void arch_wakeup_others(void) {
+	if (!lapic_final || processor_count < 2) return;
 	/* Send broadcast IPI to others; this is a soft interrupt
 	 * that just nudges idle cores out of their HLT states.
 	 * It should be gentle enough that busy cores dont't care. */
