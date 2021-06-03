@@ -20,6 +20,7 @@
 #include <kernel/gzip.h>
 #include <kernel/ramdisk.h>
 #include <kernel/args.h>
+#include <kernel/ksym.h>
 
 #include <kernel/arch/x86_64/ports.h>
 #include <kernel/arch/x86_64/cmos.h>
@@ -101,18 +102,11 @@ static void multiboot_initialize(struct multiboot * mboot) {
 	maxAddress = (maxAddress + 0xFFF) & 0xFFFFffffFFFFf000;
 }
 
-/**
- * FIXME: We don't currently use the kernel symbol table, but when modules
- *        are implemented again we need it for linking... but also we could
- *        just build the kernel with a dynamic symbol table attached?
- */
-static hashmap_t * kernelSymbols = NULL;
-
 static void symbols_install(void) {
-	kernelSymbols = hashmap_create(10);
+	ksym_install();
 	kernel_symbol_t * k = (kernel_symbol_t *)&kernel_symbols_start;
 	while ((uintptr_t)k < (uintptr_t)&kernel_symbols_end) {
-		hashmap_set(kernelSymbols, k->name, (void*)k->addr);
+		ksym_bind(k->name, (void*)k->addr);
 		k = (kernel_symbol_t *)((uintptr_t)k + sizeof *k + strlen(k->name) + 1);
 	}
 }
