@@ -57,30 +57,35 @@ static long sys_sysfunc(long fn, char ** args) {
 	/* FIXME: Most of these should be top-level, many are hacks/broken in Misaka */
 	switch (fn) {
 		case TOARU_SYS_FUNC_SYNC:
-			/* FIXME: There is no sync ability in the VFS at the moment. */
+			/* FIXME: There is no sync ability in the VFS at the moment.
+			 * XXX: Should this just be an ioctl on individual devices?
+			 *      Or possibly even an ioctl we can send to arbitrary files? */
 			printf("sync: not implemented\n");
 			return -EINVAL;
+
 		case TOARU_SYS_FUNC_LOGHERE:
-			/* FIXME: Needs to redirect kprintf to the argument */
+			/* FIXME: The entire kernel logging system needs to be revamped as
+			 *        Misaka switched everything to raw printfs, and then also
+			 *        removed most of them for cleanliness... first task would
+			 *        be to reintroduce kernel fprintf() to printf to fs_nodes. */
 			printf("loghere: not implemented\n");
 			return -EINVAL;
-		case TOARU_SYS_FUNC_SETFDS:
-			/* XXX Unused */
-			printf("setfds: not implemented\n");
-			return -EINVAL;
-		case TOARU_SYS_FUNC_WRITESDB:
-			/* XXX Unused */
-			printf("writesdb: not implemented\n");
-			return -EINVAL;
+
 		case TOARU_SYS_FUNC_KDEBUG:
-			/* FIXME: Starts kernel debugger as a child task of this process */
+			/* FIXME: The kernel debugger is completely deprecated and fully removed
+			 *        in Misaka, and I'm not sure I want to add it back... */
 			printf("kdebug: not implemented\n");
 			return -EINVAL;
+
 		case TOARU_SYS_FUNC_INSMOD:
-			/* FIXME: Load module */
+			/* Linux has init_module as a system call? */
 			return elf_module(args[0]);
-		/* Begin unpriv */
+
 		case TOARU_SYS_FUNC_SETHEAP: {
+			/* I'm not really sure how this should be done...
+			 * traditional brk() would be expected to map everything in-between,
+			 * but we use this to move the heap in ld.so, and we don't want
+			 * the stuff in the middle to be mapped necessarily... */
 			volatile process_t * volatile proc = this_core->current_process;
 			if (proc->group != 0) proc = process_from_pid(proc->group);
 			spin_lock(proc->image.lock);
@@ -88,8 +93,11 @@ static long sys_sysfunc(long fn, char ** args) {
 			spin_unlock(proc->image.lock);
 			return 0;
 		}
+
 		case TOARU_SYS_FUNC_MMAP: {
-			/* FIXME: This whole thing should be removed, tbh */
+			/* FIXME: This whole thing should be removed; we need a proper mmap interface,
+			 *        preferrably with all of the file mapping options, too. And it should
+			 *        probably also interact with the SHM subsystem... */
 			volatile process_t * volatile proc = this_core->current_process;
 			if (proc->group != 0) proc = process_from_pid(proc->group);
 			spin_lock(proc->image.lock);
@@ -104,6 +112,7 @@ static long sys_sysfunc(long fn, char ** args) {
 			spin_unlock(proc->image.lock);
 			return 0;
 		}
+
 		case TOARU_SYS_FUNC_THREADNAME: {
 			/* This should probably be moved to a new system call. */
 			int count = 0;
@@ -123,23 +132,14 @@ static long sys_sysfunc(long fn, char ** args) {
 			this_core->current_process->cmdline[i] = NULL;
 			return 0;
 		}
-		case TOARU_SYS_FUNC_DEBUGPRINT:
-			/* XXX I think _xlog uses this? */
-			printf("debugprint: not implemented\n");
-			return -EINVAL;
-		case TOARU_SYS_FUNC_SETVGACURSOR:
-			/* XXX This should be a device driver, along with the text-mode window... */
-			printf("setvgacursor: not implemented\n");
-			return -EINVAL;
+
 		case TOARU_SYS_FUNC_SETGSBASE:
+			/* This should be a new system call; see what Linux, et al., call it. */
 			PTR_VALIDATE(args);
 			this_core->current_process->thread.context.tls_base = (uintptr_t)args[0];
 			arch_set_tls_base(this_core->current_process->thread.context.tls_base);
 			return 0;
 
-		case 99:
-			arch_wakeup_others();
-			return 0;
 		default:
 			printf("Bad system function: %ld\n", fn);
 			return -EINVAL;

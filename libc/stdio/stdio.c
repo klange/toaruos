@@ -6,8 +6,6 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include <_xlog.h>
-
 struct _FILE {
 	int fd;
 
