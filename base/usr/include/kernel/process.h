@@ -197,6 +197,7 @@ extern void wakeup_sleepers(unsigned long seconds, unsigned long subseconds);
 extern void task_exit(int retval);
 extern __attribute__((noreturn)) void switch_next(void);
 extern int process_awaken_from_fswait(process_t * process, int index);
+extern void process_awaken_signal(process_t * process);
 extern void process_release_directory(page_directory_t * dir);
 extern process_t * spawn_worker_thread(void (*entrypoint)(void * argp), const char * name, void * argp);
 extern pid_t fork(void);

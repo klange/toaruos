@@ -217,12 +217,8 @@ int send_signal(pid_t process, int signal, int force_root) {
 	sig->signum  = signal;
 	memset(&sig->registers_before, 0x00, sizeof(struct regs));
 
-	spin_lock(receiver->sched_lock);
-	if (receiver->node_waits) {
-		process_awaken_from_fswait(receiver, -1);
-	} else {
-		spin_unlock(receiver->sched_lock);
-	}
+	process_awaken_signal(receiver);
+
 	if (!process_is_ready(receiver) || receiver == this_core->current_process) {
 		make_process_ready(receiver);
 	}
