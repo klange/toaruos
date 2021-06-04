@@ -689,7 +689,8 @@ static long sys_execve(const char * filename, char *const argv[], char *const en
 		}
 	}
 
-	// shm_release_all
+	shm_release_all((process_t *)this_core->current_process);
+
 	this_core->current_process->cmdline = argv_;
 	return exec(filename, argc, argv_, envp_, 0);
 }
