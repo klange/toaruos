@@ -45,6 +45,7 @@ tree_t * process_tree;  /* Stores the parent-child process relationships; the ro
 list_t * process_list;  /* Stores all existing processes. Mostly used for sanity checking or for places where iterating over all processes is useful. */
 list_t * process_queue; /* Scheduler ready queue. This the round-robin source. The head is the next process to run. */
 list_t * sleep_queue;   /* Ordered list of processes waiting to be awoken by timeouts. The head is the earliest thread to awaken. */
+list_t * reap_queue;    /* Processes that could not be cleaned up and need to be deleted. */
 
 struct ProcessorLocal processor_local_data[32] = {0};
 int processor_count = 1;
@@ -55,6 +56,7 @@ static spin_lock_t tree_lock = { 0 };
 static spin_lock_t process_queue_lock = { 0 };
 static spin_lock_t wait_lock_tmp = { 0 };
 static spin_lock_t sleep_lock = { 0 };
+static spin_lock_t reap_lock = { 0 };
 
 #define must_have_lock(lck) if (lck.owner != this_core->cpu_id+1) { printf("Failed lock check.\n"); arch_fatal(); }
 
@@ -200,6 +202,7 @@ void initialize_process_tree(void) {
 	process_list = list_create("global process list",NULL);
 	process_queue = list_create("global scheduler queue",NULL);
 	sleep_queue = list_create("global timed sleep queue",NULL);
+	reap_queue = list_create("processes awaiting later cleanup",NULL);
 
 	/* TODO: PID bitset? */
 }
@@ -488,6 +491,50 @@ process_t * spawn_process(volatile process_t * parent, int flags) {
 
 extern void tree_remove_reparent_root(tree_t * tree, tree_node_t * node);
 
+void process_reap(process_t * proc) {
+	if (proc->signal_kstack) {
+		free(proc->signal_kstack);
+	}
+
+	/* Unmark the stack bottom's fault detector */
+	mmu_frame_allocate(
+		mmu_get_page(proc->image.stack - KERNEL_STACK_SIZE, 0),
+		MMU_FLAG_KERNEL | MMU_FLAG_WRITABLE);
+
+	free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
+	process_release_directory(proc->thread.page_directory);
+
+	free(proc->name);
+	free(proc);
+}
+
+static int process_is_owned(process_t * proc) {
+	for (int i = 0; i < processor_count; ++i) {
+		if (processor_local_data[i].previous_process == proc ||
+		    processor_local_data[i].current_process == proc) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+void process_reap_later(process_t * proc) {
+	spin_lock(reap_lock);
+	/* See if we can delete anything */
+	while (reap_queue->head) {
+		process_t * proc = reap_queue->head->value;
+		if (!process_is_owned(proc)) {
+			free(list_dequeue(reap_queue));
+			process_reap(proc);
+		} else {
+			break;
+		}
+	}
+	/* And delete this thing later */
+	list_insert(reap_queue, proc);
+	spin_unlock(reap_lock);
+}
+
 /**
  * @brief Remove a process from the valid process list.
  *
@@ -525,39 +572,20 @@ void process_delete(process_t * proc) {
 	// FIXME bitset_clear(&pid_set, proc->id);
 	proc->tree_entry = NULL;
 
+	shm_release_all(proc);
+	free(proc->shm_mappings);
+
 	/* Is someone using this process? */
 	for (int i = 0; i < processor_count; ++i) {
 		if (i == this_core->cpu_id) continue;
-		if (processor_local_data[i].current_process == proc) {
-			printf("Wanted to delete a process someone else was using.\n");
-		} else if (processor_local_data[i].previous_process == proc) {
-			printf("Wanted to delete a process but it's someone else's previous.\n");
-			printf("  pid = %d\n", proc->id);
-			printf("  name = %s\n", proc->name);
-			printf("  owned by = %d\n", proc->owner);
+		if (processor_local_data[i].previous_process == proc ||
+		    processor_local_data[i].current_process == proc) {
+			process_reap_later(proc);
+			return;
 		}
-		return;
 	}
 
-	/* Free these later */
-	shm_release_all(proc);
-
-	free(proc->shm_mappings);
-
-	if (proc->signal_kstack) {
-		free(proc->signal_kstack);
-	}
-
-	/* Unmark the stack bottom's fault detector */
-	mmu_frame_allocate(
-		mmu_get_page(proc->image.stack - KERNEL_STACK_SIZE, 0),
-		MMU_FLAG_KERNEL | MMU_FLAG_WRITABLE);
-
-	free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
-	process_release_directory(proc->thread.page_directory);
-
-	free(proc->name);
-	free(proc);
+	process_reap(proc);
 }
 
 /**
