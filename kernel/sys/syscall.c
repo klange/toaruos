@@ -678,6 +678,17 @@ static long sys_execve(const char * filename, char *const argv[], char *const en
 		envp_[0] = NULL;
 	}
 
+	/**
+	 * FIXME: For legacy reasons, we're just going to close everything >2 for now,
+	 *        but we should really implement proper CLOEXEC semantics...
+	 */
+	for (unsigned int i = 3; i < this_core->current_process->fds->length; ++i) {
+		if (this_core->current_process->fds->entries[i]) {
+			close_fs(this_core->current_process->fds->entries[i]);
+			this_core->current_process->fds->entries[i] = NULL;
+		}
+	}
+
 	// shm_release_all
 	this_core->current_process->cmdline = argv_;
 	return exec(filename, argc, argv_, envp_, 0);
