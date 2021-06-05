@@ -86,6 +86,7 @@ struct semaphore create_semaphore(void) {
 }
 
 void raise_semaphore(struct semaphore s){
+	write(s.fds[1],"x",1);
 	close(s.fds[0]);
 	close(s.fds[1]);
 }
