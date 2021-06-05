@@ -3,9 +3,11 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <poll.h>
+#include <dirent.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 
 struct ethernet_packet {
 	uint8_t destination[6];
@@ -137,58 +139,12 @@ struct payload {
 	uint8_t payload[32];
 };
 
-static void eth_ntoa(const uint8_t addr[6], char * out) {
-	/* XX:XX:XX:XX:XX:XX */
-	snprintf(out, 18, "%02x:%02x:%02x:%02x:%02x:%02x",
-		addr[0], addr[1], addr[2],
-		addr[3], addr[4], addr[5]);
-}
-
 static void ip_ntoa(const uint32_t src_addr, char * out) {
 	snprintf(out, 16, "%d.%d.%d.%d",
 		(src_addr & 0xFF000000) >> 24,
 		(src_addr & 0xFF0000) >> 16,
 		(src_addr & 0xFF00) >> 8,
 		(src_addr & 0xFF));
-}
-
-static const char * eth_type_str(uint16_t type) {
-	switch(type) {
-		case ETHERNET_TYPE_IPV4: return "IPv4";
-		case ETHERNET_TYPE_ARP: return "ARP";
-		default: return "unknown";
-	}
-}
-
-static void print_ipv4_header(struct ipv4_packet * packet) {
-	/* get addresses, type... */
-	char dest_addr[16];
-	char src_addr[16];
-	ip_ntoa(ntohl(packet->destination), dest_addr);
-	ip_ntoa(ntohl(packet->source), src_addr);
-	fprintf(stderr, "%s -> %s %d (%s) ",
-		src_addr, dest_addr, packet->protocol,
-		packet->protocol == IPV4_PROT_UDP ? "udp" :
-			packet->protocol == IPV4_PROT_TCP ? "tcp" : "?");
-}
-
-void print_header(const struct payload * header) {
-	/* Assume it's at least an Ethernet frame */
-	char dest_addr[18];
-	char src_addr[18];
-	eth_ntoa(header->eth_header.destination, dest_addr);
-	eth_ntoa(header->eth_header.source, src_addr);
-	fprintf(stderr, "%s -> %s %d (%s) ",
-		src_addr, dest_addr, ntohs(header->eth_header.type), eth_type_str(ntohs(header->eth_header.type)));
-	switch (ntohs(header->eth_header.type)) {
-		case ETHERNET_TYPE_IPV4:
-			print_ipv4_header((void*)&header->eth_header.payload);
-			break;
-		case ETHERNET_TYPE_ARP:
-			//print_arp_header(&header->eth_header.payload);
-			break;
-	}
-	fprintf(stderr, "\n");
 }
 
 uint16_t calculate_ipv4_checksum(struct ipv4_packet * p) {
@@ -267,38 +223,31 @@ void fill(struct payload *it, size_t payload_size) {
 	it->dhcp_header.magic = htonl(DHCP_MAGIC);
 }
 
-int main(int argc, char * argv[]) {
 
-#if 0
-	/* Let's make a socket. */
-	int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sockfd < 0) { perror("socket"); return 1; }
-
-	/* Bind the socket to the requested device. */
-	//if (setsockopt(sockfd, SOL_SOCKET, SO_BINDTODEVICE, 
-#endif
-
-	char * if_name = "enp0s4";
-	char if_path[100];
-
-	if (argc > 1) {
-		if_name = argv[1];
+static void time_diff(struct timeval *start, struct timeval *end, time_t *sec_diff, suseconds_t *usec_diff) {
+	*sec_diff = end->tv_sec - start->tv_sec;
+	*usec_diff = end->tv_usec - start->tv_usec;
+	if (end->tv_usec < start->tv_usec) {
+		*sec_diff -= 1;
+		*usec_diff = (1000000 + end->tv_usec) - start->tv_usec;
 	}
+}
 
+static int configure_interface(const char * if_name) {
+	char if_path[100];
 	snprintf(if_path, 100, "/dev/net/%s", if_name);
 
 	int netdev = open(if_path, O_RDWR);
 
-	fprintf(stderr, "Configuring %s\n", if_name);
-
-	if (ioctl(netdev, 0x12340001, &mac_addr)) {
-		fprintf(stderr, "could not get mac address\n");
+	if (netdev < 0) {
+		fprintf(stderr, "dhclient: %s: invalid interface\n", if_name);
 		return 1;
 	}
 
-	fprintf(stderr, "mac address: %02x:%02x:%02x:%02x:%02x:%02x\n",
-		mac_addr[0], mac_addr[1], mac_addr[2],
-		mac_addr[3], mac_addr[4], mac_addr[5]);
+	if (ioctl(netdev, 0x12340001, &mac_addr)) {
+		fprintf(stderr, "dhclient: %s: could not get mac address\n", if_name);
+		return 1;
+	}
 
 	/* Try to frob the whatsit */
 	{
@@ -314,27 +263,36 @@ int main(int argc, char * argv[]) {
 	uint32_t yiaddr;
 	int stage = 1;
 
+	struct timeval start, end;
+	time_t sec_diff;
+	suseconds_t usec_diff;
+	gettimeofday(&start, NULL);
+
 	do {
 		char buf[8092] = {0};
+
+		gettimeofday(&end, NULL);
+		time_diff(&start,&end,&sec_diff,&usec_diff);
+		if (sec_diff > 3) {
+			close(netdev);
+			return 1;
+		}
 
 		struct pollfd fds[1];
 		fds[0].fd = netdev;
 		fds[0].events = POLLIN;
 		int ret = poll(fds,1,2000);
 		if (ret <= 0) {
-			printf("...\n");
 			continue;
 		}
 		ssize_t rsize = read(netdev, &buf, 8092);
 
 		if (rsize <= 0) {
-			printf("bad size? %zd\n", rsize);
+			fprintf(stderr, "dhclient: %s: bad size? %zd\n", if_name, rsize);
 			continue;
 		}
 
 		struct payload * response = (void*)buf;
-
-		print_header(response);
 
 		if (ntohs(response->udp_header.destination_port) != 68) {
 			continue;
@@ -342,10 +300,6 @@ int main(int argc, char * argv[]) {
 
 		if (stage == 1) {
 			yiaddr = response->dhcp_header.yiaddr;
-			char yiaddr_ip[16];
-			ip_ntoa(ntohl(yiaddr), yiaddr_ip);
-
-			printf("Response from DHCP Discover: %s\n", yiaddr_ip);
 			struct payload thething = {
 				.payload = {53,1,3,50,4,
 					(yiaddr) & 0xFF,
@@ -354,21 +308,45 @@ int main(int argc, char * argv[]) {
 					(yiaddr >> 24) & 0xFF,
 					55,2,3,6,255,0}
 			};
-
 			fill(&thething, 14);
 			write(netdev, &thething, sizeof(struct payload));
-
 			stage = 2;
 		} else if (stage == 2) {
 			yiaddr = response->dhcp_header.yiaddr;
 			char yiaddr_ip[16];
 			ip_ntoa(ntohl(yiaddr), yiaddr_ip);
-
-			printf("ACK returns: %s\n", yiaddr_ip);
-			printf("Address is configured, continuing trace mode.\n");
-
-			stage = 3;
+			printf("dhclient: %s: configured for %s\n", if_name, yiaddr_ip);
+			close(netdev);
+			return 0;
 		}
 	} while (1);
-	return 0;
+
+	return 1;
+}
+
+int main(int argc, char * argv[]) {
+	int retval = 0;
+
+	if (argc > 1) {
+		return configure_interface(argv[1]);
+	} else {
+		/* Read /dev/net for interfaces */
+		DIR * d = opendir("/dev/net");
+		if (!d) {
+			fprintf(stderr, "dhclient: no network?\n");
+			return 1;
+		}
+
+		struct dirent * ent;
+		while ((ent = readdir(d))) {
+			if (ent->d_name[0] == '.') continue;
+			if (configure_interface(ent->d_name)) {
+				retval = 1;
+			}
+		}
+
+		closedir(d);
+	}
+
+	return retval;
 }
