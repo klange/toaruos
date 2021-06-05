@@ -339,16 +339,16 @@ static struct dirent * readdir_packetfs(fs_node_t *node, uint64_t index) {
 	if (index == 0) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
-		out->ino = 0;
-		strcpy(out->name, ".");
+		out->d_ino = 0;
+		strcpy(out->d_name, ".");
 		return out;
 	}
 
 	if (index == 1) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
-		out->ino = 0;
-		strcpy(out->name, "..");
+		out->d_ino = 0;
+		strcpy(out->d_name, "..");
 		return out;
 	}
 
@@ -366,8 +366,8 @@ static struct dirent * readdir_packetfs(fs_node_t *node, uint64_t index) {
 			pex_ex_t * t = (pex_ex_t *)f->value;
 			struct dirent * out = malloc(sizeof(struct dirent));
 			memset(out, 0x00, sizeof(struct dirent));
-			out->ino = (uint64_t)t;
-			strcpy(out->name, t->name);
+			out->d_ino = (uint64_t)t;
+			strcpy(out->d_name, t->name);
 			return out;
 		} else {
 			++i;

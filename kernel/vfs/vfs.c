@@ -68,13 +68,13 @@ static struct dirent * readdir_mapper(fs_node_t *node, uint64_t index) {
 
 	if (index == 0) {
 		struct dirent * dir = malloc(sizeof(struct dirent));
-		strcpy(dir->name, ".");
-		dir->ino = 0;
+		strcpy(dir->d_name, ".");
+		dir->d_ino = 0;
 		return dir;
 	} else if (index == 1) {
 		struct dirent * dir = malloc(sizeof(struct dirent));
-		strcpy(dir->name, "..");
-		dir->ino = 1;
+		strcpy(dir->d_name, "..");
+		dir->d_ino = 1;
 		return dir;
 	}
 
@@ -88,8 +88,8 @@ static struct dirent * readdir_mapper(fs_node_t *node, uint64_t index) {
 			struct dirent * dir = malloc(sizeof(struct dirent));
 
 			size_t len = strlen(n->name) + 1;
-			memcpy(&dir->name, n->name, MIN(256, len));
-			dir->ino = i;
+			memcpy(&dir->d_name, n->name, MIN(256, len));
+			dir->d_ino = i;
 			return dir;
 		}
 		++i;

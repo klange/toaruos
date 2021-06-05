@@ -138,16 +138,16 @@ static struct dirent * readdir_tar_root(fs_node_t *node, uint64_t index) {
 	if (index == 0) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
-		out->ino = 0;
-		strcpy(out->name, ".");
+		out->d_ino = 0;
+		strcpy(out->d_name, ".");
 		return out;
 	}
 
 	if (index == 1) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
-		out->ino = 0;
-		strcpy(out->name, "..");
+		out->d_ino = 0;
+		strcpy(out->d_name, "..");
 		return out;
 	}
 
@@ -179,8 +179,8 @@ static struct dirent * readdir_tar_root(fs_node_t *node, uint64_t index) {
 				if (index == 0) {
 					struct dirent * out = malloc(sizeof(struct dirent));
 					memset(out, 0x00, sizeof(struct dirent));
-					out->ino = offset;
-					strcpy(out->name, filename_workspace);
+					out->d_ino = offset;
+					strcpy(out->d_name, filename_workspace);
 					free(file);
 					return out;
 				} else {
@@ -218,16 +218,16 @@ static struct dirent * readdir_tarfs(fs_node_t *node, uint64_t index) {
 	if (index == 0) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
-		out->ino = 0;
-		strcpy(out->name, ".");
+		out->d_ino = 0;
+		strcpy(out->d_name, ".");
 		return out;
 	}
 
 	if (index == 1) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
-		out->ino = 0;
-		strcpy(out->name, "..");
+		out->d_ino = 0;
+		strcpy(out->d_name, "..");
 		return out;
 	}
 
@@ -270,8 +270,8 @@ static struct dirent * readdir_tarfs(fs_node_t *node, uint64_t index) {
 						if (slash) *slash = '\0'; /* remove trailing slash */
 						struct dirent * out = malloc(sizeof(struct dirent));
 						memset(out, 0x00, sizeof(struct dirent));
-						out->ino = offset;
-						strcpy(out->name, filename_workspace+strlen(my_filename));
+						out->d_ino = offset;
+						strcpy(out->d_name, filename_workspace+strlen(my_filename));
 						free(file);
 						return out;
 					} else {

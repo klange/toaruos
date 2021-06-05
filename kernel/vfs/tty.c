@@ -556,16 +556,16 @@ static struct dirent * readdir_pty(fs_node_t *node, uint64_t index) {
 	if (index == 0) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
-		out->ino = 0;
-		strcpy(out->name, ".");
+		out->d_ino = 0;
+		strcpy(out->d_name, ".");
 		return out;
 	}
 
 	if (index == 1) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
-		out->ino = 0;
-		strcpy(out->name, "..");
+		out->d_ino = 0;
+		strcpy(out->d_name, "..");
 		return out;
 	}
 
@@ -585,9 +585,9 @@ static struct dirent * readdir_pty(fs_node_t *node, uint64_t index) {
 	if (out_pty) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
-		out->ino = out_pty->name;
-		out->name[0] = '\0';
-		snprintf(out->name, 100, "%zd", out_pty->name);
+		out->d_ino = out_pty->name;
+		out->d_name[0] = '\0';
+		snprintf(out->d_name, 100, "%zd", out_pty->name);
 		return out;
 	} else {
 		return NULL;

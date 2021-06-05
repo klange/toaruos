@@ -189,16 +189,16 @@ static struct dirent * readdir_procfs_procdir(fs_node_t *node, uint64_t index) {
 	if (index == 0) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
-		out->ino = 0;
-		strcpy(out->name, ".");
+		out->d_ino = 0;
+		strcpy(out->d_name, ".");
 		return out;
 	}
 
 	if (index == 1) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
-		out->ino = 0;
-		strcpy(out->name, "..");
+		out->d_ino = 0;
+		strcpy(out->d_name, "..");
 		return out;
 	}
 
@@ -207,8 +207,8 @@ static struct dirent * readdir_procfs_procdir(fs_node_t *node, uint64_t index) {
 	if (index < PROCFS_PROCDIR_ENTRIES) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
-		out->ino = procdir_entries[index].id;
-		strcpy(out->name, procdir_entries[index].name);
+		out->d_ino = procdir_entries[index].id;
+		strcpy(out->d_name, procdir_entries[index].name);
 		return out;
 	}
 	return NULL;
@@ -717,24 +717,24 @@ static struct dirent * readdir_procfs_root(fs_node_t *node, uint64_t index) {
 	if (index == 0) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
-		out->ino = 0;
-		strcpy(out->name, ".");
+		out->d_ino = 0;
+		strcpy(out->d_name, ".");
 		return out;
 	}
 
 	if (index == 1) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
-		out->ino = 0;
-		strcpy(out->name, "..");
+		out->d_ino = 0;
+		strcpy(out->d_name, "..");
 		return out;
 	}
 
 	if (index == 2) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
-		out->ino = 0;
-		strcpy(out->name, "self");
+		out->d_ino = 0;
+		strcpy(out->d_name, "self");
 		return out;
 	}
 
@@ -743,8 +743,8 @@ static struct dirent * readdir_procfs_root(fs_node_t *node, uint64_t index) {
 	if (index < PROCFS_STANDARD_ENTRIES) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
-		out->ino = std_entries[index].id;
-		strcpy(out->name, std_entries[index].name);
+		out->d_ino = std_entries[index].id;
+		strcpy(out->d_name, std_entries[index].name);
 		return out;
 	}
 
@@ -762,8 +762,8 @@ static struct dirent * readdir_procfs_root(fs_node_t *node, uint64_t index) {
 			struct procfs_entry * e = n->value;
 			struct dirent * out = malloc(sizeof(struct dirent));
 			memset(out, 0x00, sizeof(struct dirent));
-			out->ino = e->id;
-			strcpy(out->name, e->name);
+			out->d_ino = e->id;
+			strcpy(out->d_name, e->name);
 			return out;
 		}
 		index -=  extended_entries->length;
@@ -788,8 +788,8 @@ static struct dirent * readdir_procfs_root(fs_node_t *node, uint64_t index) {
 
 	struct dirent * out = malloc(sizeof(struct dirent));
 	memset(out, 0x00, sizeof(struct dirent));
-	out->ino  = pid;
-	snprintf(out->name, 100, "%d", pid);
+	out->d_ino  = pid;
+	snprintf(out->d_name, 100, "%d", pid);
 
 	return out;
 }

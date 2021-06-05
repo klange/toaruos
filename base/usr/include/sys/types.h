@@ -14,6 +14,9 @@ typedef int caddr_t;
 
 typedef unsigned short nlink_t;
 
+typedef unsigned long blksize_t;
+typedef unsigned long blkcnt_t;
+
 typedef long off_t;
 typedef long time_t;
 

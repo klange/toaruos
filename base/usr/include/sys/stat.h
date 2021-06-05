@@ -3,25 +3,26 @@
 #include <_cheader.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 _Begin_C_Header
 
 typedef int mode_t;
 
 struct stat  {
-	uint16_t  st_dev;
-	uint16_t  st_ino;
-	uint32_t  st_mode;
-	uint16_t  st_nlink;
-	uint16_t  st_uid;
-	uint16_t  st_gid;
-	uint16_t  st_rdev;
-	uint32_t  st_size;
-	uint64_t  st_atime;
-	uint64_t  st_mtime;
-	uint64_t  st_ctime;
-	uint32_t  st_blksize;
-	uint32_t  st_blocks;
+	dev_t  st_dev;
+	ino_t  st_ino;
+	mode_t  st_mode;
+	nlink_t  st_nlink;
+	uid_t  st_uid;
+	gid_t  st_gid;
+	dev_t  st_rdev;
+	off_t  st_size;
+	time_t  st_atime;
+	time_t  st_mtime;
+	time_t  st_ctime;
+	blksize_t  st_blksize;
+	blkcnt_t  st_blocks;
 };
 
 #define _IFMT       0170000 /* type of file */

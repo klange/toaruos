@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <bits/dirent.h>
 
 #define PATH_SEPARATOR '/'
 #define PATH_SEPARATOR_STRING "/"
@@ -102,27 +104,6 @@ typedef struct fs_node {
 
 	chown_type_t chown;
 } fs_node_t;
-
-struct dirent {
-	uint32_t ino;           /* Inode number. */
-	char name[256];         /* The filename. */
-};
-
-struct stat  {
-	uint16_t  st_dev;
-	uint16_t  st_ino;
-	uint32_t  st_mode;
-	uint16_t  st_nlink;
-	uint16_t  st_uid;
-	uint16_t  st_gid;
-	uint16_t  st_rdev;
-	uint32_t  st_size;
-	uint64_t  st_atime;
-	uint64_t  st_mtime;
-	uint64_t  st_ctime;
-	uint32_t  st_blksize;
-	uint32_t  st_blocks;
-};
 
 struct vfs_entry {
 	char * name;
