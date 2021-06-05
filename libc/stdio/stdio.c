@@ -367,16 +367,16 @@ static char * _whence_str(int whence) {
 }
 
 int fseek(FILE * stream, long offset, int whence) {
-	if (_argv_0 && strcmp(_argv_0, "ld.so")) {
-		if (stream->read_from && whence == SEEK_CUR) {
+	if (stream->read_from && whence == SEEK_CUR) {
+		if (_argv_0 && strcmp(_argv_0, "ld.so")) {
 			if (__libc_debug) {
 				fprintf(stderr, "%s: fseek(%s, %ld, %s)\n", _argv_0, stream->_name, offset, _whence_str(whence));
 				fprintf(stderr, "\033[33;3mWARNING\033[0m: seeking when offset is currently %d\n", stream->read_from);
 				fprintf(stderr, "\033[33;3mWARNING\033[0m: this may not be reflected in kernel\n");
 			}
-			offset = offset + stream->read_from + stream->last_read_start;
-			whence = SEEK_SET;
 		}
+		offset = offset + stream->read_from + stream->last_read_start;
+		whence = SEEK_SET;
 	}
 	if (stream->written) {
 		fflush(stream);
