@@ -25,6 +25,23 @@ static void ip_ntoa(const uint32_t src_addr, char * out) {
 		(src_addr & 0xFF));
 }
 
+static char * flagsToStr(uint32_t flags) {
+	static char out[1024] = {0};
+	char * o = out;
+
+#define FLAG(f) if (flags & IFF_ ## f) { \
+	if (o != out) o += sprintf(o,",");          \
+	o += sprintf(o,"%s",#f); }                  \
+
+	FLAG(UP)
+	FLAG(BROADCAST)
+	FLAG(DEBUG)
+	FLAG(LOOPBACK)
+	FLAG(RUNNING)
+	FLAG(MULTICAST)
+
+	return out;
+}
 
 static int configure_interface(const char * if_name) {
 	char if_path[100];
@@ -36,18 +53,28 @@ static int configure_interface(const char * if_name) {
 		return 1;
 	}
 
-	fprintf(stdout,"%s:\n", if_name); /* + flags? */
+	uint32_t flags = 0;
+	ioctl(netdev, 0x12340005, &flags);
+	uint32_t mtu = 0;
+	ioctl(netdev, 0x12340006, &mtu);
+
+	fprintf(stdout,"%s: flags=%d<%s> mtu %d\n", if_name, flags, flagsToStr(flags), mtu);
 
 	/* Get IPv4 address */
-	uint32_t ip_addr;
+	uint32_t ip_addr = 0;
 	if (!ioctl(netdev, 0x12340002, &ip_addr)) {
 		char ip_str[16];
 		ip_ntoa(ntohl(ip_addr), ip_str);
 		fprintf(stdout,"        inet %s", ip_str);
 		/* Netmask ? */
-		if (!ioctl(netdev, 0x12340004, &ip_addr)) {
-			ip_ntoa(ntohl(ip_addr), ip_str);
-			fprintf(stdout, " netmask %s", ip_str);
+		uint32_t netmask = 0;
+		if (!ioctl(netdev, 0x12340004, &netmask)) {
+			ip_ntoa(ntohl(netmask), ip_str);
+			fprintf(stdout, "  netmask %s", ip_str);
+
+			uint32_t bcast = (ip_addr & netmask) | (~netmask);
+			ip_ntoa(ntohl(bcast), ip_str);
+			fprintf(stdout, "  broadcast %s", ip_str);
 		}
 		fprintf(stdout,"\n");
 	}
@@ -69,6 +96,10 @@ static int configure_interface(const char * if_name) {
 			mac_addr[0], mac_addr[1], mac_addr[2],
 			mac_addr[3], mac_addr[4], mac_addr[5]);
 	}
+
+	/* TODO stats */
+
+	fprintf(stdout,"\n");
 
 	return 0;
 }

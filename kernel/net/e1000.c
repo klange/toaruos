@@ -23,8 +23,9 @@
 #include <errno.h>
 
 #include <kernel/arch/x86_64/irq.h>
-
 #include <kernel/net/e1000.h>
+
+#include <sys/socket.h>
 
 #define INTS ((1 << 2) | (1 << 6) | (1 << 7) | (1 << 1) | (1 << 0))
 
@@ -32,6 +33,8 @@ struct e1000_nic {
 	/* This should be generic netif struct stuff... */
 	char if_name[32];
 	uint8_t mac[6];
+
+	size_t mtu;
 
 	/* XXX: just to get things going */
 	uint32_t ipv4_addr;
@@ -317,6 +320,23 @@ static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 		case 0x12340013:
 			memcpy(&nic->ipv6_addr, argp, sizeof(nic->ipv6_addr));
 			return 0;
+
+		case 0x12340005: {
+			uint32_t * flags = argp;
+			*flags = IFF_RUNNING;
+			if (nic->link_status) *flags |= IFF_UP;
+			/* We turn these on in our init_tx */
+			*flags |= IFF_BROADCAST;
+			*flags |= IFF_MULTICAST;
+			return 0;
+		}
+
+		case 0x12340006: {
+			uint32_t * mtu = argp;
+			*mtu = nic->mtu;
+			return 0;
+		}
+
 		default:
 			return -EINVAL;
 	}
@@ -483,6 +503,8 @@ static void e1000_init(void * data) {
 	nic->device_node->selectcheck = check_e1000;
 	nic->device_node->selectwait  = wait_e1000;
 	nic->device_node->device = nic;
+
+	nic->mtu = 1500; /* guess */
 
 	net_add_interface(nic->if_name, nic->device_node);
 

@@ -111,6 +111,14 @@ extern int setsockopt(int sockfd, int level, int optname, const void *optval, so
 extern int connect(int sockfd, const struct sockaddr * addr, socklen_t addrlen);
 extern int shutdown(int sockfd, int how);
 
+#define IFF_UP            0x0001
+#define IFF_BROADCAST     0x0002
+#define IFF_DEBUG         0x0004
+#define IFF_LOOPBACK      0x0008
+#define IFF_RUNNING       0x0010
+#define IFF_MULTICAST     0x0020
+
+
 _End_C_Header
 
 
