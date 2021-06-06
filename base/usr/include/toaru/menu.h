@@ -36,16 +36,16 @@ struct MenuEntry {
 
 struct MenuEntry_Normal {
 	struct MenuEntry; /* dependent on plan9 extensions */
-	const char * icon;
-	const char * title;
-	const char * action;
+	char * icon;
+	char * title;
+	char * action;
 };
 
 struct MenuEntry_Submenu {
 	struct MenuEntry;
-	const char * icon;
-	const char * title;
-	const char * action;
+	char * icon;
+	char * title;
+	char * action;
 	struct MenuList * _my_child;
 };
 

@@ -288,6 +288,28 @@ void menu_update_title(struct MenuEntry * self, char * new_title) {
 	}
 }
 
+void menu_free_entry(struct MenuEntry * self) {
+	switch (self->_type) {
+		case MenuEntry_Normal: {
+			struct MenuEntry_Normal * _self = (struct MenuEntry_Normal *)self;
+			if (_self->icon)   free(_self->icon);
+			if (_self->title)  free(_self->title);
+			if (_self->action) free(_self->action);
+			break;
+		}
+		case  MenuEntry_Submenu: {
+			struct MenuEntry_Submenu * _self = (struct MenuEntry_Submenu *)self;
+			if (_self->icon)   free(_self->icon);
+			if (_self->title)  free(_self->title);
+			if (_self->action) free(_self->action);
+			break;
+		}
+		default:
+			break;
+	}
+	free(self);
+}
+
 static int _close_enough(struct yutani_msg_window_mouse_event * me) {
 	if (me->command == YUTANI_MOUSE_EVENT_RAISE && sqrt(pow(me->new_x - me->old_x, 2) + pow(me->new_y - me->old_y, 2)) < 10) {
 		return 1;
