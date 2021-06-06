@@ -233,19 +233,36 @@ static void time_diff(struct timeval *start, struct timeval *end, time_t *sec_di
 	}
 }
 
+extern char * _argv_0;
+
 static int configure_interface(const char * if_name) {
+#if 0
+	/* Open a raw socket. */
+	int sock = socket(AF_RAW, SOCK_RAW, 0);
+	if (!sock) {
+		perror(_argv_0);
+		return 1;
+	}
+
+	/* Bind to this interface */
+	if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, if_name, strlen(if_name)+1)) {
+		perror(_argv_0);
+		return 1;
+	}
+
+	/* Request the mac address */
+#endif
 	char if_path[100];
 	snprintf(if_path, 100, "/dev/net/%s", if_name);
-
 	int netdev = open(if_path, O_RDWR);
 
 	if (netdev < 0) {
-		fprintf(stderr, "dhclient: %s: invalid interface\n", if_name);
+		perror(_argv_0);
 		return 1;
 	}
 
 	if (ioctl(netdev, 0x12340001, &mac_addr)) {
-		fprintf(stderr, "dhclient: %s: could not get mac address\n", if_name);
+		fprintf(stderr, "%s: %s: could not get mac address\n", _argv_0, if_name);
 		return 1;
 	}
 
@@ -288,7 +305,7 @@ static int configure_interface(const char * if_name) {
 		ssize_t rsize = read(netdev, &buf, 8092);
 
 		if (rsize <= 0) {
-			fprintf(stderr, "dhclient: %s: bad size? %zd\n", if_name, rsize);
+			fprintf(stderr, "%s: %s: bad size? %zd\n", _argv_0, if_name, rsize);
 			continue;
 		}
 
@@ -315,7 +332,7 @@ static int configure_interface(const char * if_name) {
 			yiaddr = response->dhcp_header.yiaddr;
 			char yiaddr_ip[16];
 			ip_ntoa(ntohl(yiaddr), yiaddr_ip);
-			printf("dhclient: %s: configured for %s\n", if_name, yiaddr_ip);
+			printf("%s: %s: configured for %s\n", _argv_0, if_name, yiaddr_ip);
 			close(netdev);
 			return 0;
 		}
@@ -333,7 +350,7 @@ int main(int argc, char * argv[]) {
 		/* Read /dev/net for interfaces */
 		DIR * d = opendir("/dev/net");
 		if (!d) {
-			fprintf(stderr, "dhclient: no network?\n");
+			fprintf(stderr, "%s: no network?\n", _argv_0);
 			return 1;
 		}
 

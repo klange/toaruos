@@ -753,6 +753,18 @@ int sleep_on(list_t * queue) {
 	return !!(this_core->current_process->flags & PROC_FLAG_SLEEP_INT);
 }
 
+int sleep_on_unlocking(list_t * queue, spin_lock_t * release) {
+	__sync_and_and_fetch(&this_core->current_process->flags, ~(PROC_FLAG_SLEEP_INT));
+	spin_lock(wait_lock_tmp);
+	list_append(queue, (node_t*)&this_core->current_process->sleep_node);
+	spin_unlock(wait_lock_tmp);
+
+	spin_unlock(*release);
+
+	switch_task(0);
+	return !!(this_core->current_process->flags & PROC_FLAG_SLEEP_INT);
+}
+
 /**
  * @brief Indicates whether a process is ready to be run but not currently running.
  */

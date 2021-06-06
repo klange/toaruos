@@ -46,7 +46,6 @@ EMU_ARGS += -serial mon:stdio
 EMU_ARGS += -rtc base=localtime
 EMU_ARGS += -soundhw pcspk,ac97
 EMU_ARGS += -netdev user,id=u1,hostfwd=tcp::5555-:23 -device e1000e,netdev=u1 -object filter-dump,id=f1,netdev=u1,file=qemu-e1000e.pcap
-EMU_ARGS += -netdev user,id=u2,hostfwd=tcp::5580-:80 -device e1000,netdev=u2 -object filter-dump,id=f2,netdev=u2,file=qemu.pcap
 #EMU_ARGS += -hda toaruos-disk.img
 EMU_KVM  ?= -enable-kvm
 

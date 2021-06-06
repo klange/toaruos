@@ -10,8 +10,10 @@
  */
 #include <errno.h>
 #include <kernel/types.h>
+#include <kernel/string.h>
 #include <kernel/printf.h>
 #include <kernel/syscall.h>
+#include <kernel/vfs.h>
 
 #include <sys/socket.h>
 
@@ -22,10 +24,29 @@
  */
 extern long net_ipv4_socket(int,int);
 
+/**
+ * Raw sockets
+ */
+long net_raw_socket(int type, int protocol) {
+	if (type != SOCK_RAW) return -EINVAL;
+
+	/* Make a new raw socket? */
+	fs_node_t * sock = calloc(sizeof(fs_node_t),1);
+	sock->flags = FS_PIPE; /* uh, FS_SOCKET? */
+	sock->mask = 0600;
+	//sock->read = sock_raw_read;
+	//sock->write = sock_raw_write;
+
+	int fd = process_append_fd((process_t *)this_core->current_process, sock);
+	return fd;
+}
+
 long net_socket(int domain, int type, int protocol) {
 	switch (domain) {
 		case AF_INET:
 			return net_ipv4_socket(type, protocol);
+		case AF_RAW:
+			return net_raw_socket(type, protocol);
 		default:
 			return -EINVAL;
 	}

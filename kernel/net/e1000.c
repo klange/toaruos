@@ -19,6 +19,7 @@
 #include <kernel/time.h>
 #include <kernel/vfs.h>
 #include <kernel/mod/net.h>
+#include <kernel/net/netif.h>
 #include <errno.h>
 
 #include <kernel/arch/x86_64/irq.h>
@@ -448,7 +449,7 @@ static void e1000_init(void * data) {
 	nic->device_node = calloc(sizeof(fs_node_t),1);
 	snprintf(nic->device_node->name, 100, "%s", nic->if_name);
 	nic->device_node->flags = FS_BLOCKDEVICE; /* NETDEVICE? */
-	nic->device_node->mask  = 0666; /* let everyone in on the party for now */
+	nic->device_node->mask  = 0600; /* Only root can access network devices directly */
 	nic->device_node->ioctl = ioctl_e1000;
 	nic->device_node->write = write_e1000;
 	nic->device_node->read  = read_e1000;
@@ -456,9 +457,7 @@ static void e1000_init(void * data) {
 	nic->device_node->selectwait  = wait_e1000;
 	nic->device_node->device = nic;
 
-	char tmp[100];
-	snprintf(tmp,100,"/dev/net/%s", nic->if_name);
-	vfs_mount(tmp, nic->device_node);
+	net_add_interface(nic->if_name, nic->device_node);
 
 	switch_task(0);
 }
