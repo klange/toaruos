@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <poll.h>
@@ -337,6 +338,38 @@ static int configure_interface(const char * if_name) {
 			} else {
 				perror(_argv_0);
 			}
+
+			/* See if we got a gateway and subnet out of it as well, those are cool... */
+			uint8_t * opt = response->dhcp_header.options;
+			while (*opt && *opt != 255) {
+				uint8_t opt_type = *opt++;
+				uint8_t len = *opt++;
+				if (opt_type == 1) {
+					/* Subnet mask */
+					uint32_t ip_data;
+					memcpy(&ip_data, opt, 4);
+					char addr[16];
+					ip_ntoa(ntohl(ip_data), addr);
+					printf("%s: %s: subnet mask %s\n", _argv_0, if_name, addr);
+					ioctl(netdev, 0x12340014, &ip_data);
+				} else if (opt_type == 3) {
+					/* Gateway address - add this to a route table? */
+					uint32_t ip_data;
+					memcpy(&ip_data, opt, 4);
+					char addr[16];
+					ip_ntoa(ntohl(ip_data), addr);
+					printf("%s: %s: gateway %s\n", _argv_0, if_name, addr);
+				} else if (opt_type == 6) {
+					/* DNS server */
+					uint32_t ip_data;
+					memcpy(&ip_data, opt, 4);
+					char addr[16];
+					ip_ntoa(ntohl(ip_data), addr);
+					printf("%s: %s: nameserver %s\n", _argv_0, if_name, addr);
+				}
+				opt += len;
+			}
+
 			close(netdev);
 			return 0;
 		}

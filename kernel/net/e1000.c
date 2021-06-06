@@ -32,8 +32,11 @@ struct e1000_nic {
 	/* This should be generic netif struct stuff... */
 	char if_name[32];
 	uint8_t mac[6];
+
 	/* XXX: just to get things going */
 	uint32_t ipv4_addr;
+	uint32_t ipv4_subnet;
+
 	uint8_t ipv6_addr[16];
 	/* TODO: Address lists? */
 
@@ -293,6 +296,7 @@ static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 			/* fill argp with mac */
 			memcpy(argp, nic->mac, 6);
 			return 0;
+
 		case 0x12340002:
 			if (nic->ipv4_addr == 0) return -ENOENT;
 			memcpy(argp, &nic->ipv4_addr, sizeof(nic->ipv4_addr));
@@ -300,6 +304,14 @@ static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 		case 0x12340012:
 			memcpy(&nic->ipv4_addr, argp, sizeof(nic->ipv4_addr));
 			return 0;
+		case 0x12340004:
+			if (nic->ipv4_subnet == 0) return -ENOENT;
+			memcpy(argp, &nic->ipv4_subnet, sizeof(nic->ipv4_subnet));
+			return 0;
+		case 0x12340014:
+			memcpy(&nic->ipv4_subnet, argp, sizeof(nic->ipv4_subnet));
+			return 0;
+
 		case 0x12340003:
 			return -ENOENT;
 		case 0x12340013:

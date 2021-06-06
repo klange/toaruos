@@ -3,6 +3,8 @@
  * @brief Network interface configuration tool.
  *
  * Manipulates and enumerates network interfaces.
+ *
+ * All of the APIs used in this tool are temporary and subject to change.
  */
 #include <stdio.h>
 #include <stdint.h>
@@ -41,7 +43,13 @@ static int configure_interface(const char * if_name) {
 	if (!ioctl(netdev, 0x12340002, &ip_addr)) {
 		char ip_str[16];
 		ip_ntoa(ntohl(ip_addr), ip_str);
-		fprintf(stdout,"        inet %s\n", ip_str);
+		fprintf(stdout,"        inet %s", ip_str);
+		/* Netmask ? */
+		if (!ioctl(netdev, 0x12340004, &ip_addr)) {
+			ip_ntoa(ntohl(ip_addr), ip_str);
+			fprintf(stdout, " netmask %s", ip_str);
+		}
+		fprintf(stdout,"\n");
 	}
 
 	uint8_t ip6_addr[16];
