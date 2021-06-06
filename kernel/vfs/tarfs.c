@@ -134,7 +134,7 @@ static int count_slashes(char * string) {
 	return i;
 }
 
-static struct dirent * readdir_tar_root(fs_node_t *node, uint64_t index) {
+static struct dirent * readdir_tar_root(fs_node_t *node, unsigned long index) {
 	if (index == 0) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
@@ -198,13 +198,13 @@ static struct dirent * readdir_tar_root(fs_node_t *node, uint64_t index) {
 	return NULL;
 }
 
-static uint64_t read_tarfs(fs_node_t * node, uint64_t offset, uint64_t size, uint8_t * buffer) {
+static ssize_t read_tarfs(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
 	struct tarfs * self = node->device;
 	struct ustar * file = malloc(sizeof(struct ustar));
 	ustar_from_offset(self, node->inode, file);
 	size_t file_size = interpret_size(file);
 
-	if (offset > file_size) return 0;
+	if ((size_t)offset > file_size) return 0;
 	if (offset + size > file_size) {
 		size = file_size - offset;
 	}
@@ -214,7 +214,7 @@ static uint64_t read_tarfs(fs_node_t * node, uint64_t offset, uint64_t size, uin
 	return read_fs(self->device, offset + node->inode + 512, size, buffer);
 }
 
-static struct dirent * readdir_tarfs(fs_node_t *node, uint64_t index) {
+static struct dirent * readdir_tarfs(fs_node_t *node, unsigned long index) {
 	if (index == 0) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
@@ -338,7 +338,7 @@ static fs_node_t * finddir_tarfs(fs_node_t *node, char *name) {
 	return NULL;
 }
 
-static int readlink_tarfs(fs_node_t * node, char * buf, size_t size) {
+static ssize_t readlink_tarfs(fs_node_t * node, char * buf, size_t size) {
 	struct tarfs * self = node->device;
 	struct ustar * file = malloc(sizeof(struct ustar));
 	ustar_from_offset(self, node->inode, file);

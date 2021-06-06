@@ -14,11 +14,11 @@
 #include <kernel/vfs.h>
 #include <kernel/string.h>
 
-static uint64_t read_null(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t read_null(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	return 0;
 }
 
-static uint64_t write_null(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t write_null(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	return 0;
 }
 
@@ -30,12 +30,12 @@ static void close_null(fs_node_t * node) {
 	return;
 }
 
-static uint64_t read_zero(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t read_zero(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	memset(buffer, 0x00, size);
 	return 1;
 }
 
-static uint64_t write_zero(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t write_zero(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	return 0;
 }
 

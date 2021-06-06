@@ -223,7 +223,7 @@ static void ps2_mouse_handle(uint8_t data_byte) {
 	}
 }
 
-static int ioctl_mouse(fs_node_t * node, int request, void * argp) {
+static int ioctl_mouse(fs_node_t * node, unsigned long request, void * argp) {
 	if (request == 1) {
 		mouse_cycle = 0;
 		return 0;

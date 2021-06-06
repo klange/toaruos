@@ -26,7 +26,7 @@ static uint32_t rand(void) {
 	return w = w ^ (w >> 19) ^ t ^ (t >> 8);
 }
 
-static uint64_t read_random(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t read_random(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	size_t s = 0;
 	while (s < size) {
 		buffer[s] = rand() % 0xFF;

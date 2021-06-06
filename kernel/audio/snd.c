@@ -32,12 +32,12 @@
 
 #define SND_BUF_SIZE 0x4000
 
-static uint64_t snd_dsp_write(fs_node_t * node, uint64_t offset, uint64_t size, uint8_t *buffer);
-static int snd_dsp_ioctl(fs_node_t * node, int request, void * argp);
+static ssize_t snd_dsp_write(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer);
+static int snd_dsp_ioctl(fs_node_t * node, unsigned long request, void * argp);
 static void snd_dsp_open(fs_node_t * node, unsigned int flags);
 static void snd_dsp_close(fs_node_t * node);
 
-static int snd_mixer_ioctl(fs_node_t * node, int request, void * argp);
+static int snd_mixer_ioctl(fs_node_t * node, unsigned long request, void * argp);
 static void snd_mixer_open(fs_node_t * node, unsigned int flags);
 static void snd_mixer_close(fs_node_t * node);
 
@@ -105,7 +105,7 @@ snd_unregister_cleanup:
 	return rv;
 }
 
-static uint64_t snd_dsp_write(fs_node_t * node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t snd_dsp_write(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
 	if (!_devices.length) return -1; /* No sink available. */
 
 	struct dsp_node * dsp = node->device;
@@ -122,7 +122,7 @@ static uint64_t snd_dsp_write(fs_node_t * node, uint64_t offset, uint64_t size, 
 	return out;
 }
 
-static int snd_dsp_ioctl(fs_node_t * node, int request, void * argp) {
+static int snd_dsp_ioctl(fs_node_t * node, unsigned long request, void * argp) {
 	/* Potentially use this to set sample rates in the future */
 	struct dsp_node * dsp = node->device;
 	if (request == 4) {
@@ -178,7 +178,7 @@ static snd_device_t * snd_device_by_id(uint32_t device_id) {
 	return out;
 }
 
-static int snd_mixer_ioctl(fs_node_t * node, int request, void * argp) {
+static int snd_mixer_ioctl(fs_node_t * node, unsigned long request, void * argp) {
 	switch (request) {
 		case SND_MIXER_GET_KNOBS: {
 			snd_knob_list_t * list = argp;

@@ -69,7 +69,7 @@ extern void ptr_validate(void * ptr, const char * syscall);
  * Used by the compositor to get display sizes and by the
  * resolution changer to initiate modesetting.
  */
-static int ioctl_vid(fs_node_t * node, int request, void * argp) {
+static int ioctl_vid(fs_node_t * node, unsigned long request, void * argp) {
 	switch (request) {
 		case IO_VID_WIDTH:
 			/* Get framebuffer width */
@@ -147,7 +147,7 @@ static fs_node_t * lfb_video_device_create(void /* TODO */) {
 	return fnode;
 }
 
-static uint64_t framebuffer_func(fs_node_t * node, uint64_t offset, uint64_t size, uint8_t * buffer) {
+static ssize_t framebuffer_func(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
 	char * buf = malloc(4096);
 
 	if (lfb_driver_name) {
@@ -169,11 +169,11 @@ static uint64_t framebuffer_func(fs_node_t * node, uint64_t offset, uint64_t siz
 	}
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) {
+	if ((size_t)offset > _bsize) {
 		free(buf);
 		return 0;
 	}
-	if (size > _bsize - offset) size = _bsize - offset;
+	if (size > _bsize - (size_t)offset) size = _bsize - offset;
 
 	memcpy(buffer, buf + offset, size);
 	free(buf);

@@ -92,7 +92,7 @@ static int symlink_tmpfs(fs_node_t * parent, char * target, char * name) {
 	return 0;
 }
 
-static int readlink_tmpfs(fs_node_t * node, char * buf, size_t size) {
+static ssize_t readlink_tmpfs(fs_node_t * node, char * buf, size_t size) {
 	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
 	if (t->type != TMPFS_TYPE_LINK) {
 		printf("tmpfs: not a symlink?\n");
@@ -176,13 +176,13 @@ static char * tmpfs_file_getset_block(struct tmpfs_file * t, size_t blockid, int
 }
 
 
-static uint64_t read_tmpfs(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t read_tmpfs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
 
 	t->atime = now();
 
 	uint64_t end;
-	if (offset + size > t->length) {
+	if ((size_t)offset + size > t->length) {
 		end = t->length;
 	} else {
 		end = offset + size;
@@ -191,7 +191,7 @@ static uint64_t read_tmpfs(fs_node_t *node, uint64_t offset, uint64_t size, uint
 	uint64_t end_block    = end / BLOCKSIZE;
 	uint64_t end_size     = end - end_block * BLOCKSIZE;
 	uint64_t size_to_read = end - offset;
-	if (start_block == end_block && offset == end) return 0;
+	if (start_block == end_block && (size_t)offset == end) return 0;
 	if (start_block == end_block) {
 		void *buf = tmpfs_file_getset_block(t, start_block, 0);
 		memcpy(buffer, (uint8_t *)(((uintptr_t)buf) + ((uintptr_t)offset % BLOCKSIZE)), size_to_read);
@@ -220,14 +220,14 @@ static uint64_t read_tmpfs(fs_node_t *node, uint64_t offset, uint64_t size, uint
 	return size_to_read;
 }
 
-static uint64_t write_tmpfs(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t write_tmpfs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
 
 	t->atime = now();
 	t->mtime = t->atime;
 
 	uint64_t end;
-	if (offset + size > t->length) {
+	if ((size_t)offset + size > t->length) {
 		t->length = offset + size;
 	}
 	end = offset + size;
@@ -281,7 +281,7 @@ static int chown_tmpfs(fs_node_t * node, int uid, int gid) {
 	return 0;
 }
 
-static void truncate_tmpfs(fs_node_t * node) {
+static int truncate_tmpfs(fs_node_t * node) {
 	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
 	for (size_t i = 0; i < t->block_count; ++i) {
 		mmu_frame_clear((uintptr_t)t->blocks[i] * 0x1000);
@@ -290,6 +290,7 @@ static void truncate_tmpfs(fs_node_t * node) {
 	t->block_count = 0;
 	t->length = 0;
 	t->mtime = node->atime;
+	return 0;
 }
 
 static void open_tmpfs(fs_node_t * node, unsigned int flags) {
@@ -432,7 +433,7 @@ static int unlink_tmpfs(fs_node_t * node, char * name) {
 	return 0;
 }
 
-static int create_tmpfs(fs_node_t *parent, char *name, uint16_t permission) {
+static int create_tmpfs(fs_node_t *parent, char *name, mode_t permission) {
 	if (!name) return -EINVAL;
 
 	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->device;
@@ -459,7 +460,7 @@ static int create_tmpfs(fs_node_t *parent, char *name, uint16_t permission) {
 	return 0;
 }
 
-static int mkdir_tmpfs(fs_node_t * parent, char * name, uint16_t permission) {
+static int mkdir_tmpfs(fs_node_t * parent, char * name, mode_t permission) {
 	if (!name) return -EINVAL;
 	if (!strlen(name)) return -EINVAL;
 

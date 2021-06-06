@@ -285,7 +285,7 @@ static void init_tx(struct e1000_nic * device) {
 		read_command(device, E1000_REG_TCTRL));
 }
 
-static int ioctl_e1000(fs_node_t * node, int request, void * argp) {
+static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 	struct e1000_nic * nic = node->device;
 
 	switch (request) {
@@ -310,14 +310,14 @@ static int ioctl_e1000(fs_node_t * node, int request, void * argp) {
 	}
 }
 
-static uint64_t write_e1000(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t write_e1000(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	struct e1000_nic * nic = node->device;
 	/* write packet */
 	send_packet(nic, buffer, size);
 	return size;
 }
 
-static uint64_t read_e1000(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t read_e1000(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	if (size != 8092) return 0;
 	struct e1000_nic * nic = node->device;
 

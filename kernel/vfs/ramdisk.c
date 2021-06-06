@@ -26,19 +26,19 @@
 #include <kernel/process.h>
 #include <kernel/mmu.h>
 
-static uint64_t read_ramdisk(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer);
-static uint64_t write_ramdisk(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer);
+static ssize_t read_ramdisk(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer);
+static ssize_t write_ramdisk(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer);
 static void     open_ramdisk(fs_node_t *node, unsigned int flags);
 static void     close_ramdisk(fs_node_t *node);
 
-static uint64_t read_ramdisk(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t read_ramdisk(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 
-	if (offset > node->length) {
+	if ((size_t)offset > node->length) {
 		return 0;
 	}
 
-	if (offset + size > node->length) {
-		unsigned int i = node->length - offset;
+	if ((size_t)offset + size > node->length) {
+		size_t i = node->length - offset;
 		size = i;
 	}
 
@@ -47,8 +47,8 @@ static uint64_t read_ramdisk(fs_node_t *node, uint64_t offset, uint64_t size, ui
 	return size;
 }
 
-static uint64_t write_ramdisk(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
-	if (offset > node->length) {
+static ssize_t write_ramdisk(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+	if ((size_t)offset > node->length) {
 		return 0;
 	}
 
@@ -69,7 +69,7 @@ static void close_ramdisk(fs_node_t * node) {
 	return;
 }
 
-static int ioctl_ramdisk(fs_node_t * node, int request, void * argp) {
+static int ioctl_ramdisk(fs_node_t * node, unsigned long request, void * argp) {
 	switch (request) {
 		case 0x4001:
 			if (this_core->current_process->user != 0) {

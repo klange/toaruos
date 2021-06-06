@@ -61,7 +61,7 @@ int has_permission(fs_node_t * node, int permission_bit) {
 
 }
 
-static struct dirent * readdir_mapper(fs_node_t *node, uint64_t index) {
+static struct dirent * readdir_mapper(fs_node_t *node, unsigned long index) {
 	tree_node_t * d = (tree_node_t *)node->device;
 
 	if (!d) return NULL;
@@ -79,7 +79,7 @@ static struct dirent * readdir_mapper(fs_node_t *node, uint64_t index) {
 	}
 
 	index -= 2;
-	unsigned int i = 0;
+	unsigned long i = 0;
 	foreach(child, d->children) {
 		if (i == index) {
 			/* Recursively print the children */
@@ -145,12 +145,10 @@ int selectwait_fs(fs_node_t * node, void * process) {
  * @param buffer  A buffer to copy of the read data into
  * @returns Bytes read
  */
-uint64_t read_fs(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+ssize_t read_fs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	if (!node) return -ENOENT;
-
 	if (node->read) {
-		uint64_t ret = node->read(node, offset, size, buffer);
-		return ret;
+		return node->read(node, offset, size, buffer);
 	} else {
 		return -EINVAL;
 	}
@@ -165,12 +163,10 @@ uint64_t read_fs(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffe
  * @param buffer  A buffer to copy from
  * @returns Bytes written
  */
-uint64_t write_fs(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+ssize_t write_fs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	if (!node) return -ENOENT;
-
 	if (node->write) {
-		uint64_t ret = node->write(node, offset, size, buffer);
-		return ret;
+		return node->write(node, offset, size, buffer);
 	} else {
 		return -EROFS;
 	}
@@ -181,12 +177,14 @@ uint64_t write_fs(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buff
  *
  * @param node File to resize
  */
-void truncate_fs(fs_node_t * node) {
-	if (!node) return;
+int truncate_fs(fs_node_t * node) {
+	if (!node) return -ENOENT;
 
 	if (node->truncate) {
-		node->truncate(node);
+		return node->truncate(node);
 	}
+
+	return -EINVAL;
 }
 
 //volatile uint8_t tmp_refcount_lock = 0;
@@ -254,7 +252,7 @@ void close_fs(fs_node_t *node) {
  * @param node Node to change permissions for
  * @param mode New mode bits
  */
-int chmod_fs(fs_node_t *node, int mode) {
+int chmod_fs(fs_node_t *node, mode_t mode) {
 	if (node->chmod) {
 		return node->chmod(node, mode);
 	}
@@ -264,7 +262,7 @@ int chmod_fs(fs_node_t *node, int mode) {
 /**
  * @brief Change ownership for a file system node.
  */
-int chown_fs(fs_node_t *node, int uid, int gid) {
+int chown_fs(fs_node_t *node, uid_t uid, gid_t gid) {
 	if (node->chown) {
 		return node->chown(node, uid, gid);
 	}
@@ -278,14 +276,13 @@ int chown_fs(fs_node_t *node, int uid, int gid) {
  * @param index Offset to look for
  * @returns A dirent object.
  */
-struct dirent *readdir_fs(fs_node_t *node, uint64_t index) {
+struct dirent *readdir_fs(fs_node_t *node, unsigned long index) {
 	if (!node) return NULL;
 
 	if ((node->flags & FS_DIRECTORY) && node->readdir) {
-		struct dirent *ret = node->readdir(node, index);
-		return ret;
+		return node->readdir(node, index);
 	} else {
-		return (struct dirent *)NULL;
+		return NULL;
 	}
 }
 
@@ -300,12 +297,11 @@ fs_node_t *finddir_fs(fs_node_t *node, char *name) {
 	if (!node) return NULL;
 
 	if ((node->flags & FS_DIRECTORY) && node->finddir) {
-		fs_node_t *ret = node->finddir(node, name);
-		return ret;
+		return node->finddir(node, name);
 	} else {
 		debug_print(WARNING, "Node passed to finddir_fs isn't a directory!");
 		debug_print(WARNING, "node = %p, name = %s", (void*)node, name);
-		return (fs_node_t *)NULL;
+		return NULL;
 	}
 }
 
@@ -317,7 +313,7 @@ fs_node_t *finddir_fs(fs_node_t *node, char *name) {
  * @param argp    Depends on `request`
  * @returns Depends on `request`
  */
-int ioctl_fs(fs_node_t *node, int request, void * argp) {
+int ioctl_fs(fs_node_t *node, unsigned long request, void * argp) {
 	if (!node) return -ENOENT;
 
 	if (node->ioctl) {
@@ -335,7 +331,7 @@ int ioctl_fs(fs_node_t *node, int request, void * argp) {
  *      and a file, thus, the use of flag sets should suffice
  */
 
-int create_file_fs(char *name, uint16_t permission) {
+int create_file_fs(char *name, mode_t permission) {
 	fs_node_t * parent;
 	char *cwd = (char *)(this_core->current_process->wd_name);
 	char *path = canonicalize_path(cwd, name);
@@ -434,7 +430,7 @@ int unlink_fs(char * name) {
 	return ret;
 }
 
-int mkdir_fs(char *name, uint16_t permission) {
+int mkdir_fs(char *name, mode_t permission) {
 	fs_node_t * parent;
 	char *cwd = (char *)(this_core->current_process->wd_name);
 	char *path = canonicalize_path(cwd, name);
@@ -552,7 +548,7 @@ int symlink_fs(char * target, char * name) {
 	return ret;
 }
 
-int readlink_fs(fs_node_t *node, char * buf, uint64_t size) {
+ssize_t readlink_fs(fs_node_t *node, char * buf, size_t size) {
 	if (!node) return -ENOENT;
 
 	if (node->readlink) {
@@ -1095,7 +1091,7 @@ fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_de
  * @param flags    Flag bits for read/write mode.
  * @returns A file system node element that the caller can free.
  */
-fs_node_t *kopen(const char *filename, uint64_t flags) {
+fs_node_t *kopen(const char *filename, unsigned int flags) {
 	debug_print(NOTICE, "kopen(%s)", filename);
 
 	return kopen_recur(filename, flags, 0, (char *)(this_core->current_process->wd_name));

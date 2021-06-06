@@ -217,7 +217,7 @@ static void mouse_on_off(unsigned int status) {
 	outportl(vbox_port, vbox_phys_mouse);
 }
 
-static int ioctl_mouse(fs_node_t * node, int request, void * argp) {
+static int ioctl_mouse(fs_node_t * node, unsigned long request, void * argp) {
 	if (request == 1) {
 		/* Disable */
 		mouse_on_off(VBOX_MOUSE_OFF);
@@ -234,7 +234,7 @@ static int ioctl_mouse(fs_node_t * node, int request, void * argp) {
 	return -1;
 }
 
-uint64_t write_pointer(fs_node_t * node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t write_pointer(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
 	if (!mouse_state) {
 		return -1;
 	}
@@ -245,7 +245,7 @@ uint64_t write_pointer(fs_node_t * node, uint64_t offset, uint64_t size, uint8_t
 	return size;
 }
 
-uint64_t write_rectpipe(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t write_rectpipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	(void)node;
 	(void)offset;
 

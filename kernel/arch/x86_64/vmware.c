@@ -465,7 +465,7 @@ static void vmware_resize(void * data, char * name) {
 	}
 }
 
-static int ioctl_mouse(fs_node_t * node, int request, void * argp) {
+static int ioctl_mouse(fs_node_t * node, unsigned long request, void * argp) {
 	switch (request) {
 		case 1:
 			/* Disable */

@@ -108,7 +108,7 @@ static void pipe_alert_waiters(pipe_device_t * pipe) {
 	spin_unlock(pipe->alert_lock);
 }
 
-uint64_t read_pipe(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+ssize_t read_pipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	/* Retreive the pipe object associated with this file node */
 	pipe_device_t * pipe = (pipe_device_t *)node->device;
 
@@ -138,7 +138,7 @@ uint64_t read_pipe(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buf
 	return collected;
 }
 
-uint64_t write_pipe(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+ssize_t write_pipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	/* Retreive the pipe object associated with this file node */
 	pipe_device_t * pipe = (pipe_device_t *)node->device;
 

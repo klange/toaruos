@@ -123,7 +123,7 @@ static pex_client_t * create_client(pex_ex_t * p) {
 	return out;
 }
 
-static uint64_t read_server(fs_node_t * node, uint64_t offset, uint64_t size, uint8_t * buffer) {
+static ssize_t read_server(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
 	pex_ex_t * p = (pex_ex_t *)node->device;
 	debug_print(INFO, "[pex] server read(...)");
 
@@ -141,13 +141,13 @@ static uint64_t read_server(fs_node_t * node, uint64_t offset, uint64_t size, ui
 	}
 
 	memcpy(buffer, packet, packet->size + sizeof(packet_t));
-	uint64_t out = packet->size + sizeof(packet_t);
+	ssize_t out = packet->size + sizeof(packet_t);
 
 	free(packet);
 	return out;
 }
 
-static uint64_t write_server(fs_node_t * node, uint64_t offset, uint64_t size, uint8_t * buffer) {
+static ssize_t write_server(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
 	pex_ex_t * p = (pex_ex_t *)node->device;
 	debug_print(INFO, "[pex] server write(...)");
 
@@ -176,7 +176,7 @@ static uint64_t write_server(fs_node_t * node, uint64_t offset, uint64_t size, u
 	return send_to_client(p, head->target, size - sizeof(header_t), head->data) + sizeof(header_t);
 }
 
-static int ioctl_server(fs_node_t * node, int request, void * argp) {
+static int ioctl_server(fs_node_t * node, unsigned long request, void * argp) {
 	pex_ex_t * p = (pex_ex_t *)node->device;
 
 	switch (request) {
@@ -187,7 +187,7 @@ static int ioctl_server(fs_node_t * node, int request, void * argp) {
 	}
 }
 
-static uint64_t read_client(fs_node_t * node, uint64_t offset, uint64_t size, uint8_t * buffer) {
+static ssize_t read_client(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
 	pex_client_t * c = (pex_client_t *)node->inode;
 	if (c->parent != node->device) {
 		printf("pex: Invalid device endpoint on client read?\n");
@@ -208,7 +208,7 @@ static uint64_t read_client(fs_node_t * node, uint64_t offset, uint64_t size, ui
 	}
 
 	memcpy(buffer, &packet->data, packet->size);
-	uint32_t out = packet->size;
+	ssize_t out = packet->size;
 
 	debug_print(INFO, "[pex] Client received packet of size %zu", packet->size);
 	if (out == 0) {
@@ -219,7 +219,7 @@ static uint64_t read_client(fs_node_t * node, uint64_t offset, uint64_t size, ui
 	return out;
 }
 
-static uint64_t write_client(fs_node_t * node, uint64_t offset, uint64_t size, uint8_t * buffer) {
+static ssize_t write_client(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
 	pex_client_t * c = (pex_client_t *)node->inode;
 	if (c->parent != node->device) {
 		debug_print(WARNING, "[pex] Invalid device endpoint on client write?");
@@ -239,7 +239,7 @@ static uint64_t write_client(fs_node_t * node, uint64_t offset, uint64_t size, u
 	return size;
 }
 
-static int ioctl_client(fs_node_t * node, int request, void * argp) {
+static int ioctl_client(fs_node_t * node, unsigned long request, void * argp) {
 	pex_client_t * c = (pex_client_t *)node->inode;
 
 	switch (request) {
@@ -414,7 +414,7 @@ static fs_node_t * finddir_packetfs(fs_node_t * node, char * name) {
 	return NULL;
 }
 
-static int create_packetfs(fs_node_t *parent, char *name, uint16_t permission) {
+static int create_packetfs(fs_node_t *parent, char *name, mode_t permission) {
 	if (!name) return -EINVAL;
 
 	pex_t * p = (pex_t *)parent->device;

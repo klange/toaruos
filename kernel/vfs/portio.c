@@ -15,7 +15,7 @@
 #include <kernel/string.h>
 #include <kernel/arch/x86_64/ports.h>
 
-static uint64_t read_port(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t read_port(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	switch (size) {
 		case 1:
 			buffer[0] = inportb(offset);
@@ -36,7 +36,7 @@ static uint64_t read_port(fs_node_t *node, uint64_t offset, uint64_t size, uint8
 	return size;
 }
 
-static uint64_t write_port(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t write_port(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	switch (size) {
 		case 1:
 			outportb(offset, buffer[0]);

@@ -56,7 +56,7 @@ static fs_node_t * procfs_generic_create(const char * name, read_type_t read_fun
 	return fnode;
 }
 
-static uint64_t proc_cmdline_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t proc_cmdline_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	char buf[1024];
 	process_t * proc = process_from_pid(node->inode);
 
@@ -69,7 +69,7 @@ static uint64_t proc_cmdline_func(fs_node_t *node, uint64_t offset, uint64_t siz
 		snprintf(buf, 100, "%s", proc->name);
 
 		size_t _bsize = strlen(buf);
-		if (offset > _bsize) return 0;
+		if ((size_t)offset > _bsize) return 0;
 		if (size > _bsize - offset) size = _bsize - offset;
 
 		memcpy(buffer, buf + offset, size);
@@ -92,14 +92,14 @@ static uint64_t proc_cmdline_func(fs_node_t *node, uint64_t offset, uint64_t siz
 	}
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) return 0;
+	if ((size_t)offset > _bsize) return 0;
 	if (size > _bsize - offset) size = _bsize - offset;
 
 	memcpy(buffer, buf + offset, size);
 	return size;
 }
 
-static uint64_t proc_status_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t proc_status_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	char buf[2048];
 	process_t * proc = process_from_pid(node->inode);
 	process_t * parent = process_get_parent(proc);
@@ -173,7 +173,7 @@ static uint64_t proc_status_func(fs_node_t *node, uint64_t offset, uint64_t size
 			);
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) return 0;
+	if ((size_t)offset > _bsize) return 0;
 	if (size > _bsize - offset) size = _bsize - offset;
 
 	memcpy(buffer, buf + offset, size);
@@ -252,7 +252,7 @@ static fs_node_t * procfs_procdir_create(process_t * process) {
 	return fnode;
 }
 
-static uint64_t cpuinfo_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t cpuinfo_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	char buf[4096];
 	size_t _bsize = 0;
 
@@ -278,14 +278,14 @@ static uint64_t cpuinfo_func(fs_node_t *node, uint64_t offset, uint64_t size, ui
 	}
 #endif
 
-	if (offset > _bsize) return 0;
+	if ((size_t)offset > _bsize) return 0;
 	if (size > _bsize - offset) size = _bsize - offset;
 
 	memcpy(buffer, buf + offset, size);
 	return size;
 }
 
-static uint64_t meminfo_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t meminfo_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	char buf[1024];
 	size_t total = mmu_total_memory();
 	size_t free  = total - mmu_used_memory();
@@ -298,7 +298,7 @@ static uint64_t meminfo_func(fs_node_t *node, uint64_t offset, uint64_t size, ui
 		, total, free, kheap);
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) return 0;
+	if ((size_t)offset > _bsize) return 0;
 	if (size > _bsize - offset) size = _bsize - offset;
 
 	memcpy(buffer, buf + offset, size);
@@ -306,7 +306,7 @@ static uint64_t meminfo_func(fs_node_t *node, uint64_t offset, uint64_t size, ui
 }
 
 #ifdef __x86_64__
-static uint64_t pat_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t pat_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	char buf[1024];
 
 	uint32_t pat_value_low, pat_value_high;
@@ -353,7 +353,7 @@ static uint64_t pat_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_
 	);
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) return 0;
+	if ((size_t)offset > _bsize) return 0;
 	if (size > _bsize - offset) size = _bsize - offset;
 
 	memcpy(buffer, buf + offset, size);
@@ -361,27 +361,27 @@ static uint64_t pat_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_
 }
 #endif
 
-static uint64_t uptime_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t uptime_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	char buf[1024];
 	unsigned long timer_ticks, timer_subticks;
 	relative_time(0,0,&timer_ticks,&timer_subticks);
 	snprintf(buf, 100, "%lu.%06lu\n", timer_ticks, timer_subticks);
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) return 0;
+	if ((size_t)offset > _bsize) return 0;
 	if (size > _bsize - offset) size = _bsize - offset;
 
 	memcpy(buffer, buf + offset, size);
 	return size;
 }
 
-static uint64_t cmdline_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t cmdline_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	char buf[1024];
 	const char * cmdline = arch_get_cmdline();
 	snprintf(buf, 1000, "%s\n", cmdline ? cmdline : "");
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) return 0;
+	if ((size_t)offset > _bsize) return 0;
 	if (size > _bsize - offset) size = _bsize - offset;
 
 	memcpy(buffer, buf + offset, size);
@@ -389,7 +389,7 @@ static uint64_t cmdline_func(fs_node_t *node, uint64_t offset, uint64_t size, ui
 	return 0;
 }
 
-static uint64_t version_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t version_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	char buf[1024];
 	char version_number[512];
 	snprintf(version_number, 510,
@@ -407,19 +407,19 @@ static uint64_t version_func(fs_node_t *node, uint64_t offset, uint64_t size, ui
 			__kernel_arch);
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) return 0;
+	if ((size_t)offset > _bsize) return 0;
 	if (size > _bsize - offset) size = _bsize - offset;
 
 	memcpy(buffer, buf + offset, size);
 	return size;
 }
 
-static uint64_t compiler_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t compiler_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	char buf[1024];
 	snprintf(buf, 1000, "%s\n", __kernel_compiler_version);
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) return 0;
+	if ((size_t)offset > _bsize) return 0;
 	if (size > _bsize - offset) size = _bsize - offset;
 
 	memcpy(buffer, buf + offset, size);
@@ -455,7 +455,7 @@ static void mount_recurse(char * buf, tree_node_t * node, size_t height) {
 	}
 }
 
-static uint64_t mounts_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t mounts_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	char * buf = malloc(4096);
 
 	buf[0] = '\0';
@@ -463,7 +463,7 @@ static uint64_t mounts_func(fs_node_t *node, uint64_t offset, uint64_t size, uin
 	mount_recurse(buf, fs_tree->root, 0);
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) {
+	if ((size_t)offset > _bsize) {
 		free(buf);
 		return 0;
 	}
@@ -474,7 +474,7 @@ static uint64_t mounts_func(fs_node_t *node, uint64_t offset, uint64_t size, uin
 	return size;
 }
 
-static uint64_t modules_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t modules_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 #if 0
 	list_t * hash_keys = hashmap_keys(modules_get_list());
 	char * buf = malloc(hash_keys->length * 512);
@@ -506,7 +506,7 @@ static uint64_t modules_func(fs_node_t *node, uint64_t offset, uint64_t size, ui
 	free(hash_keys);
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) {
+	if ((size_t)offset > _bsize) {
 		free(buf);
 		return 0;
 	}
@@ -521,7 +521,7 @@ static uint64_t modules_func(fs_node_t *node, uint64_t offset, uint64_t size, ui
 
 extern hashmap_t * fs_types; /* from kernel/fs/vfs.c */
 
-static uint64_t filesystems_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t filesystems_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	list_t * hash_keys = hashmap_keys(fs_types);
 	char * buf = malloc(hash_keys->length * 512);
 	unsigned int soffset = 0;
@@ -532,7 +532,7 @@ static uint64_t filesystems_func(fs_node_t *node, uint64_t offset, uint64_t size
 	free(hash_keys);
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) {
+	if ((size_t)offset > _bsize) {
 		free(buf);
 		return 0;
 	}
@@ -543,13 +543,13 @@ static uint64_t filesystems_func(fs_node_t *node, uint64_t offset, uint64_t size
 	return size;
 }
 
-static uint64_t loader_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t loader_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	char * buf = malloc(512);
 
 	snprintf(buf, 511, "%s\n", arch_get_loader());
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) {
+	if ((size_t)offset > _bsize) {
 		free(buf);
 		return 0;
 	}
@@ -563,7 +563,7 @@ static uint64_t loader_func(fs_node_t *node, uint64_t offset, uint64_t size, uin
 #ifdef __x86_64__
 #include <kernel/arch/x86_64/irq.h>
 #include <kernel/arch/x86_64/ports.h>
-static uint64_t irq_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t irq_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	char * buf = malloc(4096);
 	unsigned int soffset = 0;
 
@@ -588,7 +588,7 @@ static uint64_t irq_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_
 	soffset += snprintf(&buf[soffset], 100, "imr=0x%04x\n", (inportb(0xA1) << 8) | inportb(0x21));
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) {
+	if ((size_t)offset > _bsize) {
 		free(buf);
 		return 0;
 	}
@@ -637,7 +637,7 @@ static void scan_count(uint32_t device, uint16_t vendorid, uint16_t deviceid, vo
 	(*count)++;
 }
 
-static uint64_t pci_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t pci_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	size_t count = 0;
 	pci_scan(&scan_count, -1, &count);
 
@@ -647,7 +647,7 @@ static uint64_t pci_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_
 	pci_scan(&scan_hit_list, -1, &b);
 
 	size_t _bsize = b.offset;
-	if (offset > _bsize) {
+	if ((size_t)offset > _bsize) {
 		free(b.buffer);
 		return 0;
 	}
@@ -659,7 +659,7 @@ static uint64_t pci_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_
 }
 #endif
 
-static uint64_t smp_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+static ssize_t smp_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	char * buf = malloc(4096);
 	unsigned int soffset = 0;
 
@@ -668,7 +668,7 @@ static uint64_t smp_func(fs_node_t *node, uint64_t offset, uint64_t size, uint8_
 	}
 
 	size_t _bsize = strlen(buf);
-	if (offset > _bsize) {
+	if ((size_t)offset > _bsize) {
 		free(buf);
 		return 0;
 	}
@@ -794,7 +794,7 @@ static struct dirent * readdir_procfs_root(fs_node_t *node, uint64_t index) {
 	return out;
 }
 
-static int readlink_self(fs_node_t * node, char * buf, size_t size) {
+static ssize_t readlink_self(fs_node_t * node, char * buf, size_t size) {
 	char tmp[30];
 	size_t req;
 	snprintf(tmp, 100, "/proc/%d", this_core->current_process->id);

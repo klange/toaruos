@@ -42,29 +42,29 @@
 
 struct fs_node;
 
-typedef uint64_t (*read_type_t) (struct fs_node *,  uint64_t, uint64_t, uint8_t *);
-typedef uint64_t (*write_type_t) (struct fs_node *, uint64_t, uint64_t, uint8_t *);
+typedef ssize_t (*read_type_t) (struct fs_node *,  off_t, size_t, uint8_t *);
+typedef ssize_t (*write_type_t) (struct fs_node *, off_t, size_t, uint8_t *);
 typedef void (*open_type_t) (struct fs_node *, unsigned int flags);
 typedef void (*close_type_t) (struct fs_node *);
-typedef struct dirent *(*readdir_type_t) (struct fs_node *, uint64_t);
+typedef struct dirent *(*readdir_type_t) (struct fs_node *, unsigned long);
 typedef struct fs_node *(*finddir_type_t) (struct fs_node *, char *name);
-typedef int (*create_type_t) (struct fs_node *, char *name, uint16_t permission);
+typedef int (*create_type_t) (struct fs_node *, char *name, mode_t permission);
 typedef int (*unlink_type_t) (struct fs_node *, char *name);
-typedef int (*mkdir_type_t) (struct fs_node *, char *name, uint16_t permission);
-typedef int (*ioctl_type_t) (struct fs_node *, int request, void * argp);
+typedef int (*mkdir_type_t) (struct fs_node *, char *name, mode_t permission);
+typedef int (*ioctl_type_t) (struct fs_node *, unsigned long request, void * argp);
 typedef int (*get_size_type_t) (struct fs_node *);
-typedef int (*chmod_type_t) (struct fs_node *, int mode);
+typedef int (*chmod_type_t) (struct fs_node *, mode_t mode);
 typedef int (*symlink_type_t) (struct fs_node *, char * name, char * value);
-typedef int (*readlink_type_t) (struct fs_node *, char * buf, size_t size);
+typedef ssize_t (*readlink_type_t) (struct fs_node *, char * buf, size_t size);
 typedef int (*selectcheck_type_t) (struct fs_node *);
 typedef int (*selectwait_type_t) (struct fs_node *, void * process);
-typedef int (*chown_type_t) (struct fs_node *, int, int);
-typedef void (*truncate_type_t) (struct fs_node *);
+typedef int (*chown_type_t) (struct fs_node *, uid_t, gid_t);
+typedef int (*truncate_type_t) (struct fs_node *);
 
 typedef struct fs_node {
 	char name[256];         /* The filename. */
 	void * device;          /* Device object (optional) */
-	uint64_t mask;          /* The permissions mask. */
+	mode_t mask;          /* The permissions mask. */
 	uid_t uid;           /* The owning user. */
 	uid_t gid;           /* The owning group. */
 	uint64_t flags;         /* Flags (node type, etc). */
@@ -74,9 +74,9 @@ typedef struct fs_node {
 	uint64_t open_flags;    /* Flags passed to open (read/write/append, etc.) */
 
 	/* times */
-	uint64_t atime;         /* Accessed */
-	uint64_t mtime;         /* Modified */
-	uint64_t ctime;         /* Created  */
+	time_t atime;         /* Accessed */
+	time_t mtime;         /* Modified */
+	time_t ctime;         /* Created  */
 
 	/* File operations */
 	read_type_t read;
@@ -116,26 +116,26 @@ extern fs_node_t *fs_root;
 extern int pty_create(void *size, fs_node_t ** fs_master, fs_node_t ** fs_slave);
 
 int has_permission(fs_node_t *node, int permission_bit);
-uint64_t read_fs(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer);
-uint64_t write_fs(fs_node_t *node, uint64_t offset, uint64_t size, uint8_t *buffer);
+ssize_t read_fs(fs_node_t *node,  off_t offset, size_t size, uint8_t *buffer);
+ssize_t write_fs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer);
 void open_fs(fs_node_t *node, unsigned int flags);
 void close_fs(fs_node_t *node);
-struct dirent *readdir_fs(fs_node_t *node, uint64_t index);
+struct dirent *readdir_fs(fs_node_t *node, unsigned long index);
 fs_node_t *finddir_fs(fs_node_t *node, char *name);
-int mkdir_fs(char *name, uint16_t permission);
-int create_file_fs(char *name, uint16_t permission);
-fs_node_t *kopen(const char *filename, uint64_t flags);
+int mkdir_fs(char *name, mode_t permission);
+int create_file_fs(char *name, mode_t permission);
+fs_node_t *kopen(const char *filename, unsigned int flags);
 char *canonicalize_path(const char *cwd, const char *input);
 fs_node_t *clone_fs(fs_node_t * source);
-int ioctl_fs(fs_node_t *node, int request, void * argp);
-int chmod_fs(fs_node_t *node, int mode);
-int chown_fs(fs_node_t *node, int uid, int gid);
+int ioctl_fs(fs_node_t *node, unsigned long request, void * argp);
+int chmod_fs(fs_node_t *node, mode_t mode);
+int chown_fs(fs_node_t *node, uid_t uid, gid_t gid);
 int unlink_fs(char * name);
 int symlink_fs(char * value, char * name);
-int readlink_fs(fs_node_t * node, char * buf, size_t size);
+ssize_t readlink_fs(fs_node_t * node, char * buf, size_t size);
 int selectcheck_fs(fs_node_t * node);
 int selectwait_fs(fs_node_t * node, void * process);
-void truncate_fs(fs_node_t * node);
+int truncate_fs(fs_node_t * node);
 
 void vfs_install(void);
 void * vfs_mount(const char * path, fs_node_t * local_root);

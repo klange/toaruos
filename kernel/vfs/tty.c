@@ -261,7 +261,7 @@ static void tty_fill_name(pty_t * pty, char * out) {
 	snprintf((char*)out, 100, "/dev/pts/%zd", pty->name);
 }
 
-int pty_ioctl(pty_t * pty, int request, void * argp) {
+int pty_ioctl(pty_t * pty, unsigned long request, void * argp) {
 	switch (request) {
 		case IOCTLDTYPE:
 			/*
@@ -328,13 +328,13 @@ int pty_ioctl(pty_t * pty, int request, void * argp) {
 	}
 }
 
-uint64_t  read_pty_master(fs_node_t * node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+ssize_t  read_pty_master(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
 
 	/* Standard pipe read */
 	return ring_buffer_read(pty->out, size, buffer);
 }
-uint64_t write_pty_master(fs_node_t * node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+ssize_t write_pty_master(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
 
 	size_t l = 0;
@@ -351,7 +351,7 @@ void     close_pty_master(fs_node_t * node) {
 	return;
 }
 
-uint64_t  read_pty_slave(fs_node_t * node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+ssize_t read_pty_slave(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
 
 	if (pty->tios.c_lflag & ICANON) {
@@ -365,7 +365,7 @@ uint64_t  read_pty_slave(fs_node_t * node, uint64_t offset, uint64_t size, uint8
 	}
 }
 
-uint64_t write_pty_slave(fs_node_t * node, uint64_t offset, uint64_t size, uint8_t *buffer) {
+ssize_t write_pty_slave(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
 
 	size_t l = 0;
@@ -390,12 +390,12 @@ void     close_pty_slave(fs_node_t * node) {
  * These are separate functions just in case I ever feel the need to do
  * things differently in the slave or master.
  */
-int ioctl_pty_master(fs_node_t * node, int request, void * argp) {
+int ioctl_pty_master(fs_node_t * node, unsigned long request, void * argp) {
 	pty_t * pty = (pty_t *)node->device;
 	return pty_ioctl(pty, request, argp);
 }
 
-int ioctl_pty_slave(fs_node_t * node, int request, void * argp) {
+int ioctl_pty_slave(fs_node_t * node, unsigned long request, void * argp) {
 	pty_t * pty = (pty_t *)node->device;
 	return pty_ioctl(pty, request, argp);
 }
@@ -502,7 +502,7 @@ static int isatty(fs_node_t * node) {
 	return ioctl_fs(node, IOCTLDTYPE, NULL) == IOCTL_DTYPE_TTY;
 }
 
-static int readlink_dev_tty(fs_node_t * node, char * buf, size_t size) {
+static ssize_t readlink_dev_tty(fs_node_t * node, char * buf, size_t size) {
 	pty_t * pty = NULL;
 
 	for (unsigned int i = 0; i < ((this_core->current_process->fds->length < 3) ? this_core->current_process->fds->length : 3); ++i) {
@@ -552,7 +552,7 @@ static fs_node_t * create_dev_tty(void) {
 	return fnode;
 }
 
-static struct dirent * readdir_pty(fs_node_t *node, uint64_t index) {
+static struct dirent * readdir_pty(fs_node_t *node, unsigned long index) {
 	if (index == 0) {
 		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
