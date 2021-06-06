@@ -332,7 +332,11 @@ static int configure_interface(const char * if_name) {
 			yiaddr = response->dhcp_header.yiaddr;
 			char yiaddr_ip[16];
 			ip_ntoa(ntohl(yiaddr), yiaddr_ip);
-			printf("%s: %s: configured for %s\n", _argv_0, if_name, yiaddr_ip);
+			if (!ioctl(netdev, 0x12340012, &yiaddr)) {
+				printf("%s: %s: configured for %s\n", _argv_0, if_name, yiaddr_ip);
+			} else {
+				perror(_argv_0);
+			}
 			close(netdev);
 			return 0;
 		}

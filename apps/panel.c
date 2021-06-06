@@ -18,12 +18,14 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <signal.h>
+#include <dirent.h>
 #include <sys/time.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/fswait.h>
+#include <sys/socket.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -388,86 +390,56 @@ static void update_weather_status(void) {
 }
 
 static int netstat_left = 0;
+static int netstat_count = 0;
+static char netstat_data[32][1024];
 
-static struct MenuEntry_Normal * netstat_ip_entry;
-static char * netstat_ip = NULL;
-static struct MenuEntry_Normal * netstat_device_entry;
-static char * netstat_device = NULL;
-static struct MenuEntry_Normal * netstat_gateway_entry;
-static char * netstat_gateway = NULL;
-static struct MenuEntry_Normal * netstat_dns_entry;
-static char * netstat_dns = NULL;
-static struct MenuEntry_Normal * netstat_mac_entry;
-static char * netstat_mac = NULL;
+static void ip_ntoa(const uint32_t src_addr, char * out) {
+	snprintf(out, 16, "%d.%d.%d.%d",
+		(src_addr & 0xFF000000) >> 24,
+		(src_addr & 0xFF0000) >> 16,
+		(src_addr & 0xFF00) >> 8,
+		(src_addr & 0xFF));
+}
+
+static void check_network(const char * if_name) {
+	if (netstat_count >= 32) return;
+
+	char if_path[512];
+	snprintf(if_path, 511, "/dev/net/%s", if_name);
+	int netdev = open(if_path, O_RDWR);
+
+	if (netdev < 0) return;
+
+	/* Get IPv4 address */
+	uint32_t ip_addr;
+	if (!ioctl(netdev, 0x12340002, &ip_addr)) {
+		char ip_str[16];
+		ip_ntoa(ntohl(ip_addr), ip_str);
+		snprintf(netstat_data[netstat_count], 1023, "%s: %s", if_name, ip_str);
+		network_status |= 2;
+	} else {
+		snprintf(netstat_data[netstat_count], 1023, "%s: disconnected", if_name);
+		network_status |= 1;
+	}
+
+	close(netdev);
+	netstat_count++;
+}
 
 static void update_network_status(void) {
-	FILE * net = fopen("/proc/netif","r");
+	network_status = 0;
+	netstat_count = 0;
 
-	if (!net) return;
+	DIR * d = opendir("/dev/net");
+	if (!d) return;
 
-	char line[256];
+	struct dirent * ent;
+	while ((ent = readdir(d))) {
+		if (ent->d_name[0] == '.') continue;
+		check_network(ent->d_name);
+	}
 
-	do {
-		memset(line, 0, 256);
-		fgets(line, 256, net);
-		if (!*line) break;
-		if (strstr(line,"no network") != NULL) {
-			network_status = 0;
-			break;
-		} else if (strstr(line,"ip:") != NULL) {
-			network_status = 1;
-			if (netstat_ip) {
-				free(netstat_ip);
-			}
-			char tmp[512];
-			sprintf(tmp, "IP: %s", &line[strlen("ip: ")]);
-			char * lf = strstr(tmp,"\n");
-			if (lf) *lf = '\0';
-			netstat_ip = strdup(tmp);
-		} else if (strstr(line,"device:") != NULL) {
-			network_status = 1;
-			if (netstat_device) {
-				free(netstat_device);
-			}
-			char tmp[512];
-			sprintf(tmp, "Device: %s", &line[strlen("device: ")]);
-			char * lf = strstr(tmp,"\n");
-			if (lf) *lf = '\0';
-			netstat_device = strdup(tmp);
-		} else if (strstr(line,"gateway:") != NULL) {
-			network_status = 1;
-			if (netstat_gateway) {
-				free(netstat_gateway);
-			}
-			char tmp[512];
-			sprintf(tmp, "Gateway: %s", &line[strlen("gateway: ")]);
-			char * lf = strstr(tmp,"\n");
-			if (lf) *lf = '\0';
-			netstat_gateway = strdup(tmp);
-		} else if (strstr(line,"dns:") != NULL) {
-			network_status = 1;
-			if (netstat_dns) {
-				free(netstat_dns);
-			}
-			char tmp[512];
-			sprintf(tmp, "Primary DNS: %s", &line[strlen("dns: ")]);
-			char * lf = strstr(tmp,"\n");
-			if (lf) *lf = '\0';
-			netstat_dns = strdup(tmp);
-		} else if (strstr(line,"mac:") != NULL) {
-			network_status = 1;
-			if (netstat_mac) {
-				free(netstat_mac);
-			}
-			char tmp[512];
-			sprintf(tmp, "MAC: %s", &line[strlen("mac: ")]);
-			char * lf = strstr(tmp,"\n");
-			if (lf) *lf = '\0';
-			netstat_mac = strdup(tmp);
-		}
-	} while (1);
-
-	fclose(net);
+	closedir(d);
 }
 
 static void show_logout_menu(void) {
@@ -561,29 +533,18 @@ static void show_network_status(void) {
 		netstat = menu_create();
 		menu_insert(netstat, menu_create_normal(NULL, NULL, "Network Status", NULL));
 		menu_insert(netstat, menu_create_separator());
-		netstat_ip_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
-		menu_insert(netstat, netstat_ip_entry);
-		netstat_dns_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
-		menu_insert(netstat, netstat_dns_entry);
-		netstat_gateway_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
-		menu_insert(netstat, netstat_gateway_entry);
-		netstat_mac_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
-		menu_insert(netstat, netstat_mac_entry);
-		netstat_device_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
-		menu_insert(netstat, netstat_device_entry);
 	}
-	if (network_status) {
-		menu_update_title(netstat_ip_entry, netstat_ip);
-		menu_update_title(netstat_device_entry, netstat_device ? netstat_device : "(?)");
-		menu_update_title(netstat_dns_entry, netstat_dns ? netstat_dns : "(?)");
-		menu_update_title(netstat_gateway_entry, netstat_gateway ? netstat_gateway : "(?)");
-		menu_update_title(netstat_mac_entry, netstat_mac ? netstat_mac : "(?)");
+	while (netstat->entries->length > 2) {
+		node_t * node = list_pop(netstat->entries);
+		menu_free_entry((struct MenuEntry *)node->value);
+		free(node);
+	}
+	if (!network_status) {
+		menu_insert(netstat, menu_create_normal(NULL, NULL, "No network.", NULL));
 	} else {
-		menu_update_title(netstat_ip_entry, "No network.");
-		menu_update_title(netstat_device_entry, "");
-		menu_update_title(netstat_dns_entry, "");
-		menu_update_title(netstat_gateway_entry, "");
-		menu_update_title(netstat_mac_entry, "");
+		for (int i = 0; i < netstat_count; ++i) {
+			menu_insert(netstat, menu_create_normal(NULL, NULL, netstat_data[i], NULL));
+		}
 	}
 	if (!netstat->window) {
 		menu_show(netstat, yctx);
@@ -1027,7 +988,7 @@ static void redraw(void) {
 	/* - Network */
 	if (widgets_network_enabled) {
 		uint32_t color = (netstat && netstat->window) ? HILIGHT_COLOR : ICON_COLOR;
-		if (network_status == 1) {
+		if (network_status & 2) {
 			draw_sprite_alpha_paint(ctx, sprite_net_active, WIDGET_POSITION(widget), 0, 1.0, color);
 		} else {
 			draw_sprite_alpha_paint(ctx, sprite_net_disabled, WIDGET_POSITION(widget), 0, 1.0, color);

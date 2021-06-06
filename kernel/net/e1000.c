@@ -32,6 +32,9 @@ struct e1000_nic {
 	/* This should be generic netif struct stuff... */
 	char if_name[32];
 	uint8_t mac[6];
+	/* XXX: just to get things going */
+	uint32_t ipv4_addr;
+	uint8_t ipv6_addr[16];
 	/* TODO: Address lists? */
 
 	fs_node_t * device_node;
@@ -290,6 +293,18 @@ static int ioctl_e1000(fs_node_t * node, int request, void * argp) {
 			/* fill argp with mac */
 			memcpy(argp, nic->mac, 6);
 			return 0;
+		case 0x12340002:
+			if (nic->ipv4_addr == 0) return -ENOENT;
+			memcpy(argp, &nic->ipv4_addr, sizeof(nic->ipv4_addr));
+			return 0;
+		case 0x12340012:
+			memcpy(&nic->ipv4_addr, argp, sizeof(nic->ipv4_addr));
+			return 0;
+		case 0x12340003:
+			return -ENOENT;
+		case 0x12340013:
+			memcpy(&nic->ipv6_addr, argp, sizeof(nic->ipv6_addr));
+			return 0;
 		default:
 			return -EINVAL;
 	}
@@ -449,7 +464,7 @@ static void e1000_init(void * data) {
 	nic->device_node = calloc(sizeof(fs_node_t),1);
 	snprintf(nic->device_node->name, 100, "%s", nic->if_name);
 	nic->device_node->flags = FS_BLOCKDEVICE; /* NETDEVICE? */
-	nic->device_node->mask  = 0600; /* Only root can access network devices directly */
+	nic->device_node->mask  = 0666; /* temporary; shouldn't be doing this with these device files */
 	nic->device_node->ioctl = ioctl_e1000;
 	nic->device_node->write = write_e1000;
 	nic->device_node->read  = read_e1000;
