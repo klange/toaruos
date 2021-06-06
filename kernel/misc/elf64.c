@@ -244,11 +244,14 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 
 	/* Map stack space */
 	uintptr_t userstack = 0x800000000000;
-	for (uintptr_t i = userstack - 64 * 0x400; i < userstack; i += 0x1000) {
+	for (uintptr_t i = userstack - 16 * 0x400; i < userstack; i += 0x1000) {
 		union PML * page = mmu_get_page(i, MMU_GET_MAKE);
 		mmu_frame_allocate(page, MMU_FLAG_WRITABLE);
 		mmu_invalidate(i);
 	}
+
+	this_core->current_process->image.userstack = userstack - 16 * 0x400;
+
 #define PUSH(type,val) do { \
 	userstack -= sizeof(type); \
 	while (userstack & (sizeof(type)-1)) userstack--; \

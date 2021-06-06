@@ -47,6 +47,7 @@ typedef struct image {
 	uintptr_t heap;
 	uintptr_t stack;
 	uintptr_t shm_heap;
+	uintptr_t userstack;
 	spin_lock_t lock;
 } image_t;
 

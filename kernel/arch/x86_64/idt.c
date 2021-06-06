@@ -155,6 +155,22 @@ void irq_uninstall_handler(size_t irq) {
 		irq_routines[i * IRQ_CHAIN_SIZE + irq] = NULL;
 }
 
+static void map_more_stack(uintptr_t fromAddr) {
+	volatile process_t * volatile proc = this_core->current_process;
+	if (proc->group != 0) {
+		proc = process_from_pid(proc->group);
+	}
+
+	spin_lock(proc->image.lock);
+	for (uintptr_t i = fromAddr; i < proc->image.userstack; i += 0x1000) {
+		union PML * page = mmu_get_page(i, MMU_GET_MAKE);
+		mmu_frame_allocate(page, MMU_FLAG_WRITABLE);
+		mmu_invalidate(i);
+	}
+	proc->image.userstack = fromAddr;
+	spin_unlock(proc->image.lock);
+}
+
 struct regs * isr_handler(struct regs * r) {
 	this_core->interrupt_registers = r;
 
@@ -172,6 +188,10 @@ struct regs * isr_handler(struct regs * r) {
 			}
 			if (faulting_address == 0x8DEADBEEF) {
 				return_from_signal_handler();
+				break;
+			}
+			if (faulting_address < 0x800000000000 && faulting_address > 0x700000000000) {
+				map_more_stack(faulting_address & 0xFFFFffffFFFFf000);
 				break;
 			}
 #ifdef DEBUG_FAULTS
