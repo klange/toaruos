@@ -337,6 +337,18 @@ static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 			return 0;
 		}
 
+		case 0x123400FF: {
+			/* discard all */
+			spin_lock(nic->net_queue_lock);
+			while (nic->net_queue->length) {
+				node_t * n = list_dequeue(nic->net_queue);
+				free(n->value);
+				free(n);
+			}
+			spin_unlock(nic->net_queue_lock);
+			return 0;
+		}
+
 		default:
 			return -EINVAL;
 	}

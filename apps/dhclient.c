@@ -165,6 +165,7 @@ uint16_t calculate_ipv4_checksum(struct ipv4_packet * p) {
 }
 
 uint8_t mac_addr[6];
+uint32_t xid = 0x1337;
 
 void fill(struct payload *it, size_t payload_size) {
 
@@ -206,7 +207,7 @@ void fill(struct payload *it, size_t payload_size) {
 	it->dhcp_header.htype = 1;
 	it->dhcp_header.hlen = 6;
 	it->dhcp_header.hops = 0;
-	it->dhcp_header.xid = htons(0x1337); /* transaction id... */
+	it->dhcp_header.xid = htonl(xid); /* transaction id... */
 	it->dhcp_header.secs = 0;
 	it->dhcp_header.flags = 0;
 
@@ -267,6 +268,11 @@ static int configure_interface(const char * if_name) {
 		return 1;
 	}
 
+	/* Ask the card to discard all packets, XXX */
+	ioctl(netdev, 0x123400FF, NULL);
+
+	xid = rand();
+
 	/* Try to frob the whatsit */
 	{
 		struct payload thething = {
@@ -285,6 +291,8 @@ static int configure_interface(const char * if_name) {
 	time_t sec_diff;
 	suseconds_t usec_diff;
 	gettimeofday(&start, NULL);
+
+	static uint8_t eth_broadcast[6] = {255,255,255,255,255,255};
 
 	do {
 		char buf[8092] = {0};
@@ -312,7 +320,19 @@ static int configure_interface(const char * if_name) {
 
 		struct payload * response = (void*)buf;
 
+		if (memcmp(response->eth_header.destination,mac_addr,6) &&
+		    memcmp(response->eth_header.destination,eth_broadcast,6)) {
+			/* Not ours */
+			continue;
+		}
+
 		if (ntohs(response->udp_header.destination_port) != 68) {
+			/* Not DHCP */
+			continue;
+		}
+
+		if (ntohl(response->dhcp_header.xid) != xid) {
+			/* Not our transaction */
 			continue;
 		}
 

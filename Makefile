@@ -41,12 +41,15 @@ EMU_ARGS += -M q35
 EMU_ARGS += -m $(RAM)
 EMU_ARGS += -smp $(SMP)
 EMU_ARGS += -no-reboot
-#EMU_ARGS += -display none
 EMU_ARGS += -serial mon:stdio
 EMU_ARGS += -rtc base=localtime
 EMU_ARGS += -soundhw pcspk,ac97
-EMU_ARGS += -netdev user,id=u1,hostfwd=tcp::5555-:23 -device e1000e,netdev=u1 -object filter-dump,id=f1,netdev=u1,file=qemu-e1000e.pcap
-#EMU_ARGS += -hda toaruos-disk.img
+
+# Configures two network devices on the same network
+EMU_ARGS += -net user
+EMU_ARGS += -netdev hubport,id=u1,hubid=0, -device e1000e,netdev=u1  -object filter-dump,id=f1,netdev=u1,file=qemu-e1000e.pcap
+EMU_ARGS += -netdev hubport,id=u2,hubid=0, -device e1000e,netdev=u2
+
 EMU_KVM  ?= -enable-kvm
 
 APPS=$(patsubst apps/%.c,%,$(wildcard apps/*.c)) $(patsubst apps/%.c++,%,$(wildcard apps/*.c++))
