@@ -1,7 +1,7 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2018 K. Lange
+ * Copyright (C) 2018-2021 K. Lange
  *
  * splash-log - Display startup messages before UI has started.
  */
@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#include <sys/utsname.h>
 
 #include <kernel/video.h>
 #include <toaru/pex.h>
@@ -51,10 +52,14 @@ static void write_char(int x, int y, int val, uint32_t color) {
 	}
 }
 
+static unsigned int line_offset = 0;
 static void update_message(char * c, int line) {
 	if (framebuffer_fd < 0) return;
 	int x = 20;
-	int y = 20 + char_height * line;
+	int y = 20 + line_offset * char_height;
+	if (line == 0) {
+		line_offset++;
+	}
 	while (*c) {
 		write_char(x, y, *c, FG_COLOR);
 		c++;
@@ -93,6 +98,20 @@ static void open_socket(void) {
 	if (!pex_endpoint) exit(1);
 }
 
+static void say_hello(void) {
+	/* Get our release version */
+	struct utsname u;
+	uname(&u);
+	/* Strip git tag */
+	char * tmp = strstr(u.release, "-");
+	if (tmp) *tmp = '\0';
+	/* Setup hello message */
+	char hello_msg[512];
+	snprintf(hello_msg, 511, "ToaruOS %s is starting up...", u.release);
+	/* Add it to the log */
+	update_message(hello_msg, 0);
+}
+
 int main(int argc, char * argv[]) {
 	if (getuid() != 0) {
 		fprintf(stderr, "%s: only root should run this\n", argv[0]);
@@ -103,9 +122,8 @@ int main(int argc, char * argv[]) {
 
 	if (!fork()) {
 		check_framebuffer();
-		//printf("splash daemon is running, framebuffer (%ldx%ld) is at %p\n", width, height, framebuffer);
 		clear_screen();
-		update_message("ToaruOS is starting up...", 0);
+		say_hello();
 
 		while (1) {
 			pex_packet_t * p = calloc(PACKET_SIZE, 1);
