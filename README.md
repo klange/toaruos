@@ -19,6 +19,7 @@ In April, 2021, work began on ToaruOS 2.0, which brings a rewritten kernel for x
 - **Composited graphical UI** with SSE-accelerated alpha blitting and optional Cairo backend.
 - **VM integration** for absolute mouse and automatic display sizing in VirtualBox and VMware Workstation.
 - **Unix-like terminal interface** including a feature-rich terminal emulator and several familiar utilities.
+- **Optional third-party ports** including GCC 10.3, Binutils, SDL1.2, Quake, and more.
 
 ### Notable Components
 
@@ -34,8 +35,10 @@ In April, 2021, work began on ToaruOS 2.0, which brings a rewritten kernel for x
 
 The following projects are currently in progress:
 
+- **Rewrite the network stack** for greater throughput, stability, and server support.
 - **Stabilize SMP support** by cleaning up locks and other synchronization issues in the kernel.
 - **Support more hardware** with new device drivers for AHCI, USB, virtio devices, etc.
+- **Bring back ports** from ToaruOS "Legacy", like muPDF and Mesa.
 - **Improve POSIX coverage** especially in regards to signals, synchronization primitives, as well as by providing more common utilities.
 - **Continue to improve the C library** which remains quite incomplete compared to Newlib and is a major source of issues with bringing back old ports.
 - **Replace third-party development tools** to get the OS to a state where it is self-hosting with just the addition of a C compiler.
