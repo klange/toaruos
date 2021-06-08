@@ -56,6 +56,7 @@ struct e1000_nic {
 
 	spin_lock_t net_queue_lock;
 	spin_lock_t alert_lock;
+	spin_lock_t tx_lock;
 	list_t * net_queue;
 	list_t * rx_wait;
 	list_t * alert_wait;
@@ -247,6 +248,7 @@ static int irq_handler(struct regs *r) {
 }
 
 static void send_packet(struct e1000_nic * device, uint8_t* payload, size_t payload_size) {
+	spin_lock(device->tx_lock);
 	device->tx_index = read_command(device, E1000_REG_TXDESCTAIL);
 
 	memcpy(device->tx_virt[device->tx_index], payload, payload_size);
@@ -256,6 +258,7 @@ static void send_packet(struct e1000_nic * device, uint8_t* payload, size_t payl
 
 	device->tx_index = (device->tx_index + 1) % E1000_NUM_TX_DESC;
 	write_command(device, E1000_REG_TXDESCTAIL, device->tx_index);
+	spin_unlock(device->tx_lock);
 }
 
 static void init_rx(struct e1000_nic * device) {
@@ -352,6 +355,12 @@ static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 		default:
 			return -EINVAL;
 	}
+}
+
+static void write_packet(fs_node_t * node, uint8_t * buffer, size_t len) {
+	struct e1000_nic * nic = node->device;
+	/* write packet */
+	send_packet(nic, buffer, len);
 }
 
 static ssize_t write_e1000(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
@@ -520,7 +529,11 @@ static void e1000_init(void * data) {
 
 	net_add_interface(nic->if_name, nic->device_node);
 
-	switch_task(0);
+	/* Now wait for packets */
+	while (1) {
+		struct ethernet_packet * packet = dequeue_packet(nic);
+		net_eth_handle(packet, nic->device_node);
+	}
 }
 
 static void find_e1000(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * found) {

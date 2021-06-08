@@ -12,8 +12,11 @@
 #include <kernel/types.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
+#include <kernel/list.h>
 #include <kernel/syscall.h>
 #include <kernel/vfs.h>
+
+#include <kernel/net/netif.h>
 
 #include <sys/socket.h>
 
@@ -24,6 +27,116 @@
  */
 extern long net_ipv4_socket(int,int);
 
+void net_sock_alert(sock_t * sock) {
+	spin_lock(sock->alert_lock);
+	while (sock->alert_wait->head) {
+		node_t * node = list_dequeue(sock->alert_wait);
+		process_t * p = node->value;
+		free(node);
+		spin_unlock(sock->alert_lock);
+		process_alert_node(p, (fs_node_t*)sock);
+		spin_lock(sock->alert_lock);
+	}
+	spin_unlock(sock->alert_lock);
+}
+
+void net_sock_add(sock_t * sock, void * frame) {
+	spin_lock(sock->rx_lock);
+	char * bleh = malloc(8092);
+	memcpy(bleh, frame, 8092);
+	list_insert(sock->rx_queue, bleh);
+	wakeup_queue(sock->rx_wait);
+	net_sock_alert(sock);
+	spin_unlock(sock->rx_lock);
+}
+
+void * net_sock_get(sock_t * sock) {
+	while (!sock->rx_queue->length) {
+		sleep_on(sock->rx_wait);
+	}
+
+	spin_lock(sock->rx_lock);
+	node_t * n = list_dequeue(sock->rx_queue);
+	void* value = n->value;
+	free(n);
+	spin_unlock(sock->rx_lock);
+
+	return value;
+}
+
+int sock_generic_check(fs_node_t *node) {
+	sock_t * sock = (sock_t*)node;
+	return sock->rx_queue->length ? 0 : 1;
+}
+
+int sock_generic_wait(fs_node_t *node, void * process) {
+	sock_t * sock = (sock_t*)node;
+
+	spin_lock(sock->alert_lock);
+	if (!list_find(sock->alert_wait, process)) {
+		list_insert(sock->alert_wait, process);
+	}
+	list_insert(((process_t *)process)->node_waits, sock);
+	spin_unlock(sock->alert_lock);
+	return 0;
+}
+
+void sock_generic_close(fs_node_t *node) {
+	sock_t * sock = (sock_t*)node;
+	sock->sock_close(sock);
+	printf("net: socket closed\n");
+}
+
+sock_t * net_sock_create(void) {
+	sock_t * sock = calloc(sizeof(struct SockData),1);
+	sock->_fnode.flags = FS_PIPE; /* uh, FS_SOCKET? */
+	sock->_fnode.mask = 0600;
+	sock->_fnode.device = NULL;
+	sock->_fnode.selectcheck = sock_generic_check;
+	sock->_fnode.selectwait = sock_generic_wait;
+	sock->_fnode.close = sock_generic_close;
+	sock->alert_wait = list_create("socket alert wait", sock);
+	sock->rx_wait    = list_create("socket rx wait", sock);
+	sock->rx_queue   = list_create("socket rx queue", sock);
+	open_fs((fs_node_t*)sock,0);
+	return sock;
+}
+
+spin_lock_t net_raw_sockets_lock = {0};
+list_t * net_raw_sockets_list = NULL;
+
+static long sock_raw_recv(sock_t * sock, struct msghdr * msg, int flags) {
+	if (!sock->_fnode.device) return -EINVAL;
+	if (msg->msg_iovlen > 1) {
+		printf("net: todo: can't recv multiple iovs\n");
+		return -ENOTSUP;
+	}
+	if (msg->msg_iovlen == 0) return 0;
+	if (msg->msg_iov[0].iov_len != 8092) return -EINVAL;
+	void * data = net_sock_get(sock);
+	memcpy(msg->msg_iov[0].iov_base, data, 8092);
+	free(data);
+	return 8092;
+}
+
+static long sock_raw_send(sock_t * sock, const struct msghdr *msg, int flags) {
+	if (!sock->_fnode.device) return -EINVAL;
+	if (msg->msg_iovlen > 1) {
+		printf("net: todo: can't send multiple iovs\n");
+		return -ENOTSUP;
+	}
+	if (msg->msg_iovlen == 0) return 0;
+	return write_fs(sock->_fnode.device, 0, msg->msg_iov[0].iov_len, msg->msg_iov[0].iov_base);
+}
+
+static void sock_raw_close(sock_t * sock) {
+	spin_lock(net_raw_sockets_lock);
+	list_delete(net_raw_sockets_list, list_find(net_raw_sockets_list, sock));
+	spin_unlock(net_raw_sockets_lock);
+
+	/* free stuff ? */
+}
+
 /**
  * Raw sockets
  */
@@ -31,13 +144,17 @@ long net_raw_socket(int type, int protocol) {
 	if (type != SOCK_RAW) return -EINVAL;
 
 	/* Make a new raw socket? */
-	fs_node_t * sock = calloc(sizeof(fs_node_t),1);
-	sock->flags = FS_PIPE; /* uh, FS_SOCKET? */
-	sock->mask = 0600;
-	//sock->read = sock_raw_read;
-	//sock->write = sock_raw_write;
+	sock_t * sock = net_sock_create();
+	sock->sock_recv = sock_raw_recv;
+	sock->sock_send = sock_raw_send;
+	sock->sock_close = sock_raw_close;
 
-	int fd = process_append_fd((process_t *)this_core->current_process, sock);
+	spin_lock(net_raw_sockets_lock);
+	if (!net_raw_sockets_list) net_raw_sockets_list = list_create("raw sockets", NULL);
+	list_insert(net_raw_sockets_list, sock);
+	spin_unlock(net_raw_sockets_lock);
+
+	int fd = process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock);
 	return fd;
 }
 
@@ -52,7 +169,30 @@ long net_socket(int domain, int type, int protocol) {
 	}
 }
 
+long net_so_socket(struct SockData * sock, int optname, const void *optval, socklen_t optlen) {
+	switch (optname) {
+		case SO_BINDTODEVICE: {
+			if (optlen < 1 || optlen > 32 || ((const char*)optval)[optlen-1] != 0) return -EINVAL;
+			fs_node_t * netif = net_if_lookup((const char*)optval);
+			if (!netif) return -ENOENT;
+			sock->_fnode.device = netif;
+			return 0;
+		}
+		default:
+			return -ENOPROTOOPT;
+	}
+}
+
 long net_setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen) {
+	if (!FD_CHECK(sockfd)) return -EBADF;
+	PTR_VALIDATE(optval);
+	sock_t * node = (sock_t*)FD_ENTRY(sockfd);
+	switch (level) {
+		case SOL_SOCKET:
+			return net_so_socket(node,optname,optval,optlen);
+		default:
+			return -ENOPROTOOPT;
+	}
 	return -EINVAL;
 }
 
@@ -77,11 +217,17 @@ long net_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 }
 
 long net_recv(int sockfd, struct msghdr * msg, int flags) {
-	return -EINVAL;
+	if (!FD_CHECK(sockfd)) return -EBADF;
+	PTR_VALIDATE(msg);
+	sock_t * node = (sock_t*)FD_ENTRY(sockfd);
+	return node->sock_recv(node,msg,flags);
 }
 
 long net_send(int sockfd, const struct msghdr * msg, int flags) {
-	return -EINVAL;
+	if (!FD_CHECK(sockfd)) return -EBADF;
+	PTR_VALIDATE(msg);
+	sock_t * node = (sock_t*)FD_ENTRY(sockfd);
+	return node->sock_send(node,msg,flags);
 }
 
 long net_shutdown(int sockfd, int how) {

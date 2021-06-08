@@ -238,7 +238,6 @@ static void time_diff(struct timeval *start, struct timeval *end, time_t *sec_di
 extern char * _argv_0;
 
 static int configure_interface(const char * if_name) {
-#if 0
 	/* Open a raw socket. */
 	int sock = socket(AF_RAW, SOCK_RAW, 0);
 	if (!sock) {
@@ -253,7 +252,6 @@ static int configure_interface(const char * if_name) {
 	}
 
 	/* Request the mac address */
-#endif
 	char if_path[100];
 	snprintf(if_path, 100, "/dev/net/%s", if_name);
 	int netdev = open(if_path, O_RDWR);
@@ -281,7 +279,7 @@ static int configure_interface(const char * if_name) {
 
 		fill(&thething, 8);
 
-		write(netdev, &thething, sizeof(struct payload));
+		send(sock, &thething, sizeof(struct payload), 0);
 	}
 
 	uint32_t yiaddr;
@@ -299,19 +297,23 @@ static int configure_interface(const char * if_name) {
 
 		gettimeofday(&end, NULL);
 		time_diff(&start,&end,&sec_diff,&usec_diff);
-		if (sec_diff > 3) {
+		if (sec_diff > 0 || usec_diff > 500000) {
 			close(netdev);
 			return 1;
 		}
 
 		struct pollfd fds[1];
-		fds[0].fd = netdev;
+		fds[0].fd = sock;
 		fds[0].events = POLLIN;
-		int ret = poll(fds,1,2000);
-		if (ret <= 0) {
+		int ret = poll(fds,1,200);
+		if (ret == 0) {
 			continue;
 		}
-		ssize_t rsize = read(netdev, &buf, 8092);
+		if (ret < 0) {
+			fprintf(stderr, "poll: failed\n");
+			return 1;
+		}
+		ssize_t rsize = recv(sock, &buf, 8092, 0);
 
 		if (rsize <= 0) {
 			fprintf(stderr, "%s: %s: bad size? %zd\n", _argv_0, if_name, rsize);
@@ -347,7 +349,7 @@ static int configure_interface(const char * if_name) {
 					55,2,3,6,255,0}
 			};
 			fill(&thething, 14);
-			write(netdev, &thething, sizeof(struct payload));
+			send(sock, &thething, sizeof(struct payload), 0);
 			stage = 2;
 		} else if (stage == 2) {
 			yiaddr = response->dhcp_header.yiaddr;
@@ -391,6 +393,7 @@ static int configure_interface(const char * if_name) {
 			}
 
 			close(netdev);
+			close(sock);
 			return 0;
 		}
 	} while (1);

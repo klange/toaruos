@@ -22,6 +22,7 @@
 static hashmap_t * interfaces = NULL;
 
 void net_install(void) {
+	/* Set up virtual devices */
 	map_vfs_directory("/dev/net");
 	interfaces = hashmap_create(10);
 }
@@ -35,4 +36,8 @@ int net_add_interface(const char * name, fs_node_t * deviceNode) {
 	vfs_mount(tmp, deviceNode);
 
 	return 0;
+}
+
+fs_node_t * net_if_lookup(const char * name) {
+	return hashmap_get(interfaces, name);
 }

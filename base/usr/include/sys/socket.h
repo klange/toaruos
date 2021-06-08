@@ -22,6 +22,8 @@ _Begin_C_Header
 #define SO_KEEPALIVE 1
 #define SO_REUSEADDR 2
 
+#define SO_BINDTODEVICE 3
+
 struct hostent {
 	char  *h_name;            /* official name of host */
 	char **h_aliases;         /* alias list */
@@ -29,8 +31,6 @@ struct hostent {
 	int    h_length;          /* length of address */
 	char **h_addr_list;       /* list of addresses */
 };
-
-extern struct hostent * gethostbyname(const char * name);
 
 typedef size_t socklen_t;
 
@@ -84,6 +84,9 @@ struct sockaddr_storage {
 typedef uint32_t in_addr_t;
 typedef uint16_t in_port_t;
 
+#ifndef _KERNEL_
+extern struct hostent * gethostbyname(const char * name);
+
 extern ssize_t recv(int sockfd, void *buf, size_t len, int flags);
 extern ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen);
 extern ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags);
@@ -110,6 +113,7 @@ extern int setsockopt(int sockfd, int level, int optname, const void *optval, so
 
 extern int connect(int sockfd, const struct sockaddr * addr, socklen_t addrlen);
 extern int shutdown(int sockfd, int how);
+#endif
 
 #define IFF_UP            0x0001
 #define IFF_BROADCAST     0x0002
