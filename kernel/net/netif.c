@@ -20,11 +20,13 @@
 #include <errno.h>
 
 static hashmap_t * interfaces = NULL;
+extern list_t * net_raw_sockets_list;
 
 void net_install(void) {
 	/* Set up virtual devices */
 	map_vfs_directory("/dev/net");
 	interfaces = hashmap_create(10);
+	net_raw_sockets_list = list_create("raw sockets", NULL);
 }
 
 /* kinda temporary for now */

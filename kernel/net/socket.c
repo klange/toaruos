@@ -150,7 +150,6 @@ long net_raw_socket(int type, int protocol) {
 	sock->sock_close = sock_raw_close;
 
 	spin_lock(net_raw_sockets_lock);
-	if (!net_raw_sockets_list) net_raw_sockets_list = list_create("raw sockets", NULL);
 	list_insert(net_raw_sockets_list, sock);
 	spin_unlock(net_raw_sockets_lock);
 
