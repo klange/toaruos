@@ -21,7 +21,7 @@ struct arp_header {
 			uint32_t arp_spa;
 			uint16_t arp_tha[6];
 			uint32_t arp_tpa;
-		} arp_eth_ipv4;
+		} __attribute__((packed)) arp_eth_ipv4;
 	} arp_data;
 } __attribute__((packed));
 
