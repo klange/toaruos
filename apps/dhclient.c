@@ -266,9 +266,6 @@ static int configure_interface(const char * if_name) {
 		return 1;
 	}
 
-	/* Ask the card to discard all packets, XXX */
-	ioctl(netdev, 0x123400FF, NULL);
-
 	xid = rand();
 
 	/* Try to frob the whatsit */
@@ -351,6 +348,7 @@ static int configure_interface(const char * if_name) {
 			fill(&thething, 14);
 			send(sock, &thething, sizeof(struct payload), 0);
 			stage = 2;
+			gettimeofday(&start, NULL);
 		} else if (stage == 2) {
 			yiaddr = response->dhcp_header.yiaddr;
 			char yiaddr_ip[16];

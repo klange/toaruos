@@ -20,6 +20,7 @@
 #include <kernel/vfs.h>
 #include <kernel/mod/net.h>
 #include <kernel/net/netif.h>
+#include <kernel/net/eth.h>
 #include <errno.h>
 
 #include <kernel/arch/x86_64/irq.h>
@@ -355,12 +356,6 @@ static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 		default:
 			return -EINVAL;
 	}
-}
-
-static void write_packet(fs_node_t * node, uint8_t * buffer, size_t len) {
-	struct e1000_nic * nic = node->device;
-	/* write packet */
-	send_packet(nic, buffer, len);
 }
 
 static ssize_t write_e1000(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {

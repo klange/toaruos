@@ -28,6 +28,7 @@ extern spin_lock_t net_raw_sockets_lock;
 extern list_t * net_raw_sockets_list;
 extern void net_sock_add(sock_t * sock, void * frame);
 extern void net_ipv4_handle(void * packet, fs_node_t * nic);
+extern void net_arp_handle(void * packet, fs_node_t * nic);
 
 void net_eth_handle(struct ethernet_packet * frame, fs_node_t * nic) {
 	spin_lock(net_raw_sockets_lock);
@@ -45,7 +46,7 @@ void net_eth_handle(struct ethernet_packet * frame, fs_node_t * nic) {
 		/* Now pass the frame to the appropriate handler... */
 		switch (ntohs(frame->type)) {
 			case ETHERNET_TYPE_ARP:
-				printf("net: eth: %s: rx arp packet\n", nic->name);
+				net_arp_handle(&frame->payload, nic);
 				break;
 			case ETHERNET_TYPE_IPV4:
 				printf("net: eth: %s: rx ipv4 packet\n", nic->name);
