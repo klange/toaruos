@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <kernel/types.h>
+#include <kernel/string.h>
 #include <kernel/printf.h>
 #include <kernel/syscall.h>
 #include <kernel/vfs.h>
@@ -19,7 +20,7 @@ struct arp_header {
 		struct {
 			uint8_t  arp_sha[6];
 			uint32_t arp_spa;
-			uint16_t arp_tha[6];
+			uint8_t arp_tha[6];
 			uint32_t arp_tpa;
 		} __attribute__((packed)) arp_eth_ipv4;
 	} arp_data;
@@ -33,14 +34,13 @@ static void ip_ntoa(const uint32_t src_addr, char * out) {
 		(src_addr & 0xFF));
 }
 
-#define MAC_FORMAT "%02x:%02x:%02x:%02x:%02x:%02x"
-#define FORMAT_MAC(m) (m)[0], (m)[1], (m)[2], (m)[3], (m)[4], (m)[5]
-
 void net_arp_handle(struct arp_header * packet, fs_node_t * nic) {
-	printf("net: arp: hardware %d protocol %d operation %d\n",
-		ntohs(packet->arp_htype), ntohs(packet->arp_ptype), ntohs(packet->arp_oper));
+	printf("net: arp: hardware %d protocol %d operation %d hlen %d plen %d\n",
+		ntohs(packet->arp_htype), ntohs(packet->arp_ptype), ntohs(packet->arp_oper),
+		packet->arp_hlen, packet->arp_plen);
+	struct EthernetDevice * eth_dev = nic->device;
 
-	if (ntohs(packet->arp_htype) == 1 && ntohs(packet->arp_ptype) == 0x0800) {
+	if (ntohs(packet->arp_htype) == 1 && ntohs(packet->arp_ptype) == ETHERNET_TYPE_IPV4) {
 		/* Ethernet, IPv4 */
 		if (ntohs(packet->arp_oper) == 1) {
 			char spa[17];
@@ -50,6 +50,21 @@ void net_arp_handle(struct arp_header * packet, fs_node_t * nic) {
 			printf("net: arp: " MAC_FORMAT " (%s) wants to know who %s is\n",
 				FORMAT_MAC(packet->arp_data.arp_eth_ipv4.arp_sha),
 				spa, tpa);
+			if (eth_dev->ipv4_addr &&  packet->arp_data.arp_eth_ipv4.arp_tpa == eth_dev->ipv4_addr) {
+				printf("net: arp: that's us, we should reply...\n");
+
+				struct arp_header response = {0};
+				response.arp_htype = htons(1);
+				response.arp_ptype = htons(ETHERNET_TYPE_IPV4);
+				response.arp_hlen = 6;
+				response.arp_plen = 4;
+				response.arp_oper = htons(2);
+				memcpy(response.arp_data.arp_eth_ipv4.arp_sha, eth_dev->mac, 6);
+				memcpy(response.arp_data.arp_eth_ipv4.arp_tha, packet->arp_data.arp_eth_ipv4.arp_sha, 6);
+				response.arp_data.arp_eth_ipv4.arp_spa = eth_dev->ipv4_addr;
+				response.arp_data.arp_eth_ipv4.arp_tpa = packet->arp_data.arp_eth_ipv4.arp_spa;
+				net_eth_send(eth_dev, sizeof(struct arp_header), &response, ETHERNET_TYPE_ARP, packet->arp_data.arp_eth_ipv4.arp_sha);
+			}
 		} else if (ntohs(packet->arp_oper) == 2) {
 			char spa[17];
 			ip_ntoa(ntohl(packet->arp_data.arp_eth_ipv4.arp_spa), spa);

@@ -33,6 +33,9 @@ struct ipv4_packet {
 
 void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
 	switch (packet->protocol) {
+		case 1:
+			printf("net: ipv4: %s: ICMP\n", nic->name);
+			break;
 		case IPV4_PROT_UDP:
 			printf("net: ipv4: %s: udp packet\n", nic->name);
 			break;

@@ -20,10 +20,6 @@ struct ethernet_packet {
 	uint8_t payload[];
 } __attribute__((packed)) __attribute__((aligned(2)));
 
-#define ETHERNET_TYPE_IPV4 0x0800
-#define ETHERNET_TYPE_ARP  0x0806
-#define BROADCAST_MAC {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
-
 extern spin_lock_t net_raw_sockets_lock;
 extern list_t * net_raw_sockets_list;
 extern void net_sock_add(sock_t * sock, void * frame);
@@ -42,7 +38,7 @@ void net_eth_handle(struct ethernet_packet * frame, fs_node_t * nic) {
 
 	struct EthernetDevice * nic_eth = nic->device;
 
-	if (!memcmp(frame->destination, nic_eth->mac, 6) || !memcmp(frame->destination, (uint8_t[])BROADCAST_MAC, 6)) {
+	if (!memcmp(frame->destination, nic_eth->mac, 6) || !memcmp(frame->destination, ETHERNET_BROADCAST_MAC, 6)) {
 		/* Now pass the frame to the appropriate handler... */
 		switch (ntohs(frame->type)) {
 			case ETHERNET_TYPE_ARP:
@@ -56,4 +52,15 @@ void net_eth_handle(struct ethernet_packet * frame, fs_node_t * nic) {
 	}
 
 	free(frame);
+}
+
+void net_eth_send(struct EthernetDevice * nic, size_t len, void* data, uint16_t type, uint8_t * dest) {
+	size_t total_size = sizeof(struct ethernet_packet) + len;
+	struct ethernet_packet * packet = malloc(total_size);
+	memcpy(packet->payload, data, len);
+	memcpy(packet->destination, dest, 6);
+	memcpy(packet->source, nic->mac, 6);
+	packet->type = htons(type);
+	write_fs(nic->device_node, 0, total_size, (uint8_t*)packet);
+	free(packet);
 }
