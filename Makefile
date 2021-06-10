@@ -108,6 +108,9 @@ $(BASE)/lib/ld.so: linker/linker.c $(BASE)/lib/libc.a | dirs $(LC)
 run: system
 	${EMU} ${EMU_ARGS} ${EMU_KVM} -append "root=/dev/ram0 start=live-session migrate $(EXTRA_ARGS)" -initrd ramdisk.igz
 
+run-vga: system
+	${EMU} ${EMU_ARGS} ${EMU_KVM} -append "root=/dev/ram0 vid=text start=--vga migrate $(EXTRA_ARGS)" -initrd ramdisk.igz
+
 shell: system
 	${EMU} -m $(RAM) -smp $(SMP) ${EMU_KVM} -kernel misaka-kernel -append "root=/dev/ram0 start=--headless migrate" -initrd ramdisk.igz \
 		-nographic -no-reboot -audiodev none,id=id -serial null -serial mon:stdio \

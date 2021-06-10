@@ -12,6 +12,8 @@
 #include <kernel/syscall.h>
 #include <kernel/vfs.h>
 
+#include <kernel/net/netif.h>
+
 #include <sys/socket.h>
 
 struct ipv4_packet {
@@ -31,16 +33,31 @@ struct ipv4_packet {
 #define IPV4_PROT_UDP 17
 #define IPV4_PROT_TCP 6
 
+static void ip_ntoa(const uint32_t src_addr, char * out) {
+	snprintf(out, 16, "%d.%d.%d.%d",
+		(src_addr & 0xFF000000) >> 24,
+		(src_addr & 0xFF0000) >> 16,
+		(src_addr & 0xFF00) >> 8,
+		(src_addr & 0xFF));
+}
+
 void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
+
+	char dest[16];
+	char src[16];
+
+	ip_ntoa(ntohl(packet->destination), dest);
+	ip_ntoa(ntohl(packet->source), src);
+
 	switch (packet->protocol) {
 		case 1:
-			printf("net: ipv4: %s: ICMP\n", nic->name);
+			printf("net: ipv4: %s: %s -> %s ICMP\n", nic->name, src, dest);
 			break;
 		case IPV4_PROT_UDP:
-			printf("net: ipv4: %s: udp packet\n", nic->name);
+			printf("net: ipv4: %s: %s -> %s udp %d to %d\n", nic->name, src, dest, ntohs(((uint16_t*)&packet->payload)[0]), ntohs(((uint16_t*)&packet->payload)[1]));
 			break;
 		case IPV4_PROT_TCP:
-			printf("net: ipv4: %s: tcp packet\n", nic->name);
+			printf("net: ipv4: %s: %s -> %s tcp %d to %d\n", nic->name, src, dest, ntohs(((uint16_t*)&packet->payload)[0]), ntohs(((uint16_t*)&packet->payload)[1]));
 			break;
 	}
 }

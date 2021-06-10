@@ -27,6 +27,7 @@
 #include <kernel/net/e1000.h>
 
 #include <sys/socket.h>
+#include <net/if.h>
 
 #define INTS ((1 << 2) | (1 << 6) | (1 << 7) | (1 << 1) | (1 << 0))
 
@@ -299,33 +300,33 @@ static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 	struct e1000_nic * nic = node->device;
 
 	switch (request) {
-		case 0x12340001:
+		case SIOCGIFHWADDR:
 			/* fill argp with mac */
 			memcpy(argp, nic->mac, 6);
 			return 0;
 
-		case 0x12340002:
+		case SIOCGIFADDR:
 			if (nic->ipv4_addr == 0) return -ENOENT;
 			memcpy(argp, &nic->ipv4_addr, sizeof(nic->ipv4_addr));
 			return 0;
-		case 0x12340012:
+		case SIOCSIFADDR:
 			memcpy(&nic->ipv4_addr, argp, sizeof(nic->ipv4_addr));
 			return 0;
-		case 0x12340004:
+		case SIOCGIFNETMASK:
 			if (nic->ipv4_subnet == 0) return -ENOENT;
 			memcpy(argp, &nic->ipv4_subnet, sizeof(nic->ipv4_subnet));
 			return 0;
-		case 0x12340014:
+		case SIOCSIFNETMASK:
 			memcpy(&nic->ipv4_subnet, argp, sizeof(nic->ipv4_subnet));
 			return 0;
 
-		case 0x12340003:
+		case SIOCGIFADDR6:
 			return -ENOENT;
-		case 0x12340013:
+		case SIOCSIFADDR6:
 			memcpy(&nic->ipv6_addr, argp, sizeof(nic->ipv6_addr));
 			return 0;
 
-		case 0x12340005: {
+		case SIOCGIFFLAGS: {
 			uint32_t * flags = argp;
 			*flags = IFF_RUNNING;
 			if (nic->link_status) *flags |= IFF_UP;
@@ -335,21 +336,9 @@ static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 			return 0;
 		}
 
-		case 0x12340006: {
+		case SIOCGIFMTU: {
 			uint32_t * mtu = argp;
 			*mtu = nic->mtu;
-			return 0;
-		}
-
-		case 0x123400FF: {
-			/* discard all */
-			spin_lock(nic->net_queue_lock);
-			while (nic->net_queue->length) {
-				node_t * n = list_dequeue(nic->net_queue);
-				free(n->value);
-				free(n);
-			}
-			spin_unlock(nic->net_queue_lock);
 			return 0;
 		}
 

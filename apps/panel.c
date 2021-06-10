@@ -26,6 +26,7 @@
 #include <sys/ioctl.h>
 #include <sys/fswait.h>
 #include <sys/socket.h>
+#include <net/if.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -412,7 +413,7 @@ static void check_network(const char * if_name) {
 
 	/* Get IPv4 address */
 	uint32_t ip_addr;
-	if (!ioctl(netdev, 0x12340002, &ip_addr)) {
+	if (!ioctl(netdev, SIOCGIFADDR, &ip_addr)) {
 		char ip_str[16];
 		ip_ntoa(ntohl(ip_addr), ip_str);
 		snprintf(netstat_data[netstat_count], 1023, "%s: %s", if_name, ip_str);

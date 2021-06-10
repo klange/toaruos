@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <net/if.h>
 
 extern char * _argv_0;
 
@@ -54,21 +55,21 @@ static int configure_interface(const char * if_name) {
 	}
 
 	uint32_t flags = 0;
-	ioctl(netdev, 0x12340005, &flags);
+	ioctl(netdev, SIOCGIFFLAGS, &flags);
 	uint32_t mtu = 0;
-	ioctl(netdev, 0x12340006, &mtu);
+	ioctl(netdev, SIOCGIFMTU, &mtu);
 
 	fprintf(stdout,"%s: flags=%d<%s> mtu %d\n", if_name, flags, flagsToStr(flags), mtu);
 
 	/* Get IPv4 address */
 	uint32_t ip_addr = 0;
-	if (!ioctl(netdev, 0x12340002, &ip_addr)) {
+	if (!ioctl(netdev, SIOCGIFADDR, &ip_addr)) {
 		char ip_str[16];
 		ip_ntoa(ntohl(ip_addr), ip_str);
 		fprintf(stdout,"        inet %s", ip_str);
 		/* Netmask ? */
 		uint32_t netmask = 0;
-		if (!ioctl(netdev, 0x12340004, &netmask)) {
+		if (!ioctl(netdev, SIOCGIFNETMASK, &netmask)) {
 			ip_ntoa(ntohl(netmask), ip_str);
 			fprintf(stdout, "  netmask %s", ip_str);
 
@@ -80,7 +81,7 @@ static int configure_interface(const char * if_name) {
 	}
 
 	uint8_t ip6_addr[16];
-	if (!ioctl(netdev, 0x12340003, &ip6_addr)) {
+	if (!ioctl(netdev, SIOCGIFADDR6, &ip6_addr)) {
 		/* TODO inet6 address to nice string */
 		fprintf(stdout,"        inet6 %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n",
 			ip6_addr[0], ip6_addr[1], ip6_addr[2], ip6_addr[3],
@@ -91,7 +92,7 @@ static int configure_interface(const char * if_name) {
 
 	/* Get ethernet address */
 	uint8_t mac_addr[6];
-	if (!ioctl(netdev, 0x12340001, &mac_addr)) {
+	if (!ioctl(netdev, SIOCGIFHWADDR, &mac_addr)) {
 		fprintf(stdout,"        ether %02x:%02x:%02x:%02x:%02x:%02x\n",
 			mac_addr[0], mac_addr[1], mac_addr[2],
 			mac_addr[3], mac_addr[4], mac_addr[5]);

@@ -4,6 +4,7 @@
 #include <kernel/printf.h>
 #include <kernel/syscall.h>
 #include <kernel/vfs.h>
+#include <kernel/hashmap.h>
 #include <kernel/mod/net.h>
 #include <kernel/net/netif.h>
 #include <kernel/net/eth.h>
@@ -34,6 +35,35 @@ static void ip_ntoa(const uint32_t src_addr, char * out) {
 		(src_addr & 0xFF));
 }
 
+spin_lock_t net_arp_cache_lock = {0};
+hashmap_t * net_arp_cache = NULL;
+
+struct ArpCacheEntry {
+	uint8_t hwaddr[6];
+	uint16_t flags;
+	struct EthernetDevice * iface;
+};
+
+void net_arp_cache_add(struct EthernetDevice * iface, uint32_t addr, uint8_t * hwaddr, uint16_t flags) {
+	spin_lock(net_arp_cache_lock);
+	if (!net_arp_cache) net_arp_cache = hashmap_create_int(10);
+	struct ArpCacheEntry * entry = hashmap_get(net_arp_cache, (void*)(uintptr_t)addr);
+	if (!entry) entry = malloc(sizeof(struct ArpCacheEntry));
+	memcpy(entry->hwaddr, hwaddr, 6);
+	entry->flags = flags;
+	entry->iface = iface;
+	hashmap_set(net_arp_cache, (void*)(uintptr_t)addr, entry);
+	spin_unlock(net_arp_cache_lock);
+}
+
+struct ArpCacheEntry * net_arp_cache_get(uint32_t addr) {
+	if (!net_arp_cache) return NULL;
+	spin_lock(net_arp_cache_lock);
+	struct ArpCacheEntry * out = hashmap_get(net_arp_cache, (void*)(uintptr_t)addr);
+	spin_unlock(net_arp_cache_lock);
+	return out;
+}
+
 void net_arp_handle(struct arp_header * packet, fs_node_t * nic) {
 	printf("net: arp: hardware %d protocol %d operation %d hlen %d plen %d\n",
 		ntohs(packet->arp_htype), ntohs(packet->arp_ptype), ntohs(packet->arp_oper),
@@ -42,6 +72,9 @@ void net_arp_handle(struct arp_header * packet, fs_node_t * nic) {
 
 	if (ntohs(packet->arp_htype) == 1 && ntohs(packet->arp_ptype) == ETHERNET_TYPE_IPV4) {
 		/* Ethernet, IPv4 */
+		if (packet->arp_data.arp_eth_ipv4.arp_spa) {
+			net_arp_cache_add(eth_dev, packet->arp_data.arp_eth_ipv4.arp_spa, packet->arp_data.arp_eth_ipv4.arp_sha, 0);
+		}
 		if (ntohs(packet->arp_oper) == 1) {
 			char spa[17];
 			ip_ntoa(ntohl(packet->arp_data.arp_eth_ipv4.arp_spa), spa);

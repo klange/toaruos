@@ -119,7 +119,7 @@ static long sys_sysfunc(long fn, char ** args) {
 			char **arg = args;
 			PTR_VALIDATE(args);
 			while (*arg) {
-				PTR_VALIDATE(*args);
+				PTR_VALIDATE(*arg);
 				count++;
 				arg++;
 			}
@@ -144,6 +144,7 @@ static long sys_sysfunc(long fn, char ** args) {
 			printf("Bad system function: %ld\n", fn);
 			return -EINVAL;
 	}
+	return -EINVAL;
 }
 
 __attribute__((noreturn))
