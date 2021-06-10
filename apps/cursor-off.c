@@ -11,9 +11,20 @@
  * try to move the hardware cursor off screen so it doesn't
  * interfere with the rest of the terminal and look weird.
  */
+#include <unistd.h>
+#include <fcntl.h>
 #include <sys/sysfunc.h>
 
 int main(int argc, char * argv[]) {
-	int x[] = {0xFF,0xFF};
-	return sysfunc(TOARU_SYS_FUNC_SETVGACURSOR, (char **)x);
+	int fd = open("/dev/port", O_RDWR);
+	if (fd < 0) return 1;
+	lseek(fd, 0x3D4, SEEK_SET);
+	write(fd, (unsigned char[]){14}, 1);
+	lseek(fd, 0x3D5, SEEK_SET);
+	write(fd, (unsigned char[]){0xFF}, 1);
+	lseek(fd, 0x3D4, SEEK_SET);
+	write(fd, (unsigned char[]){15}, 1);
+	lseek(fd, 0x3D5, SEEK_SET);
+	write(fd, (unsigned char[]){0xFF}, 1);
+	return 0;
 }

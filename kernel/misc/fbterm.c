@@ -241,6 +241,8 @@ size_t fbterm_write(size_t size, uint8_t *buffer) {
 }
 
 void fbterm_initialize(void) {
+	if (!lfb_resolution_x) return;
+
 	if (args_present("fbterm-scroll")) {
 		fbterm_scroll = 1;
 	}

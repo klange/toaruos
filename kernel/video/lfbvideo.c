@@ -189,7 +189,9 @@ static struct procfs_entry framebuffer_entry = {
 /* Install framebuffer device */
 static void finalize_graphics(const char * driver) {
 	lfb_driver_name = driver;
+	lfb_device = lfb_video_device_create();
 	lfb_device->length  = lfb_resolution_s * lfb_resolution_y; /* Size is framebuffer size in bytes */
+	vfs_mount("/dev/fb0", lfb_device);
 
 	procfs_install(&framebuffer_entry);
 }
@@ -447,6 +449,53 @@ static void auto_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra)
 	}
 }
 
+static fs_node_t * vga_text_device = NULL;
+
+static int ioctl_vga(fs_node_t * node, unsigned long request, void * argp) {
+	switch (request) {
+		case IO_VID_WIDTH:
+			/* Get framebuffer width */
+			validate(argp);
+			*((size_t *)argp) = 80;
+			return 0;
+		case IO_VID_HEIGHT:
+			/* Get framebuffer height */
+			validate(argp);
+			*((size_t *)argp) = 25;
+			return 0;
+		case IO_VID_ADDR:
+			/* Map framebuffer into userspace process */
+			validate(argp);
+			{
+				uintptr_t vga_user_offset;
+				if (*(uintptr_t*)argp == 0) {
+					vga_user_offset = 0x100000000;
+				} else {
+					validate((void*)(*(uintptr_t*)argp));
+					vga_user_offset = *(uintptr_t*)argp;
+				}
+				for (uintptr_t i = 0; i < 0x1000; i += 0x1000) {
+					union PML * page = mmu_get_page(vga_user_offset + i, MMU_GET_MAKE);
+					mmu_frame_map_address(page,MMU_FLAG_WRITABLE|MMU_FLAG_WC,((uintptr_t)(0xB8000) & 0xFFFFFFFF) + i);
+				}
+				*((uintptr_t *)argp) = vga_user_offset;
+			}
+			return 0;
+		default:
+			return -EINVAL;
+	}
+}
+
+static void vga_text_init(void) {
+	vga_text_device = calloc(sizeof(fs_node_t), 1);
+	snprintf(vga_text_device->name, 100, "vga0");
+	vga_text_device->length = 0;
+	vga_text_device->flags  = FS_BLOCKDEVICE;
+	vga_text_device->mask   = 0660;
+	vga_text_device->ioctl  = ioctl_vga;
+	vfs_mount("/dev/vga0", vga_text_device);
+}
+
 static int lfb_init(const char * c) {
 	char * arg = strdup(c);
 	char * argv[10];
@@ -479,6 +528,10 @@ static int lfb_init(const char * c) {
 	} else if (!strcmp(argv[0],"preset")) {
 		/* Set by bootloader (UEFI) */
 		graphics_install_preset(x,y);
+	} else if (!strcmp(argv[0],"text")) {
+		/* VGA text mode? TODO: We should try to detect this,
+		 * or limit it to things that are likely to have it... */
+		vga_text_init();
 	} else {
 		ret_val = 1;
 	}
@@ -488,9 +541,7 @@ static int lfb_init(const char * c) {
 }
 
 int framebuffer_initialize(void) {
-	lfb_device = lfb_video_device_create();
 	lfb_init(args_present("vid") ? args_value("vid") : "auto");
-	vfs_mount("/dev/fb0", lfb_device);
 
 	return 0;
 }

@@ -26,6 +26,8 @@
 
 #include <wchar.h>
 
+#include <kernel/video.h>
+
 #include <toaru/decodeutf8.h>
 #include <toaru/kbd.h>
 #include <toaru/graphics.h>
@@ -42,8 +44,8 @@
 static int fd_master, fd_slave;
 static FILE * terminal;
 
-static uint16_t term_width     = 80;    /* Width of the terminal (in cells) */
-static uint16_t term_height    = 25;    /* Height of the terminal (in cells) */
+static ssize_t  term_width     = 80;    /* Width of the terminal (in cells) */
+static ssize_t  term_height    = 25;    /* Height of the terminal (in cells) */
 static uint16_t csr_x          = 0;    /* Cursor X */
 static uint16_t csr_y          = 0;    /* Cursor Y */
 static term_cell_t * term_buffer    = NULL; /* The terminal cell buffer */
@@ -481,7 +483,7 @@ void handle_input_s(char * c) {
 	write_input_buffer(c, len);
 }
 
-unsigned short * textmemptr = (unsigned short *)0xB8000;
+unsigned short * textmemptr = NULL;
 unsigned short * mirrorcopy = NULL;
 void placech(unsigned char c, int x, int y, int attr) {
 	unsigned int where = y * term_width + x;
@@ -1225,6 +1227,12 @@ int main(int argc, char ** argv) {
 		}
 	}
 
+	int vga_text_fd = open("/dev/vga0", 0, 0);
+	if (vga_text_fd < 0) return 1;
+	ioctl(vga_text_fd, IO_VID_WIDTH,  &term_width);
+	ioctl(vga_text_fd, IO_VID_HEIGHT, &term_height);
+	ioctl(vga_text_fd, IO_VID_ADDR,   &textmemptr);
+
 	putenv("TERM=toaru-vga");
 
 	openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
@@ -1247,7 +1255,7 @@ int main(int argc, char ** argv) {
 
 	fflush(stdin);
 
-	system("cursor-off"); /* Might GPF */
+	system("cursor-off");
 
 	signal(SIGUSR2, sig_suspend_input);
 
@@ -1328,7 +1336,7 @@ int main(int argc, char ** argv) {
 				}
 			}
 			if (res[1]) {
-				int r = read(kfd, buf, BUF_SIZE);
+				int r = read(kfd, buf, 1);
 				for (int i = 0; i < r; ++i) {
 					int ret = kbd_scancode(&kbd_state, buf[i], &event);
 					key_event(ret, &event);
