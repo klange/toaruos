@@ -294,7 +294,7 @@ static int configure_interface(const char * if_name) {
 
 		gettimeofday(&end, NULL);
 		time_diff(&start,&end,&sec_diff,&usec_diff);
-		if (sec_diff > 0 || usec_diff > 500000) {
+		if (sec_diff > 2) {
 			close(netdev);
 			return 1;
 		}
