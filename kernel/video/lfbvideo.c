@@ -342,6 +342,11 @@ static void graphics_install_preset(uint16_t w, uint16_t h) {
 	lfb_resolution_y = mboot_struct->framebuffer_height;
 	lfb_resolution_s = mboot_struct->framebuffer_pitch;
 	lfb_resolution_b = 32;
+
+	/* Make sure memsize is actually big enough */
+	size_t minsize = lfb_resolution_s * lfb_resolution_y * 4;
+	if (lfb_memsize < minsize) lfb_memsize = minsize;
+
 	finalize_graphics("preset");
 }
 
