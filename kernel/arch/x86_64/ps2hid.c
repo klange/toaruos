@@ -320,7 +320,16 @@ void ps2hid_install(void) {
 	ps2_command(PS2_DISABLE_PORT2);
 
 	/* Clear the input buffer. */
-	while ((inportb(PS2_STATUS) & 1)) inportb(PS2_DATA);
+	size_t timeout = 1024; /* Can't imagine a buffer with more than that being full... */
+	while ((inportb(PS2_STATUS) & 1) && timeout > 0) {
+		timeout--;
+		inportb(PS2_DATA);
+	}
+
+	if (timeout == 0) {
+		printf("ps2hid: probably don't actually have PS/2.\n");
+		return;
+	}
 
 	/* Enable interrupt lines, enable translation. */
 	status = ps2_command_response(PS2_READ_CONFIG);
