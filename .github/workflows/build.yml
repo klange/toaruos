@@ -22,5 +22,5 @@ jobs:
         with:
           name: build
           path: |
-            ramdisk.tar
+            ramdisk.igz
             misaka-kernel
