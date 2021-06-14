@@ -266,7 +266,7 @@ struct hostent * gethostbyname(const char * name) {
 	dest.sin_port   = htons(53);
 	memcpy(&dest.sin_addr.s_addr, &ns_addr, sizeof(ns_addr));
 
-	if (sendto(sock, &dat, sizeof(struct dns_packet) + i, 0, &dest, sizeof(struct sockaddr_in)) < 0) {
+	if (sendto(sock, &dat, sizeof(struct dns_packet) + i, 0, (struct sockaddr*)&dest, sizeof(struct sockaddr_in)) < 0) {
 		fprintf(stderr, "gethostbyname: failed to send\n");
 		return NULL;
 	}
@@ -300,12 +300,12 @@ struct hostent * gethostbyname(const char * name) {
 	}
 
 	/* Get a return value */
-	_hostent.h_name = name;
+	_hostent.h_name = (char*)name;
 	_hostent.h_aliases = NULL;
 	_hostent.h_addrtype = AF_INET;
 	_hostent.h_length = sizeof(uint32_t);
-	_hostent.h_addr_list = &_host_entry_list;
-	_host_entry_list[0] = &_hostent_addr;
+	_hostent.h_addr_list = _host_entry_list;
+	_host_entry_list[0] = (char*)&_hostent_addr;
 	_hostent_addr = *(uint32_t*)(buf+len-4);
 
 	return &_hostent;

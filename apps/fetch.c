@@ -322,7 +322,7 @@ int main(int argc, char * argv[]) {
 	memcpy(&addr.sin_addr.s_addr, remote->h_addr, remote->h_length);
 	addr.sin_port = htons(80); /* TODO */
 
-	if (connect(sock, &addr, sizeof(struct sockaddr_in)) < 0) {
+	if (connect(sock, (struct sockaddr*)&addr, sizeof(struct sockaddr_in)) < 0) {
 		perror("connect");
 		return 1;
 	}
