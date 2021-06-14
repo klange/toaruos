@@ -11,9 +11,10 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <time.h>
-#include <sys/time.h>
 #include <termios.h>
 #include <unistd.h>
+#include <sys/time.h>
+#include <sys/socket.h>
 
 #include <toaru/hashmap.h>
 
@@ -289,9 +290,6 @@ int main(int argc, char * argv[]) {
 	struct http_req my_req;
 	parse_url(argv[optind], &my_req);
 
-	char file[600];
-	sprintf(file, "/dev/net/%s", my_req.domain);
-
 	if (fetch_options.calculate_output) {
 		char * tmp = strdup(my_req.path);
 		char * x = strrchr(tmp,'/');
@@ -306,7 +304,29 @@ int main(int argc, char * argv[]) {
 		fetch_options.out = fopen(fetch_options.output_file, "w+");
 	}
 
-	FILE * f = fopen(file,"r+");
+	int sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock < 0) {
+		perror("socket");
+		return 1;
+	}
+
+	struct hostent * remote = gethostbyname(my_req.domain);
+
+	if (!remote) {
+		perror("gethostbyname");
+		return 1;
+	}
+
+	struct sockaddr_in addr;
+	addr.sin_family = AF_INET;
+	memcpy(&addr.sin_addr.s_addr, remote->h_addr, remote->h_length);
+
+	if (connect(sock, &addr, sizeof(struct sockaddr_in)) < 0) {
+		perror("connect");
+		return 1;
+	}
+
+	FILE * f = fdopen(sock,"w+");
 
 	if (!f) {
 		fprintf(stderr, "Nope.\n");

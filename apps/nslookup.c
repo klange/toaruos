@@ -32,7 +32,7 @@ int main(int argc, char * argv[]) {
 	}
 
 	char addr[16] = {0};
-	ip_ntoa(*(uint32_t *)host->h_addr_list[0], addr);
+	ip_ntoa(ntohl(*(uint32_t *)host->h_addr_list[0]), addr);
 
 	fprintf(stderr, "%s: %s\n", host->h_name, addr);
 	return 0;

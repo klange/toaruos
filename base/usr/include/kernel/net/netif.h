@@ -19,6 +19,8 @@ typedef struct SockData {
 	list_t * rx_wait;
 	list_t * rx_queue;
 
+	uint16_t priv[4];
+
 	long (*sock_recv)(struct SockData * sock, struct msghdr * msg, int flags);
 	long (*sock_send)(struct SockData * sock, const struct msghdr *msg, int flags);
 	void (*sock_close)(struct SockData * sock);

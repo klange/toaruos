@@ -21,6 +21,7 @@
 
 static hashmap_t * interfaces = NULL;
 extern list_t * net_raw_sockets_list;
+static fs_node_t * _if_first = NULL;
 
 void net_install(void) {
 	/* Set up virtual devices */
@@ -37,9 +38,15 @@ int net_add_interface(const char * name, fs_node_t * deviceNode) {
 	snprintf(tmp,100,"/dev/net/%s", name);
 	vfs_mount(tmp, deviceNode);
 
+	if (!_if_first) _if_first = deviceNode;
+
 	return 0;
 }
 
 fs_node_t * net_if_lookup(const char * name) {
 	return hashmap_get(interfaces, name);
+}
+
+fs_node_t * net_if_any(void) {
+	return _if_first;
 }

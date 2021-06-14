@@ -32,6 +32,10 @@ struct hostent {
 	char **h_addr_list;       /* list of addresses */
 };
 
+#ifndef _KERNEL_
+#define h_addr h_addr_list[0]
+#endif
+
 typedef size_t socklen_t;
 
 struct sockaddr {

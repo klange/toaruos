@@ -11,6 +11,7 @@
 #include <kernel/string.h>
 #include <kernel/printf.h>
 #include <kernel/syscall.h>
+#include <kernel/hashmap.h>
 #include <kernel/vfs.h>
 
 #include <kernel/net/netif.h>
@@ -39,6 +40,14 @@ struct icmp_header {
 	uint16_t rest_of_header;
 	uint8_t data[];
 } __attribute__((packed)) __attribute__((aligned(2)));
+
+struct udp_packet {
+	uint16_t source_port;
+	uint16_t destination_port;
+	uint16_t length;
+	uint16_t checksum;
+	uint8_t  payload[];
+} __attribute__ ((packed)) __attribute__((aligned(2)));
 
 #define IPV4_PROT_UDP 17
 #define IPV4_PROT_TCP 6
@@ -112,6 +121,10 @@ static void icmp_handle(struct ipv4_packet * packet, const char * src, const cha
 	}
 }
 
+extern void net_sock_add(sock_t * sock, void * frame);
+
+static hashmap_t * udp_sockets = NULL;
+
 void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
 
 	char dest[16];
@@ -124,21 +137,146 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
 		case 1:
 			icmp_handle(packet, src, dest, nic);
 			break;
-		case IPV4_PROT_UDP:
+		case IPV4_PROT_UDP: {
+			uint16_t dest_port = ntohs(((uint16_t*)&packet->payload)[1]);
 			printf("net: ipv4: %s: %s -> %s udp %d to %d\n", nic->name, src, dest, ntohs(((uint16_t*)&packet->payload)[0]), ntohs(((uint16_t*)&packet->payload)[1]));
+			if (udp_sockets && hashmap_has(udp_sockets, (void*)(uintptr_t)dest_port)) {
+				printf("net: udp: received and have a waiting endpoint!\n");
+				void * tmp = malloc(ntohs(packet->length));
+				memcpy(tmp, packet, ntohs(packet->length));
+				sock_t * sock = hashmap_get(udp_sockets, (void*)(uintptr_t)dest_port);
+				net_sock_add(sock, tmp);
+			}
 			break;
+		}
 		case IPV4_PROT_TCP:
 			printf("net: ipv4: %s: %s -> %s tcp %d to %d\n", nic->name, src, dest, ntohs(((uint16_t*)&packet->payload)[0]), ntohs(((uint16_t*)&packet->payload)[1]));
 			break;
 	}
 }
 
+extern fs_node_t * net_if_any(void);
+
+static spin_lock_t udp_port_lock = {0};
+
+static int next_port = 12345;
+static int udp_get_port(sock_t * sock) {
+	spin_lock(udp_port_lock);
+	int out = next_port++;
+	if (!udp_sockets) {
+		udp_sockets = hashmap_create_int(10);
+	}
+	hashmap_set(udp_sockets, (void*)(uintptr_t)out, sock);
+	sock->priv[0] = out;
+	spin_unlock(udp_port_lock);
+	return out;
+}
+
+static long sock_udp_send(sock_t * sock, const struct msghdr *msg, int flags) {
+	printf("udp: send called\n");
+	if (msg->msg_iovlen > 1) {
+		printf("net: todo: can't send multiple iovs\n");
+		return -ENOTSUP;
+	}
+	if (msg->msg_iovlen == 0) return 0;
+	if (msg->msg_namelen != sizeof(struct sockaddr_in)) {
+		printf("udp: invalid destination address size %ld\n", msg->msg_namelen);
+		return -EINVAL;
+	}
+
+	if (sock->priv[0] == 0) {
+		udp_get_port(sock);
+		printf("udp: assigning port %d to socket\n", sock->priv[0]);
+	}
+
+	struct sockaddr_in * name = msg->msg_name;
+
+	char dest[16];
+	ip_ntoa(ntohl(name->sin_addr.s_addr), dest);
+	printf("udp: want to send to %s\n", dest);
+
+	/* Routing: We need a device to send this on... */
+	fs_node_t * nic = net_if_any();
+
+	size_t total_length = sizeof(struct ipv4_packet) + msg->msg_iov[0].iov_len + sizeof(struct udp_packet);
+
+	struct ipv4_packet * response = malloc(total_length);
+	response->length = htons(total_length);
+	response->destination = name->sin_addr.s_addr;
+	response->source = ((struct EthernetDevice*)nic->device)->ipv4_addr;
+	response->ttl = 64;
+	response->protocol = IPV4_PROT_UDP;
+	response->ident = 0;
+	response->flags_fragment = htons(0x4000);
+	response->version_ihl = 0x45;
+	response->dscp_ecn = 0;
+	response->checksum = 0;
+	response->checksum = htons(calculate_ipv4_checksum(response));
+
+	/* Stick UDP header into payload */
+	struct udp_packet * udp_packet = &response->payload;
+	udp_packet->source_port = htons(sock->priv[0]);
+	udp_packet->destination_port = name->sin_port;
+	udp_packet->length = htons(sizeof(struct udp_packet) + msg->msg_iov[0].iov_len);
+	udp_packet->checksum = 0;
+
+	memcpy(response->payload + sizeof(struct udp_packet), msg->msg_iov[0].iov_base, msg->msg_iov[0].iov_len);
+
+	net_eth_send((struct EthernetDevice*)nic->device, ntohs(response->length), response, ETHERNET_TYPE_IPV4, ETHERNET_BROADCAST_MAC);
+	free(response);
+
+	return 0;
+}
+
+static long sock_udp_recv(sock_t * sock, struct msghdr * msg, int flags) {
+	printf("udp: recv called\n");
+	if (!sock->priv[0]) {
+		printf("udp: recv() but socket has no port\n");
+		return -EINVAL;
+	}
+
+	if (msg->msg_iovlen > 1) {
+		printf("net: todo: can't recv multiple iovs\n");
+		return -ENOTSUP;
+	}
+	if (msg->msg_iovlen == 0) return 0;
+
+	struct ipv4_packet * data = net_sock_get(sock);
+	printf("udp: got response, size is %u - sizeof(ipv4) - sizeof(udp) = %lu\n",
+		ntohs(data->length), ntohs(data->length) - sizeof(struct ipv4_packet) - sizeof(struct udp_packet));
+	memcpy(msg->msg_iov[0].iov_base, data->payload + 8, ntohs(data->length) - sizeof(struct ipv4_packet) - sizeof(struct udp_packet));
+
+	printf("udp: data copied to iov 0, return length?\n");
+
+	long resp = ntohs(data->length) - sizeof(struct ipv4_packet) - sizeof(struct udp_packet);
+	free(data);
+	return resp;
+}
+
+
+static void sock_udp_close(sock_t * sock) {
+	if (sock->priv[0] && udp_sockets) {
+		printf("udp: removing port %d from bound map\n", sock->priv[0]);
+		spin_lock(udp_port_lock);
+		hashmap_remove(udp_sockets, (void*)(uintptr_t)sock->priv[0]);
+		spin_unlock(udp_port_lock);
+	}
+}
+
+static int udp_socket(void) {
+	printf("udp socket...\n");
+	sock_t * sock = net_sock_create();
+	sock->sock_recv = sock_udp_recv;
+	sock->sock_send = sock_udp_send;
+	sock->sock_close = sock_udp_close;
+	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock);
+}
+
 long net_ipv4_socket(int type, int protocol) {
 	/* Ignore protocol, make socket for 'type' only... */
 	switch (type) {
 		case SOCK_DGRAM:
-			printf("udp socket...\n");
-			return -EINVAL;
+			return udp_socket();
 		case SOCK_STREAM:
 			printf("tcp socket...\n");
 			return -EINVAL;

@@ -196,22 +196,27 @@ long net_setsockopt(int sockfd, int level, int optname, const void *optval, sock
 }
 
 long net_getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen) {
+	if (!FD_CHECK(sockfd)) return -EBADF;
 	return -EINVAL;
 }
 
 long net_bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
+	if (!FD_CHECK(sockfd)) return -EBADF;
 	return -EINVAL;
 }
 
 long net_accept(int sockfd, struct sockaddr * addr, socklen_t * addrlen) {
+	if (!FD_CHECK(sockfd)) return -EBADF;
 	return -EINVAL;
 }
 
-long net_listen(int sockd, int backlog) {
+long net_listen(int sockfd, int backlog) {
+	if (!FD_CHECK(sockfd)) return -EBADF;
 	return -EINVAL;
 }
 
 long net_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
+	if (!FD_CHECK(sockfd)) return -EBADF;
 	return -EINVAL;
 }
 
