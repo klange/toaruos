@@ -19,12 +19,16 @@
 
 #include "terminal-font.h"
 
-/**
- * Graphical framebuffer is a bit more straightforward.
- */
+static void do_nothing() {
+	/* do nothing */
+}
+
+/* Framebuffer setup */
 static int framebuffer_fd = -1;
 static long width, height, depth;
 static char * framebuffer;
+static void (*update_message)(char * c, int line) = do_nothing;
+static void (*clear_screen)(void) = do_nothing;
 
 static void set_point(int x, int y, uint32_t value) {
 	uint32_t * disp = (uint32_t *)framebuffer;
@@ -53,8 +57,7 @@ static void write_char(int x, int y, int val, uint32_t color) {
 }
 
 static unsigned int line_offset = 0;
-static void update_message(char * c, int line) {
-	if (framebuffer_fd < 0) return;
+static void fb_update_message(char * c, int line) {
 	int x = 20;
 	int y = 20 + line_offset * char_height;
 	if (line == 0) {
@@ -71,9 +74,7 @@ static void update_message(char * c, int line) {
 	}
 }
 
-static void clear_screen(void) {
-	if (framebuffer_fd < 0) return;
-
+static void fb_clear_screen(void) {
 	for (int y = 0; y < height; ++y) {
 		for (int x = 0; x < width; ++x) {
 			set_point(x,y,BG_COLOR);
@@ -81,10 +82,49 @@ static void clear_screen(void) {
 	}
 }
 
+static void placech(unsigned char c, int x, int y, int attr) {
+	unsigned short *where;
+	unsigned att = attr << 8;
+	where = (unsigned short*)(framebuffer) + (y * 80 + x);
+	*where = c | att;
+}
+
+static void vga_update_message(char * c, int line) {
+	int x = 1;
+	int y = 1 + line_offset;
+	if (line == 0) {
+		line_offset++;
+	}
+	while (*c) {
+		placech(*c, x, y, 0x7);
+		c++;
+		x++;
+	}
+	while (x < 80) {
+		placech(' ', x, y, 0x7);
+		x++;
+	}
+}
+
+static void vga_clear_screen(void) {
+	for (int y = 0; y < 24; ++y) {
+		for (int x = 0; x < 80; ++x) {
+			placech(' ', x, y, 0); /* Clear */
+		}
+	}
+}
+
 static void check_framebuffer(void) {
 	framebuffer_fd = open("/dev/fb0", O_RDONLY);
-	if (framebuffer_fd < 0) return;
-
+	if (framebuffer_fd >= 0) {
+		update_message = fb_update_message;
+		clear_screen = fb_clear_screen;
+	} else {
+		framebuffer_fd = open("/dev/vga0", O_RDONLY);
+		if (framebuffer_fd < 0) return;
+		update_message = vga_update_message;
+		clear_screen = vga_clear_screen;
+	}
 	ioctl(framebuffer_fd, IO_VID_WIDTH,  &width);
 	ioctl(framebuffer_fd, IO_VID_HEIGHT, &height);
 	ioctl(framebuffer_fd, IO_VID_DEPTH,  &depth);
