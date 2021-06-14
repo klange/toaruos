@@ -253,6 +253,8 @@ static void send_packet(struct e1000_nic * device, uint8_t* payload, size_t payl
 	spin_lock(device->tx_lock);
 	device->tx_index = read_command(device, E1000_REG_TXDESCTAIL);
 
+	printf("eth: sending packet?\n");
+
 	memcpy(device->tx_virt[device->tx_index], payload, payload_size);
 	device->tx[device->tx_index].length = payload_size;
 	device->tx[device->tx_index].cmd = CMD_EOP | CMD_IFCS | CMD_RS; //| CMD_RPS;
@@ -293,7 +295,8 @@ static void init_tx(struct e1000_nic * device) {
 	write_command(device, E1000_REG_TCTRL,
 		TCTL_EN |
 		TCTL_PSP |
-		read_command(device, E1000_REG_TCTRL));
+		(0x0F << 4) | /* Collision control */
+		(0x40 << 12)); /* Collision distance */
 }
 
 static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
@@ -394,6 +397,9 @@ static void e1000_init(void * data) {
 	nic->tx_phys = nic->rx_phys + 512;
 	nic->tx = mmu_map_from_physical(nic->tx_phys);
 
+	memset(nic->rx, 0, 4096);
+	memset(nic->tx, 0, 4096);
+
 	/* Allocate buffers */
 	for (int i = 0; i < E1000_NUM_RX_DESC; ++i) {
 		nic->rx[i].addr = mmu_allocate_n_frames(2) << 12;
@@ -412,6 +418,7 @@ static void e1000_init(void * data) {
 			switch_task(0);
 		}
 		nic->tx_virt[i] = mmu_map_from_physical(nic->tx[i].addr);
+		memset(nic->tx_virt[i], 0, 8092);
 		nic->tx[i].status = 0;
 		nic->tx[i].cmd = (1 << 0);
 	}
@@ -484,7 +491,7 @@ static void e1000_init(void * data) {
 	}
 
 	for (int i = 0; i < 64; ++i) {
-		write_command(nic, 0x4000 + i * 4, 0);
+		read_command(nic, 0x4000 + i * 4);
 	}
 
 	init_rx(nic);
