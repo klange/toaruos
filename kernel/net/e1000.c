@@ -295,8 +295,7 @@ static void init_tx(struct e1000_nic * device) {
 	write_command(device, E1000_REG_TCTRL,
 		TCTL_EN |
 		TCTL_PSP |
-		(0x0F << 4) | /* Collision control */
-		(0x40 << 12)); /* Collision distance */
+		read_command(device, E1000_REG_TCTRL));
 }
 
 static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
