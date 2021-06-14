@@ -8,6 +8,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <poll.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -228,7 +229,6 @@ struct hostent * gethostbyname(const char * name) {
 
 	/* Try to convert so we can connect... */
 	uint32_t ns_addr = ip_aton(tmp + strlen("nameserver "));
-	fprintf(stderr, "gethostbyname: asking %#x\n", ns_addr);
 
 	/* Form a DNS request */
 	char dat[256];
@@ -241,8 +241,6 @@ struct hostent * gethostbyname(const char * name) {
 	req->authorities = htons(0);
 	req->additional = htons(0);
 
-	fprintf(stderr, "gethostbyname: Frobbing bits...\n");
-
 	/* Turn requested name into DNS request */
 	ssize_t i = 0;
 	const char * c = name;
@@ -250,7 +248,6 @@ struct hostent * gethostbyname(const char * name) {
 		const char * n = strchr(c,'.');
 		if (!n) n = c + strlen(c);
 		ssize_t len = n - c;
-		fprintf(stderr, "gethostbyname: segment of len %zd\n", len);
 		req->data[i++] = len;
 		for (; c < n; ++c, ++i) {
 			req->data[i] = *c;
@@ -274,28 +271,33 @@ struct hostent * gethostbyname(const char * name) {
 		return NULL;
 	}
 
+	/* Wait for a response, but don't wait too long. */
+	struct pollfd fds[1];
+	fds[0].fd = sock;
+	fds[0].events = POLLIN;
+	int ret = poll(fds,1,2000); /* Two seconds? Is that okay? */
+	if (ret < 0) {
+		fprintf(stderr, "gethostbyname: timed out\n");
+		return NULL;
+	}
+
 	char buf[1550];
-	/* TODO timeout... */
 	ssize_t len = recv(sock, buf, 1550, 0);
+	close(sock);
+
 	if (len < 0) {
 		fprintf(stderr, "gethostbyname: failed to recv\n");
 		return NULL;
 	}
 
-	/* Now examine the response */
-	fprintf(stderr, "gethostbyname: response from server\n");
 
+	/* Now examine the response */
 	struct dns_packet * response = (struct dns_packet *)&buf;
 
 	if (ntohs(response->answers) == 0) {
 		fprintf(stderr, "gethostbyname: no answer\n");
 		return NULL;
 	}
-
-	fprintf(stderr, "gethostbyname: got %d answers\n", ntohs(response->answers));
-
-	/* XXX Just kinda blindly assume the answer is at the end */
-	fprintf(stderr, "packet is of len %d, so answer must be %x\n", (int)len, *(uint32_t*)(buf+len-4));
 
 	/* Get a return value */
 	_hostent.h_name = name;

@@ -217,7 +217,9 @@ long net_listen(int sockfd, int backlog) {
 
 long net_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 	if (!FD_CHECK(sockfd)) return -EBADF;
-	return -EINVAL;
+	sock_t * node = (sock_t*)FD_ENTRY(sockfd);
+	if (!node->sock_connect) return -EINVAL;
+	return node->sock_connect(node,addr,addrlen);
 }
 
 long net_recv(int sockfd, struct msghdr * msg, int flags) {

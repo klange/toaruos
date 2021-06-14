@@ -49,6 +49,30 @@ struct udp_packet {
 	uint8_t  payload[];
 } __attribute__ ((packed)) __attribute__((aligned(2)));
 
+struct tcp_header {
+	uint16_t source_port;
+	uint16_t destination_port;
+
+	uint32_t seq_number;
+	uint32_t ack_number;
+
+	uint16_t flags;
+	uint16_t window_size;
+	uint16_t checksum;
+	uint16_t urgent;
+
+	uint8_t  payload[];
+} __attribute__((packed)) __attribute__((aligned(2)));
+
+struct tcp_check_header {
+	uint32_t source;
+	uint32_t destination;
+	uint8_t  zeros;
+	uint8_t  protocol;
+	uint16_t tcp_len;
+	uint8_t  tcp_header[];
+};
+
 #define IPV4_PROT_UDP 17
 #define IPV4_PROT_TCP 6
 
@@ -124,6 +148,7 @@ static void icmp_handle(struct ipv4_packet * packet, const char * src, const cha
 extern void net_sock_add(sock_t * sock, void * frame);
 
 static hashmap_t * udp_sockets = NULL;
+static hashmap_t * tcp_sockets = NULL;
 
 void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
 
@@ -214,7 +239,7 @@ static long sock_udp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 	response->checksum = htons(calculate_ipv4_checksum(response));
 
 	/* Stick UDP header into payload */
-	struct udp_packet * udp_packet = &response->payload;
+	struct udp_packet * udp_packet = (struct udp_packet*)&response->payload;
 	udp_packet->source_port = htons(sock->priv[0]);
 	udp_packet->destination_port = name->sin_port;
 	udp_packet->length = htons(sizeof(struct udp_packet) + msg->msg_iov[0].iov_len);
@@ -253,6 +278,10 @@ static long sock_udp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	return resp;
 }
 
+static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags) {
+	printf("tcp: send called\n");
+	return 0;
+}
 
 static void sock_udp_close(sock_t * sock) {
 	if (sock->priv[0] && udp_sockets) {
@@ -272,14 +301,182 @@ static int udp_socket(void) {
 	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock);
 }
 
+static spin_lock_t tcp_port_lock = {0};
+static void sock_tcp_close(sock_t * sock) {
+	if (sock->priv[0] && tcp_sockets) {
+		printf("tcp: removing port %d from bound map\n", sock->priv[0]);
+		spin_lock(tcp_port_lock);
+		hashmap_remove(tcp_sockets, (void*)(uintptr_t)sock->priv[0]);
+		spin_unlock(tcp_port_lock);
+	}
+}
+
+static int next_tcp_port = 12345;
+static int tcp_get_port(sock_t * sock) {
+	spin_lock(tcp_port_lock);
+	int out = next_tcp_port++;
+	if (!tcp_sockets) {
+		tcp_sockets = hashmap_create_int(10);
+	}
+	hashmap_set(tcp_sockets, (void*)(uintptr_t)out, sock);
+	sock->priv[0] = out;
+	spin_unlock(tcp_port_lock);
+	return out;
+}
+
+static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
+	printf("tcp: recv called\n");
+	if (!sock->priv[0]) {
+		printf("tcp: recv() but socket has no port\n");
+		return -EINVAL;
+	}
+
+	if (msg->msg_iovlen > 1) {
+		printf("net: todo: can't recv multiple iovs\n");
+		return -ENOTSUP;
+	}
+	if (msg->msg_iovlen == 0) return 0;
+
+	struct ipv4_packet * data = net_sock_get(sock);
+	printf("tcp: got response, size is %u\n",
+		ntohs(data->length));
+	free(data);
+	return 0;
+}
+
+uint16_t calculate_tcp_checksum(struct tcp_check_header * p, struct tcp_header * h, void * d, size_t payload_size) {
+	uint32_t sum = 0;
+	uint16_t * s = (uint16_t *)p;
+
+	/* TODO: Checksums for options? */
+	for (int i = 0; i < 6; ++i) {
+		sum += ntohs(s[i]);
+		if (sum > 0xFFFF) {
+			sum = (sum >> 16) + (sum & 0xFFFF);
+		}
+	}
+
+	s = (uint16_t *)h;
+	for (int i = 0; i < 10; ++i) {
+		sum += ntohs(s[i]);
+		if (sum > 0xFFFF) {
+			sum = (sum >> 16) + (sum & 0xFFFF);
+		}
+	}
+
+	uint16_t d_words = payload_size / 2;
+
+	s = (uint16_t *)d;
+	for (unsigned int i = 0; i < d_words; ++i) {
+		sum += ntohs(s[i]);
+		if (sum > 0xFFFF) {
+			sum = (sum >> 16) + (sum & 0xFFFF);
+		}
+	}
+
+	if (d_words * 2 != payload_size) {
+		uint8_t * t = (uint8_t *)d;
+		uint8_t tmp[2];
+		tmp[0] = t[d_words * sizeof(uint16_t)];
+		tmp[1] = 0;
+
+		uint16_t * f = (uint16_t *)tmp;
+
+		sum += ntohs(f[0]);
+		if (sum > 0xFFFF) {
+			sum = (sum >> 16) + (sum & 0xFFFF);
+		}
+	}
+
+	return ~(sum & 0xFFFF) & 0xFFFF;
+}
+
+
+static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen_t addrlen) {
+	const struct sockaddr_in * dest = (const struct sockaddr_in *)addr;
+	char deststr[16];
+	ip_ntoa(ntohl(dest->sin_addr.s_addr), deststr);
+	printf("tcp: connect requested to %s port %d\n", deststr, ntohs(dest->sin_port));
+
+	if (sock->priv[1] != 0) {
+		printf("tcp: socket is already connected?\n");
+		return -EINVAL;
+	}
+
+	/* Get a port */
+	tcp_get_port(sock);
+	printf("tcp: connecting from ephemeral port %d\n", (int)sock->priv[0]);
+
+	/* Mark as awaiting connection, send initial SYN */
+	sock->priv[1] = 1;
+
+	fs_node_t * nic = net_if_any();
+
+	size_t total_length = sizeof(struct ipv4_packet) + sizeof(struct tcp_header);
+
+	struct ipv4_packet * response = malloc(total_length);
+	response->length = htons(total_length);
+	response->destination = dest->sin_addr.s_addr;
+	response->source = ((struct EthernetDevice*)nic->device)->ipv4_addr;
+	response->ttl = 64;
+	response->protocol = IPV4_PROT_TCP;
+	response->ident = 0;
+	response->flags_fragment = htons(0x4000);
+	response->version_ihl = 0x45;
+	response->dscp_ecn = 0;
+	response->checksum = 0;
+	response->checksum = htons(calculate_ipv4_checksum(response));
+
+	/* Stick TCP header into payload */
+	struct tcp_header * tcp_header = (struct tcp_header*)&response->payload;
+	tcp_header->source_port = htons(sock->priv[0]);
+	tcp_header->destination_port = dest->sin_port;
+	tcp_header->seq_number = 0;
+	tcp_header->ack_number = 0;
+	tcp_header->flags = htons((1 << 1) | 0x5000);
+	tcp_header->window_size = htons(1548-54);
+	tcp_header->checksum = 0;
+	tcp_header->urgent = 0;
+
+	/* Calculate checksum */
+	struct tcp_check_header check_hd = {
+		.source = response->source,
+		.destination = response->destination,
+		.zeros = 0,
+		.protocol = IPV4_PROT_TCP,
+		.tcp_len = htons(sizeof(struct tcp_header)),
+	};
+
+	tcp_header->checksum = htons(calculate_tcp_checksum(&check_hd, tcp_header, NULL, 0));
+
+	/* TODO: enqueue tcp packet for potential redelivery */
+
+	net_eth_send((struct EthernetDevice*)nic->device, ntohs(response->length), response, ETHERNET_TYPE_IPV4, ETHERNET_BROADCAST_MAC);
+
+	free(response);
+
+	/* wait for signal that we connected or timed out */
+
+	return 0;
+}
+
+static int tcp_socket(void) {
+	printf("tcp socket...\n");
+	sock_t * sock = net_sock_create();
+	sock->sock_recv = sock_tcp_recv;
+	sock->sock_send = sock_tcp_send;
+	sock->sock_close = sock_tcp_close;
+	sock->sock_connect = sock_tcp_connect;
+	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock);
+}
+
 long net_ipv4_socket(int type, int protocol) {
 	/* Ignore protocol, make socket for 'type' only... */
 	switch (type) {
 		case SOCK_DGRAM:
 			return udp_socket();
 		case SOCK_STREAM:
-			printf("tcp socket...\n");
-			return -EINVAL;
+			return tcp_socket();
 		default:
 			return -EINVAL;
 	}

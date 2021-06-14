@@ -320,6 +320,7 @@ int main(int argc, char * argv[]) {
 	struct sockaddr_in addr;
 	addr.sin_family = AF_INET;
 	memcpy(&addr.sin_addr.s_addr, remote->h_addr, remote->h_length);
+	addr.sin_port = htons(80); /* TODO */
 
 	if (connect(sock, &addr, sizeof(struct sockaddr_in)) < 0) {
 		perror("connect");

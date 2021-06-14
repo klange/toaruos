@@ -24,6 +24,7 @@ typedef struct SockData {
 	long (*sock_recv)(struct SockData * sock, struct msghdr * msg, int flags);
 	long (*sock_send)(struct SockData * sock, const struct msghdr *msg, int flags);
 	void (*sock_close)(struct SockData * sock);
+	long (*sock_connect)(struct SockData * sock, const struct sockaddr *addr, socklen_t addrlen);
 } sock_t;
 
 void net_sock_alert(sock_t * sock);
