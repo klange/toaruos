@@ -29,3 +29,12 @@ struct EthernetDevice {
 };
 
 void net_eth_send(struct EthernetDevice *, size_t, void*, uint16_t, uint8_t*);
+
+struct ArpCacheEntry {
+	uint8_t hwaddr[6];
+	uint16_t flags;
+	struct EthernetDevice * iface;
+};
+
+struct ArpCacheEntry * net_arp_cache_get(uint32_t addr);
+void net_arp_cache_add(struct EthernetDevice * iface, uint32_t addr, uint8_t * hwaddr, uint16_t flags);

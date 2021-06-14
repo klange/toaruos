@@ -16,65 +16,9 @@
 
 #include <kernel/net/netif.h>
 #include <kernel/net/eth.h>
+#include <kernel/net/ipv4.h>
 
 #include <sys/socket.h>
-
-struct ipv4_packet {
-	uint8_t  version_ihl;
-	uint8_t  dscp_ecn;
-	uint16_t length;
-	uint16_t ident;
-	uint16_t flags_fragment;
-	uint8_t  ttl;
-	uint8_t  protocol;
-	uint16_t checksum;
-	uint32_t source;
-	uint32_t destination;
-	uint8_t  payload[];
-} __attribute__ ((packed)) __attribute__((aligned(2)));
-
-struct icmp_header {
-	uint8_t type;
-	uint8_t code;
-	uint16_t csum;
-	uint16_t rest_of_header;
-	uint8_t data[];
-} __attribute__((packed)) __attribute__((aligned(2)));
-
-struct udp_packet {
-	uint16_t source_port;
-	uint16_t destination_port;
-	uint16_t length;
-	uint16_t checksum;
-	uint8_t  payload[];
-} __attribute__ ((packed)) __attribute__((aligned(2)));
-
-struct tcp_header {
-	uint16_t source_port;
-	uint16_t destination_port;
-
-	uint32_t seq_number;
-	uint32_t ack_number;
-
-	uint16_t flags;
-	uint16_t window_size;
-	uint16_t checksum;
-	uint16_t urgent;
-
-	uint8_t  payload[];
-} __attribute__((packed)) __attribute__((aligned(2)));
-
-struct tcp_check_header {
-	uint32_t source;
-	uint32_t destination;
-	uint8_t  zeros;
-	uint8_t  protocol;
-	uint16_t tcp_len;
-	uint8_t  tcp_header[];
-};
-
-#define IPV4_PROT_UDP 17
-#define IPV4_PROT_TCP 6
 
 static void ip_ntoa(const uint32_t src_addr, char * out) {
 	snprintf(out, 16, "%d.%d.%d.%d",
@@ -159,8 +103,6 @@ uint16_t calculate_tcp_checksum(struct tcp_check_header * p, struct tcp_header *
 	return ~(sum & 0xFFFF) & 0xFFFF;
 }
 
-
-
 static void icmp_handle(struct ipv4_packet * packet, const char * src, const char * dest, fs_node_t * nic) {
 	struct icmp_header * header = (void*)&packet->payload;
 	if (header->type == 8 && header->code == 0) {
@@ -208,7 +150,7 @@ static hashmap_t * tcp_sockets = NULL;
 #define TCP_FLAGS_NS  (1 << 8)
 #define DATA_OFFSET_5 (0x5 << 12)
 
-static void tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet) {
+static void tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet, int isSynAck, size_t payload_len) {
 	sock->priv[1] = 2;
 
 	size_t total_length = sizeof(struct ipv4_packet) + sizeof(struct tcp_header);
@@ -220,27 +162,26 @@ static void tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet)
 	response->source = ((struct EthernetDevice*)nic->device)->ipv4_addr;
 	response->ttl = 64;
 	response->protocol = IPV4_PROT_TCP;
-	response->ident = 0;
-	response->flags_fragment = htons(0x4000);
+	response->ident = htons(1);
+	response->flags_fragment = htons(0x0);
 	response->version_ihl = 0x45;
 	response->dscp_ecn = 0;
 	response->checksum = 0;
 	response->checksum = htons(calculate_ipv4_checksum(response));
 
-	sock->priv[2] = 1;
+	sock->priv32[0] = isSynAck ? 1 : sock->priv32[0];
+	sock->priv32[1] = (ntohl(tcp->seq_number) + payload_len) & 0xFFFFFFFF;
 
 	/* Stick TCP header into payload */
 	struct tcp_header * tcp_header = (struct tcp_header*)&response->payload;
 	tcp_header->source_port = htons(sock->priv[0]);
 	tcp_header->destination_port = tcp->source_port;
-	tcp_header->seq_number = htonl(sock->priv[2]);
-	tcp_header->ack_number = tcp->seq_number;
+	tcp_header->seq_number = htonl(sock->priv32[0]);
+	tcp_header->ack_number = htonl(sock->priv32[1]);
 	tcp_header->flags = htons((TCP_FLAGS_ACK) | 0x5000);
 	tcp_header->window_size = htons(1548-54);
 	tcp_header->checksum = 0;
 	tcp_header->urgent = 0;
-
-	sock->priv[2]++;
 
 	/* Calculate checksum */
 	struct tcp_check_header check_hd = {
@@ -254,8 +195,6 @@ static void tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet)
 	tcp_header->checksum = htons(calculate_tcp_checksum(&check_hd, tcp_header, NULL, 0));
 
 	net_eth_send((struct EthernetDevice*)nic->device, ntohs(response->length), response, ETHERNET_TYPE_IPV4, ETHERNET_BROADCAST_MAC);
-
-	net_sock_add(sock, packet, ntohs(packet->length));
 }
 
 void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
@@ -293,10 +232,18 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
 					/* Awaiting SYN ACK, is this one? */
 					if ((ntohs(tcp->flags) & (TCP_FLAGS_SYN | TCP_FLAGS_ACK)) == (TCP_FLAGS_SYN | TCP_FLAGS_ACK)) {
 						printf("tcp: synack\n");
-						tcp_ack(nic, sock, packet);
+						tcp_ack(nic, sock, packet, 1, 1);
+						net_sock_add(sock, packet, ntohs(packet->length));
 					}
 				} else if (sock->priv[1] == 2) {
-					net_sock_add(sock, packet, ntohs(packet->length));
+					size_t packet_len = ntohs(packet->length) - sizeof(struct ipv4_packet);
+					size_t hlen = ((ntohs(tcp->flags) & 0xF000) >> 12) * 4;
+					size_t payload_len = packet_len - hlen;
+					if (payload_len) {
+						printf("acking because payload_len = %zu (hlen=%zu, packet_len=%zu)\n", payload_len, hlen, packet_len);
+						tcp_ack(nic, sock, packet, 0, payload_len);
+						net_sock_add(sock, packet, ntohs(packet->length));
+					}
 				}
 			}
 			break;
@@ -402,11 +349,6 @@ static long sock_udp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	return resp;
 }
 
-static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags) {
-	printf("tcp: send called\n");
-	return 0;
-}
-
 static void sock_udp_close(sock_t * sock) {
 	if (sock->priv[0] && udp_sockets) {
 		printf("udp: removing port %d from bound map\n", sock->priv[0]);
@@ -435,7 +377,7 @@ static void sock_tcp_close(sock_t * sock) {
 	}
 }
 
-static int next_tcp_port = 12345;
+static int next_tcp_port = 49152;
 static int tcp_get_port(sock_t * sock) {
 	spin_lock(tcp_port_lock);
 	int out = next_tcp_port++;
@@ -464,8 +406,10 @@ static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	struct ipv4_packet * data = net_sock_get(sock);
 	printf("tcp: got response, size is %u\n",
 		ntohs(data->length));
+	long resp = ntohs(data->length) - sizeof(struct ipv4_packet) - sizeof(struct tcp_header);
+	memcpy(msg->msg_iov[0].iov_base, data->payload + sizeof(struct tcp_header), resp);
 	free(data);
-	return 0;
+	return resp;
 }
 
 static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen_t addrlen) {
@@ -486,6 +430,8 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 	/* Mark as awaiting connection, send initial SYN */
 	sock->priv[1] = 1;
 
+	memcpy(&sock->dest, addr, addrlen);
+
 	fs_node_t * nic = net_if_any();
 
 	size_t total_length = sizeof(struct ipv4_packet) + sizeof(struct tcp_header);
@@ -496,8 +442,8 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 	response->source = ((struct EthernetDevice*)nic->device)->ipv4_addr;
 	response->ttl = 64;
 	response->protocol = IPV4_PROT_TCP;
-	response->ident = 0;
-	response->flags_fragment = htons(0x4000);
+	response->ident = htons(1);
+	response->flags_fragment = htons(0x0);
 	response->version_ihl = 0x45;
 	response->dscp_ecn = 0;
 	response->checksum = 0;
@@ -543,11 +489,91 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 
 ssize_t sock_tcp_read(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	printf("tcp: read into buffer of %zu bytes\n", size);
-	return 0;
+	struct iovec _iovec = {
+		buffer, size
+	};
+	struct msghdr _header = {
+		.msg_name = NULL,
+		.msg_namelen = 0,
+		.msg_iov = &_iovec,
+		.msg_iovlen = 1,
+		.msg_control = NULL,
+		.msg_controllen = 0,
+		.msg_flags = 0,
+	};
+	return sock_tcp_recv((sock_t*)node, &_header, 0);
 }
+
+static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags) {
+	printf("tcp: send called\n");
+	if (msg->msg_iovlen > 1) {
+		printf("net: todo: can't send multiple iovs\n");
+		return -ENOTSUP;
+	}
+	if (msg->msg_iovlen == 0) return 0;
+
+	size_t total_length = sizeof(struct ipv4_packet) + sizeof(struct tcp_header) + msg->msg_iov[0].iov_len;
+
+	fs_node_t * nic = net_if_any();
+
+	struct ipv4_packet * response = malloc(total_length);
+	response->length = htons(total_length);
+	response->destination = ((struct sockaddr_in*)&sock->dest)->sin_addr.s_addr;
+	response->source = ((struct EthernetDevice*)nic->device)->ipv4_addr;
+	response->ttl = 64;
+	response->protocol = IPV4_PROT_TCP;
+	response->ident = htons(1);
+	response->flags_fragment = htons(0x0);
+	response->version_ihl = 0x45;
+	response->dscp_ecn = 0;
+	response->checksum = 0;
+	response->checksum = htons(calculate_ipv4_checksum(response));
+
+	/* Stick TCP header into payload */
+	struct tcp_header * tcp_header = (struct tcp_header*)&response->payload;
+	tcp_header->source_port = htons(sock->priv[0]);
+	tcp_header->destination_port = ((struct sockaddr_in*)&sock->dest)->sin_port;
+	tcp_header->seq_number = htonl(sock->priv32[0]);
+	tcp_header->ack_number = htonl(sock->priv32[1]);
+	tcp_header->flags = htons(TCP_FLAGS_PSH | TCP_FLAGS_ACK | 0x5000);
+	tcp_header->window_size = htons(1548-54);
+	tcp_header->checksum = 0;
+	tcp_header->urgent = 0;
+
+	sock->priv32[0] += msg->msg_iov[0].iov_len;
+
+	/* Calculate checksum */
+	struct tcp_check_header check_hd = {
+		.source = response->source,
+		.destination = response->destination,
+		.zeros = 0,
+		.protocol = IPV4_PROT_TCP,
+		.tcp_len = htons(sizeof(struct tcp_header) + msg->msg_iov[0].iov_len),
+	};
+
+	memcpy(tcp_header->payload, msg->msg_iov[0].iov_base, msg->msg_iov[0].iov_len);
+	tcp_header->checksum = htons(calculate_tcp_checksum(&check_hd, tcp_header, tcp_header->payload, msg->msg_iov[0].iov_len));
+
+	struct ArpCacheEntry * resp = net_arp_cache_get(response->destination);
+	net_eth_send((struct EthernetDevice*)nic->device, ntohs(response->length), response, ETHERNET_TYPE_IPV4, resp ? resp->hwaddr : ETHERNET_BROADCAST_MAC);
+	return msg->msg_iov[0].iov_len;
+}
+
 ssize_t sock_tcp_write(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	printf("tcp: write of %zu bytes\n", size);
-	return 0;
+	struct iovec _iovec = {
+		(void*)buffer, size
+	};
+	struct msghdr _header = {
+		.msg_name = NULL,
+		.msg_namelen = 0,
+		.msg_iov = &_iovec,
+		.msg_iovlen = 1,
+		.msg_control = NULL,
+		.msg_controllen = 0,
+		.msg_flags = 0,
+	};
+	return sock_tcp_send((sock_t*)node, &_header, 0);
 }
 
 static int tcp_socket(void) {

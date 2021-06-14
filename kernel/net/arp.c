@@ -38,12 +38,6 @@ static void ip_ntoa(const uint32_t src_addr, char * out) {
 spin_lock_t net_arp_cache_lock = {0};
 hashmap_t * net_arp_cache = NULL;
 
-struct ArpCacheEntry {
-	uint8_t hwaddr[6];
-	uint16_t flags;
-	struct EthernetDevice * iface;
-};
-
 void net_arp_cache_add(struct EthernetDevice * iface, uint32_t addr, uint8_t * hwaddr, uint16_t flags) {
 	spin_lock(net_arp_cache_lock);
 	if (!net_arp_cache) net_arp_cache = hashmap_create_int(10);

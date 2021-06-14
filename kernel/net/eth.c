@@ -9,6 +9,7 @@
 #include <kernel/mod/net.h>
 #include <kernel/net/netif.h>
 #include <kernel/net/eth.h>
+#include <kernel/net/ipv4.h>
 #include <errno.h>
 
 #include <sys/socket.h>
@@ -43,10 +44,15 @@ void net_eth_handle(struct ethernet_packet * frame, fs_node_t * nic) {
 			case ETHERNET_TYPE_ARP:
 				net_arp_handle(&frame->payload, nic);
 				break;
-			case ETHERNET_TYPE_IPV4:
+			case ETHERNET_TYPE_IPV4: {
+				struct ipv4_packet * packet = (struct ipv4_packet*)&frame->payload;
 				printf("net: eth: %s: rx ipv4 packet\n", nic->name);
-				net_ipv4_handle(&frame->payload, nic);
+				if (packet->source != 0xFFFFFFFF) {
+					net_arp_cache_add(nic->device, packet->source, frame->source, 0);
+				}
+				net_ipv4_handle(packet, nic);
 				break;
+			}
 		}
 	}
 
