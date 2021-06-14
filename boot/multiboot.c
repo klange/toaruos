@@ -91,7 +91,7 @@ static int load_kernel(void) {
 	/* Round final offset */
 	final_offset = (final_offset & ~(0xFFF)) + ((final_offset & 0xFFF) ? 0x1000 : 0);
 
-	print_("Loaded with end at 0x"); print_hex_(final_offset); print_("\n");
+	print("Loaded with end at 0x"); print_hex(final_offset); print("\n");
 	return 1;
 }
 
@@ -151,7 +151,7 @@ static void finish_boot(void) {
 	_ebx = (unsigned int)&multiboot_header;
 	_eax = MULTIBOOT_EAX_MAGIC;
 
-	print_("Jumping...\n");
+	print("Jumping to kernel...\n");
 
 	uint32_t foo[3];
 	foo[0] = _eax;
@@ -174,46 +174,46 @@ static void finish_boot(void) {
 
 void boot(void) {
 	clear_();
-	print_("Looking for ISO9660 filesystem... ");
+	print("Looking for ISO9660 filesystem... ");
 	for (int i = 0x10; i < 0x15; ++i) {
 		root = (void*)(DATA_LOAD_BASE + ISO_SECTOR_SIZE * i);
 		switch (root->type) {
 			case 1:
-				print_("found.\n");
+				print("found.\n");
 				goto done;
 		}
 	}
 	return;
 done:
 
-	print_("Looking for kernel... ");
+	print("Looking for kernel... ");
 	if (!navigate(kernel_path)) {
 		print_("Failed to locate kernel.\n");
 		return;
 	}
-	print_("found.\n");
+	print("found.\n");
 
 	kernel_load_start = (char*)(DATA_LOAD_BASE + dir_entry->extent_start_LSB * ISO_SECTOR_SIZE);
 
-	print_("Looking for ramdisk... ");
+	print("Looking for ramdisk... ");
 	if (!navigate(ramdisk_path)) {
 		print_("Failed to locate ramdisk.\n");
 		return;
 	}
-	print_("found.\n");
+	print("found.\n");
 
 	ramdisk_off = DATA_LOAD_BASE + dir_entry->extent_start_LSB * ISO_SECTOR_SIZE;
 	ramdisk_len = dir_entry->extent_length_LSB;
 
 	multiboot_header.cmdline = (uintptr_t)cmdline;
 
-	print_("Loading kernel from 0x"); print_hex_((uint32_t)kernel_load_start); print_("... ");
+	print("Loading kernel from 0x"); print_hex((uint32_t)kernel_load_start); print("... ");
 	if (!load_kernel()) {
 		print_("Failed to load kernel.\n");
 		return;
 	}
 
-	print_("Relocating ramdisk from 0x"); print_hex_((uint32_t)ramdisk_off); print_(":0x"); print_hex_(ramdisk_len); print_(" to 0x"); print_hex_(final_offset); print_("... ");
+	print("Relocating ramdisk from 0x"); print_hex((uint32_t)ramdisk_off); print(":0x"); print_hex(ramdisk_len); print(" to 0x"); print_hex(final_offset); print("... ");
 	relocate_ramdisk();
 	finish_boot();
 }
