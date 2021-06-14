@@ -36,8 +36,7 @@ RAM ?= 3G
 EXTRA_ARGS ?=
 
 EMU = qemu-system-x86_64
-EMU_ARGS  = -kernel misaka-kernel
-EMU_ARGS += -M q35
+EMU_ARGS  = -M q35
 EMU_ARGS += -m $(RAM)
 EMU_ARGS += -smp $(SMP)
 EMU_ARGS += -no-reboot
@@ -84,7 +83,7 @@ LC = $(BASE)/lib/libc.so $(GCC_SHARED) $(LIBSTDCXX)
 .PHONY: all system clean run shell
 
 all: system
-system: misaka-kernel $(MODULES) ramdisk.igz
+system: image.iso
 
 $(BASE)/mod/%.ko: modules/%.c | dirs
 	${CC} -c ${KERNEL_CFLAGS} -mcmodel=large  -o $@ $<
@@ -106,15 +105,21 @@ $(BASE)/lib/ld.so: linker/linker.c $(BASE)/lib/libc.a | dirs $(LC)
 	$(CC) -g -static -Wl,-static $(CFLAGS) -o $@ -Os -T linker/link.ld $<
 
 run: system
-	${EMU} ${EMU_ARGS} ${EMU_KVM} -append "root=/dev/ram0 start=live-session migrate $(EXTRA_ARGS)" -initrd ramdisk.igz
+	${EMU} ${EMU_ARGS} ${EMU_KVM} -cdrom image.iso
+
+fast: system
+	${EMU} ${EMU_ARGS} ${EMU_KVM} -cdrom image.iso \
+		-fw_cfg name=opt/org.toaruos.bootmode,string=normal \
 
 run-vga: system
-	${EMU} ${EMU_ARGS} ${EMU_KVM} -append "root=/dev/ram0 vid=text start=--vga migrate $(EXTRA_ARGS)" -initrd ramdisk.igz
+	${EMU} ${EMU_ARGS} ${EMU_KVM} -cdrom image.iso \
+		-fw_cfg name=opt/org.toaruos.bootmode,string=vga \
 
 shell: system
-	${EMU} -m $(RAM) -smp $(SMP) ${EMU_KVM} -kernel misaka-kernel -append "root=/dev/ram0 start=--headless migrate" -initrd ramdisk.igz \
+	${EMU} -m $(RAM) -smp $(SMP) ${EMU_KVM} -cdrom image.iso \
 		-nographic -no-reboot -audiodev none,id=id -serial null -serial mon:stdio \
 		-fw_cfg name=opt/org.toaruos.gettyargs,string="-a local /dev/ttyS1" \
+		-fw_cfg name=opt/org.toaruos.bootmode,string=headless \
 		-fw_cfg name=opt/org.toaruos.term,string=${TERM}
 
 misaka-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o

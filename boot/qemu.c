@@ -24,7 +24,6 @@ void swap_bytes(void * in, int count) {
 }
 
 int detect_qemu(void) {
-#if 1
 	/* Try to detect qemu headless boot */
 	outports(0x510, 0x0000);
 	if (inportb(0x511) == 'Q' &&
@@ -72,7 +71,6 @@ int detect_qemu(void) {
 			print_("\n");
 		}
 	}
-#endif
 	return 0;
 }
 

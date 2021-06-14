@@ -2,6 +2,7 @@
 #include "text.h"
 #include "util.h"
 #include "kbd.h"
+#include "qemu.h"
 
 struct option boot_options[20] = {{0}};
 
@@ -28,6 +29,8 @@ void toggle(int ndx, int value, char *str) {
 }
 
 void show_menu(void) {
+	if (detect_qemu()) return;
+
 	/* Determine number of options */
 	sel_max = 0;
 	while (boot_options[sel_max].value) {
