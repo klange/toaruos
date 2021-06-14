@@ -22,5 +22,4 @@ jobs:
         with:
           name: build
           path: |
-            ramdisk.igz
-            misaka-kernel
+            image.iso
