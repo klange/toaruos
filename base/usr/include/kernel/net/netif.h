@@ -28,6 +28,6 @@ typedef struct SockData {
 } sock_t;
 
 void net_sock_alert(sock_t * sock);
-void net_sock_add(sock_t * sock, void * frame);
+void net_sock_add(sock_t * sock, void * frame, size_t size);
 void * net_sock_get(sock_t * sock);
 sock_t * net_sock_create(void);

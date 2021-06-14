@@ -194,8 +194,6 @@ static void icmp_handle(struct ipv4_packet * packet, const char * src, const cha
 	}
 }
 
-extern void net_sock_add(sock_t * sock, void * frame);
-
 static hashmap_t * udp_sockets = NULL;
 static hashmap_t * tcp_sockets = NULL;
 
@@ -257,9 +255,7 @@ static void tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet)
 
 	net_eth_send((struct EthernetDevice*)nic->device, ntohs(response->length), response, ETHERNET_TYPE_IPV4, ETHERNET_BROADCAST_MAC);
 
-	void * tmp = malloc(ntohs(packet->length));
-	memcpy(tmp, packet, ntohs(packet->length));
-	net_sock_add(sock, tmp);
+	net_sock_add(sock, packet, ntohs(packet->length));
 }
 
 void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
@@ -279,10 +275,8 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
 			printf("net: ipv4: %s: %s -> %s udp %d to %d\n", nic->name, src, dest, ntohs(((uint16_t*)&packet->payload)[0]), dest_port);
 			if (udp_sockets && hashmap_has(udp_sockets, (void*)(uintptr_t)dest_port)) {
 				printf("net: udp: received and have a waiting endpoint!\n");
-				void * tmp = malloc(ntohs(packet->length));
-				memcpy(tmp, packet, ntohs(packet->length));
 				sock_t * sock = hashmap_get(udp_sockets, (void*)(uintptr_t)dest_port);
-				net_sock_add(sock, tmp);
+				net_sock_add(sock, packet, ntohs(packet->length));
 			}
 			break;
 		}
@@ -302,9 +296,7 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
 						tcp_ack(nic, sock, packet);
 					}
 				} else if (sock->priv[1] == 2) {
-					void * tmp = malloc(ntohs(packet->length));
-					memcpy(tmp, packet, ntohs(packet->length));
-					net_sock_add(sock, tmp);
+					net_sock_add(sock, packet, ntohs(packet->length));
 				}
 			}
 			break;

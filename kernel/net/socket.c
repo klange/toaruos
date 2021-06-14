@@ -40,10 +40,10 @@ void net_sock_alert(sock_t * sock) {
 	spin_unlock(sock->alert_lock);
 }
 
-void net_sock_add(sock_t * sock, void * frame) {
+void net_sock_add(sock_t * sock, void * frame, size_t size) {
 	spin_lock(sock->rx_lock);
-	char * bleh = malloc(8092);
-	memcpy(bleh, frame, 8092);
+	char * bleh = malloc(size);
+	memcpy(bleh, frame, size);
 	list_insert(sock->rx_queue, bleh);
 	wakeup_queue(sock->rx_wait);
 	net_sock_alert(sock);

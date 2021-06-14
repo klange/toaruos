@@ -22,7 +22,6 @@ struct ethernet_packet {
 
 extern spin_lock_t net_raw_sockets_lock;
 extern list_t * net_raw_sockets_list;
-extern void net_sock_add(sock_t * sock, void * frame);
 extern void net_ipv4_handle(void * packet, fs_node_t * nic);
 extern void net_arp_handle(void * packet, fs_node_t * nic);
 
@@ -31,7 +30,7 @@ void net_eth_handle(struct ethernet_packet * frame, fs_node_t * nic) {
 	foreach(node, net_raw_sockets_list) {
 		sock_t * sock = node->value;
 		if (!sock->_fnode.device || sock->_fnode.device == nic) {
-			net_sock_add(sock, frame);
+			net_sock_add(sock, frame, 8092);
 		}
 	}
 	spin_unlock(net_raw_sockets_lock);
