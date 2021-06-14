@@ -256,10 +256,10 @@ fatbase/kernel: misaka-kernel
 cdrom/fat.img: fatbase/ramdisk.igz fatbase/kernel util/mkdisk.sh | dirs
 	util/mkdisk.sh $@ fatbase
 
-cdrom/boot.sys: boot/boot.o boot/cstuff.o boot/link.ld | dirs
-	${LD} -melf_i386 -T boot/link.ld -o $@ boot/boot.o boot/cstuff.o
+cdrom/boot.sys: boot/boot.o $(patsubst %.c,%.o,$(wildcard boot/*.c)) boot/link.ld | dirs
+	${LD} -melf_i386 -T boot/link.ld -o $@ boot/boot.o $(patsubst %.c,%.o,$(wildcard boot/*.c))
 
-boot/cstuff.o: boot/cstuff.c boot/*.h
+boot/%.o: boot/%.c boot/*.h
 	${CC} -m32 -c -Os -fno-strict-aliasing -finline-functions -ffreestanding -mgeneral-regs-only -o $@ $<
 
 boot/boot.o: boot/boot.S

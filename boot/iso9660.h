@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 typedef struct {
 	char year[4];
 	char month[2];
@@ -111,77 +113,8 @@ typedef struct {
 #define FLAG_PERMISSIONS 0x10
 #define FLAG_CONTINUES   0x80
 
-static int root_sector = 0;
-static iso_9660_volume_descriptor_t * root = (iso_9660_volume_descriptor_t *)((char *)0x20000);
-static iso_9660_directory_entry_t * dir_entry = (iso_9660_directory_entry_t *)((char *)0x20800);
-static char * mod_dir = (char *)0x21000;
-static char * dir_entries = (char *)(0x30000);
-static struct ata_device * device = 0;
+extern char root_data[ISO_SECTOR_SIZE];
+extern iso_9660_volume_descriptor_t * root;
+extern iso_9660_directory_entry_t * dir_entry;
 
-static int navigate(char * name) {
-	memset(dir_entries, 2048, 0xA5);
-	//print("reading from sector ");
-	//print_hex(dir_entry->extent_start_LSB);
-	//print("\n");
-	ata_device_read_sector_atapi(device, dir_entry->extent_start_LSB, dir_entries);
-	ata_device_read_sector_atapi(device, dir_entry->extent_start_LSB+1, dir_entries + 2048);
-	ata_device_read_sector_atapi(device, dir_entry->extent_start_LSB+2, dir_entries + 4096);
-
-	long offset = 0;
-	while (1) {
-		iso_9660_directory_entry_t * dir = (iso_9660_directory_entry_t *)(dir_entries + offset);
-		if (dir->length == 0) {
-			if (offset < dir_entry->extent_length_LSB) {
-				offset += 1; // this->block_size - ((uintptr_t)offset % this->block_size);
-				goto try_again;
-			}
-			break;
-		}
-		if (!(dir->flags & FLAG_HIDDEN)) {
-			char file_name[dir->name_len + 1];
-			memcpy(file_name, dir->name, dir->name_len);
-			file_name[dir->name_len] = 0;
-			char * s = strchr(file_name,';');
-			if (s) {
-				*s = '\0';
-			}
-#if 0
-			print("Found a file: ");
-			print(" Name: ");
-			print(file_name); print("\n");
-#endif
-			if (!strcmp(file_name, name)) {
-				memcpy(dir_entry, dir, sizeof(iso_9660_directory_entry_t));
-				return 1;
-			}
-		}
-		offset += dir->length;
-try_again:
-		if ((long)(offset) > dir_entry->extent_length_LSB) break;
-	}
-
-	return 0;
-}
-
-static void restore_root(void) {
-	memcpy(dir_entry, (iso_9660_directory_entry_t *)&root->root, sizeof(iso_9660_directory_entry_t));
-
-#if 0
-	print("Root restored.");
-	print("\n Entry len:  "); print_hex( dir_entry->length);
-	print("\n File start: "); print_hex( dir_entry->extent_start_LSB);
-	print("\n File len:   "); print_hex( dir_entry->extent_length_LSB);
-	print("\n");
-#endif
-}
-
-static void restore_mod(void) {
-	memcpy(dir_entry, (iso_9660_directory_entry_t *)mod_dir, sizeof(iso_9660_directory_entry_t));
-#if 0
-	print("mod restored.");
-	print("\n Entry len:  "); print_hex( dir_entry->length);
-	print("\n File start: "); print_hex( dir_entry->extent_start_LSB);
-	print("\n File len:   "); print_hex( dir_entry->extent_length_LSB);
-	print("\n");
-#endif
-}
+int navigate(char * name);

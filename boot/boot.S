@@ -1,39 +1,133 @@
 .code16
 main:
-	ljmp $0x0,$0x7c05
-main2:
-	mov $0x0, %ax
+	ljmp $0x0,$entry
+
+entry:
+	/* Set up initial segments */
+	xor %ax, %ax
 	mov %ax, %ds
 	mov %ax, %ss
-	mov $0x7b00, %ax
+
+	/* Don't lose dl */
+	mov %dl, boot_disk
+
+	/* Initialize stack to just below us */
+	mov $0x7c00, %ax
 	mov %ax, %sp
-	mov $0x500, %ax
-	mov %ax, %es
 
-	clc
-	int $0x12
-	mov %ax, (lower_mem)
-
-	mov $0x0, %di
-	call do_e820
-	jc hang
-
+	/* Prepare to switch to unreal mode */
 	cli
+	push %ds
+	push %es
 
+	/* Enable A20 */
 	in $0x92, %al
 	or $2, %al
 	out %al, $0x92
 
-	xor %eax, %eax
-	mov %ds, %ax
-	shl $4, %eax
-	add $gdt_base, %eax
-	mov %eax, gdtr+2
-	mov $gdt_end, %eax
-	sub $gdt_base, %eax
-	mov %ax, gdtr
+	/* Switch to unreal mode */
 	lgdtw gdtr
+	mov %cr0, %eax
+	or $1, %al
+	mov %eax, %cr0
+	jmp pmode
+pmode:
+	mov $0x10, %bx
+	mov %bx, %ds
+	mov %bx, %es
+	and $0xfe, %al
+	mov %eax, %cr0
+	jmp unrealmode
+unrealmode:
+	pop %es
+	pop %ds
 
+	/* Clear the screen */
+	mov  $0, %al
+	movl $3840, %ecx
+	movl $0xb8000, %edi
+	addr32 rep stosb
+
+	/* Print "Loading..." */
+	movl $str_Loading, %esi
+	movl $str_Loading_end - str_Loading, %ecx
+	movl $0xb8000, %edi
+	addr32 rep movsb
+
+	/* Use BIOS disk reads to locate the kernel and ramdisk
+	 * and load them around the 2MB mark (by loading them
+	 * in smaller chunks and copying those up thanks to
+	 * our unreal mode %ds) */
+
+	/* Ask for drive params */
+	mov $0x48, %ah
+	mov boot_disk, %dl
+	mov $drive_params, %si
+	int $0x13
+
+	/* Are we a CD? Do we need to load more of ourselves? */
+	mov drive_params_bps, %ax
+	cmp $0x800, %ax
+	je  boot_from_cd
+
+	movl $str_Bad, %esi
+	movl $str_Bad_end - str_Bad, %ecx
+	movl $0xb8000, %edi
+	addr32 rep movsb
+
+_oh_no:
+	jmp _oh_no
+
+.extern _bss_start
+
+	/* To load from the CD, we have 2048 byte sectors */
+boot_from_cd:
+	movl $0x4000000, %ebx
+	movl $0x0, dap_lba_low       /* Sector 10h generally has our primary boot descriptor */
+	movw $_bss_start, dap_buffer /* Load into root_data */
+
+	/* Load one sector */
+load_one:
+	mov $0x42, %ah     /* Extended read */
+	mov boot_disk, %dl /* Using our boot disk */
+	mov $dap, %si      /* From the DAP below */
+	int $0x13
+
+	cmp $0, %ah
+	jnz done
+
+	/* Move the sector up */
+	movl $_bss_start, %esi
+	movl %ebx, %edi
+	xor %ecx, %ecx
+	movw drive_params_bps, %cx
+	addr32 rep movsb
+
+	/* Increment */
+	movl dap_lba_low, %ecx
+	add $1, %ecx
+	movl %ecx, dap_lba_low
+	xor %ecx, %ecx
+	movw drive_params_bps, %cx
+	add %ecx, %ebx
+	jmp load_one
+
+done:
+	/* The entire CD is now in memory at 64MiB, hopefully. */
+
+	/* Collect information on lower memory. */
+	mov $0x500, %ax
+	mov %ax, %es
+	clc
+	int $0x12
+	mov %ax, lower_mem
+
+	/* Collect information on upper memory. */
+	mov $0x0, %di
+	call do_e820
+	jc hang
+
+	/* Actually switch to protected mode. */
 	mov %cr0, %eax
 	or $1, %eax
 	mov %eax, %cr0
@@ -44,6 +138,8 @@ main2:
 	mov %ax, %fs
 	mov %ax, %gs
 	mov %ax, %ss
+
+	cli
 
 .global kmain
 	ljmp $0x08,$kmain
@@ -98,8 +194,8 @@ do_e820.failed:
 
 .align 8
 gdtr:
-	.word 0
-	.long 0
+	.word gdt_end - gdt_base - 1
+	.long gdt_base
 
 gdt_base:
 	.quad 0
@@ -117,6 +213,10 @@ gdt_base:
 	.byte 0
 gdt_end:
 
+.global boot_disk
+boot_disk:
+	.byte 0
+
 .global mmap_ent
 mmap_ent:
 	.byte 0
@@ -126,3 +226,39 @@ mmap_ent:
 lower_mem:
 	.byte 0
 	.byte 0
+
+.align 4
+.global dap
+dap:
+	.byte 16
+	.byte 0 /* always 0 */
+.global dap_sectors
+dap_sectors:
+	.word 1
+.global dap_buffer
+dap_buffer:
+	.long 0x0
+dap_lba_low:
+	.long 0
+dap_lba_high:
+	.long 0
+
+.align 4
+drive_params:
+	.word 0x1A
+	.word 0 /* flags */
+	.long 0 /* cylinders */
+	.long 0 /* heads */
+	.long 0 /* sectors */
+	.quad 0 /* total sectors */
+.global drive_params_bps
+drive_params_bps:
+	.word 0 /* bytes per sector */
+
+str_Bad:
+	.byte 'B',7,'a',7,'d',7,' ',7,'d',7,'i',7,'s',7,'k',7
+str_Bad_end:
+
+str_Loading:
+	.byte 'L',7,'o',7,'a',7,'d',7,'i',7,'n',7,'g',7,'.',7,'.',7,'.',7
+str_Loading_end:

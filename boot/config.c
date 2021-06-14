@@ -1,29 +1,24 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define _BOOT_LOADER
-#include "ata.h"
-#include "text.h"
-#include "util.h"
-#include "atapi_imp.h"
-#include "iso9660.h"
-#include "elf.h"
-#include "multiboot.h"
-#include "kbd.h"
 #include "options.h"
+#include "util.h"
+#include "menu.h"
+#include "text.h"
+#include "multiboot.h"
 
 /* Basic text strings */
 #define BASE_VERSION "ToaruOS Bootloader v3.0"
-#define VERSION_TEXT BASE_VERSION " (BIOS)"
-#define HELP_TEXT "Press <Enter> or select a menu option with \030/\031/\032/\033."
-#define COPYRIGHT_TEXT "ToaruOS is free software under the NCSA license."
-#define LINK_TEXT "https://toaruos.org - https://github.com/klange/toaruos"
+char * VERSION_TEXT = BASE_VERSION " (BIOS)";
+char * HELP_TEXT = "Press <Enter> or select a menu option with \030/\031/\032/\033.";
+char * COPYRIGHT_TEXT = "ToaruOS is free software under the NCSA license.";
+char * LINK_TEXT = "https://toaruos.org - https://github.com/klange/toaruos";
 
 /* Boot command line strings */
 #define DEFAULT_ROOT_CMDLINE "root=/dev/ram0 "
 #define DEFAULT_GRAPHICAL_CMDLINE "start=live-session "
 #define DEFAULT_SINGLE_CMDLINE "start=terminal\037-F "
-#define DEFAULT_TEXT_CMDLINE "start=--vga "
+#define DEFAULT_TEXT_CMDLINE "start=--vga vid=text "
 #define DEFAULT_VID_CMDLINE "vid=auto,1440,900 "
 #define DEFAULT_PRESET_VID_CMDLINE "vid=preset "
 #define MIGRATE_CMDLINE "migrate "
@@ -31,16 +26,17 @@
 
 char * kernel_path = "KERNEL.";
 char * ramdisk_path = "RAMDISK.IGZ";
+char cmdline[1024] = {0};
 
 /* Names of the available boot modes. */
-static struct bootmode boot_mode_names[] = {
+struct bootmode boot_mode_names[] = {
 	{1, "normal",   "Normal Boot"},
+	{2, "vga",      "VGA Text Mode"},
 	{3, "single",   "Single-User Graphical Terminal"},
 	{4, "headless", "Headless"},
 };
 
-/* More bootloader implementation that depends on the module config */
-#include "moremultiboot.h"
+int base_sel = BASE_SEL;
 
 extern char _bss_start[];
 extern char _bss_end[];
