@@ -4,7 +4,8 @@ from themes import ansi
 @defineTheme
 def sunsmoke256():
     if checkprop('can_256color'):
-        return ansi()
+        colorscheme("ansi")
+        return
     setcolor("text-fg","5;188")
     setcolor("text-bg","5;234")
     setcolor("alternate-fg","5;244")
@@ -37,7 +38,8 @@ def sunsmoke256():
 @defineTheme
 def sunsmoke():
     if checkprop('can_24bit'):
-        return sunsmoke256()
+        colorscheme("sunsmoke256")
+        return
     setcolor("text-fg", "2;230;230;230")
     setcolor("text-bg", "2;31;31;31")
     setcolor("alternate-fg", "2;122;122;122")

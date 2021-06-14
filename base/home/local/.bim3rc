@@ -5,6 +5,7 @@ Sample config file for bim3
 # Quirks work the same as they did in bim2, except for the obvious syntax change
 quirk('TERM','screen','no24bit','noitalic')
 quirk('TERM','xterm-256color','caninsert','canpaste','cansgrmouse')
+quirk('TERM','toaru-vga','no24bit','no256color')
 quirk('TERMINAL_EMULATOR','JetBrains','nobce')
 
 # checkprop() returns 0 if we _can_ do something, so
