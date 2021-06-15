@@ -48,6 +48,19 @@ unrealmode:
 	movl $0xb8000, %edi
 	addr32 rep stosb
 
+	/* Check if we can actually go to long mode on this */
+	mov $0x80000001, %eax
+	cpuid
+	and $0x20000000, %edx
+	jnz can_long
+
+	movl $str_Need_long, %esi
+	movl $str_Need_long_end - str_Need_long, %ecx
+	movl $0xb8000, %edi
+	addr32 rep movsb
+	jmp _oh_no
+
+can_long:
 	/* Print "Loading..." */
 	movl $str_Loading, %esi
 	movl $str_Loading_end - str_Loading, %ecx
@@ -262,3 +275,7 @@ str_Bad_end:
 str_Loading:
 	.byte 'L',7,'o',7,'a',7,'d',7,'i',7,'n',7,'g',7,'.',7,'.',7,'.',7
 str_Loading_end:
+
+str_Need_long:
+	.byte 'T',7,'o',7,'a',7,'r',7,'u',7,'O',7,'S',7,' ',7,'2',7,' ',7,'r',7,'e',7,'q',7,'u',7,'i',7,'r',7,'e',7,'s',7,' ',7,'a',7,' ',7,'6',7,'4',7,'-',7,'b',7,'i',7,'t',7,' ',7,'p',7,'r',7,'o',7,'c',7,'e',7,'s',7,'s',7,'o',7,'r',7
+str_Need_long_end:
