@@ -13,6 +13,7 @@
 #include <va_list.h>
 #include <time.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/fswait.h>
 
 #define _ITALIC "\033[3m"
@@ -388,6 +389,7 @@ static void redraw_buffer(char * buf) {
 	ioctl(0, TIOCGWINSZ, &w);
 	fprintf(stdout,"\033[%d;1H [%s] ", w.ws_row, channel ? channel : "(status)");
 	fprintf(stdout,"%s\033[K", buf);
+	fprintf(stdout,"\033[?25h");
 	fflush(stdout);
 }
 
@@ -459,11 +461,20 @@ int main(int argc, char * argv[]) {
 
 	/* Connect */
 	{
-		char tmphost[512];
-		sprintf(tmphost, "/dev/net/%s:%d", host, port);
-		sock_fd = open(tmphost, O_RDWR);
-		if (sock_fd < 0) {
-			fprintf(stderr, "%s: Connection failed or network not available.\n", argv[0]);
+		sock_fd = socket(AF_INET, SOCK_STREAM, 0);
+		fprintf(stderr, "Looking up host...\n");
+		struct hostent * remote = gethostbyname(host);
+		if (!remote) {
+			perror("gethostbyname");
+			return 1;
+		}
+		struct sockaddr_in addr;
+		addr.sin_family = AF_INET;
+		memcpy(&addr.sin_addr.s_addr, remote->h_addr, remote->h_length);
+		addr.sin_port = htons(port);
+		fprintf(stderr, "Connecting...\n");
+		if (connect(sock_fd, (struct sockaddr*)&addr, sizeof(struct sockaddr_in)) < 0) {
+			perror("connect");
 			return 1;
 		}
 		sock_r = fdopen(sock_fd, "r");
