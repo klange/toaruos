@@ -253,8 +253,6 @@ static void send_packet(struct e1000_nic * device, uint8_t* payload, size_t payl
 	spin_lock(device->tx_lock);
 	device->tx_index = read_command(device, E1000_REG_TXDESCTAIL);
 
-	printf("eth: sending packet?\n");
-
 	memcpy(device->tx_virt[device->tx_index], payload, payload_size);
 	device->tx[device->tx_index].length = payload_size;
 	device->tx[device->tx_index].cmd = CMD_EOP | CMD_IFCS | CMD_RS; //| CMD_RPS;

@@ -46,7 +46,7 @@ void net_eth_handle(struct ethernet_packet * frame, fs_node_t * nic) {
 				break;
 			case ETHERNET_TYPE_IPV4: {
 				struct ipv4_packet * packet = (struct ipv4_packet*)&frame->payload;
-				printf("net: eth: %s: rx ipv4 packet\n", nic->name);
+				//printf("net: eth: %s: rx ipv4 packet\n", nic->name);
 				if (packet->source != 0xFFFFFFFF) {
 					net_arp_cache_add(nic->device, packet->source, frame->source, 0);
 				}

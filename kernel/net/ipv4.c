@@ -391,7 +391,6 @@ static int tcp_get_port(sock_t * sock) {
 }
 
 static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
-	printf("tcp: recv called\n");
 	if (!sock->priv[0]) {
 		printf("tcp: recv() but socket has no port\n");
 		return -EINVAL;
