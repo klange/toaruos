@@ -1511,8 +1511,7 @@ int main (int argc, char ** argv) {
 		load_sprite(sprite_net_disabled, "/usr/share/icons/24/net-disconnected.png");
 	}
 
-	/* TODO Probably should use the app launch shortcut */
-	system("sh -c \"sleep 4; weather-tool\" &");
+	weather_refresh(NULL);
 
 	/* Draw the background */
 	for (int i = 0; i < width; i += sprite_panel->width) {
