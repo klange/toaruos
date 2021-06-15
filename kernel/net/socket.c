@@ -20,6 +20,10 @@
 
 #include <sys/socket.h>
 
+#ifndef MISAKA_DEBUG_NET
+#define printf(...)
+#endif
+
 /**
  * TODO: Should we have an interface for modules to install protocol handlers?
  *       Thinking this should work like the VFS, with method tables for different

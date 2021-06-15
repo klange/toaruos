@@ -11,6 +11,10 @@
 
 #include <sys/socket.h>
 
+#ifndef MISAKA_DEBUG_NET
+#define printf(...)
+#endif
+
 struct arp_header {
 	uint16_t arp_htype;
 	uint16_t arp_ptype;
