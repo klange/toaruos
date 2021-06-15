@@ -46,6 +46,7 @@ int rline_history_offset = 0;
 int rline_scroll = 0;
 char * rline_exit_string = "exit\n";
 int rline_terminal_width = 0;
+char * rline_preload = NULL;
 
 void rline_history_insert(char * str) {
 	if (str[strlen(str)-1] == '\n') {
@@ -229,7 +230,13 @@ int rline_exp_set_tab_complete_func(rline_callback_t func) {
 	return 0;
 }
 
+static int have_unget = -1;
 static int getch(int timeout) {
+	if (have_unget >= 0) {
+		int out = have_unget;
+		have_unget = -1;
+		return out;
+	}
 #ifndef _WIN32
 	return fgetc(stdin);
 #else
@@ -2125,7 +2132,125 @@ static void call_rline_func(rline_callback_t func, rline_context_t * context) {
 	rline_place_cursor();
 }
 
-char * rline_preload = NULL;
+static int reverse_search(void) {
+	/* Store state */
+	char * old_prompt = prompt;
+	int old_prompt_width = prompt_width;
+	int old_prompt_width_calc = prompt_width_calc;
+	line_t * old_line = the_line;
+
+	char buffer[1024] = {0};
+	unsigned int off = 0;
+
+	the_line = NULL;
+
+	prompt = "(r-search) ";
+	prompt_width = strlen(prompt);
+	prompt_width_calc = prompt_width;
+
+	int cin, timeout = 0;
+	uint32_t c = 0, istate = 0;
+
+	int start_at = 0;
+	int retval = 0;
+
+	while (1) {
+		_next: (void)0;
+
+		off = 0;
+		buffer[0] = '\0';
+		for (int j = 0; j < old_line->actual; j++) {
+			buffer[off] = '\0';
+			char_t c = old_line->text[j];
+			off += to_eight(c.codepoint, &buffer[off]);
+		}
+
+		if (the_line) free(the_line);
+		the_line = line_create();
+
+		int match_offset = 0;
+
+		if (off) {
+			for (int i = start_at; i < rline_history_count; ++i) {
+				char * buf= rline_history_prev(i+1);
+				char * match = strstr(buf, buffer);
+				if (match) {
+					match_offset = i;
+					column = 0;
+					loading = 1;
+					uint32_t istate = 0, c = 0;
+					int invert_start = 0;
+					for (unsigned int i = 0; i < strlen((char *)buf); ++i) {
+						if (match == &buf[i]) invert_start = the_line->actual;
+						if (!decode(&istate, &c, buf[i])) {
+							insert_char(c);
+						}
+					}
+					loading = 0;
+					offset = 0;
+					recalculate_tabs(the_line);
+					recalculate_syntax(the_line);
+					for (int i = 0; i < old_line->actual; ++i) {
+						the_line->text[invert_start+i].flags |= FLAG_SELECT;
+					}
+					column = invert_start;
+					break;
+				}
+			}
+		}
+
+		render_line();
+
+		if (the_line->actual == 0) {
+			offset = 0;
+			column = 0;
+			rline_place_cursor();
+			set_fg_color(COLOR_ALT_FG);
+			printf("%s", buffer);
+			fflush(stdout);
+		}
+
+		while ((cin = getch(timeout))) {
+			if (cin == -1) continue;
+			if (!decode(&istate, &c, cin)) {
+				switch (c) {
+					case '\033':
+						have_unget = '\033';
+						goto _done;
+					case DELETE_KEY:
+					case BACKSPACE_KEY:
+						line_delete(old_line, old_line->actual);
+						goto _next;
+					case 13:
+					case ENTER_KEY:
+						retval = 1;
+						goto _done;
+					case 18:
+						start_at = match_offset + 1;
+						goto _next;
+					default: {
+						char_t _c;
+						_c.codepoint = c;
+						_c.flags = 0;
+						_c.display_width = codepoint_width(c);
+						old_line = line_insert(old_line, _c, old_line->actual);
+						goto _next;
+					}
+				}
+			}
+		}
+	}
+
+_done:
+	free(old_line);
+	prompt = old_prompt;
+	prompt_width = old_prompt_width;
+	prompt_width_calc = old_prompt_width_calc;
+	offset = 0;
+	render_line();
+	rline_place_cursor();
+	return retval;
+}
 
 /**
  * Perform actual interactive line editing.
@@ -2228,6 +2353,16 @@ static int read_line(void) {
 						break;
 					case 23: /* ^W */
 						delete_word();
+						break;
+					case 18: /* ^R - Begin reverse search */
+						if (reverse_search()) {
+							loading = 1;
+							column = the_line->actual;
+							recalculate_syntax(the_line);
+							render_line();
+							insert_char('\n');
+							return 1;
+						}
 						break;
 					case 12: /* ^L - Repaint the whole screen */
 						printf("\033[2J\033[H");

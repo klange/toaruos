@@ -92,8 +92,8 @@ ramdisk.igz: $(wildcard $(BASE)/* $(BASE)/*/* $(BASE)/*/*/*) $(APPS_X) $(LIBS_X)
 	python3 util/createramdisk.py
 
 KRK_SRC = $(sort $(wildcard kuroko/src/*.c))
-$(BASE)/bin/kuroko: $(KRK_SRC) $(CRTS) | $(LC)
-	$(CC) -O2 -g -o $@ -Wl,--export-dynamic -Ikuroko/src $(KRK_SRC) kuroko/src/vendor/rline.c
+$(BASE)/bin/kuroko: $(KRK_SRC) $(CRTS)  lib/rline.c | $(LC)
+	$(CC) -O2 -g -o $@ -Wl,--export-dynamic -Ikuroko/src $(KRK_SRC) lib/rline.c
 
 $(BASE)/lib/kuroko/%.so: kuroko/src/modules/module_%.c| dirs $(LC)
 	$(CC) -O2 -shared -fPIC -Ikuroko/src -o $@ $<
