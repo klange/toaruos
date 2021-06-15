@@ -106,12 +106,22 @@ void pci_scan(pci_func_t f, int type, void * extra) {
 		return;
 	}
 
+	int hit = 0;
 	for (int func = 0; func < 8; ++func) {
 		uint32_t dev = pci_box_device(0, 0, func);
 		if (pci_read_field(dev, PCI_VENDOR_ID, 2) != PCI_NONE) {
+			hit = 1;
 			pci_scan_bus(f, type, func, extra);
 		} else {
 			break;
+		}
+	}
+
+	if (!hit) {
+		for (int bus = 0; bus < 256; ++bus) {
+			for (int slot = 0; slot < 32; ++slot) {
+				pci_scan_slot(f,type,bus,slot,extra);
+			}
 		}
 	}
 }
