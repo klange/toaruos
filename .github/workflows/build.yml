@@ -23,3 +23,27 @@ jobs:
           name: build
           path: |
             image.iso
+      - name: Draft Release notes
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: bash util/generate-release-notes.sh > notes.md
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/create-release@v1
+        id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ToaruOS ${{ github.ref }}
+          body_path: ./notes.md
+          draft: true
+      - name: Upload Release Image
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./image.iso
+          asset_name: image.iso
+          asset_content_type: application/x-iso9660-image
