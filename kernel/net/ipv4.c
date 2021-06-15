@@ -172,13 +172,19 @@ static void tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet,
 	sock->priv32[0] = isSynAck ? 1 : sock->priv32[0];
 	sock->priv32[1] = (ntohl(tcp->seq_number) + payload_len) & 0xFFFFFFFF;
 
+	int flags = TCP_FLAGS_ACK;
+	if (ntohs(tcp->flags) & TCP_FLAGS_FIN) {
+		/* Other side is closed now */
+		sock->priv32[1]++;
+	}
+
 	/* Stick TCP header into payload */
 	struct tcp_header * tcp_header = (struct tcp_header*)&response->payload;
 	tcp_header->source_port = htons(sock->priv[0]);
 	tcp_header->destination_port = tcp->source_port;
 	tcp_header->seq_number = htonl(sock->priv32[0]);
 	tcp_header->ack_number = htonl(sock->priv32[1]);
-	tcp_header->flags = htons((TCP_FLAGS_ACK) | 0x5000);
+	tcp_header->flags = htons(flags | 0x5000);
 	tcp_header->window_size = htons(1548-54);
 	tcp_header->checksum = 0;
 	tcp_header->urgent = 0;
@@ -243,6 +249,8 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
 						//printf("acking because payload_len = %zu (hlen=%zu, packet_len=%zu)\n", payload_len, hlen, packet_len);
 						tcp_ack(nic, sock, packet, 0, payload_len);
 						net_sock_add(sock, packet, ntohs(packet->length));
+					} else if (ntohs(tcp->flags) & TCP_FLAGS_FIN) {
+						tcp_ack(nic, sock, packet, 0, 0);
 					}
 				}
 			}
@@ -374,6 +382,47 @@ static void sock_tcp_close(sock_t * sock) {
 		spin_lock(tcp_port_lock);
 		hashmap_remove(tcp_sockets, (void*)(uintptr_t)sock->priv[0]);
 		spin_unlock(tcp_port_lock);
+
+		size_t total_length = sizeof(struct ipv4_packet) + sizeof(struct tcp_header);
+		fs_node_t * nic = net_if_any();
+
+		struct ipv4_packet * response = malloc(total_length);
+		response->length = htons(total_length);
+		response->destination = ((struct sockaddr_in*)&sock->dest)->sin_addr.s_addr;
+		response->source = ((struct EthernetDevice*)nic->device)->ipv4_addr;
+		response->ttl = 64;
+		response->protocol = IPV4_PROT_TCP;
+		response->ident = htons(1);
+		response->flags_fragment = htons(0x0);
+		response->version_ihl = 0x45;
+		response->dscp_ecn = 0;
+		response->checksum = 0;
+		response->checksum = htons(calculate_ipv4_checksum(response));
+
+		/* Stick TCP header into payload */
+		struct tcp_header * tcp_header = (struct tcp_header*)&response->payload;
+		tcp_header->source_port = htons(sock->priv[0]);
+		tcp_header->destination_port = ((struct sockaddr_in*)&sock->dest)->sin_port;
+		tcp_header->seq_number = htonl(sock->priv32[0]);
+		tcp_header->ack_number = htonl(sock->priv32[1]);
+		tcp_header->flags = htons(TCP_FLAGS_FIN | 0x5000);
+		tcp_header->window_size = htons(1548-54);
+		tcp_header->checksum = 0;
+		tcp_header->urgent = 0;
+
+		/* Calculate checksum */
+		struct tcp_check_header check_hd = {
+			.source = response->source,
+			.destination = response->destination,
+			.zeros = 0,
+			.protocol = IPV4_PROT_TCP,
+			.tcp_len = htons(sizeof(struct tcp_header)),
+		};
+
+		tcp_header->checksum = htons(calculate_tcp_checksum(&check_hd, tcp_header, tcp_header->payload, 0));
+
+		struct ArpCacheEntry * resp = net_arp_cache_get(response->destination);
+		net_eth_send((struct EthernetDevice*)nic->device, ntohs(response->length), response, ETHERNET_TYPE_IPV4, resp ? resp->hwaddr : ETHERNET_BROADCAST_MAC);
 	}
 }
 
