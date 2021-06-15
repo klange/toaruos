@@ -28,6 +28,9 @@ typedef struct SockData {
 
 	struct sockaddr dest;
 	uint32_t priv32[4];
+
+	size_t unread;
+	char * buf;
 } sock_t;
 
 void net_sock_alert(sock_t * sock);

@@ -221,9 +221,9 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
 		}
 		case IPV4_PROT_TCP: {
 			uint16_t dest_port = ntohs(((uint16_t*)&packet->payload)[1]);
-			printf("net: ipv4: %s: %s -> %s tcp %d to %d\n", nic->name, src, dest, ntohs(((uint16_t*)&packet->payload)[0]), dest_port);
+			//printf("net: ipv4: %s: %s -> %s tcp %d to %d\n", nic->name, src, dest, ntohs(((uint16_t*)&packet->payload)[0]), dest_port);
 			if (tcp_sockets && hashmap_has(tcp_sockets, (void*)(uintptr_t)dest_port)) {
-				printf("net: tcp: received and have a waiting endpoint!\n");
+				//printf("net: tcp: received and have a waiting endpoint!\n");
 				/* What kind of packet is this? Is it something we were expecting? */
 				sock_t * sock = hashmap_get(tcp_sockets, (void*)(uintptr_t)dest_port);
 				struct tcp_header * tcp = (struct tcp_header*)&packet->payload;
@@ -231,7 +231,7 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
 				if (sock->priv[1] == 1) {
 					/* Awaiting SYN ACK, is this one? */
 					if ((ntohs(tcp->flags) & (TCP_FLAGS_SYN | TCP_FLAGS_ACK)) == (TCP_FLAGS_SYN | TCP_FLAGS_ACK)) {
-						printf("tcp: synack\n");
+						//printf("tcp: synack\n");
 						tcp_ack(nic, sock, packet, 1, 1);
 						net_sock_add(sock, packet, ntohs(packet->length));
 					}
@@ -240,7 +240,7 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
 					size_t hlen = ((ntohs(tcp->flags) & 0xF000) >> 12) * 4;
 					size_t payload_len = packet_len - hlen;
 					if (payload_len) {
-						printf("acking because payload_len = %zu (hlen=%zu, packet_len=%zu)\n", payload_len, hlen, packet_len);
+						//printf("acking because payload_len = %zu (hlen=%zu, packet_len=%zu)\n", payload_len, hlen, packet_len);
 						tcp_ack(nic, sock, packet, 0, payload_len);
 						net_sock_add(sock, packet, ntohs(packet->length));
 					}
@@ -403,10 +403,40 @@ static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	}
 	if (msg->msg_iovlen == 0) return 0;
 
+	if (sock->unread) {
+		if (sock->unread > msg->msg_iov[0].iov_len) {
+			sock->unread = 0;
+			long out = msg->msg_iov[0].iov_len;
+			sock->unread -= out;
+			memcpy(msg->msg_iov[0].iov_base, sock->buf, out);
+			char * x = malloc(sock->unread);
+			memcpy(x, sock->buf + out, sock->unread);
+			free(sock->buf);
+			sock->buf = x;
+			return out;
+		} else {
+			long out = sock->unread;
+			sock->unread = 0;
+			memcpy(msg->msg_iov[0].iov_base, sock->buf, out);
+			free(sock->buf);
+			sock->buf = NULL;
+			return out;
+		}
+	}
+
 	struct ipv4_packet * data = net_sock_get(sock);
-	printf("tcp: got response, size is %u\n",
-		ntohs(data->length));
 	long resp = ntohs(data->length) - sizeof(struct ipv4_packet) - sizeof(struct tcp_header);
+
+	if (resp > (long)msg->msg_iov[0].iov_len) {
+		memcpy(msg->msg_iov[0].iov_base, data->payload + sizeof(struct tcp_header),msg->msg_iov[0].iov_len);
+		resp -= msg->msg_iov[0].iov_len;
+		sock->unread = resp;
+		sock->buf = malloc(resp);
+		memcpy(sock->buf, data->payload + sizeof(struct tcp_header) + msg->msg_iov[0].iov_len, resp);
+		free(data);
+		return msg->msg_iov[0].iov_len;
+	}
+
 	memcpy(msg->msg_iov[0].iov_base, data->payload + sizeof(struct tcp_header), resp);
 	free(data);
 	return resp;
@@ -416,7 +446,7 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 	const struct sockaddr_in * dest = (const struct sockaddr_in *)addr;
 	char deststr[16];
 	ip_ntoa(ntohl(dest->sin_addr.s_addr), deststr);
-	printf("tcp: connect requested to %s port %d\n", deststr, ntohs(dest->sin_port));
+	//printf("tcp: connect requested to %s port %d\n", deststr, ntohs(dest->sin_port));
 
 	if (sock->priv[1] != 0) {
 		printf("tcp: socket is already connected?\n");
@@ -425,7 +455,7 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 
 	/* Get a port */
 	tcp_get_port(sock);
-	printf("tcp: connecting from ephemeral port %d\n", (int)sock->priv[0]);
+	//printf("tcp: connecting from ephemeral port %d\n", (int)sock->priv[0]);
 
 	/* Mark as awaiting connection, send initial SYN */
 	sock->priv[1] = 1;
@@ -477,18 +507,18 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 
 	free(response);
 
-	printf("tcp: waiting for connect to finish\n");
+	//printf("tcp: waiting for connect to finish\n");
 
 	/* wait for signal that we connected or timed out */
 	struct ipv4_packet * data = net_sock_get(sock);
-	printf("tcp: connect complete\n");
+	//printf("tcp: connect complete\n");
 	free(data);
 
 	return 0;
 }
 
 ssize_t sock_tcp_read(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	printf("tcp: read into buffer of %zu bytes\n", size);
+	//printf("tcp: read into buffer of %zu bytes\n", size);
 	struct iovec _iovec = {
 		buffer, size
 	};
@@ -505,7 +535,7 @@ ssize_t sock_tcp_read(fs_node_t *node, off_t offset, size_t size, uint8_t *buffe
 }
 
 static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags) {
-	printf("tcp: send called\n");
+	//printf("tcp: send called\n");
 	if (msg->msg_iovlen > 1) {
 		printf("net: todo: can't send multiple iovs\n");
 		return -ENOTSUP;
@@ -560,7 +590,7 @@ static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 }
 
 ssize_t sock_tcp_write(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	printf("tcp: write of %zu bytes\n", size);
+	//printf("tcp: write of %zu bytes\n", size);
 	struct iovec _iovec = {
 		(void*)buffer, size
 	};
@@ -577,7 +607,7 @@ ssize_t sock_tcp_write(fs_node_t *node, off_t offset, size_t size, uint8_t *buff
 }
 
 static int tcp_socket(void) {
-	printf("tcp socket...\n");
+	//printf("tcp socket...\n");
 	sock_t * sock = net_sock_create();
 	sock->sock_recv = sock_tcp_recv;
 	sock->sock_send = sock_tcp_send;
