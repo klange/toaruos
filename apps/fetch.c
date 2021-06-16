@@ -234,7 +234,7 @@ int http_fetch(FILE * f) {
 		size_t r = fread(buf, 1, bytes_to_read < 1024 ? bytes_to_read : 1024, f);
 		fwrite(buf, 1, r, fetch_options.out);
 		fetch_options.size += r;
-		print_progress(0);
+		print_progress(1);
 		if (fetch_options.machine_readable && fetch_options.content_length) {
 			fprintf(stdout,"%d %d\n",(int)fetch_options.size, (int)fetch_options.content_length);
 		}

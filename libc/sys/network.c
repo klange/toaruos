@@ -276,7 +276,7 @@ struct hostent * gethostbyname(const char * name) {
 	fds[0].fd = sock;
 	fds[0].events = POLLIN;
 	int ret = poll(fds,1,2000); /* Two seconds? Is that okay? */
-	if (ret < 0) {
+	if (ret <= 0) {
 		fprintf(stderr, "gethostbyname: timed out\n");
 		return NULL;
 	}

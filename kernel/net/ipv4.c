@@ -13,6 +13,7 @@
 #include <kernel/syscall.h>
 #include <kernel/hashmap.h>
 #include <kernel/vfs.h>
+#include <kernel/time.h>
 
 #include <kernel/net/netif.h>
 #include <kernel/net/eth.h>
@@ -21,8 +22,13 @@
 #include <sys/socket.h>
 
 #ifndef MISAKA_DEBUG_NET
-#define printf(...)
+#define printf(...) if (_debug) printf(__VA_ARGS__)
+//#define printf(...)
 #endif
+
+#define DEFAULT_TCP_WINDOW_SIZE 4000
+
+static int _debug __attribute__((unused)) = 0;
 
 static void ip_ntoa(const uint32_t src_addr, char * out) {
 	snprintf(out, 16, "%d.%d.%d.%d",
@@ -51,11 +57,11 @@ uint16_t calculate_ipv4_checksum(struct ipv4_packet * p) {
 	/* TODO: Checksums for options? */
 	for (int i = 0; i < 10; ++i) {
 		sum += ntohs(s[i]);
+		if (sum > 0xFFFF) {
+			sum = (sum >> 16) + (sum & 0xFFFF);
+		}
 	}
 
-	if (sum > 0xFFFF) {
-		sum = (sum >> 16) + (sum & 0xFFFF);
-	}
 
 	return ~(sum & 0xFFFF) & 0xFFFF;
 }
@@ -154,11 +160,41 @@ static hashmap_t * tcp_sockets = NULL;
 #define TCP_FLAGS_NS  (1 << 8)
 #define DATA_OFFSET_5 (0x5 << 12)
 
-static void tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet, int isSynAck, size_t payload_len) {
-	sock->priv[1] = 2;
+static int tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet, int isSynAck, size_t payload_len) {
+	struct tcp_header * tcp = (struct tcp_header*)&packet->payload;
+	int retval = 1;
+	int window_size = DEFAULT_TCP_WINDOW_SIZE;
+
+	if ((ntohs(tcp->flags) & 0xF000) != 0x5000) {
+		int _debug __attribute__((unused)) = 1;
+		printf("tcp: uh, weird flags? %#4x\n", ntohs(tcp->flags));
+	}
+
+	if (sock->priv32[1] != 0 && !isSynAck &&
+		sock->priv32[1] != ntohl(tcp->seq_number)) {
+		int _debug __attribute__((unused)) = 1;
+		printf("tcp: suspicious of their seq number?\n");
+		printf("tcp: their seq = %u our ack = %u\n",
+			ntohl(tcp->seq_number), sock->priv32[1]);
+		window_size = 300;
+		retval = 0;
+	} else {
+		sock->priv32[0] = isSynAck ? 1 : sock->priv32[0];
+		sock->priv32[1] = (ntohl(tcp->seq_number) + payload_len) & 0xFFFFFFFF;
+		sock->priv[1] = 2;
+	}
+
+	sock->priv[2]++;
+
+#if 0
+	printf("tcp: their ack = %u our seq = %u\n",
+		ntohl(tcp->ack_number), sock->priv32[0]);
+	printf("tcp: their seq = %u our ack = %u\n",
+		ntohl(tcp->seq_number), sock->priv32[1]);
+#endif
+
 
 	size_t total_length = sizeof(struct ipv4_packet) + sizeof(struct tcp_header);
-	struct tcp_header * tcp = (struct tcp_header*)&packet->payload;
 
 	struct ipv4_packet * response = malloc(total_length);
 	response->length = htons(total_length);
@@ -166,15 +202,12 @@ static void tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet,
 	response->source = ((struct EthernetDevice*)nic->device)->ipv4_addr;
 	response->ttl = 64;
 	response->protocol = IPV4_PROT_TCP;
-	response->ident = htons(1);
+	response->ident = htons(sock->priv[2]);
 	response->flags_fragment = htons(0x0);
 	response->version_ihl = 0x45;
 	response->dscp_ecn = 0;
 	response->checksum = 0;
 	response->checksum = htons(calculate_ipv4_checksum(response));
-
-	sock->priv32[0] = isSynAck ? 1 : sock->priv32[0];
-	sock->priv32[1] = (ntohl(tcp->seq_number) + payload_len) & 0xFFFFFFFF;
 
 	int flags = TCP_FLAGS_ACK;
 	if (ntohs(tcp->flags) & TCP_FLAGS_FIN) {
@@ -189,7 +222,7 @@ static void tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet,
 	tcp_header->seq_number = htonl(sock->priv32[0]);
 	tcp_header->ack_number = htonl(sock->priv32[1]);
 	tcp_header->flags = htons(flags | 0x5000);
-	tcp_header->window_size = htons(1548-54);
+	tcp_header->window_size = htons(window_size);
 	tcp_header->checksum = 0;
 	tcp_header->urgent = 0;
 
@@ -205,6 +238,7 @@ static void tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet,
 	tcp_header->checksum = htons(calculate_tcp_checksum(&check_hd, tcp_header, NULL, 0));
 
 	net_eth_send((struct EthernetDevice*)nic->device, ntohs(response->length), response, ETHERNET_TYPE_IPV4, ETHERNET_BROADCAST_MAC);
+	return retval;
 }
 
 void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
@@ -242,8 +276,9 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
 					/* Awaiting SYN ACK, is this one? */
 					if ((ntohs(tcp->flags) & (TCP_FLAGS_SYN | TCP_FLAGS_ACK)) == (TCP_FLAGS_SYN | TCP_FLAGS_ACK)) {
 						printf("tcp: synack\n");
-						tcp_ack(nic, sock, packet, 1, 1);
-						net_sock_add(sock, packet, ntohs(packet->length));
+						if (tcp_ack(nic, sock, packet, 1, 1)) {
+							net_sock_add(sock, packet, ntohs(packet->length));
+						}
 					}
 				} else if (sock->priv[1] == 2) {
 					size_t packet_len = ntohs(packet->length) - sizeof(struct ipv4_packet);
@@ -251,8 +286,9 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
 					size_t payload_len = packet_len - hlen;
 					if (payload_len) {
 						printf("tcp: acking because payload_len = %zu (hlen=%zu, packet_len=%zu)\n", payload_len, hlen, packet_len);
-						tcp_ack(nic, sock, packet, 0, payload_len);
-						net_sock_add(sock, packet, ntohs(packet->length));
+						if (tcp_ack(nic, sock, packet, 0, payload_len)) {
+							net_sock_add(sock, packet, ntohs(packet->length));
+						}
 					} else if (ntohs(tcp->flags) & TCP_FLAGS_FIN) {
 						tcp_ack(nic, sock, packet, 0, 0);
 					}
@@ -396,7 +432,8 @@ static void sock_tcp_close(sock_t * sock) {
 		response->source = ((struct EthernetDevice*)nic->device)->ipv4_addr;
 		response->ttl = 64;
 		response->protocol = IPV4_PROT_TCP;
-		response->ident = htons(1);
+		sock->priv[2]++;
+		response->ident = htons(sock->priv[2]);
 		response->flags_fragment = htons(0x0);
 		response->version_ihl = 0x45;
 		response->dscp_ecn = 0;
@@ -409,8 +446,8 @@ static void sock_tcp_close(sock_t * sock) {
 		tcp_header->destination_port = ((struct sockaddr_in*)&sock->dest)->sin_port;
 		tcp_header->seq_number = htonl(sock->priv32[0]);
 		tcp_header->ack_number = htonl(sock->priv32[1]);
-		tcp_header->flags = htons(TCP_FLAGS_FIN | 0x5000);
-		tcp_header->window_size = htons(1548-54);
+		tcp_header->flags = htons(TCP_FLAGS_FIN | TCP_FLAGS_ACK | 0x5000);
+		tcp_header->window_size = htons(DEFAULT_TCP_WINDOW_SIZE);
 		tcp_header->checksum = 0;
 		tcp_header->urgent = 0;
 
@@ -476,6 +513,10 @@ static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 		}
 	}
 
+	while (!sock->rx_queue->length) {
+		process_wait_nodes((process_t *)this_core->current_process, (fs_node_t*[]){(fs_node_t*)sock,NULL}, 200);
+	}
+
 	struct ipv4_packet * data = net_sock_get(sock);
 	long resp = ntohs(data->length) - sizeof(struct ipv4_packet) - sizeof(struct tcp_header);
 
@@ -524,7 +565,8 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 	response->source = ((struct EthernetDevice*)nic->device)->ipv4_addr;
 	response->ttl = 64;
 	response->protocol = IPV4_PROT_TCP;
-	response->ident = htons(1);
+	sock->priv[2] = 1;
+	response->ident = htons(sock->priv[2]);
 	response->flags_fragment = htons(0x0);
 	response->version_ihl = 0x45;
 	response->dscp_ecn = 0;
@@ -538,7 +580,7 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 	tcp_header->seq_number = 0;
 	tcp_header->ack_number = 0;
 	tcp_header->flags = htons((1 << 1) | 0x5000);
-	tcp_header->window_size = htons(1548-54);
+	tcp_header->window_size = htons(DEFAULT_TCP_WINDOW_SIZE);
 	tcp_header->checksum = 0;
 	tcp_header->urgent = 0;
 
@@ -557,9 +599,29 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 
 	net_eth_send((struct EthernetDevice*)nic->device, ntohs(response->length), response, ETHERNET_TYPE_IPV4, ETHERNET_BROADCAST_MAC);
 
+
+	int _debug __attribute__((unused)) = 1;
+	printf("tcp: waiting for connect to finish; queue = %ld\n", sock->rx_queue->length);
+
+	unsigned long s, ss;
+	unsigned long ns, nss;
+	relative_time(2,0,&s,&ss);
+
+	while (!sock->rx_queue->length) {
+		int result = process_wait_nodes((process_t *)this_core->current_process, (fs_node_t*[]){(fs_node_t*)sock,NULL}, 200);
+		relative_time(0,0,&ns,&nss);
+		if (result != 0 && (ns > s || (ns == s && nss > ss))) {
+			printf("tcp: connect timed out after two seconds, bailing\n");
+			free(response);
+			return -ETIMEDOUT;
+		} else if (result != 0) {
+			printf("tcp: maybe resend?\n");
+		}
+	}
+
 	free(response);
 
-	printf("tcp: waiting for connect to finish\n");
+	printf("tcp: queue should have data now (len = %lu), trying to read\n", sock->rx_queue->length);
 
 	/* wait for signal that we connected or timed out */
 	struct ipv4_packet * data = net_sock_get(sock);
@@ -604,7 +666,8 @@ static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 	response->source = ((struct EthernetDevice*)nic->device)->ipv4_addr;
 	response->ttl = 64;
 	response->protocol = IPV4_PROT_TCP;
-	response->ident = htons(1);
+	sock->priv[2]++;
+	response->ident = htons(sock->priv[2]);
 	response->flags_fragment = htons(0x0);
 	response->version_ihl = 0x45;
 	response->dscp_ecn = 0;
@@ -618,7 +681,7 @@ static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 	tcp_header->seq_number = htonl(sock->priv32[0]);
 	tcp_header->ack_number = htonl(sock->priv32[1]);
 	tcp_header->flags = htons(TCP_FLAGS_PSH | TCP_FLAGS_ACK | 0x5000);
-	tcp_header->window_size = htons(1548-54);
+	tcp_header->window_size = htons(DEFAULT_TCP_WINDOW_SIZE);
 	tcp_header->checksum = 0;
 	tcp_header->urgent = 0;
 

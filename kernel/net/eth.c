@@ -35,7 +35,7 @@ void net_eth_handle(struct ethernet_packet * frame, fs_node_t * nic) {
 	foreach(node, net_raw_sockets_list) {
 		sock_t * sock = node->value;
 		if (!sock->_fnode.device || sock->_fnode.device == nic) {
-			net_sock_add(sock, frame, 8092);
+			net_sock_add(sock, frame, 8192);
 		}
 	}
 	spin_unlock(net_raw_sockets_lock);

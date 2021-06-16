@@ -209,7 +209,7 @@ static void e1000_handle(struct e1000_nic * nic, uint32_t status) {
 				uint8_t * pbuf = (uint8_t *)nic->rx_virt[nic->rx_index];
 				uint16_t  plen = nic->rx[nic->rx_index].length;
 
-				void * packet = malloc(8092);
+				void * packet = malloc(8192);
 				memcpy(packet, pbuf, plen);
 
 				nic->rx[nic->rx_index].status = 0;
@@ -355,14 +355,14 @@ static ssize_t write_e1000(fs_node_t *node, off_t offset, size_t size, uint8_t *
 }
 
 static ssize_t read_e1000(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	if (size != 8092) return 0;
+	if (size != 8192) return 0;
 	struct e1000_nic * nic = node->device;
 
 	struct ethernet_packet * packet = dequeue_packet(nic);
-	memcpy(buffer, packet, 8092);
+	memcpy(buffer, packet, 8192);
 	free(packet);
 
-	return 8092;
+	return 8192;
 }
 
 static int check_e1000(fs_node_t *node) {
@@ -390,9 +390,9 @@ static void e1000_init(void * data) {
 		printf("e1000[%s]: unable to allocate memory for buffers\n", nic->if_name);
 		switch_task(0);
 	}
-	nic->rx = mmu_map_from_physical(nic->rx_phys);
+	nic->rx = mmu_map_from_physical(nic->rx_phys); //mmu_map_mmio_region(nic->rx_phys, 4096);
 	nic->tx_phys = nic->rx_phys + 512;
-	nic->tx = mmu_map_from_physical(nic->tx_phys);
+	nic->tx = mmu_map_from_physical(nic->tx_phys); //mmu_map_mmio_region(nic->tx_phys, 4096);
 
 	memset(nic->rx, 0, 4096);
 	memset(nic->tx, 0, 4096);
@@ -404,7 +404,10 @@ static void e1000_init(void * data) {
 			printf("e1000[%s]: unable to allocate memory for receive buffer\n", nic->if_name);
 			switch_task(0);
 		}
-		nic->rx_virt[i] = mmu_map_from_physical(nic->rx[i].addr);
+		//nic->rx_virt[i] = mmu_map_from_physical(nic->rx[i].addr);
+		nic->rx_virt[i] = mmu_map_mmio_region(nic->rx[i].addr, 8192);
+		mmu_frame_allocate(mmu_get_page((uintptr_t)nic->rx_virt[i],0),MMU_FLAG_WRITABLE|MMU_FLAG_WC);
+		mmu_frame_allocate(mmu_get_page((uintptr_t)nic->rx_virt[i]+4096,0),MMU_FLAG_WRITABLE|MMU_FLAG_WC);
 		nic->rx[i].status = 0;
 	}
 
@@ -414,8 +417,11 @@ static void e1000_init(void * data) {
 			printf("e1000[%s]: unable to allocate memory for receive buffer\n", nic->if_name);
 			switch_task(0);
 		}
-		nic->tx_virt[i] = mmu_map_from_physical(nic->tx[i].addr);
-		memset(nic->tx_virt[i], 0, 8092);
+		//nic->tx_virt[i] = mmu_map_from_physical(nic->tx[i].addr);
+		nic->tx_virt[i] = mmu_map_mmio_region(nic->tx[i].addr, 8192);
+		mmu_frame_allocate(mmu_get_page((uintptr_t)nic->tx_virt[i],0),MMU_FLAG_WRITABLE|MMU_FLAG_WC);
+		mmu_frame_allocate(mmu_get_page((uintptr_t)nic->tx_virt[i]+4096,0),MMU_FLAG_WRITABLE|MMU_FLAG_WC);
+		memset(nic->tx_virt[i], 0, 8192);
 		nic->tx[i].status = 0;
 		nic->tx[i].cmd = (1 << 0);
 	}

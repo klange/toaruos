@@ -971,6 +971,31 @@ int waitpid(int pid, int * status, int options) {
 	} while (1);
 }
 
+int process_timeout_sleep(process_t * process, int timeout) {
+	unsigned long s, ss;
+	relative_time(0, timeout * 1000, &s, &ss);
+
+	spin_lock(sleep_lock);
+	node_t * before = NULL;
+	foreach(node, sleep_queue) {
+		sleeper_t * candidate = ((sleeper_t *)node->value);
+		if (candidate->end_tick > s || (candidate->end_tick == s && candidate->end_subtick > ss)) {
+			break;
+		}
+		before = node;
+	}
+	sleeper_t * proc = malloc(sizeof(sleeper_t));
+	proc->process     = process;
+	proc->end_tick    = s;
+	proc->end_subtick = ss;
+	proc->is_fswait = 1;
+	list_insert(((process_t *)process)->node_waits, proc);
+	process->timeout_node = list_insert_after(sleep_queue, before, proc);
+	spin_unlock(sleep_lock);
+
+	return 0;
+}
+
 int process_wait_nodes(process_t * process,fs_node_t * nodes[], int timeout) {
 	fs_node_t ** n = nodes;
 	int index = 0;
@@ -1006,26 +1031,7 @@ int process_wait_nodes(process_t * process,fs_node_t * nodes[], int timeout) {
 	}
 
 	if (timeout > 0) {
-		unsigned long s, ss;
-		relative_time(0, timeout * 1000, &s, &ss);
-
-		spin_lock(sleep_lock);
-		node_t * before = NULL;
-		foreach(node, sleep_queue) {
-			sleeper_t * candidate = ((sleeper_t *)node->value);
-			if (candidate->end_tick > s || (candidate->end_tick == s && candidate->end_subtick > ss)) {
-				break;
-			}
-			before = node;
-		}
-		sleeper_t * proc = malloc(sizeof(sleeper_t));
-		proc->process     = process;
-		proc->end_tick    = s;
-		proc->end_subtick = ss;
-		proc->is_fswait = 1;
-		list_insert(((process_t *)process)->node_waits, proc);
-		process->timeout_node = list_insert_after(sleep_queue, before, proc);
-		spin_unlock(sleep_lock);
+		process_timeout_sleep(process, timeout);
 	} else {
 		process->timeout_node = NULL;
 	}
