@@ -123,6 +123,17 @@ load_one:
 	xor %ecx, %ecx
 	movw drive_params_bps, %cx
 	add %ecx, %ebx
+
+	/* Update spinner */
+	movl ind_Spinny, %ecx
+	inc %ecx
+	and $0x3FF, %ecx
+	movl %ecx, ind_Spinny
+	shr $8, %ecx
+	movb str_Spinny(%ecx), %ah
+	mov $str_Loading_end - str_Loading - 2 + 0xb8000, %ecx
+	movb %ah, (%ecx)
+
 	jmp load_one
 
 done:
@@ -273,9 +284,14 @@ str_Bad:
 str_Bad_end:
 
 str_Loading:
-	.byte 'L',7,'o',7,'a',7,'d',7,'i',7,'n',7,'g',7,'.',7,'.',7,'.',7
+	.byte 'L',7,'o',7,'a',7,'d',7,'i',7,'n',7,'g',7,'.',7,'.',7,'.',7,' ',7,' ',7
 str_Loading_end:
 
 str_Need_long:
 	.byte 'T',7,'o',7,'a',7,'r',7,'u',7,'O',7,'S',7,' ',7,'2',7,' ',7,'r',7,'e',7,'q',7,'u',7,'i',7,'r',7,'e',7,'s',7,' ',7,'a',7,' ',7,'6',7,'4',7,'-',7,'b',7,'i',7,'t',7,' ',7,'p',7,'r',7,'o',7,'c',7,'e',7,'s',7,'s',7,'o',7,'r',7
 str_Need_long_end:
+
+str_Spinny:
+	.byte '|','/','-','\\'
+ind_Spinny:
+	.long 0
