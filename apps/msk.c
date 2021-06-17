@@ -301,7 +301,10 @@ static int install_package(char * pkg) {
 			char cmd[1024];
 			sprintf(cmd, "fetch -o /tmp/msk.file -v %s/%s", msk_remote,
 					source);
-			system(cmd);
+			int status;
+			if ((status = system(cmd))) {
+				return status;
+			}
 			hashmap_set(hashmap_get(msk_manifest->sections, pkg), "source", "/tmp/msk.file");
 		}
 	}
