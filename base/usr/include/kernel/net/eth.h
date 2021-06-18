@@ -21,6 +21,7 @@ struct EthernetDevice {
 	/* XXX: just to get things going */
 	uint32_t ipv4_addr;
 	uint32_t ipv4_subnet;
+	uint32_t ipv4_gateway;
 
 	uint8_t ipv6_addr[16];
 	/* TODO: Address lists? */

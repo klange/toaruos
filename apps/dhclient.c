@@ -9,6 +9,7 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <net/if.h>
 
 struct ethernet_packet {
 	uint8_t destination[6];
@@ -261,7 +262,7 @@ static int configure_interface(const char * if_name) {
 		return 1;
 	}
 
-	if (ioctl(netdev, 0x12340001, &mac_addr)) {
+	if (ioctl(netdev, SIOCGIFHWADDR, &mac_addr)) {
 		fprintf(stderr, "%s: %s: could not get mac address\n", _argv_0, if_name);
 		return 1;
 	}
@@ -353,7 +354,7 @@ static int configure_interface(const char * if_name) {
 			yiaddr = response->dhcp_header.yiaddr;
 			char yiaddr_ip[16];
 			ip_ntoa(ntohl(yiaddr), yiaddr_ip);
-			if (!ioctl(netdev, 0x12340012, &yiaddr)) {
+			if (!ioctl(netdev, SIOCSIFADDR, &yiaddr)) {
 				printf("%s: %s: configured for %s\n", _argv_0, if_name, yiaddr_ip);
 			} else {
 				perror(_argv_0);
@@ -371,7 +372,7 @@ static int configure_interface(const char * if_name) {
 					char addr[16];
 					ip_ntoa(ntohl(ip_data), addr);
 					printf("%s: %s: subnet mask %s\n", _argv_0, if_name, addr);
-					ioctl(netdev, 0x12340014, &ip_data);
+					ioctl(netdev, SIOCSIFNETMASK, &ip_data);
 				} else if (opt_type == 3) {
 					/* Gateway address - add this to a route table? */
 					uint32_t ip_data;
@@ -379,6 +380,7 @@ static int configure_interface(const char * if_name) {
 					char addr[16];
 					ip_ntoa(ntohl(ip_data), addr);
 					printf("%s: %s: gateway %s\n", _argv_0, if_name, addr);
+					ioctl(netdev, SIOCSIFGATEWAY, &ip_data);
 				} else if (opt_type == 6) {
 					/* DNS server */
 					uint32_t ip_data;

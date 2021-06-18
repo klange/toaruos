@@ -17,6 +17,8 @@ _Begin_C_Header
 #define SIOCSIFADDR6    0x12340013 /* Set IPv6 address */
 #define SIOCGIFFLAGS    0x12340005 /* Get interface flags */
 #define SIOCGIFMTU      0x12340006 /* Get interface mtu */
+#define SIOCGIFGATEWAY  0x12340007
+#define SIOCSIFGATEWAY  0x12340017
 
 /**
  * Flags for interface status

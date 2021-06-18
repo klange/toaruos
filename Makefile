@@ -138,7 +138,7 @@ kernel/%.o: kernel/%.S
 	echo ${PATH}
 	${CC} -c $< -o $@
 
-HEADERS = $(wildcard base/usr/include/kernel/*.h)
+HEADERS = $(wildcard base/usr/include/kernel/*.h) $(wildcard base/usr/include/kernel/*/*.h)
 
 kernel/%.o: kernel/%.c ${HEADERS}
 	${CC} ${KERNEL_CFLAGS} -nostdlib -g -Iinclude -c -o $@ $<

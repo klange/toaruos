@@ -32,20 +32,7 @@
 #define INTS ((1 << 2) | (1 << 6) | (1 << 7) | (1 << 1) | (1 << 0))
 
 struct e1000_nic {
-	/* This should be generic netif struct stuff... */
-	char if_name[32];
-	uint8_t mac[6];
-
-	size_t mtu;
-
-	/* XXX: just to get things going */
-	uint32_t ipv4_addr;
-	uint32_t ipv4_subnet;
-
-	uint8_t ipv6_addr[16];
-	/* TODO: Address lists? */
-
-	fs_node_t * device_node;
+	struct EthernetDevice eth;
 	uint32_t pci_device;
 	uint16_t deviceid;
 	uintptr_t mmio_addr;
@@ -140,8 +127,8 @@ static uint16_t eeprom_read(struct e1000_nic * device, uint8_t addr) {
 
 static void write_mac(struct e1000_nic * device) {
 	uint32_t low, high;
-	memcpy(&low, &device->mac[0], 4);
-	memcpy(&high,&device->mac[4], 2);
+	memcpy(&low, &device->eth.mac[0], 4);
+	memcpy(&high,&device->eth.mac[4], 2);
 	memset((uint8_t *)&high + 2, 0, 2);
 	high |= 0x80000000;
 	write_command(device, E1000_REG_RXADDR + 0, low);
@@ -152,23 +139,23 @@ static void read_mac(struct e1000_nic * device) {
 	if (device->has_eeprom) {
 		uint32_t t;
 		t = eeprom_read(device, 0);
-		device->mac[0] = t & 0xFF;
-		device->mac[1] = t >> 8;
+		device->eth.mac[0] = t & 0xFF;
+		device->eth.mac[1] = t >> 8;
 		t = eeprom_read(device, 1);
-		device->mac[2] = t & 0xFF;
-		device->mac[3] = t >> 8;
+		device->eth.mac[2] = t & 0xFF;
+		device->eth.mac[3] = t >> 8;
 		t = eeprom_read(device, 2);
-		device->mac[4] = t & 0xFF;
-		device->mac[5] = t >> 8;
+		device->eth.mac[4] = t & 0xFF;
+		device->eth.mac[5] = t >> 8;
 	} else {
 		uint32_t mac_addr_low  = *(uint32_t *)(device->mmio_addr + E1000_REG_RXADDR);
 		uint32_t mac_addr_high = *(uint32_t *)(device->mmio_addr + E1000_REG_RXADDR + 4);
-		device->mac[0] = (mac_addr_low >> 0 ) & 0xFF;
-		device->mac[1] = (mac_addr_low >> 8 ) & 0xFF;
-		device->mac[2] = (mac_addr_low >> 16) & 0xFF;
-		device->mac[3] = (mac_addr_low >> 24) & 0xFF;
-		device->mac[4] = (mac_addr_high>> 0 ) & 0xFF;
-		device->mac[5] = (mac_addr_high>> 8 ) & 0xFF;
+		device->eth.mac[0] = (mac_addr_low >> 0 ) & 0xFF;
+		device->eth.mac[1] = (mac_addr_low >> 8 ) & 0xFF;
+		device->eth.mac[2] = (mac_addr_low >> 16) & 0xFF;
+		device->eth.mac[3] = (mac_addr_low >> 24) & 0xFF;
+		device->eth.mac[4] = (mac_addr_high>> 0 ) & 0xFF;
+		device->eth.mac[5] = (mac_addr_high>> 8 ) & 0xFF;
 	}
 }
 
@@ -179,7 +166,7 @@ static void e1000_alert_waiters(struct e1000_nic * nic) {
 		process_t * p = node->value;
 		free(node);
 		spin_unlock(nic->alert_lock);
-		process_alert_node(p, nic->device_node);
+		process_alert_node(p, nic->eth.device_node);
 		spin_lock(nic->alert_lock);
 	}
 	spin_unlock(nic->alert_lock);
@@ -302,28 +289,35 @@ static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 	switch (request) {
 		case SIOCGIFHWADDR:
 			/* fill argp with mac */
-			memcpy(argp, nic->mac, 6);
+			memcpy(argp, nic->eth.mac, 6);
 			return 0;
 
 		case SIOCGIFADDR:
-			if (nic->ipv4_addr == 0) return -ENOENT;
-			memcpy(argp, &nic->ipv4_addr, sizeof(nic->ipv4_addr));
+			if (nic->eth.ipv4_addr == 0) return -ENOENT;
+			memcpy(argp, &nic->eth.ipv4_addr, sizeof(nic->eth.ipv4_addr));
 			return 0;
 		case SIOCSIFADDR:
-			memcpy(&nic->ipv4_addr, argp, sizeof(nic->ipv4_addr));
+			memcpy(&nic->eth.ipv4_addr, argp, sizeof(nic->eth.ipv4_addr));
 			return 0;
 		case SIOCGIFNETMASK:
-			if (nic->ipv4_subnet == 0) return -ENOENT;
-			memcpy(argp, &nic->ipv4_subnet, sizeof(nic->ipv4_subnet));
+			if (nic->eth.ipv4_subnet == 0) return -ENOENT;
+			memcpy(argp, &nic->eth.ipv4_subnet, sizeof(nic->eth.ipv4_subnet));
 			return 0;
 		case SIOCSIFNETMASK:
-			memcpy(&nic->ipv4_subnet, argp, sizeof(nic->ipv4_subnet));
+			memcpy(&nic->eth.ipv4_subnet, argp, sizeof(nic->eth.ipv4_subnet));
+			return 0;
+		case SIOCGIFGATEWAY:
+			if (nic->eth.ipv4_subnet == 0) return -ENOENT;
+			memcpy(argp, &nic->eth.ipv4_gateway, sizeof(nic->eth.ipv4_gateway));
+			return 0;
+		case SIOCSIFGATEWAY:
+			memcpy(&nic->eth.ipv4_gateway, argp, sizeof(nic->eth.ipv4_gateway));
 			return 0;
 
 		case SIOCGIFADDR6:
 			return -ENOENT;
 		case SIOCSIFADDR6:
-			memcpy(&nic->ipv6_addr, argp, sizeof(nic->ipv6_addr));
+			memcpy(&nic->eth.ipv6_addr, argp, sizeof(nic->eth.ipv6_addr));
 			return 0;
 
 		case SIOCGIFFLAGS: {
@@ -338,7 +332,7 @@ static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 
 		case SIOCGIFMTU: {
 			uint32_t * mtu = argp;
-			*mtu = nic->mtu;
+			*mtu = nic->eth.mtu;
 			return 0;
 		}
 
@@ -376,7 +370,7 @@ static int wait_e1000(fs_node_t *node, void * process) {
 	if (!list_find(nic->alert_wait, process)) {
 		list_insert(nic->alert_wait, process);
 	}
-	list_insert(((process_t *)process)->node_waits, nic->device_node);
+	list_insert(((process_t *)process)->node_waits, nic->eth.device_node);
 	spin_unlock(nic->alert_lock);
 	return 0;
 }
@@ -387,7 +381,7 @@ static void e1000_init(void * data) {
 
 	nic->rx_phys = mmu_allocate_a_frame() << 12;
 	if (nic->rx_phys == 0) {
-		printf("e1000[%s]: unable to allocate memory for buffers\n", nic->if_name);
+		printf("e1000[%s]: unable to allocate memory for buffers\n", nic->eth.if_name);
 		switch_task(0);
 	}
 	nic->rx = mmu_map_from_physical(nic->rx_phys); //mmu_map_mmio_region(nic->rx_phys, 4096);
@@ -401,7 +395,7 @@ static void e1000_init(void * data) {
 	for (int i = 0; i < E1000_NUM_RX_DESC; ++i) {
 		nic->rx[i].addr = mmu_allocate_n_frames(2) << 12;
 		if (nic->rx[i].addr == 0) {
-			printf("e1000[%s]: unable to allocate memory for receive buffer\n", nic->if_name);
+			printf("e1000[%s]: unable to allocate memory for receive buffer\n", nic->eth.if_name);
 			switch_task(0);
 		}
 		//nic->rx_virt[i] = mmu_map_from_physical(nic->rx[i].addr);
@@ -414,7 +408,7 @@ static void e1000_init(void * data) {
 	for (int i = 0; i < E1000_NUM_TX_DESC; ++i) {
 		nic->tx[i].addr = mmu_allocate_n_frames(2) << 12;
 		if (nic->tx[i].addr == 0) {
-			printf("e1000[%s]: unable to allocate memory for receive buffer\n", nic->if_name);
+			printf("e1000[%s]: unable to allocate memory for receive buffer\n", nic->eth.if_name);
 			switch_task(0);
 		}
 		//nic->tx_virt[i] = mmu_map_from_physical(nic->tx[i].addr);
@@ -487,7 +481,7 @@ static void e1000_init(void * data) {
 
 	nic->irq_number = pci_get_interrupt(e1000_device_pci);
 
-	irq_install_handler(nic->irq_number, irq_handler, nic->if_name);
+	irq_install_handler(nic->irq_number, irq_handler, nic->eth.if_name);
 
 	for (int i = 0; i < 128; ++i) {
 		write_command(nic, 0x5200 + i * 4, 0);
@@ -508,25 +502,25 @@ static void e1000_init(void * data) {
 
 	nic->link_status = (read_command(nic, E1000_REG_STATUS) & (1 << 1));
 
-	nic->device_node = calloc(sizeof(fs_node_t),1);
-	snprintf(nic->device_node->name, 100, "%s", nic->if_name);
-	nic->device_node->flags = FS_BLOCKDEVICE; /* NETDEVICE? */
-	nic->device_node->mask  = 0666; /* temporary; shouldn't be doing this with these device files */
-	nic->device_node->ioctl = ioctl_e1000;
-	nic->device_node->write = write_e1000;
-	nic->device_node->read  = read_e1000;
-	nic->device_node->selectcheck = check_e1000;
-	nic->device_node->selectwait  = wait_e1000;
-	nic->device_node->device = nic;
+	nic->eth.device_node = calloc(sizeof(fs_node_t),1);
+	snprintf(nic->eth.device_node->name, 100, "%s", nic->eth.if_name);
+	nic->eth.device_node->flags = FS_BLOCKDEVICE; /* NETDEVICE? */
+	nic->eth.device_node->mask  = 0666; /* temporary; shouldn't be doing this with these device files */
+	nic->eth.device_node->ioctl = ioctl_e1000;
+	nic->eth.device_node->write = write_e1000;
+	nic->eth.device_node->read  = read_e1000;
+	nic->eth.device_node->selectcheck = check_e1000;
+	nic->eth.device_node->selectwait  = wait_e1000;
+	nic->eth.device_node->device = nic;
 
-	nic->mtu = 1500; /* guess */
+	nic->eth.mtu = 1500; /* guess */
 
-	net_add_interface(nic->if_name, nic->device_node);
+	net_add_interface(nic->eth.if_name, nic->eth.device_node);
 
 	/* Now wait for packets */
 	while (1) {
 		struct ethernet_packet * packet = dequeue_packet(nic);
-		net_eth_handle(packet, nic->device_node);
+		net_eth_handle(packet, nic->eth.device_node);
 	}
 }
 
@@ -538,13 +532,13 @@ static void find_e1000(uint32_t device, uint16_t vendorid, uint16_t deviceid, vo
 		nic->deviceid   = deviceid;
 		devices[device_count++] = nic;
 
-		snprintf(nic->if_name, 31,
+		snprintf(nic->eth.if_name, 31,
 			"enp%ds%d",
 			(int)pci_extract_bus(device),
 			(int)pci_extract_slot(device));
 
 		char worker_name[34];
-		snprintf(worker_name, 33, "[%s]", nic->if_name);
+		snprintf(worker_name, 33, "[%s]", nic->eth.if_name);
 		spawn_worker_thread(e1000_init, worker_name, nic);
 
 		*(int*)found = 1;
