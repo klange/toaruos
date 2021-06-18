@@ -26,7 +26,7 @@
 //#define printf(...)
 #endif
 
-#define DEFAULT_TCP_WINDOW_SIZE 4000
+#define DEFAULT_TCP_WINDOW_SIZE 8000
 
 static int _debug __attribute__((unused)) = 0;
 
@@ -625,7 +625,6 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 	tcp_header->checksum = htons(calculate_tcp_checksum(&check_hd, tcp_header, NULL, 0));
 
 	net_ipv4_send(response,nic);
-	free(response);
 
 	int _debug __attribute__((unused)) = 1;
 	printf("tcp: waiting for connect to finish; queue = %ld\n", sock->rx_queue->length);
@@ -633,18 +632,24 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 	unsigned long s, ss;
 	unsigned long ns, nss;
 	relative_time(2,0,&s,&ss);
+	int attempts = 0;
 
 	while (!sock->rx_queue->length) {
 		int result = process_wait_nodes((process_t *)this_core->current_process, (fs_node_t*[]){(fs_node_t*)sock,NULL}, 200);
 		relative_time(0,0,&ns,&nss);
 		if (result != 0 && (ns > s || (ns == s && nss > ss))) {
-			printf("tcp: connect timed out after two seconds, bailing\n");
-			return -ETIMEDOUT;
-		} else if (result != 0) {
-			printf("tcp: resending connect request...\n");
+			if (attempts++ > 5) {
+				printf("tcp: connect timed out\n");
+				free(response);
+				return -ETIMEDOUT;
+			}
+			printf("tcp: retrying...\n");
 			net_ipv4_send(response,nic);
+			relative_time(2,0,&s,&ss);
 		}
 	}
+
+	free(response);
 
 	printf("tcp: queue should have data now (len = %lu), trying to read\n", sock->rx_queue->length);
 
