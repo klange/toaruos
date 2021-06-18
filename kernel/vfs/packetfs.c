@@ -388,8 +388,6 @@ static fs_node_t * file_from_pex(pex_ex_t * pex) {
 	fnode->mask    = 0666;
 	fnode->flags   = FS_CHARDEVICE;
 	fnode->open    = open_pex;
-	fnode->read    = read_server;
-	fnode->write   = write_server;
 	return fnode;
 }
 
