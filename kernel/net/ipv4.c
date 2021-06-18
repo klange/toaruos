@@ -141,6 +141,7 @@ static void icmp_handle(struct ipv4_packet * packet, const char * src, const cha
 		if (ntohs(packet->length) & 1) packet->length++;
 
 		struct ipv4_packet * response = malloc(ntohs(packet->length));
+		memcpy(response, packet, ntohs(packet->length));
 		response->length = packet->length;
 		response->destination = packet->source;
 		response->source = ((struct EthernetDevice*)nic->device)->ipv4_addr;
@@ -152,7 +153,6 @@ static void icmp_handle(struct ipv4_packet * packet, const char * src, const cha
 		response->dscp_ecn = 0;
 		response->checksum = 0;
 		response->checksum = htons(calculate_ipv4_checksum(response));
-		memcpy(response->payload, packet->payload, ntohs(packet->length));
 
 		struct icmp_header * ping_reply = (void*)&response->payload;
 		ping_reply->csum = 0;
