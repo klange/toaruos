@@ -237,7 +237,13 @@ static int tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet, 
 
 	tcp_header->checksum = htons(calculate_tcp_checksum(&check_hd, tcp_header, NULL, 0));
 
-	net_eth_send((struct EthernetDevice*)nic->device, ntohs(response->length), response, ETHERNET_TYPE_IPV4, ETHERNET_BROADCAST_MAC);
+	struct EthernetDevice * enic = nic->device;
+	uint32_t ipdest = response->destination;
+	if (ipdest & ~(enic->ipv4_subnet)) {
+		ipdest = enic->ipv4_gateway;
+	}
+	struct ArpCacheEntry * resp = net_arp_cache_get(ipdest);
+	net_eth_send((struct EthernetDevice*)nic->device, ntohs(response->length), response, ETHERNET_TYPE_IPV4,  resp ? resp->hwaddr : ETHERNET_BROADCAST_MAC);
 	return retval;
 }
 
@@ -366,7 +372,13 @@ static long sock_udp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 
 	memcpy(response->payload + sizeof(struct udp_packet), msg->msg_iov[0].iov_base, msg->msg_iov[0].iov_len);
 
-	net_eth_send((struct EthernetDevice*)nic->device, ntohs(response->length), response, ETHERNET_TYPE_IPV4, ETHERNET_BROADCAST_MAC);
+	struct EthernetDevice * enic = nic->device;
+	uint32_t ipdest = response->destination;
+	if (ipdest & ~(enic->ipv4_subnet)) {
+		ipdest = enic->ipv4_gateway;
+	}
+	struct ArpCacheEntry * resp = net_arp_cache_get(ipdest);
+	net_eth_send((struct EthernetDevice*)nic->device, ntohs(response->length), response, ETHERNET_TYPE_IPV4, resp ? resp->hwaddr : ETHERNET_BROADCAST_MAC);
 	free(response);
 
 	return 0;
@@ -462,7 +474,12 @@ static void sock_tcp_close(sock_t * sock) {
 
 		tcp_header->checksum = htons(calculate_tcp_checksum(&check_hd, tcp_header, tcp_header->payload, 0));
 
-		struct ArpCacheEntry * resp = net_arp_cache_get(response->destination);
+		struct EthernetDevice * enic = nic->device;
+		uint32_t ipdest = response->destination;
+		if (ipdest & ~(enic->ipv4_subnet)) {
+			ipdest = enic->ipv4_gateway;
+		}
+		struct ArpCacheEntry * resp = net_arp_cache_get(ipdest);
 		net_eth_send((struct EthernetDevice*)nic->device, ntohs(response->length), response, ETHERNET_TYPE_IPV4, resp ? resp->hwaddr : ETHERNET_BROADCAST_MAC);
 	}
 }
@@ -596,8 +613,13 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 	tcp_header->checksum = htons(calculate_tcp_checksum(&check_hd, tcp_header, NULL, 0));
 
 	/* TODO: enqueue tcp packet for potential redelivery */
-
-	net_eth_send((struct EthernetDevice*)nic->device, ntohs(response->length), response, ETHERNET_TYPE_IPV4, ETHERNET_BROADCAST_MAC);
+	struct EthernetDevice * enic = nic->device;
+	uint32_t ipdest = response->destination;
+	if (ipdest & ~(enic->ipv4_subnet)) {
+		ipdest = enic->ipv4_gateway;
+	}
+	struct ArpCacheEntry * resp = net_arp_cache_get(ipdest);
+	net_eth_send((struct EthernetDevice*)nic->device, ntohs(response->length), response, ETHERNET_TYPE_IPV4, resp ? resp->hwaddr : ETHERNET_BROADCAST_MAC);
 
 
 	int _debug __attribute__((unused)) = 1;
@@ -699,8 +721,13 @@ static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 	memcpy(tcp_header->payload, msg->msg_iov[0].iov_base, msg->msg_iov[0].iov_len);
 	tcp_header->checksum = htons(calculate_tcp_checksum(&check_hd, tcp_header, tcp_header->payload, msg->msg_iov[0].iov_len));
 
-	struct ArpCacheEntry * resp = net_arp_cache_get(response->destination);
-	net_eth_send((struct EthernetDevice*)nic->device, ntohs(response->length), response, ETHERNET_TYPE_IPV4, resp ? resp->hwaddr : ETHERNET_BROADCAST_MAC);
+	struct EthernetDevice * enic = nic->device;
+	uint32_t dest = response->destination;
+	if (dest & ~(enic->ipv4_subnet)) {
+		dest = enic->ipv4_gateway;
+	}
+	struct ArpCacheEntry * resp = net_arp_cache_get(dest);
+	net_eth_send(enic, ntohs(response->length), response, ETHERNET_TYPE_IPV4, resp ? resp->hwaddr : ETHERNET_BROADCAST_MAC);
 	return msg->msg_iov[0].iov_len;
 }
 

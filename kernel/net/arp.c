@@ -62,6 +62,25 @@ struct ArpCacheEntry * net_arp_cache_get(uint32_t addr) {
 	return out;
 }
 
+void net_arp_ask(uint32_t addr, fs_node_t * fsnic) {
+	struct EthernetDevice * ethnic = fsnic->device;
+	struct arp_header arp_request = {0};
+
+	arp_request.arp_htype = htons(1); /* Ethernet */
+	arp_request.arp_ptype = htons(ETHERNET_TYPE_IPV4);
+	arp_request.arp_hlen  = 6;
+	arp_request.arp_plen  = 4;
+	arp_request.arp_oper  = htons(1); /* Who is...? */
+	arp_request.arp_data.arp_eth_ipv4.arp_tpa = addr;
+	memcpy(arp_request.arp_data.arp_eth_ipv4.arp_sha, ethnic->mac, 6);
+
+	if (ethnic->ipv4_addr) {
+		arp_request.arp_data.arp_eth_ipv4.arp_spa = ethnic->ipv4_addr;
+	}
+
+	net_eth_send(ethnic, sizeof(struct arp_header), &arp_request, ETHERNET_TYPE_ARP, ETHERNET_BROADCAST_MAC);
+}
+
 void net_arp_handle(struct arp_header * packet, fs_node_t * nic) {
 	printf("net: arp: hardware %d protocol %d operation %d hlen %d plen %d\n",
 		ntohs(packet->arp_htype), ntohs(packet->arp_ptype), ntohs(packet->arp_oper),

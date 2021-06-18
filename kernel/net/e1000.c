@@ -283,6 +283,8 @@ static void init_tx(struct e1000_nic * device) {
 		read_command(device, E1000_REG_TCTRL));
 }
 
+extern void net_arp_ask(uint32_t addr, fs_node_t * fsnic);
+
 static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 	struct e1000_nic * nic = node->device;
 
@@ -312,6 +314,7 @@ static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 			return 0;
 		case SIOCSIFGATEWAY:
 			memcpy(&nic->eth.ipv4_gateway, argp, sizeof(nic->eth.ipv4_gateway));
+			net_arp_ask(nic->eth.ipv4_gateway, node);
 			return 0;
 
 		case SIOCGIFADDR6:
