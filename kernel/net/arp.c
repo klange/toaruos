@@ -44,7 +44,6 @@ hashmap_t * net_arp_cache = NULL;
 
 void net_arp_cache_add(struct EthernetDevice * iface, uint32_t addr, uint8_t * hwaddr, uint16_t flags) {
 	spin_lock(net_arp_cache_lock);
-	if (!net_arp_cache) net_arp_cache = hashmap_create_int(10);
 	struct ArpCacheEntry * entry = hashmap_get(net_arp_cache, (void*)(uintptr_t)addr);
 	if (!entry) entry = malloc(sizeof(struct ArpCacheEntry));
 	memcpy(entry->hwaddr, hwaddr, 6);
@@ -55,7 +54,6 @@ void net_arp_cache_add(struct EthernetDevice * iface, uint32_t addr, uint8_t * h
 }
 
 struct ArpCacheEntry * net_arp_cache_get(uint32_t addr) {
-	if (!net_arp_cache) return NULL;
 	spin_lock(net_arp_cache_lock);
 	struct ArpCacheEntry * out = hashmap_get(net_arp_cache, (void*)(uintptr_t)addr);
 	spin_unlock(net_arp_cache_lock);

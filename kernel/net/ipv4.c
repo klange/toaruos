@@ -170,6 +170,11 @@ static void icmp_handle(struct ipv4_packet * packet, const char * src, const cha
 static hashmap_t * udp_sockets = NULL;
 static hashmap_t * tcp_sockets = NULL;
 
+void ipv4_install(void) {
+	udp_sockets = hashmap_create_int(10);
+	tcp_sockets = hashmap_create_int(10);
+}
+
 #define TCP_FLAGS_FIN (1 << 0)
 #define TCP_FLAGS_SYN (1 << 1)
 #define TCP_FLAGS_RES (1 << 2)
@@ -288,7 +293,7 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
 		case IPV4_PROT_UDP: {
 			uint16_t dest_port = ntohs(((uint16_t*)&packet->payload)[1]);
 			printf("net: ipv4: %s: %s -> %s udp %d to %d\n", nic->name, src, dest, ntohs(((uint16_t*)&packet->payload)[0]), dest_port);
-			if (udp_sockets && hashmap_has(udp_sockets, (void*)(uintptr_t)dest_port)) {
+			if (hashmap_has(udp_sockets, (void*)(uintptr_t)dest_port)) {
 				printf("net: udp: received and have a waiting endpoint!\n");
 				sock_t * sock = hashmap_get(udp_sockets, (void*)(uintptr_t)dest_port);
 				net_sock_add(sock, packet, ntohs(packet->length));
@@ -298,7 +303,7 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
 		case IPV4_PROT_TCP: {
 			uint16_t dest_port = ntohs(((uint16_t*)&packet->payload)[1]);
 			printf("net: ipv4: %s: %s -> %s tcp %d to %d\n", nic->name, src, dest, ntohs(((uint16_t*)&packet->payload)[0]), dest_port);
-			if (tcp_sockets && hashmap_has(tcp_sockets, (void*)(uintptr_t)dest_port)) {
+			if (hashmap_has(tcp_sockets, (void*)(uintptr_t)dest_port)) {
 				printf("net: tcp: received and have a waiting endpoint!\n");
 				/* What kind of packet is this? Is it something we were expecting? */
 				sock_t * sock = hashmap_get(tcp_sockets, (void*)(uintptr_t)dest_port);
@@ -339,9 +344,6 @@ static int next_port = 12345;
 static int udp_get_port(sock_t * sock) {
 	spin_lock(udp_port_lock);
 	int out = next_port++;
-	if (!udp_sockets) {
-		udp_sockets = hashmap_create_int(10);
-	}
 	hashmap_set(udp_sockets, (void*)(uintptr_t)out, sock);
 	sock->priv[0] = out;
 	spin_unlock(udp_port_lock);
@@ -429,7 +431,7 @@ static long sock_udp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 }
 
 static void sock_udp_close(sock_t * sock) {
-	if (sock->priv[0] && udp_sockets) {
+	if (sock->priv[0]) {
 		printf("udp: removing port %d from bound map\n", sock->priv[0]);
 		spin_lock(udp_port_lock);
 		hashmap_remove(udp_sockets, (void*)(uintptr_t)sock->priv[0]);
@@ -448,7 +450,7 @@ static int udp_socket(void) {
 
 static spin_lock_t tcp_port_lock = {0};
 static void sock_tcp_close(sock_t * sock) {
-	if (sock->priv[0] && tcp_sockets) {
+	if (sock->priv[0]) {
 		printf("tcp: removing port %d from bound map\n", sock->priv[0]);
 		spin_lock(tcp_port_lock);
 		hashmap_remove(tcp_sockets, (void*)(uintptr_t)sock->priv[0]);
@@ -501,9 +503,6 @@ static int next_tcp_port = 49152;
 static int tcp_get_port(sock_t * sock) {
 	spin_lock(tcp_port_lock);
 	int out = next_tcp_port++;
-	if (!tcp_sockets) {
-		tcp_sockets = hashmap_create_int(10);
-	}
 	hashmap_set(tcp_sockets, (void*)(uintptr_t)out, sock);
 	sock->priv[0] = out;
 	spin_unlock(tcp_port_lock);

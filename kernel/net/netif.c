@@ -23,11 +23,16 @@ static hashmap_t * interfaces = NULL;
 extern list_t * net_raw_sockets_list;
 static fs_node_t * _if_first = NULL;
 
+extern void ipv4_install(void);
+extern hashmap_t * net_arp_cache;
+
 void net_install(void) {
 	/* Set up virtual devices */
 	map_vfs_directory("/dev/net");
 	interfaces = hashmap_create(10);
 	net_raw_sockets_list = list_create("raw sockets", NULL);
+	net_arp_cache = hashmap_create_int(10);
+	ipv4_install();
 }
 
 /* kinda temporary for now */
