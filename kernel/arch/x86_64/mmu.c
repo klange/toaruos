@@ -769,7 +769,7 @@ void * sbrk(size_t bytes) {
 		mmu_invalidate(p);
 	}
 
-	memset(out, 0xAA, bytes);
+	//memset(out, 0xAA, bytes);
 
 	heapStart += bytes;
 	spin_unlock(kheap_lock);

@@ -197,6 +197,9 @@ static void e1000_handle(struct e1000_nic * nic, uint32_t status) {
 				uint16_t  plen = nic->rx[nic->rx_index].length;
 
 				void * packet = malloc(8192);
+				if (plen > 8192) {
+					printf("??? plen is too big\n");
+				}
 				memcpy(packet, pbuf, plen);
 
 				nic->rx[nic->rx_index].status = 0;
@@ -351,17 +354,6 @@ static ssize_t write_e1000(fs_node_t *node, off_t offset, size_t size, uint8_t *
 	return size;
 }
 
-static ssize_t read_e1000(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	if (size != 8192) return 0;
-	struct e1000_nic * nic = node->device;
-
-	struct ethernet_packet * packet = dequeue_packet(nic);
-	memcpy(buffer, packet, 8192);
-	free(packet);
-
-	return 8192;
-}
-
 static int check_e1000(fs_node_t *node) {
 	struct e1000_nic * nic = node->device;
 	return nic->net_queue->head ? 0 : 1;
@@ -511,7 +503,6 @@ static void e1000_init(void * data) {
 	nic->eth.device_node->mask  = 0666; /* temporary; shouldn't be doing this with these device files */
 	nic->eth.device_node->ioctl = ioctl_e1000;
 	nic->eth.device_node->write = write_e1000;
-	nic->eth.device_node->read  = read_e1000;
 	nic->eth.device_node->selectcheck = check_e1000;
 	nic->eth.device_node->selectwait  = wait_e1000;
 	nic->eth.device_node->device = nic;
