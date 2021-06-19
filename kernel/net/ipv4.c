@@ -246,6 +246,7 @@ static int tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet, 
 	if (ntohs(tcp->flags) & TCP_FLAGS_FIN) {
 		/* Other side is closed now */
 		sock->priv32[1]++;
+		sock->priv[1] = 3;
 	}
 
 	/* Stick TCP header into payload */
@@ -540,6 +541,10 @@ static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 			sock->buf = NULL;
 			return out;
 		}
+	}
+
+	if (!sock->rx_queue->length && sock->priv[1] == 3) {
+		return 0; /* EOF */
 	}
 
 	while (!sock->rx_queue->length) {
