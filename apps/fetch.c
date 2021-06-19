@@ -24,6 +24,7 @@
 struct http_req {
 	char domain[SIZE];
 	char path[SIZE];
+	int port;
 };
 
 struct {
@@ -45,7 +46,6 @@ struct {
 
 void parse_url(char * d, struct http_req * r) {
 	if (strstr(d, "http://") == d) {
-
 		d += strlen("http://");
 
 		char * s = strstr(d, "/");
@@ -57,6 +57,14 @@ void parse_url(char * d, struct http_req * r) {
 			s++;
 			strcpy(r->domain, d);
 			strcpy(r->path, s);
+		}
+		if (strstr(r->domain,":")) {
+			char * port = strstr(r->domain,":");
+			*port = '\0';
+			port++;
+			r->port = atoi(port);
+		} else {
+			r->port = 80;
 		}
 	} else {
 		fprintf(stderr, "sorry, can't parse %s\n", d);
@@ -320,7 +328,7 @@ int main(int argc, char * argv[]) {
 	struct sockaddr_in addr;
 	addr.sin_family = AF_INET;
 	memcpy(&addr.sin_addr.s_addr, remote->h_addr, remote->h_length);
-	addr.sin_port = htons(80); /* TODO */
+	addr.sin_port = htons(my_req.port);
 
 	if (connect(sock, (struct sockaddr*)&addr, sizeof(struct sockaddr_in)) < 0) {
 		perror("connect");
