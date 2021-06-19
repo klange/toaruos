@@ -294,7 +294,7 @@ static int install_package(char * pkg) {
 	char * type = confreader_getd(msk_manifest, pkg, "type", "");
 	char * msk_remote = confreader_get(msk_manifest, pkg, "remote_path");
 
-	if (strstr(msk_remote, "http:") == msk_remote) {
+	if (strstr(msk_remote, "http:") == msk_remote || strstr(msk_remote, "https:") == msk_remote) {
 		char * source = confreader_get(msk_manifest, pkg, "source");
 		if (source) {
 			fprintf(stderr, "Download %s...\n", pkg);
