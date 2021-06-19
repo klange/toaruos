@@ -206,6 +206,35 @@ struct dns_packet {
 } __attribute__((packed)) __attribute__((aligned(2)));
 
 struct hostent * gethostbyname(const char * name) {
+
+	/* Is name just an IP address? */
+	int maybe_ip = 1;
+	int dots = 0;
+	for (const char * c = name; *c; ++c) {
+		if (*c < '0' && *c > '9' && *c != '.') {
+			maybe_ip = 0;
+			break;
+		}
+		if (*c == '.') {
+			dots++;
+			if (dots > 3) {
+				maybe_ip = 0;
+				break;
+			}
+		}
+	}
+
+	if (maybe_ip && dots == 3) {
+		_hostent.h_name = (char*)name;
+		_hostent.h_aliases = NULL;
+		_hostent.h_addrtype = AF_INET;
+		_hostent.h_length = sizeof(uint32_t);
+		_hostent.h_addr_list = _host_entry_list;
+		_host_entry_list[0] = (char*)&_hostent_addr;
+		_hostent_addr = ip_aton(name);
+		return &_hostent;
+	}
+
 	/* Try to open /etc/resolv.conf */
 	FILE * resolv = fopen("/etc/resolv.conf","r");
 	if (!resolv) {
