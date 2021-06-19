@@ -564,6 +564,8 @@ static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	return resp;
 }
 
+extern uint32_t rand(void);
+
 static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen_t addrlen) {
 	const struct sockaddr_in * dest = (const struct sockaddr_in *)addr;
 	char deststr[16];
@@ -594,7 +596,7 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 	response->source = ((struct EthernetDevice*)nic->device)->ipv4_addr;
 	response->ttl = 64;
 	response->protocol = IPV4_PROT_TCP;
-	sock->priv[2] = 1;
+	sock->priv[2] = rand();
 	response->ident = htons(sock->priv[2]);
 	response->flags_fragment = htons(0x0);
 	response->version_ihl = 0x45;

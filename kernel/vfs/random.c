@@ -13,7 +13,7 @@
 #include <kernel/vfs.h>
 #include <kernel/string.h>
 
-static uint32_t rand(void) {
+uint32_t rand(void) {
 	static uint32_t x = 123456789;
 	static uint32_t y = 362436069;
 	static uint32_t z = 521288629;
