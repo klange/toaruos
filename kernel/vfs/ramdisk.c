@@ -87,6 +87,7 @@ static int ioctl_ramdisk(fs_node_t * node, unsigned long request, void * argp) {
 				}
 				/* Mark the file length as 0 */
 				node->length = 0;
+				((fs_node_t*)node->device)->length = 0;
 				return 0;
 			}
 		default:
@@ -100,6 +101,7 @@ static fs_node_t * ramdisk_device_create(int device_number, uintptr_t location, 
 	memset(fnode, 0x00, sizeof(fs_node_t));
 	fnode->inode = location;
 	snprintf(fnode->name, 10, "ram%d", device_number);
+	fnode->device = fnode; /* stupid vfs */
 	fnode->uid = 0;
 	fnode->gid = 0;
 	fnode->mask    = 0770;
