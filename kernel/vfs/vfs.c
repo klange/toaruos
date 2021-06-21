@@ -917,6 +917,7 @@ fs_node_t *get_mount_point(char * path, unsigned int path_depth, char **outpath,
 	if (last) {
 		fs_node_t * last_clone = malloc(sizeof(fs_node_t));
 		memcpy(last_clone, last, sizeof(fs_node_t));
+		last_clone->refcount = 0;
 		return last_clone;
 	}
 	return last;
@@ -940,6 +941,7 @@ fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_de
 		/* Clone the root file system node */
 		fs_node_t *root_clone = malloc(sizeof(fs_node_t));
 		memcpy(root_clone, fs_root, sizeof(fs_node_t));
+		root_clone->refcount = 0;
 
 		/* Free the path */
 		free(path);
