@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <dirent.h>
+#include <pthread.h>
 #include <sys/time.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
@@ -832,14 +833,21 @@ static void redraw_alttab(void) {
 	yutani_flip(yctx, alttab);
 }
 
+static pthread_t _waiter_thread;
+static void * logout_prompt_waiter(void * arg) {
+	if (system("showdialog \"Log Out\" /usr/share/icons/48/exit.png \"Are you sure you want to log out?\"") == 0) {
+		yutani_session_end(yctx);
+		_continue = 0;
+	}
+	return NULL;
+}
+
 static void launch_application_menu(struct MenuEntry * self) {
 	struct MenuEntry_Normal * _self = (void *)self;
 
 	if (!strcmp((char *)_self->action,"log-out")) {
-		if (system("showdialog \"Log Out\" /usr/share/icons/48/exit.png \"Are you sure you want to log out?\"") == 0) {
-			yutani_session_end(yctx);
-			_continue = 0;
-		}
+		/* Spin off a thread for this */
+		pthread_create(&_waiter_thread, NULL, logout_prompt_waiter, NULL);
 	} else {
 		launch_application((char *)_self->action);
 	}
