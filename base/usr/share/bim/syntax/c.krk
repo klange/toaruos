@@ -18,10 +18,14 @@ class CHighlighter(Highlighter):
     types = [
         "static","int","char","short","float","double","void","unsigned","volatile","const",
         "register","long","inline","restrict","enum","auto","extern","bool","complex",
+        # stdint stuff
         "uint8_t","uint16_t","uint32_t","uint64_t",
-        "int8_t","int16_t","int32_t","int64_t","FILE",
-        "ssize_t","size_t","uintptr_t","intptr_t","__volatile__",
-        "constexpr"
+        "int8_t","int16_t","int32_t","int64_t",
+        "ssize_t","size_t","uintptr_t","intptr_t",
+        # Extra stuff
+        "constexpr","FILE","__volatile__",
+        # sys/types stuff
+        "gid_t","uid_t","dev_t","ino_t","mode_t","caddr_t","off_t","time_t","pid_t",
     ]
 
     special = [
@@ -41,7 +45,7 @@ class CHighlighter(Highlighter):
             else if self[0] == '\\' and not self[1]:
                 self.paint(1, self.FLAG_ESCAPE)
                 return 4
-            else if self[0] == '\\' and self[1] in 'nr\\':
+            else if self[0] == '\\' and self[1] in 'abfnrtv?\\':
                 self.paint(2, self.FLAG_ESCAPE)
                 last = None
             else if self[0] == '\\' and self[1] in '01234567':

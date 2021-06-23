@@ -1,3 +1,4 @@
+import os
 from bim import getCommands
 from syntax import Highlighter, bind
 from syntax.doxygen import tryDoxygenComment
@@ -166,8 +167,24 @@ class BimcmdHighlighter(KrkHighlighter):
     name = 'bimcmd'
     extensions = ('.bim3rc',)
 
+    file_commands = ['e','tabnew','split','w','runscript','rundir']
+
     def calculate(self):
         if self.state <= 0 and self[-1] != '.':
+            if self.i == 0:
+                if self.findKeywords(self.file_commands, self.FLAG_KEYWORD, self.cKeywordQualifier):
+                    if self[0] == ' ':
+                        while self[0] == ' ': self.skip()
+                        let filePath = self[0:]
+                        if filePath:
+                            if filePath.startswith('~/'):
+                                filePath = filePath.replace('~',os.environ.get('HOME','~'),1)
+                            try:
+                                os.stat(filePath)
+                                self.paint(-1, self.FLAG_DIFFPLUS)
+                            except:
+                                self.paint(-1, self.FLAG_DIFFMINUS)
+                        return -1
             if self.findKeywords(getCommands(), self.FLAG_KEYWORD, self.cKeywordQualifier):
                 return 0
         return super().calculate()

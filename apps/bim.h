@@ -104,11 +104,19 @@ extern struct key_name_map KeyNames[];
 #define FLAG_DIFFMINUS 9
 #define FLAG_NOTICE    10
 #define FLAG_BOLD      11
-#define FLAG_LINK      12
+#define FLAG_LINK      (12 + (1<<4))
 #define FLAG_ESCAPE    13
+#define FLAG_EXTRA     14
+#define FLAG_SPECIAL   15
 
+#define FLAG_LINK_COLOR 12
+
+#define FLAG_UNDERLINE (1 << 4)
 #define FLAG_SELECT    (1 << 5)
 #define FLAG_SEARCH    (1 << 6)
+
+#define FLAG_MASK_COLORS 0x0F
+#define FLAG_MASK_ATTRIB 0x70
 
 /**
  * Line buffer definitions

@@ -6,7 +6,8 @@ def _make_dox():
         "@author","@brief","@class","@short","@retval",
         "@since","@return","@returns","@throws","@bug",
         "@version","@deprecated","@attention","@note",
-        "@protected",
+        "@protected","@copyright","@date","@bug","@pre",
+        "@details",
     ]
 
     let doxygen_word_commands = {
@@ -20,11 +21,21 @@ def _make_dox():
         '@memberof':   Highlighter.FLAG_TYPE,
         '@extends':    Highlighter.FLAG_TYPE,
         '@mainpage':   Highlighter.FLAG_STRING,
+        '@b':          Highlighter.FLAG_BOLD,
         '@section':    Highlighter.FLAG_BOLD,
         '@subsection': Highlighter.FLAG_BOLD,
         '@package':    Highlighter.FLAG_TYPE,
         '@ref':        Highlighter.FLAG_LINK,
+        '@typedef':    Highlighter.FLAG_TYPE,
     }
+
+    let doxygen_block_commands = {
+        '@warning':    Highlighter.FLAG_NOTICE,
+    }
+
+    let doxygen_emphasis_commands = [
+        '@a', '@e', '@em',
+    ]
 
     def doxygen_qualifier(c):
         if isinstance(c,int):
@@ -38,8 +49,21 @@ def _make_dox():
                 for keyword, flag in doxygen_word_commands.items():
                     if b.matchAndPaint(keyword, b.FLAG_ESCAPE, doxygen_qualifier):
                         while b[0] == ' ': b.skip()
-                        while b[0] and b[0] != ' ': b.paint(1, flag)
+                        while b[0] and b[0] != ' ':
+                            if b[0] == '.' and b[1] in (None,' '):
+                                return True
+                            b.paint(1, flag)
                         return True
+                for keyword, flag in doxygen_block_commands.items():
+                    if b.matchAndPaint(keyword, b.FLAG_ESCAPE, doxygen_qualifier):
+                        while b[0] == ' ': b.skip()
+                        while b[0]: b.paint(1, flag)
+                        return True
+                if b.findKeywords(doxygen_emphasis_commands, b.FLAG_ESCAPE, doxygen_qualifier):
+                    while b[0] == ' ': b.skip()
+                    while b[0] and b[0] != ' ':
+                        b.paint(1, defaultflag | b.FLAG_UNDERLINE)
+                    return True
                 b.paint(1, defaultflag)
             return True
         return False

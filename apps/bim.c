@@ -807,7 +807,7 @@ buffer_t * buffer_close(buffer_t * buf) {
  * Convert syntax highlighting flag to color code
  */
 const char * flag_to_color(int _flag) {
-	int flag = _flag & 0xF;
+	int flag = _flag & FLAG_MASK_COLORS;
 	switch (flag) {
 		case FLAG_KEYWORD:
 			return COLOR_KEYWORD;
@@ -829,7 +829,7 @@ const char * flag_to_color(int _flag) {
 			return COLOR_FG;
 		case FLAG_BOLD:
 			return COLOR_BOLD;
-		case FLAG_LINK:
+		case FLAG_LINK_COLOR:
 			return COLOR_LINK;
 		case FLAG_ESCAPE:
 			return COLOR_ESCAPE;
@@ -1734,6 +1734,9 @@ void set_unbuffered(void) {
 	struct termios new = old;
 	new.c_iflag &= (~ICRNL) & (~IXON);
 	new.c_lflag &= (~ICANON) & (~ECHO) & (~ISIG);
+#ifdef VLNEXT
+	new.c_cc[VLNEXT] = 0;
+#endif
 	tcsetattr(STDOUT_FILENO, TCSAFLUSH, &new);
 }
 
@@ -1837,7 +1840,7 @@ void place_cursor(int x, int y) {
 char * color_string(const char * fg, const char * bg) {
 	static char output[100];
 	char * t = output;
-	t += sprintf(t,"\033[22;23;24;");
+	t += sprintf(t,"\033[22;23;");
 	if (*bg == '@') {
 		int _bg = atoi(bg+1);
 		if (_bg < 10) {
@@ -1880,7 +1883,7 @@ void set_colors(const char * fg, const char * bg) {
  * (See set_colors above)
  */
 void set_fg_color(const char * fg) {
-	printf("\033[22;23;24;");
+	printf("\033[22;23;");
 	if (*fg == '@') {
 		int _fg = atoi(fg+1);
 		if (_fg < 10) {
@@ -2262,7 +2265,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 	int j = 0; /* Offset in terminal cells */
 
 	const char * last_color = NULL;
-	int was_selecting = 0, was_searching = 0;
+	int was_selecting = 0, was_searching = 0, was_underlining = 0;
 
 	/* Set default text colors */
 	set_colors(COLOR_FG, line->is_current ? COLOR_ALT_BG : COLOR_BG);
@@ -2283,6 +2286,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 
 			/* If we should be drawing by now... */
 			if (j >= offset) {
+				if (was_underlining) printf("\033[24m");
 				/* Fill remainder with -'s */
 				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 				printf("-");
@@ -2318,6 +2322,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 			if (j - offset + c.display_width >= width) {
 				/* We draw this with special colors so it isn't ambiguous */
 				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+				if (was_underlining) printf("\033[24m");
 
 				/* If it's wide, draw ---> as needed */
 				while (j - offset < width - 1) {
@@ -2333,8 +2338,10 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 
 			/* Syntax highlighting */
 			const char * color = flag_to_color(c.flags);
+
 			if (c.flags & FLAG_SELECT) {
-				set_colors(COLOR_SELECTFG, COLOR_SELECTBG);
+				if ((c.flags & FLAG_MASK_COLORS) == FLAG_NONE) color = COLOR_SELECTFG;
+				set_colors(color, COLOR_SELECTBG);
 				was_selecting = 1;
 			} else if ((c.flags & FLAG_SEARCH) || (c.flags == FLAG_NOTICE)) {
 				set_colors(COLOR_SEARCH_FG, COLOR_SEARCH_BG);
@@ -2352,6 +2359,14 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 					set_fg_color(color);
 					last_color = color;
 				}
+			}
+
+			if ((c.flags & FLAG_UNDERLINE) && !was_underlining) {
+				printf("\033[4m");
+				was_underlining = 1;
+			} else if (!(c.flags & FLAG_UNDERLINE) && was_underlining) {
+				printf("\033[24m");
+				was_underlining = 0;
 			}
 
 			if ((env->mode == MODE_COL_SELECTION || env->mode == MODE_COL_INSERT) &&
@@ -2441,6 +2456,8 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 			i++;
 		}
 	}
+
+	if (was_underlining) printf("\033[24m");
 
 	/**
 	 * Determine what color the rest of the line should be.
@@ -2775,14 +2792,24 @@ int display_width_of_string(const char * str) {
 	return out;
 }
 
-int statusbar_append_status(int *remaining_width, char * output, char * base, ...) {
+int statusbar_append_status(int *remaining_width, size_t *filled, char * output, char * base, ...) {
 	va_list args;
 	va_start(args, base);
-	char tmp[100]; /* should be big enough */
+	char tmp[100] = {0}; /* should be big enough */
 	vsnprintf(tmp, 100, base, args);
 	va_end(args);
 
 	int width = display_width_of_string(tmp) + 2;
+
+	size_t totalWidth = strlen(tmp);
+	totalWidth += strlen(color_string(COLOR_STATUS_ALT, COLOR_STATUS_BG));
+	totalWidth += strlen(color_string(COLOR_STATUS_FG, COLOR_STATUS_BG));
+	totalWidth += strlen(color_string(COLOR_STATUS_ALT, COLOR_STATUS_BG));
+	totalWidth += 3;
+
+	if (totalWidth + *filled >= 2047) {
+		return 0;
+	}
 
 	if (width < *remaining_width) {
 		strcat(output,color_string(COLOR_STATUS_ALT, COLOR_STATUS_BG));
@@ -2792,6 +2819,7 @@ int statusbar_append_status(int *remaining_width, char * output, char * base, ..
 		strcat(output,color_string(COLOR_STATUS_ALT, COLOR_STATUS_BG));
 		strcat(output,"]");
 		(*remaining_width) -= width;
+		(*filled) += totalWidth;
 		return width;
 	} else {
 		return 0;
@@ -2799,7 +2827,7 @@ int statusbar_append_status(int *remaining_width, char * output, char * base, ..
 }
 
 int statusbar_build_right(char * right_hand) {
-	char tmp[1024];
+	char tmp[1024] = {0};
 	sprintf(tmp, " Line %d/%d Col: %d ", env->line_no, env->line_count, env->col_no);
 	int out = display_width_of_string(tmp);
 	char * s = right_hand;
@@ -2840,15 +2868,16 @@ void redraw_statusbar(void) {
 
 
 	/* Pre-render the right hand side of the status bar */
-	char right_hand[1024];
+	char right_hand[1024] = {0};
 	int right_width = statusbar_build_right(right_hand);
 
-	char status_bits[1024] = {0}; /* Sane maximum */
+	char status_bits[2048] = {0}; /* Sane maximum */
+	size_t filled = 0;
 	int status_bits_width = 0;
 
 	int remaining_width = global_config.term_width - right_width;
 
-#define ADD(...) do { status_bits_width += statusbar_append_status(&remaining_width, status_bits, __VA_ARGS__); } while (0)
+#define ADD(...) do { status_bits_width += statusbar_append_status(&remaining_width, &filled, status_bits, __VA_ARGS__); } while (0)
 	if (env->syntax) {
 		ADD("%s",env->syntax->name);
 	}
@@ -3673,7 +3702,7 @@ BIM_ACTION(open_file_from_line, 0,
 }
 
 int line_matches(line_t * line, char * string) {
-	uint32_t c, state = 0;
+	uint32_t c = 0, state = 0;
 	int i = 0;
 	while (*string) {
 		if (!decode(&state, &c, *string)) {
@@ -4765,6 +4794,7 @@ int convert_to_html(void) {
 	html_convert_color(COLOR_BG);
 	add_string("\n");
 	add_string("			}\n");
+	add_string("			.ul { text-decoration: underline; }\n");
 	for (int i = 0; i < 15; ++i) {
 		/* For each of the relevant flags... */
 		char tmp[20];
@@ -4822,7 +4852,7 @@ int convert_to_html(void) {
 	add_string("\n");
 	add_string("			}\n");
 	for (int i = 1; i <= env->tabstop; ++i) {
-		char tmp[10];
+		char tmp[20];
 		sprintf(tmp, ".tab%d", i);
 		add_string("			");
 		add_string(tmp);
@@ -4874,7 +4904,9 @@ int convert_to_html(void) {
 				if (opened) add_string("</span>");
 				opened = 1;
 				char tmp[100];
-				sprintf(tmp, "<span class=\"s%d\">", c.flags & 0x1F);
+				sprintf(tmp, "<span class=\"s%d%s\">",
+					c.flags & FLAG_MASK_COLORS,
+					(c.flags & FLAG_UNDERLINE) ? " ul" : "");
 				add_string(tmp);
 				last_flag = (c.flags & 0x1F);
 			}
@@ -6118,6 +6150,7 @@ void command_tab_complete(char * buffer) {
 				}
 
 				/* Build the complete argument name to tab complete */
+				int type = Candidate_Normal;
 				char s[1024] = {0};
 				if (last_slash == tmp) {
 					strcat(s,"/");
@@ -6132,6 +6165,7 @@ void command_tab_complete(char * buffer) {
 				 */
 				if (S_ISDIR(statbuf.st_mode)) {
 					strcat(s,"/");
+					type = Candidate_Command;
 				}
 
 				int skip = 0;
@@ -6142,7 +6176,7 @@ void command_tab_complete(char * buffer) {
 					}
 				}
 				if (!skip) {
-					add_candidate(s, Candidate_Normal);
+					add_candidate(s, type);
 				}
 			}
 			ent = readdir(dirp);
@@ -10508,6 +10542,25 @@ static KrkValue bim_krk_state_get(int argc, KrkValue argv[], int hasKw) {
 	size_t len = to_eight(charRel, tmp);
 	return OBJECT_VAL(krk_copyString(tmp,len));
 }
+static KrkValue bim_krk_state_getslice(int argc, KrkValue argv[], int hasKw) {
+	BIM_STATE();
+	struct StringBuilder sb = {0};
+	if (!(IS_INTEGER(argv[1]) || IS_NONE(argv[1]))) return krk_runtimeError(vm.exceptions->typeError, "Bad index");
+	if (!(IS_INTEGER(argv[2]) || IS_NONE(argv[2]))) return krk_runtimeError(vm.exceptions->typeError, "Bad index");
+	int start = IS_NONE(argv[1]) ? 0 : AS_INTEGER(argv[1]);
+	int end   = IS_NONE(argv[2]) ? (krk_integer_type)(state->line->actual - state->i) : AS_INTEGER(argv[2]);
+	if (end < start) end = start;
+
+	for (int i = start; i < end; ++i) {
+		int charRel = charrel(i);
+		if (charRel == -1) break;
+		char tmp[8] = {0};
+		size_t len = to_eight(charRel, tmp);
+		pushStringBuilderStr(&sb, tmp, len);
+	}
+
+	return finishStringBuilder(&sb);
+}
 static KrkValue bim_krk_state_isdigit(int argc, KrkValue argv[], int hasKw) {
 	if (IS_NONE(argv[1])) return BOOLEAN_VAL(0);
 	if (!IS_STRING(argv[1])) {
@@ -10989,6 +11042,7 @@ void initialize(void) {
 	krk_defineNative(&syntaxStateClass->methods, "commentBuzzwords", bim_krk_state_commentBuzzwords);
 	krk_defineNative(&syntaxStateClass->methods, "rewind", bim_krk_state_rewind);
 	krk_defineNative(&syntaxStateClass->methods, "__getitem__", bim_krk_state_get);
+	krk_defineNative(&syntaxStateClass->methods, "__getslice__", bim_krk_state_getslice);
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_NONE", INTEGER_VAL(FLAG_NONE));
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_KEYWORD", INTEGER_VAL(FLAG_KEYWORD));
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_STRING", INTEGER_VAL(FLAG_STRING));
@@ -11003,6 +11057,9 @@ void initialize(void) {
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_BOLD", INTEGER_VAL(FLAG_BOLD));
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_LINK", INTEGER_VAL(FLAG_LINK));
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_ESCAPE", INTEGER_VAL(FLAG_ESCAPE));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_EXTRA", INTEGER_VAL(FLAG_EXTRA));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_SPECIAL", INTEGER_VAL(FLAG_SPECIAL));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_UNDERLINE", INTEGER_VAL(FLAG_UNDERLINE));
 
 	_bim_state_chars = krk_newTuple(95);
 	krk_attachNamedObject(&syntaxStateClass->methods, "__chars__", (KrkObj*)_bim_state_chars);
