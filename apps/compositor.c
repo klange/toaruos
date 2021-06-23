@@ -2175,7 +2175,7 @@ int main(int argc, char * argv[]) {
 	TRACE("Loading sprites...");
 #define MOUSE_DIR "/usr/share/cursor/"
 	load_sprite(&yg->mouse_sprite, MOUSE_DIR "normal.png");
-	load_sprite(&yg->mouse_sprite_drag, MOUSE_DIR "drag.png");
+	load_sprite(&yg->mouse_sprite_drag, MOUSE_DIR "grab.png");
 	load_sprite(&yg->mouse_sprite_resize_v, MOUSE_DIR "resize-vertical.png");
 	load_sprite(&yg->mouse_sprite_resize_h, MOUSE_DIR "resize-horizontal.png");
 	load_sprite(&yg->mouse_sprite_resize_da, MOUSE_DIR "resize-uldr.png");
