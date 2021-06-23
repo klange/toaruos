@@ -916,9 +916,11 @@ static int wait_candidate(volatile process_t * parent, int pid, int options, vol
 
 int waitpid(int pid, int * status, int options) {
 	volatile process_t * volatile proc = (process_t*)this_core->current_process;
+	#if 0
 	if (proc->group) {
 		proc = process_from_pid(proc->group);
 	}
+	#endif
 
 	do {
 		volatile process_t * candidate = NULL;
