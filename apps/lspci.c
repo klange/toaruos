@@ -66,6 +66,7 @@ struct {
 	{0x8086, 0x1004, "82543GC Gigabit Ethernet Controller (e1000)"},
 	{0x8086, 0x100e, "82540EM Gigabit Ethernet Controller (e1000)"},
 	{0x8086, 0x100f, "82545EM Gigabit Ethernet Controller (e1000)"},
+	{0x8086, 0x10d3, "82574L Gigabit Ethernet Controller (e1000e)"},
 	{0x8086, 0x10ea, "82577LM Gigabit Ethernet Controller (e1000)"},
 	{0x8086, 0x1237, "PCI & Memory"},
 	{0x8086, 0x2415, "82801AA AC'97 Audio Controller"},
