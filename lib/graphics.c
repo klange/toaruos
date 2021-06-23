@@ -935,9 +935,10 @@ void draw_rounded_rectangle(gfx_context_t * ctx, int32_t x, int32_t y, uint16_t 
 		double j_max = sqrt((double)j2);
 
 		for (int j = 0; j <= (int)j_max; ++j) {
-			int _x = x + width - radius + i;
-			int _y = y + height - radius + j;
+			int _x = clamp(x + width - radius + i, 0, ctx->width-1);
+			int _y = clamp(y + height - radius + j, 0, ctx->height-1);
 			int _z = y + radius - j - 1;
+			if (_z > ctx->height-1) _z = ctx->height-1;
 
 			uint32_t c = color;
 			if (j == (int)j_max) {
@@ -984,9 +985,10 @@ void draw_rounded_rectangle_pattern(gfx_context_t * ctx, int32_t x, int32_t y, u
 		double j_max = sqrt((double)j2);
 
 		for (int j = 0; j <= (int)j_max; ++j) {
-			int _x = x + width - radius + i;
-			int _y = y + height - radius + j;
+			int _x = clamp(x + width - radius + i, 0, ctx->width-1);
+			int _y = clamp(y + height - radius + j, 0, ctx->height-1);
 			int _z = y + radius - j - 1;
+			if (_z > ctx->height-1) _z = ctx->height-1;
 
 			double alpha = (j_max - (double)j);
 			GFX(ctx, _x, _y) = alpha_blend_rgba(GFX(ctx, _x, _y), pattern(_x,_y,alpha,extra));
