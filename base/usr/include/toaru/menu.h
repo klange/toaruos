@@ -62,6 +62,7 @@ struct MenuList {
 	struct MenuList * parent;
 	struct menu_bar * _bar;
 	int closed;
+	int flags;
 };
 
 struct MenuSet {
@@ -91,6 +92,11 @@ extern struct MenuSet * menu_set_create(void);
 extern void menu_set_insert(struct MenuSet * set, char * action, struct MenuList * menu);
 extern void menu_update_title(struct MenuEntry * self, char * new_title);
 extern void menu_force_redraw(struct MenuList * menu);
+
+#define MENU_FLAG_BUBBLE_CENTER (1 << 0)
+#define MENU_FLAG_BUBBLE_LEFT   (1 << 1)
+#define MENU_FLAG_BUBBLE_RIGHT  (1 << 2)
+#define MENU_FLAG_BUBBLE (MENU_FLAG_BUBBLE_LEFT | MENU_FLAG_BUBBLE_RIGHT | MENU_FLAG_BUBBLE_CENTER)
 
 #define MENU_BAR_HEIGHT 24
 

@@ -356,7 +356,7 @@ static char * read_line(FILE * f, char * out, ssize_t len) {
 static void _menu_calculate_dimensions(struct MenuList * menu, int * height, int * width) {
 	list_t * list = menu->entries;
 	*width = 0;
-	*height = 8; /* TODO top and height */
+	*height = (menu->flags & MENU_FLAG_BUBBLE) ? 16 : 8; /* TODO top and height */
 	foreach(node, list) {
 		struct MenuEntry * entry = node->value;
 		*height += entry->height;
@@ -394,6 +394,7 @@ struct MenuList * menu_create(void) {
 	p->_bar = NULL;
 	p->parent = NULL;
 	p->closed = 1;
+	p->flags = 0;
 	return p;
 }
 
@@ -441,15 +442,8 @@ struct MenuSet * menu_set_from_description(const char * path, void (*callback)(s
 
 		if (*line == ':') {
 			/* New menu */
-			struct MenuList * p = malloc(sizeof(struct MenuList));
-			p->entries = list_create();
-			p->ctx = NULL;
-			p->window = NULL;
+			struct MenuList * p = menu_create();
 			p->set = _out;
-			p->child = NULL;
-			p->_bar = NULL;
-			p->parent = NULL;
-			p->closed = 1;
 			hashmap_set(out, line+1, p);
 			current_menu = p;
 		} else if (*line == '#') {
@@ -522,16 +516,37 @@ static void _menu_redraw(yutani_window_t * menu_window, yutani_t * yctx, struct 
 	gfx_context_t * ctx = menu->ctx;
 	list_t * entries = menu->entries;
 	/* Window background */
-	draw_fill(ctx, MENU_BACKGROUND);
+	if (menu->flags & MENU_FLAG_BUBBLE) {
+		draw_fill(ctx, rgba(0,0,0,0));
+		draw_rounded_rectangle(ctx, 0, 6, ctx->width, ctx->height - 6, 6, rgb(109,111,112));
+		draw_rounded_rectangle(ctx, 1, 7, ctx->width-2, ctx->height - 8, 5, MENU_BACKGROUND);
 
-	/* Window border */
-	draw_line(ctx, 0, ctx->width-1, 0, 0, rgb(109,111,112));
-	draw_line(ctx, 0, 0, 0, ctx->height-1, rgb(109,111,112));
-	draw_line(ctx, ctx->width-1, ctx->width-1, 0, ctx->height-1, rgb(109,111,112));
-	draw_line(ctx, 0, ctx->width-1, ctx->height-1, ctx->height-1, rgb(109,111,112));
+		/* Figure out where to draw the tail */
+		int tail_left = 0;
+		if (menu->flags & MENU_FLAG_BUBBLE_LEFT) {
+			tail_left = 16;
+		} else if (menu->flags & MENU_FLAG_BUBBLE_RIGHT) {
+			tail_left = ctx->width - 16;
+		} else if (menu->flags & MENU_FLAG_BUBBLE_CENTER) {
+			tail_left = ctx->width / 2;
+		}
+		for (int i = 1; i < 7; ++i) {
+			draw_line(ctx, tail_left - i, tail_left + i, i, i, MENU_BACKGROUND);
+		}
+		draw_line_aa(ctx, tail_left - 6, tail_left, 6, 0, rgb(109,111,112), 0.5);
+		draw_line_aa(ctx, tail_left + 6, tail_left, 6, 0, rgb(109,111,112), 0.5);
+	} else {
+		draw_fill(ctx, MENU_BACKGROUND);
+
+		/* Window border */
+		draw_line(ctx, 0, ctx->width-1, 0, 0, rgb(109,111,112));
+		draw_line(ctx, 0, 0, 0, ctx->height-1, rgb(109,111,112));
+		draw_line(ctx, ctx->width-1, ctx->width-1, 0, ctx->height-1, rgb(109,111,112));
+		draw_line(ctx, 0, ctx->width-1, ctx->height-1, ctx->height-1, rgb(109,111,112));
+	}
 
 	/* Draw menu entries */
-	int offset = 4;
+	int offset = (menu->flags & MENU_FLAG_BUBBLE) ? 12 : 4;
 	foreach(node, entries) {
 		struct MenuEntry * entry = node->value;
 		if (entry->renderer) {
@@ -776,7 +791,7 @@ void menu_mouse_action(struct MenuList * menu, struct yutani_msg_window_mouse_ev
 	yutani_window_t * window = menu->window;
 	yutani_t * yctx = window->ctx;
 
-	int offset = 4;
+	int offset = (menu->flags & MENU_FLAG_BUBBLE) ? 12 : 4;
 	int changed = 0;
 	foreach(node, menu->entries) {
 		struct MenuEntry * entry = node->value;
