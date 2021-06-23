@@ -37,14 +37,18 @@
 #include <toaru/menu.h>
 #include <kernel/mod/sound.h>
 
-#define PANEL_HEIGHT 28
+#define PANEL_HEIGHT 36
+#define DROPDOWN_OFFSET 34
 #define FONT_SIZE 14
-#define TIME_LEFT 108
-#define DATE_WIDTH 70
+#define TIME_LEFT 116
+#define DATE_WIDTH 78
+#define X_PAD 4
+#define Y_PAD 4
+#define ICON_Y_PAD 5
 
 #define GRADIENT_HEIGHT 24
 #define APP_OFFSET 140
-#define TEXT_Y_OFFSET 2
+#define TEXT_Y_OFFSET 6
 #define ICON_PADDING 2
 #define MAX_TEXT_WIDTH 180
 #define MIN_TEXT_WIDTH 50
@@ -72,6 +76,8 @@
 #define WIDGET_WIDTH 24
 #define WIDGET_RIGHT (width - TIME_LEFT - DATE_WIDTH)
 #define WIDGET_POSITION(i) (WIDGET_RIGHT - WIDGET_WIDTH * (i+1))
+
+#define LOGOUT_WIDTH 36
 
 static yutani_t * yctx;
 
@@ -119,6 +125,7 @@ struct MenuList * netstat;
 struct MenuList * calmenu;
 struct MenuList * clockmenu;
 struct MenuList * weather;
+struct MenuList * volume_menu;
 static yutani_wid_t _window_menu_wid = 0;
 
 static int _close_enough(struct yutani_msg_window_mouse_event * me) {
@@ -251,7 +258,7 @@ static void window_show_menu(yutani_wid_t wid, int y, int x) {
 
 #define VOLUME_DEVICE_ID 0
 #define VOLUME_KNOB_ID   0
-static uint32_t volume_level = 0;
+static long volume_level = 0;
 static int mixer = -1;
 static void update_volume_level(void) {
 	if (mixer == -1) {
@@ -266,8 +273,8 @@ static void update_volume_level(void) {
 	volume_level = value.val;
 }
 static void volume_raise(void) {
-	if (volume_level > 0xE0000000) volume_level = 0xF0000000;
-	else volume_level += 0x10000000;
+	volume_level += 0x10000000;
+	if (volume_level > 0xF0000000) volume_level = 0xFC000000;
 
 	snd_knob_value_t value = {0};
 	value.device = VOLUME_DEVICE_ID; /* TODO configure this somewhere */
@@ -278,8 +285,8 @@ static void volume_raise(void) {
 	redraw();
 }
 static void volume_lower(void) {
-	if (volume_level < 0x20000000) volume_level = 0x0;
-	else volume_level -= 0x10000000;
+	volume_level -= 0x10000000;
+	if (volume_level < 0x0) volume_level = 0x0;
 
 	snd_knob_value_t value = {0};
 	value.device = VOLUME_DEVICE_ID; /* TODO configure this somewhere */
@@ -288,6 +295,44 @@ static void volume_lower(void) {
 
 	ioctl(mixer, SND_MIXER_WRITE_KNOB, &value);
 	redraw();
+}
+
+static int volume_left = 0;
+static void show_volume_status(void) {
+	if (!volume_menu) {
+		volume_menu = menu_create();
+		volume_menu->flags |= MENU_FLAG_BUBBLE_LEFT;
+	}
+
+	/* Clear the menu */
+	while (volume_menu->entries->length) {
+		node_t * node = list_pop(volume_menu->entries);
+		menu_free_entry((struct MenuEntry *)node->value);
+		free(node);
+	}
+
+	/* Add the current volume status */
+	char volume_level_label[100];
+	if (volume_level < 10) {
+		snprintf(volume_level_label, 99, "Volume: Muted");
+	} else {
+		snprintf(volume_level_label, 99, "Volume: %d%%", (int)(100 * ((float)volume_level / (float)0xFc000000)));
+	}
+	menu_insert(volume_menu, menu_create_normal(NULL, NULL, volume_level_label, NULL));
+
+	/* TODO Our mixer supports multiple knobs and we could show all of them. */
+	/* TODO We could also show a nice slider... if we had one... */
+
+	if (!volume_menu->window) {
+		menu_show(volume_menu, yctx);
+		if (volume_menu->window) {
+			if (volume_left + volume_menu->window->width > (unsigned int)width) {
+				yutani_window_move(yctx, volume_menu->window, width - volume_menu->window->width, DROPDOWN_OFFSET);
+			} else {
+				yutani_window_move(yctx, volume_menu->window, volume_left, DROPDOWN_OFFSET);
+			}
+		}
+	}
 }
 
 static int weather_left = 0;
@@ -447,7 +492,7 @@ static void show_logout_menu(void) {
 	if (!logout_menu->window) {
 		menu_show(logout_menu, yctx);
 		if (logout_menu->window) {
-			yutani_window_move(yctx, logout_menu->window, width - logout_menu->window->width, PANEL_HEIGHT);
+			yutani_window_move(yctx, logout_menu->window, width - logout_menu->window->width - X_PAD, DROPDOWN_OFFSET);
 		}
 	}
 }
@@ -456,7 +501,7 @@ static void show_app_menu(void) {
 	if (!appmenu->window) {
 		menu_show(appmenu, yctx);
 		if (appmenu->window) {
-			yutani_window_move(yctx, appmenu->window, 0, PANEL_HEIGHT);
+			yutani_window_move(yctx, appmenu->window, X_PAD, DROPDOWN_OFFSET);
 		}
 	}
 }
@@ -465,7 +510,7 @@ static void show_cal_menu(void) {
 	if (!calmenu->window) {
 		menu_show(calmenu, yctx);
 		if (calmenu->window) {
-			yutani_window_move(yctx, calmenu->window, width - 24 - calmenu->window->width, PANEL_HEIGHT);
+			yutani_window_move(yctx, calmenu->window, width - TIME_LEFT - DATE_WIDTH / 2 - calmenu->window->width / 2, DROPDOWN_OFFSET);
 		}
 	}
 }
@@ -474,7 +519,7 @@ static void show_clock_menu(void) {
 	if (!clockmenu->window) {
 		menu_show(clockmenu, yctx);
 		if (clockmenu->window) {
-			yutani_window_move(yctx, clockmenu->window, width - 24 - clockmenu->window->width, PANEL_HEIGHT);
+			yutani_window_move(yctx, clockmenu->window, width - LOGOUT_WIDTH - clockmenu->window->width, DROPDOWN_OFFSET);
 		}
 	}
 }
@@ -492,6 +537,7 @@ static void weather_configure(struct MenuEntry * self) {
 static void show_weather_status(void) {
 	if (!weather) {
 		weather = menu_create();
+		weather->flags |= MENU_FLAG_BUBBLE_LEFT;
 		weather_title_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
 		menu_insert(weather, weather_title_entry);
 		weather_updated_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
@@ -520,10 +566,12 @@ static void show_weather_status(void) {
 	if (!weather->window) {
 		menu_show(weather, yctx);
 		if (weather->window) {
-			if (weather_left + weather->window->width > (unsigned int)width) {
-				yutani_window_move(yctx, weather->window, width - weather->window->width, PANEL_HEIGHT);
+			if (weather_left + weather->window->width > (unsigned int)width - X_PAD) {
+				yutani_window_move(yctx, weather->window, weather_left + WIDGET_WIDTH * 2 - weather->window->width, DROPDOWN_OFFSET);
+				weather->flags = (weather->flags & ~MENU_FLAG_BUBBLE) | MENU_FLAG_BUBBLE_RIGHT;
 			} else {
-				yutani_window_move(yctx, weather->window, weather_left, PANEL_HEIGHT);
+				yutani_window_move(yctx, weather->window, weather_left, DROPDOWN_OFFSET);
+				weather->flags = (weather->flags & ~MENU_FLAG_BUBBLE) | MENU_FLAG_BUBBLE_LEFT;
 			}
 		}
 	}
@@ -532,6 +580,7 @@ static void show_weather_status(void) {
 static void show_network_status(void) {
 	if (!netstat) {
 		netstat = menu_create();
+		netstat->flags |= MENU_FLAG_BUBBLE_LEFT;
 		menu_insert(netstat, menu_create_normal(NULL, NULL, "Network Status", NULL));
 		menu_insert(netstat, menu_create_separator());
 	}
@@ -551,9 +600,9 @@ static void show_network_status(void) {
 		menu_show(netstat, yctx);
 		if (netstat->window) {
 			if (netstat_left + netstat->window->width > (unsigned int)width) {
-				yutani_window_move(yctx, netstat->window, width - netstat->window->width, PANEL_HEIGHT);
+				yutani_window_move(yctx, netstat->window, width - netstat->window->width, DROPDOWN_OFFSET);
 			} else {
-				yutani_window_move(yctx, netstat->window, netstat_left, PANEL_HEIGHT);
+				yutani_window_move(yctx, netstat->window, netstat_left, DROPDOWN_OFFSET);
 			}
 		}
 	}
@@ -564,7 +613,7 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 	if (evt->wid == panel->wid) {
 		if (evt->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(evt)) {
 			/* Up-down click */
-			if (evt->new_x >= width - 24 ) {
+			if (evt->new_x >= width - LOGOUT_WIDTH ) {
 				show_logout_menu();
 			} else if (evt->new_x < APP_OFFSET) {
 				show_app_menu();
@@ -584,7 +633,7 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 			int widget = 0;
 			if (widgets_weather_enabled) {
 				if (evt->new_x > WIDGET_POSITION(widget+1) && evt->new_x < WIDGET_POSITION(widget-1)) {
-					weather_left = WIDGET_POSITION(widget);
+					weather_left = WIDGET_POSITION(widget+1);
 					show_weather_status();
 				}
 				widget += 2;
@@ -598,7 +647,8 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 			}
 			if (widgets_volume_enabled) {
 				if (evt->new_x > WIDGET_POSITION(widget) && evt->new_x < WIDGET_POSITION(widget-1)) {
-					/* TODO: Show the volume manager */
+					volume_left = WIDGET_POSITION(widget);
+					show_volume_status();
 				}
 				widget++;
 			}
@@ -607,7 +657,7 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 				for (int i = 0; i < MAX_WINDOW_COUNT; ++i) {
 					if (ads_by_l[i] == NULL) break;
 					if (evt->new_x >= ads_by_l[i]->left && evt->new_x < ads_by_l[i]->left + TOTAL_CELL_WIDTH) {
-						window_show_menu(ads_by_l[i]->wid, evt->new_x, PANEL_HEIGHT);
+						window_show_menu(ads_by_l[i]->wid, evt->new_x, DROPDOWN_OFFSET);
 					}
 				}
 			}
@@ -873,7 +923,7 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 		for (int i = 0; i < MAX_WINDOW_COUNT; ++i) {
 			if (ads_by_l[i] == NULL) break;
 			if (ads_by_l[i]->flags & 1) {
-				window_show_menu(ads_by_l[i]->wid, ads_by_l[i]->left, PANEL_HEIGHT);
+				window_show_menu(ads_by_l[i]->wid, ads_by_l[i]->left, DROPDOWN_OFFSET);
 			}
 		}
 	}
@@ -959,22 +1009,22 @@ static void redraw(void) {
 
 	/* Hours : Minutes : Seconds */
 	strftime(buffer, 80, "%H:%M:%S", timeinfo);
-	draw_sdf_string(ctx, width - TIME_LEFT, 3, buffer, 20, clockmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_THIN);
+	draw_sdf_string(ctx, width - TIME_LEFT, 3 + Y_PAD, buffer, 20, clockmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_THIN);
 
 	/* Day-of-week */
 	strftime(buffer, 80, "%A", timeinfo);
 	t = draw_sdf_string_width(buffer, 12, SDF_FONT_THIN);
 	t = (DATE_WIDTH - t) / 2;
-	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 2, buffer, 12, calmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_THIN);
+	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 2 + Y_PAD, buffer, 12, calmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_THIN);
 
 	/* Month Day */
 	strftime(buffer, 80, "%h %e", timeinfo);
 	t = draw_sdf_string_width(buffer, 12, SDF_FONT_BOLD);
 	t = (DATE_WIDTH - t) / 2;
-	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 12, buffer, 12, calmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_BOLD);
+	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 12 + Y_PAD, buffer, 12, calmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_BOLD);
 
 	/* Applications menu */
-	draw_sdf_string(ctx, 8, 3, "Applications", 20, appmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_THIN);
+	draw_sdf_string(ctx, 8, 3 + Y_PAD, "Applications", 20, appmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_THIN);
 
 	/* Draw each widget */
 	int widget = 0;
@@ -982,30 +1032,31 @@ static void redraw(void) {
 	if (widgets_weather_enabled) {
 		uint32_t color = (weather && weather->window) ? HILIGHT_COLOR : ICON_COLOR;
 		int t = draw_sdf_string_width(weather_temp_str, 15, SDF_FONT_THIN);
-		draw_sdf_string(ctx, WIDGET_POSITION(widget) + (WIDGET_WIDTH - t) / 2, 5, weather_temp_str, 15, color, SDF_FONT_THIN);
-		draw_sprite_alpha_paint(ctx, weather_icon, WIDGET_POSITION(widget+1), 0, 1.0, color);
+		draw_sdf_string(ctx, WIDGET_POSITION(widget) + (WIDGET_WIDTH - t) / 2, 5 + Y_PAD, weather_temp_str, 15, color, SDF_FONT_THIN);
+		draw_sprite_alpha_paint(ctx, weather_icon, WIDGET_POSITION(widget+1), ICON_Y_PAD, 1.0, color);
 		widget += 2;
 	}
 	/* - Network */
 	if (widgets_network_enabled) {
 		uint32_t color = (netstat && netstat->window) ? HILIGHT_COLOR : ICON_COLOR;
 		if (network_status & 2) {
-			draw_sprite_alpha_paint(ctx, sprite_net_active, WIDGET_POSITION(widget), 0, 1.0, color);
+			draw_sprite_alpha_paint(ctx, sprite_net_active, WIDGET_POSITION(widget), ICON_Y_PAD, 1.0, color);
 		} else {
-			draw_sprite_alpha_paint(ctx, sprite_net_disabled, WIDGET_POSITION(widget), 0, 1.0, color);
+			draw_sprite_alpha_paint(ctx, sprite_net_disabled, WIDGET_POSITION(widget), ICON_Y_PAD, 1.0, color);
 		}
 		widget++;
 	}
 	/* - Volume */
 	if (widgets_volume_enabled) {
+		uint32_t color = (volume_menu && volume_menu->window) ? HILIGHT_COLOR : ICON_COLOR;
 		if (volume_level < 10) {
-			draw_sprite_alpha_paint(ctx, sprite_volume_mute, WIDGET_POSITION(widget), 0, 1.0, ICON_COLOR);
+			draw_sprite_alpha_paint(ctx, sprite_volume_mute, WIDGET_POSITION(widget), ICON_Y_PAD, 1.0, color);
 		} else if (volume_level < 0x547ae147) {
-			draw_sprite_alpha_paint(ctx, sprite_volume_low, WIDGET_POSITION(widget), 0, 1.0, ICON_COLOR);
+			draw_sprite_alpha_paint(ctx, sprite_volume_low, WIDGET_POSITION(widget), ICON_Y_PAD, 1.0, color);
 		} else if (volume_level < 0xa8f5c28e) {
-			draw_sprite_alpha_paint(ctx, sprite_volume_med, WIDGET_POSITION(widget), 0, 1.0, ICON_COLOR);
+			draw_sprite_alpha_paint(ctx, sprite_volume_med, WIDGET_POSITION(widget), ICON_Y_PAD, 1.0, color);
 		} else {
-			draw_sprite_alpha_paint(ctx, sprite_volume_high, WIDGET_POSITION(widget), 0, 1.0, ICON_COLOR);
+			draw_sprite_alpha_paint(ctx, sprite_volume_high, WIDGET_POSITION(widget), ICON_Y_PAD, 1.0, color);
 		}
 		widget++;
 	}
@@ -1053,7 +1104,7 @@ static void redraw(void) {
 				/* This is the focused window */
 				for (int y = 0; y < GRADIENT_HEIGHT; ++y) {
 					for (int x = APP_OFFSET + i; x < APP_OFFSET + i + w; ++x) {
-						GFX(ctx, x, y) = alpha_blend_rgba(GFX(ctx, x, y), GRADIENT_AT(y));
+						GFX(ctx, x, y+Y_PAD) = alpha_blend_rgba(GFX(ctx, x, y+Y_PAD), GRADIENT_AT(y));
 					}
 				}
 			}
@@ -1062,7 +1113,7 @@ static void redraw(void) {
 			sprite_t * icon = icon_get_48(ad->icon);
 
 			{
-				sprite_t * _tmp_s = create_sprite(48, PANEL_HEIGHT-2, ALPHA_EMBEDDED);
+				sprite_t * _tmp_s = create_sprite(48, PANEL_HEIGHT-Y_PAD*2, ALPHA_EMBEDDED);
 				gfx_context_t * _tmp = init_graphics_sprite(_tmp_s);
 
 				draw_fill(_tmp, rgba(0,0,0,0));
@@ -1074,7 +1125,7 @@ static void redraw(void) {
 				}
 
 				free(_tmp);
-				draw_sprite_alpha(ctx, _tmp_s, APP_OFFSET + i + w - 48 - 2, 0, 0.7);
+				draw_sprite_alpha(ctx, _tmp_s, APP_OFFSET + i + w - 48 - 2, Y_PAD, 0.7);
 				sprite_free(_tmp_s);
 			}
 
@@ -1123,7 +1174,7 @@ static void redraw(void) {
 	spin_unlock(&lock);
 
 	/* Draw the logout button; XXX This should probably have some sort of focus hilight */
-	draw_sprite_alpha_paint(ctx, sprite_logout, width - 23, 1, 1.0, (logout_menu->window ? HILIGHT_COLOR : ICON_COLOR)); /* Logout button */
+	draw_sprite_alpha_paint(ctx, sprite_logout, width - LOGOUT_WIDTH, 1 + ICON_Y_PAD, 1.0, (logout_menu->window ? HILIGHT_COLOR : ICON_COLOR)); /* Logout button */
 
 	/* Flip */
 	flip(ctx);
@@ -1235,6 +1286,11 @@ static void update_window_list(void) {
 	redraw();
 }
 
+static void redraw_panel_background(gfx_context_t * ctx, int width, int height) {
+	draw_fill(ctx, rgba(0,0,0,0));
+	draw_rounded_rectangle(ctx, X_PAD, Y_PAD, width - X_PAD * 2, panel->height - Y_PAD * 2, 14, rgba(0,0,0,200));
+}
+
 static void resize_finish(int xwidth, int xheight) {
 	yutani_window_resize_accept(yctx, panel, xwidth, xheight);
 
@@ -1243,11 +1299,7 @@ static void resize_finish(int xwidth, int xheight) {
 
 	width = xwidth;
 
-	/* Draw the background */
-	draw_fill(ctx, rgba(0,0,0,0));
-	for (int i = 0; i < xwidth; i += sprite_panel->width) {
-		draw_sprite(ctx, sprite_panel, i, 0);
-	}
+	redraw_panel_background(ctx, xwidth, xheight);
 
 	/* Copy the prerendered background so we can redraw it quickly */
 	bg_size = panel->width * panel->height * sizeof(uint32_t);
@@ -1429,7 +1481,7 @@ void _menu_draw_MenuEntry_Calendar(gfx_context_t * ctx, struct MenuEntry * self,
 	/* Go through each and draw with monospace font */
 	for (int i = 0; i < 9; ++i) {
 		if (lines[i][0] != 0) {
-			draw_sdf_string(ctx, 10, 4 + i * 17, lines[i], 16, rgb(0,0,0), i == 0 ? SDF_FONT_MONO_BOLD : SDF_FONT_MONO);
+			draw_sdf_string(ctx, 10, self->offset + i * 17, lines[i], 16, rgb(0,0,0), i == 0 ? SDF_FONT_MONO_BOLD : SDF_FONT_MONO);
 		}
 	}
 }
@@ -1471,6 +1523,7 @@ int main (int argc, char ** argv) {
 
 	/* And move it to the top layer */
 	yutani_set_stack(yctx, panel, YUTANI_ZORDER_TOP);
+	yutani_window_update_shape(yctx, panel, YUTANI_SHAPE_THRESHOLD_CLEAR);
 
 	/* Initialize graphics context against the window */
 	ctx = init_graphics_yutani_double_buffer(panel);
@@ -1514,9 +1567,7 @@ int main (int argc, char ** argv) {
 	weather_refresh(NULL);
 
 	/* Draw the background */
-	for (int i = 0; i < width; i += sprite_panel->width) {
-		draw_sprite(ctx, sprite_panel, i, 0);
-	}
+	redraw_panel_background(ctx, panel->width, panel->height);
 
 	/* Copy the prerendered background so we can redraw it quickly */
 	bg_size = panel->width * panel->height * sizeof(uint32_t);
@@ -1528,20 +1579,25 @@ int main (int argc, char ** argv) {
 	signal(SIGUSR2, sig_usr2);
 
 	appmenu = menu_set_get_root(menu_set_from_description("/etc/panel.menu", launch_application_menu));
+	appmenu->flags = MENU_FLAG_BUBBLE_CENTER;
 
 	clockmenu = menu_create();
+	clockmenu->flags |= MENU_FLAG_BUBBLE_RIGHT;
 	menu_insert(clockmenu, menu_create_clock());
 
 	calmenu = menu_create();
+	calmenu->flags |= MENU_FLAG_BUBBLE_CENTER;
 	menu_insert(calmenu, menu_create_calendar());
 
 	window_menu = menu_create();
+	window_menu->flags |= MENU_FLAG_BUBBLE_LEFT;
 	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Maximize", _window_menu_start_maximize));
 	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Move", _window_menu_start_move));
 	menu_insert(window_menu, menu_create_separator());
 	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Close", _window_menu_close));
 
 	logout_menu = menu_create();
+	logout_menu->flags |= MENU_FLAG_BUBBLE_RIGHT;
 	menu_insert(logout_menu, menu_create_normal("exit", "log-out", "Log Out", launch_application_menu));
 
 	/* Subscribe to window updates */
