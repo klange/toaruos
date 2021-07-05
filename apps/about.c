@@ -14,6 +14,7 @@
 #include <toaru/decorations.h>
 #include <toaru/sdf.h>
 #include <toaru/menu.h>
+#include <toaru/text.h>
 
 #include <sys/utsname.h>
 
@@ -25,6 +26,9 @@ static sprite_t logo;
 static int32_t width = 350;
 static int32_t height = 250;
 static char * version_str;
+
+static struct TT_Font * _tt_font_thin = NULL;
+static struct TT_Font * _tt_font_bold = NULL;
 
 static char * icon_path;
 static char * title_str;
@@ -40,7 +44,14 @@ static void draw_string(int y, const char * string, int font, uint32_t color) {
 	struct decor_bounds bounds;
 	decor_get_bounds(window, &bounds);
 
+	#if 0
 	draw_sdf_string(ctx, bounds.left_width + center_x(draw_sdf_string_width(string, 16, font)), bounds.top_height + 10 + logo.height + 10 + y, string, 16, color, font);
+	#else
+	struct TT_Font * _tt_font = (font == SDF_FONT_BOLD ? _tt_font_bold : _tt_font_thin);
+	tt_set_size(_tt_font, 13);
+	tt_draw_string(ctx, _tt_font, bounds.left_width + center_x(tt_string_width(_tt_font, string)), bounds.top_height + 10 + logo.height + 10 + y + 13, string, color);
+
+	#endif
 }
 
 static void redraw(void) {
@@ -89,7 +100,7 @@ static void init_default(void) {
 		sprintf(version_str, "ToaruOS %s", u.release);
 	}
 
-	copyright_str[0] = "(C) 2011-2021 K. Lange, et al.";
+	copyright_str[0] = "© 2011-2021 K. Lange, et al.";
 	copyright_str[1] = "-";
 	copyright_str[2] = "ToaruOS is free software released under the";
 	copyright_str[3] = "NCSA/University of Illinois license.";
@@ -107,6 +118,9 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 	init_decorations();
+
+	_tt_font_thin = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+	_tt_font_bold = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
 
 	struct decor_bounds bounds;
 	decor_get_bounds(NULL, &bounds);

@@ -1,0 +1,754 @@
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+
+#include <toaru/graphics.h>
+#include <toaru/decodeutf8.h>
+
+#undef min
+#define min(a,b) ((a) < (b) ? (a) : (b))
+
+struct TT_Table {
+	off_t offset;
+	size_t length;
+};
+
+struct TT_Coord {
+	float x;
+	float y;
+};
+
+struct TT_Edge {
+	struct TT_Coord start;
+	struct TT_Coord end;
+	int direction;
+};
+
+struct TT_Contour {
+	size_t edgeCount;
+	size_t nextAlloc;
+	size_t flags;
+	size_t last_start;
+	struct TT_Edge edges[];
+};
+
+struct TT_Intersection {
+	float x;
+	int affect;
+};
+
+struct TT_Shape {
+	size_t edgeCount;
+	int lastY;
+	int startY;
+	struct TT_Edge edges[];
+};
+
+struct TT_Vertex {
+	unsigned char flags;
+	int x;
+	int y;
+};
+
+#if 0
+static int edge_sorter_high_scanline(const void * a, const void * b) {
+	const struct TT_Edge * left  = a;
+	const struct TT_Edge * right = b;
+
+	if (left->start.y < right->start.y) return -1;
+	if (left->start.y > right->start.y) return 1;
+	return 0;
+}
+
+static void sort_edges(size_t edgeCount, struct TT_Edge edges[edgeCount]) {
+	qsort(edges, edgeCount, sizeof(struct TT_Edge), edge_sorter_high_scanline);
+}
+#endif
+
+static int intersection_sorter(const void * a, const void * b) {
+	const struct TT_Intersection * left  = a;
+	const struct TT_Intersection * right = b;
+
+	if (left->x < right->x) return -1;
+	if (left->x > right->x) return 1;
+	return 0;
+}
+
+static void sort_intersections(size_t cnt, struct TT_Intersection intersections[cnt]) {
+	qsort(intersections, cnt, sizeof(struct TT_Intersection), intersection_sorter);
+}
+
+static size_t prune_edges(size_t edgeCount, float y, struct TT_Edge edges[edgeCount], struct TT_Edge into[edgeCount]) {
+	size_t outWriter = 0;
+	for (size_t i = 0; i < edgeCount; ++i) {
+		if (y > edges[i].start.y && y > edges[i].end.y) continue;
+		if (y <= edges[i].start.y && y <= edges[i].end.y) continue; //break;
+		into[outWriter++] = edges[i];
+	}
+	return outWriter;
+}
+
+static float edge_at(float y, struct TT_Edge * edge) {
+	float u = (y - edge->start.y) / (edge->end.y - edge->start.y);
+	return edge->start.x + u * (edge->end.x - edge->start.x);
+}
+
+/**
+ * FIXME: This spans the whole context; it should use the path's bounding box...
+ */
+void tt_path_paint(gfx_context_t * ctx, struct TT_Shape * shape, uint32_t color) {
+	size_t size = shape->edgeCount;
+	struct TT_Edge * intersects = malloc(sizeof(struct TT_Edge) * size);
+	struct TT_Intersection * crosses = malloc(sizeof(struct TT_Intersection) * size);
+	float * subsamples = malloc(sizeof(float) * ctx->width);
+	memset(subsamples, 0, sizeof(float) * ctx->width);
+
+	/* We have sorted by the scanline at which the line becomes active, so we should be able to do this... */
+	int yres = 4;
+	for (int y = shape->startY; y < shape->lastY; ++y) {
+		/* Figure out which ones fit here */
+		float _y = y;
+		int start_x = ctx->width;
+		int max_x = 0;
+		for (int l = 0; l < yres; ++l) {
+			size_t cnt = prune_edges(size, _y, shape->edges, intersects);
+			if (cnt) {
+				/* Get intersections */
+				for (size_t j = 0; j < cnt; ++j) {
+					crosses[j].x = edge_at(_y,&intersects[j]);
+					crosses[j].affect = intersects[j].direction;
+				}
+
+				/* Now sort the intersections */
+				sort_intersections(cnt, crosses);
+
+				if (crosses[0].x < start_x) start_x = crosses[0].x;
+				if (crosses[cnt-1].x+1 > max_x) max_x = crosses[cnt-1].x+1;
+
+				int wind = 0;
+				size_t j = 0;
+				for (int x = 0; x < ctx->width && j < cnt; ++x) {
+					while (j < cnt && x > crosses[j].x) {
+						wind += crosses[j].affect;
+						j++;
+					}
+					float last = x;
+					while (j < cnt && (x+1) > crosses[j].x) {
+						if (wind != 0) {
+							subsamples[x] += crosses[j].x - last;
+						}
+						last = crosses[j].x;
+						wind += crosses[j].affect;
+						j++;
+					}
+					if (wind != 0) {
+						subsamples[x] += (x+1) - last;
+					}
+				}
+			}
+			_y += 1.0/(float)yres;
+		}
+		if (start_x < 0) start_x = 0;
+		for (int x = start_x; x < max_x && x < ctx->width; ++x) {
+			if (x < 0 || y < 0 || x >= ctx->width || y >= ctx->height) return;
+			#ifdef __toaru__
+			unsigned int c = subsamples[x] / (float)yres * (float)_ALP(color);
+			uint32_t nc = premultiply((color & 0xFFFFFF) | ((c & 0xFF) << 24));
+			GFX(ctx, x, y) = alpha_blend_rgba(GFX(ctx, x, y), nc);
+			#else
+			unsigned int c = subsamples[x] / (float)yres * 255;
+			draw_pixel(x,y,alpha_blend(get_pixel(x,y), color, c));
+			#endif
+			subsamples[x] = 0;
+		}
+	}
+
+	free(subsamples);
+	free(crosses);
+	free(intersects);
+}
+
+struct TT_Contour * tt_contour_line_to(struct TT_Contour * shape, float x, float y) {
+	if (shape->flags & 1) {
+		shape->edges[shape->edgeCount].end.x = x;
+		shape->edges[shape->edgeCount].end.y = y;
+		shape->edgeCount++;
+		shape->flags &= ~1;
+	} else {
+		if (shape->edgeCount + 1 == shape->nextAlloc) {
+			shape->nextAlloc *= 2;
+			shape = realloc(shape, sizeof(struct TT_Contour) + sizeof(struct TT_Edge) * (shape->nextAlloc));
+		}
+		shape->edges[shape->edgeCount].start.x = shape->edges[shape->edgeCount-1].end.x;
+		shape->edges[shape->edgeCount].start.y = shape->edges[shape->edgeCount-1].end.y;
+		shape->edges[shape->edgeCount].end.x = x;
+		shape->edges[shape->edgeCount].end.y = y;
+		shape->edgeCount++;
+		shape->flags &= ~1;
+	}
+	return shape;
+}
+
+struct TT_Contour * tt_contour_move_to(struct TT_Contour * shape, float x, float y) {
+	if (!(shape->flags & 1) && shape->edgeCount) {
+		shape = tt_contour_line_to(shape, shape->edges[shape->last_start].start.x, shape->edges[shape->last_start].start.y);
+	}
+	if (shape->edgeCount + 1 == shape->nextAlloc) {
+		shape->nextAlloc *= 2;
+		shape = realloc(shape, sizeof(struct TT_Contour) + sizeof(struct TT_Edge) * (shape->nextAlloc));
+	}
+	shape->edges[shape->edgeCount].start.x = x;
+	shape->edges[shape->edgeCount].start.y = y;
+	shape->last_start = shape->edgeCount;
+	shape->flags |= 1;
+	return shape;
+}
+
+struct TT_Contour * tt_contour_start(float x, float y) {
+	struct TT_Contour * shape = malloc(sizeof(struct TT_Contour) + sizeof(struct TT_Edge) * 2);
+	shape->edgeCount = 0;
+	shape->nextAlloc = 2;
+	shape->flags = 0;
+	shape->last_start = 0;
+	shape->edges[shape->edgeCount].start.x = x;
+	shape->edges[shape->edgeCount].start.y = y;
+	shape->last_start = shape->edgeCount;
+	shape->flags |= 1;
+	return shape;
+}
+
+struct TT_Shape * tt_contour_finish(struct TT_Contour * in) {
+	size_t size = in->edgeCount + 1;
+	struct TT_Shape * tmp = malloc(sizeof(struct TT_Shape) + sizeof(struct TT_Edge) * size);
+	memcpy(tmp->edges, in->edges, sizeof(struct TT_Edge) * in->edgeCount);
+
+	if (in->flags & 1) {
+		size--;
+	} else {
+		tmp->edges[in->edgeCount].start.x = in->edges[in->edgeCount-1].end.x;
+		tmp->edges[in->edgeCount].start.y = in->edges[in->edgeCount-1].end.y;
+		tmp->edges[in->edgeCount].end.x   = in->edges[in->last_start].start.x;
+		tmp->edges[in->edgeCount].end.y   = in->edges[in->last_start].start.y;
+	}
+
+	for (size_t i = 0; i < size; ++i) {
+		if (tmp->edges[i].start.y < tmp->edges[i].end.y) {
+			tmp->edges[i].direction = 1;
+		} else {
+			tmp->edges[i].direction = -1;
+			struct TT_Coord j = tmp->edges[i].start;
+			tmp->edges[i].start = tmp->edges[i].end;
+			tmp->edges[i].end = j;
+		}
+	}
+
+	//sort_edges(size, tmp->edges);
+	tmp->edgeCount = size;
+	tmp->startY = 1000000;
+	tmp->lastY = 0;
+	for (size_t i = 0; i < size; ++i) {
+		if (tmp->edges[i].end.y + 1 > tmp->lastY) tmp->lastY = tmp->edges[i].end.y + 1;
+		if (tmp->edges[i].start.y < tmp->startY) tmp->startY = tmp->edges[i].start.y;
+	}
+
+	return tmp;
+}
+
+/**
+ * Opaque data struct.
+ */
+struct TT_Font {
+	int privFlags;
+	FILE * filePtr;
+	uint8_t * buffer;
+	uint8_t * memPtr;
+
+	struct TT_Table head_ptr;
+	struct TT_Table cmap_ptr;
+	struct TT_Table loca_ptr;
+	struct TT_Table glyf_ptr;
+	struct TT_Table hhea_ptr;
+	struct TT_Table hmtx_ptr;
+
+	off_t cmap_start;
+
+	size_t cmap_maxInd;
+
+	float scale;
+};
+
+static inline int tt_seek(struct TT_Font * font, off_t offset) {
+	if (font->privFlags & 1) {
+		return fseek(font->filePtr, offset, SEEK_SET);
+	} else {
+		font->memPtr = font->buffer + offset;
+		return 0;
+	}
+}
+
+static inline long tt_tell(struct TT_Font * font) {
+	if (font->privFlags & 1) {
+		return ftell(font->filePtr);
+	} else {
+		return font->memPtr - font->buffer;
+	}
+}
+
+static inline uint8_t tt_read_8(struct TT_Font * font) {
+	if (font->privFlags & 1) {
+		return fgetc(font->filePtr);
+	} else {
+		return *(font->memPtr++);
+	}
+}
+
+static inline uint32_t tt_read_32(struct TT_Font * font) {
+	int a = tt_read_8(font);
+	int b = tt_read_8(font);
+	int c = tt_read_8(font);
+	int d = tt_read_8(font);
+	if (a < 0 || b < 0 || c < 0 || d < 0) return 0;
+	return ((a & 0xFF) << 24) |
+	       ((b & 0xFF) << 16) |
+	       ((c & 0xFF) << 8) |
+	       ((d & 0xFF) << 0);
+}
+
+static inline uint16_t tt_read_16(struct TT_Font * font) {
+	int a = tt_read_8(font);
+	int b = tt_read_8(font);
+	if (a < 0 || b < 0) return 0;
+	return ((a & 0xFF) << 8) |
+	       ((b & 0xFF) << 0);
+}
+
+int tt_xadvance_for_glyph(struct TT_Font * font, unsigned int ind) {
+	tt_seek(font, font->hhea_ptr.offset + 2 * 17);
+	uint16_t numLong = tt_read_16(font);
+
+	if (ind < numLong) {
+		tt_seek(font, font->hmtx_ptr.offset + ind * 4);
+		return tt_read_16(font);
+	}
+
+	tt_seek(font, font->hmtx_ptr.offset + (numLong - 1) * 4);
+	return tt_read_16(font);
+}
+
+void tt_set_size(struct TT_Font * font, int size) {
+	font->scale = (float)size / 2200.0; /* shoot */
+}
+
+off_t tt_get_glyph_offset(struct TT_Font * font, unsigned int glyph) {
+	tt_seek(font, font->loca_ptr.offset + glyph * 4);
+	return tt_read_32(font);
+}
+
+int tt_glyph_for_codepoint(struct TT_Font * font, unsigned int codepoint) {
+	/* Get group count */
+	tt_seek(font, font->cmap_start + 8);
+	uint32_t ngroups = tt_read_32(font);
+
+	for (unsigned int i = 0; i < ngroups; ++i) {
+		uint32_t start = tt_read_32(font);
+		uint32_t end   = tt_read_32(font);
+		uint32_t ind   = tt_read_32(font);
+
+		if (codepoint >= start && codepoint <= end) {
+			return ind + (codepoint - start);
+		}
+	}
+
+	return 0;
+}
+
+static void midpoint(float x_0, float y_0, float cx, float cy, float x_1, float y_1, float t, float * outx, float * outy) {
+	float t2 = t * t;
+	float nt = 1.0 - t;
+	float nt2 = nt * nt;
+	*outx = nt2 * x_0 + 2 * t * nt * cx + t2 * x_1;
+	*outy = nt2 * y_0 + 2 * t * nt * cy + t2 * y_1;
+}
+
+static struct TT_Contour * tt_draw_glyph_into(struct TT_Contour * contour, struct TT_Font * font, float x_offset, float y_offset, unsigned int glyph) {
+	off_t glyf_offset = tt_get_glyph_offset(font, glyph);
+	if (tt_get_glyph_offset(font, glyph + 1) == glyf_offset) return contour;
+
+	tt_seek(font, font->glyf_ptr.offset + glyf_offset);
+
+	int16_t numContours = tt_read_16(font);
+	/* int16_t xMin = */ tt_read_16(font);
+	/* int16_t yMin = */ tt_read_16(font);
+	/* int16_t xMax = */ tt_read_16(font);
+	/* int16_t yMax = */ tt_read_16(font);
+
+	tt_seek(font, font->glyf_ptr.offset + glyf_offset + 10);
+
+	if (numContours > 0) {
+		uint16_t endPt;
+		for (int i = 0; i < numContours; ++i) {
+			endPt = tt_read_16(font);
+		}
+		uint16_t numInstr = tt_read_16(font);
+		for (unsigned int i = 0; i < numInstr; ++i) {
+			tt_read_8(font);
+		}
+		struct TT_Vertex * vertices = malloc(sizeof(struct TT_Vertex) * (endPt + 1));
+		for (int i = 0; i < endPt + 1; ) {
+			uint8_t v = tt_read_8(font);
+			vertices[i].flags = v;
+			i++;
+			if (v & 8) {
+				uint8_t repC = tt_read_8(font);
+				while (repC) {
+					vertices[i].flags = v;
+					repC--;
+					i++;
+				}
+			}
+		}
+		int last_x = 0;
+		int last_y = 0;
+		for (int i = 0; i < endPt + 1; i++) {
+			unsigned char flags = vertices[i].flags;
+			if (flags & (1 << 1)) {
+				/* One byte */
+				if (flags & (1 << 4)) {
+					/* Positive */
+					vertices[i].x = last_x + tt_read_8(font);
+				} else {
+					vertices[i].x = last_x - tt_read_8(font);
+				}
+			} else {
+				if (flags & (1 << 4)) {
+					vertices[i].x = last_x;
+				} else {
+					int16_t diff = tt_read_16(font);
+					vertices[i].x = last_x + diff;
+				}
+			}
+			last_x = vertices[i].x;
+		}
+		for (int i = 0; i < endPt + 1; i++) {
+			unsigned char flags = vertices[i].flags;
+			if (flags & (1 << 2)) {
+				/* One byte */
+				if (flags & (1 << 5)) {
+					/* Positive */
+					vertices[i].y = last_y + tt_read_8(font);
+				} else {
+					vertices[i].y = last_y - tt_read_8(font);
+				}
+			} else {
+				if (flags & (1 << 5)) {
+					vertices[i].y = last_y;
+				} else {
+					int16_t diff = tt_read_16(font);
+					vertices[i].y = last_y + diff;
+				}
+			}
+			last_y = vertices[i].y;
+		}
+
+		tt_seek(font, font->glyf_ptr.offset + glyf_offset + 10);
+
+		int move_next = 1;
+		int next_end = tt_read_16(font);
+
+		float lx = 0, ly = 0, cx = 0, cy = 0, x = 0, y = 0;
+		float sx = 0, sy = 0;
+		int wasControl = 0;
+
+		for (int i = 0; i < endPt + 1; ++i) {
+			x = ((float)vertices[i].x) * font->scale + x_offset;
+			y = (-(float)vertices[i].y) * font->scale + y_offset;
+			int isCurve = !(vertices[i].flags & (1 << 0));
+			if (move_next) {
+				contour = tt_contour_move_to(contour, x, y);
+				if (isCurve) {
+					fprintf(stderr, "*** Warning: Contour starts off curve\n");
+				}
+				move_next = 0;
+				lx = x;
+				ly = y;
+				sx = x;
+				sy = y;
+				wasControl = 0;
+			} else {
+				if (isCurve) {
+					if (wasControl) {
+						float dx = (cx + x) / 2.0;
+						float dy = (cy + y) / 2.0;
+						for (int i = 1; i < 10; ++i) {
+							float mx, my;
+							midpoint(lx,ly,cx,cy,dx,dy,(float)i / 10.0,&mx,&my);
+							contour = tt_contour_line_to(contour, mx, my);
+						}
+						contour = tt_contour_line_to(contour, dx, dy);
+						lx = dx;
+						ly = dy;
+					}
+					cx = x;
+					cy = y;
+					wasControl = 1;
+				} else {
+					if (wasControl) {
+						for (int i = 1; i < 10; ++i) {
+							float mx, my;
+							midpoint(lx,ly,cx,cy,x,y,(float)i / 10.0,&mx,&my);
+							contour = tt_contour_line_to(contour, mx, my);
+						}
+					}
+					contour = tt_contour_line_to(contour, x, y);
+					lx = x;
+					ly = y;
+					wasControl = 0;
+				}
+			}
+			if (i == next_end) {
+				if (wasControl) {
+					for (int i = 1; i < 10; ++i) {
+						float mx, my;
+						midpoint(lx,ly,cx,cy,sx,sy,(float)i / 10.0,&mx,&my);
+						contour = tt_contour_line_to(contour, mx, my);
+					}
+				}
+				contour = tt_contour_line_to(contour, sx, sy);
+				move_next = 1;
+				next_end = tt_read_16(font);
+			}
+		}
+
+		free(vertices);
+	} else if (numContours < 0) {
+		while (1) {
+			uint16_t flags = tt_read_16(font);
+			uint16_t ind   = tt_read_16(font);
+			int16_t x, y;
+			if (flags & (1 << 0)) {
+				x = tt_read_16(font);
+				y = tt_read_16(font);
+			} else {
+				x = tt_read_8(font);
+				y = tt_read_8(font);
+			}
+
+			float x_f = x_offset;
+			float y_f = y_offset;
+			if (flags & (1 << 1)) {
+				x_f = x_offset + x * font->scale;
+				y_f = y_offset - y * font->scale;
+			}
+
+			if (flags & (1 << 3)) {
+				/* TODO */
+				tt_read_16(font);
+			} else if (flags & (1 << 6)) {
+				/* TODO */
+				tt_read_16(font);
+				tt_read_16(font);
+			} else if (flags & (1 << 7)) {
+				/* TODO */
+				tt_read_16(font);
+				tt_read_16(font);
+				tt_read_16(font);
+				tt_read_16(font);
+			} else {
+				long o = tt_tell(font);
+				contour = tt_draw_glyph_into(contour,font,x_f,y_f,ind);
+				tt_seek(font, o);
+			}
+			if (!(flags & (1 << 5))) break;
+		}
+	}
+
+	return contour;
+}
+
+void tt_draw_glyph(gfx_context_t * ctx, struct TT_Font * font, int x, int y, unsigned int glyph, uint32_t color) {
+	struct TT_Contour * contour = tt_contour_start(0, 0);
+	contour = tt_draw_glyph_into(contour,font,x,y,glyph);
+	if (contour->edgeCount) {
+		struct TT_Shape * shape = tt_contour_finish(contour);
+		tt_path_paint(ctx, shape, color);
+		free(shape);
+	}
+	free(contour);
+}
+
+int tt_string_width(struct TT_Font * font, const char * s) {
+	float x_offset = 0;
+	uint32_t cp = 0;
+	uint32_t istate = 0;
+
+	for (const unsigned char * c = (const unsigned char*)s; *c; ++c) {
+		if (!decode(&istate, &cp, *c)) {
+			unsigned int glyph = tt_glyph_for_codepoint(font, cp);
+			x_offset += tt_xadvance_for_glyph(font, glyph) * font->scale;
+		}
+	}
+
+	return x_offset;
+}
+
+int tt_draw_string(gfx_context_t * ctx, struct TT_Font * font, int x, int y, const char * s, uint32_t color) {
+	struct TT_Contour * contour = tt_contour_start(0, 0);
+
+	float x_offset = x;
+	uint32_t cp = 0;
+	uint32_t istate = 0;
+
+	for (const unsigned char * c = (const unsigned char*)s; *c; ++c) {
+		if (!decode(&istate, &cp, *c)) {
+			unsigned int glyph = tt_glyph_for_codepoint(font, cp);
+			contour = tt_draw_glyph_into(contour,font,x_offset,y,glyph);
+			x_offset += tt_xadvance_for_glyph(font, glyph) * font->scale;
+		}
+	}
+
+	if (contour->edgeCount) {
+		struct TT_Shape * shape = tt_contour_finish(contour);
+		tt_path_paint(ctx, shape, color);
+		free(shape);
+	}
+	free(contour);
+
+	return x_offset - x;
+}
+
+
+static int tt_font_load(struct TT_Font * font) {
+	if (tt_seek(font, 4)) goto _fail_free;
+	uint16_t numTables = tt_read_16(font);
+	if (tt_seek(font, 12)) goto _fail_free;
+
+	for (unsigned int i = 0; i < numTables; ++i) {
+		uint32_t tag = tt_read_32(font);
+		/* uint32_t checkSum = */ tt_read_32(font);
+		uint32_t offset = tt_read_32(font);
+		uint32_t length = tt_read_32(font);
+
+		switch (tag) {
+			case 0x68656164: /* head */
+				font->head_ptr.offset = offset;
+				font->head_ptr.length = length;
+				break;
+			case 0x636d6170: /* cmap */
+				font->cmap_ptr.offset = offset;
+				font->cmap_ptr.length = length;
+				break;
+			case 0x676c7966: /* glyf */
+				font->glyf_ptr.offset = offset;
+				font->glyf_ptr.length = length;
+				break;
+			case 0x6c6f6361: /* loca */
+				font->loca_ptr.offset = offset;
+				font->loca_ptr.length = length;
+				break;
+			case 0x68686561: /* hhea */
+				font->hhea_ptr.offset = offset;
+				font->hhea_ptr.length = length;
+				break;
+			case 0x686d7478: /* hmtx */
+				font->hmtx_ptr.offset = offset;
+				font->hmtx_ptr.length = length;
+				break;
+		}
+	}
+
+	if (!font->head_ptr.offset) goto _fail_free;
+	if (!font->glyf_ptr.offset) goto _fail_free;
+	if (!font->cmap_ptr.offset) goto _fail_free;
+	if (!font->loca_ptr.offset) goto _fail_free;
+
+	/* Try to pick a viable cmap */
+	tt_seek(font, font->cmap_ptr.offset);
+
+	uint32_t best = 0;
+	int bestScore = 0;
+
+	/* Read size */
+	/* uint16_t cmap_vers = */ tt_read_16(font);
+	uint16_t cmap_size = tt_read_16(font);
+	for (unsigned int i = 0; i < cmap_size; ++i) {
+		uint16_t platform = tt_read_16(font);
+		uint16_t type     = tt_read_16(font);
+		uint32_t offset   = tt_read_32(font);
+
+		if (platform == 3 && type == 10) {
+			best = offset;
+			bestScore = 4;
+		} else if (platform == 0 && type == 4) {
+			best = offset;
+			bestScore = 4;
+		} else if (platform == 0 && type == 3 && bestScore < 2) {
+			best = offset;
+			bestScore = 2;
+		}
+	}
+
+	if (!best || bestScore != 4) {
+		fprintf(stderr, "tt: TODO: unsupported cmap\n");
+		goto _fail_free;
+	}
+
+	/* What type is this */
+	tt_seek(font, font->cmap_ptr.offset + best);
+
+	uint16_t cmap_type = tt_read_16(font);
+	if (cmap_type != 12) {
+		fprintf(stderr, "tt: TODO: unsupported cmap indexing\n");
+		goto _fail_free;
+	}
+
+	font->cmap_start = font->cmap_ptr.offset + best + 4;
+
+	return 1;
+
+_fail_free:
+	return 0;
+	free(font);
+}
+
+struct TT_Font * tt_font_from_file(const char * fileName) {
+	FILE * f = fopen(fileName, "r");
+	if (!f) return NULL;
+
+	struct TT_Font * font = calloc(sizeof(struct TT_Font), 1);
+	font->filePtr = f;
+	font->privFlags = 1;
+
+	if (!tt_font_load(font)) goto _fail_close;
+
+	return font;
+
+_fail_close:
+	fclose(f);
+	return NULL;
+}
+
+struct TT_Font * tt_font_from_memory(uint8_t * buffer) {
+	struct TT_Font * font = calloc(sizeof(struct TT_Font), 1);
+	font->privFlags = 0;
+	font->buffer = buffer;
+	if (!tt_font_load(font)) return NULL;
+	return font;
+}
+
+struct TT_Font * tt_font_from_file_mem(const char * fileName) {
+	FILE * f = fopen(fileName, "r");
+	if (!f) return NULL;
+
+	fseek(f, 0, SEEK_END);
+	long size = ftell(f);
+	fseek(f, 0, SEEK_SET);
+
+	uint8_t * buf = malloc(size);
+	fread(buf, 1, size, f);
+
+	fclose(f);
+
+	return tt_font_from_memory(buf);
+}

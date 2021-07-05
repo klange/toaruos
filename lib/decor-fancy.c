@@ -15,6 +15,7 @@
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
 #include <toaru/sdf.h>
+#include <toaru/text.h>
 
 #define INACTIVE 10
 
@@ -27,6 +28,7 @@ static int mr_width = 6;
 static int l_height = 9;
 static int ll_width = 9;
 static int lr_width = 9;
+static struct TT_Font * _tt_font = NULL;
 
 static sprite_t * sprites[20];
 
@@ -160,6 +162,19 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 			freetype_draw_string(ctx, title_offset, TEXT_OFFSET + 14, title_color, tmp_title);
 		}
 	} else {
+		tt_set_size(_tt_font, 12);
+		if (tt_string_width(_tt_font, tmp_title) + EXTRA_SPACE > width) {
+			while (t_l >= 0 && (tt_string_width(_tt_font, tmp_title) + EXTRA_SPACE > width)) {
+				tmp_title[t_l] = '\0';
+				t_l--;
+			}
+		}
+
+		if (*tmp_title) {
+			int title_offset = (width / 2) - (tt_string_width(_tt_font, tmp_title) / 2);
+			tt_draw_string(ctx, _tt_font, title_offset, TEXT_OFFSET + 14, tmp_title, title_color);
+		}
+#if 0
 #define TEXT_SIZE 15
 		if (draw_sdf_string_width(tmp_title, TEXT_SIZE, SDF_FONT_BOLD) + EXTRA_SPACE > width) {
 			while (t_l >= 0 && (draw_sdf_string_width(tmp_title, TEXT_SIZE, SDF_FONT_BOLD) + EXTRA_SPACE > width)) {
@@ -172,6 +187,7 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 			int title_offset = (width / 2) - (draw_sdf_string_width(tmp_title, TEXT_SIZE, SDF_FONT_BOLD) / 2);
 			draw_sdf_string(ctx, title_offset, TEXT_OFFSET+2, tmp_title, TEXT_SIZE, title_color, SDF_FONT_BOLD);
 		}
+#endif
 	}
 
 	free(tmp_title);
@@ -225,6 +241,8 @@ void decor_init() {
 	decor_render_decorations = render_decorations_fancy;
 	decor_check_button_press = check_button_press_fancy;
 	decor_get_bounds = get_bounds_fancy;
+
+	_tt_font = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
 
 	void * freetype = dlopen("libtoaru_ext_freetype_fonts.so", 0);
 	if (freetype) {

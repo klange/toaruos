@@ -21,6 +21,7 @@
 #include <toaru/hashmap.h>
 #include <toaru/list.h>
 #include <toaru/icon_cache.h>
+#include <toaru/text.h>
 
 #include <toaru/menu.h>
 
@@ -36,6 +37,8 @@
 static hashmap_t * menu_windows = NULL;
 static yutani_t * my_yctx = NULL;
 
+static struct TT_Font * _tt_font = NULL;
+
 static struct MenuList * hovered_menu = NULL;
 
 int menu_definitely_close(struct MenuList * menu);
@@ -50,6 +53,7 @@ static int (*freetype_draw_string_width)(char * s) = NULL;
 __attribute__((constructor))
 static void _init_menus(void) {
 	menu_windows = hashmap_create_int(10);
+	_tt_font = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
 	void * freetype = dlopen("libtoaru_ext_freetype_fonts.so", 0);
 	if (freetype) {
 		_have_freetype = 1;
@@ -70,7 +74,9 @@ static int string_width(const char * s) {
 		freetype_set_font_size(13);
 		return freetype_draw_string_width((char *)s);
 	} else {
-		return draw_sdf_string_width((char *)s, 16, SDF_FONT_THIN);
+		tt_set_size(_tt_font, 13);
+		return tt_string_width(_tt_font, s);
+		//return draw_sdf_string_width((char *)s, 16, SDF_FONT_THIN);
 	}
 }
 
@@ -80,7 +86,9 @@ static int draw_string(gfx_context_t * ctx, int x, int y, uint32_t color, const 
 		freetype_set_font_size(13);
 		return freetype_draw_string(ctx, x+2, y + 13 /* I think? */, color, s);
 	} else {
-		return draw_sdf_string(ctx, x, y, s, 16, color, SDF_FONT_THIN);
+		tt_set_size(_tt_font, 13);
+		return tt_draw_string(ctx, _tt_font, x, y + 13, s, color);
+		//return draw_sdf_string(ctx, x, y, s, 16, color, SDF_FONT_THIN);
 	}
 }
 
