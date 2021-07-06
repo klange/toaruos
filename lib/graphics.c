@@ -417,6 +417,7 @@ int load_sprite(sprite_t * sprite, char * filename) {
 	static int librariesLoaded = 0;
 	if (!librariesLoaded) {
 		_load_format_libraries();
+		librariesLoaded = 1;
 	}
 
 	char * ext = extension_from_filename(filename);
