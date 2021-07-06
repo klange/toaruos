@@ -1023,7 +1023,7 @@ static void redraw(void) {
 
 	/* Hours : Minutes : Seconds */
 	strftime(buffer, 80, "%H:%M:%S", timeinfo);
-	tt_set_size(font, 18);
+	tt_set_size(font, 16);
 	tt_draw_string(ctx, font, width - TIME_LEFT, 3 + Y_PAD + 17, buffer, clockmenu->window ? HILIGHT_COLOR : txt_color);
 
 	/* Day-of-week */
@@ -1041,8 +1041,8 @@ static void redraw(void) {
 	tt_draw_string(ctx, font_bold, width - TIME_LEFT - DATE_WIDTH + t, 12 + Y_PAD + 11, buffer,  calmenu->window ? HILIGHT_COLOR : txt_color);
 
 	/* Applications menu */
-	tt_set_size(font, 18);
-	tt_draw_string(ctx, font, 12, 3 + Y_PAD + 17, "Applications", appmenu->window ? HILIGHT_COLOR : txt_color);
+	tt_set_size(font, 16);
+	tt_draw_string(ctx, font, 16, 3 + Y_PAD + 17, "Applications", appmenu->window ? HILIGHT_COLOR : txt_color);
 
 	/* Draw each widget */
 	int widget = 0;
