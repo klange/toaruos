@@ -73,6 +73,7 @@ struct TT_Font {
 	size_t cmap_maxInd;
 
 	float scale;
+	float emSize;
 };
 
 
@@ -343,7 +344,7 @@ int tt_xadvance_for_glyph(struct TT_Font * font, unsigned int ind) {
 }
 
 void tt_set_size(struct TT_Font * font, int size) {
-	font->scale = (float)size / 2200.0; /* shoot */
+	font->scale = (float)size / font->emSize;
 }
 
 off_t tt_get_glyph_offset(struct TT_Font * font, unsigned int glyph) {
@@ -671,6 +672,10 @@ static int tt_font_load(struct TT_Font * font) {
 	if (!font->glyf_ptr.offset) goto _fail_free;
 	if (!font->cmap_ptr.offset) goto _fail_free;
 	if (!font->loca_ptr.offset) goto _fail_free;
+
+	/* Get emSize */
+	tt_seek(font, font->head_ptr.offset + 18);
+	font->emSize = (float)tt_read_16(font);
 
 	/* Try to pick a viable cmap */
 	tt_seek(font, font->cmap_ptr.offset);
