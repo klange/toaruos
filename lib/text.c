@@ -343,8 +343,12 @@ int tt_xadvance_for_glyph(struct TT_Font * font, unsigned int ind) {
 	return tt_read_16(font);
 }
 
-void tt_set_size(struct TT_Font * font, int size) {
-	font->scale = (float)size / font->emSize;
+void tt_set_size(struct TT_Font * font, float size) {
+	font->scale = size / font->emSize;
+}
+
+void tt_set_size_px(struct TT_Font * font, float size) {
+	tt_set_size(font, size * 4.0 / 3.0);
 }
 
 off_t tt_get_glyph_offset(struct TT_Font * font, unsigned int glyph) {
