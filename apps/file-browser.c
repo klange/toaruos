@@ -30,7 +30,7 @@
 #include <toaru/menu.h>
 #include <toaru/icon_cache.h>
 #include <toaru/list.h>
-#include <toaru/sdf.h>
+#include <toaru/text.h>
 #include <toaru/button.h>
 
 #define APPLICATION_TITLE "File Browser"
@@ -75,6 +75,8 @@ static struct File ** file_pointers = NULL; /* List of file pointers */
 static ssize_t file_pointers_len = 0; /* How many files are in the current list */
 static uint64_t last_click = 0; /* For double click */
 static int last_click_offset = -1; /* So that clicking two different things quickly doesn't count as a double click */
+static struct TT_Font * tt_font_thin = NULL;
+static struct TT_Font * tt_font_bold = NULL;
 
 /**
  * Navigation input box
@@ -199,12 +201,13 @@ static int print_human_readable_size(char * _out, uint64_t s) {
 /**
  * Clip text and add ellipsis to fit a specified display width.
  */
-static char * ellipsify(char * input, int font_size, int font, int max_width, int * out_width) {
+static char * ellipsify(char * input, int font_size, struct TT_Font * font, int max_width, int * out_width) {
 	int len = strlen(input);
 	char * out = malloc(len + 4);
 	memcpy(out, input, len + 1);
 	int width;
-	while ((width = draw_sdf_string_width(out, font_size, font)) > max_width) {
+	tt_set_size(font, font_size);
+	while ((width = tt_string_width(font, out)) > max_width) {
 		len--;
 		out[len+0] = '.';
 		out[len+1] = '.';
@@ -234,7 +237,7 @@ static void draw_file(struct File * f, int offset) {
 
 		/* If the display name is too long to fit, cut it with an ellipsis. */
 		int name_width;
-		char * name = ellipsify(f->name, 16, SDF_FONT_THIN, FILE_WIDTH - 8, &name_width);
+		char * name = ellipsify(f->name, 13, tt_font_thin, FILE_WIDTH - 8, &name_width);
 
 		/* Draw the icon */
 		int center_x_icon = (FILE_WIDTH - icon->width) / 2;
@@ -248,15 +251,16 @@ static void draw_file(struct File * f, int offset) {
 			}
 			/* And draw the name with a blue background and white text */
 			draw_rounded_rectangle(contents, center_x_text + x - 2, y + 54, name_width + 6, 20, 3, rgb(72,167,255));
-			draw_sdf_string(contents, center_x_text + x, y + 54, name, 16, rgb(255,255,255), SDF_FONT_THIN);
+			tt_set_size(tt_font_thin, 13);
+			tt_draw_string(contents, tt_font_thin, center_x_text + x, y + 54 + 13, name, rgb(255,255,255));
 		} else {
 			if (is_desktop_background) {
 				/* If this is the desktop view, white text with a drop shadow */
-				draw_sdf_string_stroke(contents, center_x_text + x + 1, y + 55, name, 16, rgba(0,0,0,120), SDF_FONT_THIN, 1.7, 0.5);
-				draw_sdf_string(contents, center_x_text + x, y + 54, name, 16, rgb(255,255,255), SDF_FONT_THIN);
+				tt_draw_string_shadow(contents, tt_font_thin, name, 13, center_x_text + x, y + 54, rgba(0,0,0,0), rgb(0,0,0), 4);
+				tt_draw_string_shadow(contents, tt_font_thin, name, 13, center_x_text + x, y + 54, rgb(255,255,255), rgb(0,0,0), 4);
 			} else {
 				/* Otherwise, black text */
-				draw_sdf_string(contents, center_x_text + x, y + 54, name, 16, rgb(0,0,0), SDF_FONT_THIN);
+				tt_draw_string(contents, tt_font_thin, center_x_text + x, y + 54 + 13, name, rgb(0,0,0));
 			}
 		}
 
@@ -293,12 +297,14 @@ static void draw_file(struct File * f, int offset) {
 			draw_sprite_alpha_paint(contents, icon, x + 11, y + 11, 0.3, rgb(255,255,255));
 		}
 
-		char * name = ellipsify(f->name, 16, SDF_FONT_BOLD, FILE_WIDTH - 81, NULL);
-		char * type = ellipsify(f->filetype, 16, SDF_FONT_THIN, FILE_WIDTH - 81, NULL);
+		char * name = ellipsify(f->name, 13, tt_font_bold, FILE_WIDTH - 81, NULL);
+		char * type = ellipsify(f->filetype, 13, tt_font_thin, FILE_WIDTH - 81, NULL);
 
 		if (f->type == 0) {
-			draw_sdf_string(contents, x + 70, y + 8, name, 16, text_color, SDF_FONT_BOLD);
-			draw_sdf_string(contents, x + 70, y + 25, type, 16, text_color, SDF_FONT_THIN);
+			tt_set_size(tt_font_bold, 13);
+			tt_draw_string(contents, tt_font_bold, x + 70, y + 8 + 13, name, text_color);
+			tt_set_size(tt_font_thin, 13);
+			tt_draw_string(contents, tt_font_thin, x + 70, y + 25 + 13, type, text_color);
 
 			char line_three[48] = {0};
 			if (*f->link) {
@@ -306,10 +312,12 @@ static void draw_file(struct File * f, int offset) {
 			} else {
 				print_human_readable_size(line_three, f->size);
 			}
-			draw_sdf_string(contents, x + 70, y + 42, line_three, 16, text_color, SDF_FONT_THIN);
+			tt_draw_string(contents, tt_font_thin, x + 70, y + 42 + 13, line_three, text_color);
 		} else {
-			draw_sdf_string(contents, x + 70, y + 15, name, 16, text_color, SDF_FONT_BOLD);
-			draw_sdf_string(contents, x + 70, y + 32, type, 16, text_color, SDF_FONT_THIN);
+			tt_set_size(tt_font_bold, 13);
+			tt_draw_string(contents, tt_font_bold, x + 70, y + 15 + 13, name, text_color);
+			tt_set_size(tt_font_thin, 13);
+			tt_draw_string(contents, tt_font_thin, x + 70, y + 32 + 13, type, text_color);
 		}
 
 		free(name);
@@ -336,9 +344,10 @@ static void draw_file(struct File * f, int offset) {
 			draw_sprite(contents, icon, x + 4, y + 4);
 		}
 
-		char * name = ellipsify(f->name, 16, SDF_FONT_THIN, FILE_WIDTH - 26, NULL);
+		char * name = ellipsify(f->name, 13, tt_font_thin, FILE_WIDTH - 26, NULL);
 
-		draw_sdf_string(contents, x + 24, y + 2, name, 16, text_color, SDF_FONT_THIN);
+		tt_set_size(tt_font_thin, 13);
+		tt_draw_string(contents, tt_font_thin, x + 24, y + 15, name, text_color);
 
 		free(name);
 
@@ -835,7 +844,8 @@ static void _figure_out_navbar_cursor(int x, struct decor_bounds bounds) {
 
 	char * tmp = strdup(nav_bar);
 	int candidate = 0;
-	while (*tmp && x + 2 < (candidate = draw_sdf_string_width(tmp, 16, SDF_FONT_THIN))) {
+	tt_set_size(tt_font_thin, 13);
+	while (*tmp && x + 2 < (candidate = tt_string_width(tt_font_thin, tmp))) {
 		tmp[strlen(tmp)-1] = '\0';
 	}
 	nav_bar_cursor_x = candidate + 2;
@@ -858,7 +868,8 @@ static void _recalculate_nav_bar_cursor(void) {
 	}
 	char * tmp = strdup(nav_bar);
 	tmp[nav_bar_cursor] = '\0';
-	nav_bar_cursor_x = draw_sdf_string_width(tmp, 16, SDF_FONT_THIN) + 2;
+	tt_set_size(tt_font_thin, 13);
+	nav_bar_cursor_x = tt_string_width(tt_font_thin, tmp) + 2;
 	free(tmp);
 }
 
@@ -891,8 +902,8 @@ static void _draw_nav_bar(struct decor_bounds bounds) {
 
 	/* Draw the nav bar text, ellipsified if needed */
 	int max_width = main_window->width - bounds.width - x - 12;
-	char * name = ellipsify(nav_bar, 16, SDF_FONT_THIN, max_width, NULL);
-	draw_sdf_string(ctx, bounds.left_width + 2 + x + 5, bounds.top_height + MENU_BAR_HEIGHT + 8, name, 16, rgb(0,0,0), SDF_FONT_THIN);
+	char * name = ellipsify(nav_bar, 13, tt_font_thin, max_width, NULL);
+	tt_draw_string(ctx, tt_font_thin, bounds.left_width + 2 + x + 5, bounds.top_height + MENU_BAR_HEIGHT + 8 + 13, name, rgb(0,0,0));
 	free(name);
 
 	if (nav_bar_focused) {
@@ -930,10 +941,11 @@ static void _draw_status(struct decor_bounds bounds) {
 		gfx_context_t * _tmp = init_graphics_sprite(_tmp_s);
 
 		draw_fill(_tmp, rgba(0,0,0,0));
-		draw_sdf_string(_tmp, 1, 1, window_status, 16, rgb(0,0,0), SDF_FONT_THIN);
+		tt_set_size(tt_font_thin, 13);
+		tt_draw_string(_tmp, tt_font_thin, 1, 14, window_status, rgb(0,0,0));
 		blur_context_box(_tmp, 4);
 
-		draw_sdf_string(_tmp, 0, 0, window_status, 16, rgb(255,255,255), SDF_FONT_THIN);
+		tt_draw_string(_tmp, tt_font_thin, 0, 13, window_status, rgb(255,255,255));
 
 		free(_tmp);
 		draw_sprite(ctx, _tmp_s, bounds.left_width + 4, ctx->height - bounds.bottom_height - STATUS_HEIGHT + 3);
@@ -1714,6 +1726,9 @@ int main(int argc, char * argv[]) {
 
 	yctx = yutani_init();
 	init_decorations();
+
+	tt_font_thin = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+	tt_font_bold = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
 
 	int arg_ind = 1;
 

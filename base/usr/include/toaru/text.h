@@ -9,3 +9,4 @@ extern void tt_set_size(struct TT_Font * font, int size);
 extern int tt_xadvance_for_glyph(struct TT_Font * font, unsigned int ind);
 extern int tt_string_width(struct TT_Font * font, const char * s);
 extern int tt_draw_string(gfx_context_t * ctx, struct TT_Font * font, int x, int y, const char * s, uint32_t color);
+extern void tt_draw_string_shadow(gfx_context_t * ctx, struct TT_Font * font, char * string, int font_size, int left, int top, uint32_t text_color, uint32_t shadow_color, int blur);
