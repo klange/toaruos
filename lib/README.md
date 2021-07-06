@@ -62,17 +62,9 @@ Replacement for `readline`. Mostly deprecated in favor of `rline_exp`.
 
 Replacement for `readline`, with support for syntax highlighting.
 
-## `toaru_sdf`
-
-Signed Distance Field text rendering library.
-
 ## `toaru_termemu`
 
 Terminal ANSI escape processor.
-
-## `toaru_textregion`
-
-WIP library for providing multiline wrapping label widgets with rich text support.
 
 ## `toaru_tree`
 

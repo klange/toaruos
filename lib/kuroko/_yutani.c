@@ -2,7 +2,6 @@
 #include <assert.h>
 #include <toaru/yutani.h>
 #include <toaru/decorations.h>
-#include <toaru/sdf.h>
 #include <toaru/menu.h>
 #include <kuroko/kuroko.h>
 #include <kuroko/vm.h>
@@ -925,7 +924,7 @@ static KrkValue _font_draw_string(int argc, KrkValue argv[], int hasKw) {
 	int32_t x = AS_INTEGER(argv[3]);
 	int32_t y = AS_INTEGER(argv[4]);
 
-	return INTEGER_VAL(draw_sdf_string_stroke(ctx,x,y,str,self->fontSize,self->fontColor,self->fontType,self->fontGamma,self->fontStroke));
+	return INTEGER_VAL(-1);
 }
 
 static KrkValue _font_width(int argc, KrkValue argv[], int hasKw) {
@@ -934,7 +933,7 @@ static KrkValue _font_width(int argc, KrkValue argv[], int hasKw) {
 		return krk_runtimeError(vm.exceptions->typeError, "expected str");
 
 	const char * str = AS_CSTRING(argv[1]);
-	return INTEGER_VAL(draw_sdf_string_width(str, self->fontSize, self->fontType));
+	return INTEGER_VAL(-1);
 }
 
 static void _MenuBar_gcsweep(KrkInstance * _self) {
@@ -1346,16 +1345,6 @@ KrkValue krk_module_onload__yutani(void) {
 		"Font.width(string)\n"
 		"  Calculate the rendered width of the given string when drawn with this font.";
 	krk_defineNative(&YutaniFont->methods, "size", _font_size)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
-	/* Some static values */
-#define ATTACH_FONT(name) krk_attachNamedValue(&YutaniFont->methods, #name, INTEGER_VAL(SDF_ ## name))
-	ATTACH_FONT(FONT_THIN);
-	ATTACH_FONT(FONT_BOLD);
-	ATTACH_FONT(FONT_MONO);
-	ATTACH_FONT(FONT_MONO_BOLD);
-	ATTACH_FONT(FONT_MONO_OBLIQUE);
-	ATTACH_FONT(FONT_MONO_BOLD_OBLIQUE);
-	ATTACH_FONT(FONT_OBLIQUE);
-	ATTACH_FONT(FONT_BOLD_OBLIQUE);
 	krk_finalizeClass(YutaniFont);
 
 	MenuBarClass = krk_createClass(module, "MenuBar", NULL);

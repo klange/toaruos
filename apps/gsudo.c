@@ -19,16 +19,16 @@
 #include <toaru/auth.h>
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
-#include <toaru/sdf.h>
+#include <toaru/text.h>
 #include <toaru/button.h>
 
 #define main __main_unused
 #include "sudo.c"
 #undef main
 
-#define FONT_SIZE_TITLE 20
-#define FONT_SIZE_MAIN 16
-#define FONT_SIZE_PASSWD 25
+#define FONT_SIZE_TITLE 18
+#define FONT_SIZE_MAIN 13
+#define FONT_SIZE_PASSWD 22
 #define FONT_COLOR (rgb(0,0,0))
 #define FONT_RED (rgb(250,0,0))
 #define BUTTON_HEIGHT 28
@@ -38,6 +38,7 @@
 static yutani_t * yctx;
 static gfx_context_t * ctx;
 static yutani_window_t * window;
+static struct TT_Font * tt_font_thin;
 
 struct TTKButton _button_cancel = {
 	0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, "Cancel", 0
@@ -85,17 +86,19 @@ static void redraw(char * username, char * password, int fails, char * argv[]) {
 	draw_rounded_rectangle(myctx, 10, 10, prompt->width - 20, prompt->height - 20, 10, rgb(239,238,232));
 
 	/* Draw prompt messages */
-	draw_sdf_string(myctx, 30, 30, "Authentication Required", FONT_SIZE_TITLE, FONT_COLOR, SDF_FONT_THIN);
-	draw_sdf_string(myctx, 30, 54, "Authentication is required to run the application", FONT_SIZE_MAIN, FONT_COLOR, SDF_FONT_THIN);
-	draw_sdf_string(myctx, 30, 72, argv[1], FONT_SIZE_MAIN, FONT_COLOR, SDF_FONT_THIN);
+	tt_set_size(tt_font_thin, FONT_SIZE_TITLE);
+	tt_draw_string(myctx, tt_font_thin, 30, 30 + FONT_SIZE_TITLE, "Authentication Required", FONT_COLOR);
+	tt_set_size(tt_font_thin, FONT_SIZE_MAIN);
+	tt_draw_string(myctx, tt_font_thin, 30, 54 + FONT_SIZE_MAIN, "Authentication is required to run the application", FONT_COLOR);
+	tt_draw_string(myctx, tt_font_thin, 30, 72 + FONT_SIZE_MAIN, argv[1], FONT_COLOR);
 
 	char prompt_message[512];
 	sprintf(prompt_message, "Enter password for '%s'", username);
-	draw_sdf_string(myctx, 30, 100, prompt_message, FONT_SIZE_MAIN, FONT_COLOR, SDF_FONT_THIN);
+	tt_draw_string(myctx, tt_font_thin, 30, 100 + FONT_SIZE_MAIN, prompt_message, FONT_COLOR);
 
 	if (fails) {
 		sprintf(prompt_message, "Try again. %d failures.", fails);
-		draw_sdf_string(myctx, 30, 146, prompt_message, FONT_SIZE_MAIN, FONT_RED, SDF_FONT_THIN);
+		tt_draw_string(myctx, tt_font_thin, 30, 146 + FONT_SIZE_MAIN, prompt_message, FONT_RED);
 	}
 
 	struct gradient_definition edge = {30, 114, rgb(0,120,220), rgb(0,120,220)};
@@ -105,9 +108,10 @@ static void redraw(char * username, char * password, int fails, char * argv[]) {
 	char password_circles[512] = {0};;
 	strcpy(password_circles, "");
 	for (unsigned int i = 0; i < strlen(password) && i < 512/4; ++i) {
-		strcat(password_circles, "\007");
+		strcat(password_circles, "●");
 	}
-	draw_sdf_string(myctx, 33, 118, password_circles, FONT_SIZE_PASSWD, FONT_COLOR, SDF_FONT_THIN);
+	tt_set_size(tt_font_thin, FONT_SIZE_PASSWD);
+	tt_draw_string(myctx, tt_font_thin, 33, 118 + FONT_SIZE_PASSWD, password_circles, FONT_COLOR);
 
 	draw_fill(ctx, rgba(0,0,0,200));
 	draw_sprite(ctx, prompt, (ctx->width - prompt->width) / 2, (ctx->height - prompt->height) / 2);
@@ -226,6 +230,7 @@ int main(int argc, char ** argv) {
 	window = yutani_window_create(yctx, width, height);
 	yutani_window_move(yctx, window, 0, 0);
 	yutani_window_advertise(yctx, window, "gsudo");
+	tt_font_thin = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
 
 	ctx = init_graphics_yutani_double_buffer(window);
 

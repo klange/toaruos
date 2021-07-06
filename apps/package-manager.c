@@ -16,7 +16,7 @@
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
 #include <toaru/menu.h>
-#include <toaru/sdf.h>
+#include <toaru/text.h>
 #include <toaru/confreader.h>
 #include <toaru/icon_cache.h>
 
@@ -38,6 +38,9 @@ static int scroll_offset = 0; /* How far the icon view should be scrolled */
 static int hilighted_offset = -1; /* Which file is hovered by the mouse */
 static uint64_t last_click = 0; /* For double click */
 static int last_click_offset = -1; /* So that clicking two different things quickly doesn't count as a double click */
+
+struct TT_Font * tt_font_thin = NULL;
+struct TT_Font * tt_font_bold = NULL;
 
 struct Package {
 	char name[256];
@@ -130,10 +133,12 @@ static void draw_package(struct Package * package, int index) {
 
 	char tmp[2048];
 	sprintf(tmp, "%s - %s", package->friendly_name, package->version);
-	draw_sdf_string(contents, 64, offset_y + 4, tmp, 20, text_color, SDF_FONT_BOLD);
+	tt_set_size(tt_font_bold, 18);
+	tt_draw_string(contents, tt_font_bold, 64, offset_y + 4 + 18, tmp, text_color);
 	sprintf(tmp, "%s - %s", package->name, package->description);
-	int x = draw_sdf_string(contents, 65, offset_y + 24, package->name, 16, rgb(150,150,150), SDF_FONT_THIN);
-	draw_sdf_string(contents, 64 + x + 4, offset_y + 24, package->description, 16, text_color, SDF_FONT_THIN);
+	tt_set_size(tt_font_thin, 13);
+	int x = tt_draw_string(contents, tt_font_thin, 65, offset_y + 24 + 13, package->name, rgb(150,150,150));
+	tt_draw_string(contents, tt_font_thin, 64 + x + 4, offset_y + 24 + 13, package->description, text_color);
 
 }
 
@@ -456,6 +461,9 @@ int main(int argc, char * argv[]) {
 	main_window = yutani_window_create(yctx, 640, 480);
 	yutani_window_move(yctx, main_window, yctx->display_width / 2 - main_window->width / 2, yctx->display_height / 2 - main_window->height / 2);
 	ctx = init_graphics_yutani_double_buffer(main_window);
+
+	tt_font_thin = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+	tt_font_bold = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
 
 	yutani_window_advertise_icon(yctx, main_window, APPLICATION_TITLE, "package");
 

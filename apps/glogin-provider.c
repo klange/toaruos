@@ -24,7 +24,7 @@
 #include <toaru/yutani.h>
 #include <toaru/auth.h>
 #include <toaru/confreader.h>
-#include <toaru/sdf.h>
+#include <toaru/text.h>
 
 #include <toaru/trace.h>
 #define TRACE_APP_NAME "glogin-provider"
@@ -57,6 +57,8 @@ static int BOX_COLOR_B=0;
 static int BOX_COLOR_A=127;
 static char * WALLPAPER = "/usr/share/wallpaper.jpg";
 static char * LOGO = "/usr/share/logo_login.png";
+static struct TT_Font * tt_font_thin = NULL;
+static struct TT_Font * tt_font_bold = NULL;
 
 #define TEXTBOX_INTERIOR_LEFT 4
 #define EXTRA_TEXT_OFFSET 15
@@ -145,15 +147,16 @@ void draw_text_box(gfx_context_t * ctx, struct text_box * tb) {
 	} else if (tb->is_password) {
 		strcpy(password_circles, "");
 		for (unsigned int i = 0; i < strlen(tb->buffer); ++i) {
-			strcat(password_circles, "\007");
+			strcat(password_circles, "●");
 		}
 		text = password_circles;
 	}
 
-	draw_sdf_string(ctx, x + TEXTBOX_INTERIOR_LEFT, y + text_offset - 12, text, 15, color, SDF_FONT_THIN);
+	tt_set_size(tt_font_thin, 13);
+	tt_draw_string(ctx, tt_font_thin, x + TEXTBOX_INTERIOR_LEFT, y + text_offset + 1, text, color);
 
 	if (tb->is_focused) {
-		int width = draw_sdf_string_width(text, 15, SDF_FONT_THIN) + 2;
+		int width = tt_string_width(tt_font_thin, text);
 		draw_line(ctx, x + TEXTBOX_INTERIOR_LEFT + width, x + TEXTBOX_INTERIOR_LEFT + width, y + 2, y + text_offset + 1, tb->text_color);
 	}
 
@@ -168,10 +171,8 @@ void draw_login_container(gfx_context_t * ctx, struct login_container * lc) {
 	/* Draw labels */
 	if (lc->show_error) {
 		char * error_message = "Incorrect username or password.";
-
-		//set_font_size(11);
-		//draw_string(ctx, lc->x + (lc->width - draw_string_width(error_message)) / 2, lc->y + 6 + EXTRA_TEXT_OFFSET, rgb(240, 20, 20), error_message);
-		draw_sdf_string(ctx, lc->x + (lc->width - draw_sdf_string_width(error_message, 14, SDF_FONT_THIN)) / 2, lc->y + 6 + EXTRA_TEXT_OFFSET - 14, error_message, 14, rgb(240,20,20), SDF_FONT_THIN);
+		tt_set_size(tt_font_thin, 13);
+		tt_draw_string(ctx, tt_font_thin, lc->x + (lc->width - tt_string_width(tt_font_thin, error_message)) / 2, lc->y + 6 + EXTRA_TEXT_OFFSET - 1, error_message, rgb(240,20,20));
 	}
 
 	draw_text_box(ctx, lc->username_box);
@@ -199,19 +200,6 @@ static void get_updated_hostname_with_time_info(char hostname[]) {
 	char _date[256];
 	strftime(_date, 256, "%a %B %d %Y", timeinfo);
 	sprintf(hostname, "%s // %s", _hostname, _date);
-}
-
-static void draw_sdf_string_shadow(gfx_context_t * ctx, char * string, int font_size, int left, int top, uint32_t text_color, uint32_t shadow_color, int blur, int font) {
-	int w = draw_sdf_string_width(string, font_size, font);
-	sprite_t * _tmp_s = create_sprite(w + blur * 2, font_size + blur * 2, ALPHA_EMBEDDED);
-	gfx_context_t * _tmp = init_graphics_sprite(_tmp_s);
-	draw_fill(_tmp, rgba(0,0,0,0));
-	draw_sdf_string(_tmp, blur, blur, string, font_size, shadow_color, font);
-	blur_context_box(_tmp, blur);
-	free(_tmp);
-	draw_sprite(ctx, _tmp_s, left - blur, top - blur);
-	sprite_free(_tmp_s);
-	draw_sdf_string(ctx, left, top, string, 14, text_color, font);
 }
 
 int main (int argc, char ** argv) {
@@ -279,6 +267,8 @@ int main (int argc, char ** argv) {
 	yutani_flip(y, wina);
 	TRACE("... done.");
 
+	tt_font_thin = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+	tt_font_bold = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
 
 redo_everything:
 	win_width = width;
@@ -402,8 +392,8 @@ redo_everything:
 
 		int focus = 0;
 
-		//set_font_size(11);
-		int hostname_label_left = width - 10 - draw_sdf_string_width(hostname, 14, SDF_FONT_BOLD);
+		tt_set_size(tt_font_thin, 13);
+		int hostname_label_left = width - 10 - tt_string_width(tt_font_thin, hostname);
 		int kernel_v_label_left = 10;
 
 		struct text_box username_box = { (BOX_WIDTH - 170) / 2, 30, 170, 20, rgb(0,0,0), NULL, 0, 0, 0, username, "Username" };
@@ -427,8 +417,8 @@ redo_everything:
 				memcpy(ctx->backbuffer, foo, sizeof(uint32_t) * width * height);
 				draw_sprite(ctx, &logo, center_x(logo.width), center_y(logo.height) - LOGO_FINAL_OFFSET);
 
-				draw_sdf_string_shadow(ctx, hostname, 14, hostname_label_left, height - 22, rgb(255,255,255), rgb(0,0,0), 4, SDF_FONT_BOLD);
-				draw_sdf_string_shadow(ctx, kernel_v, 14, kernel_v_label_left, height - 22, rgb(255,255,255), rgb(0,0,0), 4, SDF_FONT_BOLD);
+				tt_draw_string_shadow(ctx, tt_font_bold, hostname, 12, hostname_label_left, height - 22, rgb(255,255,255), rgb(0,0,0), 4);
+				tt_draw_string_shadow(ctx, tt_font_bold, kernel_v, 12, kernel_v_label_left, height - 22, rgb(255,255,255), rgb(0,0,0), 4);
 
 				if (focus == USERNAME_BOX) {
 					username_box.is_focused = 1;

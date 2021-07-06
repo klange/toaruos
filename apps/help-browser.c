@@ -18,7 +18,7 @@
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
 #include <toaru/menu.h>
-#include <toaru/sdf.h>
+#include <toaru/text.h>
 #include <toaru/markup.h>
 
 #define APPLICATION_TITLE "Help Browser"
@@ -47,6 +47,11 @@ static int cursor_x = 0;
 static list_t * state = NULL;
 static int current_state = 0;
 
+static struct TT_Font * tt_font_thin = NULL;
+static struct TT_Font * tt_font_bold = NULL;
+static struct TT_Font * tt_font_oblique = NULL;
+static struct TT_Font * tt_font_bold_oblique = NULL;
+
 struct Char {
 	char c; /* TODO: unicode */
 	char state;
@@ -55,23 +60,23 @@ struct Char {
 //static list_t * lines = NULL;
 static list_t * buffer = NULL;
 
-static int state_to_font(int current_state) {
+static struct TT_Font * state_to_font(int current_state) {
 	if (current_state & (1 << 0)) {
 		if (current_state & (1 << 1)) {
-			return SDF_FONT_BOLD_OBLIQUE;
+			return tt_font_bold_oblique;
 		}
-		return SDF_FONT_BOLD;
+		return tt_font_bold;
 	} else if (current_state & (1 << 1)) {
-		return SDF_FONT_OBLIQUE;
+		return tt_font_oblique;
 	}
-	return SDF_FONT_THIN;
+	return tt_font_thin;
 }
 
 static int current_size(void) {
 	if (current_state & (1 << 2)) {
-		return 24;
+		return 22;
 	}
-	return 16;
+	return 13;
 }
 
 static int buffer_width(list_t * buffer) {
@@ -81,7 +86,8 @@ static int buffer_width(list_t * buffer) {
 
 		char tmp[2] = {c->c, '\0'};
 
-		out += draw_sdf_string_width(tmp, current_size(), state_to_font(c->state));
+		tt_set_size(state_to_font(c->state), current_size());
+		out += tt_string_width(state_to_font(c->state), tmp);
 	}
 	return out;
 }
@@ -92,7 +98,8 @@ static int draw_buffer(list_t * buffer) {
 		node_t * node = list_dequeue(buffer);
 		struct Char * c = node->value;
 		char tmp[2] = { c->c, '\0' };
-		x += draw_sdf_string(nctx, cursor_x + x, cursor_y, tmp, current_size(), 0xFF000000, state_to_font(c->state));
+		tt_set_size(state_to_font(c->state), current_size());
+		x += tt_draw_string(nctx, state_to_font(c->state), cursor_x + x, cursor_y + current_size(), tmp, 0xFF000000);
 		free(c);
 		free(node);
 	}
@@ -341,6 +348,11 @@ int main(int argc, char * argv[]) {
 	main_window = yutani_window_create(yctx, 640, 480);
 	yutani_window_move(yctx, main_window, yctx->display_width / 2 - main_window->width / 2, yctx->display_height / 2 - main_window->height / 2);
 	ctx = init_graphics_yutani_double_buffer(main_window);
+
+	tt_font_thin         = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+	tt_font_bold         = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
+	tt_font_oblique      = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf");
+	tt_font_bold_oblique = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans-BoldOblique.ttf");
 
 	yutani_window_advertise_icon(yctx, main_window, APPLICATION_TITLE, "help");
 

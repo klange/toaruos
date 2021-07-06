@@ -13,8 +13,8 @@
 #include <toaru/graphics.h>
 #include <toaru/yutani.h>
 #include <toaru/decorations.h>
-#include <toaru/sdf.h>
 #include <toaru/menu.h>
+#include <toaru/text.h>
 
 #define TEXT_OFFSET_X 10
 #define TEXT_OFFSET_Y 3
@@ -37,6 +37,8 @@ static int close_enough(struct yutani_msg_window_mouse_event * me) {
 			sqrt(pow(me->new_x - me->old_x, 2.0) + pow(me->new_y - me->old_y, 2.0)) < 10.0);
 }
 
+static struct TT_Font * tt_font = NULL;
+
 static void render_decorations_simple(yutani_window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
 
 	uint32_t color = BORDERCOLOR;
@@ -56,13 +58,10 @@ static void render_decorations_simple(yutani_window_t * window, gfx_context_t * 
 		}
 	}
 
-	if (decors_active == DECOR_INACTIVE) {
-		draw_sdf_string(ctx, TEXT_OFFSET_X, TEXT_OFFSET_Y, title, 14, TEXTCOLOR_INACTIVE, SDF_FONT_THIN);
-		draw_sdf_string(ctx, window->width - 20, TEXT_OFFSET_Y, "x", 14, TEXTCOLOR_INACTIVE, SDF_FONT_THIN);
-	} else {
-		draw_sdf_string(ctx, TEXT_OFFSET_X, TEXT_OFFSET_Y, title, 14, TEXTCOLOR, SDF_FONT_THIN);
-		draw_sdf_string(ctx, window->width - 20, TEXT_OFFSET_Y, "x", 14, TEXTCOLOR, SDF_FONT_THIN);
-	}
+	tt_set_size(tt_font, 12);
+	uint32_t textcolor = (decors_active == DECOR_INACTIVE) ? TEXTCOLOR_INACTIVE : TEXTCOLOR;
+	tt_draw_string(ctx, tt_font, TEXT_OFFSET_X, TEXT_OFFSET_Y + 12, title, textcolor);
+	tt_draw_string(ctx, tt_font, window->width - 20, TEXT_OFFSET_Y + 12, "x", textcolor);
 
 	for (uint32_t i = 0; i < window->width; ++i) {
 		GFX(ctx, i, 0) = color;
@@ -96,6 +95,7 @@ static void initialize_simple() {
 	decor_render_decorations = render_decorations_simple;
 	decor_check_button_press = check_button_press_simple;
 	decor_get_bounds         = get_bounds_simple;
+	tt_font = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
 }
 
 void render_decorations(yutani_window_t * window, gfx_context_t * ctx, char * title) {

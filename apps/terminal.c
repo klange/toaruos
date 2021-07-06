@@ -47,7 +47,6 @@
 #include <toaru/spinlock.h>
 #include <toaru/list.h>
 #include <toaru/menu.h>
-#include <toaru/sdf.h>
 #include <toaru/text.h>
 
 /* 16- and 256-color palette */
@@ -84,7 +83,7 @@ static int      scale_fonts    = 0;    /* Whether fonts should be scaled */
 static float    font_scaling   = 1.0;  /* How much they should be scaled by */
 static uint16_t term_width     = 0;    /* Width of the terminal (in cells) */
 static uint16_t term_height    = 0;    /* Height of the terminal (in cells) */
-static uint16_t font_size      = 16;   /* Font size according to SDF library */
+static uint16_t font_size      = 16;   /* Font size according to tt library */
 static uint16_t char_width     = 9;    /* Width of a cell in pixels */
 static uint16_t char_height    = 17;   /* Height of a cell in pixels */
 static uint16_t char_offset    = 0;    /* Offset of the font within the cell */
@@ -2128,7 +2127,7 @@ static void _menu_action_hide_borders(struct MenuEntry * self) {
 	reinit();
 }
 
-static void _menu_action_toggle_sdf(struct MenuEntry * self) {
+static void _menu_action_toggle_tt(struct MenuEntry * self) {
 	_use_aa = !(_use_aa);
 	menu_update_title(self, _use_aa ? "Bitmap font" : "Anti-aliased font");
 	reinit();
@@ -2323,7 +2322,7 @@ int main(int argc, char ** argv) {
 	_menu_toggle_borders_bar = menu_create_normal(NULL, NULL, _no_frame ? "Show borders" : "Hide borders", _menu_action_hide_borders);
 	menu_insert(m, _menu_toggle_borders_bar);
 	menu_insert(m, menu_create_submenu(NULL,"zoom","Set zoom..."));
-	menu_insert(m, menu_create_normal(NULL, NULL, _use_aa ? "Bitmap font" : "Anti-aliased font", _menu_action_toggle_sdf));
+	menu_insert(m, menu_create_normal(NULL, NULL, _use_aa ? "Bitmap font" : "Anti-aliased font", _menu_action_toggle_tt));
 	menu_insert(m, menu_create_normal(NULL, NULL, _free_size ? "Snap to Cell Size" : "Freely Resize", _menu_action_toggle_free_size));
 	menu_insert(m, menu_create_separator());
 	menu_insert(m, menu_create_normal(NULL, NULL, "Redraw", _menu_action_redraw));

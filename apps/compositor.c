@@ -2123,56 +2123,6 @@ int main(int argc, char * argv[]) {
 	TRACE("pex bound? %d", server);
 	yg->server = server;
 
-	TRACE("Loading fonts...");
-	{
-#define FONT_COUNT 8
-		sprite_t _font_data[FONT_COUNT];
-
-		load_sprite(&_font_data[0], "/usr/share/fonts/sdf_thin.sdf");
-		load_sprite(&_font_data[1], "/usr/share/fonts/sdf_bold.sdf");
-		load_sprite(&_font_data[2], "/usr/share/fonts/sdf_mono.sdf");
-		load_sprite(&_font_data[3], "/usr/share/fonts/sdf_mono_bold.sdf");
-		load_sprite(&_font_data[4], "/usr/share/fonts/sdf_mono_oblique.sdf");
-		load_sprite(&_font_data[5], "/usr/share/fonts/sdf_mono_bold_oblique.sdf");
-		load_sprite(&_font_data[6], "/usr/share/fonts/sdf_oblique.sdf");
-		load_sprite(&_font_data[7], "/usr/share/fonts/sdf_bold_oblique.sdf");
-
-		TRACE("  Data loaded...");
-
-		size_t font_data_size = sizeof(unsigned int) * (1 + FONT_COUNT * 3);
-		for (int i = 0; i < FONT_COUNT; ++i) {
-			font_data_size += 4 * _font_data[i].width * _font_data[i].height;
-		}
-
-		TRACE("  Size calculated: %d", font_data_size);
-
-		char tmp[100];
-		sprintf(tmp, "sys.%s.fonts", yg->server_ident);
-		size_t s = font_data_size;
-		char * font = shm_obtain(tmp, &s);
-		assert((s >= font_data_size) && "Font server failure.");
-
-		uint32_t * data = (uint32_t *)font;
-		data[0] = FONT_COUNT;
-
-		data[1] = _font_data[0].width;
-		data[2] = _font_data[0].height;
-		data[3] = (FONT_COUNT * 3 + 1) * sizeof(unsigned int);
-		memcpy(&font[data[3]], _font_data[0].bitmap, _font_data[0].width * _font_data[0].height * 4);
-		free(_font_data[0].bitmap);
-
-		for (int i = 1; i < FONT_COUNT; ++i) {
-			TRACE("  Loaded %d font(s)... %d %d %d", i, data[(i - 1) * 3 + 2], data[(i - 1) * 3 + 1], data[(i - 1) * 3 + 3]);
-			data[i * 3 + 1] = _font_data[i].width;
-			data[i * 3 + 2] = _font_data[i].height;
-			data[i * 3 + 3] = data[(i - 1) * 3 + 3] + data[(i - 1) * 3 + 2] * data[(i - 1) * 3 + 1] * 4;
-			memcpy(&font[data[i * 3 + 3]], _font_data[i].bitmap, _font_data[i].width * _font_data[i].height * 4);
-			free(_font_data[i].bitmap);
-		}
-
-		TRACE("Done loading fonts.");
-	}
-
 	TRACE("Loading sprites...");
 #define MOUSE_DIR "/usr/share/cursor/"
 	load_sprite(&yg->mouse_sprite, MOUSE_DIR "normal.png");

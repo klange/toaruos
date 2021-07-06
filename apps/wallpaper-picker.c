@@ -10,7 +10,7 @@
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
-#include <toaru/sdf.h>
+#include <toaru/text.h>
 #include <toaru/menu.h>
 #include <toaru/button.h>
 #include <toaru/list.h>
@@ -25,6 +25,7 @@ static yutani_t * yctx;
 static yutani_window_t * window = NULL;
 static gfx_context_t * ctx = NULL;
 static sprite_t wallpaper = { 0 };
+static struct TT_Font * tt_font = NULL;
 
 static int32_t width = 640;
 static int32_t height = 300;
@@ -70,10 +71,11 @@ static void redraw(void) {
 	}
 
 	/* Draws the path for the selected wallpaper in white, centered, with a drop shadow */
-	int str_width = draw_sdf_string_width(wallpaper_path, 16, SDF_FONT_THIN);
+	tt_set_size(tt_font, 13);
+	int str_width = tt_string_width(tt_font, wallpaper_path);
 	int center_x_text = (window->width - bounds.width - str_width) / 2;
-	draw_sdf_string_stroke(ctx, center_x_text + 1, bounds.top_height + 10 + 1, wallpaper_path, 16, rgba(0,0,0,120), SDF_FONT_THIN, 1.7, 0.5);
-	draw_sdf_string(ctx, center_x_text, bounds.top_height + 10, wallpaper_path, 16, rgb(255,255,255), SDF_FONT_THIN);
+	tt_draw_string_shadow(ctx, tt_font, wallpaper_path, 13, center_x_text + 1, bounds.top_height + 10 + 1, rgba(0,0,0,0), rgb(0,0,0), 4);
+	tt_draw_string_shadow(ctx, tt_font, wallpaper_path, 13, center_x_text + 1, bounds.top_height + 10 + 1, rgb(255,255,255), rgb(0,0,0), 4);
 
 	/* Draw the buttons */
 	ttk_button_draw(ctx, &_set);
@@ -291,6 +293,8 @@ int main(int argc, char * argv[]) {
 	window = yutani_window_create(yctx, width + bounds.width, height + bounds.height);
 	req_center_x = yctx->display_width / 2;
 	req_center_y = yctx->display_height / 2;
+
+	tt_font = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
 
 	get_default_wallpaper();
 	read_wallpapers();
