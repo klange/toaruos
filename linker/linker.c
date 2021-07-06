@@ -917,6 +917,12 @@ nope:
 		end_addr++;
 	}
 
+	/* Move heap start (kind of like a weird sbrk) */
+	{
+		char * args[] = {(char*)end_addr};
+		sysfunc(TOARU_SYS_FUNC_SETHEAP, args);
+	}
+
 	/* Call constructors for loaded dependencies */
 	char * ld_no_ctors = getenv("LD_DISABLE_CTORS");
 	if (ld_no_ctors && (!strcmp(ld_no_ctors,"1") || !strcmp(ld_no_ctors,"yes"))) {
@@ -952,12 +958,6 @@ nope:
 	}
 
 	main_obj->loaded = 1;
-
-	/* Move heap start (kind of like a weird sbrk) */
-	{
-		char * args[] = {(char*)end_addr};
-		sysfunc(TOARU_SYS_FUNC_SETHEAP, args);
-	}
 
 	/* Set heap functions for later usage */
 	if (hashmap_has(dumb_symbol_table, "malloc")) _malloc = hashmap_get(dumb_symbol_table, "malloc");
