@@ -54,6 +54,30 @@ struct TT_Vertex {
 	int y;
 };
 
+struct TT_Font {
+	int privFlags;
+	FILE * filePtr;
+	uint8_t * buffer;
+	uint8_t * memPtr;
+
+	struct TT_Table head_ptr;
+	struct TT_Table cmap_ptr;
+	struct TT_Table loca_ptr;
+	struct TT_Table glyf_ptr;
+	struct TT_Table hhea_ptr;
+	struct TT_Table hmtx_ptr;
+	struct TT_Table name_ptr;
+
+	off_t cmap_start;
+
+	size_t cmap_maxInd;
+
+	float scale;
+};
+
+
+/* Currently, the edge sorter is disabled. It doesn't really help much,
+ * and it's very slow with our horrible qsort implementation. */
 #if 0
 static int edge_sorter_high_scanline(const void * a, const void * b) {
 	const struct TT_Edge * left  = a;
@@ -97,25 +121,22 @@ static float edge_at(float y, struct TT_Edge * edge) {
 	return edge->start.x + u * (edge->end.x - edge->start.x);
 }
 
-/**
- * FIXME: This spans the whole context; it should use the path's bounding box...
- */
 void tt_path_paint(gfx_context_t * ctx, struct TT_Shape * shape, uint32_t color) {
 	size_t size = shape->edgeCount;
 	struct TT_Edge * intersects = malloc(sizeof(struct TT_Edge) * size);
 	struct TT_Intersection * crosses = malloc(sizeof(struct TT_Intersection) * size);
-	float * subsamples = malloc(sizeof(float) * ctx->width);
 
-	size_t subsample_width = shape->lastX - shape->startX + 1;
+	size_t subsample_width = shape->lastX - shape->startX;
+	float * subsamples = malloc(sizeof(float) * subsample_width);
 	memset(subsamples, 0, sizeof(float) * subsample_width);
 
-	/* We have sorted by the scanline at which the line becomes active, so we should be able to do this... */
+	int startY = shape->startY < 0 ? 0 : shape->startY;
+	int endY = shape->lastY <= ctx->height ? shape->lastY : ctx->height;
+
 	int yres = 4;
-	for (int y = shape->startY; y < shape->lastY; ++y) {
+	for (int y = startY; y < endY; ++y) {
 		/* Figure out which ones fit here */
 		float _y = y;
-		int start_x = ctx->width;
-		int max_x = 0;
 		for (int l = 0; l < yres; ++l) {
 			size_t cnt = prune_edges(size, _y, shape->edges, intersects);
 			if (cnt) {
@@ -128,12 +149,9 @@ void tt_path_paint(gfx_context_t * ctx, struct TT_Shape * shape, uint32_t color)
 				/* Now sort the intersections */
 				sort_intersections(cnt, crosses);
 
-				if (crosses[0].x < start_x) start_x = crosses[0].x;
-				if (crosses[cnt-1].x+1 > max_x) max_x = crosses[cnt-1].x+1;
-
 				int wind = 0;
 				size_t j = 0;
-				for (int x = 0; x < ctx->width && j < cnt; ++x) {
+				for (int x = shape->startX; x < shape->lastX && j < cnt; ++x) {
 					while (j < cnt && x > crosses[j].x) {
 						wind += crosses[j].affect;
 						j++;
@@ -154,9 +172,8 @@ void tt_path_paint(gfx_context_t * ctx, struct TT_Shape * shape, uint32_t color)
 			}
 			_y += 1.0/(float)yres;
 		}
-		if (start_x < 0) start_x = 0;
-		for (int x = start_x; x < max_x && x < ctx->width; ++x) {
-			if (x < 0 || y < 0 || x >= ctx->width || y >= ctx->height) return;
+		for (int x = shape->startX; x < shape->lastX && x < ctx->width; ++x) {
+			if (x < 0 || y < 0 || x >= ctx->width || y >= ctx->height) continue;
 			#ifdef __toaru__
 			unsigned int c = subsamples[x - shape->startX] / (float)yres * (float)_ALP(color);
 			uint32_t nc = premultiply((color & 0xFFFFFF) | ((c & 0xFF) << 24));
@@ -266,29 +283,6 @@ struct TT_Shape * tt_contour_finish(struct TT_Contour * in) {
 
 	return tmp;
 }
-
-/**
- * Opaque data struct.
- */
-struct TT_Font {
-	int privFlags;
-	FILE * filePtr;
-	uint8_t * buffer;
-	uint8_t * memPtr;
-
-	struct TT_Table head_ptr;
-	struct TT_Table cmap_ptr;
-	struct TT_Table loca_ptr;
-	struct TT_Table glyf_ptr;
-	struct TT_Table hhea_ptr;
-	struct TT_Table hmtx_ptr;
-
-	off_t cmap_start;
-
-	size_t cmap_maxInd;
-
-	float scale;
-};
 
 static inline int tt_seek(struct TT_Font * font, off_t offset) {
 	if (font->privFlags & 1) {
@@ -666,6 +660,10 @@ static int tt_font_load(struct TT_Font * font) {
 				font->hmtx_ptr.offset = offset;
 				font->hmtx_ptr.length = length;
 				break;
+			case 0x6e616d65: /* name */
+				font->name_ptr.offset = offset;
+				font->name_ptr.length = length;
+				break;
 		}
 	}
 
@@ -776,4 +774,84 @@ void tt_draw_string_shadow(gfx_context_t * ctx, struct TT_Font * font, char * st
 	draw_sprite(ctx, _tmp_s, left - blur, top - blur);
 	sprite_free(_tmp_s);
 	tt_draw_string(ctx, font, left, top + font_size, string, text_color);
+}
+
+static int to_eight(uint32_t codepoint, char * out) {
+	memset(out, 0x00, 7);
+
+	if (codepoint < 0x0080) {
+		out[0] = (char)codepoint;
+	} else if (codepoint < 0x0800) {
+		out[0] = 0xC0 | (codepoint >> 6);
+		out[1] = 0x80 | (codepoint & 0x3F);
+	} else if (codepoint < 0x10000) {
+		out[0] = 0xE0 | (codepoint >> 12);
+		out[1] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[2] = 0x80 | (codepoint & 0x3F);
+	} else if (codepoint < 0x200000) {
+		out[0] = 0xF0 | (codepoint >> 18);
+		out[1] = 0x80 | ((codepoint >> 12) & 0x3F);
+		out[2] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[3] = 0x80 | ((codepoint) & 0x3F);
+	} else if (codepoint < 0x4000000) {
+		out[0] = 0xF8 | (codepoint >> 24);
+		out[1] = 0x80 | (codepoint >> 18);
+		out[2] = 0x80 | ((codepoint >> 12) & 0x3F);
+		out[3] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[4] = 0x80 | ((codepoint) & 0x3F);
+	} else {
+		out[0] = 0xF8 | (codepoint >> 30);
+		out[1] = 0x80 | ((codepoint >> 24) & 0x3F);
+		out[2] = 0x80 | ((codepoint >> 18) & 0x3F);
+		out[3] = 0x80 | ((codepoint >> 12) & 0x3F);
+		out[4] = 0x80 | ((codepoint >> 6) & 0x3F);
+		out[5] = 0x80 | ((codepoint) & 0x3F);
+	}
+
+	return strlen(out);
+}
+
+
+char * tt_get_name_string(struct TT_Font * font, int identifier) {
+	if (!font->name_ptr.offset) return NULL;
+
+	tt_seek(font, font->name_ptr.offset);
+	uint16_t nameFormat = tt_read_16(font);
+	uint16_t count = tt_read_16(font);
+	uint16_t stringOffset = tt_read_16(font);
+
+	if (nameFormat != 0) return NULL; /* Unsupported table format */
+
+	/* Read records until we find one that matches what we asked for, in a suitable format */
+	for (unsigned int i = 0; i < count; ++i) {
+		uint16_t platformId = tt_read_16(font);
+		uint16_t platformSpecificId = tt_read_16(font);
+		/* uint16_t languageId = */ tt_read_16(font);
+		uint16_t nameId = tt_read_16(font);
+		uint16_t length = tt_read_16(font);
+		uint16_t offset = tt_read_16(font);
+
+		if (nameId != identifier) continue;
+		if (!(platformId == 3 && platformSpecificId == 1)) continue;
+
+		char * tmp = calloc(length * 3 + 1,1); /* Should be enough ? */
+		char * c = tmp;
+
+		tt_seek(font, stringOffset + offset + font->name_ptr.offset);
+
+		for (unsigned int j = 0; j < length; j += 2) {
+			uint32_t cp = tt_read_16(font);
+			if (cp > 0xD7FF && cp < 0xE000) {
+				uint32_t highBits = cp - 0xD800;
+				uint32_t lowBits = tt_read_16(font) - 0xDC00;
+				cp = 0x10000 + (highBits << 10) + lowBits;
+				j += 2;
+			}
+			c += to_eight(cp, c);
+		}
+
+		return tmp;
+	}
+
+	return NULL;
 }

@@ -650,6 +650,7 @@ static void load_directory(const char * path, int modifies_history) {
 						/* TODO: Font viewer for SDF and TrueType */
 					} else if (has_extension(f, ".ttf")) {
 						sprintf(f->icon, "font");
+						sprintf(f->launcher,"exec font-preview");
 						sprintf(f->filetype, "TrueType Font");
 					} else if (has_extension(f, ".tgz") || has_extension(f, ".tar.gz")) {
 						sprintf(f->icon, "package_targz");
