@@ -43,6 +43,8 @@ struct TT_Shape {
 	size_t edgeCount;
 	int lastY;
 	int startY;
+	int lastX;
+	int startX;
 	struct TT_Edge edges[];
 };
 
@@ -103,7 +105,9 @@ void tt_path_paint(gfx_context_t * ctx, struct TT_Shape * shape, uint32_t color)
 	struct TT_Edge * intersects = malloc(sizeof(struct TT_Edge) * size);
 	struct TT_Intersection * crosses = malloc(sizeof(struct TT_Intersection) * size);
 	float * subsamples = malloc(sizeof(float) * ctx->width);
-	memset(subsamples, 0, sizeof(float) * ctx->width);
+
+	size_t subsample_width = shape->lastX - shape->startX + 1;
+	memset(subsamples, 0, sizeof(float) * subsample_width);
 
 	/* We have sorted by the scanline at which the line becomes active, so we should be able to do this... */
 	int yres = 4;
@@ -137,14 +141,14 @@ void tt_path_paint(gfx_context_t * ctx, struct TT_Shape * shape, uint32_t color)
 					float last = x;
 					while (j < cnt && (x+1) > crosses[j].x) {
 						if (wind != 0) {
-							subsamples[x] += crosses[j].x - last;
+							subsamples[x - shape->startX] += crosses[j].x - last;
 						}
 						last = crosses[j].x;
 						wind += crosses[j].affect;
 						j++;
 					}
 					if (wind != 0) {
-						subsamples[x] += (x+1) - last;
+						subsamples[x - shape->startX] += (x+1) - last;
 					}
 				}
 			}
@@ -154,14 +158,14 @@ void tt_path_paint(gfx_context_t * ctx, struct TT_Shape * shape, uint32_t color)
 		for (int x = start_x; x < max_x && x < ctx->width; ++x) {
 			if (x < 0 || y < 0 || x >= ctx->width || y >= ctx->height) return;
 			#ifdef __toaru__
-			unsigned int c = subsamples[x] / (float)yres * (float)_ALP(color);
+			unsigned int c = subsamples[x - shape->startX] / (float)yres * (float)_ALP(color);
 			uint32_t nc = premultiply((color & 0xFFFFFF) | ((c & 0xFF) << 24));
 			GFX(ctx, x, y) = alpha_blend_rgba(GFX(ctx, x, y), nc);
 			#else
-			unsigned int c = subsamples[x] / (float)yres * 255;
+			unsigned int c = subsamples[x - shape->startX] / (float)yres * 255;
 			draw_pixel(x,y,alpha_blend(get_pixel(x,y), color, c));
 			#endif
-			subsamples[x] = 0;
+			subsamples[x - shape->startX] = 0;
 		}
 	}
 
@@ -248,10 +252,17 @@ struct TT_Shape * tt_contour_finish(struct TT_Contour * in) {
 	tmp->edgeCount = size;
 	tmp->startY = 1000000;
 	tmp->lastY = 0;
+	tmp->startX = 1000000;
+	tmp->lastX = 0;
 	for (size_t i = 0; i < size; ++i) {
 		if (tmp->edges[i].end.y + 1 > tmp->lastY) tmp->lastY = tmp->edges[i].end.y + 1;
 		if (tmp->edges[i].start.y < tmp->startY) tmp->startY = tmp->edges[i].start.y;
+		if (tmp->edges[i].end.x + 1 > tmp->lastX) tmp->lastX = tmp->edges[i].end.x + 1;
+		if (tmp->edges[i].start.x < tmp->startX) tmp->startX = tmp->edges[i].start.x;
 	}
+
+	if (tmp->lastY < tmp->startY) tmp->startY = tmp->lastY;
+	if (tmp->lastX < tmp->startX) tmp->startX = tmp->lastX;
 
 	return tmp;
 }
