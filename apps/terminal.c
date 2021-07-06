@@ -1097,6 +1097,10 @@ static void term_shift_region(int top, int height, int how_much) {
 		}
 	}
 
+	l_x = 0; l_y = 0;
+	r_x = window->width;
+	r_y = window->height;
+
 	/* Clear new lines at bottom */
 	for (int i = new_top; i < new_bottom; ++i) {
 		for (uint16_t x = 0; x < term_width; ++x) {
@@ -2140,7 +2144,7 @@ static void _menu_action_toggle_free_size(struct MenuEntry * self) {
 
 static void _menu_action_show_about(struct MenuEntry * self) {
 	char about_cmd[1024] = "\0";
-	strcat(about_cmd, "about \"About Terminal\" /usr/share/icons/48/utilities-terminal.png \"ToaruOS Terminal\" \"(C) 2013-2020 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaruos\" ");
+	strcat(about_cmd, "about \"About Terminal\" /usr/share/icons/48/utilities-terminal.png \"ToaruOS Terminal\" \"© 2013-2021 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaruos\" ");
 	char coords[100];
 	sprintf(coords, "%d %d &", (int)window->x + (int)window->width / 2, (int)window->y + (int)window->height / 2);
 	strcat(about_cmd, coords);
