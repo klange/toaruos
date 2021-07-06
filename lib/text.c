@@ -274,7 +274,7 @@ struct TT_Shape * tt_contour_finish(struct TT_Contour * in) {
 	for (size_t i = 0; i < size; ++i) {
 		if (tmp->edges[i].end.y + 1 > tmp->lastY) tmp->lastY = tmp->edges[i].end.y + 1;
 		if (tmp->edges[i].start.y < tmp->startY) tmp->startY = tmp->edges[i].start.y;
-		if (tmp->edges[i].end.x + 1 > tmp->lastX) tmp->lastX = tmp->edges[i].end.x + 1;
+		if (tmp->edges[i].end.x + 2 > tmp->lastX) tmp->lastX = tmp->edges[i].end.x + 2;
 		if (tmp->edges[i].start.x < tmp->startX) tmp->startX = tmp->edges[i].start.x;
 	}
 
