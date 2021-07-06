@@ -33,9 +33,9 @@
 #include <toaru/graphics.h>
 #include <toaru/hashmap.h>
 #include <toaru/spinlock.h>
-#include <toaru/sdf.h>
 #include <toaru/icon_cache.h>
 #include <toaru/menu.h>
+#include <toaru/text.h>
 #include <kernel/mod/sound.h>
 
 #define PANEL_HEIGHT 36
@@ -100,6 +100,11 @@ static char * bg_blob;
 
 static int width;
 static int height;
+
+static struct TT_Font * font = NULL;
+static struct TT_Font * font_bold = NULL;
+static struct TT_Font * font_mono = NULL;
+static struct TT_Font * font_mono_bold = NULL;
 
 static int widgets_width = 0;
 static int widgets_volume_enabled = 0;
@@ -800,8 +805,9 @@ static void redraw_altf2(void) {
 	draw_fill(a2ctx, 0);
 	draw_rounded_rectangle(a2ctx,0,0, ALTF2_WIDTH, ALTF2_HEIGHT, 10, ALTTAB_BACKGROUND);
 
-	int t = draw_sdf_string_width(altf2_buffer, 22, SDF_FONT_THIN);
-	draw_sdf_string(a2ctx, center_x_a2(t), 60, altf2_buffer, 22, rgb(255,255,255), SDF_FONT_THIN);
+	tt_set_size(font, 20);
+	int t = tt_string_width(font, altf2_buffer);
+	tt_draw_string(a2ctx, font, center_x_a2(t), 80, altf2_buffer, rgb(255,255,255));
 
 	flip(a2ctx);
 	yutani_flip(yctx, alt_f2);
@@ -824,9 +830,9 @@ static void redraw_alttab(void) {
 			draw_sprite_scaled(actx, icon, center_x_a(48), ALTTAB_OFFSET, 48, 48);
 		}
 
-		int t = draw_sdf_string_width(ad->name, 18, SDF_FONT_THIN);
-
-		draw_sdf_string(actx, center_x_a(t), 12+ALTTAB_OFFSET+40, ad->name, 18, rgb(255,255,255), SDF_FONT_THIN);
+		tt_set_size(font, 16);
+		int t = tt_string_width(font, ad->name);
+		tt_draw_string(actx, font, center_x_a(t), 12 + ALTTAB_OFFSET + 40 + 16, ad->name, rgb(255,255,255));
 	}
 
 	flip(actx);
@@ -1017,30 +1023,35 @@ static void redraw(void) {
 
 	/* Hours : Minutes : Seconds */
 	strftime(buffer, 80, "%H:%M:%S", timeinfo);
-	draw_sdf_string(ctx, width - TIME_LEFT, 3 + Y_PAD, buffer, 20, clockmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_THIN);
+	tt_set_size(font, 18);
+	tt_draw_string(ctx, font, width - TIME_LEFT, 3 + Y_PAD + 17, buffer, clockmenu->window ? HILIGHT_COLOR : txt_color);
 
 	/* Day-of-week */
 	strftime(buffer, 80, "%A", timeinfo);
-	t = draw_sdf_string_width(buffer, 12, SDF_FONT_THIN);
+	tt_set_size(font, 11);
+	t = tt_string_width(font, buffer);
 	t = (DATE_WIDTH - t) / 2;
-	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 2 + Y_PAD, buffer, 12, calmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_THIN);
+	tt_draw_string(ctx, font, width - TIME_LEFT - DATE_WIDTH + t, 2 + Y_PAD + 11, buffer,  calmenu->window ? HILIGHT_COLOR : txt_color);
 
 	/* Month Day */
 	strftime(buffer, 80, "%h %e", timeinfo);
-	t = draw_sdf_string_width(buffer, 12, SDF_FONT_BOLD);
+	tt_set_size(font_bold, 11);
+	t = tt_string_width(font_bold, buffer);
 	t = (DATE_WIDTH - t) / 2;
-	draw_sdf_string(ctx, width - TIME_LEFT - DATE_WIDTH + t, 12 + Y_PAD, buffer, 12, calmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_BOLD);
+	tt_draw_string(ctx, font_bold, width - TIME_LEFT - DATE_WIDTH + t, 12 + Y_PAD + 11, buffer,  calmenu->window ? HILIGHT_COLOR : txt_color);
 
 	/* Applications menu */
-	draw_sdf_string(ctx, 8, 3 + Y_PAD, "Applications", 20, appmenu->window ? HILIGHT_COLOR : txt_color, SDF_FONT_THIN);
+	tt_set_size(font, 18);
+	tt_draw_string(ctx, font, 12, 3 + Y_PAD + 17, "Applications", appmenu->window ? HILIGHT_COLOR : txt_color);
 
 	/* Draw each widget */
 	int widget = 0;
 	/* Weather */
 	if (widgets_weather_enabled) {
 		uint32_t color = (weather && weather->window) ? HILIGHT_COLOR : ICON_COLOR;
-		int t = draw_sdf_string_width(weather_temp_str, 15, SDF_FONT_THIN);
-		draw_sdf_string(ctx, WIDGET_POSITION(widget) + (WIDGET_WIDTH - t) / 2, 5 + Y_PAD, weather_temp_str, 15, color, SDF_FONT_THIN);
+		tt_set_size(font, 12);
+		int t = tt_string_width(font, weather_temp_str);
+		tt_draw_string(ctx, font, WIDGET_POSITION(widget) + (WIDGET_WIDTH - t) / 2, 5 + Y_PAD + 12, weather_temp_str, color);
 		draw_sprite_alpha_paint(ctx, weather_icon, WIDGET_POSITION(widget+1), ICON_Y_PAD, 1.0, color);
 		widget += 2;
 	}
@@ -1095,7 +1106,8 @@ static void redraw(void) {
 					if (!ad->name[i]) break;
 				}
 
-				while (draw_sdf_string_width(tmp_title, 16, SDF_FONT_THIN) > title_width - ICON_PADDING) {
+				tt_set_size(font, 14);
+				while (tt_string_width(font, tmp_title) > title_width - ICON_PADDING) {
 					t_l--;
 					tmp_title[t_l] = '.';
 					tmp_title[t_l+1] = '.';
@@ -1143,7 +1155,8 @@ static void redraw(void) {
 				gfx_context_t * _tmp = init_graphics_sprite(_tmp_s);
 
 				draw_fill(_tmp, rgba(0,0,0,0));
-				draw_sdf_string(_tmp, 0, 0, s, 16, rgb(0,0,0), SDF_FONT_THIN);
+				tt_set_size(font, 14);
+				tt_draw_string(_tmp, font, 0, 14, s, rgb(0,0,0));
 				blur_context_box(_tmp, 4);
 
 				free(_tmp);
@@ -1154,18 +1167,18 @@ static void redraw(void) {
 
 			if (title_width > MIN_TEXT_WIDTH) {
 				/* Then draw the window title, with appropriate color */
+				uint32_t color;
 				if (j == focused_app) {
 					/* Current hilighted - title should be a light blue */
-					draw_sdf_string(ctx, APP_OFFSET + i + 2, TEXT_Y_OFFSET + 2, s, 16, HILIGHT_COLOR, SDF_FONT_THIN);
+					color = HILIGHT_COLOR;
 				} else {
 					if (ad->flags & 1) {
-						/* Top window should be white */
-						draw_sdf_string(ctx, APP_OFFSET + i + 2, TEXT_Y_OFFSET + 2, s, 16, FOCUS_COLOR, SDF_FONT_THIN);
+						color = FOCUS_COLOR;
 					} else {
-						/* Otherwise, off white */
-						draw_sdf_string(ctx, APP_OFFSET + i + 2, TEXT_Y_OFFSET + 2, s, 16, txt_color, SDF_FONT_THIN);
+						color = txt_color;
 					}
 				}
+				tt_draw_string(ctx, font, APP_OFFSET + i + 2, TEXT_Y_OFFSET + 2 + 14, s, color);
 			}
 
 			/* XXX This keeps track of how far left each window list item is
@@ -1489,7 +1502,8 @@ void _menu_draw_MenuEntry_Calendar(gfx_context_t * ctx, struct MenuEntry * self,
 	/* Go through each and draw with monospace font */
 	for (int i = 0; i < 9; ++i) {
 		if (lines[i][0] != 0) {
-			draw_sdf_string(ctx, 10, self->offset + i * 17, lines[i], 16, rgb(0,0,0), i == 0 ? SDF_FONT_MONO_BOLD : SDF_FONT_MONO);
+			tt_set_size(i == 0 ? font_mono_bold : font_mono, 13);
+			tt_draw_string(ctx, i == 0 ? font_mono_bold : font_mono, 10, self->offset + i * 17 + 13, lines[i], rgb(0,0,0));
 		}
 	}
 }
@@ -1502,7 +1516,8 @@ struct MenuEntry * menu_create_calendar(void) {
 
 	out->_type = -1; /* Special */
 	out->height = 16 * 9 + 8;
-	out->rwidth = draw_sdf_string_width("XX XX XX XX XX XX XX", 16, SDF_FONT_MONO) + 20;
+	tt_set_size(font_mono, 13);
+	out->rwidth = tt_string_width(font_mono, "XX XX XX XX XX XX XX") + 20;
 	out->renderer = _menu_draw_MenuEntry_Calendar;
 	return out;
 }
@@ -1521,6 +1536,11 @@ int main (int argc, char ** argv) {
 
 	/* Connect to window server */
 	yctx = yutani_init();
+
+	font = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+	font_bold = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
+	font_mono = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf");
+	font_mono_bold = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf");
 
 	/* For convenience, store the display size */
 	width  = yctx->display_width;

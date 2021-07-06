@@ -17,7 +17,6 @@
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
-#include <toaru/sdf.h>
 #include <toaru/hashmap.h>
 #include <toaru/list.h>
 #include <toaru/icon_cache.h>
@@ -43,25 +42,10 @@ static struct MenuList * hovered_menu = NULL;
 
 int menu_definitely_close(struct MenuList * menu);
 
-/** Freetype extension renderer functions */
-static int _have_freetype = 0;
-static void (*freetype_set_font_face)(int face) = NULL;
-static void (*freetype_set_font_size)(int size) = NULL;
-static int (*freetype_draw_string)(gfx_context_t * ctx, int x, int y, uint32_t fg, const char * s) = NULL;
-static int (*freetype_draw_string_width)(char * s) = NULL;
-
 __attribute__((constructor))
 static void _init_menus(void) {
 	menu_windows = hashmap_create_int(10);
 	_tt_font = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
-	void * freetype = dlopen("libtoaru_ext_freetype_fonts.so", 0);
-	if (freetype) {
-		_have_freetype = 1;
-		freetype_set_font_face = dlsym(freetype, "freetype_set_font_face");
-		freetype_set_font_size = dlsym(freetype, "freetype_set_font_size");
-		freetype_draw_string   = dlsym(freetype, "freetype_draw_string");
-		freetype_draw_string_width = dlsym(freetype, "freetype_draw_string_width");
-	}
 }
 
 hashmap_t * menu_get_windows_hash(void) {
@@ -69,27 +53,13 @@ hashmap_t * menu_get_windows_hash(void) {
 }
 
 static int string_width(const char * s) {
-	if (_have_freetype) {
-		freetype_set_font_face(0); /* regular non-monospace */
-		freetype_set_font_size(13);
-		return freetype_draw_string_width((char *)s);
-	} else {
-		tt_set_size(_tt_font, 13);
-		return tt_string_width(_tt_font, s);
-		//return draw_sdf_string_width((char *)s, 16, SDF_FONT_THIN);
-	}
+	tt_set_size(_tt_font, 13);
+	return tt_string_width(_tt_font, s);
 }
 
 static int draw_string(gfx_context_t * ctx, int x, int y, uint32_t color, const char * s) {
-	if (_have_freetype) {
-		freetype_set_font_face(0); /* regular non-monospace */
-		freetype_set_font_size(13);
-		return freetype_draw_string(ctx, x+2, y + 13 /* I think? */, color, s);
-	} else {
-		tt_set_size(_tt_font, 13);
-		return tt_draw_string(ctx, _tt_font, x, y + 13, s, color);
-		//return draw_sdf_string(ctx, x, y, s, 16, color, SDF_FONT_THIN);
-	}
+	tt_set_size(_tt_font, 13);
+	return tt_draw_string(ctx, _tt_font, x, y + 13, s, color);
 }
 
 void _menu_draw_MenuEntry_Normal(gfx_context_t * ctx, struct MenuEntry * self, int offset) {

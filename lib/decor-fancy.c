@@ -14,7 +14,6 @@
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
-#include <toaru/sdf.h>
 #include <toaru/text.h>
 
 #define INACTIVE 10
@@ -34,12 +33,6 @@ static sprite_t * sprites[20];
 
 #define TEXT_OFFSET ((window->decorator_flags & DECOR_FLAG_TILED) ? 5 : 10)
 #define BUTTON_OFFSET ((window->decorator_flags & DECOR_FLAG_TILED) ? 5 : 0)
-
-static int _have_freetype = 0;
-static void (*freetype_set_font_face)(int face) = NULL;
-static void (*freetype_set_font_size)(int size) = NULL;
-static int (*freetype_draw_string)(gfx_context_t * ctx, int x, int y, uint32_t fg, const char * s) = NULL;
-static int (*freetype_draw_string_width)(char * s) = NULL;
 
 static void init_sprite(int id, char * path) {
 	sprites[id] = malloc(sizeof(sprite_t));
@@ -148,46 +141,17 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 #define EXTRA_SPACE 120
 
 	uint32_t title_color = (decors_active == 0) ? rgb(226,226,226) : rgb(147,147,147);
-	if (_have_freetype) {
-		freetype_set_font_face(1); /* regular non-monospace */
-		freetype_set_font_size(12);
-		if (freetype_draw_string_width(tmp_title) + EXTRA_SPACE > width) {
-			while (t_l >= 0 && (freetype_draw_string_width(tmp_title) + EXTRA_SPACE > width)) {
-				tmp_title[t_l] = '\0';
-				t_l--;
-			}
+	tt_set_size(_tt_font, 12);
+	if (tt_string_width(_tt_font, tmp_title) + EXTRA_SPACE > width) {
+		while (t_l >= 0 && (tt_string_width(_tt_font, tmp_title) + EXTRA_SPACE > width)) {
+			tmp_title[t_l] = '\0';
+			t_l--;
 		}
-		if (*tmp_title) {
-			int title_offset = (width / 2) - (freetype_draw_string_width(tmp_title) / 2);
-			freetype_draw_string(ctx, title_offset, TEXT_OFFSET + 14, title_color, tmp_title);
-		}
-	} else {
-		tt_set_size(_tt_font, 12);
-		if (tt_string_width(_tt_font, tmp_title) + EXTRA_SPACE > width) {
-			while (t_l >= 0 && (tt_string_width(_tt_font, tmp_title) + EXTRA_SPACE > width)) {
-				tmp_title[t_l] = '\0';
-				t_l--;
-			}
-		}
+	}
 
-		if (*tmp_title) {
-			int title_offset = (width / 2) - (tt_string_width(_tt_font, tmp_title) / 2);
-			tt_draw_string(ctx, _tt_font, title_offset, TEXT_OFFSET + 14, tmp_title, title_color);
-		}
-#if 0
-#define TEXT_SIZE 15
-		if (draw_sdf_string_width(tmp_title, TEXT_SIZE, SDF_FONT_BOLD) + EXTRA_SPACE > width) {
-			while (t_l >= 0 && (draw_sdf_string_width(tmp_title, TEXT_SIZE, SDF_FONT_BOLD) + EXTRA_SPACE > width)) {
-				tmp_title[t_l] = '\0';
-				t_l--;
-			}
-		}
-
-		if (*tmp_title) {
-			int title_offset = (width / 2) - (draw_sdf_string_width(tmp_title, TEXT_SIZE, SDF_FONT_BOLD) / 2);
-			draw_sdf_string(ctx, title_offset, TEXT_OFFSET+2, tmp_title, TEXT_SIZE, title_color, SDF_FONT_BOLD);
-		}
-#endif
+	if (*tmp_title) {
+		int title_offset = (width / 2) - (tt_string_width(_tt_font, tmp_title) / 2);
+		tt_draw_string(ctx, _tt_font, title_offset, TEXT_OFFSET + 14, tmp_title, title_color);
 	}
 
 	free(tmp_title);
@@ -243,14 +207,5 @@ void decor_init() {
 	decor_get_bounds = get_bounds_fancy;
 
 	_tt_font = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
-
-	void * freetype = dlopen("libtoaru_ext_freetype_fonts.so", 0);
-	if (freetype) {
-		_have_freetype = 1;
-		freetype_set_font_face = dlsym(freetype, "freetype_set_font_face");
-		freetype_set_font_size = dlsym(freetype, "freetype_set_font_size");
-		freetype_draw_string   = dlsym(freetype, "freetype_draw_string");
-		freetype_draw_string_width = dlsym(freetype, "freetype_draw_string_width");
-	}
 }
 

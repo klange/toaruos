@@ -7,8 +7,10 @@
  */
 #include <toaru/graphics.h>
 #include <toaru/button.h>
-#include <toaru/sdf.h>
+#include <toaru/text.h>
 #include <toaru/icon_cache.h>
+
+static struct TT_Font * _tt_font_thin = NULL;
 
 void ttk_button_draw(gfx_context_t * ctx, struct TTKButton * button) {
 	if (button->width == 0) {
@@ -41,11 +43,15 @@ void ttk_button_draw(gfx_context_t * ctx, struct TTKButton * button) {
 	}
 
 	if (button->title[0] != '\033') {
-		int label_width = draw_sdf_string_width(button->title, 16, SDF_FONT_THIN);
+		if (!_tt_font_thin) {
+			_tt_font_thin = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+		}
+		tt_set_size(_tt_font_thin, 13);
+		int label_width = tt_string_width(_tt_font_thin, button->title);
 		int centered = (button->width - label_width) / 2;
 
 		int centered_y = (button->height - 16) / 2;
-		draw_sdf_string(ctx, button->x + centered + (hilight == 2), button->y + centered_y + (hilight == 2), button->title, 16, disabled ? rgb(120,120,120) : rgb(0,0,0), SDF_FONT_THIN);
+		tt_draw_string(ctx, _tt_font_thin, button->x + centered + (hilight == 2), button->y + centered_y + (hilight == 2) + 13, button->title, disabled ? rgb(120,120,120) : rgb(0,0,0));
 	} else {
 		sprite_t * icon = icon_get_16(button->title+1);
 		int centered = button->x + (button->width - icon->width) / 2 + (hilight == 2);

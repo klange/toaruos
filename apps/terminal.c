@@ -69,7 +69,6 @@ static void usage(char * argv[]) {
 			" -x --grid       \033[3mMake resizes round to nearest match for character cell size.\033[0m\n"
 			" -n --no-frame   \033[3mDisable decorations.\033[0m\n"
 			" -g --geometry   \033[3mSet requested terminal size WIDTHxHEIGHT\033[0m\n"
-			" -f --no-ft      \033[3mForce disable the freetype backend.\033[0m\n"
 			"\n"
 			" This terminal emulator provides basic support for VT220 escapes and\n"
 			" XTerm extensions, including 256 color support and font effects.\n",
@@ -83,7 +82,6 @@ static pid_t child_pid = 0;
 
 static int      scale_fonts    = 0;    /* Whether fonts should be scaled */
 static float    font_scaling   = 1.0;  /* How much they should be scaled by */
-static float    font_gamma     = 1.7;  /* Gamma to use for SDF library */
 static uint16_t term_width     = 0;    /* Width of the terminal (in cells) */
 static uint16_t term_height    = 0;    /* Height of the terminal (in cells) */
 static uint16_t font_size      = 16;   /* Font size according to SDF library */
@@ -109,19 +107,12 @@ static bool cursor_on      = 1;    /* Whether or not the cursor should be render
 static bool _fullscreen    = 0;    /* Whether or not we are running in fullscreen mode (GUI only) */
 static bool _no_frame      = 0;    /* Whether to disable decorations or not */
 static bool _use_aa        = 1;    /* Whether or not to use best-available anti-aliased renderer */
-static bool _have_freetype = 0;    /* Whether freetype is available */
-static bool _force_no_ft   = 0;    /* Whether to force disable the freetype backend */
 static bool _free_size     = 1;    /* Disable rounding when resized */
 
 static struct TT_Font * _tt_font_normal = NULL;
 static struct TT_Font * _tt_font_bold = NULL;
 static struct TT_Font * _tt_font_oblique = NULL;
 static struct TT_Font * _tt_font_bold_oblique = NULL;
-
-/** Freetype extension renderer functions */
-static void (*freetype_set_font_face)(int face) = NULL;
-static void (*freetype_set_font_size)(int size) = NULL;
-static void (*freetype_draw_char)(gfx_context_t * ctx, int x, int y, uint32_t fg, uint32_t codepoint) = NULL;
 
 static list_t * images_list = NULL;
 
@@ -689,7 +680,7 @@ static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, u
 	}
 
 	/* Draw glyphs */
-	if (_use_aa && !_have_freetype) {
+	if (_use_aa) {
 		if (val == 0xFFFF) return;
 		for (uint8_t i = 0; i < char_height; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
@@ -715,7 +706,7 @@ static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, u
 			_font = _tt_font_oblique;
 		}
 		unsigned int glyph = tt_glyph_for_codepoint(_font, val);
-		tt_set_size(_font, char_offset);
+		tt_set_size(_font, font_size);
 		int _x = x;
 		int _y = y + char_offset;
 		if (!_no_frame) {
@@ -723,44 +714,6 @@ static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, u
 			_y += decor_top_height + menu_bar_height;
 		}
 		tt_draw_glyph(ctx, _font, _x, _y, glyph, _fg);
-	} else if (_use_aa && _have_freetype) {
-		/* Draw using freetype extension */
-		if (val == 0xFFFF) { return; } /* Unicode, do not redraw here */
-		for (uint8_t i = 0; i < char_height; ++i) {
-			for (uint8_t j = 0; j < char_width; ++j) {
-				term_set_point(x+j,y+i,_bg);
-			}
-		}
-		if (flags & ANSI_WIDE) {
-			for (uint8_t i = 0; i < char_height; ++i) {
-				for (uint8_t j = char_width; j < 2 * char_width; ++j) {
-					term_set_point(x+j,y+i,_bg);
-				}
-			}
-		}
-		if (val < 32 || val == ' ') {
-			goto _extra_stuff;
-		}
-
-#define FONT_MONOSPACE              4
-#define FONT_MONOSPACE_BOLD         5
-#define FONT_MONOSPACE_ITALIC       6
-#define FONT_MONOSPACE_BOLD_ITALIC  7
-		int _font = FONT_MONOSPACE;
-		if (flags & ANSI_BOLD && flags & ANSI_ITALIC) {
-			_font = FONT_MONOSPACE_BOLD_ITALIC;
-		} else if (flags & ANSI_ITALIC) {
-			_font = FONT_MONOSPACE_ITALIC;
-		} else if (flags & ANSI_BOLD) {
-			_font = FONT_MONOSPACE_BOLD;
-		}
-		freetype_set_font_face(_font);
-		freetype_set_font_size(font_size);
-		if (_no_frame) {
-			freetype_draw_char(ctx, x, y + char_offset, _fg, val);
-		} else {
-			freetype_draw_char(ctx, x + decor_left_width, y + char_offset + decor_top_height + menu_bar_height, _fg, val);
-		}
 	} else {
 		/* Convert other unicode characters. */
 		if (val > 128) {
@@ -1791,25 +1744,12 @@ static term_cell_t * copy_terminal(int old_width, int old_height, term_cell_t * 
 static void reinit(void) {
 
 	/* Figure out character sizes if fonts have changed. */
-	if (_use_aa && !_have_freetype) {
+	if (_use_aa) {
 		char_width = 9;
 		char_height = 17;
-		font_size = 16;
+		font_size = 13;
 		char_offset = 13;
 		if (scale_fonts) {
-			font_size   *= font_scaling;
-			char_height *= font_scaling;
-			char_width  *= font_scaling;
-			char_offset *= font_scaling;
-		}
-	} else if (_use_aa && _have_freetype) {
-		font_size   = 13;
-		char_height = 17;
-		char_width  = 8;
-		char_offset = 13;
-
-		if (scale_fonts) {
-			/* Recalculate scaling */
 			font_size   *= font_scaling;
 			char_height *= font_scaling;
 			char_width  *= font_scaling;
@@ -2271,9 +2211,6 @@ int main(int argc, char ** argv) {
 			case 'n':
 				_no_frame = 1;
 				break;
-			case 'f':
-				_force_no_ft = 1;
-				break;
 			case 'F':
 				_fullscreen = 1;
 				_no_frame = 1;
@@ -2304,16 +2241,6 @@ int main(int argc, char ** argv) {
 				break;
 			default:
 				break;
-		}
-	}
-
-	if (!_force_no_ft) {
-		void * freetype = dlopen("libtoaru_ext_freetype_fonts.so", 0);
-		if (freetype) {
-			_have_freetype = 1;
-			freetype_set_font_face = dlsym(freetype, "freetype_set_font_face");
-			freetype_set_font_size = dlsym(freetype, "freetype_set_font_size");
-			freetype_draw_char   = dlsym(freetype, "freetype_draw_char");
 		}
 	}
 
