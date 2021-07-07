@@ -30,6 +30,10 @@ Generic hashmap implementation. Also used by the kernel.
 
 Convenience library for loading icons at specific sizes.
 
+## `toaru_inflate`
+
+Decompression library for DEFLATE payloads.
+
 ## `toaru_jpeg`
 
 Minimal, incomplete JPEG decoder. Mostly used for providing wallpapers. Doesn't support most JPEG features.
@@ -54,17 +58,21 @@ Menu widget library. Used for the "Applications" menu, context menus, etc.
 
 Userspace library for using the ToaruOS "packetfs" subsystem, which provides packet-based IPC.
 
+## `toaru_png`
+
+Decoder for Portable Network Graphics images.
+
 ## `toaru_rline`
 
-Replacement for `readline`. Mostly deprecated in favor of `rline_exp`.
-
-## `toaru_rline_exp`
-
-Replacement for `readline`, with support for syntax highlighting.
+Rich line editor for terminal applications, with support for tab completion and syntax highlighting.
 
 ## `toaru_termemu`
 
 Terminal ANSI escape processor.
+
+## `toaru_text`
+
+TrueType font parser and text renderer.
 
 ## `toaru_tree`
 

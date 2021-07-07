@@ -1,3 +1,11 @@
+/**
+ * @brief Toaru Text library - TrueType parser.
+ * @file lib/text.c
+ * @author K. Lange <klange@toaruos.org>
+ *
+ * Implementation of TrueType font file parsing and basic
+ * glyph rendering.
+ */
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
