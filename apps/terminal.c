@@ -113,6 +113,9 @@ static struct TT_Font * _tt_font_bold = NULL;
 static struct TT_Font * _tt_font_oblique = NULL;
 static struct TT_Font * _tt_font_bold_oblique = NULL;
 
+static struct TT_Font * _tt_font_fallback = NULL;
+static struct TT_Font * _tt_font_japanese = NULL;
+
 static list_t * images_list = NULL;
 
 static int menu_bar_height = 24;
@@ -444,7 +447,7 @@ void write_selection(uint16_t x, uint16_t _y) {
 	if (y >= 0) {
 		term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
 		if (!(cell->flags & ANSI_EXT_IMG)) {
-			if (((uint32_t *)cell)[0] != 0x00000000) {
+			if (((uint32_t *)cell)[0] != 0x00000000 && cell->c != 0xFFFF) {
 				char tmp[7];
 				int count = to_eight(cell->c, tmp);
 				for (int i = 0; i < count; ++i) {
@@ -463,7 +466,7 @@ void write_selection(uint16_t x, uint16_t _y) {
 			struct scrollback_row * row = (struct scrollback_row *)node->value;
 			if (row && x < row->width) {
 				term_cell_t * cell = &row->cells[x];
-				if (cell && ((uint32_t *)cell)[0] != 0x00000000) {
+				if (cell && ((uint32_t *)cell)[0] != 0x00000000 && cell->c != 0xFFFF) {
 					char tmp[7];
 					int count = to_eight(cell->c, tmp);
 					for (int i = 0; i < count; ++i) {
@@ -705,6 +708,25 @@ static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, u
 			_font = _tt_font_oblique;
 		}
 		unsigned int glyph = tt_glyph_for_codepoint(_font, val);
+
+		/* Try the regular sans serif font as a fallback */
+		if (!glyph) {
+			int nglyph = tt_glyph_for_codepoint(_tt_font_fallback, val);
+			if (nglyph) {
+				_font = _tt_font_fallback;
+				glyph = nglyph;
+			}
+		}
+
+		/* Try the VL Gothic, if it's installed and this is a reasonably high codepoint */
+		if (!glyph && _tt_font_japanese && val >= 0x2E80) {
+			int nglyph = tt_glyph_for_codepoint(_tt_font_japanese, val);
+			if (nglyph) {
+				_font = _tt_font_japanese;
+				glyph = nglyph;
+			}
+		}
+
 		tt_set_size(_font, font_size);
 		int _x = x;
 		int _y = y + char_offset;
@@ -2251,6 +2273,8 @@ int main(int argc, char ** argv) {
 	_tt_font_bold         = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf");
 	_tt_font_oblique      = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Oblique.ttf");
 	_tt_font_bold_oblique = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-BoldOblique.ttf");
+	_tt_font_fallback     = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+	_tt_font_japanese     = tt_font_from_file("/usr/share/fonts/truetype/vlgothic/VL-Gothic-Regular.ttf"); /* Might not be present */
 
 	/* Initialize the windowing library */
 	yctx = yutani_init();
