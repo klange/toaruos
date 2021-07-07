@@ -486,14 +486,34 @@ static struct TT_Contour * tt_draw_glyph_into(struct TT_Contour * contour, struc
 			if (move_next) {
 				contour = tt_contour_move_to(contour, x, y);
 				if (isCurve) {
-					fprintf(stderr, "*** Warning: Contour starts off curve\n");
+					/* Is the point before this on-curve? */
+					float px = (float)vertices[next_end].x * font->scale + x_offset;
+					float py = (-(float)vertices[next_end].y) * font->scale + y_offset;
+					if (vertices[next_end].flags & (1 << 0)) {
+						/* Else we're just a regular off-curve point? */
+						sx = px;
+						sy = py;
+						lx = px;
+						ly = py;
+					} else {
+						float dx = (px + x) / 2.0;
+						float dy = (py + y) / 2.0;
+						lx = dx;
+						ly = dy;
+						sx = dx;
+						sy = dy;
+					}
+					cx = x;
+					cy = y;
+					wasControl = 1;
+				} else {
+					lx = x;
+					ly = y;
+					sx = x;
+					sy = y;
+					wasControl = 0;
 				}
 				move_next = 0;
-				lx = x;
-				ly = y;
-				sx = x;
-				sy = y;
-				wasControl = 0;
 			} else {
 				if (isCurve) {
 					if (wasControl) {
