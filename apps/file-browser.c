@@ -648,8 +648,7 @@ static void load_directory(const char * path, int modifies_history) {
 						sprintf(f->filetype, "Portable Network Graphics Image");
 					} else if (has_extension(f, ".sdf")) {
 						sprintf(f->icon, "font");
-						sprintf(f->filetype, "SDF Font");
-						/* TODO: Font viewer for SDF and TrueType */
+						sprintf(f->filetype, "Legacy SDF Font");
 					} else if (has_extension(f, ".ttf")) {
 						sprintf(f->icon, "font");
 						sprintf(f->launcher,"exec font-preview");
@@ -657,6 +656,7 @@ static void load_directory(const char * path, int modifies_history) {
 					} else if (has_extension(f, ".tgz") || has_extension(f, ".tar.gz")) {
 						sprintf(f->icon, "package_targz");
 						sprintf(f->filetype, "Compressed Archive File");
+						/* TODO: Archive viewer */
 					} else if (has_extension(f, ".tar")) {
 						sprintf(f->icon, "package_tar");
 						sprintf(f->filetype, "Archive File");
@@ -708,6 +708,31 @@ static void load_directory(const char * path, int modifies_history) {
 					} else if (has_extension(f, ".ld")) {
 						sprintf(f->icon, "file");
 						sprintf(f->filetype, "Linker Script");
+					} else if (has_extension(f, ".md")) {
+						sprintf(f->icon, "file");
+						sprintf(f->filetype, "Markdown Text Document");
+					} else if (has_extension(f, ".eshrc")) {
+						sprintf(f->icon, "sh");
+						sprintf(f->filetype, "Shell Configuration");
+					} else if (has_extension(f, ".bim3rc")) {
+						sprintf(f->icon, "krk");
+						sprintf(f->filetype, "Bim Configuration");
+					} else if (has_extension(f, ".biminfo")) {
+						sprintf(f->icon, "file");
+						sprintf(f->filetype, "Bim Status Cache");
+					} else if (has_extension(f, ".conf")) {
+						sprintf(f->icon, "file");
+						sprintf(f->filetype, "Configuration File");
+					} else if (has_extension(f, ".launcher")) {
+						sprintf(f->icon, "file");
+						sprintf(f->filetype, "Application Launcher");
+					} else if (has_extension(f, ".trt")) {
+						sprintf(f->icon, "file");
+						sprintf(f->filetype, "Toaru Rich Text Document");
+						sprintf(f->launcher, "exec help-browser");
+					} else if (has_extension(f, ".json")) {
+						sprintf(f->icon, "file");
+						sprintf(f->filetype, "JavaScript Object Notation File");
 					} else if (statbuf.st_mode & 0111) {
 						/* Executable files - use their name for their icon, and launch themselves. */
 						sprintf(f->icon, "%s", f->name);
