@@ -275,8 +275,10 @@ void setup_buttons(void) {
 void resize_finish(int w, int h) {
 	yutani_window_resize_accept(yctx, window, w, h);
 	reinit_graphics_yutani(ctx, window);
-	width  = w;
-	height = h;
+	struct decor_bounds bounds;
+	decor_get_bounds(NULL, &bounds);
+	width  = w - bounds.width;
+	height = h - bounds.height;
 	setup_buttons();
 	redraw();
 	yutani_window_resize_done(yctx, window);
