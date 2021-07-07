@@ -29,6 +29,7 @@ static int width = 640;
 static int height = 480;
 
 char * tt_get_name_string(struct TT_Font * font, int identifier);
+char * preview_string = "The quick brown fox jumps over the lazy dog.";
 
 void redraw(void) {
 	draw_fill(ctx, rgb(255,255,255));
@@ -58,7 +59,7 @@ void redraw(void) {
 	for (int * s = sizes; *s; ++s) {
 		tt_set_size(tt_font, *s);
 		y += *s + 4;
-		tt_draw_string(ctx, tt_font, decor_left_width + 10, decor_top_height + y, "The quick brown fox jumps over the lazy dog.", rgb(0,0,0));
+		tt_draw_string(ctx, tt_font, decor_left_width + 10, decor_top_height + y, preview_string, rgb(0,0,0));
 	}
 
 	render_decorations(window, ctx, "Font Preview");
@@ -104,6 +105,10 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 	init_decorations();
+
+	if (argc > 2) {
+		preview_string = argv[2];
+	}
 
 	struct decor_bounds bounds;
 	decor_get_bounds(NULL, &bounds);
