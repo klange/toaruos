@@ -633,7 +633,7 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 
 	net_ipv4_send(response,nic);
 
-	int _debug __attribute__((unused)) = 1;
+	//int _debug __attribute__((unused)) = 1;
 	printf("tcp: waiting for connect to finish; queue = %ld\n", sock->rx_queue->length);
 
 	unsigned long s, ss;
