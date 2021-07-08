@@ -2148,20 +2148,20 @@ static void _menu_action_hide_borders(struct MenuEntry * self) {
 	_no_frame = !(_no_frame);
 	window_width = window->width - decor_width * (!_no_frame);
 	window_height = window->height - (decor_height + menu_bar_height) * (!_no_frame);
-	menu_update_title(_menu_toggle_borders_context, _no_frame ? "Show borders" : "Hide borders");
-	menu_update_title(_menu_toggle_borders_bar, _no_frame ? "Show borders" : "Hide borders");
+	menu_update_icon(_menu_toggle_borders_context, _no_frame ? NULL : "check");
+	menu_update_icon(_menu_toggle_borders_bar, _no_frame ? NULL : "check");
 	reinit();
 }
 
 static void _menu_action_toggle_tt(struct MenuEntry * self) {
 	_use_aa = !(_use_aa);
-	menu_update_title(self, _use_aa ? "Bitmap font" : "Anti-aliased font");
+	menu_update_icon(self, _use_aa ? NULL : "check");
 	reinit();
 }
 
 static void _menu_action_toggle_free_size(struct MenuEntry * self) {
 	_free_size = !(_free_size);
-	menu_update_title(self, _free_size ? "Snap to Cell Size" : "Freely Resize");
+	menu_update_icon(self, _free_size ? NULL : "check");
 }
 
 static void _menu_action_show_about(struct MenuEntry * self) {
@@ -2321,7 +2321,7 @@ int main(int argc, char ** argv) {
 	menu_insert(menu_right_click, _menu_paste);
 	if (!_fullscreen) {
 		menu_insert(menu_right_click, menu_create_separator());
-		_menu_toggle_borders_context = menu_create_normal(NULL, NULL, _no_frame ? "Show borders" : "Hide borders", _menu_action_hide_borders);
+		_menu_toggle_borders_context = menu_create_normal(_no_frame ? NULL : "check", NULL, "Show borders", _menu_action_hide_borders);
 		menu_insert(menu_right_click, _menu_toggle_borders_context);
 	}
 	menu_insert(menu_right_click, menu_create_separator());
@@ -2347,11 +2347,11 @@ int main(int argc, char ** argv) {
 	menu_set_insert(terminal_menu_bar.set, "zoom", m);
 
 	m = menu_create();
-	_menu_toggle_borders_bar = menu_create_normal(NULL, NULL, _no_frame ? "Show borders" : "Hide borders", _menu_action_hide_borders);
+	_menu_toggle_borders_bar = menu_create_normal(_no_frame ? NULL : "check", NULL, "Show borders", _menu_action_hide_borders);
 	menu_insert(m, _menu_toggle_borders_bar);
 	menu_insert(m, menu_create_submenu(NULL,"zoom","Set zoom..."));
-	menu_insert(m, menu_create_normal(NULL, NULL, _use_aa ? "Bitmap font" : "Anti-aliased font", _menu_action_toggle_tt));
-	menu_insert(m, menu_create_normal(NULL, NULL, _free_size ? "Snap to Cell Size" : "Freely Resize", _menu_action_toggle_free_size));
+	menu_insert(m, menu_create_normal(_use_aa ? NULL : "check", NULL, "Bitmap font", _menu_action_toggle_tt));
+	menu_insert(m, menu_create_normal(_free_size ? NULL : "check", NULL, "Snap to Cell Size", _menu_action_toggle_free_size));
 	menu_insert(m, menu_create_separator());
 	menu_insert(m, menu_create_normal(NULL, NULL, "Redraw", _menu_action_redraw));
 	menu_set_insert(terminal_menu_bar.set, "view", m);

@@ -266,6 +266,25 @@ void menu_update_title(struct MenuEntry * self, char * new_title) {
 	}
 }
 
+void menu_update_icon(struct MenuEntry * self, char * newIcon) {
+	switch (self->_type) {
+		case MenuEntry_Normal: {
+			struct MenuEntry_Normal * _self = (struct MenuEntry_Normal *)self;
+			if (_self->icon)   free(_self->icon);
+			_self->icon = newIcon ? strdup(newIcon) : NULL;
+			break;
+		}
+		case  MenuEntry_Submenu: {
+			struct MenuEntry_Submenu * _self = (struct MenuEntry_Submenu *)self;
+			if (_self->icon)   free(_self->icon);
+			_self->icon = newIcon ? strdup(newIcon) : NULL;
+			break;
+		}
+		default:
+			break;
+	}
+}
+
 void menu_free_entry(struct MenuEntry * self) {
 	switch (self->_type) {
 		case MenuEntry_Normal: {

@@ -92,6 +92,7 @@ extern struct MenuSet * menu_set_create(void);
 extern void menu_set_insert(struct MenuSet * set, char * action, struct MenuList * menu);
 extern void menu_update_title(struct MenuEntry * self, char * new_title);
 extern void menu_force_redraw(struct MenuList * menu);
+extern void menu_update_icon(struct MenuEntry * self, char * newIcon);
 
 #define MENU_FLAG_BUBBLE_CENTER (1 << 0)
 #define MENU_FLAG_BUBBLE_LEFT   (1 << 1)

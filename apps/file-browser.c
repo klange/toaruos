@@ -80,6 +80,10 @@ static int last_click_offset = -1; /* So that clicking two different things quic
 static struct TT_Font * tt_font_thin = NULL;
 static struct TT_Font * tt_font_bold = NULL;
 
+static struct MenuEntry * _menu_entry_show_icons = NULL;
+static struct MenuEntry * _menu_entry_show_tiles = NULL;
+static struct MenuEntry * _menu_entry_show_list  = NULL;
+
 /**
  * Navigation input box
  */
@@ -1429,7 +1433,7 @@ static void _menu_action_edit(struct MenuEntry * self) {
 /* View > (Show/Hide) Hidden Files */
 static void _menu_action_toggle_hidden(struct MenuEntry * self) {
 	show_hidden = !show_hidden;
-	menu_update_title(self, show_hidden ? "Hide Hidden Files" : "Show Hidden Files");
+	menu_update_icon(self, show_hidden ? "check" : NULL);
 	_menu_action_refresh(NULL);
 }
 
@@ -1487,6 +1491,9 @@ static void _menu_action_view_mode(struct MenuEntry * entry) {
 		mode = VIEW_MODE_LIST;
 	}
 	set_view_mode(mode);
+	menu_update_icon(_menu_entry_show_icons, view_mode == VIEW_MODE_ICONS ? "check" : NULL);
+	menu_update_icon(_menu_entry_show_tiles, view_mode == VIEW_MODE_TILES ? "check" : NULL);
+	menu_update_icon(_menu_entry_show_list,  view_mode == VIEW_MODE_LIST  ? "check" : NULL);
 	reinitialize_contents();
 	redraw_window();
 }
@@ -1808,9 +1815,9 @@ int main(int argc, char * argv[]) {
 	m = menu_create();
 	menu_insert(m, menu_create_normal("refresh",NULL,"Refresh", _menu_action_refresh));
 	menu_insert(m, menu_create_separator());
-	menu_insert(m, menu_create_normal(NULL,"icons","Show Icons", _menu_action_view_mode));
-	menu_insert(m, menu_create_normal(NULL,"tiles","Show Tiles", _menu_action_view_mode));
-	menu_insert(m, menu_create_normal(NULL,"list","Show List", _menu_action_view_mode));
+	menu_insert(m, (_menu_entry_show_icons = menu_create_normal(view_mode == VIEW_MODE_ICONS ? "check" : NULL,"icons","Show Icons", _menu_action_view_mode)));
+	menu_insert(m, (_menu_entry_show_tiles = menu_create_normal(view_mode == VIEW_MODE_TILES ? "check" : NULL,"tiles","Show Tiles", _menu_action_view_mode)));
+	menu_insert(m, (_menu_entry_show_list  = menu_create_normal(view_mode == VIEW_MODE_LIST  ? "check" : NULL,"list", "Show List",  _menu_action_view_mode)));
 	menu_insert(m, menu_create_separator());
 	menu_insert(m, menu_create_normal(NULL,NULL,"Show Hidden Files", _menu_action_toggle_hidden));
 	menu_set_insert(menu_bar.set, "view", m);
