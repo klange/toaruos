@@ -818,6 +818,17 @@ static void reinitialize_contents(void) {
 	} else if (view_mode == VIEW_MODE_LIST) {
 		FILE_PTR_WIDTH = 1;
 		FILE_WIDTH = (ctx->width - bounds.width);
+	} else if (view_mode == VIEW_MODE_TILES) {
+		/* We want to get close to 260 */
+		int avail = ctx->width - bounds.width;
+		int columns = avail / 260;
+		FILE_WIDTH = avail / columns;
+		FILE_PTR_WIDTH = (ctx->width - bounds.width) / FILE_WIDTH;
+	} else if (view_mode == VIEW_MODE_ICONS) {
+		int avail = ctx->width - bounds.width;
+		int columns = avail / 100;
+		FILE_WIDTH = avail / columns;
+		FILE_PTR_WIDTH = (ctx->width - bounds.width) / FILE_WIDTH;
 	} else {
 		FILE_PTR_WIDTH = (ctx->width - bounds.width) / FILE_WIDTH;
 	}
