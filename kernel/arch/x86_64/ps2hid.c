@@ -122,16 +122,28 @@ static void ps2_command_arg(uint8_t cmdbyte, uint8_t arg) {
 /**
  * @brief Write to the aux port.
  */
-static void mouse_write(uint8_t write) {
+static uint8_t mouse_write(uint8_t write) {
 	ps2_command_arg(MOUSE_WRITE, write);
+	ps2_wait_output();
+	return inportb(PS2_DATA);
+}
+
+/**
+ * @brief Read generic response byte
+ */
+static uint8_t ps2_read_byte(void) {
+	ps2_wait_output();
+	return inportb(PS2_DATA);
 }
 
 /**
  * @brief Write to the primary port.
  */
-static void kbd_write(uint8_t write) {
+static uint8_t kbd_write(uint8_t write) {
 	ps2_wait_input();
 	outportb(PS2_DATA, write);
+	ps2_wait_output();
+	return inportb(PS2_DATA);
 }
 
 /**
@@ -351,6 +363,7 @@ void ps2hid_install(void) {
 	/* Try to enable scroll wheel (but not buttons) */
 	if (!args_present("nomousescroll")) {
 		mouse_write(MOUSE_DEVICE_ID);
+		ps2_read_byte(); /* Ignore response */
 		mouse_write(MOUSE_SAMPLE_RATE);
 		mouse_write(200);
 		mouse_write(MOUSE_SAMPLE_RATE);
@@ -358,7 +371,7 @@ void ps2hid_install(void) {
 		mouse_write(MOUSE_SAMPLE_RATE);
 		mouse_write(80);
 		mouse_write(MOUSE_DEVICE_ID);
-		result = inportb(PS2_STATUS);
+		result = ps2_read_byte();
 		if (result == 3) {
 			mouse_mode = MOUSE_SCROLLWHEEL;
 		}
