@@ -31,7 +31,7 @@ void toggle(int ndx, int value, char *str) {
 void show_menu(void) {
 	if (detect_qemu()) return;
 
-	int timeout = 3;
+	int timeout = 4;
 	char timeout_msg[] = "Normal boot will commence in 0 seconds.";
 	char * timeout_val = strchr(timeout_msg,'0');
 
