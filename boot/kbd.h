@@ -8,5 +8,5 @@
 #define KBD_SCAN_1     2
 #define KBD_SCAN_9     10
 
-int read_scancode(void);
+int read_scancode(int);
 

@@ -31,6 +31,10 @@ void toggle(int ndx, int value, char *str) {
 void show_menu(void) {
 	if (detect_qemu()) return;
 
+	int timeout = 3;
+	char timeout_msg[] = "Normal boot will commence in 0 seconds.";
+	char * timeout_val = strchr(timeout_msg,'0');
+
 	/* Determine number of options */
 	sel_max = 0;
 	while (boot_options[sel_max].value) {
@@ -76,7 +80,13 @@ void show_menu(void) {
 		}
 
 		set_attr(0x07);
-		move_cursor(x,17);
+		move_cursor(x,15);
+		if (timeout) {
+			*timeout_val = timeout + '0';
+			print_banner(timeout_msg);
+		} else {
+			print_("\n");
+		}
 		print_("\n");
 		print_banner(HELP_TEXT);
 		print_("\n");
@@ -91,7 +101,17 @@ void show_menu(void) {
 			print_banner(LINK_TEXT);
 		}
 
-		int s = read_scancode();
+		int s = read_scancode(!!timeout);
+		if (timeout && s == -1) {
+			timeout--;
+			if (!timeout) {
+				boot_mode = boot_mode_names[sel].index;
+				return;
+			}
+			continue;
+		} else {
+			timeout = 0;
+		}
 		if (s == 0x50) { /* DOWN */
 			if (sel > base_sel && sel < sel_max - 1) {
 				sel = (sel + 2) % sel_max;
