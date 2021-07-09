@@ -2,7 +2,7 @@
 
 ToaruOS is a 64-bit, hobbyist, educational, Unix-like operating system built entirely from scratch. It includes a kernel, bootloader, dynamic linker, C standard library, composited windowing system, and several utilities and applications. All components of the core operating system are original, providing a complete environment in approximately 80,000 lines of C and assembly, all of which is included in this repository.
 
-![Screenshot](https://user-images.githubusercontent.com/223546/122041412-e2d14c80-ce13-11eb-9494-49fa38108f92.png)
+![Screenshot](https://klange.dev/s/Screenshot%20from%202021-07-09%2019-34-56.png)
 *Demonstration of ToaruOS's UI and some applications.*
 
 ## History
