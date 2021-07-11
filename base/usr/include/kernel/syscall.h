@@ -16,8 +16,8 @@
 #define PTR_INRANGE(PTR) \
 	((uintptr_t)(PTR) > this_core->current_process->image.entry && ((uintptr_t)(PTR) < 0x8000000000000000))
 #define PTR_VALIDATE(PTR) \
-	ptr_validate((void *)(PTR), __func__)
-extern void ptr_validate(void * ptr, const char * syscall);
+	do { if (ptr_validate((void *)(PTR), __func__)) return -EINVAL; } while (0)
+extern int ptr_validate(void * ptr, const char * syscall);
 
 extern long arch_syscall_number(struct regs * r);
 extern long arch_syscall_arg0(struct regs * r);

@@ -22,12 +22,12 @@
 static char   hostname[256];
 static size_t hostname_len = 0;
 
-void ptr_validate(void * ptr, const char * syscall) {
+int ptr_validate(void * ptr, const char * syscall) {
 	if (ptr && !PTR_INRANGE(ptr)) {
-		printf("invalid pointer passed to %s (%p < %p)\n",
-			syscall, ptr, (void*)this_core->current_process->image.entry);
-		while (1) {}
+		send_signal(this_core->current_process->id, SIGSEGV, 1);
+		return 1;
 	}
+	return 0;
 }
 
 static long sys_sbrk(ssize_t size) {
@@ -68,17 +68,22 @@ static long sys_sysfunc(long fn, char ** args) {
 			 *        Misaka switched everything to raw printfs, and then also
 			 *        removed most of them for cleanliness... first task would
 			 *        be to reintroduce kernel fprintf() to printf to fs_nodes. */
+			if (this_core->current_process->user != 0) return -EACCES;
 			printf("loghere: not implemented\n");
 			return -EINVAL;
 
 		case TOARU_SYS_FUNC_KDEBUG:
 			/* FIXME: The kernel debugger is completely deprecated and fully removed
 			 *        in Misaka, and I'm not sure I want to add it back... */
+			if (this_core->current_process->user != 0) return -EACCES;
 			printf("kdebug: not implemented\n");
 			return -EINVAL;
 
 		case TOARU_SYS_FUNC_INSMOD:
 			/* Linux has init_module as a system call? */
+			if (this_core->current_process->user != 0) return -EACCES;
+			PTR_VALIDATE(args);
+			PTR_VALIDATE(args[0]);
 			return elf_module(args[0]);
 
 		case TOARU_SYS_FUNC_SETHEAP: {
@@ -86,6 +91,8 @@ static long sys_sysfunc(long fn, char ** args) {
 			 * traditional brk() would be expected to map everything in-between,
 			 * but we use this to move the heap in ld.so, and we don't want
 			 * the stuff in the middle to be mapped necessarily... */
+			PTR_VALIDATE(args);
+			PTR_VALIDATE(args[0]);
 			volatile process_t * volatile proc = this_core->current_process;
 			if (proc->group != 0) proc = process_from_pid(proc->group);
 			spin_lock(proc->image.lock);
@@ -98,12 +105,15 @@ static long sys_sysfunc(long fn, char ** args) {
 			/* FIXME: This whole thing should be removed; we need a proper mmap interface,
 			 *        preferrably with all of the file mapping options, too. And it should
 			 *        probably also interact with the SHM subsystem... */
+			PTR_VALIDATE(args);
 			volatile process_t * volatile proc = this_core->current_process;
 			if (proc->group != 0) proc = process_from_pid(proc->group);
 			spin_lock(proc->image.lock);
 			/* Align inputs */
 			uintptr_t start = ((uintptr_t)args[0]) & 0xFFFFffffFFFFf000UL;
 			uintptr_t end   = ((uintptr_t)args[0] + (size_t)args[1] + 0xFFF) & 0xFFFFffffFFFFf000UL;
+			PTR_VALIDATE(start);
+			PTR_VALIDATE(end);
 			for (uintptr_t i = start; i < end; i += 0x1000) {
 				union PML * page = mmu_get_page(i, MMU_GET_MAKE);
 				mmu_frame_allocate(page, MMU_FLAG_WRITABLE);
@@ -136,6 +146,7 @@ static long sys_sysfunc(long fn, char ** args) {
 		case TOARU_SYS_FUNC_SETGSBASE:
 			/* This should be a new system call; see what Linux, et al., call it. */
 			PTR_VALIDATE(args);
+			PTR_VALIDATE(args[0]);
 			this_core->current_process->thread.context.tls_base = (uintptr_t)args[0];
 			arch_set_tls_base(this_core->current_process->thread.context.tls_base);
 			return 0;
