@@ -2268,10 +2268,11 @@ int main(int argc, char * argv[]) {
 				unsigned char buf[1];
 				int r = read(kfd, buf, 1);
 				if (r > 0) {
-					kbd_scancode(&state, buf[0], &event);
-					yutani_msg_buildx_key_event_alloc(m);
-					yutani_msg_buildx_key_event(m,0, &event, &state);
-					handle_key_event(yg, (struct yutani_msg_key_event *)m->data);
+					if (kbd_scancode(&state, buf[0], &event)) {
+						yutani_msg_buildx_key_event_alloc(m);
+						yutani_msg_buildx_key_event(m,0, &event, &state);
+						handle_key_event(yg, (struct yutani_msg_key_event *)m->data);
+					}
 				}
 				continue;
 			} else if (index == 1) {

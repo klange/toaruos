@@ -1338,8 +1338,9 @@ int main(int argc, char ** argv) {
 			if (res[1]) {
 				int r = read(kfd, buf, 1);
 				for (int i = 0; i < r; ++i) {
-					int ret = kbd_scancode(&kbd_state, buf[i], &event);
-					key_event(ret, &event);
+					if (kbd_scancode(&kbd_state, buf[i], &event)) {
+						key_event(event.action == KEY_ACTION_DOWN && event.key, &event);
+					}
 				}
 			}
 			if (res[2]) {
