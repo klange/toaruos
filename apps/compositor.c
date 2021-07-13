@@ -698,6 +698,13 @@ uint32_t yutani_color_for_wid(yutani_wid_t wid) {
 }
 
 /**
+ * Determine if a matrix has an identity transformation for its linear component.
+ */
+static inline int matrix_is_translation(gfx_matrix_t m) {
+	return (m[0][0] == 1.0 && m[0][1] == 0.0 && m[1][0] == 0.0 && m[1][1] == 1.0);
+}
+
+/**
  * Blit a window to the framebuffer.
  *
  * Applies transformations (rotation, animations) and then renders
@@ -717,9 +724,10 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 	_win_sprite.blank = 0;
 	_win_sprite.alpha = ALPHA_EMBEDDED;
 
+	double opacity = (double)(window->opacity) / 255.0;
+
 	if (window->rotation || window == yg->resizing_window || window->anim_mode) {
 		double m[2][3];
-		double opacity = (double)(window->opacity) / 255.0;
 
 		gfx_matrix_identity(m);
 		gfx_matrix_translate(m,x,y);
@@ -788,9 +796,13 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 				}
 			}
 		}
-		draw_sprite_transform(yg->backend_ctx, &_win_sprite, m, opacity);
+		if (matrix_is_translation(m)) {
+			draw_sprite_alpha(yg->backend_ctx, &_win_sprite, window->x, window->y, opacity);
+		} else {
+			draw_sprite_transform(yg->backend_ctx, &_win_sprite, m, opacity);
+		}
 	} else if (window->opacity != 255) {
-		draw_sprite_alpha(yg->backend_ctx, &_win_sprite, window->x, window->y, (float)window->opacity / 255.0);
+		draw_sprite_alpha(yg->backend_ctx, &_win_sprite, window->x, window->y, opacity);
 	} else {
 		draw_sprite(yg->backend_ctx, &_win_sprite, window->x, window->y);
 	}

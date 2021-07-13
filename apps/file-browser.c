@@ -1783,7 +1783,7 @@ int main(int argc, char * argv[]) {
 		signal(SIGUSR1, sig_usr1);
 		signal(SIGUSR2, sig_usr2);
 		draw_background(yctx->display_width, yctx->display_height);
-		main_window = yutani_window_create_flags(yctx, yctx->display_width, yctx->display_height, YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS);
+		main_window = yutani_window_create_flags(yctx, yctx->display_width, yctx->display_height, YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS | YUTANI_WINDOW_FLAG_ALT_ANIMATION);
 		yutani_window_move(yctx, main_window, 0, 0);
 		yutani_set_stack(yctx, main_window, YUTANI_ZORDER_BOTTOM);
 		arg_ind++;
