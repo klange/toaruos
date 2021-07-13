@@ -74,18 +74,21 @@ extern void blur_context_no_vignette(gfx_context_t * _dst, gfx_context_t * _src,
 extern void blur_context_box(gfx_context_t * _src, int radius);
 extern void sprite_free(sprite_t * sprite);
 
-extern int load_sprite(sprite_t * sprite, char * filename);
-extern int load_sprite_bmp(sprite_t * sprite, char * filename);
-//extern int load_sprite_png(sprite_t * sprite, char * file);
-extern void draw_sprite(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y);
 extern void draw_line(gfx_context_t * ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1, uint32_t color);
 extern void draw_line_thick(gfx_context_t * ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1, uint32_t color, char thickness);
 extern void draw_fill(gfx_context_t * ctx, uint32_t color);
 
-extern void draw_sprite_scaled(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height);
-extern void draw_sprite_scaled_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height, float alpha);
-extern void draw_sprite_alpha(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, float alpha);
-extern void draw_sprite_alpha_paint(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, float alpha, uint32_t c);
+typedef double gfx_matrix_t[2][3];
+
+extern int load_sprite(sprite_t * sprite, const char * filename);
+extern int load_sprite_bmp(sprite_t * sprite, const char * filename);
+extern void draw_sprite(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, int32_t y);
+extern void draw_sprite_scaled(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height);
+extern void draw_sprite_scaled_alpha(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height, float alpha);
+extern void draw_sprite_alpha(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, int32_t y, float alpha);
+extern void draw_sprite_alpha_paint(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, int32_t y, float alpha, uint32_t c);
+extern void draw_sprite_rotate(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, int32_t y, float rotation, float alpha);
+extern void draw_sprite_transform(gfx_context_t * ctx, const sprite_t * sprite, gfx_matrix_t matrix, float alpha);
 
 //extern void context_to_png(FILE * file, gfx_context_t * ctx);
 
@@ -94,8 +97,6 @@ extern uint32_t premultiply(uint32_t color);
 extern void gfx_add_clip(gfx_context_t * ctx, int32_t x, int32_t y, int32_t w, int32_t h);
 extern void gfx_clear_clip(gfx_context_t * ctx);
 extern void gfx_no_clip(gfx_context_t * ctx);
-
-extern uint32_t getBilinearFilteredPixelColor(sprite_t * tex, double u, double v);
 
 extern uint32_t interp_colors(uint32_t bottom, uint32_t top, uint8_t interp);
 extern void draw_rounded_rectangle(gfx_context_t * ctx, int32_t x, int32_t y, uint16_t width, uint16_t height, int radius, uint32_t color);
@@ -116,8 +117,6 @@ extern struct gfx_point gfx_point_add(struct gfx_point * a, struct gfx_point * b
 extern float gfx_line_distance(struct gfx_point * p, struct gfx_point * v, struct gfx_point * w);
 extern void draw_line_aa(gfx_context_t * ctx, int x_1, int x_2, int y_1, int y_2, uint32_t color, float thickness);
 
-extern void draw_sprite_rotate(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32_t y, float rotation, float alpha);
-
 struct gradient_definition {
 	int height;
 	int y;
@@ -129,13 +128,10 @@ extern uint32_t gfx_vertical_gradient_pattern(int32_t x, int32_t y, double alpha
 
 extern gfx_context_t * init_graphics_subregion(gfx_context_t * base, int x, int y, int width, int height);
 
-typedef double gfx_matrix_t[2][3];
-
 extern void gfx_matrix_identity(gfx_matrix_t);
 extern void gfx_matrix_scale(gfx_matrix_t, double x, double y);
 extern void gfx_matrix_translate(gfx_matrix_t, double x, double y);
 extern void gfx_matrix_rotate(gfx_matrix_t, double rotation);
-extern void draw_sprite_transform(gfx_context_t * ctx, sprite_t * sprite, double matrix[2][3], float alpha);
 
 
 _End_C_Header
