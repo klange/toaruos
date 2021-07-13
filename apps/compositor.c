@@ -1527,6 +1527,15 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 			return;
 		}
 #endif
+		/* Screenshot key */
+		if ((ke->event.action == KEY_ACTION_DOWN) &&
+			(ke->event.keycode == KEY_PRINT_SCREEN)) {
+			if (ke->event.modifiers & (KEY_MOD_LEFT_ALT | KEY_MOD_RIGHT_ALT)) {
+				yg->screenshot_frame = YUTANI_SCREENSHOT_WINDOW;
+			} else {
+				yg->screenshot_frame = YUTANI_SCREENSHOT_FULL;
+			}
+		}
 		/*
 		 * Tiling hooks.
 		 * These are based on the compiz grid plugin.
@@ -1584,16 +1593,6 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 					window_tile(yg, focused, 1, 2, 0, 1);
 					return;
 				}
-			}
-			if ((ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
-				(ke->event.keycode == 's')) {
-				yg->screenshot_frame = YUTANI_SCREENSHOT_FULL;
-				return;
-			}
-			if ((ke->event.modifiers & KEY_MOD_LEFT_CTRL) &&
-				(ke->event.keycode == 'w')) {
-				yg->screenshot_frame = YUTANI_SCREENSHOT_WINDOW;
-				return;
 			}
 		}
 	}
