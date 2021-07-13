@@ -717,7 +717,7 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 	_win_sprite.blank = 0;
 	_win_sprite.alpha = ALPHA_EMBEDDED;
 
-	if (window->opacity != 255 || window->rotation || window == yg->resizing_window || window->anim_mode) {
+	if (window->rotation || window == yg->resizing_window || window->anim_mode) {
 		double m[2][3];
 		double opacity = (double)(window->opacity) / 255.0;
 
@@ -789,6 +789,8 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 			}
 		}
 		draw_sprite_transform(yg->backend_ctx, &_win_sprite, m, opacity);
+	} else if (window->opacity != 255) {
+		draw_sprite_alpha(yg->backend_ctx, &_win_sprite, window->x, window->y, (float)window->opacity / 255.0);
 	} else {
 		draw_sprite(yg->backend_ctx, &_win_sprite, window->x, window->y);
 	}
