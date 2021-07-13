@@ -817,9 +817,11 @@ void draw_sprite_alpha_paint(gfx_context_t * ctx, const sprite_t * sprite, int32
 		for (uint16_t _x = 0; _x < sprite->width; ++_x) {
 			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
 				continue;
-			uint32_t n_color = SPRITE(sprite, _x, _y);
-			uint32_t f_color = rgb(_ALP(n_color) * alpha, 0, 0);
-			GFX(ctx, x + _x, y + _y) = alpha_blend(GFX(ctx, x + _x, y + _y), c, f_color);
+			/* Get the alpha from the sprite at this pixel */
+			float n_alpha = alpha * ((float)_ALP(SPRITE(sprite, _x, _y)) / 255.0);
+			uint32_t f_color = premultiply((c & 0xFFFFFF) | ((uint32_t)(255 * n_alpha) << 24));
+			f_color = (f_color & 0xFFFFFF) | ((uint32_t)(n_alpha * _ALP(c)) << 24);
+			GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), f_color);
 		}
 	}
 }
