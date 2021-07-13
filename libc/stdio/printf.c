@@ -317,7 +317,7 @@ size_t xvasprintf(int (*callback)(void *, char), void * userData, const char * f
 							OUT('n');
 						}
 						break;
-					} else if (exponent == 0 && fraction == 0) {
+					} else if ((*f == 'g' || *f == 'G') && exponent == 0 && fraction == 0) {
 						if (SIGNBIT(asBits)) {
 							OUT('-');
 						}
