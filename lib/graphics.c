@@ -1122,6 +1122,136 @@ void draw_sprite_rotate(gfx_context_t * ctx, sprite_t * sprite, int32_t x, int32
 	}
 }
 
+static void apply_matrix(double x, double y, gfx_matrix_t matrix, double *out_x, double *out_y) {
+	*out_x = matrix[0][0] * x + matrix[0][1] * y + matrix[0][2];
+	*out_y = matrix[1][0] * x + matrix[1][1] * y + matrix[1][2];
+}
+
+static void multiply_matrix(gfx_matrix_t x, gfx_matrix_t y) {
+	double a = x[0][0];
+	double b = x[0][1];
+	double c = x[0][2];
+	double d = x[1][0];
+	double e = x[1][1];
+	double f = x[1][2];
+
+	double g = y[0][0];
+	double h = y[0][1];
+	double i = y[0][2];
+	double j = y[1][0];
+	double k = y[1][1];
+	double l = y[1][2];
+
+	x[0][0] = a * g + b * j;
+	x[0][1] = a * h + b * k;
+	x[0][2] = a * i + b * l + c;
+
+	x[1][0] = d * g + e * j;
+	x[1][1] = d * h + e * k;
+	x[1][2] = d * i + e * l + f;
+}
+
+void gfx_matrix_identity(gfx_matrix_t matrix) {
+	matrix[0][0] = 1;
+	matrix[0][1] = 0;
+	matrix[0][2] = 0;
+	matrix[1][0] = 0;
+	matrix[1][1] = 1;
+	matrix[1][2] = 0;
+}
+
+void gfx_matrix_scale(gfx_matrix_t matrix, double x, double y) {
+	multiply_matrix(matrix, (gfx_matrix_t){
+		{x, 0.0, 0.0},
+		{0.0, y, 0.0},
+	});
+}
+
+void gfx_matrix_rotate(gfx_matrix_t matrix, double r) {
+	multiply_matrix(matrix, (gfx_matrix_t){
+		{ cos(r), -sin(r), 0.0},
+		{ sin(r),  cos(r), 0.0},
+	});
+}
+
+void gfx_matrix_translate(gfx_matrix_t matrix, double x, double y) {
+	multiply_matrix(matrix, (gfx_matrix_t){
+		{ 1.0, 0.0, x },
+		{ 0.0, 1.0, y },
+	});
+}
+
+static double matrix_det(gfx_matrix_t matrix) {
+	double a = matrix[0][0];
+	double b = matrix[0][1];
+	double d = matrix[1][0];
+	double e = matrix[1][1];
+	return a * e - b * d;
+}
+
+int gfx_matrix_invert(gfx_matrix_t m, gfx_matrix_t inverse) {
+
+	double det = matrix_det(m);
+	if (det == 0.0) return 1;
+
+	double a = m[0][0];
+	double b = m[0][1];
+	double c = m[1][0];
+	double d = m[1][1];
+
+	double tx = m[0][2];
+	double ty = m[1][2];
+
+	inverse[0][0] = d * (1.0 / det);
+	inverse[0][1] = -b * (1.0 / det);
+	inverse[1][0] = -c * (1.0 / det);
+	inverse[1][1] = a * (1.0 / det);
+
+	inverse[0][2] = (b * ty - d * tx) / det;
+	inverse[1][2] = (c * tx - a * ty) / det;
+
+	return 0;
+}
+
+void draw_sprite_transform(gfx_context_t * ctx, sprite_t * sprite, gfx_matrix_t matrix, float alpha) {
+	double inverse[2][3];
+	gfx_matrix_invert(matrix, inverse);
+
+	/* Calculate corners */
+	double ul_x, ul_y;
+	double ll_x, ll_y;
+	double ur_x, ur_y;
+	double lr_x, lr_y;
+
+	apply_matrix(0, 0, matrix, &ul_x, &ul_y);
+	apply_matrix(0, sprite->height,  matrix, &ll_x, &ll_y);
+	apply_matrix(sprite->width, 0,  matrix, &ur_x, &ur_y);
+	apply_matrix(sprite->width, sprite->height,   matrix, &lr_x, &lr_y);
+
+	/* Calculate bounds */
+	int32_t _left   = fmin(fmin(ul_x, ll_x), fmin(ur_x, lr_x));
+	int32_t _top    = fmin(fmin(ul_y, ll_y), fmin(ur_y, lr_y));
+	int32_t _right  = fmax(fmax(ul_x, ll_x), fmax(ur_x, lr_x));
+	int32_t _bottom = fmax(fmax(ul_y, ll_y), fmax(ur_y, lr_y));
+
+	for (int32_t _y = _top; _y < _bottom; ++_y) {
+		if (_y < 0) continue;
+		if (_y >= ctx->height) break;
+		if (!_is_in_clip(ctx, _y)) continue;
+		for (int32_t _x = _left; _x < _right; ++_x) {
+			if (_x < 0) continue;
+			if (_x >= ctx->width) break;
+			double u, v;
+			apply_matrix(_x, _y, inverse, &u, &v);
+			uint32_t n_color = getBilinearFilteredPixelColor(sprite, u / (double)sprite->width, v/(double)sprite->height);
+			uint32_t f_color = premultiply((n_color & 0xFFFFFF) | ((uint32_t)(255 * alpha) << 24));
+			f_color = (f_color & 0xFFFFFF) | ((uint32_t)(alpha * _ALP(n_color)) << 24);
+			GFX(ctx,_x,_y) = alpha_blend_rgba(GFX(ctx,_x,_y), f_color);
+		}
+	}
+
+}
+
 uint32_t gfx_vertical_gradient_pattern(int32_t x, int32_t y, double alpha, void * extra) {
 	struct gradient_definition * gradient = extra;
 	int base_r = _RED(gradient->top), base_g = _GRE(gradient->top), base_b = _BLU(gradient->top);

@@ -717,81 +717,81 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 	_win_sprite.blank = 0;
 	_win_sprite.alpha = ALPHA_EMBEDDED;
 
-	if (window->anim_mode) {
-		int frame = yutani_time_since(yg, window->anim_start);
-		if (frame >= yutani_animation_lengths[window->anim_mode]) {
-			/* XXX handle animation-end things like cleanup of closing windows */
-			if (yutani_is_closing_animation[window->anim_mode]) {
-				list_insert(yg->windows_to_remove, window);
-				goto draw_finish;
+	if (window->opacity != 255 || window->rotation || window == yg->resizing_window || window->anim_mode) {
+		double m[2][3];
+		double opacity = (double)(window->opacity) / 255.0;
+
+		gfx_matrix_identity(m);
+		gfx_matrix_translate(m,x,y);
+
+		if (window->rotation) {
+			gfx_matrix_translate(m, window->width / 2, window->height / 2);
+			gfx_matrix_rotate(m, (double)window->rotation * M_PI / 180.0);
+			gfx_matrix_translate(m, -window->width / 2, -window->height / 2);
+		}
+
+		if (window == yg->resizing_window) {
+			double x_scale = (double)yg->resizing_w / (double)yg->resizing_window->width;
+			double y_scale = (double)yg->resizing_h / (double)yg->resizing_window->height;
+			if (x_scale < 0.00001) {
+				x_scale = 0.00001;
 			}
-			window->anim_mode = 0;
-			window->anim_start = 0;
-			goto draw_window;
-		} else {
-			switch (window->anim_mode) {
-				case YUTANI_EFFECT_SQUEEZE_OUT:
-				case YUTANI_EFFECT_FADE_OUT:
-					{
-						frame = yutani_animation_lengths[window->anim_mode] - frame;
-					} /* fallthrough */
-				case YUTANI_EFFECT_SQUEEZE_IN:
-				case YUTANI_EFFECT_FADE_IN:
-					{
-						double time_diff = ((double)frame / (float)yutani_animation_lengths[window->anim_mode]);
+			if (y_scale < 0.00001) {
+				y_scale = 0.00001;
+			}
+			gfx_matrix_translate(m, (int)yg->resizing_offset_x, (int)yg->resizing_offset_y);
+			gfx_matrix_scale(m, x_scale, y_scale);
+		}
 
-						if (window->server_flags & YUTANI_WINDOW_FLAG_DIALOG_ANIMATION) {
-							double x = time_diff;
-							int t_y = (window->height * (1.0 -x)) / 2;
+		if (window->anim_mode) {
+			int frame = yutani_time_since(yg, window->anim_start);
+			if (frame >= yutani_animation_lengths[window->anim_mode]) {
+				/* XXX handle animation-end things like cleanup of closing windows */
+				if (yutani_is_closing_animation[window->anim_mode]) {
+					list_insert(yg->windows_to_remove, window);
+					return 0;
+				}
+				window->anim_mode = 0;
+				window->anim_start = 0;
+			} else {
+				switch (window->anim_mode) {
+					case YUTANI_EFFECT_SQUEEZE_OUT:
+					case YUTANI_EFFECT_FADE_OUT:
+						{
+							frame = yutani_animation_lengths[window->anim_mode] - frame;
+						} /* fallthrough */
+					case YUTANI_EFFECT_SQUEEZE_IN:
+					case YUTANI_EFFECT_FADE_IN:
+						{
+							double time_diff = ((double)frame / (float)yutani_animation_lengths[window->anim_mode]);
 
-							draw_sprite_scaled(yg->backend_ctx, &_win_sprite, window->x, window->y + t_y, window->width, window->height * x);
-						} else {
-							double x = 0.75 + time_diff * 0.25;
-							int t_x = (window->width * (1.0 - x)) / 2;
-							int t_y = (window->height * (1.0 - x)) / 2;
-
-							double opacity = time_diff * (double)(window->opacity) / 255.0;
-
-							if (!yutani_window_is_top(yg, window) && !yutani_window_is_bottom(yg, window) &&
-									!(window->server_flags & YUTANI_WINDOW_FLAG_ALT_ANIMATION)) {
-								draw_sprite_scaled_alpha(yg->backend_ctx, &_win_sprite, window->x + t_x, window->y + t_y, window->width * x, window->height * x, opacity);
+							if (window->server_flags & YUTANI_WINDOW_FLAG_DIALOG_ANIMATION) {
+								double x = time_diff;
+								int t_y = (window->height * (1.0 -x)) / 2;
+								gfx_matrix_translate(m, 0, t_y);
+								gfx_matrix_scale(m, 1.0, x);
 							} else {
-								draw_sprite_alpha(yg->backend_ctx, &_win_sprite, window->x, window->y, opacity);
+								double x = 0.75 + time_diff * 0.25;
+								opacity *= time_diff;
+								if (!yutani_window_is_top(yg, window) && !yutani_window_is_bottom(yg, window) &&
+										!(window->server_flags & YUTANI_WINDOW_FLAG_ALT_ANIMATION)) {
+									int t_x = (window->width * (1.0 - x)) / 2;
+									int t_y = (window->height * (1.0 - x)) / 2;
+									gfx_matrix_translate(m, t_x, t_y);
+									gfx_matrix_scale(m, x, x);
+								}
 							}
 						}
-					}
-					break;
-				default:
-					goto draw_window;
-					break;
+						break;
+					default:
+						break;
+				}
 			}
 		}
+		draw_sprite_transform(yg->backend_ctx, &_win_sprite, m, opacity);
 	} else {
-draw_window:
-		if (window->opacity != 255) {
-			double opacity = (double)(window->opacity) / 255.0;
-			if (window == yg->resizing_window) {
-				draw_sprite_scaled_alpha(yg->backend_ctx, &_win_sprite, window->x + (int)yg->resizing_offset_x, window->y + (int)yg->resizing_offset_y, yg->resizing_w, yg->resizing_h, opacity);
-			} else {
-				if (window->rotation) {
-					draw_sprite_rotate(yg->backend_ctx, &_win_sprite, window->x + window->width / 2, window->y + window->height / 2, (double)window->rotation * M_PI / 180.0, opacity);
-				} else {
-					draw_sprite_alpha(yg->backend_ctx, &_win_sprite, window->x, window->y, opacity);
-				}
-			}
-		} else {
-			if (window == yg->resizing_window) {
-				draw_sprite_scaled(yg->backend_ctx, &_win_sprite, window->x + (int)yg->resizing_offset_x, window->y + (int)yg->resizing_offset_y, yg->resizing_w, yg->resizing_h);
-			} else {
-				if (window->rotation) {
-					draw_sprite_rotate(yg->backend_ctx, &_win_sprite, window->x + window->width / 2, window->y + window->height / 2, (double)window->rotation * M_PI / 180.0, 1.0);
-				} else {
-					draw_sprite(yg->backend_ctx, &_win_sprite, window->x, window->y);
-				}
-			}
-		}
+		draw_sprite(yg->backend_ctx, &_win_sprite, window->x, window->y);
 	}
-draw_finish:
 
 	return 0;
 }

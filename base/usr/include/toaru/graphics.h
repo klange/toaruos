@@ -129,4 +129,13 @@ extern uint32_t gfx_vertical_gradient_pattern(int32_t x, int32_t y, double alpha
 
 extern gfx_context_t * init_graphics_subregion(gfx_context_t * base, int x, int y, int width, int height);
 
+typedef double gfx_matrix_t[2][3];
+
+extern void gfx_matrix_identity(gfx_matrix_t);
+extern void gfx_matrix_scale(gfx_matrix_t, double x, double y);
+extern void gfx_matrix_translate(gfx_matrix_t, double x, double y);
+extern void gfx_matrix_rotate(gfx_matrix_t, double rotation);
+extern void draw_sprite_transform(gfx_context_t * ctx, sprite_t * sprite, double matrix[2][3], float alpha);
+
+
 _End_C_Header
