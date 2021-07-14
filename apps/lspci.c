@@ -30,9 +30,13 @@ struct device_class {
 	{0x0601, "ISA bridge"},
 	{0x0604, "PCI bridge"},
 	{0x0680, "Bridge"},
+	{0x0780, "Communication controller"},
+	{0x0805, "SD Host controller"},
 	{0x0880, "System peripheral"},
+	{0x0c00, "FireWire controller"},
 	{0x0c03, "USB controller"},
 	{0x0c05, "SMBus controller"},
+	{0x1180, "Signal processing controller"},
 };
 
 struct {
@@ -42,9 +46,12 @@ struct {
 	{0x1013, "Cirrus Logic"},
 	{0x1022, "AMD"},
 	{0x106b, "Apple, Inc."},
+	{0x10de, "NVIDIA Corp."},
+	{0x1180, "Ricoh Ct. Ltd."},
 	{0x1234, "Bochs/QEMU"},
 	{0x1274, "Ensoniq"},
 	{0x15ad, "VMWare"},
+	{0x1912, "Renesas Electronics Corp."}, /* Formerly "Renesas Technology Corp." */
 	{0x1b36, "Red Hat, Inc."},
 	{0x8086, "Intel Corporation"},
 	{0x80EE, "VirtualBox"},
@@ -58,13 +65,32 @@ struct {
 	{0x1013, 0x00b8, "CLGD 54xx VGA Adapter"},
 	{0x1022, 0x2000, "PCNet Ethernet Controller (pcnet)"},
 	{0x106b, 0x003f, "OHCI Controller"},
+	{0x10de, 0x0a6c, "Quadro NVS 3100M"},
+
+	/* Ricoh */
+	{0x1180, 0xe822, "MMC/SD Host Controller"},
+	{0x1180, 0xe230, "R5U2xx Memory Stick Host Controller"},
+	{0x1180, 0xe832, "R5C832 PCIe IEEE 1394 Controller"},
+
 	{0x1234, 0x1111, "VGA BIOS Graphics Extensions"},
 	{0x1274, 0x1371, "Creative Labs CT2518 (ensoniq audio)"},
+
+	/* VMWare */
 	{0x15ad, 0x0740, "VM Communication Interface"},
 	{0x15ad, 0x0405, "SVGA II Adapter"},
 	{0x15ad, 0x0790, "PCI bridge"},
 	{0x15ad, 0x07a0, "PCI Express Root Port"},
+
+	/* Renesas */
+	{0x1912, 0x0015, "uPD720202 USB 3.0 Host Controller"},
+
+	/* Red Hat */
 	{0x1b36, 0x000d, "QEMU XHCI Host Controller"},
+
+	/* Intel */
+	{0x8086, 0x0044, "DRAM Controller"},
+	{0x8086, 0x0045, "PCI Express x16 Root Port"},
+	{0x8086, 0x0046, "Gen 5 HD Graphics"},
 	{0x8086, 0x1004, "82543GC Gigabit Ethernet Controller (e1000)"},
 	{0x8086, 0x100e, "82540EM Gigabit Ethernet Controller (e1000)"},
 	{0x8086, 0x100f, "82545EM Gigabit Ethernet Controller (e1000)"},
@@ -72,10 +98,28 @@ struct {
 	{0x8086, 0x10ea, "82577LM Gigabit Ethernet Controller (e1000)"},
 	{0x8086, 0x1237, "PCI & Memory"},
 	{0x8086, 0x2415, "82801AA AC'97 Audio Controller"},
+	{0x8086, 0x2448, "82801 Mobile PCI Bridge"},
 	{0x8086, 0x29c0, "DRAM Controller"},
 	{0x8086, 0x2918, "ICH9 LPC Interface Controller"},
 	{0x8086, 0x2922, "ICH9 6-port SATA Controller"},
 	{0x8086, 0x2930, "ICH9 SMBus Controller"},
+	{0x8086, 0x3b07, "QM57 Chipset LPC Interface Controller"},
+	{0x8086, 0x3b2f, "ICH10 6-port SATA AHCI Controller"},
+	{0x8086, 0x3b30, "ICH10 SMBus Controller"},
+	{0x8086, 0x3b32, "ICH10 Thermal Subsystem"},
+	{0x8086, 0x3b34, "ICH10 USB 2.0 Enhanced Host Controller"},
+	{0x8086, 0x3b3c, "ICH10 USB 2.0 Enhanced Host Controller"},
+	{0x8086, 0x3b42, "ICH10 PCI Express Root Port 1"},
+	{0x8086, 0x3b44, "ICH10 PCI Express Root Port 2"},
+	{0x8086, 0x3b46, "ICH10 PCI Express Root Port 3"},
+	{0x8086, 0x3b48, "ICH10 PCI Express Root Port 4"},
+	{0x8086, 0x3b4a, "ICH10 PCI Express Root Port 5"},
+	{0x8086, 0x3b4c, "ICH10 PCI Express Root Port 6"},
+	{0x8086, 0x3b4e, "ICH10 PCI Express Root Port 7"},
+	{0x8086, 0x3b50, "ICH10 PCI Express Root Port 8"},
+	{0x8086, 0x3b56, "ICH10 HD Audio Controller"},
+	{0x8086, 0x3b64, "ICH10 HECI Controller"},
+	{0x8086, 0x422b, "Centrino Ultimate-N 6300"},
 	{0x8086, 0x7000, "PCI-to-ISA Bridge"},
 	{0x8086, 0x7010, "IDE Interface"},
 	{0x8086, 0x7110, "PIIX4 ISA"},
@@ -83,6 +127,8 @@ struct {
 	{0x8086, 0x7113, "Power Management Controller"},
 	{0x8086, 0x7190, "Host Bridge"},
 	{0x8086, 0x7191, "AGP Bridge"},
+
+	/* VirtualBox */
 	{0x80EE, 0xBEEF, "Bochs/QEMU-compatible Graphics Adapter"},
 	{0x80EE, 0xCAFE, "Guest Additions Device"},
 };
