@@ -91,6 +91,8 @@ static char nav_bar[512] = {0};
 static int  nav_bar_cursor = 0;
 static int  nav_bar_cursor_x = 0;
 static int  nav_bar_focused = 0;
+static int  nav_bar_blink = 0;
+static struct timeval nav_bar_last_blinked;
 
 /* Status bar displayed at the bottom of the window */
 static char window_status[1024] = {0};
@@ -891,7 +893,7 @@ static void _figure_out_navbar_cursor(int x, struct decor_bounds bounds) {
 	while (*tmp && x + 2 < (candidate = tt_string_width(tt_font_thin, tmp))) {
 		tmp[strlen(tmp)-1] = '\0';
 	}
-	nav_bar_cursor_x = candidate + 2;
+	nav_bar_cursor_x = candidate;
 	nav_bar_cursor = strlen(tmp);
 	free(tmp);
 }
@@ -912,7 +914,7 @@ static void _recalculate_nav_bar_cursor(void) {
 	char * tmp = strdup(nav_bar);
 	tmp[nav_bar_cursor] = '\0';
 	tt_set_size(tt_font_thin, 13);
-	nav_bar_cursor_x = tt_string_width(tt_font_thin, tmp) + 2;
+	nav_bar_cursor_x = tt_string_width(tt_font_thin, tmp);
 	free(tmp);
 }
 
@@ -949,7 +951,7 @@ static void _draw_nav_bar(struct decor_bounds bounds) {
 	tt_draw_string(ctx, tt_font_thin, bounds.left_width + 2 + x + 5, bounds.top_height + MENU_BAR_HEIGHT + 8 + 13, name, rgb(0,0,0));
 	free(name);
 
-	if (nav_bar_focused) {
+	if (nav_bar_focused && !nav_bar_blink) {
 		/* Draw cursor indicator at cursor_x */
 		draw_line(ctx,
 				bounds.left_width + 2 + x + 5 + nav_bar_cursor_x,
@@ -1008,6 +1010,36 @@ static void _redraw_nav_bar(void) {
 }
 
 /**
+ * Blink the navbar cursor, maybe.
+ */
+static void maybe_blink_cursor(void) {
+	if (!nav_bar_focused) return;
+
+	struct timeval t;
+	gettimeofday(&t, NULL);
+
+	time_t sec_diff = t.tv_sec - nav_bar_last_blinked.tv_sec;
+	suseconds_t usec_diff = t.tv_usec - nav_bar_last_blinked.tv_usec;
+
+	if (t.tv_usec < nav_bar_last_blinked.tv_usec) {
+		sec_diff -= 1;
+		usec_diff = (1000000 + t.tv_usec) - nav_bar_last_blinked.tv_usec;
+	}
+
+	if (sec_diff >= 1 || usec_diff >= 530000) {
+		nav_bar_blink = !nav_bar_blink;
+		gettimeofday(&nav_bar_last_blinked, NULL);
+		_redraw_nav_bar();
+	}
+}
+
+static void nav_bar_set_focused(void) {
+	nav_bar_focused = 1;
+	nav_bar_blink = 0;
+	gettimeofday(&nav_bar_last_blinked, NULL);
+}
+
+/**
  * navbar: Text editing helpers for ^W, deletes one directory element
  */
 static void nav_bar_backspace_word(void) {
@@ -1029,6 +1061,7 @@ static void nav_bar_backspace_word(void) {
 	free(after);
 
 	_recalculate_nav_bar_cursor();
+	nav_bar_set_focused();
 	_redraw_nav_bar();
 }
 
@@ -1047,6 +1080,7 @@ static void nav_bar_backspace(void) {
 	free(after);
 
 	_recalculate_nav_bar_cursor();
+	nav_bar_set_focused();
 	_redraw_nav_bar();
 }
 
@@ -1063,6 +1097,7 @@ static void nav_bar_insert_char(char c) {
 
 	nav_bar_cursor += 1;
 	_recalculate_nav_bar_cursor();
+	nav_bar_set_focused();
 	_redraw_nav_bar();
 }
 
@@ -1072,6 +1107,7 @@ static void nav_bar_insert_char(char c) {
 static void nav_bar_cursor_left(void) {
 	nav_bar_cursor--;
 	_recalculate_nav_bar_cursor();
+	nav_bar_set_focused();
 	_redraw_nav_bar();
 }
 
@@ -1081,6 +1117,7 @@ static void nav_bar_cursor_left(void) {
 static void nav_bar_cursor_right(void) {
 	nav_bar_cursor++;
 	_recalculate_nav_bar_cursor();
+	nav_bar_set_focused();
 	_redraw_nav_bar();
 }
 
@@ -1884,6 +1921,8 @@ int main(int argc, char * argv[]) {
 			return 1;
 		}
 
+		maybe_blink_cursor();
+
 		if (index == 1) {
 			if (wallpaper_old) {
 				redraw_window();
@@ -1973,7 +2012,7 @@ int main(int argc, char * argv[]) {
 									break;
 								case 'l':
 									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_CTRL && !is_desktop_background) {
-										nav_bar_focused = 1;
+										nav_bar_set_focused();
 										redraw_window();
 									}
 									break;
@@ -2111,7 +2150,7 @@ int main(int argc, char * argv[]) {
 									} else {
 										_set_hilight(-1,0);
 										if (me->command == YUTANI_MOUSE_EVENT_DOWN) {
-											nav_bar_focused = 1;
+											nav_bar_set_focused();
 											_figure_out_navbar_cursor(me->new_x, bounds);
 											redraw = 1;
 										}
