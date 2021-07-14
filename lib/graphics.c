@@ -760,6 +760,7 @@ static inline int out_of_bounds(const sprite_t * tex, int x, int y) {
 /**
  * @brief Use bilinear interpolation to get a blended color at the point u,v
  */
+#if 1
 static uint32_t gfx_bilinear_interpolation(const sprite_t * tex, double u, double v) {
 	int x = floor(u);
 	int y = floor(v);
@@ -778,12 +779,9 @@ static uint32_t gfx_bilinear_interpolation(const sprite_t * tex, double u, doubl
 	int r_GRE = (_GRE(ul) * u_o + _GRE(ur) * u_ratio) * v_o + (_GRE(ll) * u_o  + _GRE(lr) * u_ratio) * v_ratio;
 	return rgba(r_RED,r_GRE,r_BLU,r_ALP);
 }
-
-#if 0
-static uint32_t gfx_fast_transform(const sprite_t * sprite, int32_t u, int32_t v) {
-	if (u < 0 || v < 0) return 0;
-	if (u >= sprite->width || v >= sprite->height) return 0;
-	return SPRITE(sprite,u,v);
+#else
+static uint32_t gfx_bilinear_interpolation(const sprite_t * tex, double u, double v) {
+	return out_of_bounds(tex,u,v) ? 0 : SPRITE(tex,(unsigned int)u,(unsigned int)v);
 }
 #endif
 
