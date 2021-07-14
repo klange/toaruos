@@ -753,32 +753,29 @@ void draw_fill(gfx_context_t * ctx, uint32_t color) {
 	}
 }
 
-/* Bilinear filtering from Wikipedia */
-static uint32_t gfx_bilinear_filter(const sprite_t * tex, double u, double v) {
+static inline int out_of_bounds(const sprite_t * tex, int x, int y) {
+	return x < 0 || y < 0 || x >= tex->width || y >= tex->height;
+}
+
+/**
+ * @brief Use bilinear interpolation to get a blended color at the point u,v
+ */
+static uint32_t gfx_bilinear_interpolation(const sprite_t * tex, double u, double v) {
 	int x = floor(u);
 	int y = floor(v);
-	if (x >= tex->width)  return 0;
-	if (y >= tex->height) return 0;
-	if (x < 0) return 0;
-	if (y < 0) return 0;
+	uint32_t ul = out_of_bounds(tex,x,y)     ? 0 : SPRITE(tex,x,y);
+	uint32_t ur = out_of_bounds(tex,x+1,y)   ? 0 : SPRITE(tex,x+1,y);
+	uint32_t ll = out_of_bounds(tex,x,y+1)   ? 0 : SPRITE(tex,x,y+1);
+	uint32_t lr = out_of_bounds(tex,x+1,y+1) ? 0 : SPRITE(tex,x+1,y+1);
 	double u_ratio = u - x;
 	double v_ratio = v - y;
 	double u_o = 1 - u_ratio;
 	double v_o = 1 - v_ratio;
-	int r_ALP = 255;
-	if (tex->alpha == ALPHA_MASK) {
-		if (x == tex->width - 1 || y == tex->height - 1) return (SPRITE(tex,x,y) | 0xFF000000) & (0xFFFFFF + ((uint32_t)_RED(SMASKS(tex,x,y)) << 24));
-		r_ALP = (_RED(SMASKS(tex,x,y)) * u_o + _RED(SMASKS(tex,x+1,y)) * u_ratio) * v_o + (_RED(SMASKS(tex,x,y+1)) * u_o  + _RED(SMASKS(tex,x+1,y+1)) * u_ratio) * v_ratio;
-	} else if (tex->alpha == ALPHA_EMBEDDED) {
-		if (x == tex->width - 1 || y == tex->height - 1) return (SPRITE(tex,x,y) | 0xFF000000) & (0xFFFFFF + ((uint32_t)_ALP(SPRITE(tex,x,y)) << 24));
-		r_ALP = (_ALP(SPRITE(tex,x,y)) * u_o + _ALP(SPRITE(tex,x+1,y)) * u_ratio) * v_o + (_ALP(SPRITE(tex,x,y+1)) * u_o  + _ALP(SPRITE(tex,x+1,y+1)) * u_ratio) * v_ratio;
-	}
-	if (x == tex->width - 1 || y == tex->height - 1) return SPRITE(tex,x,y);
-	int r_RED = (_RED(SPRITE(tex,x,y)) * u_o + _RED(SPRITE(tex,x+1,y)) * u_ratio) * v_o + (_RED(SPRITE(tex,x,y+1)) * u_o  + _RED(SPRITE(tex,x+1,y+1)) * u_ratio) * v_ratio;
-	int r_BLU = (_BLU(SPRITE(tex,x,y)) * u_o + _BLU(SPRITE(tex,x+1,y)) * u_ratio) * v_o + (_BLU(SPRITE(tex,x,y+1)) * u_o  + _BLU(SPRITE(tex,x+1,y+1)) * u_ratio) * v_ratio;
-	int r_GRE = (_GRE(SPRITE(tex,x,y)) * u_o + _GRE(SPRITE(tex,x+1,y)) * u_ratio) * v_o + (_GRE(SPRITE(tex,x,y+1)) * u_o  + _GRE(SPRITE(tex,x+1,y+1)) * u_ratio) * v_ratio;
-
-	return rgb(r_RED,r_GRE,r_BLU) & (0xFFFFFF + ((uint32_t)r_ALP << 24));
+	int r_ALP = (_ALP(ul) * u_o + _ALP(ur) * u_ratio) * v_o + (_ALP(ll) * u_o  + _ALP(lr) * u_ratio) * v_ratio;
+	int r_RED = (_RED(ul) * u_o + _RED(ur) * u_ratio) * v_o + (_RED(ll) * u_o  + _RED(lr) * u_ratio) * v_ratio;
+	int r_BLU = (_BLU(ul) * u_o + _BLU(ur) * u_ratio) * v_o + (_BLU(ll) * u_o  + _BLU(lr) * u_ratio) * v_ratio;
+	int r_GRE = (_GRE(ul) * u_o + _GRE(ur) * u_ratio) * v_o + (_GRE(ll) * u_o  + _GRE(lr) * u_ratio) * v_ratio;
+	return rgba(r_RED,r_GRE,r_BLU,r_ALP);
 }
 
 #if 0
@@ -952,7 +949,7 @@ void draw_sprite_transform(gfx_context_t * ctx, const sprite_t * sprite, gfx_mat
 		for (int32_t _x = _left; _x < _right; ++_x) {
 			double u, v;
 			apply_matrix(_x, _y, inverse, &u, &v);
-			uint32_t n_color = gfx_bilinear_filter(sprite, u, v);
+			uint32_t n_color = gfx_bilinear_interpolation(sprite, u, v);
 			uint32_t f_color = premultiply((n_color & 0xFFFFFF) | ((uint32_t)(255 * alpha) << 24));
 			f_color = (f_color & 0xFFFFFF) | ((uint32_t)(alpha * _ALP(n_color)) << 24);
 			GFX(ctx,_x,_y) = alpha_blend_rgba(GFX(ctx,_x,_y), f_color);
