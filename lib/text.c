@@ -82,6 +82,8 @@ struct TT_Font {
 
 	float scale;
 	float emSize;
+
+	int cmap_type;
 };
 
 
@@ -365,17 +367,46 @@ off_t tt_get_glyph_offset(struct TT_Font * font, unsigned int glyph) {
 }
 
 int tt_glyph_for_codepoint(struct TT_Font * font, unsigned int codepoint) {
-	/* Get group count */
-	tt_seek(font, font->cmap_start + 8);
-	uint32_t ngroups = tt_read_32(font);
+	if (font->cmap_type == 12) {
+		/* Get group count */
+		tt_seek(font, font->cmap_start + 4 + 8);
+		uint32_t ngroups = tt_read_32(font);
 
-	for (unsigned int i = 0; i < ngroups; ++i) {
-		uint32_t start = tt_read_32(font);
-		uint32_t end   = tt_read_32(font);
-		uint32_t ind   = tt_read_32(font);
+		for (unsigned int i = 0; i < ngroups; ++i) {
+			uint32_t start = tt_read_32(font);
+			uint32_t end   = tt_read_32(font);
+			uint32_t ind   = tt_read_32(font);
 
-		if (codepoint >= start && codepoint <= end) {
-			return ind + (codepoint - start);
+			if (codepoint >= start && codepoint <= end) {
+				return ind + (codepoint - start);
+			}
+		}
+	} else if (font->cmap_type == 4) {
+		if (codepoint > 0xFFFF) return 0;
+
+		tt_seek(font, font->cmap_start + 6);
+		uint16_t segCount = tt_read_16(font) / 2;
+
+		for (int i = 0; i < segCount; ++i) {
+			tt_seek(font, font->cmap_start + 12 + 2 * i);
+			uint16_t endCode = tt_read_16(font);
+			if (endCode >= codepoint) {
+				tt_seek(font, font->cmap_start + 12 + 2 * segCount + 2 + 2 * i);
+				uint16_t startCode = tt_read_16(font);
+				if (startCode > codepoint) {
+					return 0;
+				}
+				tt_seek(font, font->cmap_start + 12 + 4 * segCount + 2 + 2 * i);
+				int16_t idDelta = tt_read_16(font);
+				tt_seek(font, font->cmap_start + 12 + 6 * segCount + 2 + 2 * i);
+				uint16_t idRangeOffset = tt_read_16(font);
+				if (idRangeOffset == 0) {
+					return idDelta + codepoint;
+				} else {
+					tt_seek(font, font->cmap_start + 12 + 6 * segCount + 2 + 2 * i + idRangeOffset + (codepoint - startCode) * 2);
+					return tt_read_16(font);
+				}
+			}
 		}
 	}
 
@@ -723,33 +754,33 @@ static int tt_font_load(struct TT_Font * font) {
 		uint16_t type     = tt_read_16(font);
 		uint32_t offset   = tt_read_32(font);
 
-		if (platform == 3 && type == 10) {
+		if ((platform == 3 || platform == 0) && type == 10) {
 			best = offset;
 			bestScore = 4;
 		} else if (platform == 0 && type == 4) {
 			best = offset;
 			bestScore = 4;
-		} else if (platform == 0 && type == 3 && bestScore < 2) {
+		} else if (((platform == 0 && type == 3) || (platform == 3 && type == 1)) && bestScore < 2) {
 			best = offset;
 			bestScore = 2;
 		}
 	}
 
-	if (!best || bestScore != 4) {
-		fprintf(stderr, "tt: TODO: unsupported cmap\n");
+	if (!best) {
+		fprintf(stderr, "tt: TODO: unsupported cmap (best = %#x bestScore = %d)\n", best, bestScore);
 		goto _fail_free;
 	}
 
 	/* What type is this */
 	tt_seek(font, font->cmap_ptr.offset + best);
 
-	uint16_t cmap_type = tt_read_16(font);
-	if (cmap_type != 12) {
-		fprintf(stderr, "tt: TODO: unsupported cmap indexing\n");
+	font->cmap_type = tt_read_16(font);
+	if (font->cmap_type != 12 && font->cmap_type != 4) {
+		fprintf(stderr, "tt: TODO: unsupported cmap indexing %d\n", font->cmap_type);
 		goto _fail_free;
 	}
 
-	font->cmap_start = font->cmap_ptr.offset + best + 4;
+	font->cmap_start = font->cmap_ptr.offset + best;
 
 	return 1;
 
