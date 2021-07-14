@@ -291,6 +291,9 @@ int kmain(struct multiboot * mboot, uint32_t mboot_mag, void* esp) {
 	serial_initialize();
 	portio_initialize();
 
+	extern void xhci_initialize(void);
+	xhci_initialize();
+
 	/* Special drivers should probably be modules... */
 	extern void ac97_install(void);
 	ac97_install();

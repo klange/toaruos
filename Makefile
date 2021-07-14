@@ -47,7 +47,10 @@ EMU_ARGS += -soundhw pcspk,ac97
 # Configures two network devices on the same network
 EMU_ARGS += -net user
 EMU_ARGS += -netdev hubport,id=u1,hubid=0, -device e1000e,netdev=u1  -object filter-dump,id=f1,netdev=u1,file=qemu-e1000e.pcap
-EMU_ARGS += -netdev hubport,id=u2,hubid=0, -device e1000e,netdev=u2
+#EMU_ARGS += -netdev hubport,id=u2,hubid=0, -device e1000e,netdev=u2
+
+# Add an XHCI tablet
+#EMU_ARGS += -device qemu-xhci -device usb-tablet
 
 EMU_KVM  ?= -enable-kvm
 

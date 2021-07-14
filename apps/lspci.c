@@ -45,6 +45,7 @@ struct {
 	{0x1234, "Bochs/QEMU"},
 	{0x1274, "Ensoniq"},
 	{0x15ad, "VMWare"},
+	{0x1b36, "Red Hat, Inc."},
 	{0x8086, "Intel Corporation"},
 	{0x80EE, "VirtualBox"},
 };
@@ -63,6 +64,7 @@ struct {
 	{0x15ad, 0x0405, "SVGA II Adapter"},
 	{0x15ad, 0x0790, "PCI bridge"},
 	{0x15ad, 0x07a0, "PCI Express Root Port"},
+	{0x1b36, 0x000d, "QEMU XHCI Host Controller"},
 	{0x8086, 0x1004, "82543GC Gigabit Ethernet Controller (e1000)"},
 	{0x8086, 0x100e, "82540EM Gigabit Ethernet Controller (e1000)"},
 	{0x8086, 0x100f, "82545EM Gigabit Ethernet Controller (e1000)"},
