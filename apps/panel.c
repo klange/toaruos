@@ -1565,7 +1565,6 @@ int main (int argc, char ** argv) {
 	sprite_panel  = malloc(sizeof(sprite_t));
 	sprite_logout = malloc(sizeof(sprite_t));
 
-	load_sprite(sprite_panel,  "/usr/share/panel.png");
 	load_sprite(sprite_logout, "/usr/share/icons/panel-shutdown.png");
 
 	struct stat stat_tmp;

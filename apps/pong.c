@@ -30,7 +30,7 @@
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
 
-#define GAME_PATH "/usr/share/pong"
+#define GAME_PATH "/usr/share/games/pong"
 
 #define PADDLE_WIDTH  50
 #define PADDLE_HEIGHT 300
