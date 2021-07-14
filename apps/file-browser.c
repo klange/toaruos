@@ -1084,6 +1084,20 @@ static void nav_bar_backspace(void) {
 	_redraw_nav_bar();
 }
 
+static void nav_bar_delete(void) {
+	if (!nav_bar[nav_bar_cursor]) return;
+
+	char * after = strdup(&nav_bar[nav_bar_cursor+1]);
+	nav_bar[nav_bar_cursor] = '\0';
+
+	strcat(nav_bar, after);
+	free(after);
+
+	_recalculate_nav_bar_cursor();
+	nav_bar_set_focused();
+	_redraw_nav_bar();
+}
+
 /**
  * navbar: Text editing helper for inserting characters
  */
@@ -1104,8 +1118,20 @@ static void nav_bar_insert_char(char c) {
 /**
  * navbar: Move editing cursor one character left
  */
-static void nav_bar_cursor_left(void) {
-	nav_bar_cursor--;
+static void nav_bar_cursor_left(int modifiers) {
+	if (!*nav_bar) return;
+	if (nav_bar_cursor == 0) return;
+
+	if (modifiers & (KEY_MOD_LEFT_CTRL | KEY_MOD_RIGHT_CTRL)) {
+		if (nav_bar[nav_bar_cursor-1] == '/') {
+			nav_bar_cursor--;
+		}
+		while (nav_bar_cursor && nav_bar[nav_bar_cursor-1] != '/') {
+			nav_bar_cursor--;
+		}
+	} else {
+		nav_bar_cursor--;
+	}
 	_recalculate_nav_bar_cursor();
 	nav_bar_set_focused();
 	_redraw_nav_bar();
@@ -1114,8 +1140,20 @@ static void nav_bar_cursor_left(void) {
 /**
  * navbar: Move editing cursor one character right
  */
-static void nav_bar_cursor_right(void) {
-	nav_bar_cursor++;
+static void nav_bar_cursor_right(int modifiers) {
+	if (!*nav_bar) return;
+
+	if (modifiers & (KEY_MOD_LEFT_CTRL | KEY_MOD_RIGHT_CTRL)) {
+		if (nav_bar[nav_bar_cursor] == '/') {
+			nav_bar_cursor++;
+		}
+		while (nav_bar[nav_bar_cursor] && nav_bar[nav_bar_cursor] != '/') {
+			nav_bar_cursor++;
+		}
+	} else {
+		nav_bar_cursor++;
+	}
+
 	_recalculate_nav_bar_cursor();
 	nav_bar_set_focused();
 	_redraw_nav_bar();
@@ -1953,7 +1991,11 @@ int main(int argc, char * argv[]) {
 										redraw_window();
 										break;
 									case KEY_BACKSPACE:
-										nav_bar_backspace();
+										if (ke->event.modifiers & (KEY_MOD_LEFT_CTRL | KEY_MOD_RIGHT_CTRL)) {
+											nav_bar_backspace_word();
+										} else {
+											nav_bar_backspace();
+										}
 										break;
 									case KEY_CTRL_W:
 										nav_bar_backspace_word();
@@ -1971,10 +2013,13 @@ int main(int argc, char * argv[]) {
 										} else {
 											switch (ke->event.keycode) {
 												case KEY_ARROW_LEFT:
-													nav_bar_cursor_left();
+													nav_bar_cursor_left(ke->event.modifiers);
 													break;
 												case KEY_ARROW_RIGHT:
-													nav_bar_cursor_right();
+													nav_bar_cursor_right(ke->event.modifiers);
+													break;
+												case KEY_DEL:
+													nav_bar_delete();
 													break;
 											}
 										}
