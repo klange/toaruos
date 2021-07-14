@@ -767,6 +767,7 @@ static uint32_t gfx_bilinear_interpolation(const sprite_t * tex, double u, doubl
 	uint32_t ur = out_of_bounds(tex,x+1,y)   ? 0 : SPRITE(tex,x+1,y);
 	uint32_t ll = out_of_bounds(tex,x,y+1)   ? 0 : SPRITE(tex,x,y+1);
 	uint32_t lr = out_of_bounds(tex,x+1,y+1) ? 0 : SPRITE(tex,x+1,y+1);
+	if ((ul | ul | ll | lr) == 0) return 0;
 	double u_ratio = u - x;
 	double v_ratio = v - y;
 	double u_o = 1 - u_ratio;
