@@ -30,20 +30,19 @@ static int height = 480;
 
 char * tt_get_name_string(struct TT_Font * font, int identifier);
 char * preview_string = "The quick brown fox jumps over the lazy dog.";
+char * tt_font_name = NULL;
+char window_title[1024] = "Font Preview";
 
 void redraw(void) {
 	draw_fill(ctx, rgb(255,255,255));
 
 	int y = 10;
 
-	char * fontName = tt_get_name_string(tt_font, 4);
-
-	if (fontName) {
+	if (tt_font_name) {
 		tt_set_size(tt_font, 48);
 		y += 48;
-		tt_draw_string(ctx, tt_font, decor_left_width + 10, decor_top_height + y, fontName, rgb(0,0,0));
+		tt_draw_string(ctx, tt_font, decor_left_width + 10, decor_top_height + y, tt_font_name, rgb(0,0,0));
 		y += 10;
-		free(fontName);
 	}
 
 	tt_set_size(tt_font, 22);
@@ -62,7 +61,7 @@ void redraw(void) {
 		tt_draw_string(ctx, tt_font, decor_left_width + 10, decor_top_height + y, preview_string, rgb(0,0,0));
 	}
 
-	render_decorations(window, ctx, "Font Preview");
+	render_decorations(window, ctx, window_title);
 
 	flip(ctx);
 }
@@ -123,7 +122,13 @@ int main(int argc, char * argv[]) {
 	window = yutani_window_create(yctx, width + decor_width, height + decor_height);
 	yutani_window_move(yctx, window, 100, 100);
 
-	yutani_window_advertise_icon(yctx, window, "Font Preview", "font");
+	tt_font_name = tt_get_name_string(tt_font, 4);
+
+	if (tt_font_name) {
+		sprintf(window_title, "%s - Font Preview", tt_font_name);
+	}
+
+	yutani_window_advertise_icon(yctx, window, window_title, "font");
 
 	ctx = init_graphics_yutani_double_buffer(window);
 
