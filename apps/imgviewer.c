@@ -20,6 +20,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <libgen.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -46,6 +47,7 @@ int height = 300;
 sprite_t img = {0};
 
 #define APPLICATION_TITLE "Image Viewer"
+static char window_title[1024] = APPLICATION_TITLE;
 
 void usage(char * argv[]) {
 	printf(
@@ -58,7 +60,7 @@ void usage(char * argv[]) {
 }
 
 static void decors() {
-	render_decorations(window, ctx, APPLICATION_TITLE);
+	render_decorations(window, ctx, window_title);
 }
 
 void redraw() {
@@ -161,7 +163,9 @@ int main(int argc, char * argv[]) {
 	window = yutani_window_create(yctx, width + decor_width, height + decor_height);
 	yutani_window_move(yctx, window, left, top);
 
-	yutani_window_advertise_icon(yctx, window, APPLICATION_TITLE, "imgviewer");
+	snprintf(window_title, 1023, "%s - " APPLICATION_TITLE, basename(argv[1]));
+
+	yutani_window_advertise_icon(yctx, window, window_title, "image");
 
 	ctx = init_graphics_yutani_double_buffer(window);
 
