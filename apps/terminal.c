@@ -84,7 +84,7 @@ static float    font_scaling   = 1.0;  /* How much they should be scaled by */
 static uint16_t term_width     = 0;    /* Width of the terminal (in cells) */
 static uint16_t term_height    = 0;    /* Height of the terminal (in cells) */
 static uint16_t font_size      = 16;   /* Font size according to tt library */
-static uint16_t char_width     = 9;    /* Width of a cell in pixels */
+static uint16_t char_width     = 8;    /* Width of a cell in pixels */
 static uint16_t char_height    = 17;   /* Height of a cell in pixels */
 static uint16_t char_offset    = 0;    /* Offset of the font within the cell */
 static int      csr_x          = 0;    /* Cursor X */
@@ -1770,7 +1770,7 @@ static void reinit(void) {
 
 	/* Figure out character sizes if fonts have changed. */
 	if (_use_aa) {
-		char_width = 9;
+		char_width = 8;
 		char_height = 17;
 		font_size = 13;
 		char_offset = 13;
