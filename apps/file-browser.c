@@ -938,7 +938,7 @@ static void _draw_nav_bar(struct decor_bounds bounds) {
 	if (nav_bar_focused) {
 		struct gradient_definition edge = {28, bounds.top_height + MENU_BAR_HEIGHT + 3, rgb(0,120,220), rgb(0,120,220)};
 		draw_rounded_rectangle_pattern(ctx, bounds.left_width + 2 + x + 1, bounds.top_height + MENU_BAR_HEIGHT + 4, main_window->width - bounds.width - x - 6, 26, 4, gfx_vertical_gradient_pattern, &edge);
-		draw_rounded_rectangle(ctx, bounds.left_width + 2 + x + 3, bounds.top_height + MENU_BAR_HEIGHT + 6, main_window->width - bounds.width - x - 10, 22, 3, rgb(250,250,250));
+		draw_rounded_rectangle(ctx, bounds.left_width + 2 + x + 3, bounds.top_height + MENU_BAR_HEIGHT + 6, main_window->width - bounds.width - x - 10, 22, 2, rgb(250,250,250));
 	} else {
 		struct gradient_definition edge = {28, bounds.top_height + MENU_BAR_HEIGHT + 3, rgb(90,90,90), rgb(110,110,110)};
 		draw_rounded_rectangle_pattern(ctx, bounds.left_width + 2 + x + 1, bounds.top_height + MENU_BAR_HEIGHT + 4, main_window->width - bounds.width - x - 6, 26, 4, gfx_vertical_gradient_pattern, &edge);
