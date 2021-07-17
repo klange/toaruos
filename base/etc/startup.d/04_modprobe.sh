@@ -2,7 +2,7 @@
 
 # Add module descriptions here...
 if lspci -q 8086:2415 then insmod /mod/ac97.ko
-if lspci -q 1234:1111 then insmod /mod/vmware.ko
+if lspci -q 1234:1111,15ad:07a0 then insmod /mod/vmware.ko
 if lspci -q 80EE:CAFE then insmod /mod/vbox.ko
 if lspci -q 8086:0046 then insmod /mod/i965.ko
 
