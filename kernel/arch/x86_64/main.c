@@ -41,6 +41,7 @@ extern void portio_initialize(void);
 extern void ps2hid_install(void);
 extern void serial_initialize(void);
 extern void fbterm_initialize(void);
+extern void xhci_initialize(void);
 
 #define EARLY_LOG_DEVICE 0x3F8
 static size_t _early_log_write(size_t size, uint8_t * buffer) {
@@ -290,29 +291,7 @@ int kmain(struct multiboot * mboot, uint32_t mboot_mag, void* esp) {
 	ps2hid_install();
 	serial_initialize();
 	portio_initialize();
-
-	extern void xhci_initialize(void);
 	xhci_initialize();
-
-	/* Special drivers should probably be modules... */
-	extern void ac97_install(void);
-	ac97_install();
-
-	if (!args_present("novmware")) {
-		extern void vmware_initialize(void);
-		vmware_initialize();
-	}
-
-	if (!args_present("novbox")) {
-		extern void vbox_initialize(void);
-		vbox_initialize();
-	}
-
-	extern void i965_initialize(void);
-	i965_initialize();
-
-	extern void e1000_initialize(void);
-	e1000_initialize();
 
 	/* Yield to the generic main, which starts /bin/init */
 	return generic_main();

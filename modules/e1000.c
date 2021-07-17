@@ -21,6 +21,7 @@
 #include <kernel/mod/net.h>
 #include <kernel/net/netif.h>
 #include <kernel/net/eth.h>
+#include <kernel/module.h>
 #include <errno.h>
 
 #include <kernel/arch/x86_64/irq.h>
@@ -370,8 +371,15 @@ static int wait_e1000(fs_node_t *node, void * process) {
 	return 0;
 }
 
-static void e1000_init(void * data) {
+static void e1000_process(void * data) {
 	struct e1000_nic * nic = data;
+	while (1) {
+		struct ethernet_packet * packet = dequeue_packet(nic);
+		net_eth_handle(packet, nic->eth.device_node);
+	}
+}
+
+static void e1000_init(struct e1000_nic * nic) {
 	uint32_t e1000_device_pci = nic->pci_device;
 
 	nic->rx_phys = mmu_allocate_a_frame() << 12;
@@ -511,11 +519,9 @@ static void e1000_init(void * data) {
 
 	net_add_interface(nic->eth.if_name, nic->eth.device_node);
 
-	/* Now wait for packets */
-	while (1) {
-		struct ethernet_packet * packet = dequeue_packet(nic);
-		net_eth_handle(packet, nic->eth.device_node);
-	}
+	char worker_name[34];
+	snprintf(worker_name, 33, "[%s]", nic->eth.if_name);
+	spawn_worker_thread(e1000_process, worker_name, nic);
 }
 
 static void find_e1000(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * found) {
@@ -531,21 +537,31 @@ static void find_e1000(uint32_t device, uint16_t vendorid, uint16_t deviceid, vo
 			(int)pci_extract_bus(device),
 			(int)pci_extract_slot(device));
 
-		char worker_name[34];
-		snprintf(worker_name, 33, "[%s]", nic->eth.if_name);
-		spawn_worker_thread(e1000_init, worker_name, nic);
-
+		e1000_init(nic);
 		*(int*)found = 1;
 	}
 }
 
-void e1000_initialize(void) {
+static int e1000_install(int argc, char * argv[]) {
 	uint32_t found = 0;
 	pci_scan(&find_e1000, -1, &found);
 
 	if (!found) {
 		/* TODO: Clean up? Remove ourselves? */
-		return;
+		return -ENODEV;
 	}
+
+	return 0;
 }
+
+static int fini(void) {
+	/* TODO: Uninstall device */
+	return 0;
+}
+
+struct Module metadata = {
+	.name = "e1000",
+	.init = e1000_install,
+	.fini = fini,
+};
 

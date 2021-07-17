@@ -19,6 +19,7 @@
  * Copyright (C) 2015-2021 K. Lange
  */
 
+#include <errno.h>
 #include <kernel/types.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
@@ -26,6 +27,7 @@
 #include <kernel/process.h>
 #include <kernel/mmu.h>
 #include <kernel/list.h>
+#include <kernel/module.h>
 #include <kernel/mod/snd.h>
 
 #include <kernel/arch/x86_64/ports.h>
@@ -241,11 +243,11 @@ static int ac97_mixer_write(uint32_t knob_id, uint32_t val) {
 	return 0;
 }
 
-void ac97_install(void) {
+static int ac97_install(int argc, char * argv[]) {
 	//debug_print(NOTICE, "Initializing AC97");
 	pci_scan(&find_ac97, -1, &_device);
 	if (!_device.pci_device) {
-		return;
+		return -ENODEV;
 	}
 	_device.nabmbar = pci_read_field(_device.pci_device, AC97_NABMBAR, 2) & ((uint32_t) -1) << 1;
 	_device.nambar = pci_read_field(_device.pci_device, PCI_BAR0, 4) & ((uint32_t) -1) << 1;
@@ -300,10 +302,9 @@ void ac97_install(void) {
 
 	//debug_print(NOTICE, "AC97 initialized successfully");
 
-	return;
+	return 0;
 }
 
-#if 0
 static int fini(void) {
 	snd_unregister(&_snd);
 
@@ -313,5 +314,10 @@ static int fini(void) {
 	}
 	return 0;
 }
-#endif
+
+struct Module metadata = {
+	.name = "ac97",
+	.init = ac97_install,
+	.fini = fini,
+};
 

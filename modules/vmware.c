@@ -34,6 +34,7 @@
 #include <kernel/mouse.h>
 #include <kernel/time.h>
 #include <kernel/args.h>
+#include <kernel/module.h>
 #include <kernel/arch/x86_64/ports.h>
 
 #define VMWARE_MAGIC  0x564D5868 /* hXMV */
@@ -484,32 +485,42 @@ static int ioctl_mouse(fs_node_t * node, unsigned long request, void * argp) {
 	}
 }
 
-void vmware_initialize(void) {
-	if (detect_device()) {
+static int vmware_initialize(int argc, char * argv[]) {
+	if (!detect_device()) return -ENODEV;
 
-		mouse_pipe = make_pipe(sizeof(mouse_device_packet_t) * PACKETS_IN_PIPE);
-		mouse_pipe->flags = FS_CHARDEVICE;
+	mouse_pipe = make_pipe(sizeof(mouse_device_packet_t) * PACKETS_IN_PIPE);
+	mouse_pipe->flags = FS_CHARDEVICE;
 
-		vfs_mount("/dev/vmmouse", mouse_pipe);
+	vfs_mount("/dev/vmmouse", mouse_pipe);
 
-		mouse_pipe->flags = FS_CHARDEVICE;
-		mouse_pipe->ioctl = ioctl_mouse;
+	mouse_pipe->flags = FS_CHARDEVICE;
+	mouse_pipe->ioctl = ioctl_mouse;
 
-		/*
-		 * We have a hack in the PS/2 mouse driver that lets us
-		 * take over for the normal mouse driver and essential
-		 * intercept the interrputs when they are valid.
-		 */
-		ps2_mouse_alternate = vmware_mouse;
+	/*
+	 * We have a hack in the PS/2 mouse driver that lets us
+	 * take over for the normal mouse driver and essential
+	 * intercept the interrputs when they are valid.
+	 */
+	ps2_mouse_alternate = vmware_mouse;
 
-		mouse_absolute();
+	mouse_absolute();
 
-		#if 0
-		if (lfb_driver_name && !strcmp(lfb_driver_name, "vmware") && !args_present("novmwareresset")) {
-			create_kernel_tasklet(vmware_resize, "[vmware]", NULL);
-		}
-		#endif
-
+	#if 0
+	if (lfb_driver_name && !strcmp(lfb_driver_name, "vmware") && !args_present("novmwareresset")) {
+		create_kernel_tasklet(vmware_resize, "[vmware]", NULL);
 	}
+	#endif
+
+	return 0;
 }
+
+static int fini(void) {
+	return 0;
+}
+
+struct Module metadata = {
+	.name = "vmware",
+	.init = vmware_initialize,
+	.fini = fini,
+};
 

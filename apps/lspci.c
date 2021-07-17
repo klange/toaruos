@@ -174,13 +174,18 @@ static void show_usage(char * argv[]) {
 int main(int argc, char * argv[]) {
 	int numeric = 0;
 	int opt;
-	while ((opt = getopt(argc, argv, "n?")) != -1) {
+	char * query = NULL;
+
+	while ((opt = getopt(argc, argv, "nq:?")) != -1) {
 		switch (opt) {
 			case '?':
 				show_usage(argv);
 				return 0;
 			case 'n':
 				numeric = 1;
+				break;
+			case 'q':
+				query = optarg;
 				break;
 		}
 	}
@@ -235,7 +240,31 @@ int main(int argc, char * argv[]) {
 		}
 		*last_paren = '\0';
 
-		if (numeric) {
+		if (query) {
+			unsigned short vendor_id = strtoul(device_vendor, NULL, 16);
+			unsigned short device_id = strtoul(device_code,   NULL, 16);
+
+			char * start = query;
+			while (start) {
+				char * colon = strchr(start, ':');
+				if (!colon) return 2; /* Invalid query string */
+				*colon = '\0';
+				char * comma = strchr(colon+1, ',');
+				if (comma) *comma = '\0';
+				unsigned long query_man = strtoul(start,NULL,16);
+				unsigned long query_dev = strtoul(colon+1,NULL,16);
+
+				if (query_man == vendor_id && query_dev == device_id) return 0;
+
+				*colon = ':';
+				if (comma) {
+					*comma = ',';
+					start = comma + 1;
+				} else {
+					start = NULL;
+				}
+			}
+		} else if (numeric) {
 			fprintf(stdout, "%s %s: %s:%s\n", device_bus, device_class, device_vendor, device_code);
 		} else {
 			unsigned short class_id  = strtoul(device_class, NULL, 16);
@@ -256,5 +285,6 @@ int main(int argc, char * argv[]) {
 		}
 	}
 
+	if (query) return 1;
 	return 0;
 }

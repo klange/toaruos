@@ -31,6 +31,7 @@ static uint32_t nframes;
 #define KERNEL_HEAP_START 0xFFFFff0000000000UL
 #define MMIO_BASE_START   0xffffff1fc0000000UL
 #define HIGH_MAP_REGION   0xffffff8000000000UL
+#define MODULE_BASE_START 0xffffffff80000000UL
 
 /* These are actually defined in the shm layer... */
 #define USER_SHM_LOW      0x0000000200000000UL
@@ -86,6 +87,7 @@ int mmu_frame_test(uintptr_t frame_addr) {
 static spin_lock_t frame_alloc_lock = { 0 };
 static spin_lock_t kheap_lock = { 0 };
 static spin_lock_t mmio_space_lock = { 0 };
+static spin_lock_t module_space_lock = { 0 };
 
 /**
  * @brief Find the first range of @p n contiguous frames.
@@ -807,3 +809,33 @@ void * mmu_map_mmio_region(uintptr_t physical_address, size_t size) {
 
 	return out;
 }
+
+static uintptr_t module_base_address = MODULE_BASE_START;
+
+/**
+ * @brief Obtain space to load a module in the -2GiB region.
+ *
+ * This should really start immediately after the kernel, but we don't
+ * yet load the kernel in the -2GiB region... it might also be worthwhile
+ * to implement some ASLR here, especially given that we're loading
+ * relocatable ELF object files and can stick them anywhere.
+ */
+void * mmu_map_module(size_t size) {
+	if (size & PAGE_LOW_MASK) {
+		size += (PAGE_LOW_MASK + 1) - (size & PAGE_LOW_MASK);
+	}
+
+	spin_lock(module_space_lock);
+	void * out = (void*)module_base_address;
+	for (size_t i = 0; i < size; i += PAGE_SIZE) {
+		union PML * p = mmu_get_page(module_base_address + i, MMU_GET_MAKE);
+		mmu_frame_allocate(p, MMU_FLAG_KERNEL | MMU_FLAG_WRITABLE);
+		mmu_invalidate(module_base_address + i);
+	}
+	module_base_address += size;
+	spin_unlock(module_space_lock);
+
+	return out;
+}
+
+

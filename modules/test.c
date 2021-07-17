@@ -1,7 +1,8 @@
 #include <kernel/printf.h>
+#include <kernel/module.h>
 
 static int init(int argc, char * argv[]) {
-	printf("Hello, world.\n");
+	printf("Hello, modules.\n");
 	return 0;
 }
 
@@ -9,11 +10,7 @@ static int fini(void) {
 	return 0;
 }
 
-struct Module {
-	const char * name;
-	int (*init)(int argc, char * argv[]);
-	int (*fini)(void);
-} module_info_test = {
+struct Module metadata = {
 	.name = "test",
 	.init = init,
 	.fini = fini,

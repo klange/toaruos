@@ -17,6 +17,7 @@
 #include <kernel/process.h>
 #include <kernel/mmu.h>
 #include <kernel/misc.h>
+#include <kernel/ksym.h>
 
 static Elf64_Shdr * elf_getSection(Elf64_Header * this, Elf64_Word index) {
 	return (Elf64_Shdr*)((uintptr_t)this + this->e_shoff + index * this->e_shentsize);
@@ -49,6 +50,11 @@ static const char * sectionHeaderTypeToStr(Elf64_Word type) {
 	}
 }
 
+struct Module {
+	const char * name;
+	int (*init)(int argc, char * argv[]);
+	int (*fini)(void);
+};
 
 int elf_module(const char * path) {
 	Elf64_Header header;
@@ -80,69 +86,105 @@ int elf_module(const char * path) {
 		return -EINVAL;
 	}
 
-	printf("Loading module...\n");
+	/* Just slap the whole thing into memory, why not... */
+	char * module_load_address = mmu_map_module(file->length);
+	read_fs(file, 0, file->length, (void*)module_load_address);
 
 	/**
-	 * Load the section string table, we'll want this for debugging, mostly.
-	 */
-	Elf64_Shdr shstr_hdr;
-	read_fs(file, header.e_shoff + header.e_shentsize * header.e_shstrndx, sizeof(Elf64_Shdr), (uint8_t*)&shstr_hdr);
-
-	char * stringTable = malloc(shstr_hdr.sh_size);
-	read_fs(file, shstr_hdr.sh_offset, shstr_hdr.sh_size, (uint8_t*)stringTable);
-
-	/**
-	 * Modules are relocatable objects, so we have to link them by sections,
-	 * not by PHDRs - they don't have those. We'll generally see a lot more
-	 * relocations but usually of a smaller set.
-	 */
-	printf("\nSection Headers:\n");
-	printf("  [Nr] Name              Type             Address           Offset\n");
-	printf("       Size              EntSize          Flags  Link  Info  Align\n");
-	for (unsigned int i = 0; i < header.e_shnum; ++i) {
-		Elf64_Shdr sectionHeader;
-		read_fs(file, header.e_shoff + header.e_shentsize * i, sizeof(Elf64_Shdr), (uint8_t*)&sectionHeader);
-		if (sectionHeader.sh_type == SHT_PROGBITS) {
-			printf("progbits: %s\n", stringTable + sectionHeader.sh_name);
-		} else if (sectionHeader.sh_type == SHT_NOBITS) {
-			printf("nobits: %s\n", stringTable + sectionHeader.sh_name);
-		}
-		#if 0
-		printf("  [%2d] %-17.17s %-16.16s %016lx  %08lx\n",
-			i, stringTable + sectionHeader.sh_name, sectionHeaderTypeToStr(sectionHeader.sh_type),
-			sectionHeader.sh_addr, sectionHeader.sh_offset);
-		printf("       %016lx  %016lx %4ld %6d %5d %5ld\n",
-			sectionHeader.sh_size, sectionHeader.sh_entsize, sectionHeader.sh_flags,
-			sectionHeader.sh_link, sectionHeader.sh_info, sectionHeader.sh_addralign);
-		#endif
-	}
-
-	/**
-	 * In order to load a module, we need to link it as an object
-	 * into the running kernel using the symbol table we integrated
-	 * into our binary.
-	 */
-	//char * shrstrtab = (char*)elfHeader + elf_getSection(elfHeader, elfHeader->e_shstrndx)->sh_offset;
-
-	/**
-	 * First, we're going to check sections and update their addresses.
+	 * Locate the section string table, which we'll use for debugging and to check
+	 * for special section names (eg. dependencies, PCI mappings...)
 	 */
 	#if 0
-	for (unsigned int i = 0; i < elfHeader->e_shnum; ++i) {
-		Elf64_Shdr * shdr = elf_getSection(elfHeader, i);
-		if (shdr->sh_type == SHT_NOBITS) {
-			if (shdr->sh_size) {
-				printf("Warning: Module needs %lu bytes for BSS, we don't have an allocator.\n",
-					shdr->sh_size);
-			}
-			/* otherwise, skip bss */
-		} else {
-			shdr->sh_addr = (uintptr_t)atAddress + shdr->sh_offset;
-		}
-	}
+	Elf64_Shdr * shstr_hdr = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * header.e_shstrndx);
+	char * stringTable = (char*)(module_load_address + shstr_hdr->sh_offset);
 	#endif
 
-	return 0;
+	/**
+	 * Set up section header entries to have correct loaded addresses, and map
+	 * any NOBITS sections to new memory. We'll page-align anything, which
+	 * should be good enough for any object files we make...
+	 */
+	for (unsigned int i = 0; i < header.e_shnum; ++i) {
+		Elf64_Shdr * sectionHeader = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * i);
+		if (sectionHeader->sh_type == SHT_NOBITS) {
+			sectionHeader->sh_addr = (uintptr_t)mmu_map_module(sectionHeader->sh_size);
+			memset((void*)sectionHeader->sh_addr, 0, sectionHeader->sh_size);
+		} else {
+			sectionHeader->sh_addr = (uintptr_t)(module_load_address + sectionHeader->sh_offset);
+		}
+	}
+
+	struct Module * moduleData = NULL;
+
+	/**
+	 * Let's start loading symbols...
+	 */
+	for (unsigned int i = 0; i < header.e_shnum; ++i) {
+		Elf64_Shdr * sectionHeader = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * i);
+		if (sectionHeader->sh_type != SHT_SYMTAB) continue;
+		Elf64_Shdr * strtab_hdr = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * sectionHeader->sh_link);
+		char * symNames = (char*)strtab_hdr->sh_addr;
+		Elf64_Sym * symTable = (Elf64_Sym*)sectionHeader->sh_addr;
+		/* Uh, we should be able to figure out how many symbols we have by doing something less dumb than
+		 * just checking the size of the section, right? */
+		for (unsigned int sym = 0; sym < sectionHeader->sh_size / sizeof(Elf64_Sym); ++sym) {
+			/* TODO: We need to share symbols... */
+			#if 0
+			int binding = (symTable[sym].st_info >> 4);
+			int type = (symTable[sym].st_info & 0xF);
+			#endif
+
+			if (symTable[sym].st_shndx > 0 && symTable[sym].st_shndx < SHN_LOPROC) {
+				Elf64_Shdr * sh_hdr = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * symTable[sym].st_shndx);
+				symTable[sym].st_value = symTable[sym].st_value + sh_hdr->sh_addr;
+			} else if (symTable[sym].st_shndx == SHN_UNDEF) {
+				symTable[sym].st_value = (uintptr_t)ksym_lookup(symNames + symTable[sym].st_name);
+			}
+
+			if (symTable[sym].st_name && !strcmp(symNames + symTable[sym].st_name, "metadata")) {
+				moduleData = (void*)symTable[sym].st_value;
+			}
+		}
+	}
+
+	if (!moduleData) {
+		printf("No module data, bailing.\n");
+		return -EINVAL;
+	}
+
+	for (unsigned int i = 0; i < header.e_shnum; ++i) {
+		Elf64_Shdr * sectionHeader = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * i);
+		if (sectionHeader->sh_type != SHT_RELA) continue;
+
+		Elf64_Rela * table = (Elf64_Rela*)sectionHeader->sh_addr;
+
+		/* Get the section these relocations apply to */
+		Elf64_Shdr * targetSection = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * sectionHeader->sh_info);
+
+		/* Get the symbol table */
+		Elf64_Shdr * symbolSection = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * sectionHeader->sh_link);
+		Elf64_Sym * symbolTable = (Elf64_Sym *)symbolSection->sh_addr;
+
+		for (unsigned int rela = 0; rela < sectionHeader->sh_size / sizeof(Elf64_Rela); ++rela) {
+			uintptr_t target = table[rela].r_offset + targetSection->sh_addr;
+			switch (ELF64_R_TYPE(table[rela].r_info)) {
+				case R_X86_64_64:
+					*(uint64_t*)target = symbolTable[ELF64_R_SYM(table[rela].r_info)].st_value + table[rela].r_addend;
+					break;
+				case R_X86_64_32:
+					*(uint32_t*)target = symbolTable[ELF64_R_SYM(table[rela].r_info)].st_value + table[rela].r_addend;
+					break;
+				case R_X86_64_PC32:
+					*(uint32_t*)target = symbolTable[ELF64_R_SYM(table[rela].r_info)].st_value + table[rela].r_addend - target;
+					break;
+				default:
+					printf("Unsupported relocation: %ld\n", ELF64_R_TYPE(table[rela].r_info));
+					return -EINVAL;
+			}
+		}
+	}
+
+	return moduleData->init(0,NULL);
 }
 
 int elf_exec(const char * path, fs_node_t * file, int argc, const char *const argv[], const char *const env[], int interp) {

@@ -7,6 +7,7 @@
  * for the panel on one particular model of Lenovo ThinkPad and then sets
  * a handful of registers to get the framebuffer into the right resolution.
  */
+#include <errno.h>
 #include <kernel/printf.h>
 #include <kernel/types.h>
 #include <kernel/video.h>
@@ -14,6 +15,7 @@
 #include <kernel/mmu.h>
 #include <kernel/vfs.h>
 #include <kernel/args.h>
+#include <kernel/module.h>
 
 #define REG_PIPEASRC      0x6001C
 #define REG_PIPEACONF     0x70008
@@ -82,7 +84,19 @@ static void find_intel(uint32_t device, uint16_t v, uint16_t d, void * extra) {
 	}
 }
 
-void i965_initialize(void) {
-	if (args_present("noi965")) return;
+static int i965_install(int argc, char * argv[]) {
+	if (args_present("noi965")) return -ENODEV;
 	pci_scan(find_intel, -1, NULL);
+	return 0;
 }
+
+static int fini(void) {
+	return 0;
+}
+
+struct Module metadata = {
+	.name = "i965",
+	.init = i965_install,
+	.fini = fini,
+};
+
