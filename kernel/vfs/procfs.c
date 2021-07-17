@@ -31,6 +31,7 @@
 #include <kernel/syscall.h>
 #include <kernel/mmu.h>
 #include <kernel/misc.h>
+#include <kernel/module.h>
 
 #define PROCFS_STANDARD_ENTRIES (sizeof(std_entries) / sizeof(struct procfs_entry))
 #define PROCFS_PROCDIR_ENTRIES  (sizeof(procdir_entries) / sizeof(struct procfs_entry))
@@ -475,33 +476,15 @@ static ssize_t mounts_func(fs_node_t *node, off_t offset, size_t size, uint8_t *
 }
 
 static ssize_t modules_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-#if 0
 	list_t * hash_keys = hashmap_keys(modules_get_list());
 	char * buf = malloc(hash_keys->length * 512);
 	unsigned int soffset = 0;
 	foreach(_key, hash_keys) {
 		char * key = (char *)_key->value;
-		module_data_t * mod_info = hashmap_get(modules_get_list(), key);
-
-		soffset += sprintf(&buf[soffset], "0x%x {.init=0x%x, .fini=0x%x} %s",
-				mod_info->bin_data,
-				mod_info->mod_info->initialize,
-				mod_info->mod_info->finalize,
-				mod_info->mod_info->name);
-
-		if (mod_info->deps) {
-			unsigned int i = 0;
-			soffset += sprintf(&buf[soffset], " Deps: ");
-			while (i < mod_info->deps_length) {
-				/* Skip padding bytes */
-				if (strlen(&mod_info->deps[i])) {
-					soffset += sprintf(&buf[soffset], "%s ", &mod_info->deps[i]);
-				}
-				i += strlen(&mod_info->deps[i]) + 1;
-			}
-		}
-
-		soffset += sprintf(&buf[soffset], "\n");
+		struct LoadedModule * mod_info = hashmap_get(modules_get_list(), key);
+		soffset += snprintf(&buf[soffset], 100, "%#zx %s\n",
+			mod_info->baseAddress,
+			key);
 	}
 	free(hash_keys);
 
@@ -515,8 +498,6 @@ static ssize_t modules_func(fs_node_t *node, off_t offset, size_t size, uint8_t 
 	memcpy(buffer, buf + offset, size);
 	free(buf);
 	return size;
-#endif
-	return 0;
 }
 
 extern hashmap_t * fs_types; /* from kernel/fs/vfs.c */

@@ -18,43 +18,14 @@
 #include <kernel/mmu.h>
 #include <kernel/misc.h>
 #include <kernel/ksym.h>
+#include <kernel/module.h>
+#include <kernel/hashmap.h>
 
-static Elf64_Shdr * elf_getSection(Elf64_Header * this, Elf64_Word index) {
-	return (Elf64_Shdr*)((uintptr_t)this + this->e_shoff + index * this->e_shentsize);
+static hashmap_t * _modules_table = NULL;
+
+hashmap_t * modules_get_list(void) {
+	return _modules_table;
 }
-
-static const char * sectionHeaderTypeToStr(Elf64_Word type) {
-	static char buf[64];
-	switch (type) {
-		case SHT_NULL: return "NULL";
-		case SHT_PROGBITS: return "PROGBITS";
-		case SHT_SYMTAB: return "SYMTAB";
-		case SHT_STRTAB: return "STRTAB";
-		case SHT_RELA: return "RELA";
-		case SHT_HASH: return "HASH";
-		case SHT_DYNAMIC: return "DYNAMIC";
-		case SHT_NOTE: return "NOTE";
-		case SHT_NOBITS: return "NOBITS";
-		case SHT_REL: return "REL";
-		case SHT_SHLIB: return "SHLIB";
-		case SHT_DYNSYM: return "DYNSYM";
-
-		case 0xE: return "INIT_ARRAY";
-		case 0xF: return "FINI_ARRAY";
-		case 0x6ffffff6: return "GNU_HASH";
-		case 0x6ffffffe: return "VERNEED";
-		case 0x6fffffff: return "VERSYM";
-		default:
-			snprintf(buf, 63, "(%x)", type);
-			return buf;
-	}
-}
-
-struct Module {
-	const char * name;
-	int (*init)(int argc, char * argv[]);
-	int (*fini)(void);
-};
 
 int elf_module(const char * path) {
 	Elf64_Header header;
@@ -183,6 +154,16 @@ int elf_module(const char * path) {
 			}
 		}
 	}
+
+	if (!_modules_table) {
+		_modules_table = hashmap_create(10);
+	}
+
+	struct LoadedModule * loadedData = malloc(sizeof(struct LoadedModule));
+	loadedData->metadata = moduleData;
+	loadedData->baseAddress = (uintptr_t)module_load_address;
+
+	hashmap_set(_modules_table, moduleData->name, loadedData);
 
 	return moduleData->init(0,NULL);
 }
