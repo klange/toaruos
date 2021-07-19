@@ -58,6 +58,7 @@
 static void mark_window(yutani_globals_t * yg, yutani_server_window_t * window);
 static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t * w);
 static void notify_subscribers(yutani_globals_t * yg);
+static void mouse_stop_drag(yutani_globals_t * yg);
 
 static int (*renderer_alloc)(yutani_globals_t * yg) = NULL;
 static int (*renderer_init)(yutani_globals_t * yg) = NULL;
@@ -1550,6 +1551,12 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 				yg->screenshot_frame = YUTANI_SCREENSHOT_FULL;
 			}
 		}
+		if ((ke->event.action == KEY_ACTION_DOWN) &&
+			(ke->event.keycode == KEY_ESCAPE) &&
+			(yg->mouse_state == YUTANI_MOUSE_STATE_MOVING)) {
+			mouse_stop_drag(yg);
+			return;
+		}
 		/*
 		 * Tiling hooks.
 		 * These are based on the compiz grid plugin.
@@ -1675,6 +1682,12 @@ static void adjust_window_opacity(yutani_globals_t * yg, int direction) {
 		mark_window(yg, window);
 	}
 
+}
+
+static void mouse_stop_drag(yutani_globals_t * yg) {
+	yg->mouse_window = NULL;
+	yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
+	mark_screen(yg, yg->mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
 }
 
 static void mouse_start_drag(yutani_globals_t * yg, yutani_server_window_t * w) {
@@ -1872,9 +1885,7 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 				int button_down = (me->event.buttons & YUTANI_MOUSE_BUTTON_LEFT);
 				int drag_stop = yg->mouse_drag_button != 0 ? (!button_down) : (button_down);
 				if (drag_stop) {
-					yg->mouse_window = NULL;
-					yg->mouse_state = YUTANI_MOUSE_STATE_NORMAL;
-					mark_screen(yg, yg->mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
+					mouse_stop_drag(yg);
 				} else {
 					if (yg->mouse_y / MOUSE_SCALE < 10) {
 						if (!yg->mouse_window->tiled) {
