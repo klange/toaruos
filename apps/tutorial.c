@@ -180,7 +180,7 @@ static void load_page(int page) {
 			body_text[i++] = "many years, but that development team is very small. Some features";
 			body_text[i++] = "may be missing, incomplete, or unstable. Contributions in the form";
 			body_text[i++] = "of bug-fixes and new software are welcome. You can join our community";
-			body_text[i++] = "through IRC by joining the #toaruos channel on Freenode.";
+			body_text[i++] = "through IRC by joining the #toaruos channel on Libera.chat.";
 			body_text[i++] = "";
 			body_text[i++] = "You can help support ToaruOS by donating:";
 			body_text[i++] = "%https://github.com/sponsors/klange";
