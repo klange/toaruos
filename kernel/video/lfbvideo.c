@@ -49,7 +49,7 @@ static int lfb_init(const char * c);
 static pid_t display_change_recipient = 0;
 
 /* Driver-specific modesetting function */
-static void (*lfb_resolution_impl)(uint16_t,uint16_t) = NULL;
+void (*lfb_resolution_impl)(uint16_t,uint16_t) = NULL;
 
 /* Called by ioctl on /dev/fb0 */
 void lfb_set_resolution(uint16_t x, uint16_t y) {

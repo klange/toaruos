@@ -42,6 +42,34 @@ static void split(uint32_t val, uint32_t * a, uint32_t * b) {
 	*b = (val >> 16) + 1;
 }
 
+static void i965_modeset(uint16_t x, uint16_t y) {
+	/* Disable pipe A while we update source size */
+	uint32_t pipe = i965_mmio_read(REG_PIPEACONF);
+	i965_mmio_write(REG_PIPEACONF, pipe & ~PIPEACONF_ENABLE);
+	while (i965_mmio_read(REG_PIPEACONF) & PIPEACONF_STATE);
+
+	/* Set source size */
+	i965_mmio_write(REG_PIPEASRC, ((x - 1) << 16) | (y - 1));
+
+	/* Re-enable pipe */
+	pipe = i965_mmio_read(REG_PIPEACONF);
+	i965_mmio_write(REG_PIPEACONF, pipe | PIPEACONF_ENABLE);
+	while (!(i965_mmio_read(REG_PIPEACONF) & PIPEACONF_STATE));
+
+	/* Keep the plane enabled while we update stride value */
+	i965_mmio_write(REG_DSPALINOFF, 0);        /* offset to default of 0 */
+	i965_mmio_write(REG_DSPASTRIDE, x * 4); /* stride to 4 x width */
+	i965_mmio_write(REG_DSPASURF, 0);          /* write to surface address triggers change; use default of 0 */
+
+	/* Update the values we expose to userspace. */
+	lfb_resolution_x = x;
+	lfb_resolution_y = y;
+	lfb_resolution_b = 32;
+	lfb_resolution_s = i965_mmio_read(REG_DSPASTRIDE);
+	lfb_device->length  = lfb_resolution_s * lfb_resolution_y;
+
+}
+
 static void setup_framebuffer(uint32_t pcidev) {
 	/* Map BAR space for the control registers */
 	uint32_t ctrl_space = pci_read_field(pcidev, PCI_BAR0, 4);
@@ -52,30 +80,8 @@ static void setup_framebuffer(uint32_t pcidev) {
 	ctrl_space &= 0xFFFFFF00;
 	ctrl_regs = (uintptr_t)mmu_map_mmio_region(ctrl_space, ctrl_size);
 
-	/* Disable pipe A while we update source size */
-	uint32_t pipe = i965_mmio_read(REG_PIPEACONF);
-	i965_mmio_write(REG_PIPEACONF, pipe & ~PIPEACONF_ENABLE);
-	while (i965_mmio_read(REG_PIPEACONF) & PIPEACONF_STATE);
-
-	/* Set source size */
-	i965_mmio_write(REG_PIPEASRC, ((1440 - 1) << 16) | (900 - 1));
-
-	/* Re-enable pipe */
-	pipe = i965_mmio_read(REG_PIPEACONF);
-	i965_mmio_write(REG_PIPEACONF, pipe | PIPEACONF_ENABLE);
-	while (!(i965_mmio_read(REG_PIPEACONF) & PIPEACONF_STATE));
-
-	/* Keep the plane enabled while we update stride value */
-	i965_mmio_write(REG_DSPALINOFF, 0);        /* offset to default of 0 */
-	i965_mmio_write(REG_DSPASTRIDE, 1440 * 4); /* stride to 4 x width */
-	i965_mmio_write(REG_DSPASURF, 0);          /* write to surface address triggers change; use default of 0 */
-
-	/* Update the values we expose to userspace. */
-	lfb_resolution_x = 1440;
-	lfb_resolution_y = 900;
-	lfb_resolution_b = 32;
-	lfb_resolution_s = i965_mmio_read(REG_DSPASTRIDE);
-	lfb_device->length  = lfb_resolution_s * lfb_resolution_y;
+	lfb_resolution_impl = i965_modeset;
+	lfb_set_resolution(1440,900);
 }
 
 static void find_intel(uint32_t device, uint16_t v, uint16_t d, void * extra) {
