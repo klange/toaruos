@@ -42,7 +42,7 @@
 #define DROPDOWN_OFFSET 34
 #define FONT_SIZE 14
 #define TIME_LEFT 116
-#define DATE_WIDTH 78
+#define DATE_WIDTH 92
 #define X_PAD 4
 #define Y_PAD 4
 #define ICON_Y_PAD 5
