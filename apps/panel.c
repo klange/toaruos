@@ -1034,7 +1034,7 @@ static void redraw(void) {
 	tt_draw_string(ctx, font, width - TIME_LEFT - DATE_WIDTH + t, 2 + Y_PAD + 11, buffer,  calmenu->window ? HILIGHT_COLOR : txt_color);
 
 	/* Month Day */
-	strftime(buffer, 80, "%h %e", timeinfo);
+	strftime(buffer, 80, "%B %e", timeinfo);
 	tt_set_size(font_bold, 11);
 	t = tt_string_width(font_bold, buffer);
 	t = (DATE_WIDTH - t) / 2;
