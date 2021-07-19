@@ -11,6 +11,8 @@ struct Module {
 struct LoadedModule {
 	struct Module * metadata;
 	uintptr_t baseAddress;
+	size_t fileSize;
+	size_t loadedSize;
 };
 
 hashmap_t * modules_get_list(void);

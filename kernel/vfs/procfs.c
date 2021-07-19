@@ -482,8 +482,10 @@ static ssize_t modules_func(fs_node_t *node, off_t offset, size_t size, uint8_t 
 	foreach(_key, hash_keys) {
 		char * key = (char *)_key->value;
 		struct LoadedModule * mod_info = hashmap_get(modules_get_list(), key);
-		soffset += snprintf(&buf[soffset], 100, "%#zx %s\n",
+		soffset += snprintf(&buf[soffset], 100, "%#zx %zu %zu %s\n",
 			mod_info->baseAddress,
+			mod_info->fileSize,
+			mod_info->loadedSize,
 			key);
 	}
 	free(hash_keys);

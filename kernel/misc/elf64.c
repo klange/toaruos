@@ -162,6 +162,10 @@ int elf_module(const char * path) {
 	struct LoadedModule * loadedData = malloc(sizeof(struct LoadedModule));
 	loadedData->metadata = moduleData;
 	loadedData->baseAddress = (uintptr_t)module_load_address;
+	loadedData->fileSize = file->length;
+	loadedData->loadedSize = (uintptr_t)mmu_map_module(0) - (uintptr_t)module_load_address;
+
+	close_fs(file);
 
 	hashmap_set(_modules_table, moduleData->name, loadedData);
 
