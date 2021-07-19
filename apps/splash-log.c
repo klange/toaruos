@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <signal.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
@@ -114,6 +115,15 @@ static void vga_clear_screen(void) {
 	}
 }
 
+static void reinit_video(int signum) {
+	ioctl(framebuffer_fd, IO_VID_WIDTH,  &width);
+	ioctl(framebuffer_fd, IO_VID_HEIGHT, &height);
+	ioctl(framebuffer_fd, IO_VID_DEPTH,  &depth);
+	ioctl(framebuffer_fd, IO_VID_ADDR,   &framebuffer);
+	ioctl(framebuffer_fd, IO_VID_SIGNAL, NULL);
+	signal(SIGWINEVENT, reinit_video);
+}
+
 static void check_framebuffer(void) {
 	framebuffer_fd = open("/dev/fb0", O_RDONLY);
 	if (framebuffer_fd >= 0) {
@@ -125,11 +135,7 @@ static void check_framebuffer(void) {
 		update_message = vga_update_message;
 		clear_screen = vga_clear_screen;
 	}
-	ioctl(framebuffer_fd, IO_VID_WIDTH,  &width);
-	ioctl(framebuffer_fd, IO_VID_HEIGHT, &height);
-	ioctl(framebuffer_fd, IO_VID_DEPTH,  &depth);
-	ioctl(framebuffer_fd, IO_VID_ADDR,   &framebuffer);
-	ioctl(framebuffer_fd, IO_VID_SIGNAL, NULL);
+	reinit_video(0);
 }
 
 static FILE * pex_endpoint = NULL;
