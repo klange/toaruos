@@ -1,14 +1,17 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @file apps/panel.c
+ * @brief Panel with widgets. Main desktop interface.
+ *
+ * Provides the panel shown at the top of the screen, which
+ * presents application windows, useful widgets, and a menu
+ * for launching new apps.
+ *
+ * Also provides Alt-Tab app switching and a few other goodies.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2018 K. Lange
- *
- * Yutani Panel
- *
- * Provides an applications menu, a window list, status widgets,
- * and a clock, manages the user session, and provides alt-tab
- * window switching and alt-f2 app runner.
- *
+ * Copyright (C) 2013-2021 K. Lange
  */
 #include <stdlib.h>
 #include <assert.h>
@@ -1448,15 +1451,8 @@ void _menu_draw_MenuEntry_Calendar(gfx_context_t * ctx, struct MenuEntry * self,
 	char month[20];
 	sprintf(month, "%s %d", month_names[timeinfo->tm_mon], timeinfo->tm_year + 1900);
 
-	int len = (20 - strlen(month)) / 2;
-	while (len > 0) {
-		strcat(lines[0]," ");
-		len--;
-	}
-	strcat(lines[0],month);
-
 	/* Days of week */
-	strcat(lines[1],"Su Mo Tu We Th Fr Sa");
+	strcat(lines[0],"Su Mo Tu We Th Fr Sa");
 
 	int days_in_month = days_in_months[timeinfo->tm_mon];
 	if (days_in_month == 0) {
@@ -1483,27 +1479,30 @@ void _menu_draw_MenuEntry_Calendar(gfx_context_t * ctx, struct MenuEntry * self,
 	}
 
 	for (int i = 0; i < wday; ++i) {
-		strcat(lines[2],"   ");
+		strcat(lines[1],"   ");
 	}
 
-	int line = 2;
+	int line = 1;
 	while (mday <= days_in_month) {
 		/* TODO Bold text? */
 		char tmp[5];
 		sprintf(tmp, "%2d ", mday);
 		strcat(lines[line], tmp);
-		if (wday == 6) line++;
+		if (wday == 6 && mday != days_in_month) line++;
 		mday++;
 		wday = (wday + 1) % 7;
 	}
 
-	self->height = 16 * (line+1) + 8;
+	self->height = 16 * (line+1) + 26;
+
+	tt_set_size(font_bold, 13);
+	tt_draw_string(ctx, font_bold, (self->width - tt_string_width(font_bold, month)) / 2, self->offset + 13, month, rgb(0,0,0));
 
 	/* Go through each and draw with monospace font */
 	for (int i = 0; i < 9; ++i) {
 		if (lines[i][0] != 0) {
 			tt_set_size(i == 0 ? font_mono_bold : font_mono, 13);
-			tt_draw_string(ctx, i == 0 ? font_mono_bold : font_mono, 10, self->offset + i * 17 + 13, lines[i], rgb(0,0,0));
+			tt_draw_string(ctx, i == 0 ? font_mono_bold : font_mono, 10, self->offset + i * 17 + 32, lines[i], rgb(0,0,0));
 		}
 	}
 }
@@ -1515,7 +1514,7 @@ struct MenuEntry * menu_create_calendar(void) {
 	struct MenuEntry * out = menu_create_separator(); /* Steal some defaults */
 
 	out->_type = -1; /* Special */
-	out->height = 16 * 9 + 8;
+	out->height = 16 * 8 + 26;
 	tt_set_size(font_mono, 13);
 	out->rwidth = tt_string_width(font_mono, "XX XX XX XX XX XX XX") + 20;
 	out->renderer = _menu_draw_MenuEntry_Calendar;
