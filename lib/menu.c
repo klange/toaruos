@@ -931,7 +931,7 @@ void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx) {
 		_entries = self->entries;
 	}
 	while (_entries->title) {
-		int w = string_width(_entries->title) + 10;
+		int w = string_width(_entries->title) + 11;
 		if ((self->active_menu && hashmap_has(menu_get_windows_hash(), (void*)(uintptr_t)self->active_menu_wid)) && _entries == self->active_entry) {
 			for (int y = _y; y < _y + MENU_BAR_HEIGHT; ++y) {
 				for (int x = offset + 2; x < offset + 2 + w; ++x) {
@@ -939,7 +939,8 @@ void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx) {
 				}
 			}
 		}
-		offset += draw_string(ctx, offset + 4, _y + 2, 0xFFFFFFFF, _entries->title) + 10;
+		draw_string(ctx, offset + 7, _y + 2, 0xFFFFFFFF, _entries->title);
+		offset += w;
 		_entries++;
 	}
 }
@@ -989,7 +990,7 @@ int menu_bar_mouse_event(yutani_t * yctx, yutani_window_t * window, struct menu_
 	struct menu_bar_entries * _entries = self->entries;
 
 	while (_entries->title) {
-		int w = string_width(_entries->title) + 10;
+		int w = string_width(_entries->title) + 11;
 		if (x >= offset && x < offset + w) {
 			if (me->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(me)) {
 				menu_bar_show_menu(yctx, window, self,offset,_entries);
