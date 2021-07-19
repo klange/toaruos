@@ -84,6 +84,7 @@ struct TT_Font {
 	float emSize;
 
 	int cmap_type;
+	int loca_type;
 };
 
 
@@ -367,8 +368,13 @@ void tt_set_size_px(struct TT_Font * font, float size) {
 }
 
 off_t tt_get_glyph_offset(struct TT_Font * font, unsigned int glyph) {
-	tt_seek(font, font->loca_ptr.offset + glyph * 4);
-	return tt_read_32(font);
+	if (font->loca_type == 0) {
+		tt_seek(font, font->loca_ptr.offset + glyph * 2);
+		return tt_read_16(font) * 2;
+	} else {
+		tt_seek(font, font->loca_ptr.offset + glyph * 4);
+		return tt_read_32(font);
+	}
 }
 
 int tt_glyph_for_codepoint(struct TT_Font * font, unsigned int codepoint) {
@@ -694,9 +700,15 @@ int tt_draw_string(gfx_context_t * ctx, struct TT_Font * font, int x, int y, con
 
 
 static int tt_font_load(struct TT_Font * font) {
-	if (tt_seek(font, 4)) goto _fail_free;
+	if (tt_seek(font, 4)) {
+		fprintf(stderr, "tt: failed to seek to 4\n");
+		goto _fail_free;
+	}
 	uint16_t numTables = tt_read_16(font);
-	if (tt_seek(font, 12)) goto _fail_free;
+	if (tt_seek(font, 12)) {
+		fprintf(stderr, "tt: failed to seek to 12\n");
+		goto _fail_free;
+	}
 
 	for (unsigned int i = 0; i < numTables; ++i) {
 		uint32_t tag = tt_read_32(font);
@@ -736,10 +748,10 @@ static int tt_font_load(struct TT_Font * font) {
 		}
 	}
 
-	if (!font->head_ptr.offset) goto _fail_free;
-	if (!font->glyf_ptr.offset) goto _fail_free;
-	if (!font->cmap_ptr.offset) goto _fail_free;
-	if (!font->loca_ptr.offset) goto _fail_free;
+	if (!font->head_ptr.offset) { fprintf(stderr, "tt: no head table\n"); goto _fail_free; }
+	if (!font->glyf_ptr.offset) { fprintf(stderr, "tt: no glyf table\n"); goto _fail_free; }
+	if (!font->cmap_ptr.offset) { fprintf(stderr, "tt: no cmap table\n"); goto _fail_free; }
+	if (!font->loca_ptr.offset) { fprintf(stderr, "tt: no loca table\n"); goto _fail_free; }
 
 	/* Get emSize */
 	tt_seek(font, font->head_ptr.offset + 18);
@@ -786,6 +798,9 @@ static int tt_font_load(struct TT_Font * font) {
 	}
 
 	font->cmap_start = font->cmap_ptr.offset + best;
+
+	tt_seek(font, font->head_ptr.offset + 50);
+	font->loca_type = tt_read_16(font);
 
 	return 1;
 

@@ -89,14 +89,19 @@ void resize_finish(int w, int h) {
 	yutani_flip(yctx, window);
 }
 
-
 int main(int argc, char * argv[]) {
 
-	if (argc < 2) return 1;
+	if (argc < 2) {
+		fprintf(stderr, "usage: %s FONT\n", argv[0]);
+		return 1;
+	}
 
 	tt_font = tt_font_from_file(argv[1]);
 
-	if (!tt_font) return 1;
+	if (!tt_font) {
+		fprintf(stderr, "%s: failed to load font\n", argv[0]);
+		return 1;
+	}
 
 	yctx = yutani_init();
 	if (!yctx) {
