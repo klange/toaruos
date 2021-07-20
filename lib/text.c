@@ -148,7 +148,7 @@ void tt_path_paint(gfx_context_t * ctx, struct TT_Shape * shape, uint32_t color)
 	int yres = 4;
 	for (int y = startY; y < endY; ++y) {
 		/* Figure out which ones fit here */
-		float _y = y;
+		float _y = y + 0.0001;
 		for (int l = 0; l < yres; ++l) {
 			size_t cnt = prune_edges(size, _y, shape->edges, intersects);
 			if (cnt) {
