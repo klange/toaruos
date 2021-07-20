@@ -76,6 +76,7 @@ static void fb_update_message(char * c, int line) {
 }
 
 static void fb_clear_screen(void) {
+	line_offset = 0;
 	for (int y = 0; y < height; ++y) {
 		for (int x = 0; x < width; ++x) {
 			set_point(x,y,BG_COLOR);
@@ -108,6 +109,7 @@ static void vga_update_message(char * c, int line) {
 }
 
 static void vga_clear_screen(void) {
+	line_offset = 0;
 	for (int y = 0; y < 24; ++y) {
 		for (int x = 0; x < 80; ++x) {
 			placech(' ', x, y, 0); /* Clear */
@@ -121,6 +123,12 @@ static void reinit_video(int signum) {
 	ioctl(framebuffer_fd, IO_VID_DEPTH,  &depth);
 	ioctl(framebuffer_fd, IO_VID_ADDR,   &framebuffer);
 	ioctl(framebuffer_fd, IO_VID_SIGNAL, NULL);
+	if (signum) {
+		char screen_update_msg[512];
+		snprintf(screen_update_msg, 511, "Display resolution changed to %ldx%ld", width, height);
+		clear_screen();
+		update_message(screen_update_msg,0);
+	}
 	signal(SIGWINEVENT, reinit_video);
 }
 
