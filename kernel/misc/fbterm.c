@@ -28,8 +28,8 @@ extern size_t lfb_memsize;
 
 /* Bitmap font details */
 #include "../../apps/terminal-font.h"
-#define char_height 20
-#define char_width  9
+#define char_height LARGE_FONT_CELL_HEIGHT
+#define char_width  LARGE_FONT_CELL_WIDTH
 
 /* Default colors */
 #define BG_COLOR 0xFF050505 /* Background */
@@ -51,7 +51,7 @@ static void write_char(int x, int y, int val, uint32_t color) {
 	uint16_t * c = large_font[val];
 	for (uint8_t i = 0; i < char_height; ++i) {
 		for (uint8_t j = 0; j < char_width; ++j) {
-			if (c[i] & (1 << (15-j))) {
+			if (c[i] & (1 << (LARGE_FONT_MASK-j))) {
 				set_point(x+j,y+i,color);
 			} else {
 				set_point(x+j,y+i,bg_color);

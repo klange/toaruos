@@ -39,8 +39,8 @@ static void set_point(int x, int y, uint32_t value) {
 
 #define BG_COLOR 0xFF050505
 #define FG_COLOR 0xFFCCCCCC
-#define char_width  9
-#define char_height 20
+#define char_width  LARGE_FONT_CELL_WIDTH
+#define char_height LARGE_FONT_CELL_HEIGHT
 static void write_char(int x, int y, int val, uint32_t color) {
 	if (val > 128) {
 		val = 4;
@@ -48,7 +48,7 @@ static void write_char(int x, int y, int val, uint32_t color) {
 	uint16_t * c = large_font[val];
 	for (uint8_t i = 0; i < char_height; ++i) {
 		for (uint8_t j = 0; j < char_width; ++j) {
-			if (c[i] & (1 << (15-j))) {
+			if (c[i] & (1 << (LARGE_FONT_MASK-j))) {
 				set_point(x+j,y+i,color);
 			} else {
 				set_point(x+j,y+i,BG_COLOR);
