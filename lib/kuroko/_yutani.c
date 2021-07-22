@@ -3,6 +3,7 @@
 #include <toaru/yutani.h>
 #include <toaru/decorations.h>
 #include <toaru/menu.h>
+#include <toaru/text.h>
 #include <kuroko/kuroko.h>
 #include <kuroko/vm.h>
 #include <kuroko/value.h>
@@ -57,10 +58,8 @@ struct YutaniColor {
 static KrkClass * YutaniFont;
 struct YutaniFont {
 	KrkInstance inst;
-	int fontType;
+	struct TT_Font * fontData;
 	int fontSize;
-	double fontGamma;
-	double fontStroke;
 	uint32_t fontColor;
 };
 
@@ -879,27 +878,24 @@ static KrkValue _yutani_color_str(int argc, KrkValue argv[], int hasKw) {
 static KrkValue _font_init(int argc, KrkValue argv[], int hasKw) {
 	CHECK_FONT();
 
-	if (argc < 2 || !IS_INTEGER(argv[1]))
-		return krk_runtimeError(vm.exceptions->typeError, "expected int for font type");
+	if (argc < 2 || !IS_STRING(argv[1]))
+		return krk_runtimeError(vm.exceptions->typeError, "expected string for font name");
 	if (argc < 3 || !IS_INTEGER(argv[2]))
 		return krk_runtimeError(vm.exceptions->typeError, "expected int for font size");
 
-	KrkValue fontGamma = FLOATING_VAL(1.7);
-	KrkValue fontStroke = FLOATING_VAL(0.75);
 	KrkValue fontColor = NONE_VAL();
 	if (hasKw) {
-		krk_tableGet(AS_DICT(argv[argc]), OBJECT_VAL(S("gamma")), &fontGamma);
-		krk_tableGet(AS_DICT(argv[argc]), OBJECT_VAL(S("stroke")), &fontStroke);
 		krk_tableGet(AS_DICT(argv[argc]), OBJECT_VAL(S("color")), &fontColor);
-		if (!IS_FLOATING(fontGamma)) return krk_runtimeError(vm.exceptions->typeError, "expected float for gamma");
-		if (!IS_FLOATING(fontStroke)) return krk_runtimeError(vm.exceptions->typeError, "expected float for stroke");
 		if (!krk_isInstanceOf(fontColor, YutaniColor)) return krk_runtimeError(vm.exceptions->typeError, "expected color");
 	}
 
-	self->fontType = AS_INTEGER(argv[1]);
+	self->fontData = tt_font_from_file(AS_CSTRING(argv[1]));
+	if (!self->fontData)
+		return krk_runtimeError(vm.exceptions->typeError, "failed to load font");
+
 	self->fontSize = AS_INTEGER(argv[2]);
-	self->fontGamma = AS_FLOATING(fontGamma);
-	self->fontStroke = AS_FLOATING(fontStroke);
+	tt_set_size(self->fontData, self->fontSize);
+
 	self->fontColor = IS_NONE(fontColor) ? rgb(0,0,0) : ((struct YutaniColor*)AS_INSTANCE(fontColor))->color;
 
 	return argv[0];
@@ -907,6 +903,15 @@ static KrkValue _font_init(int argc, KrkValue argv[], int hasKw) {
 
 static KrkValue _font_size(int argc, KrkValue argv[], int hasKw) {
 	CHECK_FONT();
+	return INTEGER_VAL(self->fontSize);
+}
+
+static KrkValue _font_set_size(int argc, KrkValue argv[], int hasKw) {
+	CHECK_FONT();
+	if (argc < 2 || !IS_INTEGER(argv[1]))
+		return krk_runtimeError(vm.exceptions->typeError, "expected int for font size");
+	self->fontSize = AS_INTEGER(argv[1]);
+	tt_set_size(self->fontData, self->fontSize);
 	return INTEGER_VAL(self->fontSize);
 }
 
@@ -924,7 +929,7 @@ static KrkValue _font_draw_string(int argc, KrkValue argv[], int hasKw) {
 	int32_t x = AS_INTEGER(argv[3]);
 	int32_t y = AS_INTEGER(argv[4]);
 
-	return INTEGER_VAL(-1);
+	return INTEGER_VAL(tt_draw_string(ctx, self->fontData, x, y, str, self->fontColor));
 }
 
 static KrkValue _font_width(int argc, KrkValue argv[], int hasKw) {
@@ -933,7 +938,7 @@ static KrkValue _font_width(int argc, KrkValue argv[], int hasKw) {
 		return krk_runtimeError(vm.exceptions->typeError, "expected str");
 
 	const char * str = AS_CSTRING(argv[1]);
-	return INTEGER_VAL(-1);
+	return INTEGER_VAL(tt_string_width(self->fontData, str));
 }
 
 static void _MenuBar_gcsweep(KrkInstance * _self) {
@@ -1345,6 +1350,7 @@ KrkValue krk_module_onload__yutani(void) {
 		"Font.width(string)\n"
 		"  Calculate the rendered width of the given string when drawn with this font.";
 	krk_defineNative(&YutaniFont->methods, "size", _font_size)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
+	krk_defineNative(&YutaniFont->methods, "set_size", _font_set_size);
 	krk_finalizeClass(YutaniFont);
 
 	MenuBarClass = krk_createClass(module, "MenuBar", NULL);

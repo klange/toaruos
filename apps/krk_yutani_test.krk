@@ -1,11 +1,13 @@
 #!/bin/kuroko
 from _yutani import (color, Yutani, Window, Decorator, Message,
-                     MenuBar, MenuList, MenuEntry, MenuEntrySeparator
+                     MenuBar, MenuList, MenuEntry, MenuEntrySeparator,
+                     Font
                     )
 
 let running = True
 let y = Yutani()
 let w = Window(640,480,title="Test Window",doublebuffer=True)
+let dejavu = Font("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",13)
 
 w.move(200,200)
 
@@ -28,6 +30,7 @@ def drawWindow():
     let bounds = Decorator.get_bounds(w)
     mb.place(bounds['left_width'],bounds['top_height'],w.width-bounds['width'],w)
     mb.render(w)
+    dejavu.draw_string(w,"Hello, world.",20,120)
     w.flip()
 
 drawWindow()
