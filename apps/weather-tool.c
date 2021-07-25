@@ -32,7 +32,7 @@ int main(int argc, char * argv[]) {
 	if (!strcmp(city, "guess")) {
 		/* See if the location data already exists... */
 		if (access(LOCATION_DATA_PATH, R_OK)) {
-			sprintf(cmdline, "fetch -o \"" LOCATION_DATA_PATH "\" \"http://ip-api.com/json/?fields=countryCode,regionName,city\"");
+			sprintf(cmdline, "fetch -o \"" LOCATION_DATA_PATH "\" \"http://ip-api.com/json/?fields=lat,lon,city\"");
 			system(cmdline);
 		}
 		Value * locationData = json_parse_file(LOCATION_DATA_PATH);
@@ -41,16 +41,16 @@ int main(int argc, char * argv[]) {
 			return 1;
 		}
 
-		char * cityName = JSON_KEY(locationData, "city")->string;
-		char * regionName = JSON_KEY(locationData, "regionName")->string;
-		char * countryCode = JSON_KEY(locationData, "countryCode")->string;
+		city = JSON_KEY(locationData, "city")->string;
+		double lat = JSON_KEY(locationData, "lat")->number;
+		double lon = JSON_KEY(locationData, "lon")->number;
 
-		city = malloc(strlen(cityName) + strlen(regionName) + strlen(countryCode) + 10);
-		sprintf(city, "%s, %s, %s", cityName, regionName, countryCode);
+		sprintf(cmdline, "fetch -o \"" WEATHER_DATA_PATH "\" \"http://api.openweathermap.org/data/2.5/weather?lat=%.5lf&lon=%.5lf&appid=%s&units=%s\"", lat, lon, key, units);
+		system(cmdline);
+	} else {
+		sprintf(cmdline, "fetch -o \"" WEATHER_DATA_PATH "\" \"http://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=%s\"", city, key, units);
+		system(cmdline);
 	}
-
-	sprintf(cmdline, "fetch -o \"" WEATHER_DATA_PATH "\" \"http://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=%s\"", city, key, units);
-	system(cmdline);
 
 	Value * result = json_parse_file(WEATHER_DATA_PATH);
 	assert(result && result->type == JSON_TYPE_OBJECT);
