@@ -350,7 +350,7 @@ static char * read_line(FILE * f, char * out, ssize_t len) {
 	return out;
 }
 
-static void _menu_calculate_dimensions(struct MenuList * menu, int * height, int * width) {
+void menu_calculate_dimensions(struct MenuList * menu, int * height, int * width) {
 	list_t * list = menu->entries;
 	*width = 0;
 	*height = (menu->flags & MENU_FLAG_BUBBLE) ? 16 : 8; /* TODO top and height */
@@ -561,7 +561,7 @@ static void _menu_redraw(yutani_window_t * menu_window, yutani_t * yctx, struct 
 void menu_show(struct MenuList * menu, yutani_t * yctx) {
 	/* Calculate window dimensions */
 	int height, width;
-	_menu_calculate_dimensions(menu,&height, &width);
+	menu_calculate_dimensions(menu,&height, &width);
 
 	my_yctx = yctx;
 

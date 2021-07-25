@@ -573,16 +573,22 @@ static void show_weather_status(void) {
 		menu_update_title(weather_clouds_entry, weather_clouds_str);
 	}
 	if (!weather->window) {
-		menu_show(weather, yctx);
-		if (weather->window) {
-			if (weather_left + weather->window->width > (unsigned int)width - X_PAD) {
-				yutani_window_move(yctx, weather->window, weather_left + WIDGET_WIDTH * 2 - weather->window->width, DROPDOWN_OFFSET);
+		int mwidth, mheight, offset;
+		menu_calculate_dimensions(weather, &mheight, &mwidth);
+		if (weather_left + mwidth > width - X_PAD) {
+			if (weather_left + mwidth / 2 > width - X_PAD) {
+				offset = weather_left + WIDGET_WIDTH * 2 - mwidth / 2;
 				weather->flags = (weather->flags & ~MENU_FLAG_BUBBLE) | MENU_FLAG_BUBBLE_RIGHT;
 			} else {
-				yutani_window_move(yctx, weather->window, weather_left, DROPDOWN_OFFSET);
-				weather->flags = (weather->flags & ~MENU_FLAG_BUBBLE) | MENU_FLAG_BUBBLE_LEFT;
+				offset = weather_left + WIDGET_WIDTH - mwidth / 2;
+				weather->flags = (weather->flags & ~MENU_FLAG_BUBBLE) | MENU_FLAG_BUBBLE_CENTER;
 			}
+		} else {
+			offset = weather_left;
+			weather->flags = (weather->flags & ~MENU_FLAG_BUBBLE) | MENU_FLAG_BUBBLE_LEFT;
 		}
+		menu_show(weather, yctx);
+		yutani_window_move(yctx, weather->window, offset, DROPDOWN_OFFSET);
 	}
 }
 

@@ -81,6 +81,7 @@ extern void menu_show_at(struct MenuList * menu, yutani_window_t * parent, int x
 extern int menu_process_event(yutani_t * yctx, yutani_msg_t * m);
 extern struct MenuList * menu_set_get_root(struct MenuSet * menu);
 extern struct MenuList * menu_set_get_menu(struct MenuSet * menu, char * submenu);
+extern void menu_calculate_dimensions(struct MenuList * menu, int * height, int * width);
 
 extern void menu_free_entry(struct MenuEntry * ptr);
 extern void menu_free_menu(struct MenuList * ptr);
