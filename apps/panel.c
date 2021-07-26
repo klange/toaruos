@@ -201,14 +201,14 @@ static void toggle_hide_panel(void) {
 		/* Unhide the panel */
 		for (int i = PANEL_HEIGHT-1; i >= 0; i--) {
 			yutani_window_move(yctx, panel, 0, -i);
-			usleep(10000);
+			usleep(3000);
 		}
 		panel_hidden = 0;
 	} else {
 		/* Hide the panel */
 		for (int i = 1; i <= PANEL_HEIGHT-1; i++) {
 			yutani_window_move(yctx, panel, 0, -i);
-			usleep(10000);
+			usleep(3000);
 		}
 		panel_hidden = 1;
 	}
