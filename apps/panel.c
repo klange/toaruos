@@ -45,7 +45,6 @@
 #define DROPDOWN_OFFSET 34
 #define FONT_SIZE 14
 #define TIME_LEFT 116
-#define DATE_WIDTH 92
 #define X_PAD 4
 #define Y_PAD 4
 #define ICON_Y_PAD 5
@@ -76,10 +75,10 @@
 #define MAX_WINDOW_COUNT 100
 
 #define TOTAL_CELL_WIDTH (title_width)
-#define LEFT_BOUND (width - TIME_LEFT - DATE_WIDTH - ICON_PADDING - widgets_width)
+#define LEFT_BOUND (width - TIME_LEFT - date_widget_width - ICON_PADDING - widgets_width)
 
 #define WIDGET_WIDTH 24
-#define WIDGET_RIGHT (width - TIME_LEFT - DATE_WIDTH)
+#define WIDGET_RIGHT (width - TIME_LEFT - date_widget_width)
 #define WIDGET_POSITION(i) (WIDGET_RIGHT - WIDGET_WIDTH * (i+1))
 
 #define LOGOUT_WIDTH 36
@@ -114,6 +113,8 @@ static int widgets_width = 0;
 static int widgets_volume_enabled = 0;
 static int widgets_network_enabled = 0;
 static int widgets_weather_enabled = 0;
+
+static int date_widget_width = 92;
 
 static int network_status = 0;
 
@@ -520,7 +521,7 @@ static void show_cal_menu(void) {
 	if (!calmenu->window) {
 		menu_show(calmenu, yctx);
 		if (calmenu->window) {
-			yutani_window_move(yctx, calmenu->window, width - TIME_LEFT - DATE_WIDTH / 2 - calmenu->window->width / 2, DROPDOWN_OFFSET);
+			yutani_window_move(yctx, calmenu->window, width - TIME_LEFT - date_widget_width / 2 - calmenu->window->width / 2, DROPDOWN_OFFSET);
 		}
 	}
 }
@@ -635,7 +636,7 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 				show_app_menu();
 			} else if (evt->new_x >= width - TIME_LEFT) {
 				show_clock_menu();
-			} else if (evt->new_x >= width - TIME_LEFT - DATE_WIDTH) {
+			} else if (evt->new_x >= width - TIME_LEFT - date_widget_width) {
 				show_cal_menu();
 			} else if (evt->new_x >= APP_OFFSET && evt->new_x < LEFT_BOUND) {
 				for (int i = 0; i < MAX_WINDOW_COUNT; ++i) {
@@ -1019,7 +1020,6 @@ static void redraw(void) {
 
 	struct timeval now;
 	struct tm * timeinfo;
-	char   buffer[80];
 
 	uint32_t txt_color = TEXT_COLOR;
 	int t = 0;
@@ -1032,23 +1032,37 @@ static void redraw(void) {
 	timeinfo = localtime((time_t *)&now.tv_sec);
 
 	/* Hours : Minutes : Seconds */
-	strftime(buffer, 80, "%H:%M:%S", timeinfo);
-	tt_set_size(font, 16);
-	tt_draw_string(ctx, font, width - TIME_LEFT, 3 + Y_PAD + 17, buffer, clockmenu->window ? HILIGHT_COLOR : txt_color);
+	{
+		char time[80];
+		strftime(time, 80, "%H:%M:%S", timeinfo);
+		tt_set_size(font, 16);
+		tt_draw_string(ctx, font, width - TIME_LEFT, 3 + Y_PAD + 17, time, clockmenu->window ? HILIGHT_COLOR : txt_color);
+	}
 
-	/* Day-of-week */
-	strftime(buffer, 80, "%A", timeinfo);
-	tt_set_size(font, 11);
-	t = tt_string_width(font, buffer);
-	t = (DATE_WIDTH - t) / 2;
-	tt_draw_string(ctx, font, width - TIME_LEFT - DATE_WIDTH + t, 2 + Y_PAD + 11, buffer,  calmenu->window ? HILIGHT_COLOR : txt_color);
+	{
+		int weekday_width, date_width;
+		char weekday[80], date[80];
 
-	/* Month Day */
-	strftime(buffer, 80, "%B %e", timeinfo);
-	tt_set_size(font_bold, 11);
-	t = tt_string_width(font_bold, buffer);
-	t = (DATE_WIDTH - t) / 2;
-	tt_draw_string(ctx, font_bold, width - TIME_LEFT - DATE_WIDTH + t, 12 + Y_PAD + 11, buffer,  calmenu->window ? HILIGHT_COLOR : txt_color);
+		strftime(weekday, 80, "%A", timeinfo);
+		strftime(date, 80, "%B %e", timeinfo);
+
+		tt_set_size(font, 11);
+		tt_set_size(font_bold, 11);
+
+		/* Update date_widget_width */
+		weekday_width = tt_string_width(font, weekday);
+		date_width = tt_string_width(font_bold, date);
+
+		date_widget_width = (weekday_width > date_width ? weekday_width : date_width) + 24; /* A bit of padding... */
+
+		/* Day-of-week */
+		t = (date_widget_width - weekday_width) / 2;
+		tt_draw_string(ctx, font, width - TIME_LEFT - date_widget_width + t, 2 + Y_PAD + 11, weekday,  calmenu->window ? HILIGHT_COLOR : txt_color);
+
+		/* Month Day */
+		t = (date_widget_width - date_width) / 2;
+		tt_draw_string(ctx, font_bold, width - TIME_LEFT - date_widget_width + t, 12 + Y_PAD + 11, date,  calmenu->window ? HILIGHT_COLOR : txt_color);
+	}
 
 	/* Applications menu */
 	tt_set_size(font, 16);
