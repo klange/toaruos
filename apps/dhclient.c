@@ -404,6 +404,17 @@ static int configure_interface(const char * if_name) {
 	return 1;
 }
 
+static int configure_interface_with_backoff(const char * if_name) {
+	int sleep_times[] = {1,3,5,0};
+
+	for (int *time = sleep_times; *time; time++) {
+		if (!configure_interface(if_name)) return 0;
+		sleep(*time);
+	}
+
+	return 1;
+}
+
 int main(int argc, char * argv[]) {
 	int retval = 0;
 
@@ -420,7 +431,7 @@ int main(int argc, char * argv[]) {
 		struct dirent * ent;
 		while ((ent = readdir(d))) {
 			if (ent->d_name[0] == '.') continue;
-			if (configure_interface(ent->d_name)) {
+			if (configure_interface_with_backoff(ent->d_name)) {
 				retval = 1;
 			}
 		}
