@@ -1015,6 +1015,28 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 
 }
 
+/**
+ * Clip text and add ellipsis to fit a specified display width.
+ */
+static char * ellipsify(char * input, int font_size, struct TT_Font * font, int max_width, int * out_width) {
+	int len = strlen(input);
+	char * out = malloc(len + 4);
+	memcpy(out, input, len + 1);
+	int width;
+	tt_set_size(font, font_size);
+	while ((width = tt_string_width(font, out)) > max_width) {
+		len--;
+		out[len+0] = '.';
+		out[len+1] = '.';
+		out[len+2] = '.';
+		out[len+3] = '\0';
+	}
+
+	if (out_width) *out_width = width;
+
+	return out;
+}
+
 static void redraw(void) {
 	spin_lock(&drawlock);
 
@@ -1110,37 +1132,10 @@ static void redraw(void) {
 	if (window_list) {
 		foreach(node, window_list) {
 			struct window_ad * ad = node->value;
-			char * s = "";
-			char tmp_title[50];
-			int w = 0;
+			int w = title_width;
 
 			if (APP_OFFSET + i + w > LEFT_BOUND) {
 				break;
-			}
-
-			if (title_width > MIN_TEXT_WIDTH) {
-
-				memset(tmp_title, 0x0, 50);
-				int t_l = strlen(ad->name);
-				if (t_l > 45) {
-					t_l = 45;
-				}
-				for (int i = 0; i < t_l;  ++i) {
-					tmp_title[i] = ad->name[i];
-					if (!ad->name[i]) break;
-				}
-
-				tt_set_size(font, 14);
-				while (tt_string_width(font, tmp_title) > title_width - ICON_PADDING) {
-					t_l--;
-					tmp_title[t_l] = '.';
-					tmp_title[t_l+1] = '.';
-					tmp_title[t_l+2] = '.';
-					tmp_title[t_l+3] = '\0';
-				}
-				w += title_width;
-
-				s = tmp_title;
 			}
 
 			/* Hilight the focused window */
@@ -1153,56 +1148,20 @@ static void redraw(void) {
 				}
 			}
 
-			/* Get the icon for this window */
-			sprite_t * icon = icon_get_48(ad->icon);
-
-			{
-				sprite_t * _tmp_s = create_sprite(48, PANEL_HEIGHT-Y_PAD*2, ALPHA_EMBEDDED);
-				gfx_context_t * _tmp = init_graphics_sprite(_tmp_s);
-
-				draw_fill(_tmp, rgba(0,0,0,0));
-				/* Draw it, scaled if necessary */
-				if (icon->width == 48) {
-					draw_sprite(_tmp, icon, 0, 0);
-				} else {
-					draw_sprite_scaled(_tmp, icon, 0, 0, 48, 48);
-				}
-
-				free(_tmp);
-				draw_sprite_alpha(ctx, _tmp_s, APP_OFFSET + i + w - 48 - 2, Y_PAD, 0.7);
-				sprite_free(_tmp_s);
-			}
-
-
-			{
-				sprite_t * _tmp_s = create_sprite(w, PANEL_HEIGHT, ALPHA_EMBEDDED);
-				gfx_context_t * _tmp = init_graphics_sprite(_tmp_s);
-
-				draw_fill(_tmp, rgba(0,0,0,0));
-				tt_set_size(font, 14);
-				tt_draw_string(_tmp, font, 0, 14, s, rgb(0,0,0));
-				blur_context_box(_tmp, 4);
-
-				free(_tmp);
-				draw_sprite(ctx, _tmp_s, APP_OFFSET + i + 2, TEXT_Y_OFFSET + 2);
-				sprite_free(_tmp_s);
-
-			}
-
-			if (title_width > MIN_TEXT_WIDTH) {
-				/* Then draw the window title, with appropriate color */
-				uint32_t color;
-				if (j == focused_app) {
-					/* Current hilighted - title should be a light blue */
-					color = HILIGHT_COLOR;
-				} else {
-					if (ad->flags & 1) {
-						color = FOCUS_COLOR;
-					} else {
-						color = txt_color;
-					}
-				}
-				tt_draw_string(ctx, font, APP_OFFSET + i + 2, TEXT_Y_OFFSET + 2 + 14, s, color);
+			if (title_width >= MIN_TEXT_WIDTH) {
+				/* Ellipsifiy the title */
+				char * s = ellipsify(ad->name, 14, font, title_width - 4, NULL);
+				sprite_t * icon = icon_get_48(ad->icon);
+				gfx_context_t * subctx = init_graphics_subregion(ctx, APP_OFFSET + i, Y_PAD, w, PANEL_HEIGHT - Y_PAD * 2);
+				draw_sprite_scaled_alpha(subctx, icon, w - 48 - 2, 0, 48, 48, 0.7);
+				tt_draw_string_shadow(subctx, font, s, 14, 2, TEXT_Y_OFFSET, (j == focused_app) ? HILIGHT_COLOR : (ad->flags & 1) ? FOCUS_COLOR : txt_color, rgb(0,0,0), 4);
+				free(subctx);
+				free(s);
+			} else {
+				sprite_t * icon = icon_get_16(ad->icon);
+				gfx_context_t * subctx = init_graphics_subregion(ctx, APP_OFFSET + i, Y_PAD, w, PANEL_HEIGHT - Y_PAD * 2);
+				draw_sprite_scaled(subctx, icon, 6, 6, 16, 16);
+				free(subctx);
 			}
 
 			/* XXX This keeps track of how far left each window list item is
@@ -1302,14 +1261,14 @@ static void update_window_list(void) {
 		int tmp = LEFT_BOUND;
 		tmp -= APP_OFFSET;
 		if (tmp < 0) {
-			title_width = 0;
+			title_width = 28;
 		} else {
 			title_width = tmp / new_window_list->length;
 			if (title_width > MAX_TEXT_WIDTH) {
 				title_width = MAX_TEXT_WIDTH;
 			}
 			if (title_width < MIN_TEXT_WIDTH) {
-				title_width = 0;
+				title_width = 28;
 			}
 		}
 	} else {

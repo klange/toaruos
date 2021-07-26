@@ -143,7 +143,7 @@ gfx_context_t * init_graphics_subregion(gfx_context_t * base, int x, int y, int 
 	out->width = width;
 	out->height = height;
 	out->stride = base->stride;
-	out->backbuffer = base->buffer + (base->stride * y) + x * 4;
+	out->backbuffer = base->backbuffer + (base->stride * y) + x * 4;
 	out->buffer = base->buffer + (base->stride * y) + x * 4;
 
 	if (base->clips) {
