@@ -61,6 +61,7 @@
 #define FOCUS_COLOR   rgb(255,255,255)
 #define TEXT_COLOR    rgb(230,230,230)
 #define ICON_COLOR    rgb(230,230,230)
+#define SPECIAL_COLOR rgb(93,163,236)
 
 #define GRADIENT_AT(y) premultiply(rgba(72, 167, 255, ((24-(y))*160)/24))
 
@@ -1419,31 +1420,39 @@ struct MenuEntry * menu_create_clock(void) {
 	return out;
 }
 
-const char * month_names[] = {
-	"January",
-	"February",
-	"March",
-	"April",
-	"May",
-	"June",
-	"July",
-	"August",
-	"September",
-	"October",
-	"November",
-	"December",
-};
+#define CALENDAR_LINE_HEIGHT 22
+#define CALENDAR_BASE_HEIGHT 45
+#define CALENDAR_PAD_HEIGHT  2
 
-int days_in_months[] = {
-	31, 0, 31, 30, 31, 30, 31,
-	31, 30, 31, 30, 31,
-};
+static int days_in_month(struct tm * timeinfo) {
+	static int days_in_months[] = {
+		31, 0, 31, 30, 31, 30, 31,
+		31, 30, 31, 30, 31,
+	};
+	if (timeinfo->tm_mon != 1) return days_in_months[timeinfo->tm_mon];
+	/* How many days in February? */
+	struct tm tmp;
+	memcpy(&tmp, timeinfo, sizeof(struct tm));
+	tmp.tm_mday = 29;
+	tmp.tm_hour = 12;
+	time_t tmp3 = mktime(&tmp);
+	struct tm * tmp2 = localtime(&tmp3);
+	return tmp2->tm_mday == 29 ? 29 : 28;
+}
+
+static int weeks_in_month(struct tm * timeinfo) {
+	int line = 0;
+	int wday = (36 + timeinfo->tm_wday - timeinfo->tm_mday) % 7;
+	for (int day = 1; day <= days_in_month(timeinfo); day++, (wday = (wday + 1) % 7)) {
+		if (wday == 6) {
+			line++;
+		}
+	}
+	return (wday ? line + 1 : line);
+}
 
 void _menu_draw_MenuEntry_Calendar(gfx_context_t * ctx, struct MenuEntry * self, int offset) {
 	self->offset = offset;
-
-	char lines[9][22];
-	memset(lines, 0, sizeof(lines));
 
 	struct timeval now;
 	gettimeofday(&now, NULL);
@@ -1454,61 +1463,55 @@ void _menu_draw_MenuEntry_Calendar(gfx_context_t * ctx, struct MenuEntry * self,
 	memcpy(&actual, timeinfo, sizeof(struct tm));
 	timeinfo = &actual;
 
-	char month[20];
-	sprintf(month, "%s %d", month_names[timeinfo->tm_mon], timeinfo->tm_year + 1900);
+	/* Render heading with Month Year */
+	{
+		char month[20];
+		strftime(month, 20, "%B %Y", timeinfo);
 
-	/* Days of week */
-	strcat(lines[0],"Su Mo Tu We Th Fr Sa");
+		tt_set_size(font_bold, 16);
+		tt_draw_string(ctx, font_bold, (self->width - tt_string_width(font_bold, month)) / 2, self->offset + 16, month, rgb(0,0,0));
+	}
 
-	int days_in_month = days_in_months[timeinfo->tm_mon];
-	if (days_in_month == 0) {
-		/* How many days in February? */
-		struct tm tmp;
-		memcpy(&tmp, timeinfo, sizeof(struct tm));
-		tmp.tm_mday = 29;
-		tmp.tm_hour = 12;
-		time_t tmp3 = mktime(&tmp);
-		struct tm * tmp2 = localtime(&tmp3);
-		if (tmp2->tm_mday == 29) {
-			days_in_month = 29;
+	/* Get ready to draw a table... */
+	int cell_size = self->width / 7;
+	int base_left = (self->width - cell_size * 7) / 2;
+
+	/* Render weekday abbreviations */
+	const char * weekdays[] = {"Su","Mo","Tu","We","Th","Fr","Sa",NULL};
+	int left = base_left;
+	tt_set_size(font, 11);
+	for (const char ** w = weekdays; *w; w++) {
+		tt_draw_string(ctx, font, left + (cell_size - tt_string_width(font,*w)) / 2,
+			self->offset + 22 + 13, *w, rgb(0,0,0));
+		left += cell_size;
+	}
+
+	int weeks = weeks_in_month(timeinfo);
+	self->height = CALENDAR_LINE_HEIGHT * weeks + CALENDAR_BASE_HEIGHT + CALENDAR_PAD_HEIGHT;
+
+	/* The 1st was a... */
+	int wday = (36 + timeinfo->tm_wday - timeinfo->tm_mday) % 7;
+
+	int line = 0;
+	left = base_left + cell_size * wday;
+	tt_set_size(font, 13);
+	for (int day = 1; day <= days_in_month(timeinfo); day++, (wday = (wday + 1) % 7)) {
+		char date[12];
+		snprintf(date, 11, "%d", day);
+		/* Is this the cell for today? */
+		if (day == timeinfo->tm_mday) {
+			draw_rounded_rectangle(ctx, left - 1, self->offset + CALENDAR_BASE_HEIGHT + line * CALENDAR_LINE_HEIGHT - 2, cell_size + 2, CALENDAR_LINE_HEIGHT, 12, SPECIAL_COLOR);
+			tt_draw_string(ctx, font, left + (cell_size - tt_string_width(font, date)) / 2,
+				self->offset + CALENDAR_BASE_HEIGHT + 13 + line * CALENDAR_LINE_HEIGHT, date, rgb(255,255,255));
 		} else {
-			days_in_month = 28;
+			tt_draw_string(ctx, font, left + (cell_size - tt_string_width(font, date)) / 2,
+				self->offset + CALENDAR_BASE_HEIGHT + 13 + line * CALENDAR_LINE_HEIGHT, date, (wday == 0 || wday == 6) ? rgba(0,0,0,120) : rgb(0,0,0));
 		}
-	}
-
-	int mday = timeinfo->tm_mday;
-	int wday = timeinfo->tm_wday; /* 0 == sunday */
-
-	while (mday > 1) {
-		mday--;
-		wday = (wday + 6) % 7;
-	}
-
-	for (int i = 0; i < wday; ++i) {
-		strcat(lines[1],"   ");
-	}
-
-	int line = 1;
-	while (mday <= days_in_month) {
-		/* TODO Bold text? */
-		char tmp[5];
-		sprintf(tmp, "%2d ", mday);
-		strcat(lines[line], tmp);
-		if (wday == 6 && mday != days_in_month) line++;
-		mday++;
-		wday = (wday + 1) % 7;
-	}
-
-	self->height = 16 * (line+1) + 26;
-
-	tt_set_size(font_bold, 13);
-	tt_draw_string(ctx, font_bold, (self->width - tt_string_width(font_bold, month)) / 2, self->offset + 13, month, rgb(0,0,0));
-
-	/* Go through each and draw with monospace font */
-	for (int i = 0; i < 9; ++i) {
-		if (lines[i][0] != 0) {
-			tt_set_size(i == 0 ? font_mono_bold : font_mono, 13);
-			tt_draw_string(ctx, i == 0 ? font_mono_bold : font_mono, 10, self->offset + i * 17 + 32, lines[i], rgb(0,0,0));
+		if (wday == 6) {
+			left = base_left;
+			line++;
+		} else {
+			left += cell_size;
 		}
 	}
 }
@@ -1520,9 +1523,13 @@ struct MenuEntry * menu_create_calendar(void) {
 	struct MenuEntry * out = menu_create_separator(); /* Steal some defaults */
 
 	out->_type = -1; /* Special */
-	out->height = 16 * 8 + 26;
+
+	struct timeval now;
+	gettimeofday(&now, NULL);
+	out->height = CALENDAR_LINE_HEIGHT * weeks_in_month(localtime((time_t *)&now.tv_sec)) + CALENDAR_BASE_HEIGHT + CALENDAR_PAD_HEIGHT;
+
 	tt_set_size(font_mono, 13);
-	out->rwidth = tt_string_width(font_mono, "XX XX XX XX XX XX XX") + 20;
+	out->rwidth = 200; //tt_string_width(font_mono, "XX XX XX XX XX XX XX") + 20;
 	out->renderer = _menu_draw_MenuEntry_Calendar;
 	return out;
 }
