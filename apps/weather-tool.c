@@ -31,11 +31,13 @@ int main(int argc, char * argv[]) {
 	 * get a location from the user's external IP... */
 	if (!strcmp(city, "guess")) {
 		/* See if the location data already exists... */
-		if (access(LOCATION_DATA_PATH, R_OK)) {
+		Value * locationData = json_parse_file(LOCATION_DATA_PATH);
+		if (!locationData) {
 			sprintf(cmdline, "fetch -o \"" LOCATION_DATA_PATH "\" \"http://ip-api.com/json/?fields=lat,lon,city\"");
 			system(cmdline);
+			locationData = json_parse_file(LOCATION_DATA_PATH);
 		}
-		Value * locationData = json_parse_file(LOCATION_DATA_PATH);
+		/* If we still failed to load it, then bail. */
 		if (!locationData) {
 			fprintf(stderr, "%s: city field was set to 'guess' but failed to acquire data from IP geolocation service\n", argv[0]);
 			return 1;
