@@ -100,7 +100,17 @@ static void init_default(void) {
 	copyright_str[4] = "-";
 	copyright_str[5] = "%https://toaruos.org";
 	copyright_str[6] = "%https://github.com/klange/toaruos";
+}
 
+void resize_finish(int w, int h) {
+	yutani_window_resize_accept(yctx, window, w, h);
+	reinit_graphics_yutani(ctx, window);
+	struct decor_bounds bounds;
+	decor_get_bounds(NULL, &bounds);
+	width  = w - bounds.width;
+	height = h - bounds.height;
+	redraw();
+	yutani_window_resize_done(yctx, window);
 }
 
 int main(int argc, char * argv[]) {
@@ -185,14 +195,12 @@ int main(int argc, char * argv[]) {
 						}
 					}
 					break;
-#if 0
 				case YUTANI_MSG_RESIZE_OFFER:
 					{
 						struct yutani_msg_window_resize * wr = (void*)m->data;
 						resize_finish(wr->width, wr->height);
 					}
 					break;
-#endif
 				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
 					{
 						struct yutani_msg_window_mouse_event * me = (void*)m->data;
