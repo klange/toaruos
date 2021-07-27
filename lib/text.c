@@ -853,7 +853,8 @@ struct TT_Font * tt_font_from_file_mem(const char * fileName) {
 void tt_draw_string_shadow(gfx_context_t * ctx, struct TT_Font * font, char * string, int font_size, int left, int top, uint32_t text_color, uint32_t shadow_color, int blur) {
 	tt_set_size(font, font_size);
 	int w = tt_string_width(font, string);
-	sprite_t * _tmp_s = create_sprite(w + blur * 2, font_size + blur * 2, ALPHA_EMBEDDED);
+	/* TODO: We need to check the bounds of descenders and ascenders so we can fit things more correctly... */
+	sprite_t * _tmp_s = create_sprite(w + blur * 2, font_size + blur * 2 + 5, ALPHA_EMBEDDED);
 	gfx_context_t * _tmp = init_graphics_sprite(_tmp_s);
 	draw_fill(_tmp, rgba(0,0,0,0));
 	tt_draw_string(_tmp, font, blur, blur + font_size, string, shadow_color);
