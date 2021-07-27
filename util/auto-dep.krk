@@ -31,6 +31,7 @@ class Classifier:
         '<toaru/menu.h>':        (None, '-ltoaru_menu',        ['<toaru/yutani.h>', '<toaru/icon_cache.h>', '<toaru/graphics.h>', '<toaru/hashmap.h>']),
         '<toaru/button.h>':      (None, '-ltoaru_button',      ['<toaru/graphics.h>','<toaru/text.h>', '<toaru/icon_cache.h>']),
         '<toaru/text.h>':        (None, '-ltoaru_text',        ['<toaru/graphics.h>', '<toaru/hashmap.h>']),
+        '<toaru/markup_text.h>': (None, '-ltoaru_markup_text', ['<toaru/graphics.h>', '<toaru/markup.h>', '<toaru/text.h>']),
         # Kuroko
         '<kuroko/kuroko.h>':     ('../../../kuroko/src', '-lkuroko', []),
     }

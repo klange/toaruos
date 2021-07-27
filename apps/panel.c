@@ -325,9 +325,9 @@ static void show_volume_status(void) {
 	/* Add the current volume status */
 	char volume_level_label[100];
 	if (volume_level < 10) {
-		snprintf(volume_level_label, 99, "Volume: Muted");
+		snprintf(volume_level_label, 99, "<b>Volume:</b> <i>Muted</i>");
 	} else {
-		snprintf(volume_level_label, 99, "Volume: %d%%", (int)(100 * ((float)volume_level / (float)0xFc000000)));
+		snprintf(volume_level_label, 99, "<b>Volume:</b> %d%%", (int)(100 * ((float)volume_level / (float)0xFc000000)));
 	}
 	menu_insert(volume_menu, menu_create_normal(NULL, NULL, volume_level_label, NULL));
 
@@ -429,15 +429,15 @@ static void update_weather_status(void) {
 	weather_icon = hashmap_get(weather_icons, icon);
 
 	char tmp[300];
-	sprintf(tmp, "Weather for %s", city);
+	sprintf(tmp, "Weather for <b>%s</b>", city);
 	weather_title_str = strdup(tmp);
-	sprintf(tmp, "%s", updated);
+	sprintf(tmp, "<small><i>%s</i></small>", updated);
 	weather_updated_str = strdup(tmp);
-	sprintf(tmp, "%s° - %s", temp, conditions);
+	sprintf(tmp, "<b>%s°</b> - %s", temp, conditions);
 	weather_conditions_str = strdup(tmp);
-	sprintf(tmp, "Humidity: %s%%", humidity);
+	sprintf(tmp, "<b>Humidity:</b> %s%%", humidity);
 	weather_humidity_str = strdup(tmp);
-	sprintf(tmp, "Clouds: %s%%", clouds);
+	sprintf(tmp, "<b>Clouds:</b> %s%%", clouds);
 	weather_clouds_str = strdup(tmp);
 
 	sprintf(tmp, "%s°", temp_r);
@@ -564,8 +564,8 @@ static void show_weather_status(void) {
 		menu_insert(weather, menu_create_normal("refresh", NULL, "Refresh...", weather_refresh));
 		menu_insert(weather, menu_create_normal("config", NULL, "Configure...", weather_configure));
 		menu_insert(weather, menu_create_separator());
-		menu_insert(weather, menu_create_normal(NULL, NULL, "Weather data provided by", NULL));
-		menu_insert(weather, menu_create_normal(NULL, NULL, "OpenWeatherMap.org", NULL));
+		menu_insert(weather, menu_create_normal(NULL, NULL, "<small><i>Weather data provided by</i></small>", NULL));
+		menu_insert(weather, menu_create_normal(NULL, NULL, "<color #0000FF>OpenWeatherMap.org</color>", NULL));
 	}
 	if (weather_status_valid) {
 		menu_update_title(weather_title_entry, weather_title_str);
@@ -598,7 +598,7 @@ static void show_network_status(void) {
 	if (!netstat) {
 		netstat = menu_create();
 		netstat->flags |= MENU_FLAG_BUBBLE_LEFT;
-		menu_insert(netstat, menu_create_normal(NULL, NULL, "Network Status", NULL));
+		menu_insert(netstat, menu_create_normal(NULL, NULL, "<b>Network Status</b>", NULL));
 		menu_insert(netstat, menu_create_separator());
 	}
 	while (netstat->entries->length > 2) {

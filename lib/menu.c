@@ -21,6 +21,7 @@
 #include <toaru/list.h>
 #include <toaru/icon_cache.h>
 #include <toaru/text.h>
+#include <toaru/markup_text.h>
 
 #include <toaru/menu.h>
 
@@ -36,8 +37,6 @@
 static hashmap_t * menu_windows = NULL;
 static yutani_t * my_yctx = NULL;
 
-static struct TT_Font * _tt_font = NULL;
-
 static struct MenuList * hovered_menu = NULL;
 
 int menu_definitely_close(struct MenuList * menu);
@@ -45,7 +44,7 @@ int menu_definitely_close(struct MenuList * menu);
 __attribute__((constructor))
 static void _init_menus(void) {
 	menu_windows = hashmap_create_int(10);
-	_tt_font = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+	markup_text_init();
 }
 
 hashmap_t * menu_get_windows_hash(void) {
@@ -53,13 +52,11 @@ hashmap_t * menu_get_windows_hash(void) {
 }
 
 static int string_width(const char * s) {
-	tt_set_size(_tt_font, 13);
-	return tt_string_width(_tt_font, s);
+	return markup_string_width(s);
 }
 
 static int draw_string(gfx_context_t * ctx, int x, int y, uint32_t color, const char * s) {
-	tt_set_size(_tt_font, 13);
-	return tt_draw_string(ctx, _tt_font, x, y + 13, s, color);
+	return markup_draw_string(ctx,x,y+13,s,color);
 }
 
 void _menu_draw_MenuEntry_Normal(gfx_context_t * ctx, struct MenuEntry * self, int offset) {
