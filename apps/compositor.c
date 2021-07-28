@@ -420,7 +420,7 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->client_strings = NULL;
 	win->anim_mode = yutani_pick_animation(flags, 0);
 	win->anim_start = yutani_current_time(yg);
-	win->alpha_threshold = 0;
+	win->alpha_threshold = (flags & (1 << 5)) ? 10 : 0;
 	win->show_mouse = 1;
 	win->tiled = 0;
 	win->untiled_width = 0;
@@ -705,6 +705,56 @@ static inline int matrix_is_translation(gfx_matrix_t m) {
 	return (m[0][0] == 1.0 && m[0][1] == 0.0 && m[1][0] == 0.0 && m[1][1] == 1.0);
 }
 
+static inline int clamp(int a, int l, int h) {
+	return a < l ? l : (a > h ? h : a);
+}
+static int _is_in_clip(gfx_context_t * ctx, int32_t y) {
+	if (!ctx->clips) return 1;
+	if (y < 0 || y >= ctx->clips_size) return 1;
+	return ctx->clips[y];
+}
+
+static void horizontal_selective_blur(yutani_globals_t * yg, yutani_server_window_t * win) {
+	int radius = 2;
+	gfx_context_t * _src = yg->backend_ctx;
+	int w = _src->width;
+	int h = _src->height;
+	if (w < radius) return;
+	uint32_t * out_color = calloc(sizeof(uint32_t), w);
+
+	for (int y = 0; y < h; y++) {
+		if (!_is_in_clip(_src, y)) continue;
+		unsigned short r = 0;
+		unsigned short g = 0;
+		unsigned short b = 0;
+		for (int i = -radius; i < radius; ++i) {
+			int p1 = clamp(i, 0, w - 1);
+			uint32_t col1 = GFX(_src, p1, y);
+			r += (int)_RED(col1);
+			g += (int)_GRE(col1);
+			b += (int)_BLU(col1);
+		}
+		for (int x = 0; x < w; x++) {
+			out_color[x] = rgb(r >> 2, g >> 2, b >> 2);
+			int p1 = clamp(x - radius, 0, w - 1);
+			int p2 = clamp(x + radius, 0, w - 1);
+			uint32_t col1 = GFX(_src, p1, y);
+			uint32_t col2 = GFX(_src, p2, y);
+			r += (int)_RED(col2) - (int)_RED(col1);
+			g += (int)_GRE(col2) - (int)_GRE(col1);
+			b += (int)_BLU(col2) - (int)_BLU(col1);
+		}
+
+		for (int x = 0; x < w; x++) {
+			if (check_top_at(yg,win,x,y)) {
+				GFX(_src,x,y) = out_color[x];
+			}
+		}
+	}
+
+	free(out_color);
+}
+
 /**
  * Blit a window to the framebuffer.
  *
@@ -726,6 +776,11 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 	_win_sprite.alpha = ALPHA_EMBEDDED;
 
 	double opacity = (double)(window->opacity) / 255.0;
+
+	if (window->server_flags & (1 << 5)) {
+		/* Blur behind, but restricted to the valid region? */
+		horizontal_selective_blur(yg, window);
+	}
 
 	if (window->rotation || window == yg->resizing_window || window->anim_mode) {
 		double m[2][3];

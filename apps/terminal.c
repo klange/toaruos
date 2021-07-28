@@ -2296,7 +2296,7 @@ int main(int argc, char ** argv) {
 		init_decorations();
 		struct decor_bounds bounds;
 		decor_get_bounds(NULL, &bounds);
-		window = yutani_window_create(yctx, window_width + bounds.width, window_height + bounds.height + menu_bar_height);
+		window = yutani_window_create_flags(yctx, window_width + bounds.width, window_height + bounds.height + menu_bar_height, (1 << 5));
 		update_bounds();
 	}
 

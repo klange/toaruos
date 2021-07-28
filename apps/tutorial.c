@@ -320,7 +320,7 @@ int main(int argc, char * argv[]) {
 
 	background = yutani_window_create_flags(yctx, yctx->display_width, yctx->display_height,
 			YUTANI_WINDOW_FLAG_DISALLOW_RESIZE | YUTANI_WINDOW_FLAG_DISALLOW_DRAG |
-			YUTANI_WINDOW_FLAG_ALT_ANIMATION | YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS);
+			YUTANI_WINDOW_FLAG_ALT_ANIMATION | YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS | (1 << 5));
 	yutani_window_move(yctx, background, 0, 0);
 	yutani_window_update_shape(yctx, background, 2);
 	background_ctx = init_graphics_yutani_double_buffer(background);
