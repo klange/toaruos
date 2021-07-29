@@ -18,6 +18,8 @@ cd $DIR/build/gcc
 ../../gcc/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --enable-languages=c,c++ --enable-shared
 make -j8 all-gcc
 make install-gcc
+make -j8 all-target-libgcc # This will fail, but we don't care, we need some other targets in here to build libc
+make install-target-libgcc
 
 cd $DIR/../
 make base/lib/libc.so
