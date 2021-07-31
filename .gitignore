@@ -25,6 +25,7 @@
 /base/bin/*
 /base/usr/bin/*
 /base/usr/lib/*
+/base/lib/kuroko/*
 /.make/
 /cdrom
 /fatbase

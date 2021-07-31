@@ -67,6 +67,7 @@ LIBS_X=$(foreach lib,$(LIBS),$(BASE)/lib/libtoaru_$(lib).so)
 LIBS_Y=$(foreach lib,$(LIBS),.make/$(lib).lmak)
 
 KRK_MODS = $(patsubst kuroko/src/modules/module_%.c,$(BASE)/lib/kuroko/%.so,$(wildcard kuroko/src/modules/module_*.c))
+KRK_MODS = $(patsubst kuroko/modules/%,$(BASE)/lib/kuroko/%,$(wildcard kuroko/modules/*.krk kuroko/modules/*/*/.krk kuroko/modules/*/*/*.krk))
 KRK_MODS_X = $(patsubst lib/kuroko/%.c,$(BASE)/lib/kuroko/%.so,$(wildcard lib/kuroko/*.c))
 KRK_MODS_Y = $(patsubst lib/kuroko/%.c,.make/%.kmak,$(wildcard lib/kuroko/*.c))
 
@@ -100,6 +101,10 @@ $(BASE)/bin/kuroko: $(KRK_SRC) $(CRTS)  lib/rline.c | $(LC)
 
 $(BASE)/lib/kuroko/%.so: kuroko/src/modules/module_%.c| dirs $(LC)
 	$(CC) -O2 -shared -fPIC -Ikuroko/src -o $@ $<
+
+$(BASE)/lib/kuroko/%.krk: kuroko/modules/%.krk | dirs
+	mkdir -p $(dir $@)
+	cp $< $@
 
 $(BASE)/lib/libkuroko.so: $(KRK_SRC) | $(LC)
 	$(CC) -O2 -shared -fPIC -Ikuroko/src -o $@ $(filter-out kuroko/src/kuroko.c,$(KRK_SRC))
