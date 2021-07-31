@@ -3,6 +3,7 @@
 if stat -Lq /usr/share/fonts/DejaVuSansMono.ttf then export FREETYPE_PROPERTIES="truetype:interpreter-version=35"
 cd ~/Desktop
 file-browser --wallpaper &
+toastd --really # Daemonizes
 cd ~
 tutorial &
 exec panel --really
