@@ -1,0 +1,50 @@
+#!/bin/kuroko
+import kuroko
+import os
+
+def jsonFilter(c):
+    let mapping = {
+        '"': '\\"',
+        '\\': '\\\\',
+        '\b': '\\b',
+        '\f': '\\f',
+        '\n': '\\n',
+        '\r': '\\r',
+        '\t': '\\t',
+    }
+    return mapping[c] if c in mapping else c
+
+def dumpJson(o):
+    if isinstance(o,list):
+        return '[' + ','.join([dumpJson(i) for i in o]) + ']'
+    else if isinstance(o,int):
+        return repr(o)
+    else if isinstance(o,str):
+        return '"' + ''.join([jsonFilter(c) for c in o]) + '"'
+    else if isinstance(o,dict):
+        return '{' + ','.join([dumpJson(k) + ':' + dumpJson(v) for k, v in o.items()]) + '}'
+    else:
+        return dumpJson(str(o))
+
+let msg = {}
+let args = kuroko.argv[1:]
+let sock = os.open("/dev/pex/toast",os.O_WRONLY)
+
+if not sock:
+    print("No toast daemon.")
+    return 1
+
+while args:
+    let arg = args.pop(0)
+    if arg == '--icon':
+        msg['icon'] = args.pop(0)
+    else if arg == '--duration':
+        msg['duration'] = int(args.pop(0))
+    else if arg.startswith('--'):
+        print("Unrecognized option:",arg)
+    else:
+        msg['body'] = arg
+        print("Sending toast:", dumpJson(msg),"to",sock)
+        os.write(sock, dumpJson(msg).encode())
+
+
