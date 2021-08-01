@@ -50,7 +50,7 @@ EMU_ARGS += -netdev hubport,id=u1,hubid=0, -device e1000e,netdev=u1  -object fil
 #EMU_ARGS += -netdev hubport,id=u2,hubid=0, -device e1000e,netdev=u2
 
 # Add an XHCI tablet
-#EMU_ARGS += -device qemu-xhci -device usb-tablet
+EMU_ARGS += -device qemu-xhci -device usb-tablet
 
 EMU_KVM  ?= -enable-kvm
 

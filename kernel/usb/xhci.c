@@ -11,33 +11,34 @@
 #include <kernel/procfs.h>
 
 struct xhci_cap_regs {
-	uint32_t cap_caplen_version;
-	uint32_t cap_hcsparams1;
-	uint32_t cap_hcsparams2;
-	uint32_t cap_hcsparams3;
-	uint32_t cap_hccparams1;
-	uint32_t cap_dboff;
-	uint32_t cap_rtsoff;
-	uint32_t cap_hccparams2;
-};
+	volatile uint32_t cap_caplen_version;
+	volatile uint32_t cap_hcsparams1;
+	volatile uint32_t cap_hcsparams2;
+	volatile uint32_t cap_hcsparams3;
+	volatile uint32_t cap_hccparams1;
+	volatile uint32_t cap_dboff;
+	volatile uint32_t cap_rtsoff;
+	volatile uint32_t cap_hccparams2;
+} __attribute__((packed));
 
 struct xhci_op_regs {
-	uint32_t op_usbcmd;
-	uint32_t op_usbsts;
-	uint32_t op_pagesize;
-	uint32_t op__pad1[2];
-	uint32_t op_dnctrl;
-	uint32_t op_crcr;
-	uint32_t op__pad2[5];
-	uint32_t op_dcbaap;
-	uint32_t op__pad3[1];
-	uint32_t op_config;
-};
+	volatile uint32_t op_usbcmd;
+	volatile uint32_t op_usbsts;
+	volatile uint32_t op_pagesize;
+	volatile uint32_t op__pad1[2];
+	volatile uint32_t op_dnctrl;
+	volatile uint32_t op_crcr;
+	volatile uint32_t op__pad2[5];
+	volatile uint32_t op_dcbaap;
+	volatile uint32_t op__pad3[1];
+	volatile uint32_t op_config;
+} __attribute__((packed));
 
 struct XHCIControllerData {
+	uintptr_t mmio;
 	uint32_t device;
-	volatile struct xhci_cap_regs * cregs;
-	volatile struct xhci_op_regs * oregs;
+	struct xhci_cap_regs * cregs;
+	struct xhci_op_regs * oregs;
 };
 
 static int _counter = 0;
@@ -47,16 +48,27 @@ static ssize_t xhci_procfs_callback(fs_node_t * node, off_t offset, size_t size,
 	char buf[2048];
 
 	size_t _bsize = snprintf(buf, 2000,
-		"Device status: %#x\n"
-		"64-bit capable? %s\n"
-		"context size bit? %d\n"
-		"has %d ports, %d slots\n"
+		"%08x\n"
+		"0x%016zx\n"
+		"CAPLENGTH  0x%08x\n"
+		"HCSPARAMS1 0x%08x\n"
+		"HCSPARAMS2 0x%08x\n"
+		"HCSPARAMS3 0x%08x\n"
+		"HCCPARAMS1 0x%08x\n"
+		"DBOFF      0x%08x\n"
+		"RTSOFF     0x%08x\n"
+		"HCCPARAMS2 0x%08x\n"
 		,
-		controller->oregs->op_usbsts,
-		(controller->cregs->cap_hccparams1 & 1) ? "yes" : "no",
-		(controller->cregs->cap_hccparams1 >> 2) & 1,
-		(controller->cregs->cap_hcsparams1 >> 24) & 0xFF,
-		(controller->cregs->cap_hcsparams1) & 0xFF
+		controller->device,
+		(uintptr_t)controller->mmio,
+		controller->cregs->cap_caplen_version,
+		controller->cregs->cap_hcsparams1,
+		controller->cregs->cap_hcsparams2,
+		controller->cregs->cap_hcsparams3,
+		controller->cregs->cap_hccparams1,
+		controller->cregs->cap_dboff,
+		controller->cregs->cap_rtsoff,
+		controller->cregs->cap_hccparams2
 	);
 
 	if ((size_t)offset > _bsize) return 0;
@@ -67,57 +79,50 @@ static ssize_t xhci_procfs_callback(fs_node_t * node, off_t offset, size_t size,
 }
 
 static void find_xhci(uint32_t device, uint16_t v, uint16_t d, void * extra) {
-	uint16_t device_type = pci_find_type(device);
-	if (device_type == 0x0C03) {
-		printf("xhci: found a host controller at %02x:%02x.%d\n",
-			(int)pci_extract_bus(device),
-			(int)pci_extract_slot(device),
-			(int)pci_extract_func(device));
+	if (pci_find_type(device) != 0x0C03) return;
+	if (pci_read_field(device, PCI_PROG_IF, 1) != 0x30) return;
 
-		struct XHCIControllerData * controller = calloc(sizeof(struct XHCIControllerData), 1);
-		controller->device = device;
+	uint16_t command_reg = pci_read_field(device, PCI_COMMAND, 2);
+	command_reg |= (1 << 2);
+	command_reg |= (1 << 1);
+	pci_write_field(device, PCI_COMMAND, 2, command_reg);
 
-		/* The mmio address is 64 bits and combines BAR0 and BAR1... */
-		uint64_t addr_low  = pci_read_field(device, PCI_BAR0, 4) & 0xFFFFFFF0;
-		uint64_t addr_high = pci_read_field(device, PCI_BAR1, 4) & 0xFFFFFFFF; /* I think this is right? */
-		uint64_t mmio_addr = (addr_high << 32) | addr_low;
+	/* The mmio address is 64 bits and combines BAR0 and BAR1... */
+	uint64_t addr_low  = pci_read_field(device, PCI_BAR0, 4) & 0xFFFFFFF0;
+	uint64_t addr_high = pci_read_field(device, PCI_BAR1, 4) & 0xFFFFFFFF; /* I think this is right? */
+	uint64_t mmio_addr = (addr_high << 32) | addr_low;
 
-		printf("xhci: mmio space is at %#lx\n", mmio_addr);
-
-		/* Map mmio space... */
-		uintptr_t xhci_regs = (uintptr_t)mmu_map_mmio_region(mmio_addr, 0x1000 * 4); /* I don't know. */
-
-		controller->cregs = (volatile struct xhci_cap_regs*)xhci_regs;
-
-		/* Read some registers */
-		uint32_t caplength = controller->cregs->cap_caplen_version & 0xFF;
-		uint32_t hciversion = (controller->cregs->cap_caplen_version >> 16) & 0xFFFF;
-		printf("xhci: CAPLENGTH  = %d\n", caplength);
-		printf("xhci: HCIVERSION = %d\n", hciversion);
-
-		controller->oregs = (volatile struct xhci_op_regs*)(xhci_regs + caplength);
-
-		printf("xhci: USBSTS = %#x\n", controller->oregs->op_usbsts);
-		if (controller->oregs->op_usbsts & (1 << 0)) printf("xhci:   host controller halt\n");
-		if (controller->oregs->op_usbsts & (1 << 2)) printf("xhci:   host system error\n");
-		if (controller->oregs->op_usbsts & (1 << 3)) printf("xhci:   event interrupt\n");
-		if (controller->oregs->op_usbsts & (1 << 4)) printf("xhci:   port change detect\n");
-		if (controller->oregs->op_usbsts & (1 << 8)) printf("xhci:   save state status\n");
-		if (controller->oregs->op_usbsts & (1 << 9)) printf("xhci:   restore state status\n");
-		if (controller->oregs->op_usbsts & (1 << 10)) printf("xhci:   save restore error\n");
-		if (controller->oregs->op_usbsts & (1 << 11)) printf("xhci:   controller not ready\n");
-		if (controller->oregs->op_usbsts & (1 << 12)) printf("xhci:   host controlelr error\n");
-
-		char devName[20] = "/dev/xhciN";
-		snprintf(devName, 19, "/dev/xhci%d", _counter);
-		fs_node_t * fnode = calloc(sizeof(fs_node_t), 1);
-		snprintf(fnode->name, 100, "xhci%d", _counter);
-		fnode->flags   = FS_BLOCKDEVICE;
-		fnode->mask    = 0660; /* Only accessible to root user/group */
-		fnode->read    = xhci_procfs_callback;
-		fnode->device  = controller;
-		vfs_mount(devName, fnode);
+	if (mmio_addr == 0) {
+		/* Need to map... */
+		printf("xhci: Device is unmapped. TODO: Check if this is behind a PCI bridge...\n");
+		return;
+		#if 0
+		mmio_addr = mmu_allocate_n_frames(2) << 12;
+		pci_write_field(device, PCI_BAR0, 4, (mmio_addr & 0xFFFFFFF0) | (1 << 2));
+		pci_write_field(device, PCI_BAR1, 4, (mmio_addr >> 32));
+		#endif
 	}
+
+	struct XHCIControllerData * controller = calloc(sizeof(struct XHCIControllerData), 1);
+	controller->device = device;
+
+	/* Map mmio space... */
+	uintptr_t xhci_regs = (uintptr_t)mmu_map_mmio_region(mmio_addr, 0x1000 * 4); /* I don't know. */
+	controller->mmio  = mmio_addr;
+	controller->cregs = (struct xhci_cap_regs*)xhci_regs;
+	controller->oregs = (struct xhci_op_regs*)(xhci_regs + (controller->cregs->cap_caplen_version & 0xFF));
+
+	char devName[20] = "/dev/xhciN";
+	snprintf(devName, 19, "/dev/xhci%d", _counter);
+	fs_node_t * fnode = calloc(sizeof(fs_node_t), 1);
+	snprintf(fnode->name, 100, "xhci%d", _counter);
+	fnode->flags   = FS_BLOCKDEVICE;
+	fnode->mask    = 0660; /* Only accessible to root user/group */
+	fnode->read    = xhci_procfs_callback;
+	fnode->device  = controller;
+	vfs_mount(devName, fnode);
+
+	_counter++;
 }
 
 void xhci_initialize(void) {
