@@ -123,6 +123,11 @@ run-vga: system
 	${EMU} ${EMU_ARGS} ${EMU_KVM} -cdrom image.iso \
 		-fw_cfg name=opt/org.toaruos.bootmode,string=vga \
 
+test: system
+	${EMU} -m $(RAM) -smp $(SMP) ${EMU_KVM} -kernel misaka-kernel -initrd ramdisk.igz,util/init.krk -append "root=/dev/ram0 init=/dev/ram1" \
+		-nographic -no-reboot -audiodev none,id=id -serial null -serial mon:stdio \
+		-device qemu-xhci,p2=1,p3=0 -device usb-tablet
+
 shell: system
 	${EMU} -m $(RAM) -smp $(SMP) ${EMU_KVM} -cdrom image.iso \
 		-nographic -no-reboot -audiodev none,id=id -serial null -serial mon:stdio \

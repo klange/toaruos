@@ -1,0 +1,22 @@
+#!/bin/kuroko
+import os
+import kuroko
+
+let serial = os.open('/dev/ttyS1',os.O_RDWR)
+if serial == 0:
+    os.dup(serial)
+    os.dup(serial)
+
+# Say hello
+let uname = os.uname()
+print(f"Test script running on {uname['sysname']} {uname['release']} {uname['version']} ({uname['machine']}), Kuroko {kuroko.version}")
+
+print("====")
+
+# Perform tests
+os.system("cat /dev/xhci0")
+
+# Reboot
+print("====")
+print('Tests completed, exiting.')
+os.execv('/bin/reboot',['/bin/reboot'])
