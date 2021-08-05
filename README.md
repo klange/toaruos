@@ -1,17 +1,29 @@
 # ToaruOS
 
-ToaruOS is a 64-bit, hobbyist, educational, Unix-like operating system built entirely from scratch. It includes a kernel, bootloader, dynamic linker, C standard library, composited windowing system, and several utilities and applications. All components of the core operating system are original, providing a complete environment in approximately 80,000 lines of C and assembly, all of which is included in this repository.
+ToaruOS is a "complete" operating system for x86-64 PCs with plans for ports to other platforms.
 
-![Screenshot](https://klange.dev/s/Screenshot%20from%202021-07-09%2019-34-56.png)
+While many independent, hobby, and research OSes aim to experiment with new designs, ToaruOS is intended as an educational resource, providing a representative microcosm of functionality found in major desktop operating systems.
+
+The OS includes a kernel, bootloader, dynamic shared object linker, C standard library, its own composited windowing system, a dynamic bytecode-compiled programming language, advanced code editor, and dozens of other utilities and example applications.
+
+There are no external runtime dependencies and all required source code, totalling roughly 80,000 lines of (primarily) C, is included in this repository, save for [Kuroko](https://github.com/kuroko-lang/kuroko), which lives separately.
+
+![Screenshot](https://klange.dev/s/Screenshot%20from%202021-08-05%2009-50-57.png)
 *Demonstration of ToaruOS's UI and some applications.*
 
 ## History
 
-The ToaruOS project began in December 2010 and has its roots in an independent student project. The goals of the project have changed throughout its history, initially as a learning experience for the authors, and more recently as a complete, from-scratch ecosystem.
+ToaruOS has been in development for over ten years, and the goals of the project have changed through out its life time.
 
-ToaruOS 1.0 was released in January, 2017, and featured a Python userspace built on Newlib. Since 1.6.x, ToaruOS has had its own C library, dependencies on third-party libraries have been removed, and most of the Python userspace has been rewritten in C. More recent releases have focused on improving the C library support, providing more ports in our package repository, and adding new features.
+When it was initiated in December 2010, the OS was a personal project, and its focus was on the individual learning of its author.
 
-In April, 2021, work began on ToaruOS 2.0, which brings a rewritten kernel for x86-64 (and potentially other architectures) and support for SMP. The new "Misaka" kernel was merged upstream at the end of May.
+With time, ToaruOS's relatively advanced graphical interface and other features have inspired new hobby OSes, and the goals of the project shifted towards providing a reliable learning resource.
+
+From its initial release through the middle of 2018, ToaruOS's userspace was built on top of the Newlib C standard library implementation as well as various third-party libraries such as Cairo and Freetype.
+
+Since the release of 1.6.x, all third-pary runtime dependencies have been removed or replaced, and ToaruOS has been entirely "in-house".
+
+In April 2021, work began on ToaruOS 2.0, which brings a rewritten kernel for x86-64 (and potentially other architectures) and support for SMP. The new "Misaka" kernel was merged upstream at the end of May.
 
 ## Features
 
@@ -23,7 +35,7 @@ In April, 2021, work began on ToaruOS 2.0, which brings a rewritten kernel for x
 
 ### Notable Components
 
-- **Misaka** (kernel), [kernel/](kernel/), the core of the operating system.
+- **Misaka** (kernel), [kernel/](kernel/), a hybrid modular kernel, and the core of the operating system.
 - **Yutani** (window compositor), [apps/compositor.c](apps/compositor.c), manages window buffers, layout, and input routing.
 - **Bim** (text editor), [apps/bim.c](apps/bim.c), is a vim-inspired editor with syntax highlighting.
 - **Terminal**, [apps/terminal.c](apps/terminal.c), xterm-esque terminal emulator with 256 and 24-bit color support.
