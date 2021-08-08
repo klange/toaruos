@@ -14,7 +14,7 @@ print(f"Test script running on {uname['sysname']} {uname['release']} {uname['ver
 print("====")
 
 # Perform tests
-os.system("cat /dev/xhci0")
+os.system("/bin/insmod /mod/xhci.ko")
 
 # Reboot
 print("====")
