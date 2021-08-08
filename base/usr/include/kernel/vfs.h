@@ -151,3 +151,4 @@ void map_vfs_directory(const char *);
 
 int make_unix_pipe(fs_node_t ** pipes);
 
+int fprintf(fs_node_t * f, const char * fmt, ...);

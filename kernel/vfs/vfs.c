@@ -38,6 +38,26 @@ hashmap_t * fs_types = NULL;
 
 #define debug_print(x, ...) do { if (0) {printf("vfs.c [%s] ", #x); printf(__VA_ARGS__); printf("\n"); } } while (0)
 
+static int cb_printf(void * user, char c) {
+	fs_node_t * f = user;
+	write_fs(f, 0, 1, (uint8_t*)&c);
+	return 0;
+}
+
+/**
+ * @brief Write printf output to a simple file node.
+ *
+ * The file node, f, must be a simple character device that
+ * allows repeated writes of a single byte without an incrementing
+ * offset, such as a serial port or TTY.
+ */
+int fprintf(fs_node_t * f, const char * fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	int out = xvasprintf(cb_printf, f, fmt, args);
+	va_end(args);
+	return out;
+}
 
 int has_permission(fs_node_t * node, int permission_bit) {
 	if (!node) return 0;
