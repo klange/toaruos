@@ -1,7 +1,7 @@
 /**
  * @brief xHCI Host Controller Driver
  */
-
+#include <kernel/module.h>
 #include <kernel/printf.h>
 #include <kernel/types.h>
 #include <kernel/string.h>
@@ -9,6 +9,7 @@
 #include <kernel/mmu.h>
 #include <kernel/args.h>
 #include <kernel/procfs.h>
+#include <kernel/syscall.h>
 
 struct xhci_cap_regs {
 	volatile uint32_t cap_caplen_version;
@@ -81,6 +82,7 @@ static ssize_t xhci_procfs_callback(fs_node_t * node, off_t offset, size_t size,
 static void find_xhci(uint32_t device, uint16_t v, uint16_t d, void * extra) {
 	if (pci_find_type(device) != 0x0C03) return;
 	if (pci_read_field(device, PCI_PROG_IF, 1) != 0x30) return;
+	fs_node_t * stderr = extra;
 
 	uint16_t command_reg = pci_read_field(device, PCI_COMMAND, 2);
 	command_reg |= (1 << 2);
@@ -94,7 +96,7 @@ static void find_xhci(uint32_t device, uint16_t v, uint16_t d, void * extra) {
 
 	if (mmio_addr == 0) {
 		/* Need to map... */
-		printf("xhci: Device is unmapped. TODO: Check if this is behind a PCI bridge...\n");
+		fprintf(stderr, "xhci: Device is unmapped. TODO: Check if this is behind a PCI bridge...\n");
 		return;
 		#if 0
 		mmio_addr = mmu_allocate_n_frames(2) << 12;
@@ -102,6 +104,8 @@ static void find_xhci(uint32_t device, uint16_t v, uint16_t d, void * extra) {
 		pci_write_field(device, PCI_BAR1, 4, (mmio_addr >> 32));
 		#endif
 	}
+
+	fprintf(stderr, "xhci: controller found\n");
 
 	struct XHCIControllerData * controller = calloc(sizeof(struct XHCIControllerData), 1);
 	controller->device = device;
@@ -111,6 +115,19 @@ static void find_xhci(uint32_t device, uint16_t v, uint16_t d, void * extra) {
 	controller->mmio  = mmio_addr;
 	controller->cregs = (struct xhci_cap_regs*)xhci_regs;
 	controller->oregs = (struct xhci_op_regs*)(xhci_regs + (controller->cregs->cap_caplen_version & 0xFF));
+
+	fprintf(stderr, "xhci: available slots: %d\n", controller->cregs->cap_hcsparams1 & 0xFF);
+	fprintf(stderr, "xhci: available ports: %d\n", controller->cregs->cap_hcsparams1 >> 24);
+	fprintf(stderr, "xhci: resetting controller\n");
+	controller->oregs->op_usbcmd |= (1 << 1);
+	fprintf(stderr, "xhci: waiting for controller to stop...\n");
+	while ((controller->oregs->op_usbcmd & (1 << 1)));
+	while (!(controller->oregs->op_usbsts & (1 << 0)));
+	fprintf(stderr, "xhci: controller is halted...\n");
+
+	fprintf(stderr, "xhci: context size is %d\n",
+		(controller->cregs->cap_hccparams1 & (1 << 1)) ? 64 : 32);
+
 
 	char devName[20] = "/dev/xhciN";
 	snprintf(devName, 19, "/dev/xhci%d", _counter);
@@ -125,6 +142,19 @@ static void find_xhci(uint32_t device, uint16_t v, uint16_t d, void * extra) {
 	_counter++;
 }
 
-void xhci_initialize(void) {
-	pci_scan(find_xhci, -1, NULL);
+static int init(int argc, char * argv[]) {
+	fs_node_t * node = FD_ENTRY(1); /* Get the stdout for the process that loaded the module */
+	pci_scan(find_xhci, -1, node);
+	return 0;
 }
+
+static int fini(void) {
+	return 0;
+}
+
+struct Module metadata = {
+	.name = "xhci",
+	.init = init,
+	.fini = fini,
+};
+

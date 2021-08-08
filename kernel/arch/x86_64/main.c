@@ -41,7 +41,6 @@ extern void portio_initialize(void);
 extern void ps2hid_install(void);
 extern void serial_initialize(void);
 extern void fbterm_initialize(void);
-extern void xhci_initialize(void);
 
 #define EARLY_LOG_DEVICE 0x3F8
 static size_t _early_log_write(size_t size, uint8_t * buffer) {
@@ -291,7 +290,6 @@ int kmain(struct multiboot * mboot, uint32_t mboot_mag, void* esp) {
 	ps2hid_install();
 	serial_initialize();
 	portio_initialize();
-	xhci_initialize();
 
 	/* Yield to the generic main, which starts /bin/init */
 	return generic_main();
