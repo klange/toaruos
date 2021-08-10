@@ -5887,7 +5887,8 @@ int process_command(char * cmd) {
 			if (c-cmd == 511) break;
 			if (*c == ' ') {
 				cmd_name[c-cmd] = '\0';
-				argv[1] = c+1;
+				while (*c == ' ') c++;
+				argv[1] = c;
 				if (*argv[1]) argc++;
 				break;
 			}
@@ -10808,9 +10809,17 @@ void import_directory(char * dirName) {
 		dirp = opendir(file);
 	}
 	if (!dirp) {
-		/* Try one last fallback */
+		/* Try /usr/share/bim */
 		if (dirpath) free(dirpath);
 		dirpath = strdup("/usr/share/bim");
+		sprintf(file, "%s/%s", dirpath, dirName);
+		extra = "/";
+		dirp = opendir(file);
+	}
+	if (!dirp) {
+		/* Try one last fallback */
+		if (dirpath) free(dirpath);
+		dirpath = strdup("/usr/local/share/bim");
 		sprintf(file, "%s/%s", dirpath, dirName);
 		extra = "/";
 		dirp = opendir(file);
