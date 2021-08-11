@@ -92,6 +92,8 @@ void redraw(void) {
 
 	draw_line(ctx, 0, 0, 0, h, rgb(255,255,255));
 	draw_line(ctx, w, w, 0, h, rgb(255,255,255));
+
+	yutani_flip(yctx, wina);
 }
 
 int main (int argc, char ** argv) {
