@@ -418,8 +418,8 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->client_offsets[4] = 0;
 	win->client_length  = 0;
 	win->client_strings = NULL;
-	win->anim_mode = yutani_pick_animation(flags, 0);
-	win->anim_start = yutani_current_time(yg);
+	win->anim_mode = 0;
+	win->anim_start = 0;
 	win->alpha_threshold = 0;
 	win->show_mouse = 1;
 	win->tiled = 0;
@@ -428,6 +428,7 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->default_mouse = 1;
 	win->server_flags = flags;
 	win->opacity = 255;
+	win->hidden = 1;
 
 	char key[1024];
 	YUTANI_SHMKEY(yg->server_ident, key, 1024, win);
@@ -615,6 +616,7 @@ static void draw_cursor(yutani_globals_t * yg, int x, int y, int cursor) {
  */
 static yutani_server_window_t * check_top_at(yutani_globals_t * yg, yutani_server_window_t * w, uint16_t x, uint16_t y){
 	if (!w) return NULL;
+	if (w->hidden) return NULL;
 	int32_t _x = -1, _y = -1;
 	yutani_device_to_window(w, x, y, &_x, &_y);
 	if (_x < 0 || _x >= w->width || _y < 0 || _y >= w->height) return NULL;
@@ -712,6 +714,10 @@ static inline int matrix_is_translation(gfx_matrix_t m) {
  * the window through alpha blitting.
  */
 static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * window, int x, int y) {
+
+	if (window->hidden) {
+		return 0;
+	}
 
 	if (renderer_blit_window) {
 		return renderer_blit_window(yg,window,x,y);
@@ -1460,6 +1466,14 @@ static void window_untile(yutani_globals_t * yg, yutani_server_window_t * window
 	yutani_msg_buildx_window_resize_alloc(response);
 	yutani_msg_buildx_window_resize(response,YUTANI_MSG_RESIZE_OFFER, window->wid, window->untiled_width, window->untiled_height, 0, 0);
 	pex_send(yg->server, window->owner, response->size, (char *)response);
+}
+
+static void window_reveal(yutani_globals_t * yg, yutani_server_window_t * window) {
+	if (!window->hidden) return;
+
+	window->hidden = 0;
+	window->anim_mode = yutani_pick_animation(window->server_flags, 0);
+	window->anim_start = yutani_current_time(yg);
 }
 
 /**
@@ -2399,6 +2413,7 @@ int main(int argc, char * argv[]) {
 					struct yutani_msg_flip * wf = (void *)m->data;
 					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)wf->wid);
 					if (w) {
+						window_reveal(yg, w);
 						mark_window(yg, w);
 					}
 				}
@@ -2408,6 +2423,7 @@ int main(int argc, char * argv[]) {
 					struct yutani_msg_flip_region * wf = (void *)m->data;
 					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)wf->wid);
 					if (w) {
+						window_reveal(yg, w);
 						mark_window_relative(yg, w, wf->x, wf->y, wf->width, wf->height);
 					}
 				}

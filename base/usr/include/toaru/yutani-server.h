@@ -154,6 +154,9 @@ typedef struct YutaniServerWindow {
 
 	/* Window opacity */
 	int opacity;
+
+	/* Window is hidden? */
+	int hidden;
 } yutani_server_window_t;
 
 typedef struct YutaniGlobals {
