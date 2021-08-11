@@ -67,7 +67,7 @@ LIBS_X=$(foreach lib,$(LIBS),$(BASE)/lib/libtoaru_$(lib).so)
 LIBS_Y=$(foreach lib,$(LIBS),.make/$(lib).lmak)
 
 KRK_MODS = $(patsubst kuroko/src/modules/module_%.c,$(BASE)/lib/kuroko/%.so,$(wildcard kuroko/src/modules/module_*.c))
-KRK_MODS = $(patsubst kuroko/modules/%,$(BASE)/lib/kuroko/%,$(wildcard kuroko/modules/*.krk kuroko/modules/*/*/.krk kuroko/modules/*/*/*.krk))
+KRK_MODS += $(patsubst kuroko/modules/%,$(BASE)/lib/kuroko/%,$(wildcard kuroko/modules/*.krk kuroko/modules/*/*/.krk kuroko/modules/*/*/*.krk))
 KRK_MODS_X = $(patsubst lib/kuroko/%.c,$(BASE)/lib/kuroko/%.so,$(wildcard lib/kuroko/*.c))
 KRK_MODS_Y = $(patsubst lib/kuroko/%.c,.make/%.kmak,$(wildcard lib/kuroko/*.c))
 
