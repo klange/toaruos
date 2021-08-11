@@ -382,6 +382,10 @@ static int yutani_pick_animation(uint32_t flags, int direction) {
 		return (direction == 0) ? YUTANI_EFFECT_SQUEEZE_IN : YUTANI_EFFECT_SQUEEZE_OUT;
 	}
 
+	if (flags & YUTANI_WINDOW_FLAG_NO_ANIMATION) {
+		return (direction == 0) ? YUTANI_EFFECT_NONE : YUTANI_EFFECT_DISAPPEAR;
+	}
+
 	return (direction == 0) ? YUTANI_EFFECT_FADE_IN : YUTANI_EFFECT_FADE_OUT;
 }
 

@@ -52,6 +52,8 @@ typedef enum {
 	/* Dialog animations, faster than the fades */
 	YUTANI_EFFECT_SQUEEZE_IN,
 	YUTANI_EFFECT_SQUEEZE_OUT,
+
+	YUTANI_EFFECT_DISAPPEAR,
 } yutani_effect;
 
 /* Animation lengths */
@@ -63,6 +65,7 @@ static int yutani_animation_lengths[] = {
 	0,   /* Unminimized */
 	100, /* Squeeze in */
 	100, /* Squeeze out */
+	10,  /* Disappear */
 };
 
 static int yutani_is_closing_animation[] = {
@@ -72,6 +75,7 @@ static int yutani_is_closing_animation[] = {
 	0,
 	0,
 	0,
+	1,
 	1,
 };
 

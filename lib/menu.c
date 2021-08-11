@@ -565,7 +565,9 @@ void menu_show(struct MenuList * menu, yutani_t * yctx) {
 	menu->closed = 0;
 
 	/* Create window */
-	yutani_window_t * menu_window = yutani_window_create_flags(yctx, width, height, YUTANI_WINDOW_FLAG_ALT_ANIMATION);
+	yutani_window_t * menu_window = yutani_window_create_flags(yctx, width, height,
+		(menu->flags & MENU_FLAG_BUBBLE) ? YUTANI_WINDOW_FLAG_ALT_ANIMATION :
+			YUTANI_WINDOW_FLAG_NO_ANIMATION);
 	if (menu->ctx) {
 		reinit_graphics_yutani(menu->ctx, menu_window);
 	} else {
