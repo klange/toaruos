@@ -265,6 +265,18 @@ void yutani_msg_buildx_window_move(yutani_msg_t * msg, yutani_wid_t wid, int32_t
 	mw->y = y;
 }
 
+void yutani_msg_buildx_window_move_relative(yutani_msg_t * msg, yutani_wid_t wid, yutani_wid_t wid2, int32_t x, int32_t y) {
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_WINDOW_MOVE_RELATIVE;
+	msg->size  = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_move_relative);
+
+	struct yutani_msg_window_move_relative * mw = (void *)msg->data;
+
+	mw->wid_to_move = wid;
+	mw->wid_base = wid2;
+	mw->x = x;
+	mw->y = y;
+}
 
 void yutani_msg_buildx_window_stack(yutani_msg_t * msg, yutani_wid_t wid, int z) {
 	msg->magic = YUTANI_MSG__MAGIC;
@@ -647,6 +659,17 @@ void yutani_close(yutani_t * y, yutani_window_t * win) {
 void yutani_window_move(yutani_t * yctx, yutani_window_t * window, int x, int y) {
 	yutani_msg_buildx_window_move_alloc(m);
 	yutani_msg_buildx_window_move(m, window->wid, x, y);
+	yutani_msg_send(yctx, m);
+}
+
+/**
+ * yutani_window_move_relative
+ *
+ * Move a window to a location based on the local coordinate space of a base window.
+ */
+void yutani_window_move_relative(yutani_t * yctx, yutani_window_t * window, yutani_window_t * base, int x, int y) {
+	yutani_msg_buildx_window_move_relative_alloc(m);
+	yutani_msg_buildx_window_move_relative(m, window->wid, base->wid, x, y);
 	yutani_msg_send(yctx, m);
 }
 

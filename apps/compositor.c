@@ -2462,6 +2462,24 @@ int main(int argc, char * argv[]) {
 					}
 				}
 				break;
+			case YUTANI_MSG_WINDOW_MOVE_RELATIVE:
+				{
+					struct yutani_msg_window_move_relative * wm = (void *)m->data;
+
+					yutani_server_window_t * movee = hashmap_get(yg->wids_to_windows, (void*)(uintptr_t)wm->wid_to_move);
+					yutani_server_window_t * base  = hashmap_get(yg->wids_to_windows, (void*)(uintptr_t)wm->wid_base);
+
+					if (!movee || !base) break;
+
+					/* Map coordinate to new origin location */
+					int32_t nx, ny;
+					yutani_window_to_device(base, wm->x + movee->width / 2, wm->y + movee->height / 2, &nx, &ny);
+					window_move(yg, movee, nx - movee->width / 2, ny - movee->height / 2);
+
+					/* Match window rotation to base window */
+					movee->rotation = base->rotation;
+				}
+				break;
 			case YUTANI_MSG_WINDOW_CLOSE:
 				{
 					struct yutani_msg_window_close * wc = (void *)m->data;

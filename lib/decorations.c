@@ -149,12 +149,7 @@ static void _decor_close(struct MenuEntry * self) {
 yutani_window_t * decor_show_default_menu(yutani_window_t * window, int x, int y) {
 	if (_decor_menu->window) return NULL;
 	_decor_menu_owner_window = window;
-	menu_show(_decor_menu, window->ctx);
-	if (x + _decor_menu->window->width > window->ctx->display_width) {
-		yutani_window_move(window->ctx, _decor_menu->window, x - _decor_menu->window->width, y);
-	} else {
-		yutani_window_move(window->ctx, _decor_menu->window, x, y);
-	}
+	menu_show_at(_decor_menu, window, x - window->x, y - window->y);
 	return _decor_menu->window;
 }
 

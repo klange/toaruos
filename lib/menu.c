@@ -183,11 +183,12 @@ void _menu_activate_MenuEntry_Submenu(struct MenuEntry * self, int focused) {
 		_self->_my_child = new_menu;
 		if (new_menu->closed) {
 			menu_show(new_menu, _self->_owner->window->ctx);
+			int offset_x = _self->_owner->window->width - 2;
 			if (_self->_owner->window->width + _self->_owner->window->x - 2 + new_menu->window->width > _self->_owner->window->ctx->display_width) {
-				yutani_window_move(_self->_owner->window->ctx, new_menu->window, _self->_owner->window->x + 2 - new_menu->window->width, _self->_owner->window->y + _self->offset - 4);
-			} else {
-				yutani_window_move(_self->_owner->window->ctx, new_menu->window, _self->_owner->window->width + _self->_owner->window->x - 2, _self->_owner->window->y + _self->offset - 4);
+				offset_x = 2 - new_menu->window->width;
 			}
+			yutani_window_move_relative(_self->_owner->window->ctx, new_menu->window, _self->_owner->window,
+				offset_x, _self->offset - 4);
 		}
 	}
 
@@ -584,18 +585,12 @@ void menu_show(struct MenuList * menu, yutani_t * yctx) {
 
 void menu_show_at(struct MenuList * menu, yutani_window_t * parent, int x, int y) {
 
-	int final_x;
-	int final_y;
-
 	menu_show(menu, parent->ctx);
 
-	final_x = x + parent->x;
-	final_y = y + parent->y;
+	if (parent->x + x + menu->window->width > parent->ctx->display_width) x -= menu->window->width;
+	if (parent->y + y + menu->window->height > parent->ctx->display_height) y -= menu->window->height;
 
-	if (final_x + menu->window->width > parent->ctx->display_width) final_x -= menu->window->width;
-	if (final_y + menu->window->height > parent->ctx->display_height) final_y -= menu->window->height;
-
-	yutani_window_move(parent->ctx, menu->window, final_x, final_y);
+	yutani_window_move_relative(parent->ctx, menu->window, parent, x, y);
 }
 
 int menu_has_eventual_child(struct MenuList * root, struct MenuList * child) {
@@ -968,7 +963,7 @@ void menu_bar_show_menu(yutani_t * yctx, yutani_window_t * window, struct menu_b
 	}
 
 	menu_show(new_menu, yctx);
-	yutani_window_move(yctx, new_menu->window, window->x + offset, window->y + self->y + MENU_BAR_HEIGHT);
+	yutani_window_move_relative(yctx, new_menu->window, window, offset, self->y + MENU_BAR_HEIGHT);
 	self->active_menu = new_menu;
 	self->active_menu->_bar = self;
 	self->active_menu_wid = new_menu->window->wid;

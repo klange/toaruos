@@ -125,6 +125,13 @@ struct yutani_msg_window_move {
 	int32_t y;
 };
 
+struct yutani_msg_window_move_relative {
+	yutani_wid_t wid_to_move;
+	yutani_wid_t wid_base;
+	int32_t x;
+	int32_t y;
+};
+
 struct yutani_msg_key_event {
 	yutani_wid_t wid;
 	key_event_t event;
@@ -267,6 +274,8 @@ struct yutani_msg_clipboard {
 #define YUTANI_MSG_RESIZE_ACCEPT       0x00000012
 #define YUTANI_MSG_RESIZE_BUFID        0x00000013
 #define YUTANI_MSG_RESIZE_DONE         0x00000014
+
+#define YUTANI_MSG_WINDOW_MOVE_RELATIVE 0x00000015
 
 /* Some session management / de stuff */
 #define YUTANI_MSG_WINDOW_ADVERTISE    0x00000020
@@ -506,6 +515,7 @@ extern yutani_window_t * yutani_window_create(yutani_t * y, int width, int heigh
 extern yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int height, uint32_t flags);
 extern void yutani_flip(yutani_t * y, yutani_window_t * win);
 extern void yutani_window_move(yutani_t * yctx, yutani_window_t * window, int x, int y);
+extern void yutani_window_move_relative(yutani_t * yctx, yutani_window_t * window, yutani_window_t * base, int x, int y);
 extern void yutani_close(yutani_t * y, yutani_window_t * win);
 extern void yutani_set_stack(yutani_t *, yutani_window_t *, int);
 extern void yutani_flip_region(yutani_t *, yutani_window_t * win, int32_t x, int32_t y, int32_t width, int32_t height);
