@@ -189,6 +189,7 @@ void _menu_activate_MenuEntry_Submenu(struct MenuEntry * self, int focused) {
 			}
 			yutani_window_move_relative(_self->_owner->window->ctx, new_menu->window, _self->_owner->window,
 				offset_x, _self->offset - 4);
+			yutani_flip(_self->_owner->window->ctx, new_menu->window);
 		}
 	}
 
@@ -591,6 +592,7 @@ void menu_show_at(struct MenuList * menu, yutani_window_t * parent, int x, int y
 	if (parent->y + y + menu->window->height > parent->ctx->display_height) y -= menu->window->height;
 
 	yutani_window_move_relative(parent->ctx, menu->window, parent, x, y);
+	yutani_flip(parent->ctx, menu->window);
 }
 
 int menu_has_eventual_child(struct MenuList * root, struct MenuList * child) {
@@ -964,6 +966,8 @@ void menu_bar_show_menu(yutani_t * yctx, yutani_window_t * window, struct menu_b
 
 	menu_show(new_menu, yctx);
 	yutani_window_move_relative(yctx, new_menu->window, window, offset, self->y + MENU_BAR_HEIGHT);
+	yutani_flip(yctx, new_menu->window);
+
 	self->active_menu = new_menu;
 	self->active_menu->_bar = self;
 	self->active_menu_wid = new_menu->window->wid;
