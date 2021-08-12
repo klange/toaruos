@@ -240,8 +240,8 @@ void yutani_window_to_device(yutani_server_window_t * window, int32_t x, int32_t
 	double t_x = x - (window->width / 2);
 	double t_y = y - (window->height / 2);
 
-	double s = sin(M_PI * (window->rotation/ 180.0));
-	double c = cos(M_PI * (window->rotation/ 180.0));
+	double s = sin((double)window->rotation * M_PI / 180.0);
+	double c = cos((double)window->rotation * M_PI / 180.0);
 
 	double n_x = t_x * c - t_y * s;
 	double n_y = t_x * s + t_y * c;
@@ -1245,8 +1245,8 @@ static void mark_window_relative(yutani_globals_t * yg, yutani_server_window_t *
 		int32_t left_bound = min(min(ul_x, ll_x), min(ur_x, lr_x));
 		int32_t top_bound  = min(min(ul_y, ll_y), min(ur_y, lr_y));
 
-		int32_t right_bound = max(max(ul_x, ll_x), max(ur_x, lr_x));
-		int32_t bottom_bound = max(max(ul_y, ll_y), max(ur_y, lr_y));
+		int32_t right_bound  = max(max(ul_x+1, ll_x+1), max(ur_x+1, lr_x+1));
+		int32_t bottom_bound = max(max(ul_y+1, ll_y+1), max(ur_y+1, lr_y+1));
 
 		rect->x = left_bound;
 		rect->y = top_bound;

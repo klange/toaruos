@@ -940,8 +940,8 @@ void draw_sprite_transform(gfx_context_t * ctx, const sprite_t * sprite, gfx_mat
 	/* Use the corners to calculate bounds within the target context. */
 	int32_t _left   = clamp(fmin(fmin(ul_x, ll_x), fmin(ur_x, lr_x)), 0, ctx->width);
 	int32_t _top    = clamp(fmin(fmin(ul_y, ll_y), fmin(ur_y, lr_y)), 0, ctx->height);
-	int32_t _right  = clamp(fmax(fmax(ul_x, ll_x), fmax(ur_x, lr_x)), 0, ctx->width);
-	int32_t _bottom = clamp(fmax(fmax(ul_y, ll_y), fmax(ur_y, lr_y)), 0, ctx->height);
+	int32_t _right  = clamp(fmax(fmax(ul_x+1, ll_x+1), fmax(ur_x+1, lr_x+1)), 0, ctx->width);
+	int32_t _bottom = clamp(fmax(fmax(ul_y+1, ll_y+1), fmax(ur_y+1, lr_y+1)), 0, ctx->height);
 
 	for (int32_t _y = _top; _y < _bottom; ++_y) {
 		if (!_is_in_clip(ctx, _y)) continue;
