@@ -43,45 +43,184 @@ static inline uint16_t max16(uint16_t a, uint16_t b) {
 #define fmax(a,b) ((a) > (b) ? (a) : (b))
 #define fmin(a,b) ((a) < (b) ? (a) : (b))
 
-static int _is_in_clip(gfx_context_t * ctx, int32_t y) {
-	if (!ctx->clips) return 1;
-	if (y < 0 || y >= ctx->clips_size) return 1;
-	return ctx->clips[y];
+struct ClipLine {
+	int32_t x;
+	int32_t y_start;
+	int32_t y_end;
+};
+
+struct ClipBuffer {
+	size_t count;
+	size_t avail;
+	struct ClipLine lines[];
+};
+
+struct ClipStatus {
+	int32_t y;
+	int32_t x;
+	size_t offset;
+	int winding;
+	int32_t start_x;
+	int32_t end_x;
+	size_t width;
+};
+
+static void gfx_clip_prepare(gfx_context_t * ctx, struct ClipStatus * out, int line) {
+	out->y = line;
+	out->x = 0;
+	out->offset = 0;
+	out->winding = 0;
+	out->start_x = 0;
+	out->end_x = 0;
+	out->width = 0;
 }
 
+static int32_t gfx_clip_next(gfx_context_t * ctx, struct ClipStatus *out, int toggle) {
+	struct ClipBuffer * clips = (void*)ctx->clips;
+	if (!clips || clips->count == 0) return -1;
+
+	for (int32_t x = out->x; x < ctx->width; x++) {
+		/* Trash everything behind us... */
+		while (out->offset < clips->count && clips->lines[out->offset].x <= x) {
+			if (clips->lines[out->offset].y_start <= out->y && clips->lines[out->offset].y_end > out->y) {
+				out->winding++;
+			} else if (clips->lines[out->offset].y_end <= out->y && clips->lines[out->offset].y_start > out->y) {
+				out->winding--;
+			}
+			out->offset++;
+		}
+
+		/* Is the winding non-zero? */
+		if ((out->winding != 0) == toggle) {
+			out->x = x + 1;
+			return x;
+		}
+	}
+
+	/* x is now context width, return -1 */
+	out->x = ctx->width;
+	return -1;
+}
+
+static int gfx_clip_next_pair(gfx_context_t * ctx, struct ClipStatus * input) {
+	struct ClipBuffer * clips = (void*)ctx->clips;
+	if (!clips || clips->count == 0) {
+		if (input->x == 0) {
+			input->start_x = 0;
+			input->end_x = ctx->width;
+			input->width = ctx->width;
+			input->x = -1;
+			return 1;
+		} else {
+			return 0;
+		}
+	}
+
+	input->start_x = gfx_clip_next(ctx,input,1); /* Tell me the next time it's ON */
+	if (input->start_x == -1) {
+		input->end_x = -1;
+		input->width = 0;
+		return 0;
+	}
+	input->end_x = gfx_clip_next(ctx,input,0); /* Tell me the next time it's OFF */
+	if (input->end_x == -1) input->end_x = ctx->width;
+	input->width = input->end_x - input->start_x;
+	return 1;
+}
+
+static int _is_in_clip(gfx_context_t * ctx, int32_t y) {
+	if (y < 0 || y >= ctx->height) return 0;
+	if (!ctx->clips) return 1;
+	struct ClipBuffer * clips = (void*)ctx->clips;
+	if (clips->count == 0) return 1;
+
+	for (size_t i = 0; i < clips->count; ++i) {
+		if (clips->lines[i].y_start < clips->lines[i].y_end) {
+			if (clips->lines[i].y_start <= y && clips->lines[i].y_end > y) return 1;
+			if (clips->lines[i].y_start >  y && clips->lines[i].y_end <= y) return 1;
+		}
+	}
+
+	return 0;
+}
+
+void gfx_bork_clip(gfx_context_t * ctx) {
+
+	uint32_t bork_color = premultiply(rgba(rand() % 255,rand() % 255,rand() % 255, 50));
+	for (int y = 0; y < ctx->height; ++y) {
+		struct ClipStatus status;
+		gfx_clip_prepare(ctx,&status,y);
+		while (gfx_clip_next_pair(ctx, &status)) {
+			for (int x = status.start_x; x < status.end_x; ++x) {
+				GFX(ctx,x,y) = alpha_blend_rgba(GFX(ctx,x,y), bork_color);
+			}
+		};
+	}
+}
+
+static int clip_sorter(const void * a, const void * b) {
+	const struct ClipLine * left  = a;
+	const struct ClipLine * right = b;
+
+	if (left->x < right->x) return -1;
+	if (left->x > right->x) return 1;
+	return 0;
+}
 
 void gfx_add_clip(gfx_context_t * ctx, int32_t x, int32_t y, int32_t w, int32_t h) {
-	(void)x;
-	(void)w; // TODO Horizontal clipping
-	if (!ctx->clips) {
-		ctx->clips = malloc(ctx->height);
-		memset(ctx->clips, 0, ctx->height);
-		ctx->clips_size = ctx->height;
+
+	if (h <= 0 || w <= 0) return;
+
+	struct ClipBuffer * clips = (void*)ctx->clips;
+
+	if (!clips) {
+		clips = malloc(sizeof(struct ClipLine) + sizeof(struct ClipBuffer) * 4);
+		clips->count = 0;
+		clips->avail = 4;
+		ctx->clips = (void*)clips;
 	}
-	for (int i = max(y,0); i < min(y+h,ctx->clips_size); ++i) {
-		ctx->clips[i] = 1;
+
+	if (clips->count + 2 > clips->avail) {
+		clips->avail *= 2;
+		clips = realloc(clips, sizeof(struct ClipLine) + sizeof(struct ClipBuffer) * clips->avail);
+		ctx->clips = (void*)clips;
 	}
+
+	size_t i = clips->count;
+
+	clips->lines[i].x = x;
+	clips->lines[i].y_start = y;
+	clips->lines[i].y_end = y + h;
+
+	clips->lines[i+1].x = x + w;
+	clips->lines[i+1].y_end = y;
+	clips->lines[i+1].y_start = y + h;
+
+	clips->count += 2;
+
+	/* Sort the clips */
+	qsort(&clips->lines, clips->count, sizeof(struct ClipLine), clip_sorter);
 }
 
 void gfx_clear_clip(gfx_context_t * ctx) {
 	if (ctx->clips) {
-		memset(ctx->clips, 0, ctx->clips_size);
+		free(ctx->clips);
+		ctx->clips = NULL;
 	}
 }
 
 void gfx_no_clip(gfx_context_t * ctx) {
-	void * tmp = ctx->clips;
-	if (!tmp) return;
-	ctx->clips = NULL;
-	free(tmp);
+	gfx_clear_clip(ctx);
 }
 
 /* Pointer to graphics memory */
 void flip(gfx_context_t * ctx) {
 	if (ctx->clips) {
 		for (size_t i = 0; i < ctx->height; ++i) {
-			if (_is_in_clip(ctx,i)) {
-				memcpy(&ctx->buffer[i*GFX_S(ctx)], &ctx->backbuffer[i*GFX_S(ctx)], 4 * ctx->width);
+			struct ClipStatus status;
+			gfx_clip_prepare(ctx,&status,i);
+			while (gfx_clip_next_pair(ctx,&status)) {
+				memcpy(&ctx->buffer[i*GFX_S(ctx)+status.start_x * GFX_B(ctx)], &ctx->backbuffer[i*GFX_S(ctx)+status.start_x * GFX_B(ctx)], GFX_B(ctx) * status.width);
 			}
 		}
 	} else {
@@ -167,11 +306,13 @@ void reinit_graphics_fullscreen(gfx_context_t * out) {
 
 	out->size   = GFX_H(out) * GFX_S(out);
 
+	#if 0
 	if (out->clips && out->clips_size != out->height) {
 		free(out->clips);
 		out->clips = NULL;
 		out->clips_size = 0;
 	}
+	#endif
 
 	if (out->buffer != out->backbuffer) {
 		ioctl(framebuffer_fd, IO_VID_ADDR,   &out->buffer);
@@ -319,9 +460,19 @@ static void _box_blur_horizontal(gfx_context_t * _src, int radius) {
 			}
 		}
 
-		if (!_is_in_clip(_src, y)) continue;
-		for (int x = 0; x < w; x++) {
-			GFX(_src,x,y) = out_color[x];
+		if (_src->clips) {
+			struct ClipStatus status;
+			gfx_clip_prepare(_src,&status,y);
+
+			while (gfx_clip_next_pair(_src, &status)) {
+				for (int x = status.start_x; x < status.end_x; x++) {
+					GFX(_src,x,y) = out_color[x];
+				}
+			}
+		} else {
+			for (int x = 0; x < w; x++) {
+				GFX(_src,x,y) = out_color[x];
+			}
 		}
 	}
 
@@ -578,119 +729,101 @@ void draw_sprite(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, int32_
 	int32_t _top    = max(y, 0);
 	int32_t _right  = min(x + sprite->width,  ctx->width - 1);
 	int32_t _bottom = min(y + sprite->height, ctx->height - 1);
-	if (sprite->alpha == ALPHA_MASK) {
-		for (uint16_t _y = 0; _y < sprite->height; ++_y) {
-			if (!_is_in_clip(ctx, y + _y)) continue;
-			for (uint16_t _x = 0; _x < sprite->width; ++_x) {
-				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
-					continue;
-				GFX(ctx, x + _x, y + _y) = alpha_blend(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y), SMASKS(sprite, _x, _y));
-			}
-		}
-	} else if (sprite->alpha == ALPHA_EMBEDDED) {
+	if (sprite->alpha == ALPHA_EMBEDDED) {
 		/* Alpha embedded is the most important step. */
 		for (uint16_t _y = 0; _y < sprite->height; ++_y) {
-			if (!_is_in_clip(ctx, y + _y)) continue;
-#ifdef NO_SSE
-			for (uint16_t _x = 0; _x < sprite->width; ++_x) {
-				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
-					continue;
-				GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y));
-			}
-#else
+			if (y + _y < _top) continue;
+			if (y + _y > _bottom) break;
+
+			struct ClipStatus status;
+			gfx_clip_prepare(ctx,&status,y + _y);
+			int32_t Left = _left;
+			int32_t Right = _right;
 			uint16_t _x = 0;
+			while (gfx_clip_next_pair(ctx, &status)) {
+				int32_t _left = max(Left, status.start_x);
+				int32_t _right = min(Right, status.end_x);
 
-			/* Ensure alignment */
-			for (; _x < sprite->width; ++_x) {
-				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
-					continue;
-				if (!((uintptr_t)&GFX(ctx, x + _x, y + _y) & 15))
-					break;
-				GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y));
-			}
-			for (; _x < sprite->width - 3; _x += 4) {
-				if (x + _x < _left || y + _y < _top || y + _y > _bottom) {
-					continue;
+				/* Ensure alignment */
+				for (; _x < sprite->width; ++_x) {
+					if (x + _x < _left) continue;
+					if (x + _x > _right) break;
+#ifndef NO_SSE
+					if (!((uintptr_t)&GFX(ctx, x + _x, y + _y) & 15))
+						break;
+					GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y));
 				}
-				if (x + _x + 3 > _right)
-					break;
+				for (; _x < sprite->width - 3; _x += 4) {
+					if (x + _x < _left) continue;
+					if (x + _x + 3 > _right) break;
 
-				__m128i d = _mm_load_si128((void *)&GFX(ctx, x + _x, y + _y));
-				__m128i s = _mm_loadu_si128((void *)&SPRITE(sprite, _x, _y));
+					__m128i d = _mm_load_si128((void *)&GFX(ctx, x + _x, y + _y));
+					__m128i s = _mm_loadu_si128((void *)&SPRITE(sprite, _x, _y));
 
-				__m128i d_l, d_h;
-				__m128i s_l, s_h;
+					__m128i d_l, d_h;
+					__m128i s_l, s_h;
 
-				// unpack destination
-				d_l = _mm_unpacklo_epi8(d, _mm_setzero_si128());
-				d_h = _mm_unpackhi_epi8(d, _mm_setzero_si128());
+					// unpack destination
+					d_l = _mm_unpacklo_epi8(d, _mm_setzero_si128());
+					d_h = _mm_unpackhi_epi8(d, _mm_setzero_si128());
 
-				// unpack source
-				s_l = _mm_unpacklo_epi8(s, _mm_setzero_si128());
-				s_h = _mm_unpackhi_epi8(s, _mm_setzero_si128());
+					// unpack source
+					s_l = _mm_unpacklo_epi8(s, _mm_setzero_si128());
+					s_h = _mm_unpackhi_epi8(s, _mm_setzero_si128());
 
-				__m128i a_l, a_h;
-				__m128i t_l, t_h;
+					__m128i a_l, a_h;
+					__m128i t_l, t_h;
 
-				// extract source alpha RGBA → AAAA
-				a_l = _mm_shufflehi_epi16(_mm_shufflelo_epi16(s_l, _MM_SHUFFLE(3,3,3,3)), _MM_SHUFFLE(3,3,3,3));
-				a_h = _mm_shufflehi_epi16(_mm_shufflelo_epi16(s_h, _MM_SHUFFLE(3,3,3,3)), _MM_SHUFFLE(3,3,3,3));
+					// extract source alpha RGBA → AAAA
+					a_l = _mm_shufflehi_epi16(_mm_shufflelo_epi16(s_l, _MM_SHUFFLE(3,3,3,3)), _MM_SHUFFLE(3,3,3,3));
+					a_h = _mm_shufflehi_epi16(_mm_shufflelo_epi16(s_h, _MM_SHUFFLE(3,3,3,3)), _MM_SHUFFLE(3,3,3,3));
 
-				// negate source alpha
-				t_l = _mm_xor_si128(a_l, mask00ff);
-				t_h = _mm_xor_si128(a_h, mask00ff);
+					// negate source alpha
+					t_l = _mm_xor_si128(a_l, mask00ff);
+					t_h = _mm_xor_si128(a_h, mask00ff);
 
-				// apply source alpha to destination
-				d_l = _mm_mulhi_epu16(_mm_adds_epu16(_mm_mullo_epi16(d_l,t_l),mask0080),mask0101);
-				d_h = _mm_mulhi_epu16(_mm_adds_epu16(_mm_mullo_epi16(d_h,t_h),mask0080),mask0101);
+					// apply source alpha to destination
+					d_l = _mm_mulhi_epu16(_mm_adds_epu16(_mm_mullo_epi16(d_l,t_l),mask0080),mask0101);
+					d_h = _mm_mulhi_epu16(_mm_adds_epu16(_mm_mullo_epi16(d_h,t_h),mask0080),mask0101);
 
-				// combine source and destination
-				d_l = _mm_adds_epu8(s_l,d_l);
-				d_h = _mm_adds_epu8(s_h,d_h);
+					// combine source and destination
+					d_l = _mm_adds_epu8(s_l,d_l);
+					d_h = _mm_adds_epu8(s_h,d_h);
 
-				// pack low + high and write back to memory
-				_mm_storeu_si128((void*)&GFX(ctx, x + _x, y + _y), _mm_packus_epi16(d_l,d_h));
-			}
-			for (; _x < sprite->width; ++_x) {
-				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
-					continue;
-				GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y));
-			}
+					// pack low + high and write back to memory
+					_mm_storeu_si128((void*)&GFX(ctx, x + _x, y + _y), _mm_packus_epi16(d_l,d_h));
+				}
+				for (; _x < sprite->width; ++_x) {
+					if (x + _x < _left) continue;
+					if (x + _x > _right) break;
 #endif
+					GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y));
+				}
+			}
 		}
-	} else if (sprite->alpha == ALPHA_INDEXED) {
+	} else if (sprite->alpha == ALPHA_OPAQUE) {
 		for (uint16_t _y = 0; _y < sprite->height; ++_y) {
-			if (!_is_in_clip(ctx, y + _y)) continue;
-			for (uint16_t _x = 0; _x < sprite->width; ++_x) {
-				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
-					continue;
-				if (SPRITE(sprite, _x, _y) != sprite->blank) {
+			if (y + _y < _top) continue;
+			if (y + _y > _bottom) break;
+
+			struct ClipStatus status;
+			gfx_clip_prepare(ctx,&status,y + _y);
+			int32_t Left = _left;
+			int32_t Right = _right;
+			uint16_t _x = 0;
+			while (gfx_clip_next_pair(ctx, &status)) {
+				int32_t _left = max(Left, status.start_x);
+				int32_t _right = min(Right, status.end_x);
+
+				for (; _x < sprite->width; ++_x) {
+					if (x + _x < _left) continue;
+					if (x + _x > _right) break;
 					GFX(ctx, x + _x, y + _y) = SPRITE(sprite, _x, _y) | 0xFF000000;
 				}
 			}
 		}
-	} else if (sprite->alpha == ALPHA_FORCE_SLOW_EMBEDDED) {
-		for (uint16_t _y = 0; _y < sprite->height; ++_y) {
-			if (!_is_in_clip(ctx, y + _y)) continue;
-			for (uint16_t _x = 0; _x < sprite->width; ++_x) {
-				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
-					continue;
-#if 1
-				GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y));
-#else
-				GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(rgba(255,255,0,255), SPRITE(sprite, _x, _y));
-#endif
-			}
-		}
 	} else {
-		for (uint16_t _y = 0; _y < sprite->height; ++_y) {
-			if (!_is_in_clip(ctx, y + _y)) continue;
-			for (uint16_t _x = 0; _x < sprite->width; ++_x) {
-				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
-					continue;
-				GFX(ctx, x + _x, y + _y) = SPRITE(sprite, _x, _y) | 0xFF000000;
-			}
-		}
+		fprintf(stderr, "Unsupported.\n");
 	}
 }
 

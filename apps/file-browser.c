@@ -1208,7 +1208,6 @@ static void redraw_window(void) {
 	gfx_add_clip(ctx, bounds.left_width, bounds.top_height + menu_bar_height, ctx->width - bounds.width, available_height);
 	draw_sprite(ctx, contents_sprite, bounds.left_width, bounds.top_height + menu_bar_height - scroll_offset);
 	gfx_clear_clip(ctx);
-	gfx_add_clip(ctx, 0, 0, ctx->width, ctx->height);
 
 	/* Flip graphics context and inform compositor */
 	flip(ctx);
