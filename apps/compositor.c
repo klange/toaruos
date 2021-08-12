@@ -213,8 +213,8 @@ void yutani_device_to_window(yutani_server_window_t * window, int32_t x, int32_t
 
 	if (!window->rotation) return;
 
-	double t_x = *out_x - (window->width / 2);
-	double t_y = *out_y - (window->height / 2);
+	double t_x = (double)*out_x - ((double)window->width / 2);
+	double t_y = (double)*out_y - ((double)window->height / 2);
 
 	double s = sin(-M_PI * (window->rotation/ 180.0));
 	double c = cos(-M_PI * (window->rotation/ 180.0));
@@ -222,8 +222,8 @@ void yutani_device_to_window(yutani_server_window_t * window, int32_t x, int32_t
 	double n_x = t_x * c - t_y * s;
 	double n_y = t_x * s + t_y * c;
 
-	*out_x = (int32_t)n_x + (window->width / 2);
-	*out_y = (int32_t)n_y + (window->height / 2);
+	*out_x = (int32_t)(n_x + ((double)window->width / 2));
+	*out_y = (int32_t)(n_y + ((double)window->height / 2));
 }
 
 /**
@@ -237,8 +237,8 @@ void yutani_window_to_device(yutani_server_window_t * window, int32_t x, int32_t
 		return;
 	}
 
-	double t_x = x - (window->width / 2);
-	double t_y = y - (window->height / 2);
+	double t_x = (double)x - ((double)window->width / 2);
+	double t_y = (double)y - ((double)window->height / 2);
 
 	double s = sin((double)window->rotation * M_PI / 180.0);
 	double c = cos((double)window->rotation * M_PI / 180.0);
@@ -246,8 +246,8 @@ void yutani_window_to_device(yutani_server_window_t * window, int32_t x, int32_t
 	double n_x = t_x * c - t_y * s;
 	double n_y = t_x * s + t_y * c;
 
-	*out_x = (int32_t)n_x + (window->width / 2) + window->x;
-	*out_y = (int32_t)n_y + (window->height / 2) + window->y;
+	*out_x = (int32_t)(n_x + ((double)window->width / 2)  + (double)window->x);
+	*out_y = (int32_t)(n_y + ((double)window->height / 2) + (double)window->y);
 }
 
 /**
