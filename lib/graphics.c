@@ -43,7 +43,7 @@ static inline uint16_t max16(uint16_t a, uint16_t b) {
 #define fmax(a,b) ((a) > (b) ? (a) : (b))
 #define fmin(a,b) ((a) < (b) ? (a) : (b))
 
-static int _is_in_clip(gfx_context_t * ctx, int32_t y) {
+static inline int _is_in_clip(gfx_context_t * ctx, int32_t y) {
 	if (!ctx->clips) return 1;
 	if (y < 0 || y >= ctx->clips_size) return 1;
 	return ctx->clips[y];
@@ -245,18 +245,17 @@ uint32_t alpha_blend(uint32_t bottom, uint32_t top, uint32_t mask) {
 	return rgba(red,gre,blu, alp);
 }
 
-uint32_t alpha_blend_rgba(uint32_t bottom, uint32_t top) {
+inline uint32_t alpha_blend_rgba(uint32_t bottom, uint32_t top) {
 	if (_ALP(bottom) == 0) return top;
 	if (_ALP(top) == 255) return top;
 	if (_ALP(top) == 0) return bottom;
-	uint16_t a = _ALP(top);
-	uint16_t c = 255 - a;
-	uint16_t b = ((int)_ALP(bottom) * c) / 255;
-	uint16_t alp = min16(a + b, 255);
-	uint16_t red = min16((uint32_t)(_RED(bottom) * c + _RED(top) * 255) / 255, 255);
-	uint16_t gre = min16((uint32_t)(_GRE(bottom) * c + _GRE(top) * 255) / 255, 255);
-	uint16_t blu = min16((uint32_t)(_BLU(bottom) * c + _BLU(top) * 255) / 255, 255);
-	return rgba(red,gre,blu,alp);
+	uint8_t a = _ALP(top);
+	uint16_t t = 0xFF ^ a;
+	uint8_t d_r = _RED(top) + (((uint32_t)(_RED(bottom) * t + 0x80) * 0x101) >> 16UL);
+	uint8_t d_g = _GRE(top) + (((uint32_t)(_GRE(bottom) * t + 0x80) * 0x101) >> 16UL);
+	uint8_t d_b = _BLU(top) + (((uint32_t)(_BLU(bottom) * t + 0x80) * 0x101) >> 16UL);
+	uint8_t d_a = _ALP(top) + (((uint32_t)(_ALP(bottom) * t + 0x80) * 0x101) >> 16UL);
+	return rgba(d_r, d_g, d_b, d_a);
 }
 
 
@@ -411,8 +410,8 @@ int load_sprite(sprite_t * sprite, const char * filename) {
 
 	const char * ext = extension_from_filename(filename);
 
-	if (!strcmp(ext,"png") || !strcmp(ext,"sdf")) return load_sprite_png(sprite, filename);
-	if (!strcmp(ext,"jpg") || !strcmp(ext,"jpeg")) return load_sprite_jpg(sprite, filename);
+	if (!strcmp(ext,"png") || !strcmp(ext,"sdf")) return load_sprite_png ? load_sprite_png(sprite, filename) : 1;
+	if (!strcmp(ext,"jpg") || !strcmp(ext,"jpeg")) return load_sprite_jpg ? load_sprite_jpg(sprite, filename) : 1;
 
 	/* Fall back to bitmap */
 	return load_sprite_bmp(sprite, filename);
@@ -578,18 +577,11 @@ void draw_sprite(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, int32_
 	int32_t _top    = max(y, 0);
 	int32_t _right  = min(x + sprite->width,  ctx->width - 1);
 	int32_t _bottom = min(y + sprite->height, ctx->height - 1);
-	if (sprite->alpha == ALPHA_MASK) {
-		for (uint16_t _y = 0; _y < sprite->height; ++_y) {
-			if (!_is_in_clip(ctx, y + _y)) continue;
-			for (uint16_t _x = 0; _x < sprite->width; ++_x) {
-				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
-					continue;
-				GFX(ctx, x + _x, y + _y) = alpha_blend(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y), SMASKS(sprite, _x, _y));
-			}
-		}
-	} else if (sprite->alpha == ALPHA_EMBEDDED) {
+	if (sprite->alpha == ALPHA_EMBEDDED) {
 		/* Alpha embedded is the most important step. */
 		for (uint16_t _y = 0; _y < sprite->height; ++_y) {
+			if (y + _y < _top) continue;
+			if (y + _y > _bottom) break;
 			if (!_is_in_clip(ctx, y + _y)) continue;
 #ifdef NO_SSE
 			for (uint16_t _x = 0; _x < sprite->width; ++_x) {
@@ -598,23 +590,14 @@ void draw_sprite(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, int32_
 				GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y));
 			}
 #else
-			uint16_t _x = 0;
+			uint16_t _x = (x < _left) ? _left - x : 0;
 
 			/* Ensure alignment */
-			for (; _x < sprite->width; ++_x) {
-				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
-					continue;
-				if (!((uintptr_t)&GFX(ctx, x + _x, y + _y) & 15))
-					break;
+			for (; _x < sprite->width && x + _x <= _right; ++_x) {
+				if (!((uintptr_t)&GFX(ctx, x + _x, y + _y) & 15)) break;
 				GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y));
 			}
-			for (; _x < sprite->width - 3; _x += 4) {
-				if (x + _x < _left || y + _y < _top || y + _y > _bottom) {
-					continue;
-				}
-				if (x + _x + 3 > _right)
-					break;
-
+			for (; _x < sprite->width - 3 && x + _x + 3 <= _right; _x += 4) {
 				__m128i d = _mm_load_si128((void *)&GFX(ctx, x + _x, y + _y));
 				__m128i s = _mm_loadu_si128((void *)&SPRITE(sprite, _x, _y));
 
@@ -651,43 +634,17 @@ void draw_sprite(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, int32_
 				// pack low + high and write back to memory
 				_mm_storeu_si128((void*)&GFX(ctx, x + _x, y + _y), _mm_packus_epi16(d_l,d_h));
 			}
-			for (; _x < sprite->width; ++_x) {
-				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
-					continue;
+			for (; _x < sprite->width && x + _x <= _right; ++_x) {
 				GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y));
 			}
 #endif
 		}
-	} else if (sprite->alpha == ALPHA_INDEXED) {
+	} else if (sprite->alpha == ALPHA_OPAQUE) {
 		for (uint16_t _y = 0; _y < sprite->height; ++_y) {
+			if (y + _y < _top) continue;
+			if (y + _y > _bottom) break;
 			if (!_is_in_clip(ctx, y + _y)) continue;
-			for (uint16_t _x = 0; _x < sprite->width; ++_x) {
-				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
-					continue;
-				if (SPRITE(sprite, _x, _y) != sprite->blank) {
-					GFX(ctx, x + _x, y + _y) = SPRITE(sprite, _x, _y) | 0xFF000000;
-				}
-			}
-		}
-	} else if (sprite->alpha == ALPHA_FORCE_SLOW_EMBEDDED) {
-		for (uint16_t _y = 0; _y < sprite->height; ++_y) {
-			if (!_is_in_clip(ctx, y + _y)) continue;
-			for (uint16_t _x = 0; _x < sprite->width; ++_x) {
-				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
-					continue;
-#if 1
-				GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), SPRITE(sprite, _x, _y));
-#else
-				GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(rgba(255,255,0,255), SPRITE(sprite, _x, _y));
-#endif
-			}
-		}
-	} else {
-		for (uint16_t _y = 0; _y < sprite->height; ++_y) {
-			if (!_is_in_clip(ctx, y + _y)) continue;
-			for (uint16_t _x = 0; _x < sprite->width; ++_x) {
-				if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
-					continue;
+			for (uint16_t _x = (x < _left) ? _left - x : 0; _x < sprite->width && x + _x <= _right; ++_x) {
 				GFX(ctx, x + _x, y + _y) = SPRITE(sprite, _x, _y) | 0xFF000000;
 			}
 		}
@@ -761,23 +718,29 @@ static inline int out_of_bounds(const sprite_t * tex, int x, int y) {
  * @brief Use bilinear interpolation to get a blended color at the point u,v
  */
 #if 1
-static uint32_t gfx_bilinear_interpolation(const sprite_t * tex, double u, double v) {
-	int x = floor(u);
-	int y = floor(v);
+static inline uint32_t linear_interp(uint32_t left, uint32_t right, uint16_t pr) {
+	uint16_t pl = 0xFF ^ pr;
+	uint8_t d_r = (((uint32_t)(_RED(right) * pr + 0x80) * 0x101) >> 16UL) + (((uint32_t)(_RED(left) * pl + 0x80) * 0x101) >> 16UL);
+	uint8_t d_g = (((uint32_t)(_GRE(right) * pr + 0x80) * 0x101) >> 16UL) + (((uint32_t)(_GRE(left) * pl + 0x80) * 0x101) >> 16UL);
+	uint8_t d_b = (((uint32_t)(_BLU(right) * pr + 0x80) * 0x101) >> 16UL) + (((uint32_t)(_BLU(left) * pl + 0x80) * 0x101) >> 16UL);
+	uint8_t d_a = (((uint32_t)(_ALP(right) * pr + 0x80) * 0x101) >> 16UL) + (((uint32_t)(_ALP(left) * pl + 0x80) * 0x101) >> 16UL);
+	return rgba(d_r, d_g, d_b, d_a);
+}
+
+__attribute__((hot))
+static inline uint32_t gfx_bilinear_interpolation(const sprite_t * tex, double u, double v) {
+	int x = (int)u;
+	int y = (int)v;
 	uint32_t ul = out_of_bounds(tex,x,y)     ? 0 : SPRITE(tex,x,y);
 	uint32_t ur = out_of_bounds(tex,x+1,y)   ? 0 : SPRITE(tex,x+1,y);
 	uint32_t ll = out_of_bounds(tex,x,y+1)   ? 0 : SPRITE(tex,x,y+1);
 	uint32_t lr = out_of_bounds(tex,x+1,y+1) ? 0 : SPRITE(tex,x+1,y+1);
 	if ((ul | ul | ll | lr) == 0) return 0;
-	double u_ratio = u - x;
-	double v_ratio = v - y;
-	double u_o = 1 - u_ratio;
-	double v_o = 1 - v_ratio;
-	int r_ALP = (_ALP(ul) * u_o + _ALP(ur) * u_ratio) * v_o + (_ALP(ll) * u_o  + _ALP(lr) * u_ratio) * v_ratio;
-	int r_RED = (_RED(ul) * u_o + _RED(ur) * u_ratio) * v_o + (_RED(ll) * u_o  + _RED(lr) * u_ratio) * v_ratio;
-	int r_BLU = (_BLU(ul) * u_o + _BLU(ur) * u_ratio) * v_o + (_BLU(ll) * u_o  + _BLU(lr) * u_ratio) * v_ratio;
-	int r_GRE = (_GRE(ul) * u_o + _GRE(ur) * u_ratio) * v_o + (_GRE(ll) * u_o  + _GRE(lr) * u_ratio) * v_ratio;
-	return rgba(r_RED,r_GRE,r_BLU,r_ALP);
+	uint8_t u_ratio = (u - x) * 0xFF;
+	uint8_t v_ratio = (v - y) * 0xFF;
+	uint32_t top = linear_interp(ul,ur,u_ratio);
+	uint32_t bot = linear_interp(ll,lr,u_ratio);
+	return linear_interp(top,bot,v_ratio);
 }
 #else
 static uint32_t gfx_bilinear_interpolation(const sprite_t * tex, double u, double v) {
@@ -943,14 +906,18 @@ void draw_sprite_transform(gfx_context_t * ctx, const sprite_t * sprite, gfx_mat
 	int32_t _right  = clamp(fmax(fmax(ul_x+1, ll_x+1), fmax(ur_x+1, lr_x+1)), 0, ctx->width);
 	int32_t _bottom = clamp(fmax(fmax(ul_y+1, ll_y+1), fmax(ur_y+1, lr_y+1)), 0, ctx->height);
 
+	uint8_t cliff[256];
+	for (int i = 0; i < 256; ++i) {
+		cliff[i] = alpha * i;
+	}
+
 	for (int32_t _y = _top; _y < _bottom; ++_y) {
 		if (!_is_in_clip(ctx, _y)) continue;
 		for (int32_t _x = _left; _x < _right; ++_x) {
 			double u, v;
 			apply_matrix(_x, _y, inverse, &u, &v);
 			uint32_t n_color = gfx_bilinear_interpolation(sprite, u, v);
-			uint32_t f_color = premultiply((n_color & 0xFFFFFF) | ((uint32_t)(255 * alpha) << 24));
-			f_color = (f_color & 0xFFFFFF) | ((uint32_t)(alpha * _ALP(n_color)) << 24);
+			uint32_t f_color = rgba(cliff[_RED(n_color)], cliff[_GRE(n_color)], cliff[_BLU(n_color)], cliff[_ALP(n_color)]);
 			GFX(ctx,_x,_y) = alpha_blend_rgba(GFX(ctx,_x,_y), f_color);
 		}
 	}
