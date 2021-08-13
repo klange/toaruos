@@ -729,8 +729,8 @@ static inline uint32_t linear_interp(uint32_t left, uint32_t right, uint16_t pr)
 
 __attribute__((hot))
 static inline uint32_t gfx_bilinear_interpolation(const sprite_t * tex, double u, double v) {
-	int x = (int)u;
-	int y = (int)v;
+	int x = (int)(u + 2.0) - 2;
+	int y = (int)(v + 2.0) - 2;
 	uint32_t ul = out_of_bounds(tex,x,y)     ? 0 : SPRITE(tex,x,y);
 	uint32_t ur = out_of_bounds(tex,x+1,y)   ? 0 : SPRITE(tex,x+1,y);
 	uint32_t ll = out_of_bounds(tex,x,y+1)   ? 0 : SPRITE(tex,x,y+1);
@@ -906,6 +906,8 @@ void draw_sprite_transform(gfx_context_t * ctx, const sprite_t * sprite, gfx_mat
 	int32_t _right  = clamp(fmax(fmax(ul_x+1, ll_x+1), fmax(ur_x+1, lr_x+1)), 0, ctx->width);
 	int32_t _bottom = clamp(fmax(fmax(ul_y+1, ll_y+1), fmax(ur_y+1, lr_y+1)), 0, ctx->height);
 
+	sprite_t * scanline = create_sprite(_right - _left, 1, ALPHA_EMBEDDED);
+
 	uint8_t cliff[256];
 	for (int i = 0; i < 256; ++i) {
 		cliff[i] = alpha * i;
@@ -917,10 +919,12 @@ void draw_sprite_transform(gfx_context_t * ctx, const sprite_t * sprite, gfx_mat
 			double u, v;
 			apply_matrix(_x, _y, inverse, &u, &v);
 			uint32_t n_color = gfx_bilinear_interpolation(sprite, u, v);
-			uint32_t f_color = rgba(cliff[_RED(n_color)], cliff[_GRE(n_color)], cliff[_BLU(n_color)], cliff[_ALP(n_color)]);
-			GFX(ctx,_x,_y) = alpha_blend_rgba(GFX(ctx,_x,_y), f_color);
+			SPRITE(scanline,_x - _left,0) = rgba(cliff[_RED(n_color)], cliff[_GRE(n_color)], cliff[_BLU(n_color)], cliff[_ALP(n_color)]);
 		}
+		draw_sprite(ctx,scanline,_left,_y);
 	}
+
+	sprite_free(scanline);
 }
 
 void draw_sprite_rotate(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, int32_t y, float rotation, float alpha) {
