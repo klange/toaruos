@@ -748,22 +748,58 @@ static uint32_t gfx_bilinear_interpolation(const sprite_t * tex, double u, doubl
 }
 #endif
 
+static inline void apply_alpha_vector(uint32_t * pixels, size_t width, uint8_t alpha) {
+	size_t i = 0;
+#ifndef NO_SSE
+	__m128i alp = _mm_set_epi16(alpha,alpha,alpha,alpha,alpha,alpha,alpha,alpha);
+	while (i + 3 < width) {
+		__m128i p = _mm_load_si128((void*)&pixels[i]);
+		__m128i d_l, d_h;
+
+		d_l = _mm_mulhi_epu16(_mm_adds_epu16(_mm_mullo_epi16(_mm_unpacklo_epi8(p, _mm_setzero_si128()),alp),mask0080),mask0101);
+		d_h = _mm_mulhi_epu16(_mm_adds_epu16(_mm_mullo_epi16(_mm_unpackhi_epi8(p, _mm_setzero_si128()),alp),mask0080),mask0101);
+
+		_mm_storeu_si128((void*)&pixels[i], _mm_packus_epi16(d_l,d_h));
+
+		i += 4;
+	}
+#endif
+	while (i < width) {
+		uint8_t r = _RED(pixels[i]);
+		uint8_t g = _GRE(pixels[i]);
+		uint8_t b = _BLU(pixels[i]);
+		uint8_t a = _ALP(pixels[i]);
+
+		r = (((uint16_t)r * alpha + 0x80) * 0x101) >> 16UL;
+		g = (((uint16_t)g * alpha + 0x80) * 0x101) >> 16UL;
+		b = (((uint16_t)b * alpha + 0x80) * 0x101) >> 16UL;
+		a = (((uint16_t)a * alpha + 0x80) * 0x101) >> 16UL;
+
+		pixels[i] = rgba(r,g,b,a);
+		i++;
+	}
+}
+
 void draw_sprite_alpha(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, int32_t y, float alpha) {
 	int32_t _left   = max(x, 0);
 	int32_t _top    = max(y, 0);
 	int32_t _right  = min(x + sprite->width,  ctx->width - 1);
 	int32_t _bottom = min(y + sprite->height, ctx->height - 1);
+	sprite_t * scanline = create_sprite(_right - _left, 1, ALPHA_EMBEDDED);
+	uint8_t alp = alpha * 255;
+
 	for (uint16_t _y = 0; _y < sprite->height; ++_y) {
+		if (y + _y < _top) continue;
+		if (y + _y > _bottom) break;
 		if (!_is_in_clip(ctx, y + _y)) continue;
-		for (uint16_t _x = 0; _x < sprite->width; ++_x) {
-			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
-				continue;
-			uint32_t n_color = SPRITE(sprite, _x, _y);
-			uint32_t f_color = premultiply((n_color & 0xFFFFFF) | ((uint32_t)(255 * alpha) << 24));
-			f_color = (f_color & 0xFFFFFF) | ((uint32_t)(alpha * _ALP(n_color)) << 24);
-			GFX(ctx, x + _x, y + _y) = alpha_blend_rgba(GFX(ctx, x + _x, y + _y), f_color);
+		for (uint16_t _x = (x < _left) ? _left - x : 0; _x < sprite->width && x + _x <= _right; ++_x) {
+			SPRITE(scanline,_x + x - _left,0) = SPRITE(sprite, _x, _y);
 		}
+		apply_alpha_vector(scanline->bitmap, scanline->width, alp);
+		draw_sprite(ctx,scanline,_left,y + _y);
 	}
+
+	sprite_free(scanline);
 }
 
 void draw_sprite_alpha_paint(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, int32_t y, float alpha, uint32_t c) {
@@ -772,10 +808,10 @@ void draw_sprite_alpha_paint(gfx_context_t * ctx, const sprite_t * sprite, int32
 	int32_t _right  = min(x + sprite->width,  ctx->width - 1);
 	int32_t _bottom = min(y + sprite->height, ctx->height - 1);
 	for (uint16_t _y = 0; _y < sprite->height; ++_y) {
+		if (y + _y < _top) continue;
+		if (y + _y > _bottom) break;
 		if (!_is_in_clip(ctx, y + _y)) continue;
-		for (uint16_t _x = 0; _x < sprite->width; ++_x) {
-			if (x + _x < _left || x + _x > _right || y + _y < _top || y + _y > _bottom)
-				continue;
+		for (uint16_t _x = (x < _left) ? _left - x : 0; _x < sprite->width && x + _x <= _right; ++_x) {
 			/* Get the alpha from the sprite at this pixel */
 			float n_alpha = alpha * ((float)_ALP(SPRITE(sprite, _x, _y)) / 255.0);
 			uint32_t f_color = premultiply((c & 0xFFFFFF) | ((uint32_t)(255 * n_alpha) << 24));
@@ -907,20 +943,16 @@ void draw_sprite_transform(gfx_context_t * ctx, const sprite_t * sprite, gfx_mat
 	int32_t _bottom = clamp(fmax(fmax(ul_y+1, ll_y+1), fmax(ur_y+1, lr_y+1)), 0, ctx->height);
 
 	sprite_t * scanline = create_sprite(_right - _left, 1, ALPHA_EMBEDDED);
-
-	uint8_t cliff[256];
-	for (int i = 0; i < 256; ++i) {
-		cliff[i] = alpha * i;
-	}
+	uint8_t alp = alpha * 255;
 
 	for (int32_t _y = _top; _y < _bottom; ++_y) {
 		if (!_is_in_clip(ctx, _y)) continue;
 		for (int32_t _x = _left; _x < _right; ++_x) {
 			double u, v;
 			apply_matrix(_x, _y, inverse, &u, &v);
-			uint32_t n_color = gfx_bilinear_interpolation(sprite, u, v);
-			SPRITE(scanline,_x - _left,0) = rgba(cliff[_RED(n_color)], cliff[_GRE(n_color)], cliff[_BLU(n_color)], cliff[_ALP(n_color)]);
+			SPRITE(scanline,_x - _left,0) = gfx_bilinear_interpolation(sprite, u, v);
 		}
+		apply_alpha_vector(scanline->bitmap, scanline->width, alp);
 		draw_sprite(ctx,scanline,_left,_y);
 	}
 
