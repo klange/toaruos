@@ -93,13 +93,14 @@ size_t ring_buffer_read(ring_buffer_t * ring_buffer, size_t size, uint8_t * buff
 			ring_buffer_increment_read(ring_buffer);
 			collected++;
 		}
-		spin_unlock(ring_buffer->lock);
 		wakeup_queue(ring_buffer->wait_queue_writers);
 		if (collected == 0) {
-			if (sleep_on(ring_buffer->wait_queue_readers) && ring_buffer->internal_stop) {
+			if (sleep_on_unlocking(ring_buffer->wait_queue_readers, &ring_buffer->lock) && ring_buffer->internal_stop) {
 				ring_buffer->internal_stop = 0;
 				break;
 			}
+		} else {
+			spin_unlock(ring_buffer->lock);
 		}
 	}
 	wakeup_queue(ring_buffer->wait_queue_writers);
@@ -117,17 +118,19 @@ size_t ring_buffer_write(ring_buffer_t * ring_buffer, size_t size, uint8_t * buf
 			written++;
 		}
 
-		spin_unlock(ring_buffer->lock);
 		wakeup_queue(ring_buffer->wait_queue_readers);
 		ring_buffer_alert_waiters(ring_buffer);
 		if (written < size) {
 			if (ring_buffer->discard) {
+				spin_unlock(ring_buffer->lock);
 				break;
 			}
-			if (sleep_on(ring_buffer->wait_queue_writers) && ring_buffer->internal_stop) {
+			if (sleep_on_unlocking(ring_buffer->wait_queue_writers, &ring_buffer->lock) && ring_buffer->internal_stop) {
 				ring_buffer->internal_stop = 0;
 				break;
 			}
+		} else {
+			spin_unlock(ring_buffer->lock);
 		}
 	}
 
