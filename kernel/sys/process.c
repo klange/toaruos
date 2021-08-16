@@ -977,7 +977,6 @@ int process_timeout_sleep(process_t * process, int timeout) {
 	unsigned long s, ss;
 	relative_time(0, timeout * 1000, &s, &ss);
 
-	spin_lock(sleep_lock);
 	node_t * before = NULL;
 	foreach(node, sleep_queue) {
 		sleeper_t * candidate = ((sleeper_t *)node->value);
@@ -993,7 +992,6 @@ int process_timeout_sleep(process_t * process, int timeout) {
 	proc->is_fswait = 1;
 	list_insert(((process_t *)process)->node_waits, proc);
 	process->timeout_node = list_insert_after(sleep_queue, before, proc);
-	spin_unlock(sleep_lock);
 
 	return 0;
 }
@@ -1021,6 +1019,7 @@ int process_wait_nodes(process_t * process,fs_node_t * nodes[], int timeout) {
 
 	n = nodes;
 
+	spin_lock(sleep_lock);
 	spin_lock(process->sched_lock);
 	process->node_waits = list_create("process fswaiters",process);
 	if (*n) {
@@ -1040,6 +1039,7 @@ int process_wait_nodes(process_t * process,fs_node_t * nodes[], int timeout) {
 
 	process->awoken_index = -1;
 	spin_unlock(process->sched_lock);
+	spin_unlock(sleep_lock);
 
 	/* Wait. */
 	switch_task(0);
