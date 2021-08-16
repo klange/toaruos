@@ -9360,7 +9360,9 @@ BIM_ACTION(expand_split_left, 0,
 BIM_ACTION(go_page_up, 0,
 	"Jump up a screenfull."
 )(void) {
-	goto_line(env->line_no - (global_config.term_height - 6));
+	int destination = env->line_no - (global_config.term_height - 6);
+	if (destination < 1) destination = 1;
+	goto_line(destination);
 }
 
 BIM_ACTION(go_page_down, 0,
