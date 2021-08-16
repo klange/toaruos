@@ -48,7 +48,7 @@ In April 2021, work began on ToaruOS 2.0, which brings a rewritten kernel for x8
 The following projects are currently in progress:
 
 - **Rewrite the network stack** for greater throughput, stability, and server support.
-- **Stabilize SMP support** by cleaning up locks and other synchronization issues in the kernel.
+- **Improve SMP performance** with better scheduling and smarter userspace synchronization functions.
 - **Support more hardware** with new device drivers for AHCI, USB, virtio devices, etc.
 - **Bring back ports** from ToaruOS "Legacy", like muPDF and Mesa.
 - **Improve POSIX coverage** especially in regards to signals, synchronization primitives, as well as by providing more common utilities.
