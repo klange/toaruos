@@ -48,9 +48,9 @@ int kmain() {
 			"Enable debug output in the bootloader and enable the",
 			"serial debug log in the operating system itself.");
 
-	BOOT_OPTION(_nosmp,     1, "Disable SMP",
-			"SMP support is experimental and buggy.",
-			"");
+	BOOT_OPTION(_nosmp,       0, "Disable SMP",
+			"SMP support may not be completely stable and can be",
+			"disabled with this option if desired.");
 
 	BOOT_OPTION(_vbox,        1, "VirtualBox Guest Additions",
 			"Enable integration with VirtualBox, including",
