@@ -262,8 +262,11 @@ static void _window_menu_close(struct MenuEntry * self) {
 static void window_show_menu(yutani_wid_t wid, int y, int x) {
 	if (window_menu->window) return;
 	_window_menu_wid = wid;
-	menu_show(window_menu, yctx);
-	yutani_window_move(yctx, window_menu->window, y, x);
+	menu_prepare(window_menu, yctx);
+	if (window_menu->window) {
+		yutani_window_move(yctx, window_menu->window, y, x);
+		yutani_flip(yctx, window_menu->window);
+	}
 }
 
 
@@ -335,13 +338,14 @@ static void show_volume_status(void) {
 	/* TODO We could also show a nice slider... if we had one... */
 
 	if (!volume_menu->window) {
-		menu_show(volume_menu, yctx);
+		menu_prepare(volume_menu, yctx);
 		if (volume_menu->window) {
 			if (volume_left + volume_menu->window->width > (unsigned int)width) {
 				yutani_window_move(yctx, volume_menu->window, width - volume_menu->window->width, DROPDOWN_OFFSET);
 			} else {
 				yutani_window_move(yctx, volume_menu->window, volume_left, DROPDOWN_OFFSET);
 			}
+			yutani_flip(yctx,volume_menu->window);
 		}
 	}
 }
@@ -501,36 +505,40 @@ static void update_network_status(void) {
 
 static void show_logout_menu(void) {
 	if (!logout_menu->window) {
-		menu_show(logout_menu, yctx);
+		menu_prepare(logout_menu, yctx);
 		if (logout_menu->window) {
 			yutani_window_move(yctx, logout_menu->window, width - logout_menu->window->width - X_PAD, DROPDOWN_OFFSET);
+			yutani_flip(yctx, logout_menu->window);
 		}
 	}
 }
 
 static void show_app_menu(void) {
 	if (!appmenu->window) {
-		menu_show(appmenu, yctx);
+		menu_prepare(appmenu, yctx);
 		if (appmenu->window) {
 			yutani_window_move(yctx, appmenu->window, X_PAD, DROPDOWN_OFFSET);
+			yutani_flip(yctx, appmenu->window);
 		}
 	}
 }
 
 static void show_cal_menu(void) {
 	if (!calmenu->window) {
-		menu_show(calmenu, yctx);
+		menu_prepare(calmenu, yctx);
 		if (calmenu->window) {
 			yutani_window_move(yctx, calmenu->window, width - TIME_LEFT - date_widget_width / 2 - calmenu->window->width / 2, DROPDOWN_OFFSET);
+			yutani_flip(yctx, calmenu->window);
 		}
 	}
 }
 
 static void show_clock_menu(void) {
 	if (!clockmenu->window) {
-		menu_show(clockmenu, yctx);
+		menu_prepare(clockmenu, yctx);
 		if (clockmenu->window) {
 			yutani_window_move(yctx, clockmenu->window, width - LOGOUT_WIDTH - clockmenu->window->width, DROPDOWN_OFFSET);
+			yutani_flip(yctx, clockmenu->window);
 		}
 	}
 }
@@ -589,8 +597,11 @@ static void show_weather_status(void) {
 			offset = weather_left;
 			weather->flags = (weather->flags & ~MENU_FLAG_BUBBLE) | MENU_FLAG_BUBBLE_LEFT;
 		}
-		menu_show(weather, yctx);
-		yutani_window_move(yctx, weather->window, offset, DROPDOWN_OFFSET);
+		menu_prepare(weather, yctx);
+		if (weather->window) {
+			yutani_window_move(yctx, weather->window, offset, DROPDOWN_OFFSET);
+			yutani_flip(yctx, weather->window);
+		}
 	}
 }
 
@@ -614,13 +625,14 @@ static void show_network_status(void) {
 		}
 	}
 	if (!netstat->window) {
-		menu_show(netstat, yctx);
+		menu_prepare(netstat, yctx);
 		if (netstat->window) {
 			if (netstat_left + netstat->window->width > (unsigned int)width) {
 				yutani_window_move(yctx, netstat->window, width - netstat->window->width, DROPDOWN_OFFSET);
 			} else {
 				yutani_window_move(yctx, netstat->window, netstat_left, DROPDOWN_OFFSET);
 			}
+			yutani_flip(yctx, netstat->window);
 		}
 	}
 }

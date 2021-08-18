@@ -182,7 +182,7 @@ void _menu_activate_MenuEntry_Submenu(struct MenuEntry * self, int focused) {
 		new_menu->parent->child = new_menu;
 		_self->_my_child = new_menu;
 		if (new_menu->closed) {
-			menu_show(new_menu, _self->_owner->window->ctx);
+			menu_prepare(new_menu, _self->_owner->window->ctx);
 			int offset_x = _self->_owner->window->width - 2;
 			if (_self->_owner->window->width + _self->_owner->window->x - 2 + new_menu->window->width > _self->_owner->window->ctx->display_width) {
 				offset_x = 2 - new_menu->window->width;
@@ -507,7 +507,7 @@ failure:
 	return NULL;
 }
 
-static void _menu_redraw(yutani_window_t * menu_window, yutani_t * yctx, struct MenuList * menu) {
+static void _menu_redraw(yutani_window_t * menu_window, yutani_t * yctx, struct MenuList * menu, int expose) {
 
 	gfx_context_t * ctx = menu->ctx;
 	list_t * entries = menu->entries;
@@ -552,12 +552,14 @@ static void _menu_redraw(yutani_window_t * menu_window, yutani_t * yctx, struct 
 		offset += entry->height;
 	}
 
-	/* Expose menu */
 	flip(ctx);
-	yutani_flip(yctx, menu_window);
+
+	if (expose) {
+		yutani_flip(yctx, menu_window);
+	}
 }
 
-void menu_show(struct MenuList * menu, yutani_t * yctx) {
+void menu_prepare(struct MenuList * menu, yutani_t * yctx) {
 	/* Calculate window dimensions */
 	int height, width;
 	menu_calculate_dimensions(menu,&height, &width);
@@ -579,14 +581,19 @@ void menu_show(struct MenuList * menu, yutani_t * yctx) {
 	menu_window->user_data = menu;
 	menu->window = menu_window;
 
-	_menu_redraw(menu_window, yctx, menu);
+	_menu_redraw(menu_window, yctx, menu, 0);
 
 	hashmap_set(menu_windows, (void*)(uintptr_t)menu_window->wid, menu_window);
 }
 
+void menu_show(struct MenuList * menu, yutani_t * yctx) {
+	menu_prepare(menu, yctx);
+	yutani_flip(yctx, menu->window);
+}
+
 void menu_show_at(struct MenuList * menu, yutani_window_t * parent, int x, int y) {
 
-	menu_show(menu, parent->ctx);
+	menu_prepare(menu, parent->ctx);
 
 	if (parent->x + x + menu->window->width > parent->ctx->display_width) x -= menu->window->width;
 	if (parent->y + y + menu->window->height > parent->ctx->display_height) y -= menu->window->height;
@@ -708,7 +715,7 @@ void menu_key_action(struct MenuList * menu, struct yutani_msg_key_event * me) {
 			hilighted = menu->entries->head->value;
 		}
 		hilighted->hilight = 1;
-		_menu_redraw(window,yctx,menu);
+		_menu_redraw(window,yctx,menu,1);
 	} else if (me->event.keycode == KEY_ARROW_UP) {
 		if (hilighted) {
 			hilighted->hilight = 0;
@@ -719,7 +726,7 @@ void menu_key_action(struct MenuList * menu, struct yutani_msg_key_event * me) {
 			hilighted = menu->entries->tail->value;
 		}
 		hilighted->hilight = 1;
-		_menu_redraw(window,yctx,menu);
+		_menu_redraw(window,yctx,menu,1);
 	} else if (me->event.keycode == KEY_ARROW_RIGHT) {
 		if (!hilighted) {
 			hilighted = menu->entries->head->value;
@@ -728,7 +735,7 @@ void menu_key_action(struct MenuList * menu, struct yutani_msg_key_event * me) {
 			hilighted->hilight = 1;
 			if (hilighted->_type == MenuEntry_Submenu) {
 				hilighted->activate(hilighted, 0);
-				_menu_redraw(window,yctx,menu);
+				_menu_redraw(window,yctx,menu,1);
 			} else {
 				struct menu_bar * bar = NULL;
 				struct MenuList * p = menu;
@@ -747,7 +754,7 @@ void menu_key_action(struct MenuList * menu, struct yutani_msg_key_event * me) {
 					}
 					menu_bar_show_menu(yctx, bar->window, bar, -1, bar->active_entry);
 				} else {
-					_menu_redraw(window,yctx,menu);
+					_menu_redraw(window,yctx,menu,1);
 				}
 			}
 		}
@@ -810,14 +817,14 @@ void menu_mouse_action(struct MenuList * menu, struct yutani_msg_window_mouse_ev
 		offset += entry->height;
 	}
 	if (changed) {
-		_menu_redraw(window,yctx,menu);
+		_menu_redraw(window,yctx,menu,1);
 	}
 }
 
 void menu_force_redraw(struct MenuList * menu) {
 	yutani_window_t * window = menu->window;
 	yutani_t * yctx = window->ctx;
-	_menu_redraw(window,yctx,menu);
+	_menu_redraw(window,yctx,menu,1);
 }
 
 struct MenuList * menu_any_contains(int x, int y) {
@@ -964,7 +971,7 @@ void menu_bar_show_menu(yutani_t * yctx, yutani_window_t * window, struct menu_b
 		}
 	}
 
-	menu_show(new_menu, yctx);
+	menu_prepare(new_menu, yctx);
 	yutani_window_move_relative(yctx, new_menu->window, window, offset, self->y + MENU_BAR_HEIGHT);
 	yutani_flip(yctx, new_menu->window);
 
