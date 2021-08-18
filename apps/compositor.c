@@ -44,7 +44,6 @@
 #include <toaru/yutani-server.h>
 #include <toaru/hashmap.h>
 #include <toaru/list.h>
-#include <toaru/spinlock.h>
 
 #define _DEBUG_YUTANI
 #ifdef _DEBUG_YUTANI
@@ -279,24 +278,18 @@ static void reorder_window(yutani_globals_t * yg, yutani_server_window_t * windo
 		return;
 	}
 
-	spin_lock(&yg->redraw_lock);
 	unorder_window(yg, window);
-	spin_unlock(&yg->redraw_lock);
 
 	window->z = new_zed;
 
 	if (new_zed != YUTANI_ZORDER_TOP && new_zed != YUTANI_ZORDER_BOTTOM) {
-		spin_lock(&yg->redraw_lock);
 		list_insert(yg->mid_zs, window);
-		spin_unlock(&yg->redraw_lock);
 		return;
 	}
 
 	if (new_zed == YUTANI_ZORDER_TOP) {
 		if (yg->top_z) {
-			spin_lock(&yg->redraw_lock);
 			unorder_window(yg, yg->top_z);
-			spin_unlock(&yg->redraw_lock);
 		}
 		yg->top_z = window;
 		return;
@@ -304,9 +297,7 @@ static void reorder_window(yutani_globals_t * yg, yutani_server_window_t * windo
 
 	if (new_zed == YUTANI_ZORDER_BOTTOM) {
 		if (yg->bottom_z) {
-			spin_lock(&yg->redraw_lock);
 			unorder_window(yg, yg->bottom_z);
-			spin_unlock(&yg->redraw_lock);
 		}
 		yg->bottom_z = window;
 		return;
@@ -506,8 +497,6 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
 
 	mark_window(yg, win);
 
-	spin_lock(&yg->redraw_lock);
-
 	win->width = width;
 	win->height = height;
 
@@ -522,8 +511,6 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
 		YUTANI_SHMKEY_EXP(yg->server_ident, key, 1024, oldbufid);
 		shm_release(key);
 	}
-
-	spin_unlock(&yg->redraw_lock);
 
 	mark_window(yg, win);
 }
@@ -550,9 +537,7 @@ static void mark_screen(yutani_globals_t * yg, int32_t x, int32_t y, int32_t wid
 	rect->width = width;
 	rect->height = height;
 
-	spin_lock(&yg->update_list_lock);
 	list_insert(yg->update_list, rect);
-	spin_unlock(&yg->update_list_lock);
 }
 
 /**
@@ -976,7 +961,6 @@ static void redraw_windows(yutani_globals_t * yg) {
 	int tmp_mouse_y = yg->mouse_y;
 
 	if (yg->resize_on_next) {
-		spin_lock(&yg->redraw_lock);
 		TRACE("Resizing display.");
 
 		if (!yutani_options.nested) {
@@ -1002,8 +986,6 @@ static void redraw_windows(yutani_globals_t * yg) {
 		yutani_msg_buildx_welcome(response, yg->width, yg->height);
 		pex_broadcast(yg->server, response->size, (char *)response);
 		TRACE("Done.");
-
-		spin_unlock(&yg->redraw_lock);
 	}
 
 	if (renderer_push_state) renderer_push_state(yg);
@@ -1026,7 +1008,6 @@ static void redraw_windows(yutani_globals_t * yg) {
 	}
 
 	/* Calculate damage regions from currently queued updates */
-	spin_lock(&yg->update_list_lock);
 	while (yg->update_list->length) {
 		node_t * win = list_dequeue(yg->update_list);
 		yutani_damage_rect_t * rect = (void *)win->value;
@@ -1037,7 +1018,6 @@ static void redraw_windows(yutani_globals_t * yg) {
 		free(rect);
 		free(win);
 	}
-	spin_unlock(&yg->update_list_lock);
 
 	/* Render */
 	if (has_updates) {
@@ -1056,7 +1036,6 @@ static void redraw_windows(yutani_globals_t * yg) {
 		 * but calculating that may be more trouble than it's worth;
 		 * we also need to render windows in stacking order...
 		 */
-		spin_lock(&yg->redraw_lock);
 		yutani_blit_windows(yg);
 
 		/* Send VirtualBox rects */
@@ -1126,8 +1105,6 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 		if (!renderer_add_clip) gfx_clear_clip(yg->backend_ctx);
 
-		spin_unlock(&yg->redraw_lock);
-
 		/*
 		 * If any windows were marked for removal,
 		 * then remove them.
@@ -1162,40 +1139,7 @@ static void redraw_windows(yutani_globals_t * yg) {
  * Initialize clipping regions.
  */
 void yutani_clip_init(yutani_globals_t * yg) {
-
 	yg->update_list = list_create();
-	yg->update_list_lock = 0;
-}
-
-/**
- * Redraw thread.
- *
- * Calls the redraw functions in a loop, with some
- * additional yielding and sleeping.
- */
-static void * redraw(void * in) {
-
-	sysfunc(TOARU_SYS_FUNC_THREADNAME,(char *[]){"compositor","render thread",NULL});
-
-	yutani_globals_t * yg = in;
-	while (yg->server) {
-		/*
-		 * Perform whatever redraw work is required.
-		 */
-		redraw_windows(yg);
-
-		/*
-		 * Attempt to run at about 60fps...
-		 * we should actually see how long it took to render so
-		 * we can sleep *less* if it took a long time to render
-		 * this particular frame. We are definitely not
-		 * going to run at 60fps unless there's nothing to do
-		 * (and even then we've wasted cycles checking).
-		 */
-		usleep(16666);
-	}
-
-	return NULL;
 }
 
 /**
@@ -1254,9 +1198,7 @@ static void mark_window_relative(yutani_globals_t * yg, yutani_server_window_t *
 		rect->height = bottom_bound - top_bound;
 	}
 
-	spin_lock(&yg->update_list_lock);
 	list_insert(yg->update_list, rect);
-	spin_unlock(&yg->update_list_lock);
 }
 
 /**
@@ -2198,11 +2140,6 @@ int main(int argc, char * argv[]) {
 
 	yutani_clip_init(yg);
 
-	pthread_t render_thread;
-
-	TRACE("Starting render thread.");
-	pthread_create(&render_thread, NULL, redraw, yg);
-
 	if (!fork()) {
 		if (argx < argc) {
 			TRACE("Starting alternate startup app: %s", argv[argx]);
@@ -2244,9 +2181,19 @@ int main(int argc, char * argv[]) {
 		fds[3] = amfd;
 	}
 
+	uint64_t last_redraw = 0;
+
 	while (1) {
+
+		unsigned long frameTime = yutani_time_since(yg, last_redraw);
+		if (frameTime > 15) {
+			redraw_windows(yg);
+			last_redraw = yutani_current_time(yg);
+			frameTime = 0;
+		}
+
 		if (yutani_options.nested) {
-			int index = fswait(2, fds);
+			int index = fswait2(2, fds, 16 - frameTime);
 
 			if (index == 1) {
 				yutani_msg_t * m = yutani_poll(yg->host_context);
@@ -2292,7 +2239,6 @@ int main(int argc, char * argv[]) {
 								yutani_msg_buildx_session_end(response);
 								pex_broadcast(server, response->size, (char *)response);
 								yg->server = NULL;
-								kill(render_thread.id, SIGINT);
 								exit(0);
 							}
 							break;
@@ -2302,9 +2248,11 @@ int main(int argc, char * argv[]) {
 				}
 				free(m);
 				continue;
+			} else if (index > 0) {
+				continue;
 			}
 		} else {
-			int index = fswait(amfd == -1 ? 3 : 4, fds);
+			int index = fswait2(amfd == -1 ? 3 : 4, fds, 16 - frameTime);
 
 			if (index == 2) {
 				unsigned char buf[1];
@@ -2326,7 +2274,7 @@ int main(int argc, char * argv[]) {
 					handle_mouse_event(yg, (struct yutani_msg_mouse_event *)m->data);
 				}
 				continue;
-			} else if (index == 3) {
+			} else if (amfd != -1 && index == 3) {
 				int r = read(amfd, (char *)&packet, sizeof(mouse_device_packet_t));
 				if (r > 0) {
 					if (!vmmouse) {
@@ -2338,6 +2286,8 @@ int main(int argc, char * argv[]) {
 					yutani_msg_buildx_mouse_event(m,0, &packet, YUTANI_MOUSE_EVENT_TYPE_ABSOLUTE);
 					handle_mouse_event(yg, (struct yutani_msg_mouse_event *)m->data);
 				}
+				continue;
+			} else if (index > 0) {
 				continue;
 			}
 		}
@@ -2366,7 +2316,6 @@ int main(int argc, char * argv[]) {
 			if (hashmap_is_empty(yg->clients_to_windows)) {
 				TRACE("Last compositor client disconnected, exiting.");
 				yg->server = NULL;
-				kill(render_thread.id, SIGINT);
 				exit(0);
 			}
 

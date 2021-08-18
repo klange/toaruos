@@ -207,7 +207,6 @@ typedef struct YutaniGlobals {
 
 	/* Damage region list */
 	list_t * update_list;
-	volatile int update_list_lock;
 
 	/* Mouse cursors */
 	sprite_t mouse_sprite;
@@ -264,13 +263,10 @@ typedef struct YutaniGlobals {
 	time_t start_time;
 	suseconds_t start_subtime;
 
-	/* Basic lock to prevent redraw thread and communication thread interference */
-	volatile int redraw_lock;
-
 	/* Pointer to last hovered window to allow exit events */
 	yutani_server_window_t * old_hover_window;
 
-	/* Key bindigns */
+	/* Key bindings */
 	hashmap_t * key_binds;
 
 	/* Windows to remove after the end of the rendering pass */
