@@ -8,9 +8,9 @@
 #include "multiboot.h"
 
 /* Basic text strings */
-#define BASE_VERSION "ToaruOS Bootloader v3.0"
+#define BASE_VERSION "ToaruOS Bootloader v4.0"
 char * VERSION_TEXT = BASE_VERSION " (BIOS)";
-char * HELP_TEXT = "Press <Enter> or select a menu option with \030/\031/\032/\033.";
+char * HELP_TEXT = "<Enter> to boot, <e> to edit, or select a menu option with \030/\031/\032/\033.";
 char * COPYRIGHT_TEXT = "ToaruOS is free software under the NCSA license.";
 char * LINK_TEXT = "https://toaruos.org - https://github.com/klange/toaruos";
 
@@ -72,13 +72,13 @@ int kmain() {
 			"(Requires VMware driver) Enables support for",
 			"automatically setting display size in VMware");
 
-	BOOT_OPTION(_migrate,     1, "Writable root",
-			"Migrates the ramdisk from tarball to an in-memory",
-			"temporary filesystem at boot. Needed for packages.");
-
 	BOOT_OPTION(_qemubug,     0, "QEMU PS/2 workaround",
 			"Work around a bug in QEMU's PS/2 controller",
 			"prior to 6.0.50.");
+
+	BOOT_OPTION(_migrate,     1, "Writable root",
+			"Migrates the ramdisk from tarball to an in-memory",
+			"temporary filesystem at boot. Needed for packages.");
 
 	/* Loop over rendering the menu */
 	show_menu();
