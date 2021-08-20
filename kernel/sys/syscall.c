@@ -537,7 +537,7 @@ static long sys_getpgid(pid_t pid) {
 	if (pid == 0) {
 		proc = (process_t*)this_core->current_process;
 	} else {
-		proc = NULL; process_from_pid(pid);
+		proc = process_from_pid(pid);
 	}
 
 	if (!proc) {
