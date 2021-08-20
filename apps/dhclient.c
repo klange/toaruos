@@ -389,8 +389,10 @@ static int configure_interface(const char * if_name) {
 					ip_ntoa(ntohl(ip_data), addr);
 					printf("%s: %s: nameserver %s\n", _argv_0, if_name, addr);
 					FILE * resolve = fopen("/etc/resolv.conf","w");
-					fprintf(resolve, "nameserver %s\n", addr);
-					fclose(resolve);
+					if (resolve) {
+						fprintf(resolve, "nameserver %s\n", addr);
+						fclose(resolve);
+					} /* else, read-only file system? */
 				}
 				opt += len;
 			}
