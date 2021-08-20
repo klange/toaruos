@@ -13,7 +13,7 @@ Describe the release here.
 
 ## What is ToaruOS?
 
-ToaruOS is a hobbyist, educational operating system for x86-64 PCs, focused primarily on use in virtual machines. It provides a Unix-like environment, complete with a graphical desktop interface, shared libraries, feature-rich terminal emulator, and support for running Python 3.6, GCC, and several other ports. The core of ToaruOS, provided by the CD images in this release, is built completely from scratch. The bootloader, kernel, drivers, C standard library, and userspace applications are all original software created by the authors, as are the graphical assets.
+ToaruOS is a hobbyist, educational operating system for x86-64 PCs, focused primarily on use in virtual machines. It provides a Unix-like environment, complete with a graphical desktop interface, shared libraries, feature-rich terminal emulator, and support for running, GCC, Quake, and several other ports. The core of ToaruOS, provided by the CD images in this release, is built completely from scratch. The bootloader, kernel, drivers, C standard library, and userspace applications are all original software created by the authors, as are the graphical assets.
 
 ## Who wrote ToaruOS?
 
@@ -25,15 +25,13 @@ It is recommended that you run ToaruOS in a virtual machine / emulator, for maxi
 
 ## Release Files
 
-\`image.iso\` is the standard build of ToaruOS, built the Github Actions CI workflow. It uses ToaruOS's native bootloaders and should work in most virtual machines using BIOS.
-
-When provided in a release, \`toaruos-grub.iso\` is an alternative CD with GRUB as a bootloader. If you are attempting to run ToaruOS on real hardware, this is generally preferred.
+\`image.iso\` is the standard build of ToaruOS, built by the Github Actions CI workflow. It uses ToaruOS's native bootloaders and should work in most virtual machines using BIOS.
 
 ## Changelog
 ${CHANGELOG}
 
 ## Known Issues
-- SMP support is _experimental_ and highly unstable.
+- The SMP scheduler is known to have performance issues.
 - Several utilities, libc functions, and hardware drivers are missing functionality.
 - There are many known security issues with ToaruOS. You should not use ToaruOS in a production environment - it is a hobby project, not a production operating system. If you find security issues in ToaruOS and would like to responsibly report them, please file a regular issue report here on GitHub.
 NOTES
