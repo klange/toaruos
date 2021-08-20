@@ -31,6 +31,15 @@ char * strchr(const char * s, int c) {
 	return 0;
 }
 
+unsigned long strlen(const char *s) {
+	unsigned long out = 0;
+	while (*s) {
+		out++;
+		s++;
+	}
+	return out;
+}
+
 char * strcat(char *dest, const char *src) {
 	char * end = dest;
 	while (*end != '\0') {

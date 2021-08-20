@@ -41,5 +41,6 @@ char * strchr(const char * s, int c);
 char * strcat(char *dest, const char *src);
 void copy_sectors(unsigned long lba, unsigned char * buf, int sectors);
 void copy_sector(unsigned long lba, unsigned char * buf);
+unsigned long strlen(const char *s);
 
 #define DATA_LOAD_BASE 0x4000000

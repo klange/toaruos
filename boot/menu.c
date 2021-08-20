@@ -9,6 +9,7 @@ struct option boot_options[20] = {{0}};
 int sel_max = 0;
 int sel = 0;
 int boot_mode = 0;
+int boot_edit = 0;
 
 void toggle(int ndx, int value, char *str) {
 	set_attr(sel == ndx ? 0x70 : 0x07);
@@ -80,7 +81,7 @@ void show_menu(void) {
 		}
 
 		set_attr(0x07);
-		move_cursor(x,15);
+		move_cursor(0,15);
 		if (timeout) {
 			*timeout_val = timeout + '0';
 			print_banner(timeout_msg);
@@ -147,6 +148,12 @@ void show_menu(void) {
 			} else {
 				int index = sel - base_sel - 1;
 				*boot_options[index].value = !*boot_options[index].value;
+			}
+		} else if (s == 0x12) { /* e */
+			if (sel <= base_sel) {
+				boot_edit = 1;
+				boot_mode = boot_mode_names[sel].index;
+				break;
 			}
 		} else if (s >= 2 && s <= 10) {
 			int i = s - 2;

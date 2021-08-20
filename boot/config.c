@@ -48,7 +48,7 @@ int kmain() {
 			"Enable debug output in the bootloader and enable the",
 			"serial debug log in the operating system itself.");
 
-	BOOT_OPTION(_nosmp,       0, "Disable SMP",
+	BOOT_OPTION(_smp,         1, "Enable SMP",
 			"SMP support may not be completely stable and can be",
 			"disabled with this option if desired.");
 
@@ -75,6 +75,10 @@ int kmain() {
 	BOOT_OPTION(_migrate,     1, "Writable root",
 			"Migrates the ramdisk from tarball to an in-memory",
 			"temporary filesystem at boot. Needed for packages.");
+
+	BOOT_OPTION(_qemubug,     0, "QEMU PS/2 workaround",
+			"Work around a bug in QEMU's PS/2 controller",
+			"prior to 6.0.50.");
 
 	/* Loop over rendering the menu */
 	show_menu();
@@ -120,8 +124,16 @@ int kmain() {
 		strcat(cmdline, "novmwareresset ");
 	}
 
-	if (_nosmp) {
+	if (!_smp) {
 		strcat(cmdline, "nosmp ");
+	}
+
+	if (_qemubug) {
+		strcat(cmdline, "sharedps2 ");
+	}
+
+	if (boot_edit) {
+		boot_editor();
 	}
 
 	boot();
