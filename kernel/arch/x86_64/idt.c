@@ -179,6 +179,12 @@ struct regs * isr_handler(struct regs * r) {
 			uintptr_t faulting_address;
 			asm volatile("mov %%cr2, %0" : "=r"(faulting_address));
 			if (!this_core->current_process || r->cs == 0x08) {
+				printf("Page fault in kernel ");
+				if (this_core->current_process) {
+					printf("pid=%d (%s) ", (int)this_core->current_process->id, this_core->current_process->name);
+				}
+				printf("at %#zx\n", faulting_address);
+				dump_regs(r);
 				arch_fatal();
 			}
 			if (faulting_address == 0xFFFFB00F) {
