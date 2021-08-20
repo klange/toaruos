@@ -15,6 +15,7 @@ print("====")
 
 # Perform tests
 os.system("/bin/insmod /mod/xhci.ko")
+os.system("/bin/cat /dev/xhci0")
 
 # Reboot
 print("====")
