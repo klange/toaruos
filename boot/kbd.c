@@ -20,7 +20,7 @@ static char kbd_us_l2[128] = {
 	'_','+','\b', '\t', 'Q','W','E','R','T','Y','U','I','O','P','{','}','\n',
 	0, 'A','S','D','F','G','H','J','K','L',':','"', '~',
 	0, '|','Z','X','C','V','B','N','M','<','>','?',
-	0, '*', 0, ' ', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, '*', 0, '\037', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	'-', 0, 0, 0, '+', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
@@ -42,8 +42,8 @@ int read_key(char * c) {
 			return 1;
 
 		/* Keft left and right */
-		case 0x4B: return 2;
-		case 0x4D: return 3;
+		case 0x4B: return shift_state ? 4 : 2;
+		case 0x4D: return shift_state ? 5 : 3;
 	}
 
 	if (!(sc & 0x80)) {

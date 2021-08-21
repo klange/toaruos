@@ -2,11 +2,11 @@
 #include "options.h"
 #include "text.h"
 #include "util.h"
+#include "kbd.h"
 
-extern int read_key(char * c);
+int boot_edit = 0;
 
-void boot_editor(void) {
-
+int boot_editor(void) {
 	int len    = strlen(cmdline);
 	int cursor = len;
 
@@ -30,7 +30,9 @@ void boot_editor(void) {
 		if (status == 0) {
 			/* Handle a few special characters */
 			if (data == '\n') {
-				return;
+				return 1;
+			} else if (data == 27) {
+				return 0;
 			} else if (data == '\b') {
 				if (!cursor) continue;
 				if (cursor == len) {
@@ -61,7 +63,16 @@ void boot_editor(void) {
 			/* Left */
 			if (cursor) cursor--;
 		} else if (status == 3) {
+			/* Right */
 			if (cursor < len) cursor++;
+		} else if (status == 4) {
+			/* Shift-left: Word left */
+			while (cursor && cmdline[cursor] == ' ') cursor--;
+			while (cursor && cmdline[cursor] != ' ') cursor--;
+		} else if (status == 5) {
+			/* Shift-right: Word right */
+			while (cursor < len && cmdline[cursor] == ' ') cursor++;
+			while (cursor < len && cmdline[cursor] != ' ') cursor++;
 		}
 	}
 }

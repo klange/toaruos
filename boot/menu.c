@@ -3,13 +3,13 @@
 #include "util.h"
 #include "kbd.h"
 #include "qemu.h"
+#include "editor.h"
 
 struct option boot_options[20] = {{0}};
 
 int sel_max = 0;
 int sel = 0;
 int boot_mode = 0;
-int boot_edit = 0;
 
 void toggle(int ndx, int value, char *str) {
 	set_attr(sel == ndx ? 0x70 : 0x07);

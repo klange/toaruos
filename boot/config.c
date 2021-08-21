@@ -6,6 +6,7 @@
 #include "menu.h"
 #include "text.h"
 #include "multiboot.h"
+#include "editor.h"
 
 /* Basic text strings */
 #define BASE_VERSION "ToaruOS Bootloader v4.0"
@@ -80,60 +81,64 @@ int kmain() {
 			"Migrates the ramdisk from tarball to an in-memory",
 			"temporary filesystem at boot. Needed for packages.");
 
-	/* Loop over rendering the menu */
-	show_menu();
+	while (1) {
+		/* Loop over rendering the menu */
+		show_menu();
 
-	/* Build our command line. */
-	strcat(cmdline, DEFAULT_ROOT_CMDLINE);
+		/* Build our command line. */
+		strcat(cmdline, DEFAULT_ROOT_CMDLINE);
 
-	if (_migrate) {
-		strcat(cmdline, MIGRATE_CMDLINE);
-	}
+		if (_migrate) {
+			strcat(cmdline, MIGRATE_CMDLINE);
+		}
 
-	char * _video_command_line = DEFAULT_VID_CMDLINE;
+		char * _video_command_line = DEFAULT_VID_CMDLINE;
 
-	if (boot_mode == 1) {
-		strcat(cmdline, DEFAULT_GRAPHICAL_CMDLINE);
-		strcat(cmdline, _video_command_line);
-	} else if (boot_mode == 2) {
-		strcat(cmdline, DEFAULT_TEXT_CMDLINE);
-	} else if (boot_mode == 3) {
-		strcat(cmdline, DEFAULT_SINGLE_CMDLINE);
-		strcat(cmdline, _video_command_line);
-	} else if (boot_mode == 4) {
-		strcat(cmdline, DEFAULT_HEADLESS_CMDLINE);
-	}
+		if (boot_mode == 1) {
+			strcat(cmdline, DEFAULT_GRAPHICAL_CMDLINE);
+			strcat(cmdline, _video_command_line);
+		} else if (boot_mode == 2) {
+			strcat(cmdline, DEFAULT_TEXT_CMDLINE);
+		} else if (boot_mode == 3) {
+			strcat(cmdline, DEFAULT_SINGLE_CMDLINE);
+			strcat(cmdline, _video_command_line);
+		} else if (boot_mode == 4) {
+			strcat(cmdline, DEFAULT_HEADLESS_CMDLINE);
+		}
 
-	if (_debug) {
-		txt_debug = 1;
-	}
+		if (_debug) {
+			txt_debug = 1;
+		}
 
-	if (!_vbox) {
-		strcat(cmdline, "novbox ");
-	}
+		if (!_vbox) {
+			strcat(cmdline, "novbox ");
+		}
 
-	if (_vbox && !_vboxrects) {
-		strcat(cmdline, "novboxseamless ");
-	}
+		if (_vbox && !_vboxrects) {
+			strcat(cmdline, "novboxseamless ");
+		}
 
-	if (_vbox && !_vboxpointer) {
-		strcat(cmdline, "novboxpointer ");
-	}
+		if (_vbox && !_vboxpointer) {
+			strcat(cmdline, "novboxpointer ");
+		}
 
-	if (_vmware && !_vmwareres) {
-		strcat(cmdline, "novmwareresset ");
-	}
+		if (_vmware && !_vmwareres) {
+			strcat(cmdline, "novmwareresset ");
+		}
 
-	if (!_smp) {
-		strcat(cmdline, "nosmp ");
-	}
+		if (!_smp) {
+			strcat(cmdline, "nosmp ");
+		}
 
-	if (_qemubug) {
-		strcat(cmdline, "sharedps2 ");
-	}
+		if (_qemubug) {
+			strcat(cmdline, "sharedps2 ");
+		}
 
-	if (boot_edit) {
-		boot_editor();
+		if (!boot_edit) break;
+		if (boot_editor()) break;
+
+		boot_edit = 0;
+		memset(cmdline, 0, 1024);
 	}
 
 	boot();

@@ -9,4 +9,5 @@
 #define KBD_SCAN_9     10
 
 int read_scancode(int);
+int read_key(char * c);
 
