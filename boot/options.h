@@ -29,6 +29,7 @@ extern int base_sel;
 
 extern char * VERSION_TEXT;
 extern char * HELP_TEXT;
+extern char * HELP_TEXT_OPT;
 extern char * COPYRIGHT_TEXT;
 extern char * LINK_TEXT;
 extern char * kernel_path;

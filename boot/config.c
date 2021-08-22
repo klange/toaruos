@@ -12,6 +12,7 @@
 #define BASE_VERSION "ToaruOS Bootloader v4.0"
 char * VERSION_TEXT = BASE_VERSION " (BIOS)";
 char * HELP_TEXT = "<Enter> to boot, <e> to edit, or select a menu option with \030/\031/\032/\033.";
+char * HELP_TEXT_OPT = "<Enter> to toggle, or select another option with \030/\031/\032/\033.";
 char * COPYRIGHT_TEXT = "ToaruOS is free software under the NCSA license.";
 char * LINK_TEXT = "https://toaruos.org - https://github.com/klange/toaruos";
 

@@ -89,7 +89,7 @@ void show_menu(void) {
 			print_("\n");
 		}
 		print_("\n");
-		print_banner(HELP_TEXT);
+		print_banner(sel <= base_sel ? HELP_TEXT : HELP_TEXT_OPT);
 		print_("\n");
 
 		if (sel > base_sel) {
