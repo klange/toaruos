@@ -33,7 +33,6 @@
 #include <sys/shm.h>
 #include <pthread.h>
 #include <dlfcn.h>
-/* auto-dep: export-dynamic */
 
 #include <toaru/graphics.h>
 #include <toaru/mouse.h>
@@ -58,16 +57,6 @@ static void mark_window(yutani_globals_t * yg, yutani_server_window_t * window);
 static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t * w);
 static void notify_subscribers(yutani_globals_t * yg);
 static void mouse_stop_drag(yutani_globals_t * yg);
-
-static int (*renderer_alloc)(yutani_globals_t * yg) = NULL;
-static int (*renderer_init)(yutani_globals_t * yg) = NULL;
-static int (*renderer_add_clip)(yutani_globals_t * yg, double x, double y, double w, double h) = NULL;
-static int (*renderer_set_clip)(yutani_globals_t * yg) = NULL;
-static int (*renderer_push_state)(yutani_globals_t * yg) = NULL;
-static int (*renderer_pop_state)(yutani_globals_t * yg) = NULL;
-static int (*renderer_destroy)(yutani_globals_t * yg) = NULL;
-static int (*renderer_blit_window)(yutani_globals_t * yg, yutani_server_window_t * window, int x, int y);
-static int (*renderer_blit_screen)(yutani_globals_t * yg) = NULL;
 
 /**
  * Print usage information.
@@ -130,31 +119,6 @@ static int parse_args(int argc, char * argv[], int * out) {
 	}
 	*out = optind;
 	return 0;
-}
-
-static void try_load_extensions(yutani_globals_t * yg) {
-	if (renderer_init) {
-		/* Already have a renderer extension loaded */
-		return;
-	}
-
-	/* Try to load cairo */
-	void * cairo = dlopen("libtoaru_ext_cairo_renderer.so", 0);
-	if (cairo) {
-		renderer_alloc = dlsym(cairo, "renderer_alloc");
-		renderer_init = dlsym(cairo, "renderer_init");
-		renderer_add_clip = dlsym(cairo, "renderer_add_clip");
-		renderer_set_clip = dlsym(cairo, "renderer_set_clip");
-		renderer_push_state = dlsym(cairo, "renderer_push_state");
-		renderer_pop_state = dlsym(cairo, "renderer_pop_state");
-		renderer_destroy = dlsym(cairo, "renderer_destroy");
-		renderer_blit_window = dlsym(cairo, "renderer_blit_window");
-		renderer_blit_screen = dlsym(cairo, "renderer_blit_screen");
-	}
-
-	/* On success, these are now set */
-	if (renderer_alloc) renderer_alloc(yg);
-	if (renderer_init)  renderer_init(yg);
 }
 
 static int32_t min(int32_t a, int32_t b) {
@@ -519,11 +483,7 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
  * Add a clip region from a rectangle.
  */
 static void yutani_add_clip(yutani_globals_t * yg, double x, double y, double w, double h) {
-	if (renderer_add_clip) {
-		renderer_add_clip(yg,x,y,w,h);
-	} else {
-		gfx_add_clip(yg->backend_ctx, (int)x, (int)y, (int)w, (int)h);
-	}
+	gfx_add_clip(yg->backend_ctx, (int)x, (int)y, (int)w, (int)h);
 }
 
 /**
@@ -706,10 +666,6 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 
 	if (window->hidden) {
 		return 0;
-	}
-
-	if (renderer_blit_window) {
-		return renderer_blit_window(yg,window,x,y);
 	}
 
 	sprite_t _win_sprite;
@@ -974,9 +930,6 @@ static void redraw_windows(yutani_globals_t * yg) {
 		yg->height = yg->backend_ctx->height;
 		yg->backend_framebuffer = yg->backend_ctx->backbuffer;
 
-		if (renderer_destroy) renderer_destroy(yg);
-		if (renderer_init)  renderer_init(yg);
-
 		TRACE("Marking...");
 		yg->resize_on_next = 0;
 		mark_screen(yg, 0, 0, yg->width, yg->height);
@@ -987,8 +940,6 @@ static void redraw_windows(yutani_globals_t * yg) {
 		pex_broadcast(yg->server, response->size, (char *)response);
 		TRACE("Done.");
 	}
-
-	if (renderer_push_state) renderer_push_state(yg);
 
 	/* If the mouse has moved, that counts as two damage regions */
 	if ((yg->last_mouse_x != tmp_mouse_x) || (yg->last_mouse_y != tmp_mouse_y)) {
@@ -1021,14 +972,6 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 	/* Render */
 	if (has_updates) {
-
-		if ((!yg->bottom_z || yg->bottom_z->anim_mode) && renderer_blit_screen) {
-			/* TODO: Need to clear with Cairo backend */
-			draw_fill(yg->backend_ctx, rgb(5,5,5));
-		}
-
-		if (renderer_set_clip) renderer_set_clip(yg);
-
 		yg->windows_to_remove = list_create();
 
 		/*
@@ -1062,11 +1005,7 @@ static void redraw_windows(yutani_globals_t * yg) {
 #endif
 
 		if (yutani_options.nested) {
-			if (renderer_blit_screen) {
-				renderer_blit_screen(yg);
-			} else {
-				flip(yg->backend_ctx);
-			}
+			flip(yg->backend_ctx);
 			/*
 			 * We should be able to flip only the places we need to flip, but
 			 * instead we're going to flip the whole thing.
@@ -1096,14 +1035,8 @@ static void redraw_windows(yutani_globals_t * yg) {
 			 * Flip the updated areas. This minimizes writes to video memory,
 			 * which is very important on real hardware where these writes are slow.
 			 */
-			if (renderer_blit_screen) {
-				renderer_blit_screen(yg);
-			} else {
-				flip(yg->backend_ctx);
-			}
+			flip(yg->backend_ctx);
 		}
-
-		if (!renderer_add_clip) gfx_clear_clip(yg->backend_ctx);
 
 		/*
 		 * If any windows were marked for removal,
@@ -1120,19 +1053,9 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 	}
 
-	if (renderer_pop_state) renderer_pop_state(yg);
-
 	if (yg->screenshot_frame) {
 		yutani_screenshot(yg);
 	}
-
-	if (yg->reload_renderer) {
-		yg->reload_renderer = 0;
-		/* Otherwise we won't draw the cursor... */
-		gfx_no_clip(yg->backend_ctx);
-		try_load_extensions(yg);
-	}
-
 }
 
 /**
@@ -2135,9 +2058,6 @@ int main(int argc, char * argv[]) {
 	yg->last_mouse_buttons = 0;
 	TRACE("Done.");
 
-	/* Try to load Cairo backend */
-	try_load_extensions(yg);
-
 	yutani_clip_init(yg);
 
 	if (!fork()) {
@@ -2663,11 +2583,6 @@ int main(int argc, char * argv[]) {
 								yutani_msg_buildx_clipboard_alloc(response, yg->clipboard_size);
 								yutani_msg_buildx_clipboard(response, yg->clipboard);
 								pex_send(server, p->source, response->size, (char *)response);
-							}
-							break;
-						case YUTANI_SPECIAL_REQUEST_RELOAD:
-							{
-								yg->reload_renderer = 1;
 							}
 							break;
 						default:
