@@ -1038,7 +1038,7 @@ uint32_t gfx_vertical_gradient_pattern(int32_t x, int32_t y, double alpha, void 
 		alpha * 255));
 }
 
-float gfx_point_distance(struct gfx_point * a, struct gfx_point * b) {
+float gfx_point_distance(const struct gfx_point * a, const struct gfx_point * b) {
 	return sqrt((a->x - b->x) * (a->x - b->x) + (a->y - b->y) * (a->y - b->y));
 }
 
@@ -1054,7 +1054,12 @@ void draw_rounded_rectangle_pattern(gfx_context_t * ctx, int32_t x, int32_t y, u
 	}
 
 	for (int row = y; row < y + height; row++){
+		if (row < 0) continue;
+		if (row >= ctx->height) break;
 		for (int col = x; col < x + width; col++) {
+			if (col < 0) continue;
+			if (col >= ctx->width) break;
+
 			if ((col < x + radius || col > x + width - radius - 1) &&
 				(row < y + radius || row > y + height - radius - 1)) {
 				continue;
@@ -1097,25 +1102,25 @@ void draw_rounded_rectangle(gfx_context_t * ctx, int32_t x, int32_t y, uint16_t 
 	draw_rounded_rectangle_pattern(ctx,x,y,width,height,radius,gfx_fill_pattern,&color);
 }
 
-float gfx_point_distance_squared(struct gfx_point * a, struct gfx_point * b) {
+float gfx_point_distance_squared(const struct gfx_point * a, const struct gfx_point * b) {
 	return (a->x - b->x) * (a->x - b->x) + (a->y - b->y) * (a->y - b->y);
 }
 
-float gfx_point_dot(struct gfx_point * a, struct gfx_point * b) {
+float gfx_point_dot(const struct gfx_point * a, const struct gfx_point * b) {
 	return (a->x * b->x) + (a->y * b->y);
 }
 
-struct gfx_point gfx_point_sub(struct gfx_point * a, struct gfx_point * b) {
+struct gfx_point gfx_point_sub(const struct gfx_point * a, const struct gfx_point * b) {
 	struct gfx_point p = {a->x - b->x, a->y - b->y};
 	return p;
 }
 
-struct gfx_point gfx_point_add(struct gfx_point * a, struct gfx_point * b) {
+struct gfx_point gfx_point_add(const struct gfx_point * a, const struct gfx_point * b) {
 	struct gfx_point p = {a->x + b->x, a->y + b->y};
 	return p;
 }
 
-float gfx_line_distance(struct gfx_point * p, struct gfx_point * v, struct gfx_point * w) {
+float gfx_line_distance(const struct gfx_point * p, const struct gfx_point * v, const struct gfx_point * w) {
 	float lengthlength = gfx_point_distance_squared(v,w);
 
 	if (lengthlength == 0.0) return gfx_point_distance(p, v); /* point */
