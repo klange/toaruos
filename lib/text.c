@@ -114,28 +114,94 @@ static int intersection_sorter(const void * a, const void * b) {
 	return 0;
 }
 
-static void sort_intersections(size_t cnt, struct TT_Intersection intersections[cnt]) {
+static inline void sort_intersections(size_t cnt, struct TT_Intersection intersections[cnt]) {
 	qsort(intersections, cnt, sizeof(struct TT_Intersection), intersection_sorter);
 }
 
-static size_t prune_edges(size_t edgeCount, float y, struct TT_Edge edges[edgeCount], struct TT_Edge into[edgeCount]) {
-	size_t outWriter = 0;
-	for (size_t i = 0; i < edgeCount; ++i) {
-		if (y > edges[i].start.y && y > edges[i].end.y) continue;
-		if (y <= edges[i].start.y && y <= edges[i].end.y) continue; //break;
-		into[outWriter++] = edges[i];
-	}
-	return outWriter;
-}
-
-static float edge_at(float y, struct TT_Edge * edge) {
+static inline float edge_at(float y, const struct TT_Edge * edge) {
 	float u = (y - edge->start.y) / (edge->end.y - edge->start.y);
 	return edge->start.x + u * (edge->end.x - edge->start.x);
 }
 
-void tt_path_paint(gfx_context_t * ctx, struct TT_Shape * shape, uint32_t color) {
+__attribute__((hot))
+static inline size_t prune_edges(size_t edgeCount, float y, const struct TT_Edge edges[edgeCount], struct TT_Intersection into[edgeCount]) {
+	size_t outWriter = 0;
+	for (size_t i = 0; i < edgeCount; ++i) {
+		if (y > edges[i].end.y || y <= edges[i].start.y) continue;
+		into[outWriter].x = edge_at(y,&edges[i]);
+		into[outWriter].affect = edges[i].direction;
+		outWriter++;
+	}
+	return outWriter;
+}
+
+static void process_scanline(
+		float _y,
+		const struct TT_Shape * shape,
+		size_t subsample_width,
+		float subsamples[subsample_width],
+		size_t cnt,
+		const struct TT_Intersection crosses[cnt]
+	) {
+	int wind = 0;
+	size_t j = 0;
+	for (int x = shape->startX; x < shape->lastX && j < cnt; ++x) {
+		while (j < cnt && x > crosses[j].x) {
+			wind += crosses[j].affect;
+			j++;
+		}
+		float last = x;
+		while (j < cnt && (x+1) > crosses[j].x) {
+			if (wind != 0) {
+				subsamples[x - shape->startX] += crosses[j].x - last;
+			}
+			last = crosses[j].x;
+			wind += crosses[j].affect;
+			j++;
+		}
+		if (wind != 0) {
+			subsamples[x - shape->startX] += (x+1) - last;
+		}
+	}
+}
+
+static inline uint32_t tt_rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+	return (a << 24U) | (r << 16) | (g << 8) | (b);
+}
+
+static inline uint32_t tt_apply_alpha(uint32_t color, uint16_t alpha) {
+	uint8_t r = ((uint32_t)(_RED(color) * alpha + 0x80) * 0x101) >> 16UL;
+	uint8_t g = ((uint32_t)(_GRE(color) * alpha + 0x80) * 0x101) >> 16UL;
+	uint8_t b = ((uint32_t)(_BLU(color) * alpha + 0x80) * 0x101) >> 16UL;
+	uint8_t a = ((uint32_t)(_ALP(color) * alpha + 0x80) * 0x101) >> 16UL;
+	return tt_rgba(r,g,b,a);
+}
+
+static inline uint32_t tt_alpha_blend_rgba(uint32_t bottom, uint32_t top) {
+	if (_ALP(bottom) == 0) return top;
+	if (_ALP(top) == 255) return top;
+	if (_ALP(top) == 0) return bottom;
+	uint8_t a = _ALP(top);
+	uint16_t t = 0xFF ^ a;
+	uint8_t d_r = _RED(top) + (((uint32_t)(_RED(bottom) * t + 0x80) * 0x101) >> 16UL);
+	uint8_t d_g = _GRE(top) + (((uint32_t)(_GRE(bottom) * t + 0x80) * 0x101) >> 16UL);
+	uint8_t d_b = _BLU(top) + (((uint32_t)(_BLU(bottom) * t + 0x80) * 0x101) >> 16UL);
+	uint8_t d_a = _ALP(top) + (((uint32_t)(_ALP(bottom) * t + 0x80) * 0x101) >> 16UL);
+	return tt_rgba(d_r, d_g, d_b, d_a);
+}
+
+
+static void paint_scanline(gfx_context_t * ctx, int y, const struct TT_Shape * shape, float * subsamples, uint32_t color) {
+	for (int x = shape->startX < 0 ? 0 : shape->startX; x < shape->lastX && x < ctx->width; ++x) {
+		uint16_t na = (int)(255 * subsamples[x - shape->startX]) >> 2;
+		uint32_t nc = tt_apply_alpha(color, na);
+		GFX(ctx, x, y) = tt_alpha_blend_rgba(GFX(ctx, x, y), nc);
+		subsamples[x-shape->startX] = 0;
+	}
+}
+
+void tt_path_paint(gfx_context_t * ctx, const struct TT_Shape * shape, uint32_t color) {
 	size_t size = shape->edgeCount;
-	struct TT_Edge * intersects = malloc(sizeof(struct TT_Edge) * size);
 	struct TT_Intersection * crosses = malloc(sizeof(struct TT_Intersection) * size);
 
 	size_t subsample_width = shape->lastX - shape->startX;
@@ -145,62 +211,21 @@ void tt_path_paint(gfx_context_t * ctx, struct TT_Shape * shape, uint32_t color)
 	int startY = shape->startY < 0 ? 0 : shape->startY;
 	int endY = shape->lastY <= ctx->height ? shape->lastY : ctx->height;
 
-	int yres = 4;
 	for (int y = startY; y < endY; ++y) {
-		/* Figure out which ones fit here */
 		float _y = y + 0.0001;
-		for (int l = 0; l < yres; ++l) {
-			size_t cnt = prune_edges(size, _y, shape->edges, intersects);
-			if (cnt) {
-				/* Get intersections */
-				for (size_t j = 0; j < cnt; ++j) {
-					crosses[j].x = edge_at(_y,&intersects[j]);
-					crosses[j].affect = intersects[j].direction;
-				}
-
-				/* Now sort the intersections */
+		for (int l = 0; l < 4; ++l) {
+			size_t cnt;
+			if ((cnt = prune_edges(size, _y, shape->edges, crosses))) {
 				sort_intersections(cnt, crosses);
-
-				int wind = 0;
-				size_t j = 0;
-				for (int x = shape->startX; x < shape->lastX && j < cnt; ++x) {
-					while (j < cnt && x > crosses[j].x) {
-						wind += crosses[j].affect;
-						j++;
-					}
-					float last = x;
-					while (j < cnt && (x+1) > crosses[j].x) {
-						if (wind != 0) {
-							subsamples[x - shape->startX] += crosses[j].x - last;
-						}
-						last = crosses[j].x;
-						wind += crosses[j].affect;
-						j++;
-					}
-					if (wind != 0) {
-						subsamples[x - shape->startX] += (x+1) - last;
-					}
-				}
+				process_scanline(_y, shape, subsample_width, subsamples, cnt, crosses);
 			}
-			_y += 1.0/(float)yres;
+			_y += 1.0/4.0;
 		}
-		for (int x = shape->startX; x < shape->lastX && x < ctx->width; ++x) {
-			if (x < 0 || y < 0 || x >= ctx->width || y >= ctx->height) continue;
-			#ifdef __toaru__
-			unsigned int c = subsamples[x - shape->startX] / (float)yres * (float)_ALP(color);
-			uint32_t nc = premultiply((color & 0xFFFFFF) | ((c & 0xFF) << 24));
-			GFX(ctx, x, y) = alpha_blend_rgba(GFX(ctx, x, y), nc);
-			#else
-			unsigned int c = subsamples[x - shape->startX] / (float)yres * 255;
-			draw_pixel(x,y,alpha_blend(get_pixel(x,y), color, c));
-			#endif
-			subsamples[x - shape->startX] = 0;
-		}
+		paint_scanline(ctx, y, shape, subsamples, color);
 	}
 
 	free(subsamples);
 	free(crosses);
-	free(intersects);
 }
 
 struct TT_Contour * tt_contour_line_to(struct TT_Contour * shape, float x, float y) {
@@ -279,10 +304,10 @@ struct TT_Shape * tt_contour_finish(struct TT_Contour * in) {
 
 	//sort_edges(size, tmp->edges);
 	tmp->edgeCount = size;
-	tmp->startY = 1000000;
-	tmp->lastY = 0;
-	tmp->startX = 1000000;
-	tmp->lastX = 0;
+	tmp->startY = INT_MAX;
+	tmp->lastY = INT_MIN;
+	tmp->startX = INT_MAX;
+	tmp->lastX = INT_MIN;
 	for (size_t i = 0; i < size; ++i) {
 		if (tmp->edges[i].end.y + 1 > tmp->lastY) tmp->lastY = tmp->edges[i].end.y + 1;
 		if (tmp->edges[i].start.y + 1 > tmp->lastY) tmp->lastY = tmp->edges[i].start.y + 1;
