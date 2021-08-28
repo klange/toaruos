@@ -7,7 +7,7 @@ from _yutani import (color, Yutani, Window, Decorator, Message,
 let running = True
 let y = Yutani()
 let w = Window(640,480,title="Test Window",doublebuffer=True)
-let dejavu = Font("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",13)
+let dejavu = Font("sans-serif",13)
 
 w.move(200,200)
 

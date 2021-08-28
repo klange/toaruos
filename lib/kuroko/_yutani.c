@@ -889,7 +889,13 @@ static KrkValue _font_init(int argc, KrkValue argv[], int hasKw) {
 		if (!krk_isInstanceOf(fontColor, YutaniColor)) return krk_runtimeError(vm.exceptions->typeError, "expected color");
 	}
 
-	self->fontData = tt_font_from_file(AS_CSTRING(argv[1]));
+	/* Try to be smart about this */
+	if (strstr(AS_CSTRING(argv[1]), "sans-serif") == AS_CSTRING(argv[1]) || strstr(AS_CSTRING(argv[1]), "monospace") == AS_CSTRING(argv[1])) {
+		self->fontData = tt_font_from_shm(AS_CSTRING(argv[1]));
+	} else {
+		self->fontData = tt_font_from_file(AS_CSTRING(argv[1]));
+	}
+
 	if (!self->fontData)
 		return krk_runtimeError(vm.exceptions->typeError, "failed to load font");
 
