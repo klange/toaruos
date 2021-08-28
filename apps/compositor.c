@@ -480,13 +480,6 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
 }
 
 /**
- * Add a clip region from a rectangle.
- */
-static void yutani_add_clip(yutani_globals_t * yg, double x, double y, double w, double h) {
-	gfx_add_clip(yg->backend_ctx, (int)x, (int)y, (int)w, (int)h);
-}
-
-/**
  * Mark a screen region as damaged.
  */
 static void mark_screen(yutani_globals_t * yg, int32_t x, int32_t y, int32_t width, int32_t height) {
@@ -904,6 +897,31 @@ static void yutani_screenshot(yutani_globals_t * yg) {
 	fclose(f);
 }
 
+static void resize_display(yutani_globals_t * yg) {
+	TRACE("Resizing display.");
+
+	if (!yutani_options.nested) {
+		reinit_graphics_fullscreen(yg->backend_ctx);
+	} else {
+		reinit_graphics_yutani(yg->backend_ctx, yg->host_window);
+		yutani_window_resize_done(yg->host_context, yg->host_window);
+	}
+	TRACE("graphics context resized...");
+	yg->width = yg->backend_ctx->width;
+	yg->height = yg->backend_ctx->height;
+	yg->backend_framebuffer = yg->backend_ctx->backbuffer;
+
+	TRACE("Marking...");
+	yg->resize_on_next = 0;
+	mark_screen(yg, 0, 0, yg->width, yg->height);
+
+	TRACE("Sending welcome messages...");
+	yutani_msg_buildx_welcome_alloc(response);
+	yutani_msg_buildx_welcome(response, yg->width, yg->height);
+	pex_broadcast(yg->server, response->size, (char *)response);
+	TRACE("Done.");
+}
+
 /**
  * Redraw all windows, as well as the mouse cursor.
  *
@@ -917,35 +935,16 @@ static void redraw_windows(yutani_globals_t * yg) {
 	int tmp_mouse_y = yg->mouse_y;
 
 	if (yg->resize_on_next) {
-		TRACE("Resizing display.");
-
-		if (!yutani_options.nested) {
-			reinit_graphics_fullscreen(yg->backend_ctx);
-		} else {
-			reinit_graphics_yutani(yg->backend_ctx, yg->host_window);
-			yutani_window_resize_done(yg->host_context, yg->host_window);
-		}
-		TRACE("graphics context resized...");
-		yg->width = yg->backend_ctx->width;
-		yg->height = yg->backend_ctx->height;
-		yg->backend_framebuffer = yg->backend_ctx->backbuffer;
-
-		TRACE("Marking...");
-		yg->resize_on_next = 0;
-		mark_screen(yg, 0, 0, yg->width, yg->height);
-
-		TRACE("Sending welcome messages...");
-		yutani_msg_buildx_welcome_alloc(response);
-		yutani_msg_buildx_welcome(response, yg->width, yg->height);
-		pex_broadcast(yg->server, response->size, (char *)response);
-		TRACE("Done.");
+		resize_display(yg);
 	}
+
+	gfx_clear_clip(yg->backend_ctx);
 
 	/* If the mouse has moved, that counts as two damage regions */
 	if ((yg->last_mouse_x != tmp_mouse_x) || (yg->last_mouse_y != tmp_mouse_y)) {
 		has_updates = 2;
-		yutani_add_clip(yg, yg->last_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->last_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
-		yutani_add_clip(yg, tmp_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, tmp_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
+		gfx_add_clip(yg->backend_ctx, yg->last_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->last_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
+		gfx_add_clip(yg->backend_ctx, tmp_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, tmp_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
 	}
 
 	yg->last_mouse_x = tmp_mouse_x;
@@ -965,15 +964,13 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 		/* We add a clip region for each window in the update queue */
 		has_updates = 1;
-		yutani_add_clip(yg, rect->x, rect->y, rect->width, rect->height);
+		gfx_add_clip(yg->backend_ctx, rect->x, rect->y, rect->width, rect->height);
 		free(rect);
 		free(win);
 	}
 
 	/* Render */
 	if (has_updates) {
-		yg->windows_to_remove = list_create();
-
 		/*
 		 * In theory, we should restrict this to windows within the clip region,
 		 * but calculating that may be more trouble than it's worth;
@@ -1044,12 +1041,9 @@ static void redraw_windows(yutani_globals_t * yg) {
 		 */
 		while (yg->windows_to_remove->tail) {
 			node_t * node = list_pop(yg->windows_to_remove);
-
 			window_actually_close(yg, node->value);
-
 			free(node);
 		}
-		free(yg->windows_to_remove);
 
 	}
 
@@ -2108,6 +2102,7 @@ int main(int argc, char * argv[]) {
 	yg->key_binds = hashmap_create_int(10);
 	yg->clients_to_windows = hashmap_create_int(10);
 	yg->mid_zs = list_create();
+	yg->windows_to_remove = list_create();
 
 	yg->window_subscribers = list_create();
 
