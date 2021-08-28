@@ -8,8 +8,15 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <getopt.h>
 #include <kernel/elf.h>
 
+#define SHOW_FILE_HEADER      0x0001
+#define SHOW_SECTION_HEADERS  0x0002
+#define SHOW_PROGRAM_HEADERS  0x0004
+#define SHOW_SYMBOLS          0x0008
+#define SHOW_DYNAMIC          0x0010
+#define SHOW_RELOCATIONS      0x0020
 
 static const char * elf_classToStr(unsigned char ei_class) {
 	static char buf[64];
@@ -391,298 +398,397 @@ static char * symbolBindToStr(int bind) {
 	}
 }
 
+static int usage(char * argv[]) {
+	fprintf(stderr,
+		"Usage: %s <option(s)> elf-file(s)\n"
+		" Displays information about ELF object files in a GNU binutils-compatible way.\n"
+		" Supported options:\n"
+		"  -a --all             Equivalent to -h -l -S -s -d -r\n"
+		"  -h --file-header     Display the ELF file header\n"
+		"  -l --program-headers Display the program headers\n"
+		"  -S --section-headers Display the section headers\n"
+		"  -h --headers         Equivalent to -h -l -S\n"
+		"  -s --syms            Display symbol able\n"
+		"  -d --dynamic         Display dynamic section\n"
+		"  -r --relocs          Display relocations\n"
+		"  -H --help            Show this help text\n"
+		" Aliases:\n"
+		"  --segments   Same as --file-header\n"
+		"  --sections   Same as --section-headers\n"
+		"  --symbols    Same as --syms\n"
+		, argv[0]);
+	return 1;
+}
+
 int main(int argc, char * argv[]) {
-	if (argc < 2) {
-		fprintf(stderr, "%s: expected filename\n", argv[0]);
-		return 1;
+
+	static struct option long_opts[] = {
+		{"all",             no_argument, 0, 'a'},
+		{"file-header",     no_argument, 0, 'h'},
+		{"program-headers", no_argument, 0, 'l'},
+		{"section-headers", no_argument, 0, 'S'},
+		{"headers",         no_argument, 0, 'e'},
+		{"syms",            no_argument, 0, 's'},
+		{"dynamic",         no_argument, 0, 'd'},
+		{"relocs",          no_argument, 0, 'r'},
+		{"help",            no_argument, 0, 'H'},
+
+		{"segments",        no_argument, 0, 'l'}, /* Alias for --program-headers */
+		{"sections",        no_argument, 0, 'S'}, /* Alias for --section-headers */
+		{"symbols",         no_argument, 0, 's'}, /* Alias for --syms */
+		{0,0,0,0}
+	};
+
+	int show_bits = 0;
+	int index, c;
+
+	while ((c = getopt_long(argc, argv, "ahlSesdrH", long_opts, &index)) != -1) {
+		if (!c) {
+			if (long_opts[index].flag == 0) {
+				c = long_opts[index].val;
+			}
+		}
+		switch (c) {
+			case 'H':
+				return usage(argv);
+			case 'a':
+				show_bits |= SHOW_FILE_HEADER | SHOW_SECTION_HEADERS | SHOW_PROGRAM_HEADERS | SHOW_SYMBOLS | SHOW_DYNAMIC | SHOW_RELOCATIONS;
+				break;
+			case 'h':
+				show_bits |= SHOW_FILE_HEADER;
+				break;
+			case 'l':
+				show_bits |= SHOW_PROGRAM_HEADERS;
+				break;
+			case 'S':
+				show_bits |= SHOW_SECTION_HEADERS;
+				break;
+			case 'e':
+				show_bits |= SHOW_FILE_HEADER | SHOW_PROGRAM_HEADERS | SHOW_SECTION_HEADERS;
+				break;
+			case 's':
+				show_bits |= SHOW_SYMBOLS;
+				break;
+			case 'r':
+				show_bits |= SHOW_RELOCATIONS;
+				break;
+			default:
+				fprintf(stderr, "Unrecognized option: %c\n", c);
+				break;
+		}
 	}
 
-	FILE * f = fopen(argv[1],"r");
-
-	if (!f) {
-		fprintf(stderr, "%s: %s: %s\n", argv[0], argv[1], strerror(errno));
-		return 1;
+	if (optind >= argc || !show_bits) {
+		return usage(argv);
 	}
 
-	/**
-	 * Validate header.
-	 */
-	Elf64_Header header;
-	fread(&header, sizeof(Elf64_Header), 1, f);
+	int out = 0;
+	int print_names = 0;
 
-	if (memcmp("\x7F" "ELF",&header,4)) {
-		fprintf(stderr, "%s: %s: not an elf\n", argv[0], argv[1]);
-		return 1;
+	if (optind + 1 < argc) {
+		print_names = 1;
 	}
 
-	printf("ELF Header:\n");
-	printf("  Magic:   %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
-		header.e_ident[0],  header.e_ident[1],  header.e_ident[2],  header.e_ident[3],
-		header.e_ident[4],  header.e_ident[5],  header.e_ident[6],  header.e_ident[7],
-		header.e_ident[8],  header.e_ident[9],  header.e_ident[10], header.e_ident[11],
-		header.e_ident[12], header.e_ident[13], header.e_ident[14], header.e_ident[15]);
-	printf("  Class:                             %s\n", elf_classToStr(header.e_ident[EI_CLASS]));
-	printf("  Data:                              %s\n", elf_dataToStr(header.e_ident[EI_DATA]));
-	printf("  Version:                           %s\n", elf_versionToStr(header.e_ident[EI_VERSION]));
-	printf("  OS/ABI:                            %s\n", elf_osabiToStr(header.e_ident[EI_OSABI]));
-	printf("  ABI Version:                       %u\n", header.e_ident[EI_ABIVERSION]);
+	for (; optind < argc; optind++) {
+		FILE * f = fopen(argv[optind],"r");
 
-	if (header.e_ident[EI_CLASS] != ELFCLASS64) {
-		return 0;
-	}
+		if (!f) {
+			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[optind], strerror(errno));
+			out = 1;
+			continue;
+		}
 
-	/* Byte-order dependent from here on out... */
-	printf("  Type:                              %s\n", elf_typeToStr(header.e_type));
-	printf("  Machine:                           %s\n", elf_machineToStr(header.e_machine));
-	printf("  Version:                           0x%x\n", header.e_version);
-	printf("  Entry point address:               0x%lx\n", header.e_entry);
-	printf("  Start of program headers:          %lu (bytes into file)\n", header.e_phoff);
-	printf("  Start of section headers:          %lu (bytes into file)\n", header.e_shoff);
-	printf("  Flags:                             0x%x\n", header.e_flags);
-	printf("  Size of this header:               %u (bytes)\n", header.e_ehsize);
-	printf("  Size of program headers:           %u (bytes)\n", header.e_phentsize);
-	printf("  Number of program headers:         %u\n", header.e_phnum);
-	printf("  Size of section headers:           %u (bytes)\n", header.e_shentsize);
-	printf("  Number of section headers:         %u\n", header.e_shnum);
-	printf("  Section header string table index: %u\n", header.e_shstrndx);
+		if (print_names) {
+			printf("\nFile: %s\n", argv[optind]);
+		}
 
-	/* Get the section header string table */
-	Elf64_Shdr shstr_hdr;
-	fseek(f, header.e_shoff + header.e_shentsize * header.e_shstrndx, SEEK_SET);
-	fread(&shstr_hdr, sizeof(Elf64_Shdr), 1, f);
+		/**
+		 * Validate header.
+		 */
+		Elf64_Header header;
+		fread(&header, sizeof(Elf64_Header), 1, f);
 
-	char * stringTable = malloc(shstr_hdr.sh_size);
-	fseek(f, shstr_hdr.sh_offset, SEEK_SET);
-	fread(stringTable, shstr_hdr.sh_size, 1, f);
+		if (memcmp("\x7F" "ELF",&header,4)) {
+			fprintf(stderr, "%s: %s: not an elf\n", argv[0], argv[optind]);
+			out = 1;
+			continue;
+		}
 
-	/**
-	 * Section Headers
-	 */
-	printf("\nSection Headers:\n");
-	printf("  [Nr] Name              Type             Address           Offset\n");
-	printf("       Size              EntSize          Flags  Link  Info  Align\n");
-	for (unsigned int i = 0; i < header.e_shnum; ++i) {
-		fseek(f, header.e_shoff + header.e_shentsize * i, SEEK_SET);
-		Elf64_Shdr sectionHeader;
-		fread(&sectionHeader, sizeof(Elf64_Shdr), 1, f);
+		if (show_bits & SHOW_FILE_HEADER) {
+			printf("ELF Header:\n");
+			printf("  Magic:   %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+				header.e_ident[0],  header.e_ident[1],  header.e_ident[2],  header.e_ident[3],
+				header.e_ident[4],  header.e_ident[5],  header.e_ident[6],  header.e_ident[7],
+				header.e_ident[8],  header.e_ident[9],  header.e_ident[10], header.e_ident[11],
+				header.e_ident[12], header.e_ident[13], header.e_ident[14], header.e_ident[15]);
+			printf("  Class:                             %s\n", elf_classToStr(header.e_ident[EI_CLASS]));
+			printf("  Data:                              %s\n", elf_dataToStr(header.e_ident[EI_DATA]));
+			printf("  Version:                           %s\n", elf_versionToStr(header.e_ident[EI_VERSION]));
+			printf("  OS/ABI:                            %s\n", elf_osabiToStr(header.e_ident[EI_OSABI]));
+			printf("  ABI Version:                       %u\n", header.e_ident[EI_ABIVERSION]);
+		}
 
-		printf("  [%2d] %-17.17s %-16.16s %016lx  %08lx\n",
-			i, stringTable + sectionHeader.sh_name, sectionHeaderTypeToStr(sectionHeader.sh_type),
-			sectionHeader.sh_addr, sectionHeader.sh_offset);
-		printf("       %016lx  %016lx %4ld %6d %5d %5ld\n",
-			sectionHeader.sh_size, sectionHeader.sh_entsize, sectionHeader.sh_flags,
-			sectionHeader.sh_link, sectionHeader.sh_info, sectionHeader.sh_addralign);
-	}
+		if (header.e_ident[EI_CLASS] != ELFCLASS64) {
+			continue;
+		}
 
-	/**
-	 * Program Headers
-	 */
-	if (header.e_phoff && header.e_phnum) {
-		printf("\nProgram Headers:\n");
-		printf("  Type           Offset             VirtAddr           PhysAddr\n");
-		printf("                 FileSiz            MemSiz              Flags  Align\n");
-		for (unsigned int i = 0; i < header.e_phnum; ++i) {
-			fseek(f, header.e_phoff + header.e_phentsize * i, SEEK_SET);
-			Elf64_Phdr programHeader;
-			fread(&programHeader, sizeof(Elf64_Phdr), 1, f);
+		if (show_bits & SHOW_FILE_HEADER) {
+			/* Byte-order dependent from here on out... */
+			printf("  Type:                              %s\n", elf_typeToStr(header.e_type));
+			printf("  Machine:                           %s\n", elf_machineToStr(header.e_machine));
+			printf("  Version:                           0x%x\n", header.e_version);
+			printf("  Entry point address:               0x%lx\n", header.e_entry);
+			printf("  Start of program headers:          %lu (bytes into file)\n", header.e_phoff);
+			printf("  Start of section headers:          %lu (bytes into file)\n", header.e_shoff);
+			printf("  Flags:                             0x%x\n", header.e_flags);
+			printf("  Size of this header:               %u (bytes)\n", header.e_ehsize);
+			printf("  Size of program headers:           %u (bytes)\n", header.e_phentsize);
+			printf("  Number of program headers:         %u\n", header.e_phnum);
+			printf("  Size of section headers:           %u (bytes)\n", header.e_shentsize);
+			printf("  Number of section headers:         %u\n", header.e_shnum);
+			printf("  Section header string table index: %u\n", header.e_shstrndx);
+		}
 
-			printf("  %-14.14s 0x%016lx 0x%016lx 0x%016lx\n",
-				programHeaderTypeToStr(programHeader.p_type),
-				programHeader.p_offset, programHeader.p_vaddr, programHeader.p_paddr);
-			printf("                 0x%016lx 0x%016lx  %s 0x%lx\n",
-				programHeader.p_filesz, programHeader.p_memsz,
-				programHeaderFlagsToStr(programHeader.p_flags), programHeader.p_align);
+		/* Get the section header string table */
+		Elf64_Shdr shstr_hdr;
+		fseek(f, header.e_shoff + header.e_shentsize * header.e_shstrndx, SEEK_SET);
+		fread(&shstr_hdr, sizeof(Elf64_Shdr), 1, f);
 
-			if (programHeader.p_type == PT_INTERP) {
-				/* Read interpreter string */
-				char * tmp = malloc(programHeader.p_filesz);
-				fseek(f, programHeader.p_offset, SEEK_SET);
-				fread(tmp, programHeader.p_filesz, 1, f);
-				printf("    [Requesting program interpreter: %.*s]\n",
-					(int)programHeader.p_filesz, tmp);
-				free(tmp);
+		char * stringTable = malloc(shstr_hdr.sh_size);
+		fseek(f, shstr_hdr.sh_offset, SEEK_SET);
+		fread(stringTable, shstr_hdr.sh_size, 1, f);
+
+		/**
+		 * Section Headers
+		 */
+		if (show_bits & SHOW_SECTION_HEADERS) {
+			printf("\nSection Headers:\n");
+			printf("  [Nr] Name              Type             Address           Offset\n");
+			printf("       Size              EntSize          Flags  Link  Info  Align\n");
+			for (unsigned int i = 0; i < header.e_shnum; ++i) {
+				fseek(f, header.e_shoff + header.e_shentsize * i, SEEK_SET);
+				Elf64_Shdr sectionHeader;
+				fread(&sectionHeader, sizeof(Elf64_Shdr), 1, f);
+
+				printf("  [%2d] %-17.17s %-16.16s %016lx  %08lx\n",
+					i, stringTable + sectionHeader.sh_name, sectionHeaderTypeToStr(sectionHeader.sh_type),
+					sectionHeader.sh_addr, sectionHeader.sh_offset);
+				printf("       %016lx  %016lx %4ld %6d %5d %5ld\n",
+					sectionHeader.sh_size, sectionHeader.sh_entsize, sectionHeader.sh_flags,
+					sectionHeader.sh_link, sectionHeader.sh_info, sectionHeader.sh_addralign);
+			}
+		}
+
+		/**
+		 * Program Headers
+		 */
+		if (show_bits & SHOW_PROGRAM_HEADERS && header.e_phoff && header.e_phnum) {
+			printf("\nProgram Headers:\n");
+			printf("  Type           Offset             VirtAddr           PhysAddr\n");
+			printf("                 FileSiz            MemSiz              Flags  Align\n");
+			for (unsigned int i = 0; i < header.e_phnum; ++i) {
+				fseek(f, header.e_phoff + header.e_phentsize * i, SEEK_SET);
+				Elf64_Phdr programHeader;
+				fread(&programHeader, sizeof(Elf64_Phdr), 1, f);
+
+				printf("  %-14.14s 0x%016lx 0x%016lx 0x%016lx\n",
+					programHeaderTypeToStr(programHeader.p_type),
+					programHeader.p_offset, programHeader.p_vaddr, programHeader.p_paddr);
+				printf("                 0x%016lx 0x%016lx  %s 0x%lx\n",
+					programHeader.p_filesz, programHeader.p_memsz,
+					programHeaderFlagsToStr(programHeader.p_flags), programHeader.p_align);
+
+				if (programHeader.p_type == PT_INTERP) {
+					/* Read interpreter string */
+					char * tmp = malloc(programHeader.p_filesz);
+					fseek(f, programHeader.p_offset, SEEK_SET);
+					fread(tmp, programHeader.p_filesz, 1, f);
+					printf("    [Requesting program interpreter: %.*s]\n",
+						(int)programHeader.p_filesz, tmp);
+					free(tmp);
+				}
+			}
+		}
+
+		/* TODO Section to segment mapping? */
+
+		/**
+		 * Dump section information.
+		 */
+		for (unsigned int i = 0; i < header.e_shnum; ++i) {
+			fseek(f, header.e_shoff + header.e_shentsize * i, SEEK_SET);
+			Elf64_Shdr sectionHeader;
+			fread(&sectionHeader, sizeof(Elf64_Shdr), 1, f);
+
+			/* I think there should only be one of these... */
+			switch (sectionHeader.sh_type) {
+				case SHT_DYNAMIC:
+					if (show_bits & SHOW_DYNAMIC) {
+						printf("\nDynamic section at offset 0x%lx contains (up to) %ld entries:\n",
+							sectionHeader.sh_offset, sectionHeader.sh_size / sectionHeader.sh_entsize);
+						printf("  Tag        Type                         Name/Value\n");
+
+						/* Read the linked string table */
+						Elf64_Shdr dynstr;
+						fseek(f, header.e_shoff + header.e_shentsize * sectionHeader.sh_link, SEEK_SET);
+						fread(&dynstr, sizeof(Elf64_Shdr), 1, f);
+						char * dynStr = malloc(dynstr.sh_size);
+						fseek(f, dynstr.sh_offset, SEEK_SET);
+						fread(dynStr, dynstr.sh_size, 1, f);
+
+						char * dynTable = malloc(sectionHeader.sh_size);
+						fseek(f, sectionHeader.sh_offset, SEEK_SET);
+						fread(dynTable, sectionHeader.sh_size, 1, f);
+
+						for (unsigned int i = 0; i < sectionHeader.sh_size / sectionHeader.sh_entsize; i++) {
+							Elf64_Dyn * dynEntry = (Elf64_Dyn *)(dynTable + sectionHeader.sh_entsize * i);
+
+							printf(" 0x%016lx %s\n",
+								dynEntry->d_tag,
+								dynamicTagToStr(dynEntry, dynStr));
+
+							if (dynEntry->d_tag == DT_NULL) break;
+						}
+
+						free(dynStr);
+						free(dynTable);
+					}
+					break;
+				case SHT_RELA:
+					if (show_bits & SHOW_RELOCATIONS) {
+						printf("\nRelocation section '%s' at offset 0x%lx contains %ld entries.\n",
+							stringTable + sectionHeader.sh_name, sectionHeader.sh_offset,
+							sectionHeader.sh_size / sizeof(Elf64_Rela));
+						printf("  Offset          Info           Type           Sym. Value    Sym. Name + Addend\n");
+
+						/* Section this relocation is in */
+						Elf64_Shdr shdr_this;
+						fseek(f, header.e_shoff + header.e_shentsize * sectionHeader.sh_info, SEEK_SET);
+						fread(&shdr_this, sizeof(Elf64_Shdr), 1, f);
+
+						/* Symbol table link */
+						Elf64_Shdr shdr_symtab;
+						fseek(f, header.e_shoff + header.e_shentsize * sectionHeader.sh_link, SEEK_SET);
+						fread(&shdr_symtab, sizeof(Elf64_Shdr), 1, f);
+						Elf64_Sym * symtab = malloc(shdr_symtab.sh_size);
+						fseek(f, shdr_symtab.sh_offset, SEEK_SET);
+						fread(symtab, shdr_symtab.sh_size, 1, f);
+
+						/* Symbol table's string table link */
+						Elf64_Shdr shdr_strtab;
+						fseek(f, header.e_shoff + header.e_shentsize * shdr_symtab.sh_link, SEEK_SET);
+						fread(&shdr_strtab, sizeof(Elf64_Shdr), 1, f);
+						char * strtab = malloc(shdr_strtab.sh_size);
+						fseek(f, shdr_strtab.sh_offset, SEEK_SET);
+						fread(strtab, shdr_strtab.sh_size, 1, f);
+
+						/* Load relocations from file */
+						Elf64_Rela * relocations = malloc(sectionHeader.sh_size);
+						fseek(f, sectionHeader.sh_offset, SEEK_SET);
+						fread((void*)relocations, sectionHeader.sh_size, 1, f);
+
+						for (unsigned int i = 0; i < sectionHeader.sh_size / sizeof(Elf64_Rela); ++i) {
+							Elf64_Shdr shdr;
+							Elf64_Sym * this = &symtab[ELF64_R_SYM(relocations[i].r_info)];
+							char * symName;
+
+							/* Get symbol name for this relocation */
+							if ((this->st_info & 0xF) == STT_SECTION) {
+								fseek(f, header.e_shoff + header.e_shentsize * this->st_shndx, SEEK_SET);
+								fread(&shdr, sizeof(Elf64_Shdr), 1, f);
+								symName = stringTable + shdr.sh_name;
+							} else { 
+								symName = strtab + this->st_name;
+							}
+
+							/* Get the value currently in the section data */
+							Elf64_Xword value = 0;
+							int valueSize = sizeOfRelocationValue(ELF64_R_TYPE(relocations[i].r_info));
+							fseek(f, shdr_this.sh_offset + relocations[i].r_offset, SEEK_SET);
+							switch (valueSize) {
+								case 8:
+									{
+										uint64_t val;
+										fread(&val, valueSize, 1, f);
+										value = val;
+										break;
+									}
+								case 4:
+									{
+										uint32_t val;
+										fread(&val, valueSize, 1, f);
+										value = val;
+										break;
+									}
+								case 2:
+									{
+										uint16_t val;
+										fread(&val, valueSize, 1, f);
+										value = val;
+										break;
+									}
+								case 1:
+									{
+										uint8_t val;
+										fread(&val, valueSize, 1, f);
+										value = val;
+										break;
+									}
+								default:
+									break;
+							}
+
+							printf("%012lx  %012lx %-15.15s %016lx %s + %lx\n",
+								relocations[i].r_offset, relocations[i].r_info,
+								relocationInfoToStr(ELF64_R_TYPE(relocations[i].r_info)),
+								value,
+								symName,
+								relocations[i].r_addend);
+						}
+
+						free(relocations);
+						free(strtab);
+						free(symtab);
+					}
+					break;
+				case SHT_SYMTAB:
+					if (show_bits & SHOW_SYMBOLS) {
+						printf("\nSymbol table '%s' contains %ld entries.\n",
+							stringTable + sectionHeader.sh_name,
+							sectionHeader.sh_size / sizeof(Elf64_Sym));
+						printf("   Num:    Value          Size Type    Bind   Vis      Ndx Name\n");
+
+						Elf64_Sym * symtab = malloc(sectionHeader.sh_size);
+						fseek(f, sectionHeader.sh_offset, SEEK_SET);
+						fread(symtab, sectionHeader.sh_size, 1, f);
+
+						Elf64_Shdr shdr_strtab;
+						fseek(f, header.e_shoff + header.e_shentsize * sectionHeader.sh_link, SEEK_SET);
+						fread(&shdr_strtab, sizeof(Elf64_Shdr), 1, f);
+						char * strtab = malloc(shdr_strtab.sh_size);
+						fseek(f, shdr_strtab.sh_offset, SEEK_SET);
+						fread(strtab, shdr_strtab.sh_size, 1, f);
+
+						for (unsigned int i = 0; i < sectionHeader.sh_size / sizeof(Elf64_Sym); ++i) {
+							printf("%6u: %016lx %6lu %-7.7s %-6.6s %-4d %6d %s\n",
+								i, symtab[i].st_value, symtab[i].st_size,
+								symbolTypeToStr(symtab[i].st_info & 0xF),
+								symbolBindToStr(symtab[i].st_info >> 4),
+								symtab[i].st_other,
+								symtab[i].st_shndx,
+								strtab + symtab[i].st_name);
+						}
+
+						free(strtab);
+						free(symtab);
+					}
+					break;
+				default:
+					break;
+
 			}
 		}
 	}
 
-	/* TODO Section to segment mapping? */
-
-	/**
-	 * Dump section information.
-	 */
-	for (unsigned int i = 0; i < header.e_shnum; ++i) {
-		fseek(f, header.e_shoff + header.e_shentsize * i, SEEK_SET);
-		Elf64_Shdr sectionHeader;
-		fread(&sectionHeader, sizeof(Elf64_Shdr), 1, f);
-
-		/* I think there should only be one of these... */
-		switch (sectionHeader.sh_type) {
-			case SHT_DYNAMIC:
-				{
-					printf("\nDynamic section at offset 0x%lx contains (up to) %ld entries:\n",
-						sectionHeader.sh_offset, sectionHeader.sh_size / sectionHeader.sh_entsize);
-					printf("  Tag        Type                         Name/Value\n");
-
-					/* Read the linked string table */
-					Elf64_Shdr dynstr;
-					fseek(f, header.e_shoff + header.e_shentsize * sectionHeader.sh_link, SEEK_SET);
-					fread(&dynstr, sizeof(Elf64_Shdr), 1, f);
-					char * dynStr = malloc(dynstr.sh_size);
-					fseek(f, dynstr.sh_offset, SEEK_SET);
-					fread(dynStr, dynstr.sh_size, 1, f);
-
-					char * dynTable = malloc(sectionHeader.sh_size);
-					fseek(f, sectionHeader.sh_offset, SEEK_SET);
-					fread(dynTable, sectionHeader.sh_size, 1, f);
-
-					for (unsigned int i = 0; i < sectionHeader.sh_size / sectionHeader.sh_entsize; i++) {
-						Elf64_Dyn * dynEntry = (Elf64_Dyn *)(dynTable + sectionHeader.sh_entsize * i);
-
-						printf(" 0x%016lx %s\n",
-							dynEntry->d_tag,
-							dynamicTagToStr(dynEntry, dynStr));
-
-						if (dynEntry->d_tag == DT_NULL) break;
-					}
-
-					free(dynStr);
-					free(dynTable);
-				}
-				break;
-			case SHT_RELA:
-				{
-					printf("\nRelocation section '%s' at offset 0x%lx contains %ld entries.\n",
-						stringTable + sectionHeader.sh_name, sectionHeader.sh_offset,
-						sectionHeader.sh_size / sizeof(Elf64_Rela));
-					printf("  Offset          Info           Type           Sym. Value    Sym. Name + Addend\n");
-
-					/* Section this relocation is in */
-					Elf64_Shdr shdr_this;
-					fseek(f, header.e_shoff + header.e_shentsize * sectionHeader.sh_info, SEEK_SET);
-					fread(&shdr_this, sizeof(Elf64_Shdr), 1, f);
-
-					/* Symbol table link */
-					Elf64_Shdr shdr_symtab;
-					fseek(f, header.e_shoff + header.e_shentsize * sectionHeader.sh_link, SEEK_SET);
-					fread(&shdr_symtab, sizeof(Elf64_Shdr), 1, f);
-					Elf64_Sym * symtab = malloc(shdr_symtab.sh_size);
-					fseek(f, shdr_symtab.sh_offset, SEEK_SET);
-					fread(symtab, shdr_symtab.sh_size, 1, f);
-
-					/* Symbol table's string table link */
-					Elf64_Shdr shdr_strtab;
-					fseek(f, header.e_shoff + header.e_shentsize * shdr_symtab.sh_link, SEEK_SET);
-					fread(&shdr_strtab, sizeof(Elf64_Shdr), 1, f);
-					char * strtab = malloc(shdr_strtab.sh_size);
-					fseek(f, shdr_strtab.sh_offset, SEEK_SET);
-					fread(strtab, shdr_strtab.sh_size, 1, f);
-
-					/* Load relocations from file */
-					Elf64_Rela * relocations = malloc(sectionHeader.sh_size);
-					fseek(f, sectionHeader.sh_offset, SEEK_SET);
-					fread((void*)relocations, sectionHeader.sh_size, 1, f);
-
-					for (unsigned int i = 0; i < sectionHeader.sh_size / sizeof(Elf64_Rela); ++i) {
-						Elf64_Shdr shdr;
-						Elf64_Sym * this = &symtab[ELF64_R_SYM(relocations[i].r_info)];
-						char * symName;
-
-						/* Get symbol name for this relocation */
-						if ((this->st_info & 0xF) == STT_SECTION) {
-							fseek(f, header.e_shoff + header.e_shentsize * this->st_shndx, SEEK_SET);
-							fread(&shdr, sizeof(Elf64_Shdr), 1, f);
-							symName = stringTable + shdr.sh_name;
-						} else { 
-							symName = strtab + this->st_name;
-						}
-
-						/* Get the value currently in the section data */
-						Elf64_Xword value = 0;
-						int valueSize = sizeOfRelocationValue(ELF64_R_TYPE(relocations[i].r_info));
-						fseek(f, shdr_this.sh_offset + relocations[i].r_offset, SEEK_SET);
-						switch (valueSize) {
-							case 8:
-								{
-									uint64_t val;
-									fread(&val, valueSize, 1, f);
-									value = val;
-									break;
-								}
-							case 4:
-								{
-									uint32_t val;
-									fread(&val, valueSize, 1, f);
-									value = val;
-									break;
-								}
-							case 2:
-								{
-									uint16_t val;
-									fread(&val, valueSize, 1, f);
-									value = val;
-									break;
-								}
-							case 1:
-								{
-									uint8_t val;
-									fread(&val, valueSize, 1, f);
-									value = val;
-									break;
-								}
-							default:
-								break;
-						}
-
-						printf("%012lx  %012lx %-15.15s %016lx %s + %lx\n",
-							relocations[i].r_offset, relocations[i].r_info,
-							relocationInfoToStr(ELF64_R_TYPE(relocations[i].r_info)),
-							value,
-							symName,
-							relocations[i].r_addend);
-					}
-
-					free(relocations);
-					free(strtab);
-					free(symtab);
-				}
-				break;
-			case SHT_SYMTAB:
-				{
-					printf("\nSymbol table '%s' contains %ld entries.\n",
-						stringTable + sectionHeader.sh_name,
-						sectionHeader.sh_size / sizeof(Elf64_Sym));
-					printf("   Num:    Value          Size Type    Bind   Vis      Ndx Name\n");
-
-					Elf64_Sym * symtab = malloc(sectionHeader.sh_size);
-					fseek(f, sectionHeader.sh_offset, SEEK_SET);
-					fread(symtab, sectionHeader.sh_size, 1, f);
-
-					Elf64_Shdr shdr_strtab;
-					fseek(f, header.e_shoff + header.e_shentsize * sectionHeader.sh_link, SEEK_SET);
-					fread(&shdr_strtab, sizeof(Elf64_Shdr), 1, f);
-					char * strtab = malloc(shdr_strtab.sh_size);
-					fseek(f, shdr_strtab.sh_offset, SEEK_SET);
-					fread(strtab, shdr_strtab.sh_size, 1, f);
-
-					for (unsigned int i = 0; i < sectionHeader.sh_size / sizeof(Elf64_Sym); ++i) {
-						printf("%6u: %016lx %6lu %-7.7s %-6.6s %-4d %6d %s\n",
-							i, symtab[i].st_value, symtab[i].st_size,
-							symbolTypeToStr(symtab[i].st_info & 0xF),
-							symbolBindToStr(symtab[i].st_info >> 4),
-							symtab[i].st_other,
-							symtab[i].st_shndx,
-							strtab + symtab[i].st_name);
-					}
-
-					free(strtab);
-					free(symtab);
-				}
-				break;
-			default:
-				break;
-
-		}
-	}
-
-	return 0;
+	return out;
 }
