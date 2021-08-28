@@ -2272,13 +2272,6 @@ int main(int argc, char ** argv) {
 		}
 	}
 
-	_tt_font_normal       = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf");
-	_tt_font_bold         = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf");
-	_tt_font_oblique      = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Oblique.ttf");
-	_tt_font_bold_oblique = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-BoldOblique.ttf");
-	_tt_font_fallback     = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
-	_tt_font_japanese     = tt_font_from_file("/usr/share/fonts/truetype/vlgothic/VL-Gothic-Regular.ttf"); /* Might not be present */
-
 	/* Initialize the windowing library */
 	yctx = yutani_init();
 
@@ -2286,6 +2279,13 @@ int main(int argc, char ** argv) {
 		fprintf(stderr, "%s: failed to connect to compositor\n", argv[0]);
 		return 1;
 	}
+
+	_tt_font_normal       = tt_font_from_shm("monospace");
+	_tt_font_bold         = tt_font_from_shm("monospace.bold");
+	_tt_font_oblique      = tt_font_from_shm("monospace.italic");
+	_tt_font_bold_oblique = tt_font_from_shm("monospace.bolditalic");
+	_tt_font_fallback     = _tt_font_normal;
+	_tt_font_japanese     = tt_font_from_file("/usr/share/fonts/truetype/vlgothic/VL-Gothic-Regular.ttf"); /* Might not be present */
 
 	/* Full screen mode forces window size to be that the display server */
 	if (_fullscreen) {

@@ -1534,10 +1534,10 @@ int main (int argc, char ** argv) {
 	/* Connect to window server */
 	yctx = yutani_init();
 
-	font = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
-	font_bold = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
-	font_mono = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf");
-	font_mono_bold = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf");
+	font           = tt_font_from_shm("sans-serif");
+	font_bold      = tt_font_from_shm("sans-serif.bold");
+	font_mono      = tt_font_from_shm("monospace");
+	font_mono_bold = tt_font_from_shm("monospace.bold");
 
 	/* For convenience, store the display size */
 	width  = yctx->display_width;

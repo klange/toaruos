@@ -122,8 +122,8 @@ int main(int argc, char * argv[]) {
 	}
 	init_decorations();
 
-	_tt_font_thin = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
-	_tt_font_bold = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
+	_tt_font_thin = tt_font_from_shm("sans-serif");
+	_tt_font_bold = tt_font_from_shm("sans-serif.bold");
 
 	struct decor_bounds bounds;
 	decor_get_bounds(NULL, &bounds);

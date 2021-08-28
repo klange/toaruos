@@ -155,9 +155,9 @@ int markup_draw_string(gfx_context_t * ctx, int x, int y, const char * str, uint
 }
 
 void markup_text_init(void) {
-	dejaVuSans = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
-	dejaVuSans_Bold = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
-	dejaVuSans_Oblique = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf");
-	dejaVuSans_BoldOblique = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans-BoldOblique.ttf");
+	dejaVuSans             = tt_font_from_shm("sans-serif");
+	dejaVuSans_Bold        = tt_font_from_shm("sans-serif.bold");
+	dejaVuSans_Oblique     = tt_font_from_shm("sans-serif.italic");
+	dejaVuSans_BoldOblique = tt_font_from_shm("sans-serif.bolditalic");
 }
 

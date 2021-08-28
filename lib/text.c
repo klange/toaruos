@@ -11,9 +11,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/shm.h>
 
 #include <toaru/graphics.h>
+#include <toaru/hashmap.h>
 #include <toaru/decodeutf8.h>
+#include <toaru/spinlock.h>
 
 #undef min
 #define min(a,b) ((a) < (b) ? (a) : (b))
@@ -873,6 +876,48 @@ struct TT_Font * tt_font_from_file_mem(const char * fileName) {
 	fclose(f);
 
 	return tt_font_from_memory(buf);
+}
+
+static hashmap_t * shm_font_cache = NULL;
+static int volatile shm_font_lock = 0;
+
+struct TT_Font * tt_font_from_shm(const char * identifier) {
+	spin_lock(&shm_font_lock);
+
+	if (!shm_font_cache) {
+		shm_font_cache = hashmap_create(10);
+	}
+
+	struct TT_Font * out = hashmap_get(shm_font_cache, (char*)identifier);
+
+	if (out) goto shm_success;
+
+	char * display = getenv("DISPLAY");
+
+	if (!display) goto shm_fail;
+
+	char fullIdentifier[1024];
+	snprintf(fullIdentifier, 1023, "sys.%s.fonts.%s", display, identifier);
+
+	size_t fontSize = 0;
+	void * fontData = shm_obtain(fullIdentifier, &fontSize);
+
+	if (fontSize == 0) {
+		shm_release(identifier);
+		goto shm_fail;
+	}
+
+	out = tt_font_from_memory(fontData);
+
+	hashmap_set(shm_font_cache, (char*)identifier, out);
+
+shm_success:
+	spin_unlock(&shm_font_lock);
+	return out;
+
+shm_fail:
+	spin_unlock(&shm_font_lock);
+	return NULL;
 }
 
 void tt_draw_string_shadow(gfx_context_t * ctx, struct TT_Font * font, char * string, int font_size, int left, int top, uint32_t text_color, uint32_t shadow_color, int blur) {

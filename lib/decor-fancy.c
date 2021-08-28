@@ -206,6 +206,6 @@ void decor_init() {
 	decor_check_button_press = check_button_press_fancy;
 	decor_get_bounds = get_bounds_fancy;
 
-	_tt_font = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
+	_tt_font = tt_font_from_shm("sans-serif.bold");
 }
 

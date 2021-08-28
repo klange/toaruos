@@ -230,7 +230,7 @@ int main(int argc, char ** argv) {
 	window = yutani_window_create(yctx, width, height);
 	yutani_window_move(yctx, window, 0, 0);
 	yutani_window_advertise(yctx, window, "gsudo");
-	tt_font_thin = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+	tt_font_thin = tt_font_from_shm("sans-serif");
 
 	ctx = init_graphics_yutani_double_buffer(window);
 

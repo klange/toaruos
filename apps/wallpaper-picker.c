@@ -294,7 +294,7 @@ int main(int argc, char * argv[]) {
 	req_center_x = yctx->display_width / 2;
 	req_center_y = yctx->display_height / 2;
 
-	tt_font = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+	tt_font = tt_font_from_shm("sans-serif");
 
 	get_default_wallpaper();
 	read_wallpapers();

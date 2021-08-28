@@ -315,8 +315,8 @@ int main(int argc, char * argv[]) {
 	}
 	init_decorations();
 
-	_tt_font_thin = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
-	_tt_font_bold = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
+	_tt_font_thin = tt_font_from_shm("sans-serif");
+	_tt_font_bold = tt_font_from_shm("sans-serif.bold");
 
 	background = yutani_window_create_flags(yctx, yctx->display_width, yctx->display_height,
 			YUTANI_WINDOW_FLAG_DISALLOW_RESIZE | YUTANI_WINDOW_FLAG_DISALLOW_DRAG |

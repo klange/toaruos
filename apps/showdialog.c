@@ -145,7 +145,7 @@ int main(int argc, char * argv[]) {
 	struct decor_bounds bounds;
 	decor_get_bounds(NULL, &bounds);
 
-	_tt_font = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+	_tt_font = tt_font_from_shm("sans-serif");
 
 	window = yutani_window_create_flags(yctx, width + bounds.width, height + bounds.height, YUTANI_WINDOW_FLAG_DIALOG_ANIMATION);
 	req_center_x = yctx->display_width / 2;

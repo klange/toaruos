@@ -44,7 +44,7 @@ void ttk_button_draw(gfx_context_t * ctx, struct TTKButton * button) {
 
 	if (button->title[0] != '\033') {
 		if (!_tt_font_thin) {
-			_tt_font_thin = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+			_tt_font_thin = tt_font_from_shm("sans-serif");
 		}
 		tt_set_size(_tt_font_thin, 13);
 		int label_width = tt_string_width(_tt_font_thin, button->title);

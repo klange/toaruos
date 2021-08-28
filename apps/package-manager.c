@@ -462,8 +462,8 @@ int main(int argc, char * argv[]) {
 	yutani_window_move(yctx, main_window, yctx->display_width / 2 - main_window->width / 2, yctx->display_height / 2 - main_window->height / 2);
 	ctx = init_graphics_yutani_double_buffer(main_window);
 
-	tt_font_thin = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
-	tt_font_bold = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
+	tt_font_thin = tt_font_from_shm("sans-serif");
+	tt_font_bold = tt_font_from_shm("sans-serif.bold");
 
 	yutani_window_advertise_icon(yctx, main_window, APPLICATION_TITLE, "package");
 

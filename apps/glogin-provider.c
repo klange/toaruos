@@ -267,8 +267,8 @@ int main (int argc, char ** argv) {
 	yutani_flip(y, wina);
 	TRACE("... done.");
 
-	tt_font_thin = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
-	tt_font_bold = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
+	tt_font_thin = tt_font_from_shm("sans-serif");
+	tt_font_bold = tt_font_from_shm("sans-serif.bold");
 
 redo_everything:
 	win_width = width;

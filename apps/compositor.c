@@ -1966,6 +1966,60 @@ static void yutani_display_resize_handle(int signum) {
 	signal(SIGWINEVENT, yutani_display_resize_handle);
 }
 
+#define FONT_PATH "/usr/share/fonts/"
+#define FONT(a,b) {a, FONT_PATH b}
+
+struct font_def {
+	char * identifier;
+	char * path;
+};
+
+/**
+ * TODO: This should be configurable...
+ */
+static struct font_def fonts[] = {
+	FONT("sans-serif",            "truetype/dejavu/DejaVuSans.ttf"),
+	FONT("sans-serif.bold",       "truetype/dejavu/DejaVuSans-Bold.ttf"),
+	FONT("sans-serif.italic",     "truetype/dejavu/DejaVuSans-Oblique.ttf"),
+	FONT("sans-serif.bolditalic", "truetype/dejavu/DejaVuSans-BoldOblique.ttf"),
+	FONT("monospace",             "truetype/dejavu/DejaVuSansMono.ttf"),
+	FONT("monospace.bold",        "truetype/dejavu/DejaVuSansMono-Bold.ttf"),
+	FONT("monospace.italic",      "truetype/dejavu/DejaVuSansMono-Oblique.ttf"),
+	FONT("monospace.bolditalic",  "truetype/dejavu/DejaVuSansMono-BoldOblique.ttf"),
+	{NULL, NULL}
+};
+
+static char * precache_shmfont(char * ident, char * name) {
+	FILE * f = fopen(name, "r");
+	if (!f) return NULL;
+	size_t s = 0;
+	fseek(f, 0, SEEK_END);
+	s = ftell(f);
+	fseek(f, 0, SEEK_SET);
+
+	size_t shm_size = s;
+	char * font = shm_obtain(ident, &shm_size);
+	assert((shm_size >= s) && "shm_obtain returned too little memory to load a font into!");
+
+	fread(font, s, 1, f);
+
+	fclose(f);
+	return font;
+}
+
+static void load_fonts(yutani_globals_t * yg) {
+	int i = 0;
+	while (fonts[i].identifier) {
+		char tmp[100];
+		sprintf(tmp, "sys.%s.fonts.%s", yg->server_ident, fonts[i].identifier);
+		TRACE("Loading font %s -> %s", fonts[i].path, tmp);
+		if (!precache_shmfont(tmp, fonts[i].path)) {
+			TRACE("  ... failed.");
+		}
+		++i;
+	}
+}
+
 /**
  * main
  */
@@ -2029,6 +2083,8 @@ int main(int argc, char * argv[]) {
 	FILE * server = pex_bind(yg->server_ident);
 	TRACE("pex bound? %d", server);
 	yg->server = server;
+
+	load_fonts(yg);
 
 	TRACE("Loading sprites...");
 #define MOUSE_DIR "/usr/share/cursor/"

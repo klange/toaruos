@@ -374,7 +374,7 @@ int main (int argc, char ** argv) {
 	win_width  = 160;
 	win_height = 200;
 
-	tt_font_thin = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+	tt_font_thin = tt_font_from_shm("sans-serif");
 
 	init_decorations();
 

@@ -95,7 +95,7 @@ static void initialize_simple() {
 	decor_render_decorations = render_decorations_simple;
 	decor_check_button_press = check_button_press_simple;
 	decor_get_bounds         = get_bounds_simple;
-	tt_font = tt_font_from_file("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+	tt_font = tt_font_from_shm("sans-serif");
 }
 
 void render_decorations(yutani_window_t * window, gfx_context_t * ctx, char * title) {
