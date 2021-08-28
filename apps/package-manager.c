@@ -414,8 +414,10 @@ static void arrow_select(int y) {
 	for (int i = 0; i <pkg_pointers_len; ++i) {
 		if (pkg_pointers[i]->selected) {
 			selected = i;
+			pkg_pointers[i]->selected = 0;
+			clear_offset(i);
+			draw_package(pkg_pointers[i], i);
 		}
-		pkg_pointers[i]->selected = 0;
 	}
 
 	if (selected == -1) {
@@ -434,7 +436,8 @@ static void arrow_select(int y) {
 	}
 
 	pkg_pointers[selected]->selected = 1;
-	reinitialize_contents();
+	clear_offset(selected);
+	draw_package(pkg_pointers[selected], selected);
 	redraw_window();
 }
 
