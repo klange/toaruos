@@ -836,7 +836,7 @@ static void reinitialize_contents(void) {
 	}
 
 	/* Calculate required height to fit files */
-	int calculated_height = (file_pointers_len / FILE_PTR_WIDTH + 1) * FILE_HEIGHT;
+	int calculated_height = (file_pointers_len / FILE_PTR_WIDTH + !!(file_pointers_len % FILE_PTR_WIDTH)) * FILE_HEIGHT;
 
 	/* Create buffer */
 	contents_sprite = create_sprite(FILE_PTR_WIDTH * FILE_WIDTH, calculated_height, ALPHA_EMBEDDED);
@@ -1795,8 +1795,10 @@ static void arrow_select(int x, int y) {
 	for (int i = 0; i < file_pointers_len; ++i) {
 		if (file_pointers[i]->selected) {
 			selected = i;
+			file_pointers[i]->selected = 0;
+			clear_offset(i);
+			draw_file(file_pointers[i], i);
 		}
-		file_pointers[i]->selected = 0;
 	}
 
 	if (selected == -1) {
@@ -1832,8 +1834,9 @@ static void arrow_select(int x, int y) {
 	}
 
 	file_pointers[selected]->selected = 1;
+	clear_offset(selected);
+	draw_file(file_pointers[selected], selected);
 	update_status();
-	reinitialize_contents();
 	redraw_window();
 }
 
