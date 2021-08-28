@@ -888,9 +888,8 @@ struct TT_Font * tt_font_from_shm(const char * identifier) {
 		shm_font_cache = hashmap_create(10);
 	}
 
-	struct TT_Font * out = hashmap_get(shm_font_cache, (char*)identifier);
-
-	if (out) goto shm_success;
+	void * fontData = hashmap_get(shm_font_cache, (char*)identifier);
+	if (fontData) goto shm_success;
 
 	char * display = getenv("DISPLAY");
 
@@ -900,20 +899,18 @@ struct TT_Font * tt_font_from_shm(const char * identifier) {
 	snprintf(fullIdentifier, 1023, "sys.%s.fonts.%s", display, identifier);
 
 	size_t fontSize = 0;
-	void * fontData = shm_obtain(fullIdentifier, &fontSize);
+	fontData = shm_obtain(fullIdentifier, &fontSize);
 
 	if (fontSize == 0) {
 		shm_release(identifier);
 		goto shm_fail;
 	}
 
-	out = tt_font_from_memory(fontData);
-
-	hashmap_set(shm_font_cache, (char*)identifier, out);
+	hashmap_set(shm_font_cache, (char*)identifier, fontData);
 
 shm_success:
 	spin_unlock(&shm_font_lock);
-	return out;
+	return tt_font_from_memory(fontData);
 
 shm_fail:
 	spin_unlock(&shm_font_lock);
