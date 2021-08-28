@@ -25,9 +25,9 @@ static ssize_t partition(struct SortableArray * array, ssize_t lo, ssize_t hi) {
 			if (j != i) {
 				uint8_t * obj_i = (uint8_t *)array->data + array->size * i;
 				for (size_t x = 0; x < array->size; ++x) {
-					obj_j[x] ^= obj_i[x];
-					obj_i[x] ^= obj_j[x];
-					obj_j[x] ^= obj_i[x];
+					uint8_t tmp = obj_i[x];
+					obj_i[x] = obj_j[x];
+					obj_j[x] = tmp;
 				}
 			}
 		}
