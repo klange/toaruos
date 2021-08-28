@@ -1971,9 +1971,10 @@ int main(int argc, char * argv[]) {
 			continue;
 		}
 
+		int redraw = 0;
+
 		yutani_msg_t * m = yutani_poll(yctx);
 		while (m) {
-			int redraw = 0;
 			if (menu_process_event(yctx, m)) {
 				redraw = 1;
 			}
@@ -2318,11 +2319,12 @@ int main(int argc, char * argv[]) {
 				default:
 					break;
 			}
-			if (redraw || wallpaper_old) {
-				redraw_window();
-			}
 			free(m);
 			m = yutani_poll_async(yctx);
+		}
+
+		if (redraw || wallpaper_old) {
+			redraw_window();
 		}
 	}
 }
