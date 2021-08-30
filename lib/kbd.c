@@ -405,7 +405,7 @@ int kbd_scancode(key_event_state_t * state, unsigned char c, key_event_t * event
 				event->keycode = KEY_NUM_ENTER;
 				event->key = '\n';
 				return 1;
-			case 0x2a:
+			case 0x37:
 				event->keycode = KEY_PRINT_SCREEN;
 				return 1;
 			case 0x5D:
