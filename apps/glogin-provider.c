@@ -392,8 +392,8 @@ redo_everything:
 
 		int focus = 0;
 
-		tt_set_size(tt_font_thin, 13);
-		int hostname_label_left = width - 10 - tt_string_width(tt_font_thin, hostname);
+		tt_set_size(tt_font_bold, 12);
+		int hostname_label_left = width - 10 - tt_string_width(tt_font_bold, hostname);
 		int kernel_v_label_left = 10;
 
 		struct text_box username_box = { (BOX_WIDTH - 170) / 2, 30, 170, 20, rgb(0,0,0), NULL, 0, 0, 0, username, "Username" };
