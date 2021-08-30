@@ -27,11 +27,6 @@ float fabsf(float x) {
 	return fabs(x);
 }
 
-double sqrt(double x) {
-	MATH;
-	return __builtin_sqrt(x);
-}
-
 float sqrtf(float x) {
 	return sqrt(x);
 }

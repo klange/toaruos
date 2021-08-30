@@ -82,3 +82,13 @@ double atan2(double y, double x) {
 	);
 	return out;
 }
+
+double sqrt(double x) {
+	/* This is what __builtin_sqrt was doing anyway? */
+	asm volatile (
+		"sqrtsd %1, %0\n"
+		: "=x"(x) : "x"(x)
+	);
+	return x;
+}
+
