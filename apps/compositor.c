@@ -1422,7 +1422,7 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 		/* Screenshot key */
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
 			(ke->event.keycode == KEY_PRINT_SCREEN)) {
-			if (ke->event.modifiers & (KEY_MOD_LEFT_ALT | KEY_MOD_RIGHT_ALT)) {
+			if (ke->event.modifiers & (KEY_MOD_LEFT_SHIFT | KEY_MOD_RIGHT_SHIFT)) {
 				yg->screenshot_frame = YUTANI_SCREENSHOT_WINDOW;
 			} else {
 				yg->screenshot_frame = YUTANI_SCREENSHOT_FULL;
