@@ -50,13 +50,13 @@ struct CalculatorButton {
 	void (*onClick)(struct CalculatorButton *);
 };
 
-static void btn_numeric(struct CalculatorButton * self) {
+static void calc_numeric(char * text) {
 	if (textInputIsAccumulatorValue) {
 		textInputIsAccumulatorValue = 0;
 		*textInput = '\0';
 		*accumulator = '\0';
 	}
-	strcat(textInput, self->label);
+	strcat(textInput, text);
 }
 
 static void calc_func(char * txt) {
@@ -66,6 +66,25 @@ static void calc_func(char * txt) {
 	textInputIsAccumulatorValue = 0;
 }
 
+static void calc_backspace(void) {
+	if (textInputIsAccumulatorValue) {
+		textInputIsAccumulatorValue = 0;
+		*textInput = '\0';
+		*accumulator = '\0';
+	} else if (!*textInput) {
+		size_t l = strlen(accumulator);
+		if (l) {
+			accumulator[l-1] = '\0';
+		}
+	} else {
+		size_t l = strlen(textInput);
+		if (l) {
+			textInput[l-1] = '\0';
+		}
+	}
+}
+
+static void btn_numeric(struct CalculatorButton * self) { calc_numeric(self->label); }
 static void btn_func_div(struct CalculatorButton * self) { calc_func("/"); }
 static void btn_func_mul(struct CalculatorButton * self) { calc_func("*"); }
 static void btn_func_sub(struct CalculatorButton * self) { calc_func("-"); }
@@ -301,7 +320,6 @@ int main(int argc, char * argv[]) {
 	krk_startModule("__main__");
 
 	int playing = 1;
-	int status = 0;
 	while (playing) {
 		yutani_msg_t * m = yutani_poll(yctx);
 		while (m) {
@@ -312,12 +330,21 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_KEY_EVENT:
 					{
 						struct yutani_msg_key_event * ke = (void*)m->data;
-						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == '\n') {
-							playing = 0;
-							status = 0;
-						} else if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == KEY_ESCAPE) {
-							playing = 0;
-							status = 2;
+						yutani_window_t * win = hashmap_get(yctx->windows, (void*)(uintptr_t)ke->wid);
+						if (win == window) {
+							if (ke->event.action == KEY_ACTION_DOWN) {
+								if (ke->event.key == '\n') btn_func_equ(NULL);
+								else if ((ke->event.key >= '0' && ke->event.key <= '9') || ke->event.key == '.') {
+									char tmp[2] = {ke->event.key, '\0'};
+									calc_numeric(tmp);
+								} else if ((ke->event.key == KEY_BACKSPACE)) {
+									calc_backspace();
+								} else if ((ke->event.key)) {
+									char tmp[2] = {ke->event.key, '\0'};
+									calc_func(tmp);
+								}
+								redraw();
+							}
 						}
 					}
 					break;
@@ -345,7 +372,6 @@ int main(int argc, char * argv[]) {
 							switch (result) {
 								case DECOR_CLOSE:
 									playing = 0;
-									status = 2;
 									break;
 								case DECOR_RIGHT:
 									/* right click in decoration, show appropriate menu */
@@ -395,7 +421,6 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_WINDOW_CLOSE:
 				case YUTANI_MSG_SESSION_END:
 					playing = 0;
-					status = 2;
 					break;
 				default:
 					break;
@@ -406,7 +431,6 @@ int main(int argc, char * argv[]) {
 	}
 
 	yutani_close(yctx, window);
-
-	return status;
+	return 0;
 }
 
