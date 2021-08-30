@@ -1,9 +1,11 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @file modules/iso9660.c
+ * @brief ISO9660 "High Sierra" CD file system driver.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2016-2018 K. Lange
- *
- * ISO 9660 filesystem driver (for CDs)
+ * Copyright (C) 2016-2021 K. Lange
  */
 #include <kernel/types.h>
 #include <kernel/vfs.h>
