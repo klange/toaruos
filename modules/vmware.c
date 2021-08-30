@@ -456,7 +456,7 @@ static int attempt_scale(void) {
 	}
 }
 
-static void vmware_resize(void * data, char * name) {
+static void vmware_resize(void * data) {
 	while (1) {
 		attempt_scale();
 		unsigned long s, ss;
@@ -505,11 +505,9 @@ static int vmware_initialize(int argc, char * argv[]) {
 
 	mouse_absolute();
 
-	#if 0
 	if (lfb_driver_name && !strcmp(lfb_driver_name, "vmware") && !args_present("novmwareresset")) {
-		create_kernel_tasklet(vmware_resize, "[vmware]", NULL);
+		spawn_worker_thread(vmware_resize, "[vmware]", NULL);
 	}
-	#endif
 
 	return 0;
 }
