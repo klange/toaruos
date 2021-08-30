@@ -7,6 +7,7 @@ exec help-browser,help,Help Browser
 exec about,star,About ToaruOS
 log-out,exit,Log Out
 :accessories
+exec calculator,calculator,Calculator
 exec file-browser,folder,File Browser
 exec terminal,utilities-terminal,Terminal
 :demos
