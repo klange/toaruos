@@ -120,15 +120,6 @@ typedef struct {
 } ide_device_t;
 
 typedef struct {
-	uint8_t  status;
-	uint8_t  chs_first_sector[3];
-	uint8_t  type;
-	uint8_t  chs_last_sector[3];
-	uint32_t lba_first_sector;
-	uint32_t sector_count;
-} partition_t;
-
-typedef struct {
 	uint16_t flags;
 	uint16_t unused1[9];
 	char     serial[20];
@@ -147,12 +138,6 @@ typedef struct {
 	uint64_t sectors_48;
 	uint16_t unused7[152];
 } __attribute__((packed)) ata_identify_t;
-
-typedef struct {
-	uint8_t     boostrap[446];
-	partition_t partitions[4];
-	uint8_t     signature[2];
-} __attribute__((packed)) mbr_t;
 
 static char ata_drive_char = 'a';
 static int  cdrom_number = 0;
@@ -511,7 +496,7 @@ static void ata_device_init(struct ata_device * dev) {
 	outportb(dev->io_base + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
 	ata_io_wait(dev);
 
-	int status = inportb(dev->io_base + ATA_REG_COMMAND);
+	inportb(dev->io_base + ATA_REG_COMMAND);
 
 	ata_wait(dev, 0);
 
@@ -564,7 +549,7 @@ static int atapi_device_init(struct ata_device * dev) {
 	outportb(dev->io_base + ATA_REG_COMMAND, ATA_CMD_IDENTIFY_PACKET);
 	ata_io_wait(dev);
 
-	int status = inportb(dev->io_base + ATA_REG_COMMAND);
+	inportb(dev->io_base + ATA_REG_COMMAND);
 
 	ata_wait(dev, 0);
 
