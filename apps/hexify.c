@@ -93,6 +93,7 @@ int main(int argc, char * argv[]) {
 		name = argv[optind];
 		if (!f) {
 			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[optind], strerror(errno));
+			return 1;
 		}
 	} else {
 		name = "[stdin]";
