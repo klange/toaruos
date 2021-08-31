@@ -65,3 +65,6 @@
 #define SYS_SETPGID 63
 #define SYS_GETPGID 64
 #define SYS_FSWAIT3 65
+#define SYS_GETGID 66
+#define SYS_GETEGID 67
+#define SYS_SETGID 68

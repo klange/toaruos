@@ -119,6 +119,7 @@ int main (int argc, char ** argv) {
 
 		pid_t _session_pid = fork();
 		if (!_session_pid) {
+			setgid(uid);
 			setuid(uid);
 			toaru_auth_set_vars();
 			char * args[] = {"/bin/session", NULL};

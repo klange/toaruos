@@ -68,17 +68,16 @@ int has_permission(fs_node_t * node, int permission_bit) {
 
 	uint64_t permissions = node->mask;
 
+	uint8_t my_permissions = (permissions) & 07;
 	uint8_t user_perm  = (permissions >> 6) & 07;
-	//uint8_t group_perm = (permissions >> 3) & 07;
-	uint8_t other_perm = (permissions) & 07;
+	uint8_t group_perm = (permissions >> 3) & 07;
 
-	if (this_core->current_process->user == node->uid) {
-		return (permission_bit & user_perm);
-		/* TODO group permissions? */
-	} else {
-		return (permission_bit & other_perm);
-	}
+	if (this_core->current_process->user == node->uid) my_permissions |= user_perm;
+	if (this_core->current_process->user_group == node->uid) my_permissions |= group_perm;
 
+	/* TODO: Supplementary group IDs */
+
+	return (permission_bit & my_permissions);
 }
 
 static struct dirent * readdir_mapper(fs_node_t *node, unsigned long index) {

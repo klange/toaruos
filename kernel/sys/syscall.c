@@ -482,6 +482,23 @@ static long sys_setuid(uid_t new_uid) {
 	return -EPERM;
 }
 
+static long sys_getgid(void) {
+	return (long)this_core->current_process->real_user_group;
+}
+
+static long sys_getegid(void) {
+	return (long)this_core->current_process->user_group;
+}
+
+static long sys_setgid(gid_t new_gid) {
+	if (this_core->current_process->user == USER_ROOT_UID) {
+		this_core->current_process->user_group = new_gid;
+		this_core->current_process->real_user_group = new_gid;
+		return 0;
+	}
+	return -EPERM;
+}
+
 static long sys_getpid(void) {
 	/* The user actually wants the pid of the originating thread (which can be us). */
 	return this_core->current_process->group ? (long)this_core->current_process->group : (long)this_core->current_process->id;
@@ -959,6 +976,9 @@ static long (*syscalls[])() = {
 	[SYS_SIGNAL]       = sys_signal,
 	[SYS_KILL]         = sys_kill,
 	[SYS_REBOOT]       = sys_reboot,
+	[SYS_GETGID]       = sys_getgid,
+	[SYS_GETEGID]      = sys_getegid,
+	[SYS_SETGID]       = sys_setgid,
 
 	[SYS_SOCKET]       = net_socket,
 	[SYS_SETSOCKOPT]   = net_setsockopt,

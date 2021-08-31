@@ -79,6 +79,10 @@ typedef struct process {
 
 	uid_t user;
 	uid_t real_user;
+
+	gid_t user_group;
+	gid_t real_user_group;
+
 	unsigned int mask;
 
 	char * name;

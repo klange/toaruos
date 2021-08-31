@@ -451,7 +451,7 @@ static int create_tmpfs(fs_node_t *parent, char *name, mode_t permission) {
 	struct tmpfs_file * t = tmpfs_file_new(name);
 	t->mask = permission;
 	t->uid = this_core->current_process->user;
-	t->gid = this_core->current_process->user;
+	t->gid = this_core->current_process->user_group;
 
 	spin_lock(tmpfs_lock);
 	list_insert(d->files, t);

@@ -367,6 +367,8 @@ process_t * spawn_init(void) {
 	init->cmdline    = NULL;
 	init->user       = USER_ROOT_UID;
 	init->real_user  = USER_ROOT_UID;
+	init->user_group = USER_ROOT_UID;
+	init->real_user_group = USER_ROOT_UID;
 	init->mask       = 022;
 	init->status     = 0;
 
@@ -427,6 +429,8 @@ process_t * spawn_process(volatile process_t * parent, int flags) {
 
 	proc->user        = parent->user;
 	proc->real_user   = parent->real_user;
+	proc->user_group  = parent->user_group;
+	proc->real_user_group = parent->real_user_group;
 	proc->mask        = parent->mask;
 	proc->job         = parent->job;
 	proc->session     = parent->session;
@@ -1259,6 +1263,8 @@ process_t * spawn_worker_thread(void (*entrypoint)(void * argp), const char * na
 	/* Are these necessary for tasklets? Should probably all be zero. */
 	proc->user        = 0;
 	proc->real_user   = 0;
+	proc->user_group  = 0;
+	proc->real_user_group = 0;
 	proc->mask        = 0;
 	proc->job         = proc->id;
 	proc->session     = proc->id;

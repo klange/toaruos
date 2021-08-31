@@ -128,6 +128,7 @@ static int sudo_loop(int (*prompt_callback)(char * username, char * password, in
 		putenv("USER=root");
 
 		/* Actually become root, so real user id = 0 */
+		setgid(0);
 		setuid(0);
 
 		if (!strcmp(argv[1], "-s")) {
