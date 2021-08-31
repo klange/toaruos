@@ -106,4 +106,6 @@ extern int truncate(const char *, off_t);
 #define _PC_PATH_MAX 1
 extern long pathconf(const char *path, int name);
 
+extern int getgroups(int size, gid_t list[]);
+
 _End_C_Header

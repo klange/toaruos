@@ -71,7 +71,8 @@ static fs_node_t * spkr_device_create(void) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
 	snprintf(fnode->name, 5, "spkr");
-	fnode->mask    = 0666; /* TODO need a speaker group */
+	fnode->mask    = 0660; /* TODO need a speaker group */
+	fnode->gid     = 1;
 	fnode->flags   = FS_CHARDEVICE;
 	fnode->write   = write_spkr;
 	return fnode;

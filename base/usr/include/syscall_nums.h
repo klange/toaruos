@@ -68,3 +68,5 @@
 #define SYS_GETGID 66
 #define SYS_GETEGID 67
 #define SYS_SETGID 68
+#define SYS_GETGROUPS 69
+#define SYS_SETGROUPS 70

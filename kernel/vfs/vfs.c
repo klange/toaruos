@@ -73,9 +73,14 @@ int has_permission(fs_node_t * node, int permission_bit) {
 	uint8_t group_perm = (permissions >> 3) & 07;
 
 	if (this_core->current_process->user == node->uid) my_permissions |= user_perm;
-	if (this_core->current_process->user_group == node->uid) my_permissions |= group_perm;
-
-	/* TODO: Supplementary group IDs */
+	if (this_core->current_process->user_group == node->gid) my_permissions |= group_perm;
+	else if (this_core->current_process->supplementary_group_count) {
+		for (int i = 0; i < this_core->current_process->supplementary_group_count; ++i) {
+			if (this_core->current_process->supplementary_group_list[i] == node->gid) {
+				my_permissions |= group_perm;
+			}
+		}
+	}
 
 	return (permission_bit & my_permissions);
 }

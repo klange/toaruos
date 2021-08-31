@@ -117,6 +117,9 @@ typedef struct process {
 	spin_lock_t sched_lock;
 
 	uintptr_t signals[NUMSIGNALS+1];
+
+	int supplementary_group_count;
+	gid_t * supplementary_group_list;
 } process_t;
 
 typedef struct {

@@ -13,6 +13,7 @@
 #pragma once
 
 #include <_cheader.h>
+#include <unistd.h>
 
 _Begin_C_Header
 
@@ -30,5 +31,15 @@ extern int toaru_auth_check_pass(char * user, char * pass);
  * for the current user.
  */
 extern void toaru_auth_set_vars(void);
+
+/**
+ * Set supplementary groups from /etc/groups
+ */
+extern void toaru_auth_set_groups(uid_t uid);
+
+/**
+ * Do the above two steps, and setuid, and setgid...
+ */
+extern void toaru_set_credentials(uid_t uid);
 
 _End_C_Header

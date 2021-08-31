@@ -144,9 +144,8 @@ do_fork:
 	f = fork();
 	if (getpid() != pid) {
 		ioctl(STDIN_FILENO, IOCTLTTYLOGIN, &uid);
-		setuid(uid);
+		toaru_set_credentials(uid);
 		setsid();
-		toaru_auth_set_vars();
 		char * args[] = {
 			getenv("SHELL"),
 			NULL

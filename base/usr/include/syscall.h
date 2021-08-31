@@ -127,6 +127,8 @@ DECL_SYSCALL4(fswait3, int, int*, int, int*);
 DECL_SYSCALL0(getgid);
 DECL_SYSCALL0(getegid);
 DECL_SYSCALL1(setgid, unsigned int);
+DECL_SYSCALL2(getgroups, int, int*);
+DECL_SYSCALL2(setgroups, int, const int*);
 
 _End_C_Header
 

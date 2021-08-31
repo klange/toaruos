@@ -17,6 +17,8 @@
 extern struct passwd *fgetpwent(FILE *stream);
 #endif
 
+extern int setgroups(int size, const gid_t list[]);
+
 #define MASTER_PASSWD "/etc/master.passwd"
 
 int toaru_auth_check_pass(char * user, char * pass) {
@@ -63,3 +65,74 @@ void toaru_auth_set_vars(void) {
 	chdir(getenv("HOME"));
 }
 
+void toaru_auth_set_groups(uid_t uid) {
+	/* Get the username for this uid */
+	struct passwd * pwd = getpwuid(uid);
+
+	/* No username? No group memberships! */
+	if (!pwd) goto no_groups;
+
+	/* Open the group file */
+	FILE * groupList = fopen("/etc/group","r");
+
+	/* No groups? No membership. */
+	if (!groupList) goto no_groups;
+
+	/* Scan through lines of groups. */
+#define LINE_LEN 2048
+	char * pw_blob = malloc(LINE_LEN);
+
+	int groupCount = 0;
+	gid_t myGroups[32] = {0};
+
+	while (!feof(groupList)) {
+		memset(pw_blob, 0x00, LINE_LEN);
+		fgets(pw_blob, LINE_LEN, groupList);
+		if (pw_blob[strlen(pw_blob)-1] == '\n') {
+			pw_blob[strlen(pw_blob)-1] = '\0'; /* erase newline */
+		}
+
+		/* Tokenize */
+		char * memberlist = NULL;
+		char *p, *last;
+		gid_t groupNumber = -1;
+		int i = 0;
+		for ((p = strtok_r(pw_blob, ":", &last)); p;
+				(p = strtok_r(NULL, ":", &last)), i++) {
+			if (i == 2) {
+				groupNumber = atoi(p);
+			} else if (i == 3) {
+				memberlist = p;
+				break;
+			}
+		}
+
+		if (groupNumber == -1) continue;
+		if (!memberlist) continue;
+
+		for ((p = strtok_r(memberlist, ",", &last)); p;
+				(p = strtok_r(NULL, ",", &last))) {
+			if (!strcmp(p, pwd->pw_name)) {
+				if (groupCount < 32) {
+					myGroups[groupCount] = groupNumber;
+					groupCount++;
+				}
+			}
+		}
+	}
+
+	setgroups(groupCount, myGroups);
+	free(pw_blob);
+	fclose(groupList);
+	return;
+
+no_groups:
+	setgroups(0, NULL);
+}
+
+void toaru_set_credentials(uid_t uid) {
+	toaru_auth_set_groups(uid);
+	setgid(uid);
+	setuid(uid);
+	toaru_auth_set_vars();
+}

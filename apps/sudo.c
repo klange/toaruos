@@ -26,6 +26,8 @@
 
 #define SUDO_TIME 5 MINUTES
 
+extern int setgroups(int size, const gid_t list[]);
+
 static int sudo_loop(int (*prompt_callback)(char * username, char * password, int failures, char * argv[]), char * argv[]) {
 
 	int fails = 0;
@@ -130,6 +132,7 @@ static int sudo_loop(int (*prompt_callback)(char * username, char * password, in
 		/* Actually become root, so real user id = 0 */
 		setgid(0);
 		setuid(0);
+		setgroups(0,NULL);
 
 		if (!strcmp(argv[1], "-s")) {
 			argv[1] = getenv("SHELL");

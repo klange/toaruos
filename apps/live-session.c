@@ -27,10 +27,7 @@ int main(int argc, char * argv[]) {
 
 	int _session_pid = fork();
 	if (!_session_pid) {
-		setgid(1000);
-		setuid(1000);
-		toaru_auth_set_vars();
-
+		toaru_set_credentials(1000);
 		char * args[] = {"/bin/session", NULL};
 		execvp(args[0], args);
 

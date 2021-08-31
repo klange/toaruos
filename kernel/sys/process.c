@@ -435,6 +435,14 @@ process_t * spawn_process(volatile process_t * parent, int flags) {
 	proc->job         = parent->job;
 	proc->session     = parent->session;
 
+	if (parent->supplementary_group_count) {
+		proc->supplementary_group_count = parent->supplementary_group_count;
+		proc->supplementary_group_list = malloc(sizeof(gid_t) * proc->supplementary_group_count);
+		for (int i = 0; i < proc->supplementary_group_count; ++i) {
+			proc->supplementary_group_list[i] = parent->supplementary_group_list[i];
+		}
+	}
+
 	proc->thread.context.sp = 0;
 	proc->thread.context.bp = 0;
 	proc->thread.context.ip = 0;
@@ -578,6 +586,11 @@ void process_delete(process_t * proc) {
 
 	shm_release_all(proc);
 	free(proc->shm_mappings);
+
+	if (proc->supplementary_group_list) {
+		proc->supplementary_group_count = 0;
+		free(proc->supplementary_group_list);
+	}
 
 	/* Is someone using this process? */
 	for (int i = 0; i < processor_count; ++i) {

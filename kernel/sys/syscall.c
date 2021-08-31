@@ -499,6 +499,45 @@ static long sys_setgid(gid_t new_gid) {
 	return -EPERM;
 }
 
+static long sys_getgroups(int size, gid_t list[]) {
+	if (size == 0) {
+		return this_core->current_process->supplementary_group_count;
+	} else if (size < this_core->current_process->supplementary_group_count) {
+		return -EINVAL;
+	} else {
+		for (int i = 0; i < this_core->current_process->supplementary_group_count; ++i) {
+			PTR_VALIDATE(list + i);
+			list[i] = this_core->current_process->supplementary_group_list[i];
+		}
+		return this_core->current_process->supplementary_group_count;
+	}
+}
+
+static long sys_setgroups(int size, const gid_t list[]) {
+	if (this_core->current_process->user != USER_ROOT_UID) return -EPERM;
+	if (size < 0) return -EINVAL;
+	if (size > 32) return -EINVAL; /* Arbitrary decision */
+
+	/* Free the current set. */
+	if (this_core->current_process->supplementary_group_count) {
+		free(this_core->current_process->supplementary_group_list);
+		this_core->current_process->supplementary_group_list = NULL;
+	}
+
+	this_core->current_process->supplementary_group_count = size;
+	if (size == 0) return 0;
+
+	this_core->current_process->supplementary_group_list = malloc(sizeof(gid_t) * size);
+
+	for (int i = 0; i < size; ++i) {
+		PTR_VALIDATE(list + i);
+		this_core->current_process->supplementary_group_list[i] = list[i];
+	}
+
+	return 0;
+}
+
+
 static long sys_getpid(void) {
 	/* The user actually wants the pid of the originating thread (which can be us). */
 	return this_core->current_process->group ? (long)this_core->current_process->group : (long)this_core->current_process->id;
@@ -979,6 +1018,8 @@ static long (*syscalls[])() = {
 	[SYS_GETGID]       = sys_getgid,
 	[SYS_GETEGID]      = sys_getegid,
 	[SYS_SETGID]       = sys_setgid,
+	[SYS_GETGROUPS]    = sys_getgroups,
+	[SYS_SETGROUPS]    = sys_setgroups,
 
 	[SYS_SOCKET]       = net_socket,
 	[SYS_SETSOCKOPT]   = net_setsockopt,
