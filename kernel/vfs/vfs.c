@@ -728,6 +728,9 @@ int vfs_mount_type(const char * type, const char * arg, const char * mountpoint)
 
 	fs_node_t * n = t(arg, mountpoint);
 
+	/* Quick hack to let partition mappers not return a node to mount at 'mountpoint'... */
+	if ((uintptr_t)n == (uintptr_t)1) return 0;
+
 	if (!n) return -EINVAL;
 
 	tree_node_t * node = vfs_mount(mountpoint, n);
