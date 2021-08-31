@@ -15,6 +15,50 @@ static uint32_t mmio_read4(uintptr_t mmiobase, intptr_t offset) {
 	return *data;
 }
 
+static void mmio_write4(uintptr_t mmiobase, intptr_t offset, uint32_t value) {
+	volatile uint32_t * data = (volatile uint32_t *)(mmiobase + offset);
+	*data = value;
+}
+
+static char * ahci_device_name(uint32_t pcidev, int port) {
+	static char buf[20];
+	snprintf(buf,19,"ahcip%ds%dp%d",
+			(int)pci_extract_bus(pcidev),
+			(int)pci_extract_slot(pcidev),
+			port);
+	return buf;
+}
+
+#define AHCI_PXCMD_ST    (1 << 0UL)
+#define AHCI_PXCMD_SUD   (1 << 1UL)
+#define AHCI_PXCMD_POD   (1 << 2UL)
+#define AHCI_PXCMD_CLO   (1 << 3UL)
+#define AHCI_PXCMD_FRE   (1 << 4UL)
+#define AHCI_PXCMD_MPSS  (1 << 13UL)
+#define AHCI_PXCMD_FR    (1 << 14UL)
+#define AHCI_PXCMD_CR    (1 << 15UL)
+
+#define DPRINT(fmt,...) fprintf(stderr, "%s: " fmt, ahci_device_name(pcidev,port), ##__VA_ARGS__)
+static void ahci_setup_atapi(fs_node_t * stderr, uint32_t pcidev, uintptr_t mmio_addr, int port) {
+	intptr_t offset = 0x100 + port * 0x80;
+	DPRINT("setting up ATAPI device\n");
+	uint32_t PxCMD = mmio_read4(mmio_addr, offset + 0x18);
+	DPRINT("device cmd: %#x\n", PxCMD);
+	if (PxCMD & AHCI_PXCMD_ST)  DPRINT("  started (not idle!)\n");
+	if (PxCMD & AHCI_PXCMD_FRE) DPRINT("  FIS receive enable (not idle!)\n");
+	if (PxCMD & AHCI_PXCMD_FR)  DPRINT("  FIS receive running (not idle!)\n");
+	if (PxCMD & AHCI_PXCMD_CR)  DPRINT("  command list running (not idle!)\n");
+
+	if (PxCMD & (AHCI_PXCMD_ST | AHCI_PXCMD_FRE | AHCI_PXCMD_FR | AHCI_PXCMD_CR)) {
+		DPRINT("Not idle, setting to idle state...\n");
+		PxCMD &= ~(AHCI_PXCMD_ST);
+		mmio_write4(mmio_addr, offset + 0x18, PxCMD);
+		DPRINT("Waiting for device...\n");
+		while (mmio_read4(mmio_addr, offset + 0x18) & AHCI_PXCMD_CR);
+		DPRINT("Device is stopped.\n");
+	}
+}
+
 static void find_ahci(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * extra) {
 	if (pci_find_type(device) != 0x0106) return; /* Mass Storage, SATA controller */
 	if (pci_read_field(device, PCI_PROG_IF, 1) != 0x01) return; /* AHCI */
@@ -44,6 +88,9 @@ static void find_ahci(uint32_t device, uint16_t vendorid, uint16_t deviceid, voi
 		(ahciVersion >> 8) & 0xFF,
 		(ahciVersion) & 0xFF);
 
+	fprintf(stderr, "ahci: Telling host controller we are aware of it.\n");
+	mmio_write4(mmio_addr, 0x04, mmio_read4(mmio_addr, 0x04) | (1 << 31UL));
+
 	int offset = 0x100;
 	for (int port = 0; port < 32; ++port) {
 		if (enabledPorts & (1UL << port)) {
@@ -56,6 +103,7 @@ static void find_ahci(uint32_t device, uint16_t vendorid, uint16_t deviceid, voi
 			switch (portSig) {
 				case 0xeb140101:
 					fprintf(stderr, "ahci:           ATAPI (CD, DVD)\n");
+					ahci_setup_atapi(stderr, device, mmio_addr, port);
 					break;
 				case 0x00000101:
 					fprintf(stderr, "ahci:           hard disk\n");
