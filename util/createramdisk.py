@@ -10,6 +10,7 @@ import tarfile
 users = {
     'root': 0,
     'local': 1000,
+    'guest': 1001,
 }
 
 restricted_files = {

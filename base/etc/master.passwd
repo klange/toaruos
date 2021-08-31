@@ -1,2 +1,3 @@
 root:toor:0:0:Administrator:/home/root:/bin/sh:fancy
 local:local:1000:1000:Local User:/home/local:/bin/sh:fancy
+guest:guest:1001:1001:Guest User:/home/guest:/bin/sh:fancy
