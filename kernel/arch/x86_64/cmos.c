@@ -127,9 +127,6 @@ uint32_t read_cmos(void) {
 }
 
 static uint64_t boot_time = 0;
-uint64_t timer_ticks = 0;
-uint64_t timer_subticks = 0;
-
 unsigned long tsc_mhz = 3500; /* XXX */
 
 static inline uint64_t read_tsc(void) {
@@ -202,15 +199,16 @@ void arch_clock_initialize(void) {
 }
 
 #define SUBTICKS_PER_TICK 1000000
-static void update_ticks(void) {
+static void update_ticks(uint64_t *timer_ticks, uint64_t *timer_subticks) {
 	uint64_t tsc = read_tsc();
-	timer_subticks = tsc / tsc_mhz;
-	timer_ticks = timer_subticks / SUBTICKS_PER_TICK;
-	timer_subticks = timer_subticks % SUBTICKS_PER_TICK;
+	*timer_subticks = tsc / tsc_mhz;
+	*timer_ticks = *timer_subticks / SUBTICKS_PER_TICK;
+	*timer_subticks = *timer_subticks % SUBTICKS_PER_TICK;
 }
 
 int gettimeofday(struct timeval * t, void *z) {
-	update_ticks();
+	uint64_t timer_ticks, timer_subticks;
+	update_ticks(&timer_ticks, &timer_subticks);
 	t->tv_sec = boot_time + timer_ticks;
 	t->tv_usec = timer_subticks;
 	return 0;
@@ -224,7 +222,8 @@ uint64_t now(void) {
 
 
 void relative_time(unsigned long seconds, unsigned long subseconds, unsigned long * out_seconds, unsigned long * out_subseconds) {
-	update_ticks();
+	uint64_t timer_ticks, timer_subticks;
+	update_ticks(&timer_ticks, &timer_subticks);
 	if (subseconds + timer_subticks >= SUBTICKS_PER_TICK) {
 		*out_seconds    = timer_ticks + seconds + (subseconds + timer_subticks) / SUBTICKS_PER_TICK;
 		*out_subseconds = (subseconds + timer_subticks) % SUBTICKS_PER_TICK;
@@ -235,7 +234,8 @@ void relative_time(unsigned long seconds, unsigned long subseconds, unsigned lon
 }
 
 int cmos_time_stuff(struct regs *r) {
-	update_ticks();
+	uint64_t timer_ticks, timer_subticks;
+	update_ticks(&timer_ticks, &timer_subticks);
 	wakeup_sleepers(timer_ticks, timer_subticks);
 	irq_ack(0);
 	switch_task(1);

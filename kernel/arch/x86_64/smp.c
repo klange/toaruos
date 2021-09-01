@@ -296,8 +296,13 @@ void arch_wakeup_others(void) {
 	lapic_send_ipi(0, 0x7E | (3 << 18));
 }
 
-void arch_tlb_shootdown(void) {
+void arch_tlb_shootdown(uintptr_t vaddr) {
 	if (!lapic_final || processor_count < 2) return;
+
+	/*
+	 * We should be checking if this address can be sensibly
+	 * mapped somewhere else before IPIing everyone...
+	 */
 
 	lapic_send_ipi(0, 0x7C | (3 << 18));
 }

@@ -165,7 +165,6 @@ static void map_more_stack(uintptr_t fromAddr) {
 	for (uintptr_t i = fromAddr; i < proc->image.userstack; i += 0x1000) {
 		union PML * page = mmu_get_page(i, MMU_GET_MAKE);
 		mmu_frame_allocate(page, MMU_FLAG_WRITABLE);
-		mmu_invalidate(i);
 	}
 	proc->image.userstack = fromAddr;
 	spin_unlock(proc->image.lock);

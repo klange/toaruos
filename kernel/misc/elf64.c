@@ -229,12 +229,13 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	uintptr_t heapBase = 0;
 
 	mmu_set_directory(NULL);
-	process_release_directory(this_core->current_process->thread.page_directory);
+	page_directory_t * this_directory = this_core->current_process->thread.page_directory;
 	this_core->current_process->thread.page_directory = malloc(sizeof(page_directory_t));
 	this_core->current_process->thread.page_directory->refcount = 1;
 	spin_init(this_core->current_process->thread.page_directory->lock);
 	this_core->current_process->thread.page_directory->directory = mmu_clone(NULL);
 	mmu_set_directory(this_core->current_process->thread.page_directory->directory);
+	process_release_directory(this_directory);
 
 	for (int i = 0; i < header.e_phnum; ++i) {
 		Elf64_Phdr phdr;
@@ -243,7 +244,6 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 			for (uintptr_t i = phdr.p_vaddr; i < phdr.p_vaddr + phdr.p_memsz; i += 0x1000) {
 				union PML * page = mmu_get_page(i, MMU_GET_MAKE);
 				mmu_frame_allocate(page, MMU_FLAG_WRITABLE);
-				mmu_invalidate(i);
 			}
 
 			read_fs(file, phdr.p_offset, phdr.p_filesz, (void*)phdr.p_vaddr);
@@ -274,7 +274,6 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	for (uintptr_t i = userstack - 16 * 0x400; i < userstack; i += 0x1000) {
 		union PML * page = mmu_get_page(i, MMU_GET_MAKE);
 		mmu_frame_allocate(page, MMU_FLAG_WRITABLE);
-		mmu_invalidate(i);
 	}
 
 	this_core->current_process->image.userstack = userstack - 16 * 0x400;

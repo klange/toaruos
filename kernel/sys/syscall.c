@@ -44,7 +44,6 @@ static long sys_sbrk(ssize_t size) {
 			printf("odd, %#zx is already allocated?\n", i);
 		}
 		mmu_frame_allocate(page, MMU_FLAG_WRITABLE);
-		mmu_invalidate(i);
 	}
 	proc->image.heap += size;
 	spin_unlock(proc->image.lock);
@@ -117,7 +116,6 @@ static long sys_sysfunc(long fn, char ** args) {
 			for (uintptr_t i = start; i < end; i += 0x1000) {
 				union PML * page = mmu_get_page(i, MMU_GET_MAKE);
 				mmu_frame_allocate(page, MMU_FLAG_WRITABLE);
-				mmu_invalidate(i);
 			}
 			spin_unlock(proc->image.lock);
 			return 0;
