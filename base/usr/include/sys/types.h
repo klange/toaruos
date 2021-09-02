@@ -19,6 +19,7 @@ typedef unsigned long blkcnt_t;
 
 typedef long off_t;
 typedef long time_t;
+typedef long clock_t;
 
 typedef long ssize_t;
 

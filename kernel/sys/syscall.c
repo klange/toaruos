@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <sys/utsname.h>
 #include <sys/time.h>
+#include <sys/times.h>
 #include <syscall_nums.h>
 #include <kernel/printf.h>
 #include <kernel/process.h>
@@ -980,6 +981,17 @@ static long sys_reboot(void) {
 	return arch_reboot();
 }
 
+static long sys_times(struct tms *buf) {
+	PTR_VALIDATE(buf);
+
+	buf->tms_utime  = this_core->current_process->time_total        / arch_cpu_mhz();
+	buf->tms_stime  = this_core->current_process->time_sys          / arch_cpu_mhz();
+	buf->tms_cutime = this_core->current_process->time_children     / arch_cpu_mhz();
+	buf->tms_cstime = this_core->current_process->time_sys_children / arch_cpu_mhz();
+
+	return arch_perf_timer() / arch_cpu_mhz();
+}
+
 extern long net_socket();
 extern long net_setsockopt();
 extern long net_bind();
@@ -1052,6 +1064,7 @@ static long (*syscalls[])() = {
 	[SYS_SETGID]       = sys_setgid,
 	[SYS_GETGROUPS]    = sys_getgroups,
 	[SYS_SETGROUPS]    = sys_setgroups,
+	[SYS_TIMES]        = sys_times,
 
 	[SYS_SOCKET]       = net_socket,
 	[SYS_SETSOCKOPT]   = net_setsockopt,

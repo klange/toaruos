@@ -1,5 +1,8 @@
 #include <time.h>
+#include <sys/times.h>
 
 clock_t clock(void) {
-	return -1;
+	struct tms timeValues;
+	times(&timeValues);
+	return timeValues.tms_utime;
 }

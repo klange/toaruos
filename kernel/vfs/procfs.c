@@ -151,6 +151,8 @@ static ssize_t proc_status_func(fs_node_t *node, off_t offset, size_t size, uint
 			"RssShmem:\t %ld kB\n"
 			"MemPermille:\t %ld\n"
 			"LastCore:\t %d\n"
+			"TotalTime:\t %ld ms\n"
+			"SysTime:\t %ld ms\n"
 			,
 			name,
 			state,
@@ -170,7 +172,9 @@ static ssize_t proc_status_func(fs_node_t *node, off_t offset, size_t size, uint
 			proc->syscall_registers ? arch_stack_pointer(proc->syscall_registers) : 0,
 			proc->cmdline ? proc->cmdline[0] : "(none)",
 			mem_usage, shm_usage, mem_permille,
-			proc->owner
+			proc->owner,
+			proc->time_total / arch_cpu_mhz(),
+			proc->time_sys / arch_cpu_mhz()
 			);
 
 	size_t _bsize = strlen(buf);

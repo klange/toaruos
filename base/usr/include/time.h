@@ -35,10 +35,8 @@ extern time_t mktime(struct tm *tm);
 extern char * asctime(const struct tm *tm);
 extern char * ctime(const time_t * timep);
 
-typedef int clock_t;
-
 extern clock_t clock(void);
-#define CLOCKS_PER_SEC 1
+#define CLOCKS_PER_SEC 1000000
 
 struct timespec {
     time_t tv_sec;

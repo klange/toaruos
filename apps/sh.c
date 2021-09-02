@@ -30,6 +30,7 @@
 #include <ctype.h>
 
 #include <sys/time.h>
+#include <sys/times.h>
 #include <sys/wait.h>
 #include <sys/utsname.h>
 #include <sys/stat.h>
@@ -2260,6 +2261,9 @@ uint32_t shell_cmd_time(int argc, char * argv[]) {
 	struct timeval start, end;
 	gettimeofday(&start, NULL);
 
+	struct tms timeBefore;
+	times(&timeBefore);
+
 	if (argc > 1) {
 		pid_t child_pid = fork();
 		if (!child_pid) {
@@ -2290,6 +2294,20 @@ uint32_t shell_cmd_time(int argc, char * argv[]) {
 	sec_diff = sec_diff % 60;
 
 	fprintf(shell_stderr, "\nreal\t%dm%d.%.03ds\n", minutes, (int)sec_diff, (int)(usec_diff / 1000));
+
+	/* User and system times from children */
+	struct tms timeBuf;
+	times(&timeBuf);
+
+	fprintf(shell_stderr, "user\t%dm%d.%.03ds\n",
+		(int)(((timeBuf.tms_cutime - timeBefore.tms_cutime) / (60 * CLOCKS_PER_SEC))),
+		(int)(((timeBuf.tms_cutime - timeBefore.tms_cutime) / (CLOCKS_PER_SEC)) % 60),
+		(int)(((timeBuf.tms_cutime - timeBefore.tms_cutime) / (CLOCKS_PER_SEC / 1000)) % 1000));
+
+	fprintf(shell_stderr, "sys\t%dm%d.%.03ds\n",
+		(int)(((timeBuf.tms_cstime - timeBefore.tms_cstime) / (60 * CLOCKS_PER_SEC))),
+		(int)(((timeBuf.tms_cstime - timeBefore.tms_cstime) / (CLOCKS_PER_SEC)) % 60),
+		(int)(((timeBuf.tms_cstime - timeBefore.tms_cstime) / (CLOCKS_PER_SEC / 1000)) % 1000));
 
 	return WEXITSTATUS(ret_code);
 }

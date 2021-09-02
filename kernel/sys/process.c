@@ -58,6 +58,21 @@ static spin_lock_t wait_lock_tmp = { 0 };
 static spin_lock_t sleep_lock = { 0 };
 static spin_lock_t reap_lock = { 0 };
 
+void update_process_times(int includeSystem) {
+	uint64_t pTime = arch_perf_timer();
+	if (this_core->current_process->time_in && this_core->current_process->time_in < pTime) {
+		this_core->current_process->time_total +=  pTime - this_core->current_process->time_in;
+	}
+	this_core->current_process->time_in = 0;
+
+	if (includeSystem) {
+		if (this_core->current_process->time_switch && this_core->current_process->time_switch < pTime) {
+			this_core->current_process->time_sys += pTime - this_core->current_process->time_switch;
+		}
+		this_core->current_process->time_switch = 0;
+	}
+}
+
 #define must_have_lock(lck) if (lck.owner != this_core->cpu_id+1) { printf("Failed lock check.\n"); arch_fatal(); }
 
 /**
@@ -86,6 +101,7 @@ static spin_lock_t reap_lock = { 0 };
  */
 void switch_next(void) {
 	this_core->previous_process = this_core->current_process;
+	update_process_times(1);
 
 	/* Get the next available process, discarded anything in the queue
 	 * marked as finished. */
@@ -688,6 +704,8 @@ volatile process_t * next_ready_process(void) {
 
 	__sync_or_and_fetch(&next->flags, PROC_FLAG_RUNNING);
 	next->owner = this_core->cpu_id;
+	next->time_in = arch_perf_timer();
+	next->time_switch = next->time_in;
 
 	return next;
 }
@@ -975,6 +993,8 @@ int waitpid(int pid, int * status, int options) {
 			int pid = candidate->id;
 			if (candidate->flags & PROC_FLAG_FINISHED) {
 				while (*((volatile int *)&candidate->flags) & PROC_FLAG_RUNNING);
+				proc->time_children += candidate->time_children + candidate->time_total;
+				proc->time_sys_children += candidate->time_sys_children + candidate->time_sys;
 				process_delete((process_t*)candidate);
 			}
 			return pid;
@@ -1182,6 +1202,8 @@ void task_exit(int retval) {
 			spin_unlock(this_core->current_process->fds->lock);
 		}
 	}
+
+	update_process_times(1);
 
 	process_t * parent = process_get_parent((process_t *)this_core->current_process);
 	__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_FINISHED);

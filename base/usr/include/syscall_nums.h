@@ -70,3 +70,4 @@
 #define SYS_SETGID 68
 #define SYS_GETGROUPS 69
 #define SYS_SETGROUPS 70
+#define SYS_TIMES 71

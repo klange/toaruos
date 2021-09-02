@@ -132,7 +132,11 @@ unsigned long tsc_mhz = 3500; /* XXX */
 static inline uint64_t read_tsc(void) {
 	uint32_t lo, hi;
 	asm volatile ( "rdtsc" : "=a"(lo), "=d"(hi) );
-	return ((uint64_t)hi << 32) | (uint64_t)lo;
+	return ((uint64_t)hi << 32UL) | (uint64_t)lo;
+}
+
+uint64_t arch_perf_timer(void) {
+	return read_tsc();
 }
 
 size_t arch_cpu_mhz(void) {

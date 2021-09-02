@@ -6,6 +6,7 @@
 #include <kernel/process.h>
 #include <kernel/signal.h>
 #include <kernel/misc.h>
+#include <kernel/time.h>
 
 #include <sys/time.h>
 #include <sys/utsname.h>
@@ -173,6 +174,10 @@ static void map_more_stack(uintptr_t fromAddr) {
 
 struct regs * isr_handler(struct regs * r) {
 	this_core->interrupt_registers = r;
+
+	if (r->cs != 0x08 && this_core->current_process) {
+		this_core->current_process->time_switch = arch_perf_timer();
+	}
 
 	switch (r->int_no) {
 		case 14: /* Page fault */ {

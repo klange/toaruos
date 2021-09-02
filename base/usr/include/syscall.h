@@ -129,6 +129,7 @@ DECL_SYSCALL0(getegid);
 DECL_SYSCALL1(setgid, unsigned int);
 DECL_SYSCALL2(getgroups, int, int*);
 DECL_SYSCALL2(setgroups, int, const int*);
+DECL_SYSCALL1(times, struct tms*);
 
 _End_C_Header
 
