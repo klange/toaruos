@@ -88,6 +88,7 @@ void copy_file(char * source, char * dest, int mode,int uid, int gid) {
 	close(d_fd);
 
 	chown(dest, uid, gid);
+	chmod(dest, mode);
 }
 
 void copy_directory(char * source, char * dest, int mode, int uid, int gid) {

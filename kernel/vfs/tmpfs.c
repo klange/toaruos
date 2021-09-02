@@ -275,8 +275,8 @@ static int chmod_tmpfs(fs_node_t * node, int mode) {
 static int chown_tmpfs(fs_node_t * node, int uid, int gid) {
 	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
 
-	t->uid = uid;
-	t->gid = gid;
+	if (uid != -1) t->uid = uid;
+	if (gid != -1) t->gid = gid;
 
 	return 0;
 }

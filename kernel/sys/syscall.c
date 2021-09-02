@@ -440,21 +440,52 @@ static long sys_chmod(char * file, long mode) {
 	}
 }
 
+static int current_group_matches(gid_t gid) {
+	if (gid == this_core->current_process->user_group) return 1;
+	for (int i = 0; i < this_core->current_process->supplementary_group_count; ++i) {
+		if (gid == this_core->current_process->supplementary_group_list[i]) return 1;
+	}
+	return 0;
+}
+
 static long sys_chown(char * file, uid_t uid, uid_t gid) {
 	PTR_VALIDATE(file);
 	fs_node_t * fn = kopen(file, 0);
 	if (fn) {
-		/* TODO: Owners can change groups... */
-		if (this_core->current_process->user != 0) {
-			close_fs(fn);
-			return -EACCES;
+
+		/* Only a privileged user can change the owner of a file. */
+		if (this_core->current_process->user != USER_ROOT_UID && uid != -1) {
+			goto _access;
 		}
+
+		if (this_core->current_process->user != USER_ROOT_UID && gid != -1) {
+			/* The owner of a file... */
+			if (this_core->current_process->user != fn->uid) {
+				goto _access;
+			}
+
+			/* May change the group of the file to one that the owner is a member of... */
+			if (!current_group_matches(gid)) {
+				goto _access;
+			}
+		}
+
+		if ((uid != -1 || gid != -1) && (fn->mask & 0x800)) {
+			/* Whenever the owner or group of a setuid executable is changed, it
+			 * loses the setuid bit. */
+			 chmod_fs(fn, fn->mask & (~0x800));
+		}
+
 		long result = chown_fs(fn, uid, gid);
 		close_fs(fn);
 		return result;
 	} else {
 		return -ENOENT;
 	}
+
+_access:
+	close_fs(fn);
+	return -EACCES;
 }
 
 static long sys_gettimeofday(struct timeval * tv, void * tz) {
