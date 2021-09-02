@@ -44,7 +44,7 @@ EMU_ARGS += -smp $(SMP)
 EMU_ARGS += ${EMU_KVM}
 EMU_ARGS += -no-reboot
 EMU_ARGS += -serial mon:stdio
-EMU_ARGS += -rtc base=localtime
+EMU_ARGS += -rtc base=utc
 EMU_ARGS += -soundhw pcspk,ac97
 
 # Configures two network devices on the same network

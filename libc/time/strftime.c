@@ -142,6 +142,9 @@ size_t strftime(char *s, size_t max, const char *fmt, const struct tm *tm) {
 						tm->tm_hour,
 						tm->tm_min);
 				break;
+			case 's':
+				b += sprintf(b, "%ld", mktime((struct tm*)tm));
+				break;
 			case 'S':
 				b += sprintf(b, "%02d", tm->tm_sec);
 				break;
@@ -176,17 +179,20 @@ size_t strftime(char *s, size_t max, const char *fmt, const struct tm *tm) {
 				b += sprintf(b, "%04d", tm->tm_year + 1900);
 				break;
 			case 'z':
-				b += sprintf(b, "+0000");
+				if (tm->_tm_zone_offset >= 0) {
+					b += sprintf(b, "+%04d", tm->_tm_zone_offset);
+				} else {
+					b += sprintf(b, "-%04d", -tm->_tm_zone_offset);
+				}
 				break;
 			case 'Z':
-				b += sprintf(b, "UTC");
+				b += sprintf(b, tm->_tm_zone_name);
 				break;
 			case '%':
 				b += sprintf(b, "%c", '%');
 				break;
 			case 'V':
 			case 'W':
-			case 's':
 			case 'U':
 			case 'G':
 			case 'g':
