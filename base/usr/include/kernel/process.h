@@ -38,7 +38,7 @@ typedef struct {
 
 typedef struct thread {
 	kthread_context_t context;
-	uint8_t fp_regs[512];
+	uint8_t fp_regs[512] __attribute__((aligned(16)));
 	page_directory_t * page_directory;
 } thread_t;
 

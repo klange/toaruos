@@ -76,15 +76,12 @@ void arch_resume_user(void) {
 	__builtin_unreachable();
 }
 
-static uint8_t saves[512] __attribute__((aligned(16)));
 void arch_restore_floating(process_t * proc) {
-	memcpy(&saves,(uint8_t *)&proc->thread.fp_regs,512);
-	asm volatile ("fxrstor (%0)" :: "r"(saves));
+	asm volatile ("fxrstor (%0)" :: "r"(&proc->thread.fp_regs));
 }
 
 void arch_save_floating(process_t * proc) {
-	asm volatile ("fxsave (%0)" :: "r"(saves));
-	memcpy((uint8_t *)&proc->thread.fp_regs,&saves,512);
+	asm volatile ("fxsave (%0)" :: "r"(&proc->thread.fp_regs));
 }
 
 void arch_pause(void) {
