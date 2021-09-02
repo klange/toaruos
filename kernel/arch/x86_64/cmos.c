@@ -233,11 +233,14 @@ void relative_time(unsigned long seconds, unsigned long subseconds, unsigned lon
 	}
 }
 
+void arch_tick_others(void);
+
 int cmos_time_stuff(struct regs *r) {
 	uint64_t timer_ticks, timer_subticks;
 	update_ticks(&timer_ticks, &timer_subticks);
 	wakeup_sleepers(timer_ticks, timer_subticks);
 	irq_ack(0);
+	arch_tick_others();
 	switch_task(1);
 	asm volatile (
 		".global _ret_from_preempt_source\n"

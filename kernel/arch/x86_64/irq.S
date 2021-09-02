@@ -80,6 +80,27 @@ IRQ 15, 47
 /* syscall entry point */
 ISR_NOERR 127
 
+.global _isr123
+.type _isr123, @function
+_isr123:
+    /* Acknowledge IPI */
+    pushq %r12
+    mov (lapic_final), %r12
+    add $0xb0, %r12
+    movl $0, (%r12)
+    popq %r12
+    /* Are we in userspace? */
+    cmpq $8, 8(%rsp)
+    je 1f
+    /* Then we can proceed! */
+    pushq $0x00
+    pushq $123
+    jmp isr_common
+1:
+    /* If we were not in userspace, nothing to do; we were already idle. */
+    iretq
+
+
 .global _isr124
 .type _isr124, @function
 _isr124:

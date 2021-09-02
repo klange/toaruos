@@ -296,6 +296,11 @@ void arch_wakeup_others(void) {
 	lapic_send_ipi(0, 0x7E | (3 << 18));
 }
 
+void arch_tick_others(void) {
+	if (!lapic_final || processor_count < 2) return;
+	lapic_send_ipi(0, 0x7b | (3 << 18));
+}
+
 void arch_tlb_shootdown(uintptr_t vaddr) {
 	if (!lapic_final || processor_count < 2) return;
 

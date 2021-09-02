@@ -86,6 +86,7 @@ void idt_install(void) {
 	idt_set_gate(46, _irq14, 0x08, 0x8E, 0);
 	idt_set_gate(47, _irq15, 0x08, 0x8E, 0);
 
+	idt_set_gate(123, _isr123, 0x08, 0x8E, 0); /* Clock interrupt for other processors */
 	idt_set_gate(124, _isr124, 0x08, 0x8E, 0); /* Bad TLB shootdown. */
 	idt_set_gate(125, _isr125, 0x08, 0x8E, 0); /* Halts everyone. */
 	idt_set_gate(126, _isr126, 0x08, 0x8E, 0); /* Does nothing, used to exit wait-for-interrupt sleep. */
@@ -232,6 +233,10 @@ struct regs * isr_handler(struct regs * r) {
 		case 127: /* syscall */ {
 			syscall_handler(r);
 			asm volatile("sti");
+			return r;
+		}
+		case 123: {
+			switch_task(1);
 			return r;
 		}
 		case 39: {
