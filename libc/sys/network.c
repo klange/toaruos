@@ -237,6 +237,7 @@ struct hostent * gethostbyname(const char * name) {
 
 	/* Try to open /etc/resolv.conf */
 	FILE * resolv = fopen("/etc/resolv.conf","r");
+	if (!resolv) resolv = fopen("/var/resolv.conf","r");
 	if (!resolv) {
 		fprintf(stderr, "gethostbyname: no resolver\n");
 		return NULL;
