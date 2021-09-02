@@ -17,6 +17,11 @@
 DEFN_SYSCALL3(clone, SYS_CLONE, uintptr_t, uintptr_t, void *);
 DEFN_SYSCALL0(gettid, SYS_GETTID);
 
+extern int __libc_is_multicore;
+static inline void _yield(void) {
+	if (!__libc_is_multicore) syscall_yield();
+}
+
 #define PTHREAD_STACK_SIZE 0x100000
 
 int clone(uintptr_t a,uintptr_t b,void* c) {
@@ -89,7 +94,7 @@ void pthread_cleanup_pop(int execute) {
 
 int pthread_mutex_lock(pthread_mutex_t *mutex) {
 	while (__sync_lock_test_and_set(mutex, 0x01)) {
-		syscall_yield();
+		_yield();
 	}
 	return 0;
 }

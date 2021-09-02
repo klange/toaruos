@@ -149,6 +149,9 @@ static long sys_sysfunc(long fn, char ** args) {
 			arch_set_tls_base(this_core->current_process->thread.context.tls_base);
 			return 0;
 
+		case TOARU_SYS_FUNC_NPROC:
+			return processor_count;
+
 		default:
 			printf("Bad system function: %ld\n", fn);
 			return -EINVAL;

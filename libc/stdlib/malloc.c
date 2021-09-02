@@ -164,9 +164,15 @@ static void _malloc_assert(const char * file, int line, const char * func, const
 	exit(1);
 }
 
+extern int __libc_is_multicore;
+
+static inline void _yield(void) {
+	if (!__libc_is_multicore) syscall_yield();
+}
+
 static void spin_lock(int volatile * lock, const char * caller) {
 	while(__sync_lock_test_and_set(lock, 0x01)) {
-		syscall_yield();
+		_yield();
 	}
 	_lock_holder = caller;
 }

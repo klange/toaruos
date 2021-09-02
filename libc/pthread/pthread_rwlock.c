@@ -9,7 +9,12 @@
 
 #include <sys/wait.h>
 
-#define ACQUIRE_LOCK() do { while (__sync_lock_test_and_set(&lock->atomic_lock, 0x01)) { syscall_yield(); } } while (0)
+extern int __libc_is_multicore;
+static inline void _yield(void) {
+	if (!__libc_is_multicore) syscall_yield();
+}
+
+#define ACQUIRE_LOCK() do { while (__sync_lock_test_and_set(&lock->atomic_lock, 0x01)) { _yield(); } } while (0)
 #define RELEASE_LOCK() do { __sync_lock_release(&lock->atomic_lock); } while (0)
 
 int pthread_rwlock_init(pthread_rwlock_t * lock, void * args) {
@@ -31,7 +36,7 @@ int pthread_rwlock_wrlock(pthread_rwlock_t * lock) {
 			RELEASE_LOCK();
 			return 0;
 		}
-		syscall_yield();
+		_yield();
 	}
 }
 
@@ -43,7 +48,7 @@ int pthread_rwlock_rdlock(pthread_rwlock_t * lock) {
 			RELEASE_LOCK();
 			return 0;
 		}
-		syscall_yield();
+		_yield();
 	}
 }
 

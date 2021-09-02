@@ -4,6 +4,7 @@
 
 #include <syscall.h>
 #include <syscall_nums.h>
+#include <sys/sysfunc.h>
 
 DEFN_SYSCALL1(exit,  SYS_EXT, int);
 DEFN_SYSCALL2(sleepabs,  SYS_SLEEPABS, unsigned long, unsigned long);
@@ -33,6 +34,7 @@ void _exit(int val){
 
 extern void __make_tls(void);
 
+int __libc_is_multicore = 0;
 static int __libc_init_called = 0;
 
 __attribute__((constructor))
@@ -40,6 +42,7 @@ static void _libc_init(void) {
 	__libc_init_called = 1;
 	__make_tls();
 	__stdio_init_buffers();
+	__libc_is_multicore = sysfunc(TOARU_SYS_FUNC_NPROC, NULL) > 1;
 
 	unsigned int x = 0;
 	unsigned int nulls = 0;
