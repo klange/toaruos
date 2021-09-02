@@ -31,14 +31,17 @@ KERNEL_SOURCES += $(wildcard kernel/arch/${ARCH}/*.S)
 MODULES = $(patsubst modules/%.c,$(BASE)/mod/%.ko,$(wildcard modules/*.c))
 
 # Configs you can override.
-SMP ?= 1
+SMP ?= 2
 RAM ?= 3G
 EXTRA_ARGS ?=
+EMU_KVM  ?= -enable-kvm
+EMU_MACH ?= q35
 
 EMU = qemu-system-x86_64
 EMU_ARGS  = -M q35
 EMU_ARGS += -m $(RAM)
 EMU_ARGS += -smp $(SMP)
+EMU_ARGS += ${EMU_KVM}
 EMU_ARGS += -no-reboot
 EMU_ARGS += -serial mon:stdio
 EMU_ARGS += -rtc base=localtime
@@ -51,8 +54,6 @@ EMU_ARGS += -netdev hubport,id=u1,hubid=0, -device e1000e,netdev=u1  -object fil
 
 # Add an XHCI tablet
 EMU_ARGS += -device qemu-xhci -device usb-tablet
-
-EMU_KVM  ?= -enable-kvm
 
 APPS=$(patsubst apps/%.c,%,$(wildcard apps/*.c)) $(patsubst apps/%.c++,%,$(wildcard apps/*.c++))
 APPS_X=$(foreach app,$(APPS),$(BASE)/bin/$(app))
@@ -113,23 +114,23 @@ $(BASE)/lib/ld.so: linker/linker.c $(BASE)/lib/libc.a | dirs $(LC)
 	$(CC) -g -static -Wl,-static $(CFLAGS) -o $@ -Os -T linker/link.ld $<
 
 run: system
-	${EMU} ${EMU_ARGS} ${EMU_KVM} -cdrom image.iso
+	${EMU} ${EMU_ARGS} -cdrom image.iso
 
 fast: system
-	${EMU} ${EMU_ARGS} ${EMU_KVM} -cdrom image.iso \
+	${EMU} ${EMU_ARGS} -cdrom image.iso \
 		-fw_cfg name=opt/org.toaruos.bootmode,string=normal \
 
 run-vga: system
-	${EMU} ${EMU_ARGS} ${EMU_KVM} -cdrom image.iso \
+	${EMU} ${EMU_ARGS} -cdrom image.iso \
 		-fw_cfg name=opt/org.toaruos.bootmode,string=vga \
 
 test: system
-	${EMU} -M q35 -m $(RAM) -smp $(SMP) ${EMU_KVM} -kernel misaka-kernel -initrd ramdisk.igz,util/init.krk -append "root=/dev/ram0 init=/dev/ram1" \
+	${EMU} -M ${EMU_MACH} -m $(RAM) -smp $(SMP) ${EMU_KVM} -kernel misaka-kernel -initrd ramdisk.igz,util/init.krk -append "root=/dev/ram0 init=/dev/ram1" \
 		-nographic -no-reboot -audiodev none,id=id -serial null -serial mon:stdio \
 		-device qemu-xhci -device usb-tablet -trace "usb*"
 
 shell: system
-	${EMU} -m $(RAM) -smp $(SMP) ${EMU_KVM} -cdrom image.iso \
+	${EMU} -M ${EMU_MACH} -m $(RAM) -smp $(SMP) ${EMU_KVM} -cdrom image.iso \
 		-nographic -no-reboot -audiodev none,id=id -serial null -serial mon:stdio \
 		-fw_cfg name=opt/org.toaruos.gettyargs,string="-a local /dev/ttyS1" \
 		-fw_cfg name=opt/org.toaruos.bootmode,string=headless \
