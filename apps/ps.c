@@ -20,6 +20,7 @@
 #include <pwd.h>
 
 #include <toaru/list.h>
+#include <toaru/hashmap.h>
 
 #define LINE_LEN 4096
 
@@ -44,6 +45,8 @@ struct process {
 	char * command_line;
 };
 
+static hashmap_t * process_ents = NULL;
+
 void print_username(int uid) {
 	struct passwd * p = getpwuid(uid);
 
@@ -54,6 +57,10 @@ void print_username(int uid) {
 	}
 
 	endpwent();
+}
+
+struct process * process_from_pid(pid_t pid) {
+	return hashmap_get(process_ents, (void*)(uintptr_t)pid);
 }
 
 struct process * process_entry(struct dirent *dent) {
@@ -108,7 +115,14 @@ struct process * process_entry(struct dirent *dent) {
 	}
 
 	if (!show_threads) {
-		if (tgid != pid) return NULL;
+		if (tgid != pid) {
+			/* Add this thread's CPU usage to the parent */
+			struct process * parent = process_from_pid(tgid);
+			if (parent) {
+				parent->cpu += cpu;
+			}
+			return NULL;
+		}
 	}
 
 	struct process * out = malloc(sizeof(struct process));
@@ -121,6 +135,8 @@ struct process * process_entry(struct dirent *dent) {
 	out->cpu = cpu;
 	out->process = strdup(name);
 	out->command_line = NULL;
+
+	hashmap_set(process_ents, (void*)(uintptr_t)pid, out);
 
 	char garbage[1024];
 	int len;
@@ -197,12 +213,12 @@ void print_entry(struct process * out) {
 		printf("%*d ", widths[1], out->tid);
 	}
 	if (show_cpu) {
-		char tmp[6];
+		char tmp[10];
 		sprintf(tmp, "%*d.%01d", widths[6]-2, out->cpu / 10, out->cpu % 10);
 		printf("%*s ", widths[6], tmp);
 	}
 	if (show_mem) {
-		char tmp[6];
+		char tmp[10];
 		sprintf(tmp, "%*d.%01d", widths[5]-2, out->mem / 10, out->mem % 10);
 		printf("%*s ", widths[5], tmp);
 		printf("%*d ", widths[3], out->vsz);
@@ -274,6 +290,8 @@ int main (int argc, char * argv[]) {
 
 	/* Read the entries in the directory */
 	list_t * ents_list = list_create();
+
+	process_ents = hashmap_create_int(10);
 
 	struct dirent * ent = readdir(dirp);
 	while (ent != NULL) {
