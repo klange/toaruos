@@ -202,17 +202,17 @@ void arch_clock_initialize(void) {
 	if (tsc_mhz == 0) tsc_mhz = 2000; /* uh oh */
 }
 
-#define SUBTICKS_PER_TICK 1000000
-static void update_ticks(uint64_t *timer_ticks, uint64_t *timer_subticks) {
-	uint64_t tsc = read_tsc();
-	*timer_subticks = tsc / tsc_mhz;
-	*timer_ticks = *timer_subticks / SUBTICKS_PER_TICK;
-	*timer_subticks = *timer_subticks % SUBTICKS_PER_TICK;
+#define SUBSECONDS_PER_SECOND 1000000
+static void update_ticks(uint64_t ticks, uint64_t *timer_ticks, uint64_t *timer_subticks) {
+	*timer_subticks = ticks;
+	*timer_ticks = *timer_subticks / SUBSECONDS_PER_SECOND;
+	*timer_subticks = *timer_subticks % SUBSECONDS_PER_SECOND;
 }
 
 int gettimeofday(struct timeval * t, void *z) {
+	uint64_t tsc = read_tsc();
 	uint64_t timer_ticks, timer_subticks;
-	update_ticks(&timer_ticks, &timer_subticks);
+	update_ticks(tsc / tsc_mhz, &timer_ticks, &timer_subticks);
 	t->tv_sec = boot_time + timer_ticks;
 	t->tv_usec = timer_subticks;
 	return 0;
@@ -226,11 +226,12 @@ uint64_t now(void) {
 
 
 void relative_time(unsigned long seconds, unsigned long subseconds, unsigned long * out_seconds, unsigned long * out_subseconds) {
+	uint64_t tsc = read_tsc();
 	uint64_t timer_ticks, timer_subticks;
-	update_ticks(&timer_ticks, &timer_subticks);
-	if (subseconds + timer_subticks >= SUBTICKS_PER_TICK) {
-		*out_seconds    = timer_ticks + seconds + (subseconds + timer_subticks) / SUBTICKS_PER_TICK;
-		*out_subseconds = (subseconds + timer_subticks) % SUBTICKS_PER_TICK;
+	update_ticks(tsc / tsc_mhz, &timer_ticks, &timer_subticks);
+	if (subseconds + timer_subticks >= SUBSECONDS_PER_SECOND) {
+		*out_seconds    = timer_ticks + seconds + (subseconds + timer_subticks) / SUBSECONDS_PER_SECOND;
+		*out_subseconds = (subseconds + timer_subticks) % SUBSECONDS_PER_SECOND;
 	} else {
 		*out_seconds    = timer_ticks + seconds;
 		*out_subseconds = timer_subticks + subseconds;
@@ -239,11 +240,20 @@ void relative_time(unsigned long seconds, unsigned long subseconds, unsigned lon
 
 void arch_tick_others(void);
 
+static uint64_t time_slice_basis = 0;
+
 int cmos_time_stuff(struct regs *r) {
+	uint64_t clock_ticks = read_tsc() / tsc_mhz;
 	uint64_t timer_ticks, timer_subticks;
-	update_ticks(&timer_ticks, &timer_subticks);
+	update_ticks(clock_ticks, &timer_ticks, &timer_subticks);
 	wakeup_sleepers(timer_ticks, timer_subticks);
 	irq_ack(0);
+
+	if (time_slice_basis + SUBSECONDS_PER_SECOND <= clock_ticks) {
+		update_process_usage(clock_ticks - time_slice_basis, tsc_mhz);
+		time_slice_basis = clock_ticks;
+	}
+
 	arch_tick_others();
 	switch_task(1);
 	asm volatile (

@@ -27,9 +27,10 @@ static int show_all = 0;
 static int show_threads = 0;
 static int show_username = 0;
 static int show_mem = 0;
+static int show_cpu = 0;
 static int collect_commandline = 0;
 
-static int widths[] = {3,3,4,3,3,4};
+static int widths[] = {3,3,4,3,3,4,4};
 
 struct process {
 	int uid;
@@ -38,6 +39,7 @@ struct process {
 	int mem;
 	int vsz;
 	int shm;
+	int cpu;
 	char * process;
 	char * command_line;
 };
@@ -59,7 +61,7 @@ struct process * process_entry(struct dirent *dent) {
 	FILE * f;
 	char line[LINE_LEN];
 
-	int pid = 0, uid = 0, tgid = 0, mem = 0, shm = 0, vsz = 0;
+	int pid = 0, uid = 0, tgid = 0, mem = 0, shm = 0, vsz = 0, cpu = 0;
 	char name[100];
 
 	sprintf(tmp, "/proc/%s/status", dent->d_name);
@@ -93,6 +95,8 @@ struct process * process_entry(struct dirent *dent) {
 			shm = atoi(tab);
 		} else if (strstr(line, "MemPermille:") == line) {
 			mem = atoi(tab);
+		} else if (strstr(line, "CpuPermille:") == line) {
+			cpu = atoi(tab);
 		}
 	}
 
@@ -114,6 +118,7 @@ struct process * process_entry(struct dirent *dent) {
 	out->mem = mem;
 	out->shm = shm;
 	out->vsz = vsz;
+	out->cpu = cpu;
 	out->process = strdup(name);
 	out->command_line = NULL;
 
@@ -125,6 +130,7 @@ struct process * process_entry(struct dirent *dent) {
 	if ((len = sprintf(garbage, "%d", out->vsz)) > widths[3]) widths[3] = len;
 	if ((len = sprintf(garbage, "%d", out->shm)) > widths[4]) widths[4] = len;
 	if ((len = sprintf(garbage, "%d.%01d", out->mem / 10, out->mem % 10)) > widths[5]) widths[5] = len;
+	if ((len = sprintf(garbage, "%d.%01d", out->cpu / 10, out->cpu % 10)) > widths[6]) widths[6] = len;
 
 	struct passwd * p = getpwuid(out->uid);
 	if (p) {
@@ -165,8 +171,11 @@ void print_header(void) {
 	if (show_threads) {
 		printf("%*s ", widths[1], "TID");
 	}
+	if (show_cpu) {
+		printf("%*s ", widths[6], "%CPU");
+	}
 	if (show_mem) {
-		printf("%*s ", widths[5], "MEM%");
+		printf("%*s ", widths[5], "%MEM");
 		printf("%*s ", widths[3], "VSZ");
 		printf("%*s ", widths[4], "SHM");
 	}
@@ -186,6 +195,11 @@ void print_entry(struct process * out) {
 	printf("%*d ", widths[0], out->pid);
 	if (show_threads) {
 		printf("%*d ", widths[1], out->tid);
+	}
+	if (show_cpu) {
+		char tmp[6];
+		sprintf(tmp, "%*d.%01d", widths[6]-2, out->cpu / 10, out->cpu % 10);
+		printf("%*s ", widths[6], tmp);
 	}
 	if (show_mem) {
 		char tmp[6];
@@ -243,6 +257,7 @@ int main (int argc, char * argv[]) {
 				case 'u':
 					show_username = 1;
 					show_mem = 1;
+					show_cpu = 1;
 					// fallthrough
 				case 'a':
 					collect_commandline = 1;

@@ -1338,3 +1338,13 @@ process_t * spawn_worker_thread(void (*entrypoint)(void * argp), const char * na
 
 	return proc;
 }
+
+void update_process_usage(uint64_t clock_ticks, uint64_t perf_scale) {
+	spin_lock(tree_lock);
+	foreach(lnode, process_list) {
+		process_t * proc = lnode->value;
+		proc->usage = (1000 * (proc->time_total - proc->time_prev)) / (clock_ticks * perf_scale);
+		proc->time_prev = proc->time_total;
+	}
+	spin_unlock(tree_lock);
+}

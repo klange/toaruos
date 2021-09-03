@@ -153,6 +153,7 @@ static ssize_t proc_status_func(fs_node_t *node, off_t offset, size_t size, uint
 			"LastCore:\t %d\n"
 			"TotalTime:\t %ld ms\n"
 			"SysTime:\t %ld ms\n"
+			"CpuPermille:\t %d%%\n"
 			,
 			name,
 			state,
@@ -174,7 +175,8 @@ static ssize_t proc_status_func(fs_node_t *node, off_t offset, size_t size, uint
 			mem_usage, shm_usage, mem_permille,
 			proc->owner,
 			proc->time_total / arch_cpu_mhz(),
-			proc->time_sys / arch_cpu_mhz()
+			proc->time_sys / arch_cpu_mhz(),
+			proc->usage
 			);
 
 	size_t _bsize = strlen(buf);

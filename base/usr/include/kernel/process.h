@@ -122,12 +122,14 @@ typedef struct process {
 	gid_t * supplementary_group_list;
 
 	/* Process times */
+	uint64_t time_prev;
 	uint64_t time_total;  /* user time */
 	uint64_t time_sys;    /* system time */
 	uint64_t time_in;     /* tsc stamp of when this process last entered the running state */
 	uint64_t time_switch; /* tsc stamp of when this process last started doing system things */
 	uint64_t time_children;
 	uint64_t time_sys_children;
+	int usage;
 } process_t;
 
 typedef struct {
@@ -221,6 +223,7 @@ extern pid_t fork(void);
 extern pid_t clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg);
 extern int waitpid(int pid, int * status, int options);
 extern int exec(const char * path, int argc, char *const argv[], char *const env[], int interp_depth);
+extern void update_process_usage(uint64_t clock_ticks, uint64_t perf_scale);
 
 extern tree_t * process_tree;  /* Parent->Children tree */
 extern list_t * process_list;  /* Flat storage */
