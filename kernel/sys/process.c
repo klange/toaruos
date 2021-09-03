@@ -109,6 +109,9 @@ void switch_next(void) {
 		this_core->current_process = next_ready_process();
 	} while (this_core->current_process->flags & PROC_FLAG_FINISHED);
 
+	this_core->current_process->time_in = arch_perf_timer();
+	this_core->current_process->time_switch = this_core->current_process->time_in;
+
 	/* Restore paging and task switch context. */
 	mmu_set_directory(this_core->current_process->thread.page_directory->directory);
 	arch_set_kernel_stack(this_core->current_process->image.stack);
@@ -704,8 +707,6 @@ volatile process_t * next_ready_process(void) {
 
 	__sync_or_and_fetch(&next->flags, PROC_FLAG_RUNNING);
 	next->owner = this_core->cpu_id;
-	next->time_in = arch_perf_timer();
-	next->time_switch = next->time_in;
 
 	return next;
 }
@@ -1347,4 +1348,11 @@ void update_process_usage(uint64_t clock_ticks, uint64_t perf_scale) {
 		proc->time_prev = proc->time_total;
 	}
 	spin_unlock(tree_lock);
+	/* Now use idle tasks to calculator processor activity? */
+	for (int i = 0; i < processor_count; ++i) {
+		process_t * proc = processor_local_data[i].kernel_idle_task;
+		proc->usage = (1000 * (proc->time_total - proc->time_prev)) / (clock_ticks * perf_scale);
+		proc->time_prev = proc->time_total;
+		processor_local_data[i].idle_time = proc->usage;
+	}
 }

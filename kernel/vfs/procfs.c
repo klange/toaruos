@@ -653,7 +653,11 @@ static ssize_t smp_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buf
 	unsigned int soffset = 0;
 
 	for (int i = 0; i < processor_count; ++i) {
-		soffset += snprintf(&buf[soffset], 100, "%d: %s [%d]\n", i, processor_local_data[i].current_process->name, processor_local_data[i].current_process->id);
+		soffset += snprintf(&buf[soffset], 100, "%d: %d %d\n",
+			i,
+			processor_local_data[i].current_process->id,
+			processor_local_data[i].idle_time
+		);
 	}
 
 	size_t _bsize = strlen(buf);
