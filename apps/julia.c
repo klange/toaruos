@@ -16,11 +16,13 @@
 #include <time.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <math.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
 #include <toaru/menu.h>
+#include <toaru/markup_text.h>
 
 #define GFX_(xpt, ypt) (GFX(ctx,xpt+decor_left_width,ypt+decor_top_height))
 
@@ -44,88 +46,155 @@ float Maxx = 2;      /* X bounds */
 float Minx = -2;
 float Maxy = 1;      /* Y bounds */
 float Miny = -1;
-float initer = 1000; /* Iteration levels */
 float pixcorx;       /* Internal values */
 float pixcory;
+float rotation = 4.1888; /* Blue */
+int maxiter = 1000; /* Iteration levels */
 
-int newcolor;        /* Color we're placing */
-int lastcolor;       /* Last color we placed */
-int no_repeat = 0;   /* Repeat colors? */
+uint32_t * palette = NULL;
 
-/*
- * Color table
- * These are orange/red shades from the Ubuntu platte.
- */
-int colors[] = {
-	0xFFeec73e,
-	0xFFf0a513,
-	0xFFfb8b00,
-	0xFFf44800,
-	0xFFffff99,
-	0xFFffff00,
-	0xFFfdca01,
-	0xFF986601,
-	0xFFf44800,
-	0xFFfd3301,
-	0xFFd40000,
-	0xFF980101,
+static uint32_t hsv_to_rgb(float h, float s, float v) {
+	float c  = v * s;
+	float hp = fmod(h, 2 * M_PI);
+	float x = c * (1.0 - fabs(fmod(hp / 1.0472, 2) - 1.0));
+	float m = v - c;
+	float rp, gp, bp;
+	if (hp <= 1.0472)      { rp = c; gp = x; bp = 0; }
+	else if (hp <= 2.0944) { rp = x; gp = c; bp = 0; }
+	else if (hp <= 3.1416) { rp = 0; gp = c; bp = x; }
+	else if (hp <= 4.1888) { rp = 0; gp = x; bp = c; }
+	else if (hp <= 5.2360) { rp = x; gp = 0; bp = c; }
+	else                   { rp = c; gp = 0; bp = x; }
+	return rgb((rp + m) * 255, (gp + m) * 255, (bp + m) * 255);
+}
+
+static uint32_t hue_palette(int k) {
+	double ratio = (double)k / (double)maxiter;
+	double hue   = sin(ratio * M_PI / 2.0);
+	return hsv_to_rgb(4.18879 * hue + rotation, 1.0, 1.0);
+}
+
+static uint32_t rhue_palette(int k) {
+	double ratio = (double)k / (double)maxiter;
+	double hue   = sin(ratio * M_PI / 2.0);
+	return hsv_to_rgb(-4.18879 * hue + rotation, 1.0, 1.0);
+}
+
+static uint32_t bnw_palette(int k) {
+	return rgb(255 * k / maxiter, 255 * k / maxiter, 255 * k / maxiter);
+}
+
+static uint32_t mix(uint32_t base, uint32_t mixer, float ratio) {
+	return rgb(
+		_RED(base) * (1.0 - ratio) + _RED(mixer) * (ratio),
+		_GRE(base) * (1.0 - ratio) + _GRE(mixer) * (ratio),
+		_BLU(base) * (1.0 - ratio) + _BLU(mixer) * (ratio));
+}
+
+static uint32_t wiki_palette(int k) {
+	double ratio = (double)k / (double)maxiter;
+
+	for (int i = 0; i < 4; ++i) {
+		if (ratio <= 0.025) return mix(rgb(14,21,101), rgb(40,100,200), ratio / 0.025);
+		ratio -= 0.025;
+		ratio /= 0.975;
+		if (ratio <= 0.025) return mix(rgb(40,100,200), rgb(90,200,225), ratio / 0.025);
+		ratio -= 0.025;
+		ratio /= 0.975;
+		if (ratio <= 0.025) return mix(rgb(90,200,225), rgb(255,255,255), ratio / 0.025);
+		ratio -= 0.025;
+		ratio /= 0.975;
+		if (ratio <= 0.025) return mix(rgb(255,255,255), rgb(255,255,100), ratio / 0.025);
+		ratio -= 0.025;
+		ratio /= 0.975;
+		if (ratio <= 0.025) return mix(rgb(255,255,100), rgb(255,255,0), ratio / 0.025);
+		ratio -= 0.025;
+		ratio /= 0.975;
+		if (ratio <= 0.025) return mix(rgb(255,255,0), rgb(255,120,0), ratio / 0.025);
+		ratio -= 0.025;
+		ratio /= 0.975;
+		if (ratio <= 0.025) return mix(rgb(255,120,0), rgb(255,0,0), ratio / 0.025);
+		ratio -= 0.025;
+		ratio /= 0.975;
+		if (ratio <= 0.025) return mix(rgb(255,0,0), rgb(0,0,0), ratio / 0.025);
+		ratio -= 0.025;
+		ratio /= 0.975;
+		if (i < 3) {
+			if (ratio <= 0.025) return mix(rgb(0,0,0), rgb(14,21,101), ratio / 0.025);
+			ratio -= 0.025;
+			ratio /= 0.975;
+		}
+	}
+	return rgb(0,0,0);
+}
+
+static uint32_t (*palette_funcs[])(int) = {
+	hue_palette,
+	rhue_palette,
+	bnw_palette,
+	wiki_palette,
 };
+
+static int current_palette = 0;
+
+static void initialize_palette(void) {
+	if (!palette) {
+		palette = malloc(sizeof(uint32_t) * (maxiter + 1));
+	}
+	for (int k = 0; k < maxiter; ++k) {
+		palette[k] = palette_funcs[current_palette](k);
+	}
+	palette[maxiter] = rgb(0,0,0);
+}
+
+static void next_palette(void) {
+	current_palette = (current_palette + 1) % (sizeof(palette_funcs) / sizeof(*palette_funcs));
+	initialize_palette();
+}
 
 int left   = 40;
 int top    = 40;
 int width  = 300;
 int height = 300;
 
-void julia(int xpt, int ypt) {
+static uint32_t julia(int xpt, int ypt) {
 	long double x = xpt * pixcorx + Minx;
 	long double y = Maxy - ypt * pixcory;
 	long double xnew = 0;
 	long double ynew = 0;
 
 	int k = 0;
-	for (k = 0; k <= initer; k++) {
+	for (k = 0; k < maxiter; k++) {
 		xnew = x * x - y * y + conx;
 		ynew = 2 * x * y     + cony;
 		x    = xnew;
 		y    = ynew;
-		if ((x * x + y * y) > 4)
+		if ((x * x + y * y) > 4.0)
 			break;
 	}
 
-	int color;
-	if (no_repeat) {
-		color = 12 * k / initer;
-	} else {
-		color = k;
-		if (color > 11) {
-			color = color % 12;
-		}
-	}
-	if (k >= initer) {
-		GFX_(xpt,ypt) = rgb(0,0,0);
-	} else {
-		GFX_(xpt,ypt) = colors[color];
-	}
-	newcolor = color;
+	return palette[k];
 }
 
+#define T_I "\033[3m"
+#define T_N "\033[0m"
 void usage(char * argv[]) {
 	printf(
 			"Julia fractal generator.\n"
 			"\n"
-			"usage: %s [-n] [-i \033[3miniter\033[0m] [-x \033[3mminx\033[0m] \n"
-			"          [-X \033[3mmaxx\033[0m] [-c \033[3mconx\033[0m] [-C \033[3mcony\033[0m]\n"
-			"          [-W \033[3mwidth\033[0m] [-H \033[3mheight\033[0m] [-h]\n"
+			"usage: %s [-i " T_I "iterations" T_N "] [-x " T_I "minx" T_N "]\n"
+			"          [-X " T_I "maxx" T_N "] [-c " T_I "real" T_N "] [-C " T_I "imag" T_N "]\n"
+			"          [-W " T_I "width" T_N "] [-H " T_I "height" T_N "] [-h]\n"
 			"\n"
-			" -n --no-repeat \033[3mDo not repeat colors\033[0m\n"
-			" -i --initer    \033[3mInitializer value\033[0m\n"
-			" -x --minx      \033[3mMinimum X value\033[0m\n"
-			" -X --maxx      \033[3mMaximum X value\033[0m\n"
-			" -c --conx      \033[3mcon x\033[0m\n"
-			" -C --cony      \033[3mcon y\033[0m\n"
-			" -W --width     \033[3mWindow width\033[0m\n"
-			" -H --height    \033[3mWindow height\033[0m\n"
-			" -h --help      \033[3mShow this help message.\033[0m\n",
+			" -i --initializer " T_I "Initializer value" T_N "\n"
+			" -x --minx        " T_I "Minimum X value" T_N "\n"
+			" -X --maxx        " T_I "Maximum X value" T_N "\n"
+			" -c --creal       " T_I "Real component of c" T_N "\n"
+			" -C --cimag       " T_I "Imaginary component of c" T_N "\n"
+			" -r --rotate      " T_I "Hue rotation for color mapping" T_N "\n"
+			" -W --width       " T_I "Window width" T_N "\n"
+			" -H --height      " T_I "Window height" T_N "\n"
+			" -h --help        " T_I "Show this help message." T_N "\n",
 			argv[0]);
 }
 
@@ -134,35 +203,31 @@ static void decors() {
 }
 
 void redraw() {
-	printf("initer: %f\n", initer);
-	printf("X: %f %f\n", Minx, Maxx);
 	float _x = Maxx - Minx;
 	float _y = _x / width * height;
+
 	Miny = 0 - _y / 2;
 	Maxy = _y / 2;
-	printf("Y: %f %f\n", Miny, Maxy);
-	printf("conx: %f cony: %f\n", conx, cony);
 
 	decors();
 
-	newcolor  = 0;
-	lastcolor = 0;
-
 	pixcorx = (Maxx - Minx) / width;
 	pixcory = (Maxy - Miny) / height;
-	int j = 0;
-	do {
-		int i = 1;
-		do {
-			julia(i,j);
-			if (lastcolor != newcolor) julia(i-1,j);
-			else if (i > 0) GFX_(i-1,j) = colors[lastcolor];
-			newcolor = lastcolor;
-			i+= 2;
-		} while ( i < width );
-		yutani_flip(yctx, window);
-		++j;
-	} while ( j < height );
+
+	clock_t time_before = clock();
+
+	for (int j = 0; j < height; ++j) {
+		for (int i = 0; i < width; ++i) {
+			GFX_(i,j) = julia(i,j);
+		}
+		yutani_flip_region(yctx, window, decor_left_width, decor_top_height + j, width, 1);
+	}
+
+	clock_t time_after = clock();
+
+	char description[100];
+	snprintf(description, 100, "<i>c</i> = %g + %g<i>i</i>, %ld ms", conx, cony, (time_after - time_before) / 1000);
+	markup_draw_string(ctx, decor_left_width + 2, window->height - decor_bottom_height - 2, description, rgb(255,255,255));
 }
 
 void resize_finish(int w, int h) {
@@ -187,23 +252,30 @@ void resize_finish(int w, int h) {
 	yutani_window_resize_done(yctx, window);
 
 	redraw();
-
 	yutani_flip(yctx, window);
 }
 
+static double amount(struct yutani_msg_key_event * ke) {
+	double basis = 0.001;
+
+	if (ke->event.modifiers & (KEY_MOD_LEFT_SHIFT | KEY_MOD_RIGHT_SHIFT)) basis *= 10.0;
+	if (ke->event.modifiers & (KEY_MOD_LEFT_CTRL | KEY_MOD_RIGHT_CTRL)) basis *= 5.0;
+
+	return basis;
+}
 
 int main(int argc, char * argv[]) {
 
 	static struct option long_opts[] = {
-		{"no-repeat", no_argument,    0, 'n'},
-		{"initer", required_argument, 0, 'i'},
-		{"minx",   required_argument, 0, 'x'},
-		{"maxx",   required_argument, 0, 'X'},
-		{"conx",   required_argument, 0, 'c'},
-		{"cony",   required_argument, 0, 'C'},
-		{"width",  required_argument, 0, 'W'},
-		{"height", required_argument, 0, 'H'},
-		{"help",   no_argument,       0, 'h'},
+		{"iterations", required_argument, 0, 'i'},
+		{"minx",       required_argument, 0, 'x'},
+		{"maxx",       required_argument, 0, 'X'},
+		{"creal",      required_argument, 0, 'c'},
+		{"cimag",      required_argument, 0, 'C'},
+		{"rotate",     required_argument, 0, 'r'},
+		{"width",      required_argument, 0, 'W'},
+		{"height",     required_argument, 0, 'H'},
+		{"help",       no_argument,       0, 'h'},
 		{0,0,0,0}
 	};
 
@@ -217,11 +289,10 @@ int main(int argc, char * argv[]) {
 				}
 			}
 			switch (c) {
-				case 'n':
-					no_repeat = 1;
-					break;
 				case 'i':
-					initer = atof(optarg);
+					maxiter = atoi(optarg);
+					if (maxiter < 10) maxiter = 10;
+					if (maxiter > 1000) maxiter = 1000;
 					break;
 				case 'x':
 					Minx = atof(optarg);
@@ -234,6 +305,9 @@ int main(int argc, char * argv[]) {
 					break;
 				case 'C':
 					cony = atof(optarg);
+					break;
+				case 'r':
+					rotation = atof(optarg);
 					break;
 				case 'W':
 					width = atoi(optarg);
@@ -275,10 +349,14 @@ int main(int argc, char * argv[]) {
 
 	ctx = init_graphics_yutani(window);
 
+	initialize_palette();
+
 	redraw();
 	yutani_flip(yctx, window);
 
 	int playing = 1;
+	int needs_redraw = 0;
+
 	while (playing) {
 		yutani_msg_t * m = yutani_poll(yctx);
 		while (m) {
@@ -291,8 +369,32 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_KEY_EVENT:
 					{
 						struct yutani_msg_key_event * ke = (void*)m->data;
-						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
-							playing = 0;
+						if (ke->event.action == KEY_ACTION_DOWN) {
+							switch (ke->event.keycode) {
+								case 'q':
+									playing = 0;
+									break;
+								case KEY_ARROW_LEFT:
+									conx -= amount(ke);
+									needs_redraw = 1;
+									break;
+								case KEY_ARROW_RIGHT:
+									conx += amount(ke);
+									needs_redraw = 1;
+									break;
+								case KEY_ARROW_UP:
+									cony += amount(ke);
+									needs_redraw = 1;
+									break;
+								case KEY_ARROW_DOWN:
+									cony -= amount(ke);
+									needs_redraw = 1;
+									break;
+								case 'p':
+									next_palette();
+									needs_redraw = 1;
+									break;
+							}
 						}
 					}
 					break;
@@ -340,6 +442,12 @@ int main(int argc, char * argv[]) {
 			}
 			free(m);
 			m = yutani_poll_async(yctx);
+		}
+
+		if (needs_redraw) {
+			redraw();
+			yutani_flip(yctx, window);
+			needs_redraw = 0;
 		}
 	}
 
