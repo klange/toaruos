@@ -212,13 +212,15 @@ $(BASE)/lib/kuroko:
 	mkdir -p $@
 $(BASE)/usr/lib:
 	mkdir -p $@
+$(BASE)/usr/bin:
+	mkdir -p $@
 fatbase/efi/boot:
 	mkdir -p $@
 cdrom:
 	mkdir -p $@
 .make:
 	mkdir -p .make
-dirs: $(BASE)/dev $(BASE)/tmp $(BASE)/proc $(BASE)/bin $(BASE)/lib $(BASE)/cdrom $(BASE)/usr/lib $(BASE)/lib/kuroko cdrom $(BASE)/var fatbase/efi/boot .make $(BASE)/mod
+dirs: $(BASE)/dev $(BASE)/tmp $(BASE)/proc $(BASE)/bin $(BASE)/lib $(BASE)/cdrom $(BASE)/usr/lib $(BASE)/usr/bin $(BASE)/lib/kuroko cdrom $(BASE)/var fatbase/efi/boot .make $(BASE)/mod
 
 ifeq (,$(findstring clean,$(MAKECMDGOALS)))
 -include ${APPS_Y}
