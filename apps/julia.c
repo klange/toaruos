@@ -94,7 +94,7 @@ static uint32_t mix(uint32_t base, uint32_t mixer, float ratio) {
 static uint32_t wiki_palette(int k) {
 	double ratio = (double)k / (double)maxiter;
 
-	for (int i = 0; i < 4; ++i) {
+	for (int i = 0; i < 100; ++i) {
 		if (ratio <= 0.025) return mix(rgb(14,21,101), rgb(40,100,200), ratio / 0.025);
 		ratio -= 0.025;
 		ratio /= 0.975;
@@ -119,7 +119,7 @@ static uint32_t wiki_palette(int k) {
 		if (ratio <= 0.025) return mix(rgb(255,0,0), rgb(0,0,0), ratio / 0.025);
 		ratio -= 0.025;
 		ratio /= 0.975;
-		if (i < 3) {
+		if (i < 99) {
 			if (ratio <= 0.025) return mix(rgb(0,0,0), rgb(14,21,101), ratio / 0.025);
 			ratio -= 0.025;
 			ratio /= 0.975;
@@ -186,7 +186,7 @@ void usage(char * argv[]) {
 			"          [-X " T_I "maxx" T_N "] [-c " T_I "real" T_N "] [-C " T_I "imag" T_N "]\n"
 			"          [-W " T_I "width" T_N "] [-H " T_I "height" T_N "] [-h]\n"
 			"\n"
-			" -i --initializer " T_I "Initializer value" T_N "\n"
+			" -i --iterations  " T_I "Number of iterations to run" T_N "\n"
 			" -x --minx        " T_I "Minimum X value" T_N "\n"
 			" -X --maxx        " T_I "Maximum X value" T_N "\n"
 			" -c --creal       " T_I "Real component of c" T_N "\n"
