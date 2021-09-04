@@ -456,3 +456,16 @@ double frexp(double x, int *exp) {
 	memcpy(&out, &out_double, sizeof(double));
 	return out;
 }
+
+double cosh(double x) {
+	return (exp(x) + exp(-x)) / 2.0;
+}
+
+double sinh(double x) {
+	return (exp(x) - exp(-x)) / 2.0;
+}
+
+double tanh(double x) {
+	return (exp(2.0*x) - 1.0) / (exp(2.0*x) + 1.0);
+}
+

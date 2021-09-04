@@ -15,11 +15,6 @@ double asin(double x) {
 	return 0.0;
 }
 
-double cosh(double x) {
-	BAD;
-	return 0.0;
-}
-
 double ldexp(double a, int exp) {
 	double out = a;
 	while (exp) {
@@ -40,16 +35,6 @@ double log10(double x) {
 }
 
 double log2(double x) {
-	BAD;
-	return 0.0;
-}
-
-double sinh(double x) {
-	BAD;
-	return 0.0;
-}
-
-double tanh(double x) {
 	BAD;
 	return 0.0;
 }
