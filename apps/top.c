@@ -441,6 +441,8 @@ static int do_once(void) {
 
 	for (ent = 0; ent < count; ++i, ++ent) {
 		if (i < w.ws_row - current_row - 2) print_entry(processList[ent], w.ws_col);
+		if (processList[ent]->command_line) free(processList[ent]->command_line);
+		if (processList[ent]->process) free(processList[ent]->process);
 		free(processList[ent]);
 	}
 
@@ -449,7 +451,8 @@ static int do_once(void) {
 	}
 
 	free(processList);
-	free(process_ents->entries);
+
+	hashmap_free(process_ents);
 	free(process_ents);
 
 	struct pollfd fds[1];
