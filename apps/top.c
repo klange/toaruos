@@ -27,15 +27,8 @@
 
 #define LINE_LEN 4096
 
-static int show_all = 0;
-static int show_threads = 0;
-static int show_username = 0;
-static int show_mem = 0;
-static int show_cpu = 0;
-static int collect_commandline = 0;
-static int cpu_count = 1;
-
 enum header_columns {
+	COLUMN_NONE,
 	COLUMN_PID,
 	COLUMN_TID,
 	COLUMN_USER,
@@ -46,48 +39,197 @@ enum header_columns {
 	COLUMN_CPU
 };
 
-static int widths[] = {
-	[COLUMN_PID]  = 3,
-	[COLUMN_TID]  = 3,
-	[COLUMN_USER] = 4,
-	[COLUMN_VSZ]  = 3,
-	[COLUMN_SHM]  = 3,
-	[COLUMN_MEM]  = 4,
-	[COLUMN_CPUA] = 4,
-	[COLUMN_CPU]  = 4,
+static hashmap_t * process_ents = NULL;
+static int cpu_count = 1;
+static int sort_column = COLUMN_CPU;
+static int show_help = 0;
+
+static const char * help_text[] = {
+	"q: quit",
+	"w: switch sort column",
+	"h: show this help text",
+};
+
+enum {
+	FORMATTER_DECIMAL,
+	FORMATTER_PERCENT,
+	FORMATTER_STRING
+};
+
+enum {
+	SORT_ASC,
+	SORT_DEC
 };
 
 struct process {
-	int uid;
-	int pid;
-	int tid;
-	int mem;
-	int vsz;
-	int shm;
-	int cpu;
-	int cpua;
+	int uid, pid, tid, mem, vsz, shm, cpu, cpua;
+	char * user;
 	char * process;
 	char * command_line;
 };
 
-static hashmap_t * process_ents = NULL;
+struct columns {
+	const char * title;
+	intptr_t     member;
+	int          formatter;
+	int          width;
+	int          sort_order;
+} ColumnDescriptions[] = {
+	[COLUMN_NONE] = {"", 0, 0, 0, 0},
+	[COLUMN_PID]  = {"PID",  offsetof(struct process, pid),  FORMATTER_DECIMAL, 0, SORT_ASC},
+	[COLUMN_TID]  = {"TID",  offsetof(struct process, tid),  FORMATTER_DECIMAL, 0, SORT_ASC},
+	[COLUMN_VSZ]  = {"VSZ",  offsetof(struct process, vsz),  FORMATTER_DECIMAL, 0, SORT_DEC},
+	[COLUMN_SHM]  = {"SHM",  offsetof(struct process, shm),  FORMATTER_DECIMAL, 0, SORT_DEC},
+	[COLUMN_MEM]  = {"%MEM", offsetof(struct process, mem),  FORMATTER_PERCENT, 0, SORT_DEC},
+	[COLUMN_CPU]  = {"%CPU", offsetof(struct process, cpu),  FORMATTER_PERCENT, 0, SORT_DEC},
+	[COLUMN_CPUA] = {"CPUA", offsetof(struct process, cpua), FORMATTER_PERCENT, 0, SORT_DEC},
+	[COLUMN_USER] = {"USER", offsetof(struct process, user), FORMATTER_STRING,  0, SORT_ASC},
+};
 
-void print_username(int uid) {
-	struct passwd * p = getpwuid(uid);
+static int columns[] = { COLUMN_PID, COLUMN_USER, COLUMN_VSZ, COLUMN_SHM, COLUMN_CPU, COLUMN_CPUA, COLUMN_MEM, COLUMN_NONE };
 
-	if (p) {
-		printf("%-8s", p->pw_name);
-	} else {
-		printf("%-8d", uid);
+/**
+ * @brief Print a single column to stdout with the appropriate formatter.
+ */
+static int print_column(struct process * proc, int column_id) {
+	struct columns * column = &ColumnDescriptions[column_id];
+	switch (column->formatter) {
+		case FORMATTER_DECIMAL: {
+			int value = *(int*)((char *)proc + column->member);
+			return printf("%*d ", column->width, value);
+		}
+		case FORMATTER_PERCENT: {
+			int value = *(int*)((char *)proc + column->member);
+			return printf("%*d.%01d ", column->width - 2, value / 10, value % 10);
+		}
+		case FORMATTER_STRING: {
+			char * value = *(char**)((char *)proc + column->member);
+			return printf("%-*s ", column->width, value);
+		}
+		default: return 0;
 	}
-
-	endpwent();
 }
 
+/**
+ * @brief Calculate the size of a formatted column.
+ */
+static int size_column(struct process * proc, int column_id) {
+	char garbage[100];
+	struct columns * column = &ColumnDescriptions[column_id];
+	switch (column->formatter) {
+		case FORMATTER_DECIMAL: {
+			int value = *(int*)((char *)proc + column->member);
+			return snprintf(garbage, 100, "%d", value);
+		}
+		case FORMATTER_PERCENT: {
+			int value = *(int*)((char *)proc + column->member);
+			return snprintf(garbage, 100, "%d.%01d", value / 10, value % 10);
+		}
+		case FORMATTER_STRING: {
+			char * value = *(char**)((char *)proc + column->member);
+			return strlen(value);
+		}
+		default: return 0;
+	}
+}
+
+/**
+ * @brief Print the column headings.
+ */
+void print_header(void) {
+	printf("\033[44;30m");
+	for (int * c = columns; *c; ++c) {
+		if (*c == sort_column) printf("\033[97m");
+		printf("%*s ", ColumnDescriptions[*c].width, ColumnDescriptions[*c].title);
+		if (*c == sort_column) printf("\033[30m");
+	}
+	printf("CMD\033[K\033[0m\n");
+}
+
+/**
+ * @brief Reset column widths to the minimum required to fit their headings.
+ */
+void reset_column_widths(void) {
+	for (size_t i = 0; i < sizeof(ColumnDescriptions) / sizeof(*ColumnDescriptions); ++i) {
+		ColumnDescriptions[i].width = strlen(ColumnDescriptions[i].title);
+	}
+}
+
+/**
+ * @brief Print one entry to stdout with the appropriate formatter.
+ *
+ * @p out Process entry to print.
+ * @p width Total available screen width.
+ */
+void print_entry(struct process * out, int width) {
+	int used = 0;
+	for (int * c = columns; *c; ++c) {
+		if (*c == sort_column) printf("\033[1m");
+		used += print_column(out, *c);
+		if (*c == sort_column) printf("\033[0m");
+	}
+	printf("%.*s\033[K\n", width - used, out->command_line ? out->command_line : out->process);
+}
+
+/**
+ * @brief Given a process, expand any columns that need to be bigger to fit it.
+ */
+void update_column_widths(struct process * out) {
+	int len;
+	for (int * c = columns; *c; ++c) {
+		if ((len = size_column(out, *c)) > ColumnDescriptions[*c].width) ColumnDescriptions[*c].width = len;
+	}
+}
+
+/**
+ * @brief Free resources used by a process entry.
+ *
+ * Frees any strings allocated for the process, as well
+ * as the process struct itself.
+ */
+void free_entry(struct process * out) {
+	if (out->command_line) free(out->command_line);
+	if (out->process) free(out->process);
+	if (out->user) free(out->user);
+	free(out);
+}
+
+/**
+ * @brief Given a UID, get the username.
+ *
+ * Always returns a string that must be freed. If the uid
+ * could not be found in the passwd database, the uid itself
+ * is formatted as a string for display.
+ */
+char * format_username(int uid) {
+	static char tmp[100];
+	struct passwd * p = getpwuid(uid);
+	if (p) {
+		snprintf(tmp, 100, "%-8s", p->pw_name);
+	} else {
+		snprintf(tmp, 100, "%-8d", uid);
+	}
+	endpwent();
+	return strdup(tmp);
+}
+
+/**
+ * @brief Find a process from its pid.
+ *
+ * Used for looking up the main thread's process entry when
+ * collecting information for non-main threads, so we can
+ * sum up CPU usage, which is reported in procfs per-thread.
+ */
 struct process * process_from_pid(pid_t pid) {
 	return hashmap_get(process_ents, (void*)(uintptr_t)pid);
 }
 
+/**
+ * @brief Collect information for a process from its procfs entry.
+ *
+ * @p dent Directory entry from calling readdir on /proc.
+ * @returns Process information that must be freed by the caller.
+ */
 struct process * process_entry(struct dirent *dent) {
 	char tmp[300];
 	FILE * f;
@@ -129,7 +271,7 @@ struct process * process_entry(struct dirent *dent) {
 			mem = atoi(tab);
 		} else if (strstr(line, "CpuPermille:") == line) {
 			cpu = strtoul(tab, &tab, 10);
-			cpua = cpua;
+			cpua = cpu;
 			cpua += strtoul(tab, &tab, 10);
 			cpua += strtoul(tab, &tab, 10);
 			cpua += strtoul(tab, &tab, 10);
@@ -139,21 +281,14 @@ struct process * process_entry(struct dirent *dent) {
 
 	fclose(f);
 
-	if (!show_all) {
-		/* Filter not ours */
-		if (uid != getuid()) return NULL;
-	}
-
-	if (!show_threads) {
-		if (tgid != pid) {
-			/* Add this thread's CPU usage to the parent */
-			struct process * parent = process_from_pid(tgid);
-			if (parent) {
-				parent->cpu += cpu;
-				parent->cpua += cpua;
-			}
-			return NULL;
+	if (tgid != pid) {
+		/* Add this thread's CPU usage to the parent */
+		struct process * parent = process_from_pid(tgid);
+		if (parent) {
+			parent->cpu += cpu;
+			parent->cpua += cpua;
 		}
+		return NULL;
 	}
 
 	struct process * out = malloc(sizeof(struct process));
@@ -167,119 +302,63 @@ struct process * process_entry(struct dirent *dent) {
 	out->cpua = cpua;
 	out->process = strdup(name);
 	out->command_line = NULL;
+	out->user = format_username(out->uid);
 
 	hashmap_set(process_ents, (void*)(uintptr_t)pid, out);
 
-	char garbage[1024];
-	int len;
-
-#define DEC(col, member) if ((len = sprintf(garbage, "%d", out-> member)) > widths[col]) widths[col] = len;
-#define PCT(col, member) if ((len = sprintf(garbage, "%d.%01d", out-> member / 10, out-> member % 10)) > widths[col]) widths[col] = len;
-
-	DEC(COLUMN_PID, pid);
-	DEC(COLUMN_TID, tid);
-	DEC(COLUMN_VSZ, vsz);
-	DEC(COLUMN_SHM, shm);
-	PCT(COLUMN_MEM, mem);
-	PCT(COLUMN_CPU, cpu);
-	PCT(COLUMN_CPUA, cpua);
-
-	struct passwd * p = getpwuid(out->uid);
-	if (p) {
-		if ((len = strlen(p->pw_name)) > widths[2]) widths[2] = len;
-	} else {
-		if ((len = sprintf(garbage, "%d", out->uid)) > widths[2]) widths[2] = len;
-	}
-	endpwent();
-
-	if (collect_commandline) {
-		sprintf(tmp, "/proc/%s/cmdline", dent->d_name);
-		f = fopen(tmp, "r");
-		char foo[1024];
-		int s = fread(foo, 1, 1024, f);
-		if (s > 0) {
-			out->command_line = malloc(s + 1);
-			memset(out->command_line, 0, s + 1);
-			memcpy(out->command_line, foo, s);
-
-			for (int i = 0; i < s; ++i) {
-				if (out->command_line[i] == 30) {
-					out->command_line[i] = ' ';
-				}
+	sprintf(tmp, "/proc/%s/cmdline", dent->d_name);
+	f = fopen(tmp, "r");
+	char foo[1024];
+	int s = fread(foo, 1, 1024, f);
+	if (s > 0) {
+		out->command_line = malloc(s + 1);
+		memset(out->command_line, 0, s + 1);
+		memcpy(out->command_line, foo, s);
+		for (int i = 0; i < s; ++i) {
+			if (out->command_line[i] == 30) {
+				out->command_line[i] = ' ';
 			}
-
 		}
-		fclose(f);
 	}
+	fclose(f);
+
+	update_column_widths(out);
 
 	return out;
 }
 
-void print_header(void) {
-	printf("\033[7m");
-#define HEADER(col, title) printf("%*s ", widths[col], title)
-
-	HEADER(COLUMN_USER, "USER");
-	HEADER(COLUMN_PID,  "PID");
-	if (show_threads) HEADER(COLUMN_TID,  "TID");
-
-	HEADER(COLUMN_CPU,  "%CPU");
-	HEADER(COLUMN_CPUA, "ACPU");
-
-	HEADER(COLUMN_MEM,  "%MEM");
-	HEADER(COLUMN_VSZ,  "VSZ");
-	HEADER(COLUMN_SHM,  "SHM");
-
-	printf("CMD\033[K\033[0m\n");
-}
-
-void print_entry(struct process * out, int width) {
-	int used = 0;
-	if (show_username) {
-		struct passwd * p = getpwuid(out->uid);
-		if (p) {
-			used += printf("%-*s ", widths[2], p->pw_name);
-		} else {
-			used += printf("%-*d ", widths[2], out->uid);
-		}
-		endpwent();
-	}
-	used += printf("%*d ", widths[0], out->pid);
-	if (show_threads) {
-		used += printf("%*d ", widths[1], out->tid);
-	}
-	if (show_cpu) {
-		char tmp[10];
-		printf("\033[1m");
-		sprintf(tmp, "%*d.%01d", widths[6]-2, out->cpu / 10, out->cpu % 10);
-		used += printf("%*s ", widths[6], tmp);
-		printf("\033[0m");
-		sprintf(tmp, "%*d.%01d", widths[6]-2, out->cpua / 10, out->cpua % 10);
-		used += printf("%*s ", widths[6], tmp);
-	}
-	if (show_mem) {
-		char tmp[10];
-		sprintf(tmp, "%*d.%01d", widths[5]-2, out->mem / 10, out->mem % 10);
-		used += printf("%*s ", widths[5], tmp);
-		used += printf("%*d ", widths[3], out->vsz);
-		used += printf("%*d ", widths[4], out->shm);
-	}
-	int remaining = width - used;
-	if (out->command_line) {
-		remaining -= printf("%.*s", remaining, out->command_line);
-	} else {
-		remaining -= printf("%.*s", remaining, out->process);
-	}
-	printf("\033[K\n");
-}
-
+/**
+ * @brief Sort an array of process struct pointers using the
+ *        currently selected sort column.
+ */
 static int sort_processes(const void * a, const void * b) {
 	struct process * left  = *(struct process **)a;
 	struct process * right = *(struct process **)b;
 
-	return right->cpu - left->cpu;
+	struct columns * column = &ColumnDescriptions[sort_column];
+
+	switch (column->formatter) {
+		case FORMATTER_DECIMAL:
+		case FORMATTER_PERCENT: {
+			int a = *(int*)((char *)left + column->member);
+			int b = *(int*)((char *)right + column->member);
+			return (column->sort_order == SORT_ASC) ? (a - b) : (b - a);
+		}
+		case FORMATTER_STRING: {
+			char * a = *(char **)((char *)left + column->member);
+			char * b = *(char **)((char *)right + column->member);
+			return (column->sort_order == SORT_ASC) ? strcmp(a,b) : strcmp(b,a);
+		}
+		default: return 0;
+	}
 }
 
+/**
+ * @brief Collect memory usage information from /proc/meminfo
+ *
+ * @p total (out) Total memory available in KiB
+ * @p used  (out) In-use memory in KiB
+ */
 static void get_mem_info(int * total, int * used) {
 	FILE * f = fopen("/proc/meminfo", "r");
 	if (!f) return;
@@ -304,6 +383,40 @@ static void get_mem_info(int * total, int * used) {
 	fclose(f);
 }
 
+/**
+ * @brief Collect CPU usage information from /proc/idle
+ *
+ * @p cpus (out) Array of CPU usage in permilles.
+ */
+static void get_cpu_info(int cpus[]) {
+	FILE * f = fopen("/proc/idle","r");
+	char buf[4096];
+	fread(buf, 4096, 1, f);
+
+	char * buffer = buf;
+	for (int i = 0; i < cpu_count; ++i) {
+		char * a = strchr(buffer, ':');
+		a += 2;
+		char * b = strchr(a, ' ');
+		b++;
+
+		cpus[i] = 1000 - atoi(b);
+		if (cpus[i] < 0) cpus[i] = 0;
+		buffer = strchr(b, '\n');
+	}
+
+	fclose(f);
+}
+
+/**
+ * @brief Display a progress-bar-style usage meter.
+ *
+ * @p title Label to apply to the meter, shown on left.
+ * @p label Label to show inside of the meter, show on the right.
+ * @p width Available width to display the meter in, including title and frame.
+ * @p filled Value of the meter.
+ * @p maximum Maximum value of the meter.
+ */
 static void print_meter(const char * title, const char * label, int width, int filled, int maximum) {
 	if (filled < 0) filled = 0;
 	if (filled > maximum) filled = maximum;
@@ -332,33 +445,34 @@ static void print_meter(const char * title, const char * label, int width, int f
 	free(fill);
 }
 
-static void get_cpu_info(int cpus[]) {
-	FILE * f = fopen("/proc/idle","r");
-	char buf[4096];
-	fread(buf, 4096, 1, f);
-
-	char * buffer = buf;
-	for (int i = 0; i < cpu_count; ++i) {
-		char * a = strchr(buffer, ':');
-		a += 2;
-		char * b = strchr(a, ' ');
-		b++;
-
-		cpus[i] = 1000 - atoi(b);
-		if (cpus[i] < 0) cpus[i] = 0;
-		buffer = strchr(b, '\n');
+/**
+ * @brief Switch sorting to the next column.
+ */
+static void next_sort_order(void) {
+	for (int *c = columns; *c; ++c) {
+		if (*c == sort_column) {
+			if (*(c+1) == COLUMN_NONE) {
+				sort_column = *columns;
+			} else {
+				sort_column = *(c+1);
+			}
+			return;
+		}
 	}
-
-	fclose(f);
-
 }
 
+/**
+ * @brief Gather and display one round of data.
+ */
 static int do_once(void) {
+	/* Set minimum column widths to titles */
+	reset_column_widths();
+
 	/* Read the entries in the directory */
 	list_t * ents_list = list_create();
 	process_ents = hashmap_create_int(10);
 
-	/* Open the directory */
+	/* Scan /proc entries */
 	DIR * dirp = opendir("/proc");
 	struct dirent * dent = readdir(dirp);
 	while (dent != NULL) {
@@ -373,6 +487,7 @@ static int do_once(void) {
 	}
 	closedir(dirp);
 
+	/* Turn list into an array */
 	size_t count = ents_list->length;
 	struct process ** processList = malloc(sizeof(struct process*) * count);
 	size_t ent = 0;
@@ -382,28 +497,32 @@ static int do_once(void) {
 		free(node);
 		ent++;
 	}
-
 	free(ents_list);
 
-	/* Sort */
+	/* Sort processes with the current sort column */
 	qsort(processList, count, sizeof(struct process*), sort_processes);
 
-	struct winsize w;
-	ioctl(STDERR_FILENO, TIOCGWINSZ, &w);
-
-	printf("\033[H");
+	/* Gather total memory usage /proc/meminfo */
 	int mem_total = 0, mem_used = 0;
 	get_mem_info(&mem_total, &mem_used);
 
+	/* Gather per-CPU usage from /proc/idle */
 	int cpus[32];
 	get_cpu_info(cpus);
 
+	/* Gather screen size */
+	struct winsize w;
+	ioctl(STDERR_FILENO, TIOCGWINSZ, &w);
+
+	/* Figure out how we're going to lay out widgets */
 	int top_rows = 1 + cpu_count;
 	int meter_width = w.ws_col / 2;
 	int current_row = 0;
+	int left_side = 1;
+
+	/* Generate info rows */
 	int info_width = w.ws_col - meter_width;
 	char info_row[5][100] = {0};
-
 	int info_rows = 0;
 
 	if (info_width <= 30) {
@@ -433,8 +552,10 @@ static int do_once(void) {
 		}
 	}
 
-	int left_side = 1;
+	/* Reset cursor to upper left */
+	printf("\033[H");
 
+	/* Display CPU usage widgets */
 	for (int cpu = 0; cpu < cpu_count; ++cpu) {
 		char name[20], usage[30];
 		sprintf(name, "%3d", cpu + 1);
@@ -456,37 +577,47 @@ static int do_once(void) {
 		}
 	}
 
+	/* Display memory usage widget */
 	char memUsed[30];
 	sprintf(memUsed, "%dM/%dM", mem_used / 1024, mem_total / 1024);
 	print_meter("Mem", memUsed, left_side ? meter_width : info_width, mem_used, mem_total);
-
 	if (left_side && current_row < info_rows) {
 		printf("%s", info_row[current_row]);
 	}
 	current_row++;
-
 	printf("\033[K\n");
 
+	/* Show column headers */
 	print_header();
-
 	int i = 0;
 
-	for (ent = 0; ent < count; ++i, ++ent) {
-		if (i < w.ws_row - current_row - 2) print_entry(processList[ent], w.ws_col);
-		if (processList[ent]->command_line) free(processList[ent]->command_line);
-		if (processList[ent]->process) free(processList[ent]->process);
-		free(processList[ent]);
+	/* Print entries, or help text lines */
+	if (show_help) {
+		for (ent = 0; ent < sizeof(help_text) / sizeof(*help_text); ++i, ++ent) {
+			if (i >= w.ws_row - current_row - 2) break;
+			printf("%*s\033[K\n", (int)w.ws_col, help_text[ent]);
+		}
+	} else {
+		for (ent = 0; ent < count; ++i, ++ent) {
+			if (i >= w.ws_row - current_row - 2) break;
+			print_entry(processList[ent], w.ws_col);
+		}
 	}
 
+	/* Clear remaining screen lines */
 	for (; i < w.ws_row - current_row - 2; ++i) {
 		printf("\033[K\n");
 	}
 
+	/* Clean up process data from this round */
+	for (ent = 0; ent < count; ++ent) {
+		free_entry(processList[ent]);
+	}
 	free(processList);
-
 	hashmap_free(process_ents);
 	free(process_ents);
 
+	/* Wait for command or 2 seconds for next refresh... */
 	struct pollfd fds[1];
 	fds[0].fd = STDIN_FILENO;
 	fds[0].events = POLLIN;
@@ -494,6 +625,8 @@ static int do_once(void) {
 	if (ret > 0 && fds[0].revents & POLLIN) {
 		int c = fgetc(stdin);
 		if (c == 'q') return 0;
+		if (c == 'w') next_sort_order();
+		if (c == 'h') show_help = !show_help;
 	}
 
 	return 1;
@@ -504,32 +637,37 @@ void get_initial_termios(void) {
 	tcgetattr(STDOUT_FILENO, &old);
 }
 
+/**
+ * @brief Switch to alt screen, turn on raw input.
+ */
 void set_unbuffered(void) {
 	struct termios new = old;
 	new.c_iflag &= (~ICRNL) & (~IXON);
-	new.c_lflag &= (~ICANON) & (~ECHO) & (~ISIG);
+	new.c_lflag &= (~ICANON) & (~ECHO);
 	tcsetattr(STDOUT_FILENO, TCSAFLUSH, &new);
 	printf("\033[?1049h\033[?25l\033[H\033[2J");
 }
 
+/**
+ * @brief Switch to main screen, re-enable buffering.
+ */
 void set_buffered(void) {
 	printf("\033[H\033[2J\033[?25h\033[?1049l");
 	tcsetattr(STDOUT_FILENO, TCSAFLUSH, &old);
 }
 
 int main (int argc, char * argv[]) {
-	show_all = 1;
-	show_threads = 0;
-	show_cpu = 1;
-	show_mem = 1;
-	show_username = 1;
-	collect_commandline = 1;
-
+	/* Assume CPU count doesn't change... */
 	cpu_count = sysfunc(TOARU_SYS_FUNC_NPROC, NULL);
 
+	/* Initialize terminal for alt screen */
 	get_initial_termios();
 	set_unbuffered();
+
+	/* Loop */
 	while (do_once());
+
+	/* Reset terminal */
 	set_buffered();
 
 	return 0;
