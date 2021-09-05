@@ -172,8 +172,6 @@ struct ProcessorLocal {
 	int cpu_id;
 	union PML * current_pml;
 
-	int idle_time;
-
 	struct regs * interrupt_registers;
 
 #ifdef __x86_64__

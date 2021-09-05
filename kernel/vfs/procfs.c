@@ -648,15 +648,17 @@ static ssize_t pci_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buf
 }
 #endif
 
-static ssize_t smp_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t idle_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	char * buf = malloc(4096);
 	unsigned int soffset = 0;
 
 	for (int i = 0; i < processor_count; ++i) {
-		soffset += snprintf(&buf[soffset], 100, "%d: %d %d\n",
+		soffset += snprintf(&buf[soffset], 100, "%d: %4d %4d %d %4d\n",
 			i,
-			processor_local_data[i].current_process->id,
-			processor_local_data[i].idle_time
+			processor_local_data[i].kernel_idle_task->usage[0],
+			processor_local_data[i].kernel_idle_task->usage[1],
+			processor_local_data[i].kernel_idle_task->usage[2],
+			processor_local_data[i].kernel_idle_task->usage[3]
 		);
 	}
 
@@ -683,7 +685,7 @@ static struct procfs_entry std_entries[] = {
 	{-8, "modules",  modules_func},
 	{-9, "filesystems", filesystems_func},
 	{-10,"loader",   loader_func},
-	{-11,"smp",      smp_func},
+	{-11,"idle",     idle_func},
 #ifdef __x86_64__
 	{-12,"irq",      irq_func},
 	{-13,"pat",      pat_func},

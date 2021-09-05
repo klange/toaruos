@@ -35,7 +35,27 @@ static int show_cpu = 0;
 static int collect_commandline = 0;
 static int cpu_count = 1;
 
-static int widths[] = {3,3,4,3,3,4,4};
+enum header_columns {
+	COLUMN_PID,
+	COLUMN_TID,
+	COLUMN_USER,
+	COLUMN_VSZ,
+	COLUMN_SHM,
+	COLUMN_MEM,
+	COLUMN_CPUA,
+	COLUMN_CPU
+};
+
+static int widths[] = {
+	[COLUMN_PID]  = 3,
+	[COLUMN_TID]  = 3,
+	[COLUMN_USER] = 4,
+	[COLUMN_VSZ]  = 3,
+	[COLUMN_SHM]  = 3,
+	[COLUMN_MEM]  = 4,
+	[COLUMN_CPUA] = 4,
+	[COLUMN_CPU]  = 4,
+};
 
 struct process {
 	int uid;
@@ -45,6 +65,7 @@ struct process {
 	int vsz;
 	int shm;
 	int cpu;
+	int cpua;
 	char * process;
 	char * command_line;
 };
@@ -72,7 +93,7 @@ struct process * process_entry(struct dirent *dent) {
 	FILE * f;
 	char line[LINE_LEN];
 
-	int pid = 0, uid = 0, tgid = 0, mem = 0, shm = 0, vsz = 0, cpu = 0;
+	int pid = 0, uid = 0, tgid = 0, mem = 0, shm = 0, vsz = 0, cpu = 0, cpua = 0;
 	char name[100];
 
 	sprintf(tmp, "/proc/%s/status", dent->d_name);
@@ -108,10 +129,11 @@ struct process * process_entry(struct dirent *dent) {
 			mem = atoi(tab);
 		} else if (strstr(line, "CpuPermille:") == line) {
 			cpu = strtoul(tab, &tab, 10);
-			cpu += strtoul(tab, &tab, 10);
-			cpu += strtoul(tab, &tab, 10);
-			cpu += strtoul(tab, &tab, 10);
-			cpu /= 4;
+			cpua = cpua;
+			cpua += strtoul(tab, &tab, 10);
+			cpua += strtoul(tab, &tab, 10);
+			cpua += strtoul(tab, &tab, 10);
+			cpua /= 4;
 		}
 	}
 
@@ -128,6 +150,7 @@ struct process * process_entry(struct dirent *dent) {
 			struct process * parent = process_from_pid(tgid);
 			if (parent) {
 				parent->cpu += cpu;
+				parent->cpua += cpua;
 			}
 			return NULL;
 		}
@@ -141,6 +164,7 @@ struct process * process_entry(struct dirent *dent) {
 	out->shm = shm;
 	out->vsz = vsz;
 	out->cpu = cpu;
+	out->cpua = cpua;
 	out->process = strdup(name);
 	out->command_line = NULL;
 
@@ -149,12 +173,16 @@ struct process * process_entry(struct dirent *dent) {
 	char garbage[1024];
 	int len;
 
-	if ((len = sprintf(garbage, "%d", out->pid)) > widths[0]) widths[0] = len;
-	if ((len = sprintf(garbage, "%d", out->tid)) > widths[1]) widths[1] = len;
-	if ((len = sprintf(garbage, "%d", out->vsz)) > widths[3]) widths[3] = len;
-	if ((len = sprintf(garbage, "%d", out->shm)) > widths[4]) widths[4] = len;
-	if ((len = sprintf(garbage, "%d.%01d", out->mem / 10, out->mem % 10)) > widths[5]) widths[5] = len;
-	if ((len = sprintf(garbage, "%d.%01d", out->cpu / 10, out->cpu % 10)) > widths[6]) widths[6] = len;
+#define DEC(col, member) if ((len = sprintf(garbage, "%d", out-> member)) > widths[col]) widths[col] = len;
+#define PCT(col, member) if ((len = sprintf(garbage, "%d.%01d", out-> member / 10, out-> member % 10)) > widths[col]) widths[col] = len;
+
+	DEC(COLUMN_PID, pid);
+	DEC(COLUMN_TID, tid);
+	DEC(COLUMN_VSZ, vsz);
+	DEC(COLUMN_SHM, shm);
+	PCT(COLUMN_MEM, mem);
+	PCT(COLUMN_CPU, cpu);
+	PCT(COLUMN_CPUA, cpua);
 
 	struct passwd * p = getpwuid(out->uid);
 	if (p) {
@@ -189,21 +217,19 @@ struct process * process_entry(struct dirent *dent) {
 
 void print_header(void) {
 	printf("\033[7m");
-	if (show_username) {
-		printf("%-*s ", widths[2], "USER");
-	}
-	printf("%*s ", widths[0], "PID");
-	if (show_threads) {
-		printf("%*s ", widths[1], "TID");
-	}
-	if (show_cpu) {
-		printf("%*s ", widths[6], "%CPU");
-	}
-	if (show_mem) {
-		printf("%*s ", widths[5], "%MEM");
-		printf("%*s ", widths[3], "VSZ");
-		printf("%*s ", widths[4], "SHM");
-	}
+#define HEADER(col, title) printf("%*s ", widths[col], title)
+
+	HEADER(COLUMN_USER, "USER");
+	HEADER(COLUMN_PID,  "PID");
+	if (show_threads) HEADER(COLUMN_TID,  "TID");
+
+	HEADER(COLUMN_CPU,  "%CPU");
+	HEADER(COLUMN_CPUA, "ACPU");
+
+	HEADER(COLUMN_MEM,  "%MEM");
+	HEADER(COLUMN_VSZ,  "VSZ");
+	HEADER(COLUMN_SHM,  "SHM");
+
 	printf("CMD\033[K\033[0m\n");
 }
 
@@ -228,6 +254,8 @@ void print_entry(struct process * out, int width) {
 		sprintf(tmp, "%*d.%01d", widths[6]-2, out->cpu / 10, out->cpu % 10);
 		used += printf("%*s ", widths[6], tmp);
 		printf("\033[0m");
+		sprintf(tmp, "%*d.%01d", widths[6]-2, out->cpua / 10, out->cpua % 10);
+		used += printf("%*s ", widths[6], tmp);
 	}
 	if (show_mem) {
 		char tmp[10];
@@ -305,7 +333,7 @@ static void print_meter(const char * title, const char * label, int width, int f
 }
 
 static void get_cpu_info(int cpus[]) {
-	FILE * f = fopen("/proc/smp","r");
+	FILE * f = fopen("/proc/idle","r");
 	char buf[4096];
 	fread(buf, 4096, 1, f);
 
