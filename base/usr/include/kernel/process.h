@@ -129,7 +129,7 @@ typedef struct process {
 	uint64_t time_switch; /* tsc stamp of when this process last started doing system things */
 	uint64_t time_children;
 	uint64_t time_sys_children;
-	int usage;
+	uint16_t usage[4];
 } process_t;
 
 typedef struct {

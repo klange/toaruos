@@ -1344,15 +1344,21 @@ void update_process_usage(uint64_t clock_ticks, uint64_t perf_scale) {
 	spin_lock(tree_lock);
 	foreach(lnode, process_list) {
 		process_t * proc = lnode->value;
-		proc->usage = (1000 * (proc->time_total - proc->time_prev)) / (clock_ticks * perf_scale);
+		proc->usage[3] = proc->usage[2];
+		proc->usage[2] = proc->usage[1];
+		proc->usage[1] = proc->usage[0];
+		proc->usage[0] = (1000 * (proc->time_total - proc->time_prev)) / (clock_ticks * perf_scale);
 		proc->time_prev = proc->time_total;
 	}
 	spin_unlock(tree_lock);
 	/* Now use idle tasks to calculator processor activity? */
 	for (int i = 0; i < processor_count; ++i) {
 		process_t * proc = processor_local_data[i].kernel_idle_task;
-		proc->usage = (1000 * (proc->time_total - proc->time_prev)) / (clock_ticks * perf_scale);
+		proc->usage[3] = proc->usage[2];
+		proc->usage[2] = proc->usage[1];
+		proc->usage[1] = proc->usage[0];
+		proc->usage[0] = (1000 * (proc->time_total - proc->time_prev)) / (clock_ticks * perf_scale);
 		proc->time_prev = proc->time_total;
-		processor_local_data[i].idle_time = proc->usage;
+		processor_local_data[i].idle_time = (proc->usage[0] + proc->usage[1] + proc->usage[2] + proc->usage[3]) / 4;
 	}
 }

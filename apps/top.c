@@ -107,7 +107,11 @@ struct process * process_entry(struct dirent *dent) {
 		} else if (strstr(line, "MemPermille:") == line) {
 			mem = atoi(tab);
 		} else if (strstr(line, "CpuPermille:") == line) {
-			cpu = atoi(tab);
+			cpu = strtoul(tab, &tab, 10);
+			cpu += strtoul(tab, &tab, 10);
+			cpu += strtoul(tab, &tab, 10);
+			cpu += strtoul(tab, &tab, 10);
+			cpu /= 4;
 		}
 	}
 
@@ -458,7 +462,7 @@ static int do_once(void) {
 	struct pollfd fds[1];
 	fds[0].fd = STDIN_FILENO;
 	fds[0].events = POLLIN;
-	int ret = poll(fds,1,1000);
+	int ret = poll(fds,1,2000);
 	if (ret > 0 && fds[0].revents & POLLIN) {
 		int c = fgetc(stdin);
 		if (c == 'q') return 0;
