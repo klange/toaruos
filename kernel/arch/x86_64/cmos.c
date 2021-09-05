@@ -249,7 +249,7 @@ int cmos_time_stuff(struct regs *r) {
 	wakeup_sleepers(timer_ticks, timer_subticks);
 	irq_ack(0);
 
-	if (time_slice_basis + SUBSECONDS_PER_SECOND <= clock_ticks) {
+	if (time_slice_basis + SUBSECONDS_PER_SECOND/4 <= clock_ticks) {
 		update_process_usage(clock_ticks - time_slice_basis, tsc_mhz);
 		time_slice_basis = clock_ticks;
 	}
