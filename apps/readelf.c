@@ -407,7 +407,7 @@ static int usage(char * argv[]) {
 		"  -h --file-header     Display the ELF file header\n"
 		"  -l --program-headers Display the program headers\n"
 		"  -S --section-headers Display the section headers\n"
-		"  -h --headers         Equivalent to -h -l -S\n"
+		"  -e --headers         Equivalent to -h -l -S\n"
 		"  -s --syms            Display symbol able\n"
 		"  -d --dynamic         Display dynamic section\n"
 		"  -r --relocs          Display relocations\n"
