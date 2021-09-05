@@ -395,11 +395,8 @@ static void get_cpu_info(int cpus[]) {
 
 	char * buffer = buf;
 	for (int i = 0; i < cpu_count; ++i) {
-		char * a = strchr(buffer, ':');
-		a += 2;
-		char * b = strchr(a, ' ');
+		char * b = strchr(buffer, ':');
 		b++;
-
 		cpus[i] = 1000 - atoi(b);
 		if (cpus[i] < 0) cpus[i] = 0;
 		buffer = strchr(b, '\n');

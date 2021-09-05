@@ -653,7 +653,7 @@ static ssize_t idle_func(fs_node_t *node, off_t offset, size_t size, uint8_t *bu
 	unsigned int soffset = 0;
 
 	for (int i = 0; i < processor_count; ++i) {
-		soffset += snprintf(&buf[soffset], 100, "%d: %4d %4d %d %4d\n",
+		soffset += snprintf(&buf[soffset], 100, "%d: %4d %4d %4d %4d\n",
 			i,
 			processor_local_data[i].kernel_idle_task->usage[0],
 			processor_local_data[i].kernel_idle_task->usage[1],
