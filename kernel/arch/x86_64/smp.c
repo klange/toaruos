@@ -10,6 +10,7 @@
 #include <kernel/printf.h>
 #include <kernel/misc.h>
 #include <kernel/args.h>
+#include <kernel/multiboot.h>
 #include <kernel/arch/x86_64/acpi.h>
 #include <kernel/arch/x86_64/mmu.h>
 
@@ -186,9 +187,17 @@ void lapic_send_ipi(int i, uint32_t val) {
 
 void smp_initialize(void) {
 	/* Locate ACPI tables */
-	uintptr_t scan;
+	uintptr_t scan = 0xE0000;
+	uintptr_t scan_top = 0x100000;
 	int good = 0;
-	for (scan = 0x000E0000; scan < 0x00100000; scan += 16) {
+
+	extern struct multiboot * mboot_struct;
+	if (mboot_struct->config_table) {
+		scan = mboot_struct->config_table;
+		scan_top = scan + 0x100000;
+	}
+
+	for (; scan < scan_top; scan += 16) {
 		char * _scan = mmu_map_from_physical(scan);
 		if (_scan[0] == 'R' &&
 			_scan[1] == 'S' &&
@@ -209,10 +218,10 @@ void smp_initialize(void) {
 		return;
 	}
 
-	struct rsdp_descriptor * rsdp = (struct rsdp_descriptor *)scan;
+	struct rsdp_descriptor * rsdp = (struct rsdp_descriptor *)mmu_map_from_physical(scan);
 	uint8_t check = 0;
 	uint8_t * tmp;
-	for (tmp = (uint8_t *)scan; (uintptr_t)tmp < scan + sizeof(struct rsdp_descriptor); tmp++) {
+	for (tmp = (uint8_t *)rsdp; (uintptr_t)tmp < (uintptr_t)rsdp + sizeof(struct rsdp_descriptor); tmp++) {
 		check += *tmp;
 	}
 	if (check != 0 && !args_present("noacpichecksum")) {
