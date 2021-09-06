@@ -41,6 +41,7 @@ extern void portio_initialize(void);
 extern void ps2hid_install(void);
 extern void serial_initialize(void);
 extern void fbterm_initialize(void);
+extern void pci_remap(void);
 
 #define EARLY_LOG_DEVICE 0x3F8
 static size_t _early_log_write(size_t size, uint8_t * buffer) {
@@ -285,6 +286,9 @@ int kmain(struct multiboot * mboot, uint32_t mboot_mag, void* esp) {
 
 	/* Set up preempt source */
 	pit_initialize();
+
+	/* Handle PIRQ remapping if necessary */
+	pci_remap();
 
 	/* Install generic PC device drivers. */
 	ps2hid_install();

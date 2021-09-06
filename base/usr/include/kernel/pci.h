@@ -23,6 +23,7 @@
 #define PCI_BAR5                 0x24 // 4
 
 #define PCI_INTERRUPT_LINE       0x3C // 1
+#define PCI_INTERRUPT_PIN        0x3D
 
 #define PCI_SECONDARY_BUS        0x19 // 1
 
