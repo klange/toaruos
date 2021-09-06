@@ -40,8 +40,8 @@ static int decor_height = 0;
 
 
 /* Julia fractals elements */
-float conx = -0.74;  /* real part of c */
-float cony = 0.1;    /* imag part of c */
+float conx = -0.752;  /* real part of c */
+float cony = 0.117;    /* imag part of c */
 float Maxx = 2;      /* X bounds */
 float Minx = -2;
 float Maxy = 1;      /* Y bounds */
@@ -129,10 +129,10 @@ static uint32_t wiki_palette(int k) {
 }
 
 static uint32_t (*palette_funcs[])(int) = {
+	wiki_palette,
 	hue_palette,
 	rhue_palette,
 	bnw_palette,
-	wiki_palette,
 };
 
 static int current_palette = 0;
