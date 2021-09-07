@@ -785,7 +785,7 @@ void draw_sprite_alpha(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, 
 	int32_t _top    = max(y, 0);
 	int32_t _right  = min(x + sprite->width,  ctx->width - 1);
 	int32_t _bottom = min(y + sprite->height, ctx->height - 1);
-	sprite_t * scanline = create_sprite(_right - _left, 1, ALPHA_EMBEDDED);
+	sprite_t * scanline = create_sprite(_right - _left + 1, 1, ALPHA_EMBEDDED);
 	uint8_t alp = alpha * 255;
 
 	for (uint16_t _y = 0; _y < sprite->height; ++_y) {
