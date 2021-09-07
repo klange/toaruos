@@ -939,6 +939,7 @@ static int mkdir_ext2(fs_node_t * parent, char * name, mode_t permission) {
 	if (!name) return -EINVAL;
 
 	ext2_fs_t * this = parent->device;
+	if (!(this->flags & EXT2_FLAG_READWRITE)) return -EROFS;
 
 	/* first off, check if it exists */
 	fs_node_t * check = finddir_ext2(parent, name);
@@ -1034,6 +1035,7 @@ static int create_ext2(fs_node_t * parent, char * name, mode_t permission) {
 	if (!name) return -EINVAL;
 
 	ext2_fs_t * this = parent->device;
+	if (!(this->flags & EXT2_FLAG_READWRITE)) return -EROFS;
 
 	/* first off, check if it exists */
 	fs_node_t * check = finddir_ext2(parent, name);
@@ -1094,6 +1096,7 @@ static int create_ext2(fs_node_t * parent, char * name, mode_t permission) {
 
 static int chmod_ext2(fs_node_t * node, mode_t mode) {
 	ext2_fs_t * this = node->device;
+	if (!(this->flags & EXT2_FLAG_READWRITE)) return -EROFS;
 
 	ext2_inodetable_t * inode = read_inode(this,node->inode);
 
@@ -1213,6 +1216,7 @@ static fs_node_t * finddir_ext2(fs_node_t *node, char *name) {
 static int unlink_ext2(fs_node_t * node, char * name) {
 	/* XXX this is a very bad implementation */
 	ext2_fs_t * this = (ext2_fs_t *)node->device;
+	if (!(this->flags & EXT2_FLAG_READWRITE)) return -EROFS;
 
 	ext2_inodetable_t *inode = read_inode(this,node->inode);
 	//assert(inode->mode & EXT2_S_IFDIR);
@@ -1387,6 +1391,8 @@ static ssize_t write_inode_buffer(ext2_fs_t * this, ext2_inodetable_t * inode, u
 
 static ssize_t write_ext2(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	ext2_fs_t * this = (ext2_fs_t *)node->device;
+	if (!(this->flags & EXT2_FLAG_READWRITE)) return -EROFS;
+
 	ext2_inodetable_t * inode = read_inode(this, node->inode);
 
 	ssize_t rv = write_inode_buffer(this, inode, node->inode, offset, size, buffer);
@@ -1396,6 +1402,8 @@ static ssize_t write_ext2(fs_node_t *node, off_t offset, size_t size, uint8_t *b
 
 static int truncate_ext2(fs_node_t * node) {
 	ext2_fs_t * this = node->device;
+	if (!(this->flags & EXT2_FLAG_READWRITE)) return -EROFS;
+
 	ext2_inodetable_t * inode = read_inode(this,node->inode);
 	inode->size = 0;
 	write_inode(this, inode, node->inode);
@@ -1438,6 +1446,7 @@ static int symlink_ext2(fs_node_t * parent, char * target, char * name) {
 	if (!name) return -EINVAL;
 
 	ext2_fs_t * this = parent->device;
+	if (!(this->flags & EXT2_FLAG_READWRITE)) return -EROFS;
 
 	/* first off, check if it exists */
 	fs_node_t * check = finddir_ext2(parent, name);
@@ -1550,8 +1559,8 @@ static int node_from_file(ext2_fs_t * this, ext2_inodetable_t *inode, ext2_dir_t
 	if ((inode->mode & EXT2_S_IFREG) == EXT2_S_IFREG) {
 		fnode->flags   |= FS_FILE;
 		fnode->read     = read_ext2;
-		fnode->write    = (this->flags & EXT2_FLAG_READWRITE) ? write_ext2 : NULL;
-		fnode->truncate = (this->flags & EXT2_FLAG_READWRITE) ? truncate_ext2 : NULL;
+		fnode->write    = write_ext2;
+		fnode->truncate = truncate_ext2;
 		fnode->create   = NULL;
 		fnode->mkdir    = NULL;
 		fnode->readdir  = NULL;
@@ -1561,10 +1570,10 @@ static int node_from_file(ext2_fs_t * this, ext2_inodetable_t *inode, ext2_dir_t
 	}
 	if ((inode->mode & EXT2_S_IFDIR) == EXT2_S_IFDIR) {
 		fnode->flags   |= FS_DIRECTORY;
-		fnode->create   = (this->flags & EXT2_FLAG_READWRITE) ? create_ext2 : NULL;
-		fnode->mkdir    = (this->flags & EXT2_FLAG_READWRITE) ? mkdir_ext2 : NULL;
-		fnode->unlink   = (this->flags & EXT2_FLAG_READWRITE) ? unlink_ext2 : NULL;
-		fnode->symlink  = (this->flags & EXT2_FLAG_READWRITE) ? symlink_ext2 : NULL;
+		fnode->create   = create_ext2;
+		fnode->mkdir    = mkdir_ext2;
+		fnode->unlink   = unlink_ext2;
+		fnode->symlink  = symlink_ext2;
 		fnode->readdir  = readdir_ext2;
 		fnode->finddir  = finddir_ext2;
 		fnode->write    = NULL;
@@ -1594,7 +1603,7 @@ static int node_from_file(ext2_fs_t * this, ext2_inodetable_t *inode, ext2_dir_t
 	fnode->mtime   = inode->mtime;
 	fnode->ctime   = inode->ctime;
 
-	fnode->chmod   = (this->flags & EXT2_FLAG_READWRITE) ? chmod_ext2 : NULL;
+	fnode->chmod   = chmod_ext2;
 	fnode->open    = open_ext2;
 	fnode->close   = close_ext2;
 	fnode->ioctl   = NULL;
