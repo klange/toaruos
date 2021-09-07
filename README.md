@@ -79,7 +79,7 @@ In an indeterminate order, the C library, kernel, userspace librares and applica
 
 - **apps** - Userspace applications, all first-party.
 - **base** - Ramdisk root filesystem staging directory. Includes C headers in `base/usr/include`, as well as graphical resources for the compositor and window decorator.
-- **boot** - Legacy BIOS loader.
+- **boot** - BIOS and EFI loader with interactive menus.
 - **build** - Auxiliary build scripts for future platform ports.
 - **kernel** - The Misaka kernel.
 - **kuroko** - Submodule checkout of the Kuroko interpreter.
@@ -102,7 +102,7 @@ qemu-system-x86_64 -M q35 -enable-kvm -m 1G -soundhw ac97 -cdrom image.iso
 
 The legacy BIOS loader has been tested in VirtualBox and VMWare. For both, set up a virtual machine with an "Other (64-bit)" guest OS and attach the CD image. A least 32MB of display memory and 1GB of RAM are recommended. Some hardware configurations may not be supported.
 
-For testing with EFI systems or on real hardware, [GRUB is recommended](https://github.com/klange/toaruos-grub/tree/misaka) until the native EFI loader is rewritten.
+EFI systems are also supported, though the EFI loader remains experimental. ToaruOS can also be booted in Multiboot-compatible loaders, such as [GRUB](https://github.com/klange/toaruos-grub/tree/misaka).
 
 ## Community
 
