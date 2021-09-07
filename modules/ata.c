@@ -195,6 +195,7 @@ static void ata_device_write_sector_retry(struct ata_device * dev, uint64_t lba,
 
 static off_t ata_max_offset(struct ata_device * dev) {
 	uint64_t sectors = dev->identity.sectors_48;
+	
 	if (!sectors) {
 		/* Fall back to sectors_28 */
 		sectors = dev->identity.sectors_28;
@@ -658,14 +659,17 @@ static int ata_device_detect(struct ata_device * dev) {
 	if ((cl == 0x00 && ch == 0x00) ||
 	    (cl == 0x3C && ch == 0xC3)) {
 		/* Parallel ATA device, or emulated SATA */
+		ata_device_init(dev);
+
 		off_t sectors = ata_max_offset(dev);
-		if (sectors == 0) return 0;
+		if (sectors == 0) {
+			return 0;
+		}
 
 		char devname[64];
 		snprintf((char *)&devname, 20, "/dev/hd%c", ata_drive_char);
 		fs_node_t * node = ata_device_create(dev);
 		vfs_mount(devname, node);
-		ata_device_init(dev);
 		node->length  = sectors;
 
 		ata_drive_char++;
