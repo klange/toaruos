@@ -7,6 +7,7 @@
 #include "elf.h"
 #include "options.h"
 #include "iso9660.h"
+#include "kbd.h"
 
 char * kernel_load_start = 0;
 
@@ -14,7 +15,7 @@ mboot_mod_t modules_mboot[1] = {
 	{0,0,0,1}
 };
 
-struct multiboot multiboot_header = {
+static struct multiboot multiboot_header = {
 	/* flags;             */ MULTIBOOT_FLAG_CMDLINE | MULTIBOOT_FLAG_MODS | MULTIBOOT_FLAG_MEM | MULTIBOOT_FLAG_MMAP | MULTIBOOT_FLAG_LOADER,
 	/* mem_lower;         */ 0x100000,
 	/* mem_upper;         */ 0x640000,
@@ -43,22 +44,8 @@ struct multiboot multiboot_header = {
 
 static uintptr_t ramdisk_off = 0;
 static uintptr_t ramdisk_len = 0;
-
-uint32_t _eax = 1;
-uint32_t _ebx = 1;
-uint32_t _xmain = 1;
-
-struct mmap_entry {
-	uint64_t base;
-	uint64_t len;
-	uint32_t type;
-	uint32_t reserved;
-};
-
-extern unsigned short mmap_ent;
-extern unsigned short lower_mem;
-
 uintptr_t final_offset = 0;
+uintptr_t _xmain = 0;
 
 static int load_kernel(void) {
 	clear();
@@ -95,19 +82,452 @@ static int load_kernel(void) {
 	return 1;
 }
 
-static void relocate_ramdisk(void) {
+static void relocate_ramdisk(mboot_mod_t * mboot_mods) {
 	char * dest = (char*)final_offset;
 	char * src  = (char*)ramdisk_off;
 	for (size_t s = 0; s < ramdisk_len; ++s) {
 		dest[s] = src[s];
 	}
 
-	modules_mboot[0].mod_start = final_offset;
-	modules_mboot[0].mod_end   = final_offset + ramdisk_len;
+	mboot_mods->mod_start = final_offset;
+	mboot_mods->mod_end   = final_offset + ramdisk_len;
 
 	final_offset += ramdisk_len;
 	final_offset = (final_offset & ~(0xFFF)) + ((final_offset & 0xFFF) ? 0x1000 : 0);
 }
+
+#ifdef EFI_PLATFORM
+#include <efi.h>
+extern EFI_GRAPHICS_OUTPUT_PROTOCOL * GOP;
+
+/* EFI boot uses simple filesystem driver */
+static EFI_GUID efi_simple_file_system_protocol_guid =
+	{0x0964e5b22,0x6459,0x11d2,0x8e,0x39,0x00,0xa0,0xc9,0x69,0x72,0x3b};
+
+static EFI_GUID efi_loaded_image_protocol_guid =
+	{0x5B1B31A1,0x9562,0x11d2, {0x8E,0x3F,0x00,0xA0,0xC9,0x69,0x72,0x3B}};
+
+extern EFI_SYSTEM_TABLE *ST;
+extern EFI_HANDLE ImageHandleIn;
+
+extern char do_the_nasty[];
+static void finish_boot(void) {
+	/* Set up multiboot header */
+	struct multiboot * finalHeader = (void*)(uintptr_t)final_offset;
+	memcpy((void*)final_offset, &multiboot_header, sizeof(struct multiboot));
+	final_offset += sizeof(struct multiboot);
+
+	finalHeader->flags |= MULTIBOOT_FLAG_FB;
+	finalHeader->framebuffer_addr = GOP->Mode->FrameBufferBase;
+	finalHeader->framebuffer_pitch = GOP->Mode->Info->PixelsPerScanLine * 4;
+	finalHeader->framebuffer_width = GOP->Mode->Info->HorizontalResolution;
+	finalHeader->framebuffer_height = GOP->Mode->Info->VerticalResolution;
+	finalHeader->framebuffer_bpp  = 32;
+
+	/* Copy in command line */
+	memcpy((void*)final_offset, cmdline, strlen(cmdline)+1);
+	finalHeader->cmdline = (uintptr_t)final_offset;
+	final_offset += strlen(cmdline) + 1;
+
+	/* Copy bootloader name */
+	memcpy((void*)final_offset, VERSION_TEXT, strlen(VERSION_TEXT)+1);
+	finalHeader->boot_loader_name = (uintptr_t)final_offset;
+	final_offset += strlen(VERSION_TEXT) + 1;
+
+	/* Copy module pointers */
+	memcpy((void*)final_offset, modules_mboot, sizeof(modules_mboot));
+	finalHeader->mods_addr = (uintptr_t)final_offset;
+	final_offset += sizeof(modules_mboot);
+
+	/* Realign for memory map */
+	final_offset = (final_offset & ~(0xFFF)) + ((final_offset & 0xFFF) ? 0x1000 : 0);
+
+	/* Write memory map */
+	mboot_memmap_t * mmap = (void*)final_offset;
+	memset((void*)final_offset, 0x00, 1024);
+	finalHeader->mmap_addr = (uint32_t)(uintptr_t)mmap;
+
+	{
+		EFI_STATUS e;
+		UINTN mapSize = 0, mapKey, descriptorSize;
+		UINT32 descriptorVersion;
+		e = uefi_call_wrapper(ST->BootServices->GetMemoryMap, 5, &mapSize, NULL, &mapKey, &descriptorSize, NULL);
+
+		EFI_MEMORY_DESCRIPTOR * efi_memory = (void*)(final_offset);
+		final_offset += mapSize;
+		while ((uintptr_t)final_offset & 0x3ff) final_offset++;
+
+		e = uefi_call_wrapper(ST->BootServices->GetMemoryMap, 5, &mapSize, efi_memory, &mapKey, &descriptorSize, NULL);
+
+		if (EFI_ERROR(e)) {
+			print_("EFI error.\n");
+			while (1) {};
+		}
+
+		uint64_t upper_mem = 0;
+		int descriptors = mapSize / descriptorSize;
+		for (int i = 0; i < descriptors; ++i) {
+			EFI_MEMORY_DESCRIPTOR * d = efi_memory;
+
+			mmap->size = sizeof(uint64_t) * 2 + sizeof(uint32_t);
+			mmap->base_addr = d->PhysicalStart;
+			mmap->length = d->NumberOfPages * 4096;
+			switch (d->Type) {
+				case EfiConventionalMemory:
+				case EfiLoaderCode:
+				case EfiLoaderData:
+				case EfiBootServicesCode:
+				case EfiBootServicesData:
+				case EfiRuntimeServicesCode:
+				case EfiRuntimeServicesData:
+					mmap->type = 1;
+					break;
+				case EfiReservedMemoryType:
+				case EfiUnusableMemory:
+				case EfiMemoryMappedIO:
+				case EfiMemoryMappedIOPortSpace:
+				case EfiPalCode:
+				case EfiACPIMemoryNVS:
+				case EfiACPIReclaimMemory:
+				default:
+					mmap->type = 2;
+					break;
+			}
+			if (mmap->type == 1 && mmap->base_addr >= 0x100000) {
+				upper_mem += mmap->length;
+			}
+			mmap = (mboot_memmap_t *) ((uintptr_t)mmap + mmap->size + sizeof(uint32_t));
+			efi_memory = (EFI_MEMORY_DESCRIPTOR *)((char *)efi_memory + descriptorSize);
+		}
+
+		finalHeader->mmap_length = (uintptr_t)mmap - finalHeader->mmap_addr;
+
+		finalHeader->mem_lower = 1024;
+		finalHeader->mem_upper = upper_mem / 1024;
+	}
+
+	relocate_ramdisk((void*)(uintptr_t)finalHeader->mods_addr);
+
+	{
+		EFI_STATUS e;
+		UINTN mapSize = 0, mapKey, descriptorSize;
+		UINT32 descriptorVersion;
+		uefi_call_wrapper(ST->BootServices->GetMemoryMap, 5, &mapSize, NULL, &mapKey, &descriptorSize, NULL);
+		e = uefi_call_wrapper(ST->BootServices->ExitBootServices, 2, ImageHandleIn, mapKey);
+
+		if (e != EFI_SUCCESS) { 
+			print_("Exit services failed. \n");
+			print_hex_(e);
+			while (1) {};
+		}
+	}
+
+	uint64_t foobar = ((uint32_t)(uintptr_t)&do_the_nasty) | (0x10L << 32L);
+
+	uint32_t * foo = (uint32_t *)0x7c00;
+
+	foo[0] = MULTIBOOT_EAX_MAGIC;
+	foo[1] = (uintptr_t)finalHeader;
+	foo[2] = _xmain;
+
+	__asm__ __volatile__ (
+			"push %0\n"
+			"lretl\n"
+			 : : "g"(foobar));
+
+	__asm__ (
+		"do_the_nasty:\n"
+		"cli\n"
+		".code32\n"
+		"mov %cr0, %eax\n"
+		"and $0x7FFeFFFF, %eax\n"
+		"mov %eax, %cr0\n"
+		"mov $0xc0000080, %ecx\n"
+		"rdmsr\n"
+		"and $0xfffffeff, %eax\n"
+		"wrmsr\n"
+		"mov $0x640, %eax\n"
+		"mov %eax, %cr4\n"
+		"mov 0x7c00, %eax\n"
+		"mov 0x7c04, %ebx\n"
+		"mov 0x7c08, %ecx\n"
+		"jmp *%ecx\n"
+		"target: jmp target\n"
+		".code64\n"
+		);
+
+	__builtin_unreachable();
+}
+
+void mode_selector(int sel, int ndx, char *str) {
+	set_attr(sel == ndx ? 0x70 : 0x07);
+	print_(str);
+	if (x < 40) {
+		while (x < 39) {
+			print_(" ");
+		}
+		x = 40;
+	} else {
+		print_("\n");
+	}
+}
+
+static char * print_int_into(char * str, unsigned int value) {
+	unsigned int n_width = 1;
+	unsigned int i = 9;
+	while (value > i && i < UINT32_MAX) {
+		n_width += 1;
+		i *= 10;
+		i += 9;
+	}
+
+	char buf[n_width+1];
+	for (int i = 0; i < n_width + 1; i++) {
+		buf[i] = 0;
+	}
+	i = n_width;
+	while (i > 0) {
+		unsigned int n = value / 10;
+		int r = value % 10;
+		buf[i - 1] = r + '0';
+		i--;
+		value = n;
+	}
+	for (char * c = buf; *c; c++) {
+		*str++ = *c;
+	}
+	return str;
+}
+
+int video_menu(void) {
+	clear_();
+
+	int sel = 0;
+	int sel_max = GOP->Mode->MaxMode;
+	int select_this_mode = 0;
+
+	do {
+		move_cursor(0,0);
+		set_attr(0x1f);
+		print_banner("Select Video Mode");
+		set_attr(0x07);
+		print_("\n");
+
+		for (int i = 0; i < GOP->Mode->MaxMode; ++i) {
+			EFI_STATUS status;
+			UINTN size;
+			EFI_GRAPHICS_OUTPUT_MODE_INFORMATION * info;
+
+			status = uefi_call_wrapper(GOP->QueryMode,
+					4, GOP, i, &size, &info);
+
+			if (EFI_ERROR(status) || info->PixelFormat != 1) {
+				mode_selector(sel, i, "[invalid]");
+			} else {
+
+				if (select_this_mode && sel == i) {
+					uefi_call_wrapper(GOP->SetMode, 2, GOP, i);
+					extern int init_graphics();
+					init_graphics();
+					return 0;
+				}
+
+				char tmp[100];
+				char * t = tmp;
+				t = print_int_into(t, info->HorizontalResolution); *t = 'x'; t++;
+				t = print_int_into(t, info->VerticalResolution); *t = '\0';
+				mode_selector(sel, i, tmp);
+			}
+		}
+
+		int s = read_scancode(0);
+		if (s == 0x50) { /* DOWN */
+			if (sel >= 0 && sel < sel_max - 1) {
+				sel = (sel + 2) % sel_max;
+			} else {
+				sel = (sel + 1)  % sel_max;
+			}
+		} else if (s == 0x48) { /* UP */
+			if (sel >= 1) {
+				sel = (sel_max + sel - 2)  % sel_max;
+			} else {
+				sel = (sel_max + sel - 1)  % sel_max;
+			}
+		} else if (s == 0x4B) { /* LEFT */
+			if (sel >= 0) {
+				if ((sel + 1) % 2) {
+					sel = (sel + 1) % sel_max;
+				} else {
+					sel -= 1;
+				}
+			}
+		} else if (s == 0x4D) { /* RIGHT */
+			if (sel >= 0) {
+				if ((sel + 1) % 2) {
+					sel = (sel + 1) % sel_max;
+				} else {
+					sel -= 1;
+				}
+			}
+		} else if (s == 0x1c) {
+			select_this_mode = 1;
+			continue;
+		}
+	} while (1);
+
+}
+
+void boot(void) {
+	UINTN count;
+	EFI_HANDLE * handles;
+	EFI_LOADED_IMAGE * loaded_image;
+	EFI_FILE_IO_INTERFACE *efi_simple_filesystem;
+	EFI_FILE *root;
+	EFI_STATUS status;
+
+	uefi_call_wrapper(ST->BootServices->SetWatchdogTimer, 4, 0, 0, 0, NULL);
+
+	clear_();
+
+	for (unsigned int i = 0; i < ST->NumberOfTableEntries; ++i) {
+		if (ST->ConfigurationTable[i].VendorGuid.Data1 == 0xeb9d2d30 &&
+			ST->ConfigurationTable[i].VendorGuid.Data2 == 0x2d88 &&
+			ST->ConfigurationTable[i].VendorGuid.Data3 == 0x11d3) {
+			multiboot_header.config_table = (uintptr_t)ST->ConfigurationTable[i].VendorTable & 0xFFFFffff;
+			break;
+		}
+	}
+
+	status = uefi_call_wrapper(ST->BootServices->HandleProtocol,
+			3, ImageHandleIn, &efi_loaded_image_protocol_guid,
+			(void **)&loaded_image);
+
+	if (EFI_ERROR(status)) {
+		print_("Could not obtain loaded_image_protocol\n");
+		while (1) {};
+	}
+
+	print("Found loaded image...\n");
+
+	status = uefi_call_wrapper(ST->BootServices->HandleProtocol,
+			3, loaded_image->DeviceHandle, &efi_simple_file_system_protocol_guid,
+			(void **)&efi_simple_filesystem);
+
+	if (EFI_ERROR(status)) {
+		print_("Could not obtain simple_file_system_protocol.\n");
+		while (1) {};
+	}
+
+	status = uefi_call_wrapper(efi_simple_filesystem->OpenVolume,
+			2, efi_simple_filesystem, &root);
+
+	if (EFI_ERROR(status)) {
+		print_("Could not open volume.\n");
+		while (1) {};
+	}
+
+	EFI_FILE * file;
+
+	CHAR16 kernel_name[16] = {0};
+	{
+		char * c = kernel_path;
+		char * ascii = c;
+		int i = 0;
+		while (*ascii) {
+			kernel_name[i] = *ascii;
+			i++;
+			ascii++;
+		}
+		if (kernel_name[i-1] == L'.') {
+			kernel_name[i-1] = 0;
+		}
+	}
+
+	/* Load kernel */
+	status = uefi_call_wrapper(root->Open,
+			5, root, &file, kernel_name, EFI_FILE_MODE_READ, 0);
+
+	if (EFI_ERROR(status)) {
+		print_("Error opening kernel.\n");
+		while (1) {};
+	}
+
+#define KERNEL_LOAD_START 0x4000000ULL
+	kernel_load_start = (char*)KERNEL_LOAD_START;
+
+	{
+		EFI_PHYSICAL_ADDRESS addr = KERNEL_LOAD_START;
+		EFI_ALLOCATE_TYPE type = AllocateAddress;
+		EFI_MEMORY_TYPE memtype = EfiLoaderData;
+		UINTN pages = 8192;
+		EFI_STATUS status = 0;
+		status = uefi_call_wrapper(ST->BootServices->AllocatePages, 4, type, memtype, pages, &addr);
+		if (EFI_ERROR(status)) {
+			print_("Could not allocate space to load boot payloads: ");
+			print_hex_(status);
+			print_(" ");
+			print_hex_(addr);
+			while (1) {};
+		}
+	}
+
+	unsigned int offset = 0;
+	UINTN bytes = 134217728;
+	status = uefi_call_wrapper(file->Read,
+			3, file, &bytes, (void *)KERNEL_LOAD_START);
+
+	if (EFI_ERROR(status)) {
+		print_("Error loading kernel.\n");
+		while (1) {};
+	}
+
+	offset += bytes;
+	while (offset % 4096) offset++;
+
+	{
+		char * c = ramdisk_path;
+		CHAR16 name[16] = {0};
+		char * ascii = c;
+		int i = 0;
+		while (*ascii) {
+			name[i] = *ascii;
+			i++;
+			ascii++;
+		}
+		if (name[i-1] == L'.') {
+			name[i-1] == 0;
+		}
+		bytes = 134217728;
+		status = uefi_call_wrapper(root->Open,
+				5, root, &file, name, EFI_FILE_MODE_READ, 0);
+		if (!EFI_ERROR(status)) {
+			status = uefi_call_wrapper(file->Read,
+					3, file, &bytes, (void*)(uintptr_t)(KERNEL_LOAD_START + offset));
+			if (!EFI_ERROR(status)) {
+				ramdisk_off = KERNEL_LOAD_START + offset;
+				ramdisk_len = bytes;
+			} else {
+				print_("Failed to read ramdisk\n");
+			}
+		} else {
+			print_("Error opening "); print_(c); print_("\n");
+		}
+	}
+
+	load_kernel();
+	finish_boot();
+}
+
+#else
+struct mmap_entry {
+	uint64_t base;
+	uint64_t len;
+	uint32_t type;
+	uint32_t reserved;
+};
+
+extern unsigned short mmap_ent;
+extern unsigned short lower_mem;
 
 static void finish_boot(void) {
 	print("Setting up memory map...\n");
@@ -148,14 +568,11 @@ static void finish_boot(void) {
 	
 	multiboot_header.mem_upper = upper_mem / 1024;
 
-	_ebx = (unsigned int)&multiboot_header;
-	_eax = MULTIBOOT_EAX_MAGIC;
-
 	print("Jumping to kernel...\n");
 
 	uint32_t foo[3];
-	foo[0] = _eax;
-	foo[1] = _ebx;
+	foo[0] = MULTIBOOT_EAX_MAGIC;
+	foo[1] = (unsigned int)&multiboot_header;;
 	foo[2] = _xmain;
 	__asm__ __volatile__ (
 		"mov %%cr0,%%eax\n"
@@ -214,7 +631,7 @@ done:
 	}
 
 	print("Relocating ramdisk from 0x"); print_hex((uint32_t)ramdisk_off); print(":0x"); print_hex(ramdisk_len); print(" to 0x"); print_hex(final_offset); print("... ");
-	relocate_ramdisk();
+	relocate_ramdisk(modules_mboot);
 	finish_boot();
 }
-
+#endif

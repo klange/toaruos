@@ -169,6 +169,7 @@ clean:
 	-rm -f $(LIBC_OBJS) $(BASE)/lib/ld.so $(BASE)/lib/libkuroko.so $(BASE)/lib/libm.so
 	-rm -f $(BASE)/bin/kuroko
 	-rm -f $(GCC_SHARED) $(LIBSTDCXX)
+	-rm -f boot/efi/*.o boot/bios/*.o
 
 libc/%.o: libc/%.c base/usr/include/syscall.h 
 	$(CC) -O2 -std=gnu11 -Wall -Wextra -Wno-unused-parameter -fPIC -c -o $@ $<
@@ -214,13 +215,17 @@ $(BASE)/usr/lib:
 	mkdir -p $@
 $(BASE)/usr/bin:
 	mkdir -p $@
+boot/efi:
+	mkdir -p $@
+boot/bios:
+	mkdir -p $@
 fatbase/efi/boot:
 	mkdir -p $@
 cdrom:
 	mkdir -p $@
 .make:
 	mkdir -p .make
-dirs: $(BASE)/dev $(BASE)/tmp $(BASE)/proc $(BASE)/bin $(BASE)/lib $(BASE)/cdrom $(BASE)/usr/lib $(BASE)/usr/bin $(BASE)/lib/kuroko cdrom $(BASE)/var fatbase/efi/boot .make $(BASE)/mod
+dirs: $(BASE)/dev $(BASE)/tmp $(BASE)/proc $(BASE)/bin $(BASE)/lib $(BASE)/cdrom $(BASE)/usr/lib $(BASE)/usr/bin $(BASE)/lib/kuroko cdrom $(BASE)/var fatbase/efi/boot .make $(BASE)/mod boot/efi boot/bios
 
 ifeq (,$(findstring clean,$(MAKECMDGOALS)))
 -include ${APPS_Y}
@@ -274,17 +279,31 @@ fatbase/kernel: misaka-kernel
 	cp $< $@
 	strip $@
 
-cdrom/fat.img: fatbase/ramdisk.igz fatbase/kernel util/mkdisk.sh | dirs
+cdrom/fat.img: fatbase/ramdisk.igz fatbase/kernel fatbase/efi/boot/bootx64.efi util/mkdisk.sh | dirs
 	util/mkdisk.sh $@ fatbase
 
-cdrom/boot.sys: boot/boot.o $(patsubst %.c,%.o,$(wildcard boot/*.c)) boot/link.ld | dirs
-	${LD} -melf_i386 -T boot/link.ld -o $@ boot/boot.o $(patsubst %.c,%.o,$(wildcard boot/*.c))
+cdrom/boot.sys: boot/bios/boot.o $(patsubst boot/%.c,boot/bios/%.o,$(wildcard boot/*.c)) boot/link.ld | dirs
+	${LD} -melf_i386 -T boot/link.ld -o $@ boot/bios/boot.o $(patsubst boot/%.c,boot/bios/%.o,$(wildcard boot/*.c))
 
-boot/%.o: boot/%.c boot/*.h
-	${CC} -m32 -c -Os -fno-strict-aliasing -finline-functions -ffreestanding -mgeneral-regs-only -o $@ $<
+boot/bios/%.o: boot/%.c boot/*.h | dirs
+	${CC} -m32 -c -Os -fno-pic -fno-pie -fno-strict-aliasing -finline-functions -ffreestanding -mgeneral-regs-only -o $@ $<
 
-boot/boot.o: boot/boot.S
+boot/bios/boot.o: boot/boot.S | dirs
 	${AS} --32 -o $@ $<
+
+EFI_CFLAGS=-fno-stack-protector -fpic -DEFI_PLATFORM -ffreestanding -fshort-wchar -I /usr/include/efi -mno-red-zone
+EFI_SECTIONS=-j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel -j .rela -j .reloc
+EFI_LINK=/usr/lib/crt0-efi-x86_64.o -nostdlib -znocombreloc -T /usr/lib/elf_x86_64_efi.lds -shared -Bsymbolic -L /usr/lib -lefi -lgnuefi
+
+boot/efi/%.o: boot/%.c boot/*.h | dirs
+	$(CC) ${EFI_CFLAGS} -I /usr/include/efi/x86_64 -DEFI_FUNCTION_WRAPPER -c -o $@ $<
+
+boot/efi64.so: $(patsubst boot/%.c,boot/efi/%.o,$(wildcard boot/*.c)) boot/*.h
+	$(LD) $(patsubst boot/%.c,boot/efi/%.o,$(wildcard boot/*.c)) ${EFI_LINK} -o $@
+
+fatbase/efi/boot/bootx64.efi: boot/efi64.so
+	mkdir -p fatbase/efi/boot
+	objcopy ${EFI_SECTIONS} --target=efi-app-x86_64 $< $@
 
 image.iso: cdrom/fat.img cdrom/boot.sys util/update-extents.py
 	xorriso -as mkisofs -R -J -c bootcat \

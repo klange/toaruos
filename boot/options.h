@@ -27,6 +27,12 @@ struct bootmode {
 #define BASE_SEL ((sizeof(boot_mode_names)/sizeof(*boot_mode_names))-1)
 extern int base_sel;
 
+#define BOOT_SET() do { \
+	base_sel = BASE_SEL; \
+	_boot_offset = 0; \
+	memset(boot_options, 0, sizeof(boot_options)); \
+} while (0)
+
 extern char * VERSION_TEXT;
 extern char * HELP_TEXT;
 extern char * HELP_TEXT_OPT;

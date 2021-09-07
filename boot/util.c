@@ -1,21 +1,5 @@
 #include "util.h"
 
-void * memcpy(void * restrict dest, const void * restrict src, long n) {
-	asm volatile("cld; rep movsb"
-	            : "=c"((int){0})
-	            : "D"(dest), "S"(src), "c"(n)
-	            : "flags", "memory");
-	return dest;
-}
-
-void * memset(void * dest, int c, long n) {
-	asm volatile("cld; rep stosb"
-	             : "=c"((int){0})
-	             : "D"(dest), "a"(c), "c"(n)
-	             : "flags", "memory");
-	return dest;
-}
-
 int strcmp(const char * l, const char * r) {
 	for (; *l == *r && *l; l++, r++);
 	return *(unsigned char *)l - *(unsigned char *)r;

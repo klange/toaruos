@@ -165,8 +165,8 @@ done:
 
 	cli
 
-.global kmain
-	ljmp $0x08,$kmain
+.global bios_main
+	ljmp $0x08,$bios_main
 
 hang:
 	jmp hang

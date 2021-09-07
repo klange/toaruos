@@ -10,7 +10,12 @@
 
 /* Basic text strings */
 #define BASE_VERSION "ToaruOS Bootloader v4.0"
-char * VERSION_TEXT = BASE_VERSION " (BIOS)";
+char * VERSION_TEXT = BASE_VERSION
+#ifdef EFI_PLATFORM
+	" (EFI)";
+#else
+	" (BIOS)";
+#endif
 char * HELP_TEXT = "<Enter> to boot, <e> to edit, or select a menu option with \030/\031/\032/\033.";
 char * HELP_TEXT_OPT = "<Enter> to toggle, or select another option with \030/\031/\032/\033.";
 char * COPYRIGHT_TEXT = "ToaruOS is free software under the NCSA license.";
@@ -22,7 +27,6 @@ char * LINK_TEXT = "https://toaruos.org - https://github.com/klange/toaruos";
 #define DEFAULT_SINGLE_CMDLINE "start=terminal\037-F "
 #define DEFAULT_TEXT_CMDLINE "start=--vga vid=text "
 #define DEFAULT_VID_CMDLINE "vid=auto,1440,900 "
-#define DEFAULT_PRESET_VID_CMDLINE "vid=preset "
 #define MIGRATE_CMDLINE "migrate "
 #define DEFAULT_HEADLESS_CMDLINE "start=--headless "
 
@@ -33,18 +37,19 @@ char cmdline[1024] = {0};
 /* Names of the available boot modes. */
 struct bootmode boot_mode_names[] = {
 	{1, "normal",   "Normal Boot"},
+#ifdef EFI_PLATFORM
+	{2, "video",    "Configure Video Output"},
+#else
 	{2, "vga",      "VGA Text Mode"},
+#endif
 	{3, "single",   "Single-User Graphical Terminal"},
 	{4, "headless", "Headless"},
 };
 
-int base_sel = BASE_SEL;
-
-extern char _bss_start[];
-extern char _bss_end[];
+int base_sel = 0;
 
 int kmain() {
-	memset(&_bss_start,0,(uintptr_t)&_bss_end-(uintptr_t)&_bss_start);
+	BOOT_SET();
 
 	BOOT_OPTION(_debug,       0, "Debug output",
 			"Enable debug output in the bootloader and enable the",
@@ -85,6 +90,16 @@ int kmain() {
 	while (1) {
 		/* Loop over rendering the menu */
 		show_menu();
+
+#ifdef EFI_PLATFORM
+		if (boot_mode == 2) {
+			extern int video_menu(void);
+			video_menu();
+			boot_edit = 0;
+			memset(cmdline, 0, 1024);
+			continue;
+		}
+#endif
 
 		/* Build our command line. */
 		strcat(cmdline, DEFAULT_ROOT_CMDLINE);

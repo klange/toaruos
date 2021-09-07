@@ -42,18 +42,6 @@ void show_menu(void) {
 		sel_max++;
 	}
 	sel_max += base_sel + 1;
-
-	outportb(0x3D4, 14);
-	outportb(0x3D5, 0xFF);
-	outportb(0x3D4, 15);
-	outportb(0x3D5, 0xFF);
-
-	inportb(0x3DA);
-	outportb(0x3C0, 0x30);
-	char b = inportb(0x3C1);
-	b &= ~8;
-	outportb(0x3c0, b);
-
 	clear_();
 
 	do {
