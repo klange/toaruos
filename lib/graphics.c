@@ -783,16 +783,16 @@ static inline void apply_alpha_vector(uint32_t * pixels, size_t width, uint8_t a
 void draw_sprite_alpha(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, int32_t y, float alpha) {
 	int32_t _left   = max(x, 0);
 	int32_t _top    = max(y, 0);
-	int32_t _right  = min(x + sprite->width,  ctx->width - 1);
-	int32_t _bottom = min(y + sprite->height, ctx->height - 1);
-	sprite_t * scanline = create_sprite(_right - _left + 1, 1, ALPHA_EMBEDDED);
+	int32_t _right  = min(x + sprite->width,  ctx->width);
+	int32_t _bottom = min(y + sprite->height, ctx->height);
+	sprite_t * scanline = create_sprite(_right - _left, 1, ALPHA_EMBEDDED);
 	uint8_t alp = alpha * 255;
 
 	for (uint16_t _y = 0; _y < sprite->height; ++_y) {
 		if (y + _y < _top) continue;
 		if (y + _y > _bottom) break;
 		if (!_is_in_clip(ctx, y + _y)) continue;
-		for (uint16_t _x = (x < _left) ? _left - x : 0; _x < sprite->width && x + _x <= _right; ++_x) {
+		for (uint16_t _x = (x < _left) ? _left - x : 0; _x < sprite->width && x + _x < _right; ++_x) {
 			SPRITE(scanline,_x + x - _left,0) = SPRITE(sprite, _x, _y);
 		}
 		apply_alpha_vector(scanline->bitmap, scanline->width, alp);
@@ -805,13 +805,13 @@ void draw_sprite_alpha(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, 
 void draw_sprite_alpha_paint(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, int32_t y, float alpha, uint32_t c) {
 	int32_t _left   = max(x, 0);
 	int32_t _top    = max(y, 0);
-	int32_t _right  = min(x + sprite->width,  ctx->width - 1);
-	int32_t _bottom = min(y + sprite->height, ctx->height - 1);
+	int32_t _right  = min(x + sprite->width,  ctx->width);
+	int32_t _bottom = min(y + sprite->height, ctx->height);
 	for (uint16_t _y = 0; _y < sprite->height; ++_y) {
 		if (y + _y < _top) continue;
 		if (y + _y > _bottom) break;
 		if (!_is_in_clip(ctx, y + _y)) continue;
-		for (uint16_t _x = (x < _left) ? _left - x : 0; _x < sprite->width && x + _x <= _right; ++_x) {
+		for (uint16_t _x = (x < _left) ? _left - x : 0; _x < sprite->width && x + _x < _right; ++_x) {
 			/* Get the alpha from the sprite at this pixel */
 			float n_alpha = alpha * ((float)_ALP(SPRITE(sprite, _x, _y)) / 255.0);
 			uint32_t f_color = premultiply((c & 0xFFFFFF) | ((uint32_t)(255 * n_alpha) << 24));
