@@ -257,10 +257,7 @@ static void send_packet(struct e1000_nic * device, uint8_t* payload, size_t payl
 
 	while ((device->tx[device->tx_index].status & 1) != 1) {
 		if (device->tx[device->tx_index].length == 0) break;
-		printf("warning: tx overrun; yielding until descriptor is available; tx index %d: status = %x; length = %x\n",
-			device->tx_index,
-			device->tx[device->tx_index].status,
-			device->tx[device->tx_index].length);
+		/* TX overrun, wait until there's available space; keep the queue lock. */
 		switch_task(1);
 	}
 
