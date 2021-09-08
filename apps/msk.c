@@ -364,7 +364,7 @@ static int install_package(char * pkg) {
 		}
 
 		char cmd[1024];
-		sprintf(cmd, "cd %s; tar -xzf %s",
+		sprintf(cmd, "cd %s; gunzip -c %s >/tmp/msk.tmp.x; tar -xf /tmp/msk.tmp.x; rm /tmp/msk.tmp.x",
 				confreader_get(msk_manifest, pkg, "destination"),
 				confreader_get(msk_manifest, pkg, "source"));
 
