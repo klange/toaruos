@@ -120,13 +120,27 @@ int net_ipv4_send(struct ipv4_packet * response, fs_node_t * nic) {
 	/* where are we going? */
 	uint32_t ipdest = response->destination;
 
+	/* Get the ethernet address of the destination */
+	struct ArpCacheEntry * resp;
+
 	/* Is this local or should we send it to the gateway? */
 	if (!enic->ipv4_subnet || ((ipdest & enic->ipv4_subnet) != (enic->ipv4_addr & enic->ipv4_subnet))) {
 		ipdest = enic->ipv4_gateway;
+		resp = net_arp_cache_get(ipdest);
+	} else {
+		resp = net_arp_cache_get(ipdest);
+		if (!resp) {
+			net_arp_ask(ipdest, nic);
+
+			unsigned long s, ss;
+			relative_time(1, 0, &s, &ss);
+			sleep_until((process_t *)this_core->current_process, s, ss);
+			switch_task(0);
+
+			resp = net_arp_cache_get(ipdest);
+		}
 	}
 
-	/* Get the ethernet address of the destination */
-	struct ArpCacheEntry * resp = net_arp_cache_get(ipdest);
 
 	/* Pass the packet to the next stage */
 	net_eth_send(enic, ntohs(response->length), response, ETHERNET_TYPE_IPV4, resp ? resp->hwaddr : ETHERNET_BROADCAST_MAC);
