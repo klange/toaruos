@@ -1129,8 +1129,12 @@ static void mark_window(yutani_globals_t * yg, yutani_server_window_t * window) 
  * Set a window as closed. It will be removed after rendering has completed.
  */
 static void window_mark_for_close(yutani_globals_t * yg, yutani_server_window_t * w) {
-	w->anim_mode = yutani_pick_animation(w->server_flags, 1);
-	w->anim_start = yutani_current_time(yg);
+	if (w->hidden) {
+		window_actually_close(yg, w);
+	} else {
+		w->anim_mode = yutani_pick_animation(w->server_flags, 1);
+		w->anim_start = yutani_current_time(yg);
+	}
 }
 
 /**
