@@ -1,11 +1,13 @@
 #pragma once
 #include <kernel/vfs.h>
 #include <kernel/list.h>
+#include <kernel/spinlock.h>
 #include <sys/types.h>
 
 fs_node_t * tmpfs_create(char * name);
 
 struct tmpfs_file {
+	spin_lock_t lock;
 	char * name;
 	int    type;
 	int    mask;
@@ -24,6 +26,7 @@ struct tmpfs_file {
 struct tmpfs_dir;
 
 struct tmpfs_dir {
+	spin_lock_t lock;
 	char * name;
 	int    type;
 	int    mask;
