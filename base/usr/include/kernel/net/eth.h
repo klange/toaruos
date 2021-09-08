@@ -39,3 +39,5 @@ struct ArpCacheEntry {
 
 struct ArpCacheEntry * net_arp_cache_get(uint32_t addr);
 void net_arp_cache_add(struct EthernetDevice * iface, uint32_t addr, uint8_t * hwaddr, uint16_t flags);
+void net_arp_ask(uint32_t addr, fs_node_t * fsnic);
+
