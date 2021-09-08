@@ -382,6 +382,17 @@ static int install_package(char * pkg) {
 		return 1;
 	}
 
+	char * source = confreader_get(msk_manifest, pkg, "source");
+	if (source && !strcmp(source, "/tmp/msk.file")) {
+		char cmd[1024];
+		sprintf(cmd, "rm %s", source);
+		int status;
+		if ((status = system(cmd))) {
+			fprintf(stderr, "cleanup command returned %d\n", status);
+			return status;
+		}
+	}
+
 	char * post = confreader_getd(msk_manifest, pkg, "post", "");
 	if (strlen(post)) {
 		int status;
