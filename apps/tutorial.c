@@ -74,8 +74,8 @@ static void redraw(void) {
 	int offset = 0;
 
 	if (icon) {
-		offset = icon->height + 20;
-		draw_sprite(ctx, icon, center(icon->width, width), bounds.top_height + 15);
+		offset = icon->height;
+		draw_sprite(ctx, icon, bounds.left_width + center(icon->width, width), bounds.top_height + 15);
 	}
 
 	for (char ** copy_str = body_text; *copy_str; ++copy_str) {
@@ -272,13 +272,17 @@ void setup_buttons(void) {
 	_prev_button.y = ctx->height - bounds.bottom_height - BUTTON_HEIGHT - BUTTON_PADDING;
 }
 
-void resize_finish(int w, int h) {
-	yutani_window_resize_accept(yctx, window, w, h);
-	reinit_graphics_yutani(ctx, window);
+static void update_size(int w, int h) {
 	struct decor_bounds bounds;
 	decor_get_bounds(NULL, &bounds);
 	width  = w - bounds.width;
 	height = h - bounds.height;
+}
+
+void resize_finish(int w, int h) {
+	yutani_window_resize_accept(yctx, window, w, h);
+	reinit_graphics_yutani(ctx, window);
+	update_size(w, h);
 	setup_buttons();
 	redraw();
 	yutani_window_resize_done(yctx, window);
@@ -327,6 +331,8 @@ int main(int argc, char * argv[]) {
 	reset_background();
 	flip(background_ctx);
 	yutani_flip(yctx, background);
+
+	update_size(width, height);
 
 	struct decor_bounds bounds;
 	decor_get_bounds(NULL, &bounds);
