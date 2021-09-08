@@ -30,7 +30,7 @@
 #include <sys/socket.h>
 #include <net/if.h>
 
-#define INTS ((1 << 2) | (1 << 6) | (1 << 7) | (1 << 1) | (1 << 0))
+#define INTS (ICR_LSC | ICR_RXO | ICR_RXT0 | ICR_TXQE | ICR_TXDW | ICR_ACK | ICR_RXDMT0)
 
 struct e1000_nic {
 	struct EthernetDevice eth;
@@ -175,10 +175,10 @@ static void e1000_alert_waiters(struct e1000_nic * nic) {
 
 static void e1000_handle(struct e1000_nic * nic, uint32_t status) {
 	if (status & ICR_LSC) {
-		/* TODO: Change interface link status. */
 		nic->link_status= (read_command(nic, E1000_REG_STATUS) & (1 << 1));
 	}
 
+	#if 0
 	if (status & ICR_TXQE) {
 		/* Transmit queue empty; nothing to do. */
 	}
@@ -187,31 +187,42 @@ static void e1000_handle(struct e1000_nic * nic, uint32_t status) {
 		/* transmit descriptor written */
 	}
 
-	if (status & (ICR_RXO | ICR_RXT0)) {
-		/* Packet received. */
-		do {
-			nic->rx_index = read_command(nic, E1000_REG_RXDESCTAIL);
-			if (nic->rx_index == (int)read_command(nic, E1000_REG_RXDESCHEAD)) return;
-			nic->rx_index = (nic->rx_index + 1) % E1000_NUM_RX_DESC;
-			if (nic->rx[nic->rx_index].status & 0x01) {
-				uint8_t * pbuf = (uint8_t *)nic->rx_virt[nic->rx_index];
-				uint16_t  plen = nic->rx[nic->rx_index].length;
+	if (status & (ICR_RXO | ICR_RXT0 | ICR_ACK)) {
+		/* Receive ack */
+	}
+	#endif
 
-				void * packet = malloc(8192);
-				if (plen > 8192) {
-					printf("??? plen is too big\n");
-				}
-				memcpy(packet, pbuf, plen);
+	int current_tail = read_command(nic, E1000_REG_RXDESCTAIL);
+	int did_something = 0;
 
-				nic->rx[nic->rx_index].status = 0;
+	int i = (current_tail + 1) % E1000_NUM_RX_DESC;
+	while (1) {
+		/* Don't let the head run out... */
+		int current_head = read_command(nic, E1000_REG_RXDESCHEAD);
+		if (i == current_head) break; /* Don't receive the head... */
+		if (nic->rx[i].status & 0x01) {
+			uint8_t * pbuf = (uint8_t *)nic->rx_virt[i];
+			uint16_t  plen = nic->rx[i].length;
 
-				enqueue_packet(nic, packet);
-
-				write_command(nic, E1000_REG_RXDESCTAIL, nic->rx_index);
-			} else {
-				break;
+			void * packet = malloc(8192);
+			if (plen > 8192) {
+				printf("??? plen is too big\n");
 			}
-		} while (1);
+			memcpy(packet, pbuf, plen);
+
+			nic->rx[i].status = 0;
+
+			enqueue_packet(nic, packet);
+
+			write_command(nic, E1000_REG_RXDESCTAIL, i);
+			did_something = 1;
+		} else {
+			break;
+		}
+		i = (i + 1) % E1000_NUM_RX_DESC;
+	}
+
+	if (did_something) {
 		wakeup_queue(nic->rx_wait);
 		e1000_alert_waiters(nic);
 	}
@@ -243,6 +254,15 @@ static int irq_handler(struct regs *r) {
 static void send_packet(struct e1000_nic * device, uint8_t* payload, size_t payload_size) {
 	spin_lock(device->tx_lock);
 	device->tx_index = read_command(device, E1000_REG_TXDESCTAIL);
+
+	while ((device->tx[device->tx_index].status & 1) != 1) {
+		if (device->tx[device->tx_index].length == 0) break;
+		printf("warning: tx overrun; yielding until descriptor is available; tx index %d: status = %x; length = %x\n",
+			device->tx_index,
+			device->tx[device->tx_index].status,
+			device->tx[device->tx_index].length);
+		switch_task(1);
+	}
 
 	memcpy(device->tx_virt[device->tx_index], payload, payload_size);
 	device->tx[device->tx_index].length = payload_size;

@@ -693,51 +693,61 @@ static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 	}
 	if (msg->msg_iovlen == 0) return 0;
 
-	size_t total_length = sizeof(struct ipv4_packet) + sizeof(struct tcp_header) + msg->msg_iov[0].iov_len;
+	size_t size_into = 0;
+	size_t size_remaining = msg->msg_iov[0].iov_len;
 
-	fs_node_t * nic = net_if_any();
+	while (size_remaining) {
+		size_t size_to_send = size_remaining > 1024 ? 1024 : size_remaining;
+		size_t total_length = sizeof(struct ipv4_packet) + sizeof(struct tcp_header) + size_to_send;
 
-	struct ipv4_packet * response = malloc(total_length);
-	response->length = htons(total_length);
-	response->destination = ((struct sockaddr_in*)&sock->dest)->sin_addr.s_addr;
-	response->source = ((struct EthernetDevice*)nic->device)->ipv4_addr;
-	response->ttl = 64;
-	response->protocol = IPV4_PROT_TCP;
-	sock->priv[2]++;
-	response->ident = htons(sock->priv[2]);
-	response->flags_fragment = htons(0x0);
-	response->version_ihl = 0x45;
-	response->dscp_ecn = 0;
-	response->checksum = 0;
-	response->checksum = htons(calculate_ipv4_checksum(response));
+		fs_node_t * nic = net_if_any();
 
-	/* Stick TCP header into payload */
-	struct tcp_header * tcp_header = (struct tcp_header*)&response->payload;
-	tcp_header->source_port = htons(sock->priv[0]);
-	tcp_header->destination_port = ((struct sockaddr_in*)&sock->dest)->sin_port;
-	tcp_header->seq_number = htonl(sock->priv32[0]);
-	tcp_header->ack_number = htonl(sock->priv32[1]);
-	tcp_header->flags = htons(TCP_FLAGS_PSH | TCP_FLAGS_ACK | 0x5000);
-	tcp_header->window_size = htons(DEFAULT_TCP_WINDOW_SIZE);
-	tcp_header->checksum = 0;
-	tcp_header->urgent = 0;
+		struct ipv4_packet * response = malloc(total_length);
+		response->length = htons(total_length);
+		response->destination = ((struct sockaddr_in*)&sock->dest)->sin_addr.s_addr;
+		response->source = ((struct EthernetDevice*)nic->device)->ipv4_addr;
+		response->ttl = 64;
+		response->protocol = IPV4_PROT_TCP;
+		sock->priv[2]++;
+		response->ident = htons(sock->priv[2]);
+		response->flags_fragment = htons(0x0);
+		response->version_ihl = 0x45;
+		response->dscp_ecn = 0;
+		response->checksum = 0;
+		response->checksum = htons(calculate_ipv4_checksum(response));
 
-	sock->priv32[0] += msg->msg_iov[0].iov_len;
+		/* Stick TCP header into payload */
+		struct tcp_header * tcp_header = (struct tcp_header*)&response->payload;
+		tcp_header->source_port = htons(sock->priv[0]);
+		tcp_header->destination_port = ((struct sockaddr_in*)&sock->dest)->sin_port;
+		tcp_header->seq_number = htonl(sock->priv32[0]);
+		tcp_header->ack_number = htonl(sock->priv32[1]);
+		tcp_header->flags = htons(TCP_FLAGS_PSH | TCP_FLAGS_ACK | 0x5000);
+		tcp_header->window_size = htons(DEFAULT_TCP_WINDOW_SIZE);
+		tcp_header->checksum = 0;
+		tcp_header->urgent = 0;
 
-	/* Calculate checksum */
-	struct tcp_check_header check_hd = {
-		.source = response->source,
-		.destination = response->destination,
-		.zeros = 0,
-		.protocol = IPV4_PROT_TCP,
-		.tcp_len = htons(sizeof(struct tcp_header) + msg->msg_iov[0].iov_len),
-	};
+		sock->priv32[0] += size_to_send;
 
-	memcpy(tcp_header->payload, msg->msg_iov[0].iov_base, msg->msg_iov[0].iov_len);
-	tcp_header->checksum = htons(calculate_tcp_checksum(&check_hd, tcp_header, tcp_header->payload, msg->msg_iov[0].iov_len));
-	net_ipv4_send(response,nic);
-	free(response);
-	return msg->msg_iov[0].iov_len;
+		/* Calculate checksum */
+		struct tcp_check_header check_hd = {
+			.source = response->source,
+			.destination = response->destination,
+			.zeros = 0,
+			.protocol = IPV4_PROT_TCP,
+			.tcp_len = htons(sizeof(struct tcp_header) + size_to_send),
+		};
+
+		memcpy(tcp_header->payload, (char*)msg->msg_iov[0].iov_base + size_into, size_to_send);
+		tcp_header->checksum = htons(calculate_tcp_checksum(&check_hd, tcp_header, tcp_header->payload, size_to_send));
+		net_ipv4_send(response,nic);
+		free(response);
+
+		size_remaining -= size_to_send;
+		size_into += size_to_send;
+	}
+
+	return size_into;
 }
 
 ssize_t sock_tcp_write(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {

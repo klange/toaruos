@@ -341,3 +341,35 @@ struct hostent * gethostbyname(const char * name) {
 	return &_hostent;
 }
 
+int getnameinfo(const struct sockaddr *addr, socklen_t addrlen,
+                char *host, socklen_t hostlen,
+                char *serv, socklen_t servlen, int flags) {
+	return -ENOSYS;
+}
+
+int getaddrinfo(const char *node, const char *service,
+                const struct addrinfo *hints,
+                struct addrinfo **res) {
+
+	struct hostent * ent = gethostbyname(node);
+	if (!ent) return -EINVAL; /* EAI_FAIL */
+
+	*res = malloc(sizeof(struct addrinfo));
+	(*res)->ai_flags = 0;
+	(*res)->ai_family = AF_INET;
+	(*res)->ai_socktype = 0;
+	(*res)->ai_protocol = 0;
+	(*res)->ai_addrlen = sizeof(struct sockaddr_in);
+	struct sockaddr_in * addr = malloc(sizeof(struct sockaddr_in));
+	addr->sin_family = AF_INET;
+	memcpy(&addr->sin_addr.s_addr, ent->h_addr, ent->h_length);
+	(*res)->ai_addr = (struct sockaddr *)addr;
+	(*res)->ai_canonname = NULL;
+	(*res)->ai_next = NULL;
+	return 0;
+}
+
+void freeaddrinfo(struct addrinfo *res) {
+	if (res->ai_addr) free(res->ai_addr);
+	free(res);
+}
