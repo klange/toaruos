@@ -33,7 +33,7 @@ int main(int argc, char * argv[]) {
 		/* See if the location data already exists... */
 		Value * locationData = json_parse_file(LOCATION_DATA_PATH);
 		if (!locationData) {
-			sprintf(cmdline, "fetch -o \"" LOCATION_DATA_PATH "\" \"http://ip-api.com/json/?fields=lat,lon,city\"");
+			sprintf(cmdline, "fetch -o \"" LOCATION_DATA_PATH "\" \"http://ip-api.com/json/?fields=lat,lon,city,offset\"");
 			system(cmdline);
 			locationData = json_parse_file(LOCATION_DATA_PATH);
 		}

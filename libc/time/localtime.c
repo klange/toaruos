@@ -122,12 +122,6 @@ static struct tm * fill_time(const time_t * timep, struct tm * _timevalue, const
 #define HOURS    3600
 #define MINUTES  60
 
-static char * get_timezone(void) {
-	char * tzEnv = getenv("TZ");
-	if (!tzEnv || strlen(tzEnv) != 3) return "UTC";
-	return tzEnv;
-}
-
 static int get_timezone_offset(void) {
 	char * tzOff = getenv("TZ_OFFSET");
 	if (!tzOff) return 0;
@@ -136,6 +130,47 @@ static int get_timezone_offset(void) {
 	if (*endptr) return 0;
 	return out;
 }
+
+struct timezone_offset_db {
+	int offset;
+	const char * abbrev;
+};
+
+static struct timezone_offset_db common_offsets[] = {
+	{0, "UTC"},
+	{1 * HOURS, "CEST"}, /* Central Europe Standard Time */
+	{8 * HOURS, "SST"}, /* Singapore Standard Time */
+	{9 * HOURS, "JST"}, /* Japan Standard Time */
+	{-5 * HOURS, "EST"}, /* US Eastern Standard */
+	{-6 * HOURS, "CST"}, /* US Central Standard */
+	{-7 * HOURS, "MST"}, /* US Mountain Standard */
+	{-8 * HOURS, "PST"}, /* US Pacific Standard */
+	{0, NULL},
+};
+
+static char * get_timezone(void) {
+	static char buf[20];
+	char * tzEnv = getenv("TZ");
+	if (!tzEnv) {
+		/* Is there an offset? */
+		int offset = get_timezone_offset();
+		for (struct timezone_offset_db * db = common_offsets; db->abbrev; db++) {
+			if (offset == db->offset) return (char*)db->abbrev;
+		}
+		/* Is it some number of hours? */
+		if (offset % HOURS == 0) {
+			if (offset > 0) {
+				snprintf(buf, 20, "UTC+%d", offset / HOURS);
+			} else {
+				snprintf(buf, 20, "UTC-%d", -offset / HOURS);
+			}
+			return buf;
+		}
+		return "???";
+	}
+	return tzEnv;
+}
+
 
 struct tm *localtime_r(const time_t *timep, struct tm * _timevalue) {
 	return fill_time(timep, _timevalue, get_timezone(), get_timezone_offset());
