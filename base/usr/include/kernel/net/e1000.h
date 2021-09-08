@@ -81,6 +81,7 @@
 #define ICR_RXO    (1 << 6)  /* Receive overrun */
 #define ICR_RXT0   (1 << 7)  /* Receive timer interrupt? */
 #define ICR_ACK    (1 << 17)
+#define ICR_SRPD   (1 << 16)
 
 struct e1000_rx_desc {
 	volatile uint64_t addr;

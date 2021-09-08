@@ -30,7 +30,7 @@
 #include <sys/socket.h>
 #include <net/if.h>
 
-#define INTS (ICR_LSC | ICR_RXO | ICR_RXT0 | ICR_TXQE | ICR_TXDW | ICR_ACK | ICR_RXDMT0)
+#define INTS (ICR_LSC | ICR_RXO | ICR_RXT0 | ICR_TXQE | ICR_TXDW | ICR_ACK | ICR_RXDMT0 | ICR_SRPD)
 
 struct e1000_nic {
 	struct EthernetDevice eth;
