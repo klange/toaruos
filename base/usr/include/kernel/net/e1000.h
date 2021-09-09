@@ -7,6 +7,9 @@
 #define E1000_REG_EEPROM     0x0014
 #define E1000_REG_CTRL_EXT   0x0018
 #define E1000_REG_ICR        0x00C0
+#define E1000_REG_ITR        0x00c4
+#define E1000_REG_IMS        0x00d0
+#define E1000_REG_IMC        0x00d8
 
 #define E1000_REG_RCTRL      0x0100
 #define E1000_REG_RXDESCLO   0x2800
@@ -14,6 +17,7 @@
 #define E1000_REG_RXDESCLEN  0x2808
 #define E1000_REG_RXDESCHEAD 0x2810
 #define E1000_REG_RXDESCTAIL 0x2818
+#define E1000_REG_RDTR       0x2820
 
 #define E1000_REG_TCTRL      0x0400
 #define E1000_REG_TXDESCLO   0x3800
@@ -24,8 +28,8 @@
 
 #define E1000_REG_RXADDR     0x5400
 
-#define E1000_NUM_RX_DESC 32
-#define E1000_NUM_TX_DESC 8
+#define E1000_NUM_RX_DESC 128
+#define E1000_NUM_TX_DESC 128
 
 #define RCTL_EN                         (1 << 1)    /* Receiver Enable */
 #define RCTL_SBP                        (1 << 2)    /* Store Bad Packets */
