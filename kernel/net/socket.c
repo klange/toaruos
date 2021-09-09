@@ -206,7 +206,9 @@ long net_getsockopt(int sockfd, int level, int optname, void *optval, socklen_t 
 
 long net_bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 	if (!FD_CHECK(sockfd)) return -EBADF;
-	return -EINVAL;
+	sock_t * node = (sock_t*)FD_ENTRY(sockfd);
+	if (!node->sock_bind) return -EINVAL;
+	return node->sock_bind(node, addr, addrlen);
 }
 
 long net_accept(int sockfd, struct sockaddr * addr, socklen_t * addrlen) {

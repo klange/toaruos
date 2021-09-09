@@ -455,12 +455,34 @@ static void sock_udp_close(sock_t * sock) {
 	}
 }
 
+
+static long sock_udp_bind(sock_t * sock, const struct sockaddr *addr, socklen_t addrlen) {
+	if (sock->priv[0]) return -EINVAL; /* Already bound */
+
+	/* Get port */
+	const struct sockaddr_in * addr_in = (const struct sockaddr_in *)addr;
+	int port = ntohs(addr_in->sin_port);
+	spin_lock(udp_port_lock);
+	if (hashmap_has(udp_sockets, (void*)(uintptr_t)port)) {
+		spin_unlock(udp_port_lock);
+		return -EADDRINUSE;
+	}
+	hashmap_set(udp_sockets, (void*)(uintptr_t)port, sock);
+	sock->priv[0] = port;
+	spin_unlock(udp_port_lock);
+
+	/* Totally ignore the NIC stuff */
+
+	return 0;
+}
+
 static int udp_socket(void) {
 	printf("udp socket...\n");
 	sock_t * sock = net_sock_create();
 	sock->sock_recv = sock_udp_recv;
 	sock->sock_send = sock_udp_send;
 	sock->sock_close = sock_udp_close;
+	sock->sock_bind = sock_udp_bind;
 	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock);
 }
 

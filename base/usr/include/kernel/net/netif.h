@@ -25,6 +25,7 @@ typedef struct SockData {
 	long (*sock_send)(struct SockData * sock, const struct msghdr *msg, int flags);
 	void (*sock_close)(struct SockData * sock);
 	long (*sock_connect)(struct SockData * sock, const struct sockaddr *addr, socklen_t addrlen);
+	long (*sock_bind)(struct SockData * sock, const struct sockaddr *addr, socklen_t addrlen);
 
 	struct sockaddr dest;
 	uint32_t priv32[4];

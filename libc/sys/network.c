@@ -252,6 +252,18 @@ struct hostent * gethostbyname(const char * name) {
 		return &_hostent;
 	}
 
+	if (!strcmp(name,"localhost")) {
+		_hostent.h_name = (char*)name;
+		_hostent.h_aliases = NULL;
+		_hostent.h_addrtype = AF_INET;
+		_hostent.h_length = sizeof(uint32_t);
+		_hostent.h_addr_list = _host_entry_list;
+		_host_entry_list[0] = (char*)&_hostent_addr;
+		_hostent_addr = inet_addr("127.0.0.1");
+		return &_hostent;
+
+	}
+
 	/* Try to open /etc/resolv.conf */
 	FILE * resolv = fopen("/etc/resolv.conf","r");
 	if (!resolv) resolv = fopen("/var/resolv.conf","r");
