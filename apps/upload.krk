@@ -1,0 +1,29 @@
+#!/bin/kuroko
+
+import socket
+import fileio
+
+import kuroko
+
+let b
+with fileio.open(kuroko.argv[1],'rb') as f:
+    b = f.read()
+
+let endpoint = kuroko.argv[2]
+
+if ':' in endpoint:
+    let x = endpoint.split(':')
+    endpoint = (x[0], int(x[1]))
+
+print("Uploading",len(b),"byte(s) to",endpoint)
+
+let s = socket.socket()
+
+s.connect(endpoint)
+
+print("Connected...")
+
+s.send(b)
+
+print("Done.")
+

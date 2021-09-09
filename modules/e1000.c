@@ -254,7 +254,7 @@ static void send_packet(struct e1000_nic * device, uint8_t* payload, size_t payl
 					return;
 				}
 				tx_head = read_command(device, E1000_REG_TXDESCHEAD);
-			} while (next_tx == tx_head);
+			} while ((next_tx + 1) % E1000_NUM_TX_DESC == tx_head);
 		}
 	}
 
