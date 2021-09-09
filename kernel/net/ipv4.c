@@ -20,13 +20,14 @@
 #include <kernel/net/ipv4.h>
 
 #include <sys/socket.h>
+#include <arpa/inet.h>
 
 #ifndef MISAKA_DEBUG_NET
 #define printf(...) if (_debug) printf(__VA_ARGS__)
 //#define printf(...)
 #endif
 
-#define DEFAULT_TCP_WINDOW_SIZE 8000
+#define DEFAULT_TCP_WINDOW_SIZE 65535
 
 static int _debug __attribute__((unused)) = 0;
 
@@ -222,7 +223,7 @@ static int tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet, 
 		printf("tcp: their seq = %u our ack = %u\n",
 			ntohl(tcp->seq_number), sock->priv32[1]);
 #endif
-		window_size = 300;
+		//window_size = 300;
 		retval = 0;
 		send_thrice = 1;
 	} else {

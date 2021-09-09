@@ -12,14 +12,8 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <sys/socket.h>
-
-static void ip_ntoa(uint32_t src_addr, char * out) {
-	sprintf(out, "%d.%d.%d.%d",
-		(unsigned int)((src_addr & 0xFF000000) >> 24),
-		(unsigned int)((src_addr & 0xFF0000) >> 16),
-		(unsigned int)((src_addr & 0xFF00) >> 8),
-		(unsigned int)((src_addr & 0xFF)));
-}
+#include <netinet/in.h>
+#include <netdb.h>
 
 int main(int argc, char * argv[]) {
 	if (argc < 2) return 1;
@@ -31,8 +25,7 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
-	char addr[16] = {0};
-	ip_ntoa(ntohl(*(uint32_t *)host->h_addr_list[0]), addr);
+	char * addr = inet_ntoa(*(struct in_addr*)host->h_addr_list[0]);
 
 	fprintf(stderr, "%s: %s\n", host->h_name, addr);
 	return 0;

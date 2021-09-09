@@ -12,6 +12,9 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 
 #include <syscall.h>
 #include <syscall_nums.h>
@@ -163,7 +166,7 @@ int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
 	return -1;
 }
 
-static uint32_t ip_aton(const char * in) {
+in_addr_t inet_addr(const char * in) {
 	char ip[16];
 	char * c = ip;
 	uint32_t out[4];
@@ -189,6 +192,20 @@ static uint32_t ip_aton(const char * in) {
 	out[3] = atoi(c);
 
 	return htonl((out[0] << 24) | (out[1] << 16) | (out[2] << 8) | (out[3]));
+}
+
+char * inet_ntoa(struct in_addr in) {
+	static char buf[17];
+
+	uint32_t hostOrder = ntohl(in.s_addr);
+
+	snprintf(buf,17,"%d.%d.%d.%d",
+		(hostOrder >> 24) & 0xFF,
+		(hostOrder >> 16) & 0xFF,
+		(hostOrder >>  8) & 0xFF,
+		(hostOrder >>  0) & 0xFF);
+
+	return buf;
 }
 
 static struct hostent _hostent = {0};
@@ -231,7 +248,7 @@ struct hostent * gethostbyname(const char * name) {
 		_hostent.h_length = sizeof(uint32_t);
 		_hostent.h_addr_list = _host_entry_list;
 		_host_entry_list[0] = (char*)&_hostent_addr;
-		_hostent_addr = ip_aton(name);
+		_hostent_addr = inet_addr(name);
 		return &_hostent;
 	}
 
@@ -258,7 +275,7 @@ struct hostent * gethostbyname(const char * name) {
 	}
 
 	/* Try to convert so we can connect... */
-	uint32_t ns_addr = ip_aton(tmp + strlen("nameserver "));
+	uint32_t ns_addr = inet_addr(tmp + strlen("nameserver "));
 
 	/* Form a DNS request */
 	char dat[256];

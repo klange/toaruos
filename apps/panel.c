@@ -31,6 +31,7 @@
 #include <sys/fswait.h>
 #include <sys/socket.h>
 #include <net/if.h>
+#include <arpa/inet.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
