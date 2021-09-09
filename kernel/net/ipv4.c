@@ -435,6 +435,12 @@ static long sock_udp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	if (msg->msg_iovlen == 0) return 0;
 
 	struct ipv4_packet * data = net_sock_get(sock);
+
+	if (!data) {
+		/* We need to figure out why, but that's... complicated for now. */
+		return -EINTR;
+	}
+
 	printf("udp: got response, size is %u - sizeof(ipv4) - sizeof(udp) = %lu\n",
 		ntohs(data->length), ntohs(data->length) - sizeof(struct ipv4_packet) - sizeof(struct udp_packet));
 	memcpy(msg->msg_iov[0].iov_base, data->payload + 8, ntohs(data->length) - sizeof(struct ipv4_packet) - sizeof(struct udp_packet));
@@ -589,6 +595,9 @@ static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	}
 
 	struct ipv4_packet * data = net_sock_get(sock);
+	if (!data) {
+		return -EINTR;
+	}
 	long resp = ntohs(data->length) - sizeof(struct ipv4_packet) - sizeof(struct tcp_header);
 
 	if (resp > (long)msg->msg_iov[0].iov_len) {
@@ -699,6 +708,9 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 
 	/* wait for signal that we connected or timed out */
 	struct ipv4_packet * data = net_sock_get(sock);
+	if (!data) {
+		return -EINTR;
+	}
 	printf("tcp: connect complete\n");
 	free(data);
 

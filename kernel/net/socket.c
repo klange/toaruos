@@ -56,7 +56,10 @@ void net_sock_add(sock_t * sock, void * frame, size_t size) {
 
 void * net_sock_get(sock_t * sock) {
 	while (!sock->rx_queue->length) {
-		sleep_on(sock->rx_wait);
+		if (sleep_on(sock->rx_wait)) {
+			if (!sock->rx_queue->length)
+				return NULL;
+		}
 	}
 
 	spin_lock(sock->rx_lock);
@@ -118,6 +121,7 @@ static long sock_raw_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	if (msg->msg_iovlen == 0) return 0;
 	if (msg->msg_iov[0].iov_len != 8192) return -EINVAL;
 	void * data = net_sock_get(sock);
+	if (!data) return -EINTR;
 	memcpy(msg->msg_iov[0].iov_base, data, 8192);
 	free(data);
 	return 8192;
