@@ -14,6 +14,7 @@
 #include <stdint.h>
 #include <kernel/string.h>
 #include <kernel/pci.h>
+#include <kernel/printf.h>
 
 /* TODO: PCI is sufficiently generic this shouldn't depend
  *       directly on x86-64 hardware... */
@@ -126,51 +127,6 @@ void pci_scan(pci_func_t f, int type, void * extra) {
 	}
 }
 
-static void find_isa_bridge(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * extra) {
-	if (vendorid == 0x8086 && (deviceid == 0x7000 || deviceid == 0x7110)) {
-		*((uint32_t *)extra) = device;
-	}
-}
-
-
-static uint32_t pci_isa = 0;
-static uint8_t pci_remaps[4] = {0};
-
-/**
- * PIIX4 PIRQ routing control.
- * Maps interrupt pins to correct interrupts.
- */
-#define PIIX4_PCI_PIRQRC  0x60
-void pci_remap(void) {
-	pci_scan(&find_isa_bridge, -1, &pci_isa);
-	if (pci_isa) {
-		for (int i = 0; i < 4; ++i) {
-			pci_remaps[i] = pci_read_field(pci_isa, PIIX4_PCI_PIRQRC + i, 1);
-
-			/* If this PIRQ is not assigned, assign it. */
-			if (pci_remaps[i] == 0x80) {
-				pci_remaps[i] = 10 + i%1;
-			}
-		}
-		uint32_t out = 0;
-		memcpy(&out, &pci_remaps, 4);
-		pci_write_field(pci_isa, PIIX4_PCI_PIRQRC, 4, out);
-	}
-}
-
 int pci_get_interrupt(uint32_t device) {
-	if (pci_isa) {
-		uint32_t irq_pin = pci_read_field(device, PCI_INTERRUPT_PIN, 1);
-		/* If there is no irq pin, hope the line is set correctly... */
-		if (irq_pin == 0) {
-			return pci_read_field(device, PCI_INTERRUPT_LINE, 1);
-		}
-		/* Calculate PIRQ from pin and device slot. */
-		int pirq = (irq_pin + pci_extract_slot(device) - 2) % 4;
-		/* We don't actually have to rewrite this, but it's nice of us. */
-		pci_write_field(device, PCI_INTERRUPT_LINE, 1, pci_remaps[pirq]);
-		return pci_remaps[pirq];
-	} else {
-		return pci_read_field(device, PCI_INTERRUPT_LINE, 1);
-	}
+	return pci_read_field(device, PCI_INTERRUPT_LINE, 1);
 }

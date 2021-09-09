@@ -52,6 +52,7 @@ static size_t _early_log_write(size_t size, uint8_t * buffer) {
 }
 
 static void early_log_initialize(void) {
+	outportb(EARLY_LOG_DEVICE + 3, 0x03); /* Disable divisor mode, set parity */
 	printf_output = &_early_log_write;
 }
 
@@ -286,9 +287,6 @@ int kmain(struct multiboot * mboot, uint32_t mboot_mag, void* esp) {
 
 	/* Set up preempt source */
 	pit_initialize();
-
-	/* Handle PIRQ remapping if necessary */
-	pci_remap();
 
 	/* Install generic PC device drivers. */
 	ps2hid_install();

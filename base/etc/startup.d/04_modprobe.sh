@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# Only load this in virtualbox for now, as we're not
+# even sure we're doing the remapping correctly...
+if lspci -q 80EE:CAFE then insmod /mod/piix4.ko
+
 # Add module descriptions here...
 if lspci -q 8086:2415 then insmod /mod/ac97.ko
 if lspci -q 1234:1111,15ad:07a0 then insmod /mod/vmware.ko
