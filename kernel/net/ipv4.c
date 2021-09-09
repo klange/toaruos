@@ -687,7 +687,7 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 
 	unsigned long s, ss;
 	unsigned long ns, nss;
-	relative_time(2,0,&s,&ss);
+	relative_time(1,0,&s,&ss);
 	int attempts = 0;
 
 	while (!sock->rx_queue->length) {
@@ -698,14 +698,14 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 			return -ECONNREFUSED;
 		}
 		if (result != 0 && (ns > s || (ns == s && nss > ss))) {
-			if (attempts++ > 5) {
+			if (attempts++ == 3) {
 				printf("tcp: connect timed out\n");
 				free(response);
 				return -ETIMEDOUT;
 			}
 			printf("tcp: retrying...\n");
 			net_ipv4_send(response,nic);
-			relative_time(2,0,&s,&ss);
+			relative_time(1,0,&s,&ss);
 		}
 	}
 
