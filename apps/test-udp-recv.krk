@@ -1,0 +1,12 @@
+#!/bin/kuroko
+import socket
+
+let s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+print("Binding to :1234")
+s.bind(('0.0.0.0',1234))
+
+print("Waiting.")
+
+while True:
+    print(s.recv(1024))
