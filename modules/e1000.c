@@ -243,7 +243,6 @@ static void send_packet(struct e1000_nic * device, uint8_t* payload, size_t payl
 	} else {
 		next_tx = tx_tail;
 		if ((next_tx + 1) % E1000_NUM_TX_DESC == tx_head) {
-			printf("e1000: Out of TX descriptors, must wait for card\n");
 			int timeout = 1000;
 			do {
 				switch_task(1);
