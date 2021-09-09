@@ -133,7 +133,7 @@ int net_ipv4_send(struct ipv4_packet * response, fs_node_t * nic) {
 			net_arp_ask(ipdest, nic);
 
 			unsigned long s, ss;
-			relative_time(1, 0, &s, &ss);
+			relative_time(0, 1000, &s, &ss);
 			sleep_until((process_t *)this_core->current_process, s, ss);
 			switch_task(0);
 
