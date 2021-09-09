@@ -192,7 +192,7 @@ void ipv4_install(void) {
 
 #define TCP_FLAGS_FIN (1 << 0)
 #define TCP_FLAGS_SYN (1 << 1)
-#define TCP_FLAGS_RES (1 << 2)
+#define TCP_FLAGS_RST (1 << 2)
 #define TCP_FLAGS_PSH (1 << 3)
 #define TCP_FLAGS_ACK (1 << 4)
 #define TCP_FLAGS_URG (1 << 5)
@@ -332,6 +332,9 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
 						if (tcp_ack(nic, sock, packet, 1, 1)) {
 							net_sock_add(sock, packet, ntohs(packet->length));
 						}
+					} else if ((ntohs(tcp->flags) & (TCP_FLAGS_RST))) {
+						sock->priv[1] = 0;
+						net_sock_alert(sock);
 					}
 				} else if (sock->priv[1] == 2) {
 					size_t packet_len = ntohs(packet->length) - sizeof(struct ipv4_packet);
@@ -690,6 +693,10 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 	while (!sock->rx_queue->length) {
 		int result = process_wait_nodes((process_t *)this_core->current_process, (fs_node_t*[]){(fs_node_t*)sock,NULL}, 200);
 		relative_time(0,0,&ns,&nss);
+		if (sock->priv[1] == 0) {
+			free(response);
+			return -ECONNREFUSED;
+		}
 		if (result != 0 && (ns > s || (ns == s && nss > ss))) {
 			if (attempts++ > 5) {
 				printf("tcp: connect timed out\n");
