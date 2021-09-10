@@ -406,22 +406,56 @@ static void get_cpu_info(int cpus[]) {
 }
 
 /**
+ * @brief Obtain information on how much system memory is
+ *        being used for tmpfs blocks.
+ */
+static void get_tmpfs_info(size_t * size) {
+	FILE * f = fopen("/proc/tmpfs", "r");
+	if (!f) return;
+
+	char buf[1024] = {0};
+	fread(buf,1,1024,f);
+	fclose(f);
+
+	/* Should probably be looking for UsedBlocks: and advancing from there... */
+	char *b = strstr(buf, ":");
+	if (!b) return;
+	b += 2;
+
+	*size = strtoul(b,NULL,10) * 4; /* Expressed in pages, so * 4 for kilobytes */
+}
+
+static int fill_colors[] = {
+	1, 3, 4, 5, 6
+};
+
+/**
  * @brief Display a progress-bar-style usage meter.
  *
  * @p title Label to apply to the meter, shown on left.
  * @p label Label to show inside of the meter, show on the right.
  * @p width Available width to display the meter in, including title and frame.
- * @p filled Value of the meter.
+ * @p count Number of values to display.
+ * @p filled Values to stack in the meter.
  * @p maximum Maximum value of the meter.
  */
-static void print_meter(const char * title, const char * label, int width, int filled, int maximum) {
-	if (filled < 0) filled = 0;
-	if (filled > maximum) filled = maximum;
+static void print_meter(const char * title, const char * label, int width, int count, int filled[], int maximum) {
 	int available = width - strlen(title) - 4;
-	int fillSlots = filled * available / maximum;
+	int remaining = available;
+	int fillSlots = 0;
+
+	/* Count total fill slots */
+	for (int i = 0; i < count; ++i) {
+		filled[i] = filled[i] * available / maximum;
+		if (filled[i] < 0) filled[i] = 0;
+		if (filled[i] > remaining) filled[i] = remaining;
+		fillSlots += filled[i];
+		remaining = available - fillSlots;
+	}
+
 	int emptSlots = available - fillSlots;
 
-	printf("\033[1m%s [\033[0;91m", title);
+	printf("\033[1m%s [", title);
 
 	char * fill = malloc(available + 1);
 	size_t j = 0;
@@ -434,7 +468,11 @@ static void print_meter(const char * title, const char * label, int width, int f
 	}
 
 	j = 0;
-	for (int i = 0; i < fillSlots; ++i, j++) printf("%c",fill[j]);
+
+	for (int c = 0; c < count; ++c) {
+		printf("\033[0;9%dm", fill_colors[c % (sizeof(fill_colors) / sizeof(int))]);
+		for (int i = 0; i < filled[c]; ++i, j++) printf("%c",fill[j]);
+	}
 	printf("\033[90m");
 	for (int i = 0; i < emptSlots; ++i, j++) printf("%c",fill[j]);
 
@@ -503,6 +541,9 @@ static int do_once(void) {
 	int mem_total = 0, mem_used = 0;
 	get_mem_info(&mem_total, &mem_used);
 
+	size_t mem_tmpfs = 0;
+	get_tmpfs_info(&mem_tmpfs);
+
 	/* Gather per-CPU usage from /proc/idle */
 	int cpus[32];
 	get_cpu_info(cpus);
@@ -526,11 +567,14 @@ static int do_once(void) {
 		meter_width = w.ws_col;
 		info_width = 0;
 	} else {
+#define T_T "\033[94m"
+#define T_C "\033[0;1m"
+#define T_E "\033[0m"
 		if (top_rows >= 1) {
 			info_rows = 1;
 			char tmp[256] = {0};
 			gethostname(tmp, 255);
-			snprintf(info_row[0], 99, "\033[94mHostname: \033[0;1m%.*s\033[0m", info_width - 10, tmp);
+			snprintf(info_row[0], 99, T_T "Hostname: " T_C "%.*s" T_E, info_width - 10, tmp);
 		}
 		if (top_rows >= 2) {
 			info_rows = 2;
@@ -541,11 +585,11 @@ static int do_once(void) {
 			gettimeofday(&now, NULL);
 			timeinfo = localtime((time_t *)&now.tv_sec);
 			strftime(tmp,255,format,timeinfo);
-			snprintf(info_row[1], 99, "\033[94mTime: \033[0;1m%.*s\033[0m", info_width - 6, tmp);
+			snprintf(info_row[1], 99, T_T "Time: " T_C "%.*s" T_E, info_width - 6, tmp);
 		}
 		if (top_rows >= 3) {
 			info_rows = 3;
-			snprintf(info_row[2], 99, "\033[94mTasks: \033[0;1m%lu\033[0m", count);
+			snprintf(info_row[2], 99, T_T "Tasks: " T_C "%lu" T_E, count);
 		}
 	}
 
@@ -557,7 +601,7 @@ static int do_once(void) {
 		char name[20], usage[30];
 		sprintf(name, "%3d", cpu + 1);
 		sprintf(usage, "%d.%01d%%", cpus[cpu] / 10, cpus[cpu] % 10);
-		print_meter(name, usage, left_side ? meter_width : info_width, cpus[cpu], 1000);
+		print_meter(name, usage, left_side ? meter_width : info_width, 1, (int[]){cpus[cpu]}, 1000);
 
 		if (current_row < info_rows) {
 			printf("%s\033[K\n", info_row[current_row]);
@@ -577,7 +621,7 @@ static int do_once(void) {
 	/* Display memory usage widget */
 	char memUsed[30];
 	sprintf(memUsed, "%dM/%dM", mem_used / 1024, mem_total / 1024);
-	print_meter("Mem", memUsed, left_side ? meter_width : info_width, mem_used, mem_total);
+	print_meter("Mem", memUsed, left_side ? meter_width : info_width, 2, (int[]){mem_used-mem_tmpfs,mem_tmpfs}, mem_total);
 	if (left_side && current_row < info_rows) {
 		printf("%s", info_row[current_row]);
 	}
