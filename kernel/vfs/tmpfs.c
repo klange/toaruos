@@ -22,6 +22,7 @@
 #include <kernel/spinlock.h>
 #include <kernel/mmu.h>
 #include <kernel/time.h>
+#include <kernel/procfs.h>
 
 /* 4KB */
 #define BLOCKSIZE 0x1000
@@ -30,7 +31,8 @@
 #define TMPFS_TYPE_DIR  2
 #define TMPFS_TYPE_LINK 3
 
-struct tmpfs_dir * tmpfs_root = NULL;
+static struct tmpfs_dir * tmpfs_root = NULL;
+static intptr_t tmpfs_total_blocks = 0;
 
 static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d);
 
@@ -130,6 +132,7 @@ static void tmpfs_file_free(struct tmpfs_file * t) {
 	spin_lock(t->lock);
 	for (size_t i = 0; i < t->block_count; ++i) {
 		mmu_frame_clear((uintptr_t)t->blocks[i] * 0x1000);
+		tmpfs_total_blocks--;
 	}
 	spin_unlock(t->lock);
 }
@@ -146,6 +149,7 @@ static char * tmpfs_file_getset_block(struct tmpfs_file * t, size_t blockid, int
 		}
 		while (blockid >= t->block_count) {
 			uintptr_t index = mmu_allocate_a_frame();
+			tmpfs_total_blocks++;
 			t->blocks[t->block_count] = index;
 			t->block_count += 1;
 		}
@@ -547,7 +551,33 @@ fs_node_t * tmpfs_mount(const char * device, const char * mount_path) {
 	return fs;
 }
 
+static ssize_t tmpfs_func(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
+	char * buf = malloc(4096);
+
+	snprintf(buf, 4095,
+		"UsedBlocks:\t%zd\n",
+		tmpfs_total_blocks);
+
+	size_t _bsize = strlen(buf);
+	if ((size_t)offset > _bsize) {
+		free(buf);
+		return 0;
+	}
+	if (size > _bsize - (size_t)offset) size = _bsize - offset;
+
+	memcpy(buffer, buf + offset, size);
+	free(buf);
+	return size;
+}
+
+static struct procfs_entry tmpfs_entry = {
+	0,
+	"tmpfs",
+	tmpfs_func,
+};
+
 void tmpfs_register_init(void) {
 	vfs_register("tmpfs", tmpfs_mount);
+	procfs_install(&tmpfs_entry);
 }
 
