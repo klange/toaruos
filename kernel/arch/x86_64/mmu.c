@@ -19,7 +19,9 @@ extern void arch_tlb_shootdown(uintptr_t);
  * bitmap page allocator for 4KiB pages
  */
 static volatile uint32_t *frames;
-static uint32_t nframes;
+static size_t nframes;
+static size_t total_memory = 0;
+static size_t unavailable_memory = 0;
 
 #define PAGE_SHIFT     12
 #define PAGE_SIZE      0x1000UL
@@ -55,7 +57,7 @@ static uint32_t nframes;
 
 void mmu_frame_set(uintptr_t frame_addr) {
 	/* If the frame is within bounds... */
-	if (frame_addr < nframes * 4 * 0x400) {
+	if (frame_addr < nframes * PAGE_SIZE) {
 		uint64_t frame  = frame_addr >> 12;
 		uint64_t index  = INDEX_FROM_BIT(frame);
 		uint32_t offset = OFFSET_FROM_BIT(frame);
@@ -66,7 +68,7 @@ void mmu_frame_set(uintptr_t frame_addr) {
 
 void mmu_frame_clear(uintptr_t frame_addr) {
 	/* If the frame is within bounds... */
-	if (frame_addr < nframes * 4 * 0x400) {
+	if (frame_addr < nframes * PAGE_SIZE) {
 		uint64_t frame  = frame_addr >> PAGE_SHIFT;
 		uint64_t index  = INDEX_FROM_BIT(frame);
 		uint32_t offset = OFFSET_FROM_BIT(frame);
@@ -76,7 +78,7 @@ void mmu_frame_clear(uintptr_t frame_addr) {
 }
 
 int mmu_frame_test(uintptr_t frame_addr) {
-	if (!(frame_addr < nframes * 4 * 0x400)) return 0;
+	if (!(frame_addr < nframes * PAGE_SIZE)) return 0;
 	uint64_t frame  = frame_addr >> PAGE_SHIFT;
 	uint64_t index  = INDEX_FROM_BIT(frame);
 	uint32_t offset = OFFSET_FROM_BIT(frame);
@@ -516,12 +518,10 @@ size_t mmu_count_shm(union PML * from) {
 /**
  * @brief Return the total amount of usable memory.
  *
- * Just returns the number of frames in the bitmap allocator, times 4.
- *
  * @returns the total amount of usable memory in KiB.
  */
 size_t mmu_total_memory(void) {
-	return nframes * 4;
+	return total_memory;
 }
 
 /**
@@ -543,7 +543,7 @@ size_t mmu_used_memory(void) {
 			}
 		}
 	}
-	return ret * 4;
+	return ret * 4 - unavailable_memory;
 }
 
 /**
@@ -721,7 +721,26 @@ void mmu_init(size_t memsize, uintptr_t firstFreePage) {
 
 	/* We are now in the new stuff. */
 	frames = (void*)((uintptr_t)KERNEL_HEAP_START);
-	memset((void*)frames, 0, bytesOfFrames);
+	memset((void*)frames, 0xFF, bytesOfFrames);
+
+	extern void mboot_unmark_valid_memory(void);
+	mboot_unmark_valid_memory();
+
+	/* Don't trust anything but our own bitmap... */
+	size_t unavail = 0, avail = 0;
+	for (size_t i = 0; i < INDEX_FROM_BIT(nframes); ++i) {
+		for (size_t j = 0; j < 32; ++j) {
+			uint32_t testFrame = (uint32_t)0x1 << j;
+			if (frames[i] & testFrame) {
+				unavail++;
+			} else {
+				avail++;
+			}
+		}
+	}
+
+	total_memory = avail * 4;
+	unavailable_memory = unavail * 4;
 
 	/* Now mark everything up to (firstFreePage + bytesOfFrames) as in use */
 	for (uintptr_t i = 0; i < firstFreePage + bytesOfFrames; i += PAGE_SIZE) {

@@ -21,6 +21,7 @@
 #include <kernel/ramdisk.h>
 #include <kernel/args.h>
 #include <kernel/ksym.h>
+#include <kernel/misc.h>
 
 #include <kernel/arch/x86_64/ports.h>
 #include <kernel/arch/x86_64/cmos.h>
@@ -43,6 +44,8 @@ extern void serial_initialize(void);
 extern void fbterm_initialize(void);
 extern void pci_remap(void);
 
+struct multiboot * mboot_struct = NULL;
+
 #define EARLY_LOG_DEVICE 0x3F8
 static size_t _early_log_write(size_t size, uint8_t * buffer) {
 	for (unsigned int i = 0; i < size; ++i) {
@@ -56,52 +59,48 @@ static void early_log_initialize(void) {
 	printf_output = &_early_log_write;
 }
 
-static size_t     memCount = 0;
-static uintptr_t  maxAddress = (uintptr_t)&end;
+static uintptr_t highest_valid_address = 0;
+static uintptr_t highest_kernel_address = (uintptr_t)&end;
+
 static void multiboot_initialize(struct multiboot * mboot) {
-	/* Set memCount to 1M + high mem */
-	if (mboot->flags & MULTIBOOT_FLAG_MEM) {
-		/* mem_upper is in kibibytes and is one mebibyte less than
-		 * actual available memory, so add that back in and multiply... */
-		memCount = (uintptr_t)mboot->mem_upper * 0x400 + 0x100000;
+	if (!(mboot->flags & MULTIBOOT_FLAG_MMAP)) {
+		printf("fatal: unable to boot without memory map from loader\n");
+		arch_fatal();
 	}
 
-	/**
-	 * FIXME:
-	 * The multiboot 0.6.96 spec actually says the upper_memory is at most
-	 * the address of the first hole, minus 1MiB, so in theory there should
-	 * not be any unavailable memory between 1MiB and mem_upper... that
-	 * also technically means there might be even higher memory above that
-	 * hole that we're missing... We should really be scanning the whole map
-	 * to find the highest address of available memory, using that as our
-	 * memory count, and then ensuring all of the holes are marked unavailable.
-	 * but for now we'll just accept that there's a hole in lower memory and
-	 * mem_upper is probably the total available physical RAM. That's probably
-	 * good enough for 1GiB~4GiB cases...
-	 */
-#if 0
-	printf("mem_upper = %#zx\n", mboot->mem_upper);
-	if (mboot->flags & MULTIBOOT_FLAG_MMAP) {
-		mboot_memmap_t * mmap = (void *)(uintptr_t)mboot->mmap_addr;
-		while ((uintptr_t)mmap < mboot->mmap_addr + mboot->mmap_length) {
-			printf("  0x%016zx:0x%016zx %d (%s)\n", mmap->base_addr, mmap->length, mmap->type,
-					mmap->type == 1 ? "available" : (mmap->type == 2 ? "reserved" : "unknown")
-					);
-			mmap = (mboot_memmap_t *) ((uintptr_t)mmap + mmap->size + sizeof(uint32_t));
+	mboot_memmap_t * mmap = (void *)(uintptr_t)mboot->mmap_addr;
+	while ((uintptr_t)mmap < mboot->mmap_addr + mboot->mmap_length) {
+		if (mmap->type == 1 && mmap->length && mmap->base_addr + mmap->length - 1> highest_valid_address) {
+			highest_valid_address = mmap->base_addr + mmap->length - 1;
 		}
+		mmap = (mboot_memmap_t *) ((uintptr_t)mmap + mmap->size + sizeof(uint32_t));
 	}
-#endif
 
 	if (mboot->flags & MULTIBOOT_FLAG_MODS) {
 		mboot_mod_t * mods = (mboot_mod_t *)(uintptr_t)mboot->mods_addr;
 		for (unsigned int i = 0; i < mboot->mods_count; ++i) {
 			uintptr_t addr = (uintptr_t)mods[i].mod_start + mods[i].mod_end;
-			if (addr > maxAddress) maxAddress = addr;
+			if (addr > highest_kernel_address) highest_kernel_address = addr;
 		}
 	}
 
 	/* Round the max address up a page */
-	maxAddress = (maxAddress + 0xFFF) & 0xFFFFffffFFFFf000;
+	highest_kernel_address = (highest_kernel_address + 0xFFF) & 0xFFFFffffFFFFf000;
+}
+
+void mboot_unmark_valid_memory(void) {
+	/* multiboot memory is now mapped high, if you want it. */
+	mboot_memmap_t * mmap = mmu_map_from_physical((uintptr_t)mboot_struct->mmap_addr);
+	size_t frames_marked = 0;
+	while ((uintptr_t)mmap < (uintptr_t)mmu_map_from_physical(mboot_struct->mmap_addr + mboot_struct->mmap_length)) {
+		if (mmap->type == 1) {
+			for (uintptr_t base = mmap->base_addr; base < mmap->base_addr + (mmap->length & 0xFFFFffffFFFFf000); base += 0x1000) {
+				mmu_frame_clear(base);
+				frames_marked++;
+			}
+		}
+		mmap = (mboot_memmap_t *) ((uintptr_t)mmap + mmap->size + sizeof(uint32_t));
+	}
 }
 
 static void symbols_install(void) {
@@ -160,8 +159,6 @@ void fpu_initialize(void) {
 		"addq $8, %%rsp\n"
 	: : : "rax");
 }
-
-struct multiboot * mboot_struct = NULL;
 
 /**
  * @brief Decompress compressed ramdisks and hand them to the ramdisk driver.
@@ -253,11 +250,11 @@ int kmain(struct multiboot * mboot, uint32_t mboot_mag, void* esp) {
 	/* Parse multiboot data so we can get memory map, modules, command line, etc. */
 	multiboot_initialize(mboot);
 
-	/* memCount and maxAddress come from multiboot data */
-	mmu_init(memCount, maxAddress);
-
 	/* multiboot memory is now mapped high, if you want it. */
 	mboot_struct = mmu_map_from_physical((uintptr_t)mboot);
+
+	/* memCount and maxAddress come from multiboot data */
+	mmu_init(highest_valid_address, highest_kernel_address);
 
 	/* With the MMU initialized, set up things required for the scheduler. */
 	pat_initialize();
