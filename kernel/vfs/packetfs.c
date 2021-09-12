@@ -31,6 +31,8 @@
 #include <kernel/spinlock.h>
 #include <kernel/process.h>
 
+extern void pipe_destroy(fs_node_t * node);
+
 #include <sys/ioctl.h>
 
 #define MAX_PACKET_SIZE 1024
@@ -255,22 +257,21 @@ static void close_client(fs_node_t * node) {
 	pex_client_t * c = (pex_client_t *)node->inode;
 	pex_ex_t * p = c->parent;
 
-	debug_print(WARNING, "Closing packetfs client: %p:%p", (void*)p, (void*)c);
-
-	spin_lock(p->lock);
-
-	node_t * n = list_find(p->clients, c);
-	if (n && n->owner == p->clients) {
-		list_delete(p->clients, n);
-		free(n);
+	if (p) {
+		debug_print(WARNING, "Closing packetfs client: %p:%p", (void*)p, (void*)c);
+		spin_lock(p->lock);
+		node_t * n = list_find(p->clients, c);
+		if (n && n->owner == p->clients) {
+			list_delete(p->clients, n);
+			free(n);
+		}
+		spin_unlock(p->lock);
+		char tmp[1];
+		send_to_server(p, c, 0, tmp);
 	}
 
-	spin_unlock(p->lock);
-
-	char tmp[1];
-
-	send_to_server(p, c, 0, tmp);
-
+	pipe_destroy(c->pipe);
+	free(c->pipe);
 	free(c);
 }
 
@@ -309,15 +310,20 @@ static void close_server(fs_node_t * node) {
 
 	/* Tell all clients we have disconnected */
 	spin_lock(ex->lock);
-	foreach(f, ex->clients) {
+	while (ex->clients->length) {
+		node_t * f = list_pop(ex->clients);
 		pex_client_t * client = (pex_client_t*)f->value;
 		send_to_client(ex, client, 0, NULL);
 		client->parent = NULL;
+		free(f);
 	}
 	spin_unlock(ex->lock);
 
-	/* TODO Free resources */
-
+	free(ex->clients);
+	pipe_destroy(ex->server_pipe);
+	free(ex->server_pipe);
+	node->device = NULL;
+	free(ex);
 
 	spin_unlock(p->lock);
 

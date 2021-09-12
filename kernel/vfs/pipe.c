@@ -228,6 +228,21 @@ static int pipe_wait(fs_node_t * node, void * process) {
 	return 0;
 }
 
+void pipe_destroy(fs_node_t * node) {
+	pipe_device_t * pipe = (pipe_device_t *)node->device;
+	spin_lock(pipe->ptr_lock);
+	pipe->dead = 1;
+	pipe_alert_waiters(pipe);
+	wakeup_queue(pipe->wait_queue_writers);
+	wakeup_queue(pipe->wait_queue_readers);
+	free(pipe->alert_waiters);
+	free(pipe->wait_queue_writers);
+	free(pipe->wait_queue_readers);
+	free(pipe->buffer);
+	spin_unlock(pipe->ptr_lock);
+	free(pipe);
+}
+
 fs_node_t * make_pipe(size_t size) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	pipe_device_t * pipe = malloc(sizeof(pipe_device_t));
