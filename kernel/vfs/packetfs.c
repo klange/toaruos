@@ -48,6 +48,7 @@ typedef struct packet_exchange {
 	spin_lock_t lock;
 	fs_node_t * server_pipe;
 	list_t * clients;
+	pex_t * parent;
 } pex_ex_t;
 
 typedef struct packet_client {
@@ -191,7 +192,7 @@ static ssize_t read_client(fs_node_t * node, off_t offset, size_t size, uint8_t 
 	pex_client_t * c = (pex_client_t *)node->inode;
 	if (c->parent != node->device) {
 		printf("pex: Invalid device endpoint on client read?\n");
-		return -1;
+		return -EINVAL;
 	}
 
 	debug_print(INFO, "[pex] client read(...)");
@@ -200,11 +201,11 @@ static ssize_t read_client(fs_node_t * node, off_t offset, size_t size, uint8_t 
 
 	receive_packet(c->parent, c->pipe, &packet);
 
-	if (!packet) return -1;
+	if (!packet) return -EIO;
 
 	if (packet->size > size) {
 		printf("pex: Client is not reading enough bytes to hold packet of size %zu\n", packet->size);
-		return -1;
+		return -EINVAL;
 	}
 
 	memcpy(buffer, &packet->data, packet->size);
@@ -223,14 +224,14 @@ static ssize_t write_client(fs_node_t * node, off_t offset, size_t size, uint8_t
 	pex_client_t * c = (pex_client_t *)node->inode;
 	if (c->parent != node->device) {
 		debug_print(WARNING, "[pex] Invalid device endpoint on client write?");
-		return -1;
+		return -EINVAL;
 	}
 
 	debug_print(INFO, "[pex] client write(...)");
 
 	if (size > MAX_PACKET_SIZE) {
 		debug_print(WARNING, "Size of %lu is too big.", size);
-		return -1;
+		return -EINVAL;
 	}
 
 	debug_print(INFO, "Sending packet of size %lu to parent", size);
@@ -291,23 +292,58 @@ static int check_client(fs_node_t * node) {
 	return selectcheck_fs(c->pipe);
 }
 
+
+static void close_server(fs_node_t * node) {
+	pex_ex_t * ex = (pex_ex_t *)node->device;
+	pex_t * p = ex->parent;
+
+	spin_lock(p->lock);
+
+	node_t * lnode = list_find(p->exchanges, ex);
+
+	/* Remove from exchange list */
+	if (lnode) {
+		list_delete(p->exchanges, lnode);
+		free(lnode);
+	}
+
+	/* Tell all clients we have disconnected */
+	spin_lock(ex->lock);
+	foreach(f, ex->clients) {
+		pex_client_t * client = (pex_client_t*)f->value;
+		send_to_client(ex, client, 0, NULL);
+		client->parent = NULL;
+	}
+	spin_unlock(ex->lock);
+
+	/* TODO Free resources */
+
+
+	spin_unlock(p->lock);
+
+}
+
 static void open_pex(fs_node_t * node, unsigned int flags) {
 	pex_ex_t * t = (pex_ex_t *)(node->device);
 
 	debug_print(NOTICE, "Opening packet exchange %s with flags 0x%x", t->name, flags);
 
-	if (flags & O_CREAT && t->fresh) {
+	if ((flags & O_CREAT) && (flags & O_EXCL)) {
+		if (!t->fresh) {
+			return; /* Address in use; this should be handled by kopen... */
+		}
 		t->fresh = 0;
 		node->inode = 0;
 		/* Set up the server side */
 		node->read   = read_server;
 		node->write  = write_server;
 		node->ioctl  = ioctl_server;
+		node->close  = close_server;
 		node->selectcheck = check_server;
 		node->selectwait  = wait_server;
 		debug_print(INFO, "[pex] Server launched: %s", t->name);
 		debug_print(INFO, "fs_node = %p", (void*)node);
-	} else if (!(flags & O_CREAT)) {
+	} else {
 		pex_client_t * client = create_client(t);
 		node->inode = (uintptr_t)client;
 
@@ -323,8 +359,6 @@ static void open_pex(fs_node_t * node, unsigned int flags) {
 
 		/* XXX: Send plumbing message to server for new client connection */
 		debug_print(INFO, "[pex] Client connected: %s:%lx", t->name, node->inode);
-	} else if (flags & O_CREAT && !t->fresh) {
-		/* XXX: You dun goofed */
 	}
 
 	return;
@@ -437,6 +471,7 @@ static int create_packetfs(fs_node_t *parent, char *name, mode_t permission) {
 	new_exchange->fresh = 1;
 	new_exchange->clients = list_create("pex clients",new_exchange);
 	new_exchange->server_pipe = make_pipe(4096);
+	new_exchange->parent = p;
 
 	spin_init(new_exchange->lock);
 	/* XXX Create exchange server pipe */

@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/ioctl.h>
 
 #include <toaru/pex.h>
@@ -61,7 +62,11 @@ FILE * pex_bind(char * target) {
 	char tmp[100];
 	if (strlen(target) > 80) return NULL;
 	sprintf(tmp, "/dev/pex/%s", target);
-	FILE * out = fopen(tmp, "a+");
+	int fd = open(tmp, O_CREAT | O_EXCL | O_RDWR | O_APPEND);
+	if (fd < 0) {
+		return NULL;
+	}
+	FILE * out = fdopen(fd, "a+");
 	if (out) {
 		setbuf(out, NULL);
 	}

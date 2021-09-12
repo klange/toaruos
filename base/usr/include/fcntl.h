@@ -43,8 +43,10 @@ struct flock {
 
 #define FD_CLOEXEC (1 << 0)
 
+#ifndef __kernel__
 extern int open (const char *, int, ...);
 extern int chmod(const char *path, mode_t mode);
 extern int fcntl(int fd, int cmd, ...);
+#endif
 
 _End_C_Header

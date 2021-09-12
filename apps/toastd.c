@@ -121,11 +121,13 @@ int main(int argc, char * argv[]) {
 		yctx = yutani_init();
 		if (!yctx) {
 			fprintf(stderr, "%s: Failed to connect to compositor.\n", argv[0]);
+			return 1;
 		}
 		/* Open pex endpoint to receive notifications... */
 		pex_endpoint = pex_bind("toast");
 		if (!pex_endpoint) {
 			fprintf(stderr, "%s: Failed to establish socket.\n", argv[0]);
+			return 1;
 		}
 		/* Set up our text rendering and sprite contexts... */
 		markup_text_init();
