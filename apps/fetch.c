@@ -101,12 +101,13 @@ void print_progress(int force) {
 			fprintf(stderr," %.2f Kbps", s);
 		}
 
-		if (fetch_options.content_length) {
+		if (!force && fetch_options.content_length) {
 			if (rate > 0.0) {
 				double remaining = (double)(fetch_options.content_length - fetch_options.size) / rate;
-
 				fprintf(stderr," (%.2f sec remaining)", remaining);
 			}
+		} else {
+			fprintf(stderr," (%.2f sec elapsed)", timediff);
 		}
 	}
 	fprintf(stderr,"\033[K\033[?25h");
