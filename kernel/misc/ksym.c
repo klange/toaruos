@@ -6,6 +6,7 @@
  * boot methods to provide symbol tables for use with linking
  * kernel modules.
  */
+#include <kernel/types.h>
 #include <kernel/hashmap.h>
 #include <kernel/assert.h>
 #include <kernel/ksym.h>
@@ -25,4 +26,9 @@ void ksym_bind(const char * symname, void * value) {
 
 void * ksym_lookup(const char * symname) {
 	return hashmap_get(ksym_hash, symname);
+}
+
+list_t * ksym_list(void) {
+	assert(ksym_hash != NULL);
+	return hashmap_keys(ksym_hash);
 }

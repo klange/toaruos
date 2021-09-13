@@ -32,6 +32,7 @@
 #include <kernel/mmu.h>
 #include <kernel/misc.h>
 #include <kernel/module.h>
+#include <kernel/ksym.h>
 
 #define PROCFS_STANDARD_ENTRIES (sizeof(std_entries) / sizeof(struct procfs_entry))
 #define PROCFS_PROCDIR_ENTRIES  (sizeof(procdir_entries) / sizeof(struct procfs_entry))
@@ -674,6 +675,39 @@ static ssize_t idle_func(fs_node_t *node, off_t offset, size_t size, uint8_t *bu
 	return size;
 }
 
+static ssize_t kallsyms_func(fs_node_t *node, off_t offset, size_t size, uint8_t * buffer) {
+	/* This doesn't include module symbols at the moment... */
+	list_t * syms = ksym_list();
+
+	/* Figure out how much space needs to go in this buffer */
+	size_t total_size = 0;
+	foreach (node, syms) {
+		/* 16 for the address, one space, len(sym), one linefeed = 18 + strlen() */
+		total_size += 18 + strlen((char*)node->value);
+	}
+
+	char * buf = malloc(total_size);
+
+	size_t soffset = 0;
+	foreach(node, syms) {
+		soffset += snprintf(&buf[soffset], 100, "%016zx %s\n", this_core->current_process->user == USER_ROOT_UID ? (uintptr_t)ksym_lookup(node->value) : (uintptr_t)0, (char*)node->value);
+	}
+
+	if ((size_t)offset >= soffset) {
+		size = 0;
+		goto free_results;
+	}
+
+	if (size > soffset - offset) size = soffset - offset;
+	memcpy(buffer, buf + offset, size);
+
+free_results:
+	list_free(syms);
+	free(syms);
+	free(buf);
+	return size;
+}
+
 static struct procfs_entry std_entries[] = {
 	{-1, "cpuinfo",  cpuinfo_func},
 	{-2, "meminfo",  meminfo_func},
@@ -686,10 +720,11 @@ static struct procfs_entry std_entries[] = {
 	{-9, "filesystems", filesystems_func},
 	{-10,"loader",   loader_func},
 	{-11,"idle",     idle_func},
+	{-12,"kallsyms", kallsyms_func},
 #ifdef __x86_64__
-	{-12,"irq",      irq_func},
-	{-13,"pat",      pat_func},
-	{-14,"pci",      pci_func},
+	{-13,"irq",      irq_func},
+	{-14,"pat",      pat_func},
+	{-15,"pci",      pci_func},
 #endif
 };
 
