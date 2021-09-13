@@ -119,6 +119,25 @@ static int get_bounds_fancy(yutani_window_t * window, struct decor_bounds * boun
 	return 0;
 }
 
+static char * ellipsify(char * input, int font_size, struct TT_Font * font, int max_width, int * out_width) {
+	int len = strlen(input);
+	char * out = malloc(len + 4);
+	memcpy(out, input, len + 1);
+	int width;
+	tt_set_size(font, font_size);
+	while ((width = tt_string_width(font, out)) > max_width) {
+		len--;
+		out[len+0] = '.';
+		out[len+1] = '.';
+		out[len+2] = '.';
+		out[len+3] = '\0';
+	}
+
+	if (out_width) *out_width = width;
+
+	return out;
+}
+
 static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
 	int width = window->width;
 	int height = window->height;
@@ -196,37 +215,40 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 		draw_sprite(ctx, sprites[decors_active + 7], width - lr_width, height - l_height);
 	}
 
-	char * tmp_title = strdup(title);
-	int t_l = strlen(tmp_title);
-
 #define EXTRA_SPACE 120
 
 	uint32_t title_color = (decors_active == ACTIVE) ? ACTIVE_COLOR : INACTIVE_COLOR;
 
+	int buttons_width = (!(window->decorator_flags & DECOR_FLAG_NO_MAXIMIZE)) ? 50 : 28;
+	int usable_width = width - bounds.width - (2 * buttons_width + 10) * TOTAL_SCALE;
+
 	tt_set_size(_tt_font, 12 * TOTAL_SCALE);
-	if (tt_string_width(_tt_font, tmp_title) + EXTRA_SPACE * TOTAL_SCALE > width) {
-		while (t_l >= 0 && (tt_string_width(_tt_font, tmp_title) + EXTRA_SPACE * TOTAL_SCALE > width)) {
-			tmp_title[t_l] = '\0';
-			t_l--;
+	int title_width = tt_string_width(_tt_font, title);
+	if (title_width > usable_width) {
+		usable_width += buttons_width * TOTAL_SCALE;
+		if (usable_width > 0) {
+			char * tmp_title = ellipsify(title, 12 * TOTAL_SCALE, _tt_font, usable_width, &title_width);
+			int title_offset = bounds.left_width + 10 * TOTAL_SCALE;
+			tt_draw_string(ctx, _tt_font, title_offset, (TEXT_OFFSET + 14) * TOTAL_SCALE, tmp_title, title_color);
+			free(tmp_title);
 		}
+	} else {
+		int title_offset = buttons_width * TOTAL_SCALE + bounds.left_width + 10 * TOTAL_SCALE + (usable_width / 2) - (title_width / 2);
+		tt_draw_string(ctx, _tt_font, title_offset, (TEXT_OFFSET + 14) * TOTAL_SCALE, title, title_color);
 	}
 
-	if (*tmp_title) {
-		int title_offset = (width / 2) - (tt_string_width(_tt_font, tmp_title) / 2);
-		tt_draw_string(ctx, _tt_font, title_offset, (TEXT_OFFSET + 14) * TOTAL_SCALE, tmp_title, title_color);
-	}
-
-	free(tmp_title);
-
-	/* Buttons */
-	draw_sprite_alpha_paint(ctx, sprites[BUTTON_CLOSE],
-		width + (BUTTON_OFFSET - 28) * TOTAL_SCALE,
-		(16 - BUTTON_OFFSET) * TOTAL_SCALE, 1.0, title_color);
-
-	if (!(window->decorator_flags & DECOR_FLAG_NO_MAXIMIZE)) {
-		draw_sprite_alpha_paint(ctx, sprites[BUTTON_MAXIMIZE],
-			width + (BUTTON_OFFSET - 50) * TOTAL_SCALE,
+	if (width + (BUTTON_OFFSET - 28) * TOTAL_SCALE > bounds.left_width) {
+		draw_sprite_alpha_paint(ctx, sprites[BUTTON_CLOSE],
+			width + (BUTTON_OFFSET - 28) * TOTAL_SCALE,
 			(16 - BUTTON_OFFSET) * TOTAL_SCALE, 1.0, title_color);
+
+		if (width + (BUTTON_OFFSET - 50) * TOTAL_SCALE > bounds.left_width) {
+			if (!(window->decorator_flags & DECOR_FLAG_NO_MAXIMIZE)) {
+				draw_sprite_alpha_paint(ctx, sprites[BUTTON_MAXIMIZE],
+					width + (BUTTON_OFFSET - 50) * TOTAL_SCALE,
+					(16 - BUTTON_OFFSET) * TOTAL_SCALE, 1.0, title_color);
+			}
+		}
 	}
 }
 
