@@ -172,7 +172,7 @@ union PML init_page_region[3][512] _pagemap;
 union PML high_base_pml[512] _pagemap;
 union PML heap_base_pml[512] _pagemap;
 union PML heap_base_pd[512] _pagemap;
-union PML heap_base_pt[512] _pagemap;
+union PML heap_base_pt[512*3] _pagemap;
 union PML low_base_pmls[34][512] _pagemap;
 union PML twom_high_pds[4][512] _pagemap;
 
@@ -705,9 +705,11 @@ void mmu_init(size_t memsize, uintptr_t firstFreePage) {
 
 	/* Set up heap map for that... */
 	heap_base_pml[0].raw = (uintptr_t)&heap_base_pd | KERNEL_PML_ACCESS;
-	heap_base_pd[0].raw  = (uintptr_t)&heap_base_pt | KERNEL_PML_ACCESS;
+	heap_base_pd[0].raw  = (uintptr_t)&heap_base_pt[0] | KERNEL_PML_ACCESS;
+	heap_base_pd[1].raw  = (uintptr_t)&heap_base_pt[512] | KERNEL_PML_ACCESS;
+	heap_base_pd[2].raw  = (uintptr_t)&heap_base_pt[1024] | KERNEL_PML_ACCESS;
 
-	if (pagesOfFrames > 512) {
+	if (pagesOfFrames > 512*3) {
 		printf("Warning: Too much available memory for current setup. Need %zu pages to represent allocation bitmap.\n", pagesOfFrames);
 	}
 
