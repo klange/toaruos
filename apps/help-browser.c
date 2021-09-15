@@ -13,6 +13,7 @@
  */
 #include <stdio.h>
 #include <unistd.h>
+#include <dirent.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -32,16 +33,17 @@ static int application_running = 1;
 
 static gfx_context_t * contents = NULL;
 static sprite_t * contents_sprite = NULL;
+static int contents_width = 0;
 
 static char * current_topic = NULL;
+static int scroll_offset;
 
 /* Markup Renderer { */
-#define BASE_X 0
-#define BASE_Y 0
+#define BASE_X 2
+#define BASE_Y 2
 #define LINE_HEIGHT 20
 #define HEAD_HEIGHT 28
 
-static gfx_context_t * nctx = NULL;
 static int cursor_y = 0;
 static int cursor_x = 0;
 static list_t * state = NULL;
@@ -51,6 +53,7 @@ static struct TT_Font * tt_font_thin = NULL;
 static struct TT_Font * tt_font_bold = NULL;
 static struct TT_Font * tt_font_oblique = NULL;
 static struct TT_Font * tt_font_bold_oblique = NULL;
+static struct TT_Font * tt_font_mono = NULL;
 
 struct Char {
 	char c; /* TODO: unicode */
@@ -61,7 +64,10 @@ struct Char {
 static list_t * buffer = NULL;
 
 static struct TT_Font * state_to_font(int current_state) {
-	if (current_state & (1 << 0)) {
+	if (current_state & (1 << 3)) {
+		return tt_font_mono;
+	}
+	if (current_state & (1 << 0 | 1 << 2) ) {
 		if (current_state & (1 << 1)) {
 			return tt_font_bold_oblique;
 		}
@@ -99,7 +105,11 @@ static int draw_buffer(list_t * buffer) {
 		struct Char * c = node->value;
 		char tmp[2] = { c->c, '\0' };
 		tt_set_size(state_to_font(c->state), current_size());
-		x += tt_draw_string(nctx, state_to_font(c->state), cursor_x + x, cursor_y + current_size(), tmp, 0xFF000000);
+		if (contents) {
+			x += tt_draw_string(contents, state_to_font(c->state), cursor_x + x, cursor_y + current_size(), tmp, 0xFF000000);
+		} else {
+			x += tt_string_width(state_to_font(c->state), tmp);
+		}
 		free(c);
 		free(node);
 	}
@@ -116,7 +126,7 @@ static int current_line_height(void) {
 }
 
 static void write_buffer(void) {
-	if (buffer_width(buffer) + cursor_x > nctx->width) {
+	if (buffer_width(buffer) + cursor_x > contents_width) {
 		cursor_x = BASE_X;
 		cursor_y += current_line_height();
 	}
@@ -137,6 +147,12 @@ static int parser_open(struct markup_state * self, void * user, struct markup_ta
 		write_buffer();
 		cursor_x = BASE_X;
 		cursor_y += current_line_height();
+	} else if (!strcmp(tag->name, "mono")) {
+		write_buffer();
+		cursor_x = BASE_X;
+		cursor_y += current_line_height();
+		list_insert(state, (void*)(uintptr_t)current_state);
+		current_state |= (1 << 3);
 	}
 	markup_free_tag(tag);
 	return 0;
@@ -148,6 +164,13 @@ static int parser_close(struct markup_state * self, void * user, char * tag_name
 		current_state = (int)(uintptr_t)nstate->value;
 		free(nstate);
 	} else if (!strcmp(tag_name, "i")) {
+		node_t * nstate = list_pop(state);
+		current_state = (int)(uintptr_t)nstate->value;
+		free(nstate);
+	} else if (!strcmp(tag_name, "mono")) {
+		write_buffer();
+		cursor_x = BASE_X;
+		cursor_y += current_line_height();
 		node_t * nstate = list_pop(state);
 		current_state = (int)(uintptr_t)nstate->value;
 		free(nstate);
@@ -165,13 +188,31 @@ static int parser_close(struct markup_state * self, void * user, char * tag_name
 static int parser_data(struct markup_state * self, void * user, char * data) {
 	char * c = data;
 	while (*c) {
-		if (*c == ' ' || *c == '\n') {
+		if (*c == ' ' && !(current_state & (1 << 3))) {
 			if (buffer->length) {
 				write_buffer();
 			}
+		} else if (*c == '\n') {
+			if (buffer->length) {
+				write_buffer();
+			}
+			if (current_state & (1 << 3)) {
+				cursor_x = BASE_X;
+				cursor_y += current_line_height();
+			}
 		} else {
+			int chr = *c;
+			if (*c == '&') {
+				if (c[1] == 'l' && c[2] == 't' && c[3] == ';') {
+					c += 3;
+					chr = '<';
+				} else if (c[1] == 'g' && c[2] == 't' && c[3] == ';') {
+					c += 3;
+					chr = '>';
+				}
+			}
 			struct Char * ch = malloc(sizeof(struct Char));
-			ch->c = *c;
+			ch->c = chr;
 			ch->state = current_state;
 			list_insert(buffer, ch);
 		}
@@ -203,37 +244,59 @@ static void reinitialize_contents(void) {
 		sprite_free(contents_sprite);
 	}
 
-	/* Calculate height for current directory */
-	int calculated_height = 200;
-
 	struct decor_bounds bounds;
 	decor_get_bounds(main_window, &bounds);
+	contents = NULL;
+	contents_width = main_window->width - bounds.width;
 
-	contents_sprite = create_sprite(main_window->width - bounds.width, calculated_height, ALPHA_EMBEDDED);
+	{
+		struct markup_state * parser = markup_init(NULL, parser_open, parser_close, parser_data);
+		cursor_y = BASE_Y;
+		cursor_x = BASE_X;
+		state = list_create();
+		buffer = list_create();
+
+		char * str = current_topic;
+		while (*str) {
+			if (markup_parse(parser, *str++)) {
+				fprintf(stderr,"There was an error.\n");
+				return;
+			}
+		}
+
+		markup_finish(parser);
+		write_buffer();
+		list_free(state);
+		free(state);
+		free(buffer);
+	}
+
+	contents_sprite = create_sprite(contents_width, cursor_y + current_size() + 20, ALPHA_EMBEDDED);
 	contents = init_graphics_sprite(contents_sprite);
 
 	draw_fill(contents, rgb(255,255,255));
 
-	nctx = contents;
-	struct markup_state * parser = markup_init(NULL, parser_open, parser_close, parser_data);
-	cursor_y = BASE_Y;
-	cursor_x = BASE_X;
-	state = list_create();
-	buffer = list_create();
+	{
+		struct markup_state * parser = markup_init(NULL, parser_open, parser_close, parser_data);
+		cursor_y = BASE_Y;
+		cursor_x = BASE_X;
+		state = list_create();
+		buffer = list_create();
 
-	char * str = current_topic;
-	while (*str) {
-		if (markup_parse(parser, *str++)) {
-			fprintf(stderr,"There was an error.\n");
-			return;
+		char * str = current_topic;
+		while (*str) {
+			if (markup_parse(parser, *str++)) {
+				fprintf(stderr,"There was an error.\n");
+				return;
+			}
 		}
-	}
 
-	markup_finish(parser);
-	write_buffer();
-	list_free(state);
-	free(state);
-	free(buffer);
+		markup_finish(parser);
+		write_buffer();
+		list_free(state);
+		free(state);
+		free(buffer);
+	}
 }
 
 static void redraw_window(void) {
@@ -252,7 +315,7 @@ static void redraw_window(void) {
 
 	gfx_clear_clip(ctx);
 	gfx_add_clip(ctx, bounds.left_width, bounds.top_height + MENU_BAR_HEIGHT, ctx->width - bounds.width, ctx->height - MENU_BAR_HEIGHT - bounds.height);
-	draw_sprite(ctx, contents_sprite, bounds.left_width, bounds.top_height + MENU_BAR_HEIGHT);
+	draw_sprite(ctx, contents_sprite, bounds.left_width, bounds.top_height + MENU_BAR_HEIGHT - scroll_offset);
 	gfx_clear_clip(ctx);
 	gfx_add_clip(ctx, 0, 0, ctx->width, ctx->height);
 
@@ -276,38 +339,118 @@ static void resize_finish(int w, int h) {
 	yutani_flip(yctx, main_window);
 }
 
+static char * generate_index(void) {
+	list_t * components = list_create();
+
+	list_insert(components, strdup("<h1>Topics</h1>\n"));
+
+	/* Open /usr/share/help */
+	DIR * dirp = opendir("/usr/share/help");
+
+	if (dirp) {
+		for (struct dirent * ent = readdir(dirp); ent; ent = readdir(dirp)) {
+			if (ent->d_name[0] == '.') continue;
+
+			/* TODO: Extract the actual heading... */
+			char tmp[1024];
+			snprintf(tmp, 1024, " » %s<br>\n", ent->d_name);
+			list_insert(components, strdup(tmp));
+		}
+		closedir(dirp);
+	}
+
+	size_t totalSize = 0;
+	foreach(node, components) {
+		char * s = node->value;
+		totalSize += strlen(s);
+	}
+
+	char * out = malloc(totalSize + 1);
+	char * ptr = out;
+	foreach(node, components) {
+		char * s = node->value;
+		size_t len = strlen(s);
+		memcpy(ptr, s, len);
+		ptr += len;
+		free(s);
+	}
+	*ptr = '\0';
+
+	list_free(components);
+	return out;
+}
+
 static void navigate(const char * t) {
 
 	if (current_topic) free(current_topic);
 
-	char file_path[1024];
+	/* Is this a special file? */
 
-	if (t[0] == '/') {
-		sprintf(file_path, "%s", t);
+	if (strstr(t, "special:") == t) {
+
+		const char * pageName = t + 8;
+
+		if (!strcmp(pageName, "contents")) {
+			/* Oh boy... */
+			current_topic = generate_index();
+		} else {
+			current_topic = strdup("File not found.");
+		}
+
 	} else {
-		sprintf(file_path, "%s/%s", HELP_DIR, t);
-	}
+		char file_path[1024];
 
-	FILE * f = fopen(file_path, "r");
+		if (t[0] == '/') {
+			sprintf(file_path, "%s", t);
+		} else {
+			sprintf(file_path, "%s/%s", HELP_DIR, t);
+		}
 
-	if (!f) {
-		current_topic = strdup("File not found.");
-	} else {
-		fseek(f, 0, SEEK_END);
-		size_t size = ftell(f);
-		fseek(f, 0, SEEK_SET);
+		FILE * f = fopen(file_path, "r");
 
-		current_topic = malloc(size+1);
-		fread(current_topic, 1, size, f);
-		current_topic[size] = '\0';
+		if (!f) {
+			current_topic = strdup("File not found.");
+		} else {
+			fseek(f, 0, SEEK_END);
+			size_t size = ftell(f);
+			fseek(f, 0, SEEK_SET);
 
-		fclose(f);
+			current_topic = malloc(size+1);
+			fread(current_topic, 1, size, f);
+			current_topic[size] = '\0';
+
+			fclose(f);
+		}
 	}
 
 	reinitialize_contents();
 	redraw_window();
 
 }
+
+#define SCROLL_AMOUNT 120
+static void _scroll_up(void) {
+	scroll_offset -= SCROLL_AMOUNT;
+	if (scroll_offset < 0) {
+		scroll_offset = 0;
+	}
+}
+
+static void _scroll_down(void) {
+	struct decor_bounds bounds;
+	decor_get_bounds(main_window, &bounds);
+	int available_height = main_window->height - bounds.height - MENU_BAR_HEIGHT;
+
+	if (available_height > contents->height) {
+		scroll_offset = 0;
+	} else {
+		scroll_offset += SCROLL_AMOUNT;
+		if (scroll_offset > contents->height - available_height) {
+			scroll_offset = contents->height - available_height;
+		}
+	}
+}
+
 
 static void _menu_action_navigate(struct MenuEntry * entry) {
 	/* go to entry->action */
@@ -328,7 +471,7 @@ static void _menu_action_forward(struct MenuEntry * entry) {
 static void _menu_action_about(struct MenuEntry * entry) {
 	/* Show About dialog */
 	char about_cmd[1024] = "\0";
-	strcat(about_cmd, "about \"About Help Browser\" /usr/share/icons/48/help.png \"ToaruOS Help Browser\" \"(C) 2018-2020 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaruos\" ");
+	strcat(about_cmd, "about \"About Help Browser\" /usr/share/icons/48/help.png \"ToaruOS Help Browser\" \"© 2018-2020 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaruos\" ");
 	char coords[100];
 	sprintf(coords, "%d %d &", (int)main_window->x + (int)main_window->width / 2, (int)main_window->y + (int)main_window->height / 2);
 	strcat(about_cmd, coords);
@@ -353,6 +496,7 @@ int main(int argc, char * argv[]) {
 	tt_font_bold         = tt_font_from_shm("sans-serif.bold");
 	tt_font_oblique      = tt_font_from_shm("sans-serif.italic");
 	tt_font_bold_oblique = tt_font_from_shm("sans-serif.bolditalic");
+	tt_font_mono         = tt_font_from_shm("monospace");
 
 	yutani_window_advertise_icon(yctx, main_window, APPLICATION_TITLE, "help");
 
@@ -462,6 +606,22 @@ int main(int argc, char * argv[]) {
 
 							/* Menu bar */
 							menu_bar_mouse_event(yctx, main_window, &menu_bar, me, me->new_x, me->new_y);
+
+							struct decor_bounds bounds;
+							decor_get_bounds(main_window, &bounds);
+
+							if (me->new_x >= 0 && me->new_x <= (int)main_window->width &&
+								me->new_y > bounds.top_height + MENU_BAR_HEIGHT &&
+								me->new_y < (int)main_window->height) {
+								if (me->buttons & YUTANI_MOUSE_SCROLL_UP) {
+									/* Scroll up */
+									_scroll_up();
+									redraw_window();
+								} else if (me->buttons & YUTANI_MOUSE_SCROLL_DOWN) {
+									_scroll_down();
+									redraw_window();
+								}
+							}
 						}
 					}
 					break;
