@@ -40,7 +40,7 @@ uint8_t * lfb_vid_memory = (uint8_t *)0xE0000000;
 size_t lfb_memsize = 0xFF0000;
 const char * lfb_driver_name = NULL;
 
-uintptr_t lfb_bochs_mmio = 0;
+uintptr_t lfb_qemu_mmio = 0;
 
 fs_node_t * lfb_device = NULL;
 static int lfb_init(const char * c);
@@ -196,13 +196,18 @@ static void finalize_graphics(const char * driver) {
 	procfs_install(&framebuffer_entry);
 }
 
-/* Bochs support {{{ */
-static void bochs_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra) {
+/* QEMU support {{{ */
+static void qemu_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra) {
 	uintptr_t * output = extra;
 	if ((v == 0x1234 && d == 0x1111) ||
 	    (v == 0x10de && d == 0x0a20))  {
 		uintptr_t t = pci_read_field(device, PCI_BAR0, 4);
 		uintptr_t m = pci_read_field(device, PCI_BAR2, 4);
+
+		if (m == 0) {
+			/* Shoot. */
+			return;
+		}
 
 		if (t > 0) {
 			output[0] = (uintptr_t)mmu_map_from_physical(t & 0xFFFFFFF0);
@@ -217,68 +222,77 @@ static void bochs_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra
 	}
 }
 
-#define BOCHS_MMIO_ID       0x00
-#define BOCHS_MMIO_FBWIDTH  0x02
-#define BOCHS_MMIO_FBHEIGHT 0x04
-#define BOCHS_MMIO_BPP      0x06
-#define BOCHS_MMIO_ENABLED  0x08
-#define BOCHS_MMIO_VIRTX    0x0c
-#define BOCHS_MMIO_VIRTY    0x0e
+#define QEMU_MMIO_ID       0x00
+#define QEMU_MMIO_FBWIDTH  0x02
+#define QEMU_MMIO_FBHEIGHT 0x04
+#define QEMU_MMIO_BPP      0x06
+#define QEMU_MMIO_ENABLED  0x08
+#define QEMU_MMIO_VIRTX    0x0c
+#define QEMU_MMIO_VIRTY    0x0e
 
-static void bochs_mmio_out(int off, uint16_t val) {
-	*(volatile uint16_t*)(lfb_bochs_mmio + 0x500 + off) = val;
+static void qemu_mmio_out(int off, uint16_t val) {
+	*(volatile uint16_t*)(lfb_qemu_mmio + 0x500 + off) = val;
 }
 
-static uint16_t bochs_mmio_in(int off) {
-	return *(volatile uint16_t*)(lfb_bochs_mmio + 0x500 + off);
+static uint16_t qemu_mmio_in(int off) {
+	return *(volatile uint16_t*)(lfb_qemu_mmio + 0x500 + off);
 }
 
-static void bochs_set_resolution(uint16_t x, uint16_t y) {
-	bochs_mmio_out(BOCHS_MMIO_ENABLED,  0);
-	bochs_mmio_out(BOCHS_MMIO_FBWIDTH,  x);
-	bochs_mmio_out(BOCHS_MMIO_FBHEIGHT, y);
-	bochs_mmio_out(BOCHS_MMIO_BPP, PREFERRED_B);
-	bochs_mmio_out(BOCHS_MMIO_VIRTX, x * (PREFERRED_B  / 8));
-	bochs_mmio_out(BOCHS_MMIO_VIRTY, y);
-	bochs_mmio_out(BOCHS_MMIO_ENABLED,  0x41); /* 01h: enabled, 40h: lfb */
+static void qemu_set_resolution(uint16_t x, uint16_t y) {
+	qemu_mmio_out(QEMU_MMIO_ENABLED,  0);
+	qemu_mmio_out(QEMU_MMIO_FBWIDTH,  x);
+	qemu_mmio_out(QEMU_MMIO_FBHEIGHT, y);
+	qemu_mmio_out(QEMU_MMIO_BPP, PREFERRED_B);
+	qemu_mmio_out(QEMU_MMIO_VIRTX, x * (PREFERRED_B  / 8));
+	qemu_mmio_out(QEMU_MMIO_VIRTY, y);
+	qemu_mmio_out(QEMU_MMIO_ENABLED,  0x41); /* 01h: enabled, 40h: lfb */
 
 	/* unblank vga; this should only be necessary on secondary displays */
-	*(volatile uint8_t*)(lfb_bochs_mmio + 0x400) = 0x20;
+	*(volatile uint8_t*)(lfb_qemu_mmio + 0x400) = 0x20;
 
-	lfb_resolution_x = bochs_mmio_in(BOCHS_MMIO_FBWIDTH);
-	lfb_resolution_y = bochs_mmio_in(BOCHS_MMIO_FBHEIGHT);
-	lfb_resolution_b = bochs_mmio_in(BOCHS_MMIO_BPP);
+	lfb_resolution_x = qemu_mmio_in(QEMU_MMIO_FBWIDTH);
+	lfb_resolution_y = qemu_mmio_in(QEMU_MMIO_FBHEIGHT);
+	lfb_resolution_b = qemu_mmio_in(QEMU_MMIO_BPP);
 	lfb_resolution_s = lfb_resolution_x * 4;
 }
 
-static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y) {
+static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y);
 
-	uintptr_t vals[3];
-	pci_scan(bochs_scan_pci, -1, vals);
+static void graphics_install_qemu(uint16_t resolution_x, uint16_t resolution_y) {
+
+	uintptr_t vals[3] = {0,0,0};
+	pci_scan(qemu_scan_pci, -1, vals);
+
+	if (!vals[0]) {
+		/* Try port-IO interface */
+		graphics_install_bochs(resolution_x, resolution_y);
+		return;
+	}
+
 	lfb_vid_memory = (uint8_t*)vals[0];
-	lfb_bochs_mmio = vals[1];
+	lfb_qemu_mmio = vals[1];
 	lfb_memsize    = vals[2];
 
-	uint16_t i = bochs_mmio_in(BOCHS_MMIO_ID);
-	if (i < 0xB0C0 || i > 0xB0C6) return; /* Unsupported bochs device. */
-	bochs_mmio_out(BOCHS_MMIO_ID, 0xB0C4); /* We speak ver. 4 */
+	uint16_t i = qemu_mmio_in(QEMU_MMIO_ID);
+	if (i < 0xB0C0 || i > 0xB0C6) return; /* Unsupported qemu device. */
+	qemu_mmio_out(QEMU_MMIO_ID, 0xB0C4); /* We speak ver. 4 */
 
-	bochs_set_resolution(resolution_x, resolution_y);
+	qemu_set_resolution(resolution_x, resolution_y);
 	resolution_x = lfb_resolution_x; /* may have changed */
 
-	lfb_resolution_impl = &bochs_set_resolution;
+	lfb_resolution_impl = &qemu_set_resolution;
 
 	if (!lfb_vid_memory) {
 		printf("failed to locate video memory\n");
 		return;
 	}
 
-	finalize_graphics("bochs");
+	finalize_graphics("qemu");
 }
 
 /* VirtualBox implements the portio-based interface, but not the MMIO one. */
-static void vbox_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra) {
-	if (v == 0x80EE && d == 0xBEEF) {
+static void bochs_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra) {
+	if ((v == 0x80EE && d == 0xBEEF) || (v == 0x1234 && d == 0x1111)) {
 		uintptr_t t = pci_read_field(device, PCI_BAR0, 4);
 		if (t > 0) {
 			*((uint8_t **)extra) = mmu_map_from_physical(t & 0xFFFFFFF0);
@@ -286,7 +300,7 @@ static void vbox_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra)
 	}
 }
 
-static void vbox_set_resolution(uint16_t x, uint16_t y) {
+static void bochs_set_resolution(uint16_t x, uint16_t y) {
 	outports(0x1CE, 0x04);
 	outports(0x1CF, 0x00);
 	outports(0x1CE, 0x01);
@@ -307,7 +321,7 @@ static void vbox_set_resolution(uint16_t x, uint16_t y) {
 	lfb_resolution_b = 32;
 }
 
-static void graphics_install_vbox(uint16_t resolution_x, uint16_t resolution_y) {
+static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y) {
 	outports(0x1CE, 0x00);
 	uint16_t i = inports(0x1CF);
 	if (i < 0xB0C0 || i > 0xB0C6) {
@@ -315,10 +329,10 @@ static void graphics_install_vbox(uint16_t resolution_x, uint16_t resolution_y) 
 	}
 	outports(0x1CF, 0xB0C4);
 	i = inports(0x1CF);
-	vbox_set_resolution(resolution_x, resolution_y);
+	bochs_set_resolution(resolution_x, resolution_y);
 	resolution_x = lfb_resolution_x; /* may have changed */
-	pci_scan(vbox_scan_pci, -1, &lfb_vid_memory);
-	lfb_resolution_impl = &vbox_set_resolution;
+	pci_scan(bochs_scan_pci, -1, &lfb_vid_memory);
+	lfb_resolution_impl = &bochs_set_resolution;
 	if (!lfb_vid_memory) {
 		printf("failed to locate video memory\n");
 		return;
@@ -330,7 +344,7 @@ static void graphics_install_vbox(uint16_t resolution_x, uint16_t resolution_y) 
 	} else {
 		lfb_memsize = inportl(0x1CF);
 	}
-	finalize_graphics("vbox");
+	finalize_graphics("bochs");
 }
 
 extern struct multiboot * mboot_struct;
@@ -444,10 +458,10 @@ static void auto_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra)
 	if ((v == 0x1234 && d == 0x1111) ||
 	    (v == 0x10de && d == 0x0a20))  {
 		mode->set = 1;
-		graphics_install_bochs(mode->x, mode->y);
+		graphics_install_qemu(mode->x, mode->y);
 	} else if (v == 0x80EE && d == 0xBEEF) {
 		mode->set = 1;
-		graphics_install_vbox(mode->x, mode->y);
+		graphics_install_bochs(mode->x, mode->y);
 	} else if ((v == 0x15ad && d == 0x0405)) {
 		mode->set = 1;
 		graphics_install_vmware(mode->x, mode->y);
@@ -525,7 +539,10 @@ static int lfb_init(const char * c) {
 			graphics_install_preset(x,y);
 		}
 	} else if (!strcmp(argv[0], "qemu")) {
-		/* Bochs / Qemu Video Device */
+		/* BGA with MMIO */
+		graphics_install_qemu(x,y);
+	} else if (!strcmp(argv[0], "bochs")) {
+		/* BGA with no MMIO */
 		graphics_install_bochs(x,y);
 	} else if (!strcmp(argv[0],"vmware")) {
 		/* VMware SVGA */
