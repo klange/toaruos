@@ -1166,7 +1166,7 @@ static void redraw(void) {
 				char * s = ellipsify(ad->name, 14, font, title_width - 4, NULL);
 				sprite_t * icon = icon_get_48(ad->icon);
 				gfx_context_t * subctx = init_graphics_subregion(ctx, APP_OFFSET + i, Y_PAD, w, PANEL_HEIGHT - Y_PAD * 2);
-				draw_sprite_scaled_alpha(subctx, icon, w - 48 - 2, 0, 48, 48, 0.7);
+				draw_sprite_scaled_alpha(subctx, icon, w - 48 - 2, 0, 48, 48, (ad->flags & 1) ? 1.0 : 0.7);
 				tt_draw_string_shadow(subctx, font, s, 14, 2, TEXT_Y_OFFSET, (j == focused_app) ? HILIGHT_COLOR : (ad->flags & 1) ? FOCUS_COLOR : txt_color, rgb(0,0,0), 4);
 				free(subctx);
 				free(s);
