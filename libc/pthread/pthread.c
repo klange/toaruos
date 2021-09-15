@@ -48,8 +48,12 @@ void __make_tls(void) {
 	sysfunc(TOARU_SYS_FUNC_SETGSBASE, (char*[]){(char*)tlsSelf});
 }
 
+__attribute__((tls_model("initial-exec")))
+__thread pthread_t * _pthread_self = NULL;
+
 void * __thread_start(void * thread) {
 	__make_tls();
+	_pthread_self = thread;
 	struct pthread * me = ((pthread_t *)thread)->ret_val;
 	((pthread_t *)thread)->ret_val = 0;
 	return me->entry(me->arg);
@@ -136,4 +140,15 @@ int pthread_join(pthread_t thread, void **retval) {
 		*retval = (void*)(uintptr_t)status;
 	}
 	return result;
+}
+
+int pthread_detach(pthread_t thread) {
+	return ENOSYS;
+}
+
+pthread_t pthread_self(void) {
+	if (!_pthread_self) {
+		return (pthread_t){0};
+	}
+	return *_pthread_self;
 }

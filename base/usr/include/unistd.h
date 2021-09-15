@@ -108,4 +108,6 @@ extern long pathconf(const char *path, int name);
 
 extern int getgroups(int size, gid_t list[]);
 
+#define _POSIX_THREADS
+
 _End_C_Header

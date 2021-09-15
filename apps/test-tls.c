@@ -5,6 +5,10 @@
 __thread volatile int myvalue;
 
 void * getaddressinthread(void * _unused) {
+
+	pthread_t self = pthread_self();
+	fprintf(stderr, "self = %u\n", self.id);
+
 	fprintf(stderr, "in thread before:\n");
 	fprintf(stderr, "&myvalue = %p\n", (void*)&myvalue);
 	fprintf(stderr, "myvalue  = %d\n", myvalue);
