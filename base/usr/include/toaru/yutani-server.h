@@ -216,6 +216,7 @@ typedef struct YutaniGlobals {
 	sprite_t mouse_sprite_resize_da;
 	sprite_t mouse_sprite_resize_db;
 	sprite_t mouse_sprite_point;
+	sprite_t mouse_sprite_ibeam;
 	int current_cursor;
 
 	/* Server backend communication identifier */

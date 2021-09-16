@@ -79,6 +79,8 @@ typedef struct yutani_window {
 
 	/* Server context that owns this window */
 	yutani_t * ctx;
+
+	int32_t mouse_state;
 } yutani_window_t;
 
 typedef struct yutani_message {
@@ -458,6 +460,7 @@ struct yutani_msg_clipboard {
 #define YUTANI_CURSOR_TYPE_RESIZE_UP_DOWN    5
 #define YUTANI_CURSOR_TYPE_RESIZE_DOWN_UP    6
 #define YUTANI_CURSOR_TYPE_POINT             7
+#define YUTANI_CURSOR_TYPE_IBEAM             8
 
 /*
  * YUTANI_WINDOW_FLAG

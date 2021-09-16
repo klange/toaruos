@@ -328,7 +328,7 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 					} else {
 						if (old_resize_direction != SCALE_NONE) {
 							yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESET);
-							old_resize_direction = 0;
+							old_resize_direction = SCALE_NONE;
 						}
 					}
 				}

@@ -1983,16 +1983,27 @@ static void * handle_incoming(void) {
 						menu_bar_mouse_event(yctx, window, &terminal_menu_bar, me, me->new_x, me->new_y);
 					}
 
-					if (me->new_x < 0 || me->new_y < 0) break;
-					if (!_no_frame) {
-						if (me->new_x >= (int)window_width + (int)decor_width) break;
-						if (me->new_y < (int)decor_top_height+menu_bar_height) break;
-						if (me->new_y >= (int)(window_height + decor_top_height+menu_bar_height)) break;
-						if (me->new_x < (int)decor_left_width) break;
-						if (me->new_x >= (int)(window_width + decor_left_width)) break;
+					if (me->new_x < 0 || me->new_y < 0 ||
+						(!_no_frame && (me->new_x >= (int)window_width + (int)decor_width ||
+							me->new_y < (int)decor_top_height+menu_bar_height ||
+							me->new_y >= (int)(window_height + decor_top_height+menu_bar_height) ||
+							me->new_x < (int)decor_left_width ||
+							me->new_x >= (int)(window_width + decor_left_width))) ||
+						(me->new_x >= (int)window_width || me->new_y >= (int)window_height)) {
+						if (window->mouse_state == YUTANI_CURSOR_TYPE_IBEAM) {
+							yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESET);
+						}
+						break;
+					}
+
+					if (!(ansi_state->mouse_on & TERMEMU_MOUSE_ENABLE)) {
+						if (window->mouse_state == YUTANI_CURSOR_TYPE_RESET) {
+							yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_IBEAM);
+						}
 					} else {
-						if (me->new_x >= (int)window_width) break;
-						if (me->new_y >= (int)window_height) break;
+						if (window->mouse_state == YUTANI_CURSOR_TYPE_IBEAM) {
+							yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESET);
+						}
 					}
 
 					int new_x = me->new_x;

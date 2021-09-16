@@ -2221,6 +2221,9 @@ int main(int argc, char * argv[]) {
 												}
 											}
 										}
+										if (main_window->mouse_state == YUTANI_CURSOR_TYPE_IBEAM) {
+											yutani_window_show_mouse(yctx, main_window, YUTANI_CURSOR_TYPE_RESET);
+										}
 									} else {
 										_set_hilight(-1,0);
 										if (me->command == YUTANI_MOUSE_EVENT_DOWN) {
@@ -2228,9 +2231,15 @@ int main(int argc, char * argv[]) {
 											_figure_out_navbar_cursor(me->new_x, bounds);
 											redraw = 1;
 										}
+										if (main_window->mouse_state == YUTANI_CURSOR_TYPE_RESET) {
+											yutani_window_show_mouse(yctx, main_window, YUTANI_CURSOR_TYPE_IBEAM);
+										}
 									}
 								}
 							} else {
+								if (main_window->mouse_state == YUTANI_CURSOR_TYPE_IBEAM) {
+									yutani_window_show_mouse(yctx, main_window, YUTANI_CURSOR_TYPE_RESET);
+								}
 								if (me->command == YUTANI_MOUSE_EVENT_DOWN) {
 									if (nav_bar_focused) {
 										nav_bar_focused = 0;

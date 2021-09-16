@@ -530,6 +530,7 @@ static void draw_cursor(yutani_globals_t * yg, int x, int y, int cursor) {
 			case YUTANI_CURSOR_TYPE_RESIZE_UP_DOWN:    sprite = &yg->mouse_sprite_resize_da; break;
 			case YUTANI_CURSOR_TYPE_RESIZE_DOWN_UP:    sprite = &yg->mouse_sprite_resize_db; break;
 			case YUTANI_CURSOR_TYPE_POINT:             sprite = &yg->mouse_sprite_point; break;
+			case YUTANI_CURSOR_TYPE_IBEAM:             sprite = &yg->mouse_sprite_ibeam; break;
 		}
 	}
 	if (sprite != previous) {
@@ -2091,6 +2092,7 @@ int main(int argc, char * argv[]) {
 	load_sprite(&yg->mouse_sprite_resize_da, MOUSE_DIR "resize-uldr.png");
 	load_sprite(&yg->mouse_sprite_resize_db, MOUSE_DIR "resize-dlur.png");
 	load_sprite(&yg->mouse_sprite_point, MOUSE_DIR "point.png");
+	load_sprite(&yg->mouse_sprite_ibeam, MOUSE_DIR "ibeam.png");
 	TRACE("Done.");
 
 	TRACE("Initializing variables...");

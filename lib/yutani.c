@@ -585,6 +585,7 @@ yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int height
 	win->y = 0;
 	win->user_data = NULL;
 	win->ctx = y;
+	win->mouse_state = -1;
 	free(mm);
 
 	hashmap_set(y->windows, (void*)(uintptr_t)win->wid, win);
@@ -979,9 +980,12 @@ void yutani_window_warp_mouse(yutani_t * yctx, yutani_window_t * window, int32_t
  * TODO: We should add a way to use client-provided cursor textures.
  */
 void yutani_window_show_mouse(yutani_t * yctx, yutani_window_t * window, int32_t show_mouse) {
-	yutani_msg_buildx_window_show_mouse_alloc(m);
-	yutani_msg_buildx_window_show_mouse(m, window->wid, show_mouse);
-	yutani_msg_send(yctx, m);
+	if (window->mouse_state != show_mouse) {
+		window->mouse_state = show_mouse;
+		yutani_msg_buildx_window_show_mouse_alloc(m);
+		yutani_msg_buildx_window_show_mouse(m, window->wid, show_mouse);
+		yutani_msg_send(yctx, m);
+	}
 }
 
 /**
