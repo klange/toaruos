@@ -60,7 +60,9 @@ static int show_hidden = 0; /* Whether or not show hidden files */
 static int scroll_offset = 0; /* How far the icon view should be scrolled */
 static int available_height = 0; /* How much space is available in the main window for the icon view */
 static int is_desktop_background = 0; /* If we're in desktop background mode */
-static int menu_bar_height = MENU_BAR_HEIGHT + 36; /* Height of the menu bar, if present - it's not in desktop mode */
+static int is_picker_dialog = 0; /* If we're an open-file dialog */
+static int menu_bar_height = MENU_BAR_HEIGHT; /* Height of the menu bar, if present - it's not in desktop mode */
+static int nav_bar_height = 36;
 static sprite_t * wallpaper_buffer = NULL; /* Prebaked wallpaper texture */
 static sprite_t * wallpaper_old = NULL; /* Previous wallpaper when transitioning */
 static uint64_t timer = 0; /* Timer for wallpaper transition fade */
@@ -391,8 +393,10 @@ static void set_title(char * directory) {
 	/* Do nothing in desktop mode to avoid advertisement. */
 	if (is_desktop_background) return;
 
-	/* If the directory name is set... */
-	if (directory) {
+	if (is_picker_dialog) {
+		/* TODO: Maybe make this an option... */
+		sprintf(title, "Open File");
+	} else if (directory) {
 		sprintf(title, "%s - " APPLICATION_TITLE, directory);
 	} else {
 		/* Otherwise, just "File Browser" */
@@ -858,14 +862,14 @@ static void _draw_buttons(struct decor_bounds bounds) {
 	uint32_t gradient_bot = rgb(40,40,40);
 	for (int i = 0; i < 36; ++i) {
 		uint32_t c = interp_colors(gradient_top, gradient_bot, i * 255 / 36);
-		draw_rectangle(ctx, bounds.left_width, bounds.top_height + MENU_BAR_HEIGHT + i,
+		draw_rectangle(ctx, bounds.left_width, bounds.top_height + menu_bar_height + i,
 				BUTTON_SPACE * BUTTON_COUNT, 1, c);
 	}
 
 	int x = 0;
 	int i = 0;
 #define draw_button(label) do { \
-	struct TTKButton _up = {bounds.left_width + 2 + x,bounds.top_height + MENU_BAR_HEIGHT + 2,32,32,"\033" label,_button_hilights[i] | (_button_disabled[i] << 8)}; \
+	struct TTKButton _up = {bounds.left_width + 2 + x,bounds.top_height + menu_bar_height + 2,32,32,"\033" label,_button_hilights[i] | (_button_disabled[i] << 8)}; \
 	ttk_button_draw(ctx, &_up); \
 	x += BUTTON_SPACE; i++; } while (0)
 
@@ -930,25 +934,25 @@ static void _draw_nav_bar(struct decor_bounds bounds) {
 
 	for (int i = 0; i < 36; ++i) {
 		uint32_t c = interp_colors(gradient_top, gradient_bot, i * 255 / 36);
-		draw_rectangle(ctx, bounds.left_width + BUTTON_SPACE * BUTTON_COUNT, bounds.top_height + MENU_BAR_HEIGHT + i,
+		draw_rectangle(ctx, bounds.left_width + BUTTON_SPACE * BUTTON_COUNT, bounds.top_height + menu_bar_height + i,
 				ctx->width - bounds.width - BUTTON_SPACE * BUTTON_COUNT, 1, c);
 	}
 
 	/* Draw input box */
 	if (nav_bar_focused) {
-		struct gradient_definition edge = {28, bounds.top_height + MENU_BAR_HEIGHT + 3, rgb(0,120,220), rgb(0,120,220)};
-		draw_rounded_rectangle_pattern(ctx, bounds.left_width + 2 + x + 1, bounds.top_height + MENU_BAR_HEIGHT + 4, main_window->width - bounds.width - x - 6, 26, 4, gfx_vertical_gradient_pattern, &edge);
-		draw_rounded_rectangle(ctx, bounds.left_width + 2 + x + 3, bounds.top_height + MENU_BAR_HEIGHT + 6, main_window->width - bounds.width - x - 10, 22, 2, rgb(250,250,250));
+		struct gradient_definition edge = {28, bounds.top_height + menu_bar_height + 3, rgb(0,120,220), rgb(0,120,220)};
+		draw_rounded_rectangle_pattern(ctx, bounds.left_width + 2 + x + 1, bounds.top_height + menu_bar_height + 4, main_window->width - bounds.width - x - 6, 26, 4, gfx_vertical_gradient_pattern, &edge);
+		draw_rounded_rectangle(ctx, bounds.left_width + 2 + x + 3, bounds.top_height + menu_bar_height + 6, main_window->width - bounds.width - x - 10, 22, 2, rgb(250,250,250));
 	} else {
-		struct gradient_definition edge = {28, bounds.top_height + MENU_BAR_HEIGHT + 3, rgb(90,90,90), rgb(110,110,110)};
-		draw_rounded_rectangle_pattern(ctx, bounds.left_width + 2 + x + 1, bounds.top_height + MENU_BAR_HEIGHT + 4, main_window->width - bounds.width - x - 6, 26, 4, gfx_vertical_gradient_pattern, &edge);
-		draw_rounded_rectangle(ctx, bounds.left_width + 2 + x + 2, bounds.top_height + MENU_BAR_HEIGHT + 5, main_window->width - bounds.width - x - 8, 24, 3, rgb(250,250,250));
+		struct gradient_definition edge = {28, bounds.top_height + menu_bar_height + 3, rgb(90,90,90), rgb(110,110,110)};
+		draw_rounded_rectangle_pattern(ctx, bounds.left_width + 2 + x + 1, bounds.top_height + menu_bar_height + 4, main_window->width - bounds.width - x - 6, 26, 4, gfx_vertical_gradient_pattern, &edge);
+		draw_rounded_rectangle(ctx, bounds.left_width + 2 + x + 2, bounds.top_height + menu_bar_height + 5, main_window->width - bounds.width - x - 8, 24, 3, rgb(250,250,250));
 	}
 
 	/* Draw the nav bar text, ellipsified if needed */
 	int max_width = main_window->width - bounds.width - x - 12;
 	char * name = ellipsify(nav_bar, 13, tt_font_thin, max_width, NULL);
-	tt_draw_string(ctx, tt_font_thin, bounds.left_width + 2 + x + 5, bounds.top_height + MENU_BAR_HEIGHT + 8 + 13, name, rgb(0,0,0));
+	tt_draw_string(ctx, tt_font_thin, bounds.left_width + 2 + x + 5, bounds.top_height + menu_bar_height + 8 + 13, name, rgb(0,0,0));
 	free(name);
 
 	if (nav_bar_focused && !nav_bar_blink) {
@@ -956,8 +960,8 @@ static void _draw_nav_bar(struct decor_bounds bounds) {
 		draw_line(ctx,
 				bounds.left_width + 2 + x + 5 + nav_bar_cursor_x,
 				bounds.left_width + 2 + x + 5 + nav_bar_cursor_x,
-				bounds.top_height + MENU_BAR_HEIGHT + 8,
-				bounds.top_height + MENU_BAR_HEIGHT + 8 + 15,
+				bounds.top_height + menu_bar_height + 8,
+				bounds.top_height + menu_bar_height + 8 + 15,
 				rgb(0,0,0));
 	}
 }
@@ -1190,11 +1194,13 @@ static void redraw_window(void) {
 
 	if (!is_desktop_background) {
 		/* Position, size, and draw the menu bar */
-		menu_bar.x = bounds.left_width;
-		menu_bar.y = bounds.top_height;
-		menu_bar.width = ctx->width - bounds.width;
-		menu_bar.window = main_window;
-		menu_bar_render(&menu_bar, ctx);
+		if (menu_bar_height) {
+			menu_bar.x = bounds.left_width;
+			menu_bar.y = bounds.top_height;
+			menu_bar.width = ctx->width - bounds.width;
+			menu_bar.window = main_window;
+			menu_bar_render(&menu_bar, ctx);
+		}
 
 		/* Draw toolbar */
 		_draw_buttons(bounds);
@@ -1205,8 +1211,8 @@ static void redraw_window(void) {
 
 	/* Draw the icon view, clipped to the viewport and scrolled appropriately. */
 	gfx_clear_clip(ctx);
-	gfx_add_clip(ctx, bounds.left_width, bounds.top_height + menu_bar_height, ctx->width - bounds.width, available_height);
-	draw_sprite(ctx, contents_sprite, bounds.left_width, bounds.top_height + menu_bar_height - scroll_offset);
+	gfx_add_clip(ctx, bounds.left_width, bounds.top_height + menu_bar_height + nav_bar_height, ctx->width - bounds.width, available_height);
+	draw_sprite(ctx, contents_sprite, bounds.left_width, bounds.top_height + menu_bar_height + nav_bar_height - scroll_offset);
 	gfx_clear_clip(ctx);
 	gfx_add_clip(ctx, 0, 0, ctx->width, ctx->height);
 
@@ -1314,7 +1320,7 @@ static void resize_finish(int w, int h) {
 	_decor_get_bounds(main_window, &bounds);
 
 	/* Recalculate available size */
-	available_height = ctx->height - menu_bar_height - bounds.height - (is_desktop_background ? 0 : STATUS_HEIGHT);
+	available_height = ctx->height - menu_bar_height - nav_bar_height - bounds.height - (is_desktop_background ? 0 : STATUS_HEIGHT);
 	fprintf(stderr, "available_height = %d; bounds.bottom_height = %d, (isd...) = %d\n", available_height, bounds.bottom_height, (is_desktop_background ? 0 : STATUS_HEIGHT));
 
 	/* If the width changed, we need to rebuild the icon view */
@@ -1481,6 +1487,16 @@ static void open_file(struct File * f) {
 			redraw_window();
 		}
 	} else if (f->launcher[0]) {
+		if (is_picker_dialog) {
+			int base_is_root = !strcmp(current_directory, "/"); /* avoid redundant slash */
+			for (int i = 0; i < file_pointers_len; ++i) {
+				if (file_pointers[i]->selected) {
+					printf("%s%s%s\n", current_directory, base_is_root ? "" : "/",
+						file_pointers[i]->type == 2 ? file_pointers[i]->filename : file_pointers[i]->name);
+				}
+			}
+			exit(0);
+		}
 		char tmp[4096];
 		if (!strcmp(f->launcher, "SELF")) {
 			/* "SELF" launchers are for binaries. */
@@ -1858,6 +1874,7 @@ int main(int argc, char * argv[]) {
 	if (argc > 1 && !strcmp(argv[1], "--wallpaper")) {
 		is_desktop_background = 1;
 		menu_bar_height = 0;
+		nav_bar_height = 0;
 		signal(SIGUSR1, sig_usr1);
 		signal(SIGUSR2, sig_usr2);
 		draw_background(yctx->display_width, yctx->display_height);
@@ -1868,6 +1885,13 @@ int main(int argc, char * argv[]) {
 		FILE * f = fopen("/var/run/.wallpaper.pid", "w");
 		fprintf(f, "%d\n", getpid());
 		fclose(f);
+	} else if (argc > 1 && !strcmp(argv[1], "--picker")) {
+		is_picker_dialog = 1;
+		menu_bar_height = 0;
+		main_window = yutani_window_create_flags(yctx, 640, 400,  YUTANI_WINDOW_FLAG_DIALOG_ANIMATION);
+		main_window->decorator_flags |= DECOR_FLAG_NO_MAXIMIZE;
+		yutani_window_move(yctx, main_window, yctx->display_width / 2 - main_window->width / 2, yctx->display_height / 2 - main_window->height / 2);
+		set_view_mode(VIEW_MODE_LIST);
 	} else {
 		main_window = yutani_window_create(yctx, 800, 600);
 		yutani_window_move(yctx, main_window, yctx->display_width / 2 - main_window->width / 2, yctx->display_height / 2 - main_window->height / 2);
@@ -1885,46 +1909,47 @@ int main(int argc, char * argv[]) {
 
 	set_title(NULL);
 
-	menu_bar.entries = menu_entries;
-	menu_bar.redraw_callback = redraw_window_callback;
+	if (menu_bar_height) {
+		menu_bar.entries = menu_entries;
+		menu_bar.redraw_callback = redraw_window_callback;
 
-	menu_bar.set = menu_set_create();
+		menu_bar.set = menu_set_create();
 
-	struct MenuList * m = menu_create(); /* File */
-	menu_insert(m, menu_create_normal("exit",NULL,"Exit", _menu_action_exit));
-	menu_set_insert(menu_bar.set, "file", m);
+		struct MenuList * m = menu_create(); /* File */
+		menu_insert(m, menu_create_normal("exit",NULL,"Exit", _menu_action_exit));
+		menu_set_insert(menu_bar.set, "file", m);
 
-	m = menu_create();
-	menu_insert(m, menu_create_normal(NULL,NULL,"Copy",_menu_action_copy));
-	menu_insert(m, menu_create_normal(NULL,NULL,"Paste",_menu_action_paste));
-	menu_insert(m, menu_create_separator());
-	menu_insert(m, menu_create_normal(NULL,NULL,"Select all",_menu_action_select_all));
-	menu_set_insert(menu_bar.set, "edit", m);
+		m = menu_create();
+		menu_insert(m, menu_create_normal(NULL,NULL,"Copy",_menu_action_copy));
+		menu_insert(m, menu_create_normal(NULL,NULL,"Paste",_menu_action_paste));
+		menu_insert(m, menu_create_separator());
+		menu_insert(m, menu_create_normal(NULL,NULL,"Select all",_menu_action_select_all));
+		menu_set_insert(menu_bar.set, "edit", m);
 
-	m = menu_create();
-	menu_insert(m, menu_create_normal("refresh",NULL,"Refresh", _menu_action_refresh));
-	menu_insert(m, menu_create_separator());
-	menu_insert(m, (_menu_entry_show_icons = menu_create_normal(view_mode == VIEW_MODE_ICONS ? "check" : NULL,"icons","Show Icons", _menu_action_view_mode)));
-	menu_insert(m, (_menu_entry_show_tiles = menu_create_normal(view_mode == VIEW_MODE_TILES ? "check" : NULL,"tiles","Show Tiles", _menu_action_view_mode)));
-	menu_insert(m, (_menu_entry_show_list  = menu_create_normal(view_mode == VIEW_MODE_LIST  ? "check" : NULL,"list", "Show List",  _menu_action_view_mode)));
-	menu_insert(m, menu_create_separator());
-	menu_insert(m, menu_create_normal(NULL,NULL,"Show Hidden Files", _menu_action_toggle_hidden));
-	menu_set_insert(menu_bar.set, "view", m);
+		m = menu_create();
+		menu_insert(m, menu_create_normal("refresh",NULL,"Refresh", _menu_action_refresh));
+		menu_insert(m, menu_create_separator());
+		menu_insert(m, (_menu_entry_show_icons = menu_create_normal(view_mode == VIEW_MODE_ICONS ? "check" : NULL,"icons","Show Icons", _menu_action_view_mode)));
+		menu_insert(m, (_menu_entry_show_tiles = menu_create_normal(view_mode == VIEW_MODE_TILES ? "check" : NULL,"tiles","Show Tiles", _menu_action_view_mode)));
+		menu_insert(m, (_menu_entry_show_list  = menu_create_normal(view_mode == VIEW_MODE_LIST  ? "check" : NULL,"list", "Show List",  _menu_action_view_mode)));
+		menu_insert(m, menu_create_separator());
+		menu_insert(m, menu_create_normal(NULL,NULL,"Show Hidden Files", _menu_action_toggle_hidden));
+		menu_set_insert(menu_bar.set, "view", m);
 
-	m = menu_create(); /* Go */
-	menu_insert(m, menu_create_normal("home",getenv("HOME"),"Home",_menu_action_navigate));
-	menu_insert(m, menu_create_normal(NULL,"/","File System",_menu_action_navigate));
-	menu_insert(m, menu_create_normal("up",NULL,"Up",_menu_action_up));
-	menu_set_insert(menu_bar.set, "go", m);
+		m = menu_create(); /* Go */
+		menu_insert(m, menu_create_normal("home",getenv("HOME"),"Home",_menu_action_navigate));
+		menu_insert(m, menu_create_normal(NULL,"/","File System",_menu_action_navigate));
+		menu_insert(m, menu_create_normal("up",NULL,"Up",_menu_action_up));
+		menu_set_insert(menu_bar.set, "go", m);
 
-	m = menu_create();
-	menu_insert(m, menu_create_normal("help",NULL,"Contents",_menu_action_help));
-	menu_insert(m, menu_create_separator());
-	menu_insert(m, menu_create_normal("star",NULL,"About " APPLICATION_TITLE,_menu_action_about));
-	menu_set_insert(menu_bar.set, "help", m);
+		m = menu_create();
+		menu_insert(m, menu_create_normal("help",NULL,"Contents",_menu_action_help));
+		menu_insert(m, menu_create_separator());
+		menu_insert(m, menu_create_normal("star",NULL,"About " APPLICATION_TITLE,_menu_action_about));
+		menu_set_insert(menu_bar.set, "help", m);
+	}
 
-	available_height = ctx->height - menu_bar_height - bounds.height - (is_desktop_background ? 0 : STATUS_HEIGHT);
-	fprintf(stderr, "available_height = %d\n", available_height);
+	available_height = ctx->height - menu_bar_height - nav_bar_height - bounds.height - (is_desktop_background ? 0 : STATUS_HEIGHT);
 
 	context_menu = menu_create(); /* Right-click menu */
 	menu_insert(context_menu, menu_create_normal(NULL,NULL,"Open",_menu_action_open));
@@ -2066,27 +2091,27 @@ int main(int argc, char * argv[]) {
 									}
 									break;
 								case 'f':
-									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT && !is_desktop_background) {
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT && menu_bar_height) {
 										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[0]);
 									}
 									break;
 								case 'e':
-									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT && !is_desktop_background) {
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT && menu_bar_height) {
 										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[1]);
 									}
 									break;
 								case 'v':
-									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT && !is_desktop_background) {
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT && menu_bar_height) {
 										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[2]);
 									}
 									break;
 								case 'g':
-									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT && !is_desktop_background) {
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT && menu_bar_height) {
 										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[3]);
 									}
 									break;
 								case 'h':
-									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT && !is_desktop_background) {
+									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT && menu_bar_height) {
 										menu_bar_show_menu(yctx,main_window,&menu_bar,-1,&menu_entries[4]);
 									}
 									break;
@@ -2163,11 +2188,11 @@ int main(int argc, char * argv[]) {
 							}
 
 							/* Menu bar */
-							menu_bar_mouse_event(yctx, main_window, &menu_bar, me, me->new_x, me->new_y);
+							if (menu_bar_height) menu_bar_mouse_event(yctx, main_window, &menu_bar, me, me->new_x, me->new_y);
 
-							if (menu_bar_height &&
-								me->new_y > (int)(bounds.top_height + menu_bar_height - 36) &&
-								me->new_y < (int)(bounds.top_height + menu_bar_height) &&
+							if (nav_bar_height &&
+								me->new_y > (int)(bounds.top_height + menu_bar_height) &&
+								me->new_y < (int)(bounds.top_height + menu_bar_height + nav_bar_height) &&
 								me->new_x > (int)(bounds.left_width) &&
 								me->new_x < (int)(main_window->width - bounds.right_width)) {
 
@@ -2221,7 +2246,7 @@ int main(int argc, char * argv[]) {
 
 							if (!is_desktop_background && me->new_y > (int)(main_window->height - bounds.bottom_height - STATUS_HEIGHT)) {
 
-							} else if (me->new_y > (int)(bounds.top_height + menu_bar_height) &&
+							} else if (me->new_y > (int)(bounds.top_height + menu_bar_height + nav_bar_height) &&
 								me->new_y < (int)(main_window->height - bounds.bottom_height) &&
 								me->new_x > (int)(bounds.left_width) &&
 								me->new_x < (int)(main_window->width - bounds.right_width) &&
@@ -2236,7 +2261,7 @@ int main(int argc, char * argv[]) {
 								}
 
 								/* Get offset into contents */
-								int y_into = me->new_y - bounds.top_height - menu_bar_height + scroll_offset;
+								int y_into = me->new_y - bounds.top_height - menu_bar_height - nav_bar_height + scroll_offset;
 								int x_into = me->new_x - bounds.left_width;
 								int offset = (y_into / FILE_HEIGHT) * FILE_PTR_WIDTH + x_into / FILE_WIDTH;
 								if (x_into > FILE_PTR_WIDTH * FILE_WIDTH) {
