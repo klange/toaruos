@@ -1989,7 +1989,7 @@ static void * handle_incoming(void) {
 							me->new_y >= (int)(window_height + decor_top_height+menu_bar_height) ||
 							me->new_x < (int)decor_left_width ||
 							me->new_x >= (int)(window_width + decor_left_width))) ||
-						(me->new_x >= (int)window_width || me->new_y >= (int)window_height)) {
+						(_no_frame && (me->new_x >= (int)window_width || me->new_y >= (int)window_height))) {
 						if (window->mouse_state == YUTANI_CURSOR_TYPE_IBEAM) {
 							yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESET);
 						}
