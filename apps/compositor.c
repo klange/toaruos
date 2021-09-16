@@ -1301,7 +1301,6 @@ static void window_tile(yutani_globals_t * yg, yutani_server_window_t * window, 
 
 	/* If not right most */
 	if (x < width_div-1) {
-		w++;
 		tile &= ~YUTANI_RESIZE_TILE_RIGHT;
 	}
 
@@ -1314,7 +1313,6 @@ static void window_tile(yutani_globals_t * yg, yutani_server_window_t * window, 
 
 	/* If not bottom most */
 	if (y < height_div-1) {
-		h++;
 		tile &= ~YUTANI_RESIZE_TILE_DOWN;
 	}
 
