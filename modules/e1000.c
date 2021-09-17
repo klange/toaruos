@@ -22,6 +22,7 @@
 #include <kernel/net/netif.h>
 #include <kernel/net/eth.h>
 #include <kernel/module.h>
+#include <kernel/procfs.h>
 #include <errno.h>
 
 #include <kernel/arch/x86_64/irq.h>
@@ -44,12 +45,7 @@ struct e1000_nic {
 	int tx_index;
 	int link_status;
 
-	spin_lock_t net_queue_lock;
-	spin_lock_t alert_lock;
 	spin_lock_t tx_lock;
-	list_t * net_queue;
-	list_t * rx_wait;
-	list_t * alert_wait;
 
 	uint8_t * rx_virt[E1000_NUM_RX_DESC];
 	uint8_t * tx_virt[E1000_NUM_TX_DESC];
@@ -57,6 +53,10 @@ struct e1000_nic {
 	struct e1000_tx_desc * tx;
 	uintptr_t rx_phys;
 	uintptr_t tx_phys;
+
+	int configured;
+	process_t * queuer;
+	process_t * processor;
 };
 
 static int device_count = 0;
@@ -84,21 +84,6 @@ static void delay_yield(size_t subticks) {
 	switch_task(0);
 }
 
-static struct ethernet_packet * dequeue_packet(struct e1000_nic * device) {
-	spin_lock(device->net_queue_lock);
-	while (!device->net_queue->length) {
-		sleep_on_unlocking(device->rx_wait, &device->net_queue_lock);
-		spin_lock(device->net_queue_lock);
-	}
-	node_t * n = list_dequeue(device->net_queue);
-	spin_unlock(device->net_queue_lock);
-
-	void* value = n->value;
-	free(n);
-
-	return value;
-}
-
 static int eeprom_detect(struct e1000_nic * device) {
 
 	/* Definitely not */
@@ -106,7 +91,7 @@ static int eeprom_detect(struct e1000_nic * device) {
 
 	write_command(device, E1000_REG_EEPROM, 1);
 
-	for (int i = 0; i < 100000 && !device->has_eeprom; ++i) {
+	for (int i = 0; i < 10000 && !device->has_eeprom; ++i) {
 		uint32_t val = read_command(device, E1000_REG_EEPROM);
 		if (val & 0x10) device->has_eeprom = 1;
 	}
@@ -155,57 +140,56 @@ static void read_mac(struct e1000_nic * device) {
 	}
 }
 
-static void e1000_alert_waiters(struct e1000_nic * nic) {
-	spin_lock(nic->alert_lock);
-	while (nic->alert_wait->head) {
-		node_t * node = list_dequeue(nic->alert_wait);
-		process_t * p = node->value;
-		free(node);
-		spin_unlock(nic->alert_lock);
-		process_alert_node(p, nic->eth.device_node);
-		spin_lock(nic->alert_lock);
-	}
-	spin_unlock(nic->alert_lock);
-}
-
-static void enqueue_packet(struct e1000_nic * device, void * buffer) {
-	spin_lock(device->net_queue_lock);
-	list_insert(device->net_queue, buffer);
-	wakeup_queue(device->rx_wait);
-	e1000_alert_waiters(device);
-	spin_unlock(device->net_queue_lock);
-}
-
 static void e1000_handle(struct e1000_nic * nic, uint32_t status) {
+	write_command(nic, E1000_REG_ICR, status);
+
+	if (!nic->configured) {
+		return;
+	}
+
 	if (status & ICR_LSC) {
 		nic->link_status= (read_command(nic, E1000_REG_STATUS) & (1 << 1));
 	}
 
-	int rx_tail = read_command(nic, E1000_REG_RXDESCTAIL);
-	int rx_head = read_command(nic, E1000_REG_RXDESCHEAD);
-	int processed = 0;
-	if (rx_tail != (rx_head - 1) % E1000_NUM_RX_DESC) {
-		int i = rx_tail % E1000_NUM_RX_DESC;
-		while (1) {
-			if (nic->rx[i].status & 0x01) {
-				uint8_t * pbuf = (uint8_t *)nic->rx_virt[i];
-				uint16_t  plen = nic->rx[i].length;
-				void * packet = malloc(8192);
-				if (plen > 8192) {
-					printf("??? plen is too big\n");
+	make_process_ready(nic->queuer);
+}
+
+static void e1000_queuer(void * data) {
+	struct e1000_nic * nic = data;
+
+	int head = read_command(nic, E1000_REG_RXDESCHEAD);
+	int budget = 8;
+
+	while (1) {
+		int processed = 0;
+		if (head == nic->rx_index) {
+			head = read_command(nic, E1000_REG_RXDESCHEAD);
+		}
+		if (head != nic->rx_index) {
+			while ((nic->rx[nic->rx_index].status & 0x01) && (processed < budget)) {
+				int i = nic->rx_index;
+				if (!(nic->rx[i].errors & (0x97))) {
+					net_eth_handle((void*)nic->rx_virt[i], nic->eth.device_node);
+				} else {
+					printf("error bits set in packet: %x\n", nic->rx[i].errors);
 				}
-				memcpy(packet, pbuf, plen);
-				nic->rx[i].status = 0;
-				enqueue_packet(nic, packet);
 				processed++;
-			} else if (nic->rx[i].status) {
 				nic->rx[i].status = 0;
+				if (++nic->rx_index == E1000_NUM_RX_DESC) {
+					nic->rx_index = 0;
+				}
+				if (nic->rx_index == head) {
+					head = read_command(nic, E1000_REG_RXDESCHEAD);
+					if (nic->rx_index == head) break;
+				}
+				write_command(nic, E1000_REG_RXDESCTAIL, nic->rx_index);
+				read_command(nic, E1000_REG_STATUS);
 			}
-			i = (i + 1) % E1000_NUM_RX_DESC;
-			if (i == (int)read_command(nic, E1000_REG_RXDESCHEAD)) {
-				break;
-			}
-			write_command(nic, E1000_REG_RXDESCTAIL, i);
+		}
+		if (processed == 0) {
+			switch_task(0);
+		} else {
+			if (this_core->cpu_id == 0) switch_task(0);
 		}
 	}
 }
@@ -218,7 +202,6 @@ static int irq_handler(struct regs *r) {
 		if (devices[i]->irq_number == irq) {
 			uint32_t status = read_command(devices[i], E1000_REG_ICR);
 			if (status) {
-				write_command(devices[i], E1000_REG_ICR, status);
 				e1000_handle(devices[i], status);
 				if (!handled) {
 					handled = 1;
@@ -233,38 +216,37 @@ static int irq_handler(struct regs *r) {
 
 static void send_packet(struct e1000_nic * device, uint8_t* payload, size_t payload_size) {
 	spin_lock(device->tx_lock);
-
 	int tx_tail = read_command(device, E1000_REG_TXDESCTAIL);
 	int tx_head = read_command(device, E1000_REG_TXDESCHEAD);
-	int next_tx;
 
-	if (tx_tail == tx_head) {
-		next_tx = tx_head;
-	} else {
-		next_tx = tx_tail;
-		if ((next_tx + 1) % E1000_NUM_TX_DESC == tx_head) {
+	if (tx_tail != tx_head) {
+		/* Queue is not empty, make sure we don't fill it... */
+		if ((device->tx_index + 1) %  E1000_NUM_TX_DESC == tx_head) {
 			int timeout = 1000;
 			do {
-				switch_task(1);
+				spin_unlock(device->tx_lock);
+				delay_yield(10000);
 				timeout--;
 				if (timeout == 0) {
-					spin_unlock(device->tx_lock);
 					printf("e1000: wait for tx timed out, giving up\n");
 					return;
 				}
+				spin_lock(device->tx_lock);
 				tx_head = read_command(device, E1000_REG_TXDESCHEAD);
-			} while ((next_tx + 1) % E1000_NUM_TX_DESC == tx_head);
+			} while ((device->tx_index + 1) %  E1000_NUM_TX_DESC == tx_head);
 		}
 	}
 
-	device->tx_index = next_tx;
 	memcpy(device->tx_virt[device->tx_index], payload, payload_size);
 	device->tx[device->tx_index].length = payload_size;
 	device->tx[device->tx_index].cmd = CMD_EOP | CMD_IFCS | CMD_RS; //| CMD_RPS;
 	device->tx[device->tx_index].status = 0;
 
-	device->tx_index = (next_tx + 1) % E1000_NUM_TX_DESC;
+	if (++device->tx_index == E1000_NUM_TX_DESC) {
+		device->tx_index = 0;
+	}
 	write_command(device, E1000_REG_TXDESCTAIL, device->tx_index);
+	read_command(device, E1000_REG_STATUS);
 
 	spin_unlock(device->tx_lock);
 }
@@ -283,6 +265,8 @@ static void init_rx(struct e1000_nic * device) {
 		(1 << 2) | /* store bad packets */
 		(1 << 4) | /* multicast promiscuous */
 		(1 << 15) | /* broadcast accept */
+		(1 << 25) | /* Extended size... */
+		(3 << 16) | /*   4096 */
 		(1 << 26) /* strip CRC */
 	);
 }
@@ -368,70 +352,72 @@ static ssize_t write_e1000(fs_node_t *node, off_t offset, size_t size, uint8_t *
 	return size;
 }
 
-static int check_e1000(fs_node_t *node) {
-	struct e1000_nic * nic = node->device;
-	return nic->net_queue->head ? 0 : 1;
+static ssize_t e1000_debug_func(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
+	char * buf = malloc(4096);
+	char * out = buf;
+
+	for (int i = 0; i < device_count; ++i) {
+		struct e1000_nic * e1000_debug_nic = devices[i];
+		uint32_t creg = read_command(e1000_debug_nic, E1000_REG_CTRL);
+		uint32_t sreg = read_command(e1000_debug_nic, E1000_REG_STATUS);
+		out += snprintf(out, 4095,
+			"Device %d\n"
+			"Ctrl reg:\t%#x\n"
+			"Status reg:\t%#x\n",
+			i,
+			creg,
+			sreg);
+	}
+
+	size_t _bsize = strlen(buf);
+	if ((size_t)offset > _bsize) {
+		free(buf);
+		return 0;
+	}
+	if (size > _bsize - (size_t)offset) size = _bsize - offset;
+
+	memcpy(buffer, buf + offset, size);
+	free(buf);
+	return size;
 }
 
-static int wait_e1000(fs_node_t *node, void * process) {
-	struct e1000_nic * nic = node->device;
-	spin_lock(nic->alert_lock);
-	if (!list_find(nic->alert_wait, process)) {
-		list_insert(nic->alert_wait, process);
-	}
-	list_insert(((process_t *)process)->node_waits, nic->eth.device_node);
-	spin_unlock(nic->alert_lock);
-	return 0;
-}
+static struct procfs_entry e1000_debug = {
+	0,
+	"e1000",
+	e1000_debug_func,
+};
 
-static void e1000_process(void * data) {
-	struct e1000_nic * nic = data;
-	while (1) {
-		struct ethernet_packet * packet = dequeue_packet(nic);
-		net_eth_handle(packet, nic->eth.device_node);
-	}
+static void ints_off(struct e1000_nic * nic) {
+	write_command(nic, E1000_REG_IMC, 0xFFFFFFFF);
+	write_command(nic, E1000_REG_ICR, 0xFFFFFFFF);
+	read_command(nic, E1000_REG_STATUS);
 }
 
 static void e1000_init(struct e1000_nic * nic) {
 	uint32_t e1000_device_pci = nic->pci_device;
 
-	nic->rx_phys = mmu_allocate_a_frame() << 12;
-	if (nic->rx_phys == 0) {
-		printf("e1000[%s]: unable to allocate memory for buffers\n", nic->eth.if_name);
-		switch_task(0);
-	}
-	nic->rx = mmu_map_mmio_region(nic->rx_phys, 4096);
-	nic->tx_phys = nic->rx_phys + sizeof(struct e1000_rx_desc) * E1000_NUM_RX_DESC;
-	nic->tx = (void*)((char*)nic->rx + sizeof(struct e1000_rx_desc) * E1000_NUM_RX_DESC);
+	nic->rx_phys = mmu_allocate_n_frames(2) << 12;
+	nic->rx = mmu_map_mmio_region(nic->rx_phys, 8192);
+
+	nic->tx_phys = mmu_allocate_n_frames(2) << 12;
+	nic->tx = mmu_map_mmio_region(nic->tx_phys, 8192);
 
 	memset(nic->rx, 0, sizeof(struct e1000_rx_desc) * E1000_NUM_RX_DESC);
 	memset(nic->tx, 0, sizeof(struct e1000_tx_desc) * E1000_NUM_TX_DESC);
 
 	/* Allocate buffers */
 	for (int i = 0; i < E1000_NUM_RX_DESC; ++i) {
-		nic->rx[i].addr = mmu_allocate_n_frames(2) << 12;
-		if (nic->rx[i].addr == 0) {
-			printf("e1000[%s]: unable to allocate memory for receive buffer\n", nic->eth.if_name);
-			switch_task(0);
-		}
-		//nic->rx_virt[i] = mmu_map_from_physical(nic->rx[i].addr);
-		nic->rx_virt[i] = mmu_map_mmio_region(nic->rx[i].addr, 8192);
-		mmu_frame_allocate(mmu_get_page((uintptr_t)nic->rx_virt[i],0),MMU_FLAG_WRITABLE|MMU_FLAG_WC);
-		mmu_frame_allocate(mmu_get_page((uintptr_t)nic->rx_virt[i]+4096,0),MMU_FLAG_WRITABLE|MMU_FLAG_WC);
+		nic->rx[i].addr = mmu_allocate_a_frame() << 12;
+		nic->rx_virt[i] = mmu_map_mmio_region(nic->rx[i].addr, 4096);
+		mmu_frame_map_address(mmu_get_page((uintptr_t)nic->rx_virt[i],0),MMU_FLAG_WRITABLE|MMU_FLAG_WC,nic->rx[i].addr);
 		nic->rx[i].status = 0;
 	}
 
 	for (int i = 0; i < E1000_NUM_TX_DESC; ++i) {
-		nic->tx[i].addr = mmu_allocate_n_frames(2) << 12;
-		if (nic->tx[i].addr == 0) {
-			printf("e1000[%s]: unable to allocate memory for receive buffer\n", nic->eth.if_name);
-			switch_task(0);
-		}
-		//nic->tx_virt[i] = mmu_map_from_physical(nic->tx[i].addr);
-		nic->tx_virt[i] = mmu_map_mmio_region(nic->tx[i].addr, 8192);
+		nic->tx[i].addr = mmu_allocate_a_frame() << 12;
+		nic->tx_virt[i] = mmu_map_mmio_region(nic->tx[i].addr, 4096);
 		mmu_frame_allocate(mmu_get_page((uintptr_t)nic->tx_virt[i],0),MMU_FLAG_WRITABLE|MMU_FLAG_WC);
-		mmu_frame_allocate(mmu_get_page((uintptr_t)nic->tx_virt[i]+4096,0),MMU_FLAG_WRITABLE|MMU_FLAG_WC);
-		memset(nic->tx_virt[i], 0, 8192);
+		memset(nic->tx_virt[i], 0, 4096);
 		nic->tx[i].status = 0;
 		nic->tx[i].cmd = (1 << 0);
 	}
@@ -450,55 +436,48 @@ static void e1000_init(struct e1000_nic * nic) {
 	eeprom_detect(nic);
 	read_mac(nic);
 	write_mac(nic);
-	uint32_t ctrl = read_command(nic, E1000_REG_CTRL);
 
-	/* reset phy */
-	write_command(nic, E1000_REG_CTRL, ctrl | (0x80000000));
-	read_command(nic, E1000_REG_STATUS);
-	delay_yield(10000);
-
-	/* reset mac */
-	write_command(nic, E1000_REG_CTRL, ctrl | (0x04000000));
-	read_command(nic, E1000_REG_STATUS);
-	delay_yield(10000);
-
-	/* Reload EEPROM */
-	write_command(nic, E1000_REG_CTRL, ctrl | (0x00002000));
-	read_command(nic, E1000_REG_STATUS);
-	delay_yield(20000);
-
-	/* initialize */
-	write_command(nic, E1000_REG_CTRL, ctrl | (1 << 26));
-	delay_yield(10000);
-
-	uint32_t status = read_command(nic, E1000_REG_CTRL);
-	status |= (1 << 5);   /* set auto speed detection */
-	status |= (1 << 6);   /* set link up */
-	status &= ~(1 << 3);  /* unset link reset */
-	status &= ~(1UL << 31UL); /* unset phy reset */
-	status &= ~(1 << 7);  /* unset invert loss-of-signal */
-	write_command(nic, E1000_REG_CTRL, status);
-
-	/* Disables flow control */
-	write_command(nic, 0x0028, 0);
-	write_command(nic, 0x002c, 0);
-	write_command(nic, 0x0030, 0);
-	write_command(nic, 0x0170, 0);
-
-	/* Unset flow control */
-	status = read_command(nic, E1000_REG_CTRL);
-	status &= ~(1 << 30);
-	write_command(nic, E1000_REG_CTRL, status);
-	delay_yield(10000);
-
-	nic->net_queue = list_create("e1000 net queue", nic);
-	nic->rx_wait = list_create("e1000 rx sem", nic);
-	nic->alert_wait = list_create("e1000 select waiters", nic);
+	#define CTRL_PHY_RST (1UL << 31UL)
+	#define CTRL_RST     (1UL << 26UL)
+	#define CTRL_SLU     (1UL << 6UL)
+	#define CTRL_LRST    (1UL << 3UL)
 
 	nic->irq_number = pci_get_interrupt(e1000_device_pci);
-
 	irq_install_handler(nic->irq_number, irq_handler, nic->eth.if_name);
 
+	/* Disable interrupts */
+	ints_off(nic);
+
+	/* Turn off receive + transmit */
+	write_command(nic, E1000_REG_RCTRL, 0);
+	write_command(nic, E1000_REG_TCTRL, TCTL_PSP);
+	read_command(nic, E1000_REG_STATUS);
+	delay_yield(10000);
+
+	/* Reset everything */
+	uint32_t ctrl = read_command(nic, E1000_REG_CTRL);
+	ctrl |= CTRL_RST;
+	write_command(nic, E1000_REG_CTRL, ctrl);
+	delay_yield(20000);
+
+	/* Turn off interrupts _again_ */
+	ints_off(nic);
+
+	/* Recommended flow control settings? */
+	write_command(nic, 0x0028, 0x002C8001);
+	write_command(nic, 0x002c, 0x0100);
+	write_command(nic, 0x0030, 0x8808);
+	write_command(nic, 0x0170, 0xFFFF);
+
+	/* Link up */
+	uint32_t status = read_command(nic, E1000_REG_CTRL);
+	status |= CTRL_SLU;
+	status |= (2 << 8); /* Speed to gigabit... */
+	status &= ~CTRL_LRST;
+	status &= ~CTRL_PHY_RST;
+	write_command(nic, E1000_REG_CTRL, status);
+
+	/* Clear statistical counters */
 	for (int i = 0; i < 128; ++i) {
 		write_command(nic, 0x5200 + i * 4, 0);
 	}
@@ -511,12 +490,8 @@ static void e1000_init(struct e1000_nic * nic) {
 	init_tx(nic);
 
 	write_command(nic, E1000_REG_RDTR, 0);
-	write_command(nic, E1000_REG_ITR, 0);
-
-	/* Twiddle interrupts */
-	write_command(nic, E1000_REG_IMC, 0xFFFFFFFF);
-	write_command(nic, E1000_REG_IMS, INTS);
-	delay_yield(10000);
+	write_command(nic, E1000_REG_ITR, 500);
+	read_command(nic, E1000_REG_STATUS);
 
 	nic->link_status = (read_command(nic, E1000_REG_STATUS) & (1 << 1));
 
@@ -526,8 +501,6 @@ static void e1000_init(struct e1000_nic * nic) {
 	nic->eth.device_node->mask  = 0666; /* temporary; shouldn't be doing this with these device files */
 	nic->eth.device_node->ioctl = ioctl_e1000;
 	nic->eth.device_node->write = write_e1000;
-	nic->eth.device_node->selectcheck = check_e1000;
-	nic->eth.device_node->selectwait  = wait_e1000;
 	nic->eth.device_node->device = nic;
 
 	nic->eth.mtu = 1500; /* guess */
@@ -536,7 +509,13 @@ static void e1000_init(struct e1000_nic * nic) {
 
 	char worker_name[34];
 	snprintf(worker_name, 33, "[%s]", nic->eth.if_name);
-	spawn_worker_thread(e1000_process, worker_name, nic);
+	nic->queuer = spawn_worker_thread(e1000_queuer, worker_name, nic);
+
+	nic->configured = 1;
+
+	/* Twiddle interrupts */
+	write_command(nic, E1000_REG_IMS, INTS);
+	delay_yield(10000);
 }
 
 static void find_e1000(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * found) {
@@ -565,6 +544,8 @@ static int e1000_install(int argc, char * argv[]) {
 		/* TODO: Clean up? Remove ourselves? */
 		return -ENODEV;
 	}
+
+	procfs_install(&e1000_debug);
 
 	return 0;
 }

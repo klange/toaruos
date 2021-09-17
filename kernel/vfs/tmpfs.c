@@ -32,7 +32,7 @@
 #define TMPFS_TYPE_LINK 3
 
 static struct tmpfs_dir * tmpfs_root = NULL;
-static intptr_t tmpfs_total_blocks = 0;
+static volatile intptr_t tmpfs_total_blocks = 0;
 
 static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d);
 
@@ -278,6 +278,7 @@ static int truncate_tmpfs(fs_node_t * node) {
 	spin_lock(t->lock);
 	for (size_t i = 0; i < t->block_count; ++i) {
 		mmu_frame_clear((uintptr_t)t->blocks[i] * 0x1000);
+		tmpfs_total_blocks--;
 		t->blocks[i] = 0;
 	}
 	t->block_count = 0;

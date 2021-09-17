@@ -119,12 +119,12 @@ static long sock_raw_recv(sock_t * sock, struct msghdr * msg, int flags) {
 		return -ENOTSUP;
 	}
 	if (msg->msg_iovlen == 0) return 0;
-	if (msg->msg_iov[0].iov_len != 8192) return -EINVAL;
+	if (msg->msg_iov[0].iov_len != 4096) return -EINVAL;
 	void * data = net_sock_get(sock);
 	if (!data) return -EINTR;
-	memcpy(msg->msg_iov[0].iov_base, data, 8192);
+	memcpy(msg->msg_iov[0].iov_base, data, 4096);
 	free(data);
-	return 8192;
+	return 4096;
 }
 
 static long sock_raw_send(sock_t * sock, const struct msghdr *msg, int flags) {

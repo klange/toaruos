@@ -291,7 +291,7 @@ static int configure_interface(const char * if_name) {
 	static uint8_t eth_broadcast[6] = {255,255,255,255,255,255};
 
 	do {
-		char buf[8192] = {0};
+		char buf[4096] = {0};
 
 		gettimeofday(&end, NULL);
 		time_diff(&start,&end,&sec_diff,&usec_diff);
@@ -311,7 +311,7 @@ static int configure_interface(const char * if_name) {
 			fprintf(stderr, "poll: failed\n");
 			return 1;
 		}
-		ssize_t rsize = recv(sock, &buf, 8192, 0);
+		ssize_t rsize = recv(sock, &buf, 4096, 0);
 
 		if (rsize <= 0) {
 			fprintf(stderr, "%s: %s: bad size? %zd\n", _argv_0, if_name, rsize);

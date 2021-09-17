@@ -654,17 +654,15 @@ void make_process_ready(volatile process_t * proc) {
 		}
 	}
 
+	spin_lock(process_queue_lock);
 	if (proc->sched_node.owner) {
 		/* There's only one ready queue, so this means the process was already ready, which
 		 * is indicative of a bug somewhere as we shouldn't be added processes to the ready
 		 * queue multiple times. */
-		printf("Can't make process ready without removing it from owner list: %d\n", proc->id);
-		printf("  (This is a bug) Current owner list is %s@%p (ready queue is %p)\n",
-			proc->sched_node.owner->name, (void *)proc->sched_node.owner, (void*)process_queue);
+		spin_unlock(process_queue_lock);
 		return;
 	}
 
-	spin_lock(process_queue_lock);
 	list_append(process_queue, (node_t*)&proc->sched_node);
 	spin_unlock(process_queue_lock);
 
@@ -683,6 +681,10 @@ volatile process_t * next_ready_process(void) {
 	spin_lock(process_queue_lock);
 
 	if (!process_queue->head) {
+		if (process_queue->length) {
+			printf("Queue has a length but head is NULL\n");
+			arch_fatal();
+		}
 		spin_unlock(process_queue_lock);
 		return this_core->kernel_idle_task;
 	}

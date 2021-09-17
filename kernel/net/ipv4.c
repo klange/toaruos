@@ -14,6 +14,7 @@
 #include <kernel/hashmap.h>
 #include <kernel/vfs.h>
 #include <kernel/time.h>
+#include <kernel/misc.h>
 
 #include <kernel/net/netif.h>
 #include <kernel/net/eth.h>
@@ -300,6 +301,7 @@ static int tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet, 
 			ntohl(tcp->seq_number), sock->priv32[1]);
 #endif
 		//window_size = 300;
+		
 		retval = 0;
 		send_thrice = 1;
 	} else {
@@ -395,10 +397,10 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
 		case IPV4_PROT_TCP: {
 			uint16_t dest_port = ntohs(((uint16_t*)&packet->payload)[1]);
 			printf("net: ipv4: %s: %s -> %s tcp %d to %d\n", nic->name, src, dest, ntohs(((uint16_t*)&packet->payload)[0]), dest_port);
-			if (hashmap_has(tcp_sockets, (void*)(uintptr_t)dest_port)) {
+			sock_t * sock = hashmap_get(tcp_sockets, (void*)(uintptr_t)dest_port);
+			if (sock) {
 				printf("net: tcp: received and have a waiting endpoint!\n");
 				/* What kind of packet is this? Is it something we were expecting? */
-				sock_t * sock = hashmap_get(tcp_sockets, (void*)(uintptr_t)dest_port);
 				struct tcp_header * tcp = (struct tcp_header*)&packet->payload;
 
 				if (sock->priv[1] == 1) {
@@ -815,6 +817,13 @@ ssize_t sock_tcp_read(fs_node_t *node, off_t offset, size_t size, uint8_t *buffe
 	return sock_tcp_recv((sock_t*)node, &_header, 0);
 }
 
+static void delay_yield(size_t subticks) {
+	unsigned long s, ss;
+	relative_time(0, subticks, &s, &ss);
+	sleep_until((process_t *)this_core->current_process, s, ss);
+	switch_task(0);
+}
+
 static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 	printf("tcp: send called\n");
 	if (msg->msg_iovlen > 1) {
@@ -826,6 +835,7 @@ static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 	size_t size_into = 0;
 	size_t size_remaining = msg->msg_iov[0].iov_len;
 
+	size_t last = arch_perf_timer();
 	while (size_remaining) {
 		size_t size_to_send = size_remaining > 1024 ? 1024 : size_remaining;
 		size_t total_length = sizeof(struct ipv4_packet) + sizeof(struct tcp_header) + size_to_send;
@@ -875,6 +885,20 @@ static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 
 		size_remaining -= size_to_send;
 		size_into += size_to_send;
+
+		if (size_remaining) {
+			/* Keep us away from the BSP... */
+			if (processor_count > 1) {
+				if (this_core->cpu_id == 0) {
+					delay_yield(0);
+				}
+			} else {
+				if (arch_perf_timer() - last > 10000UL * arch_cpu_mhz()) {
+					delay_yield(0);
+					last = arch_perf_timer();
+				}
+			}
+		}
 	}
 
 	return size_into;

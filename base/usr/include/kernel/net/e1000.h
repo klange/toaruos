@@ -28,8 +28,8 @@
 
 #define E1000_REG_RXADDR     0x5400
 
-#define E1000_NUM_RX_DESC 128
-#define E1000_NUM_TX_DESC 128
+#define E1000_NUM_RX_DESC 512
+#define E1000_NUM_TX_DESC 512
 
 #define RCTL_EN                         (1 << 1)    /* Receiver Enable */
 #define RCTL_SBP                        (1 << 2)    /* Store Bad Packets */

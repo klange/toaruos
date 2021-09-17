@@ -66,6 +66,8 @@ void mmu_frame_set(uintptr_t frame_addr) {
 	}
 }
 
+static uintptr_t lowest_available = 0;
+
 void mmu_frame_clear(uintptr_t frame_addr) {
 	/* If the frame is within bounds... */
 	if (frame_addr < nframes * PAGE_SIZE) {
@@ -74,6 +76,7 @@ void mmu_frame_clear(uintptr_t frame_addr) {
 		uint32_t offset = OFFSET_FROM_BIT(frame);
 		frames[index]  &= ~((uint32_t)1 << offset);
 		asm ("" ::: "memory");
+		if (frame < lowest_available) lowest_available = frame;
 	}
 }
 
@@ -119,11 +122,15 @@ uintptr_t mmu_first_n_frames(int n) {
  */
 uintptr_t mmu_first_frame(void) {
 	uintptr_t i, j;
-	for (i = 0; i < INDEX_FROM_BIT(nframes); ++i) {
+	for (i = INDEX_FROM_BIT(lowest_available); i < INDEX_FROM_BIT(nframes); ++i) {
 		if (frames[i] != (uint32_t)-1) {
 			for (j = 0; j < (sizeof(uint32_t)*8); ++j) {
 				uint32_t testFrame = (uint32_t)1 << j;
-				if (!(frames[i] & testFrame)) return (i << 5) + j;
+				if (!(frames[i] & testFrame)) {
+					uintptr_t out = (i << 5) + j;
+					lowest_available = out + 1;
+					return out;
+				}
 			}
 		}
 	}
