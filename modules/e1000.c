@@ -214,27 +214,32 @@ static int irq_handler(struct regs *r) {
 	return handled;
 }
 
+static int tx_full(struct e1000_nic * device, int tx_tail, int tx_head) {
+	if (tx_tail == tx_head) return 0;
+	if (device->tx_index == tx_head) return 1;
+	if (((device->tx_index + 1) & E1000_NUM_TX_DESC) == tx_head) return 1;
+	return 0;
+}
+
 static void send_packet(struct e1000_nic * device, uint8_t* payload, size_t payload_size) {
 	spin_lock(device->tx_lock);
 	int tx_tail = read_command(device, E1000_REG_TXDESCTAIL);
 	int tx_head = read_command(device, E1000_REG_TXDESCHEAD);
 
-	if (tx_tail != tx_head) {
-		/* Queue is not empty, make sure we don't fill it... */
-		if ((device->tx_index + 1) %  E1000_NUM_TX_DESC == tx_head) {
-			int timeout = 1000;
-			do {
-				spin_unlock(device->tx_lock);
-				delay_yield(10000);
-				timeout--;
-				if (timeout == 0) {
-					printf("e1000: wait for tx timed out, giving up\n");
-					return;
-				}
-				spin_lock(device->tx_lock);
-				tx_head = read_command(device, E1000_REG_TXDESCHEAD);
-			} while ((device->tx_index + 1) %  E1000_NUM_TX_DESC == tx_head);
-		}
+	if (tx_full(device, tx_tail, tx_head)) {
+		int timeout = 1000;
+		do {
+			spin_unlock(device->tx_lock);
+			delay_yield(10000);
+			timeout--;
+			if (timeout == 0) {
+				printf("e1000: wait for tx timed out, giving up\n");
+				return;
+			}
+			spin_lock(device->tx_lock);
+			tx_tail = read_command(device, E1000_REG_TXDESCTAIL);
+			tx_head = read_command(device, E1000_REG_TXDESCHEAD);
+		} while (tx_full(device, tx_tail, tx_head));
 	}
 
 	memcpy(device->tx_virt[device->tx_index], payload, payload_size);
@@ -280,10 +285,18 @@ static void init_tx(struct e1000_nic * device) {
 
 	device->tx_index = 0;
 
-	write_command(device, E1000_REG_TCTRL,
-		TCTL_EN |
-		TCTL_PSP |
-		read_command(device, E1000_REG_TCTRL));
+	uint32_t tctl = read_command(device, E1000_REG_TCTRL);
+
+	/* Collision threshold */
+	tctl &= ~(0xFF << 4);
+	tctl |= (15 << 4);
+
+	/* Turn it on */
+	tctl |= TCTL_EN;
+	tctl |= TCTL_PSP;
+	tctl |= (1 << 24); /* retransmit on late collision */
+
+	write_command(device, E1000_REG_TCTRL, tctl);
 }
 
 static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
@@ -360,13 +373,22 @@ static ssize_t e1000_debug_func(fs_node_t * node, off_t offset, size_t size, uin
 		struct e1000_nic * e1000_debug_nic = devices[i];
 		uint32_t creg = read_command(e1000_debug_nic, E1000_REG_CTRL);
 		uint32_t sreg = read_command(e1000_debug_nic, E1000_REG_STATUS);
+		int rx_head = read_command(e1000_debug_nic, E1000_REG_RXDESCHEAD);
+		int rx_tail = read_command(e1000_debug_nic, E1000_REG_RXDESCTAIL);
+		int tx_head = read_command(e1000_debug_nic, E1000_REG_TXDESCHEAD);
+		int tx_tail = read_command(e1000_debug_nic, E1000_REG_TXDESCTAIL);
 		out += snprintf(out, 4095,
 			"Device %d\n"
 			"Ctrl reg:\t%#x\n"
-			"Status reg:\t%#x\n",
+			"Status reg:\t%#x\n"
+			"rx head/tail:\t%d %d\n"
+			"tx head/tail:\t%d %d\n",
 			i,
 			creg,
-			sreg);
+			sreg,
+			rx_head, rx_tail,
+			tx_head, tx_tail
+			);
 	}
 
 	size_t _bsize = strlen(buf);
