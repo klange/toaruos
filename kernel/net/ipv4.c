@@ -30,6 +30,7 @@
 #define DEFAULT_TCP_WINDOW_SIZE 65535
 
 static int _debug __attribute__((unused)) = 0;
+extern fs_node_t * net_if_any(void);
 
 static void ip_ntoa(const uint32_t src_addr, char * out) {
 	snprintf(out, 16, "%d.%d.%d.%d",
@@ -149,8 +150,12 @@ int net_ipv4_send(struct ipv4_packet * response, fs_node_t * nic) {
 	return 0;
 }
 
+static sock_t * icmp_handler = NULL;
+
 static void icmp_handle(struct ipv4_packet * packet, const char * src, const char * dest, fs_node_t * nic) {
 	struct icmp_header * header = (void*)&packet->payload;
+
+	/* Is this a PING request? */
 	if (header->type == 8 && header->code == 0) {
 		printf("net: ping with %d bytes of payload\n", ntohs(packet->length));
 		if (ntohs(packet->length) & 1) packet->length++;
@@ -177,9 +182,80 @@ static void icmp_handle(struct ipv4_packet * packet, const char * src, const cha
 		/* send ipv4... */
 		net_ipv4_send(response,nic);
 		free(response);
+	} else if (header->type == 0 && header->code == 0) {
+		printf("net: ping reply\n");
+		/* Did we have a client waiting for this? */
+		if (icmp_handler) {
+			net_sock_add(icmp_handler, packet, ntohs(packet->length));
+		}
 	} else {
 		printf("net: ipv4: %s: %s -> %s ICMP %d (code = %d)\n", nic->name, src, dest, header->type, header->code);
 	}
+}
+
+static void sock_icmp_close(sock_t * sock) {
+	icmp_handler = NULL;
+}
+
+static long sock_icmp_recv(sock_t * sock, struct msghdr * msg, int flags) {
+	if (msg->msg_iovlen > 1) {
+		return -ENOTSUP;
+	}
+	if (msg->msg_iovlen == 0) return 0;
+
+	struct ipv4_packet * data = net_sock_get(sock);
+	if (!data) {
+		return -EINTR;
+	}
+
+	long resp = ntohs(data->length);
+	memcpy(msg->msg_iov[0].iov_base, data, resp);
+	free(data);
+	return resp;
+}
+
+static long sock_icmp_send(sock_t * sock, const struct msghdr *msg, int flags) {
+	if (msg->msg_iovlen > 1) {
+		return -ENOTSUP;
+	}
+	if (msg->msg_iovlen == 0) return 0;
+	if (msg->msg_namelen != sizeof(struct sockaddr_in)) {
+		return -EINVAL;
+	}
+
+	struct sockaddr_in * name = msg->msg_name;
+	fs_node_t * nic = net_if_any();
+	size_t total_length = sizeof(struct ipv4_packet) + msg->msg_iov[0].iov_len;
+
+	struct ipv4_packet * response = malloc(total_length);
+	response->length = htons(total_length);
+	response->destination = name->sin_addr.s_addr;
+	response->source = ((struct EthernetDevice*)nic->device)->ipv4_addr;
+	response->ttl = 64;
+	response->protocol = 1;
+	response->ident = 0;
+	response->flags_fragment = htons(0x4000);
+	response->version_ihl = 0x45;
+	response->dscp_ecn = 0;
+	response->checksum = 0;
+	response->checksum = htons(calculate_ipv4_checksum(response));
+
+	memcpy(response->payload, msg->msg_iov[0].iov_base, msg->msg_iov[0].iov_len);
+	net_ipv4_send(response,nic);
+	free(response);
+
+	return 0;
+}
+
+static int icmp_socket(void) {
+	printf("icmp socket...\n");
+	if (icmp_handler) return -EINVAL;
+	sock_t * sock = net_sock_create();
+	sock->sock_recv = sock_icmp_recv;
+	sock->sock_send = sock_icmp_send;
+	sock->sock_close = sock_icmp_close;
+	icmp_handler = sock;
+	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock);
 }
 
 static hashmap_t * udp_sockets = NULL;
@@ -354,8 +430,6 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
 		}
 	}
 }
-
-extern fs_node_t * net_if_any(void);
 
 static spin_lock_t udp_port_lock = {0};
 
@@ -841,7 +915,11 @@ long net_ipv4_socket(int type, int protocol) {
 	/* Ignore protocol, make socket for 'type' only... */
 	switch (type) {
 		case SOCK_DGRAM:
-			return udp_socket();
+			if (!protocol || protocol == IPPROTO_UDP)
+				return udp_socket();
+			if (protocol == IPPROTO_ICMP)
+				return icmp_socket();
+			return -EINVAL;
 		case SOCK_STREAM:
 			return tcp_socket();
 		default:
