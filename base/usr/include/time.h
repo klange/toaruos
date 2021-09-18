@@ -49,5 +49,6 @@ typedef int clockid_t;
 #define CLOCK_MONOTONIC 1
 
 extern int clock_gettime(clockid_t clk_id, struct timespec *tp);
+extern int clock_getres(clockid_t clk_id, struct timespec *res);
 
 _End_C_Header

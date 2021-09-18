@@ -1,6 +1,5 @@
 #include <unistd.h>
 
 int getpgrp() {
-	/* XXX */
-	return getgid();
+	return getpgid(0);
 }
