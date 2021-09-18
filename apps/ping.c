@@ -141,10 +141,18 @@ int main(int argc, char * argv[]) {
 					size_t len = ntohs(ipv4->length) - sizeof(struct IPV4_Header);
 					/* Get the address */
 					char * from = inet_ntoa(*(struct in_addr*)&ipv4->source);
-					printf("%zd bytes from %s: icmp_seq=%d ttl=%d time=%zd ms\n",
+					int time_taken = (rcvd_at - sent_at);
+					printf("%zd bytes from %s: icmp_seq=%d ttl=%d time=%d",
 						len, from, ntohs(icmp->sequence_number), ipv4->ttl,
-						(rcvd_at - sent_at) / 1000);
-
+						time_taken / 1000);
+					if (time_taken < 1000) {
+						printf(".%03d", time_taken % 1000);
+					} else if (time_taken < 10000) {
+						printf(".%02d", (time_taken / 10) % 100);
+					} else if (time_taken < 100000) {
+						printf(".%01d", (time_taken / 100) % 10);
+					}
+					printf(" ms\n");
 					responses_received++;
 				}
 
