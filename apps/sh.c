@@ -853,15 +853,19 @@ static void handle_status(int ret_code) {
 	}
 }
 
-int wait_for_child(int pgid, char * name) {
+int wait_for_child(int pgid, char * name, int retpid) {
 	int waitee = (shell_interactive == 1 && !is_subshell) ? -pgid : pgid;
 	int outpid;
 	int ret_code = 0;
+	int ret_code_real = 0;
 	int e;
 
 	do {
 		outpid = waitpid(waitee, &ret_code, WSTOPPED);
 		e = errno;
+		if (outpid == retpid) {
+			ret_code_real = ret_code;
+		}
 		if (WIFSTOPPED(ret_code)) {
 			suspended_pgid = pgid;
 			if (name) {
@@ -877,8 +881,8 @@ int wait_for_child(int pgid, char * name) {
 		}
 	} while (outpid != -1 || (outpid == -1 && e != ECHILD));
 	reset_pgrp();
-	handle_status(ret_code);
-	return WEXITSTATUS(ret_code);
+	handle_status(ret_code_real);
+	return WEXITSTATUS(ret_code_real);
 }
 
 int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
@@ -1378,19 +1382,16 @@ _nope:
 		int last_output[2];
 		pipe(last_output);
 
-		struct semaphore s = create_semaphore();
 		child_pid = fork();
 		if (!child_pid) {
 			set_pgid(0);
 			if (!nowait) set_pgrp(getpid());
-			raise_semaphore(s);
 			is_subshell = 1;
 			dup2(last_output[1], STDOUT_FILENO);
 			close(last_output[0]);
 			add_environment(extra_env);
 			run_cmd(arg_starts[0]);
 		}
-		wait_semaphore(s);
 
 		pgid = child_pid;
 
@@ -1413,10 +1414,12 @@ _nope:
 			last_output[1] = tmp_out[1];
 		}
 
+		struct semaphore s = create_semaphore();
 		last_child = fork();
 		if (!last_child) {
 			is_subshell = 1;
 			set_pgid(pgid);
+			raise_semaphore(s);
 			if (output_files[cmdi]) {
 				int fd = open(output_files[cmdi], file_args[cmdi], 0666);
 				if (fd < 0) {
@@ -1442,6 +1445,7 @@ _nope:
 		}
 		close(last_output[0]);
 		close(last_output[1]);
+		wait_semaphore(s);
 
 		/* Now execute the last piece and wait on all of them */
 	} else {
@@ -1525,7 +1529,7 @@ _nope:
 	}
 
 
-	int ret = wait_for_child(shell_interactive == 1 ? pgid : last_child, arg_starts[0][0]);
+	int ret = wait_for_child(shell_interactive == 1 ? pgid : last_child, arg_starts[0][0], last_child);
 
 	list_free(extra_env);
 	free(extra_env);
@@ -2199,7 +2203,7 @@ uint32_t shell_cmd_fg(int argc, char * argv[]) {
 		return 1;
 	}
 
-	return wait_for_child(pid, NULL);
+	return wait_for_child(pid, NULL, pid);
 }
 
 uint32_t shell_cmd_bg(int argc, char * argv[]) {
