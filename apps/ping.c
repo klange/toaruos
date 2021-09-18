@@ -15,6 +15,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <poll.h>
+#include <signal.h>
 #include <sys/times.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -59,10 +60,17 @@ static uint16_t icmp_checksum(char * payload, size_t len) {
 	return ~(sum & 0xFFFF) & 0xFFFF;
 }
 
+static int break_from_loop = 0;
+
+static void sig_break_loop(int sig) {
+	(void)sig;
+	break_from_loop = 1;
+}
+
 int main(int argc, char * argv[]) {
 	if (argc < 2) return 1;
 
-	int pings_to_send = 4;
+	int pings_sent = 0;
 
 	struct hostent * host = gethostbyname(argv[1]);
 
@@ -79,6 +87,8 @@ int main(int argc, char * argv[]) {
 		fprintf(stderr, "%s: No socket: %s\n", argv[1], strerror(errno));
 		return 1;
 	}
+
+	signal(SIGINT, sig_break_loop);
 
 	struct sockaddr_in dest;
 	dest.sin_family = AF_INET;
@@ -98,8 +108,8 @@ int main(int argc, char * argv[]) {
 
 	int responses_received = 0;
 
-	for (int i = 0; i < pings_to_send; ++i) {
-		ping->sequence_number = htons(i+1);
+	while (!break_from_loop) {
+		ping->sequence_number = htons(pings_sent+1);
 		ping->checksum = 0;
 		ping->checksum = htons(icmp_checksum((void*)ping, BYTES_TO_SEND));
 
@@ -108,6 +118,8 @@ int main(int argc, char * argv[]) {
 		if (sendto(sock, (void*)ping, BYTES_TO_SEND, 0, (struct sockaddr*)&dest, sizeof(struct sockaddr_in)) < 0) {
 			fprintf(stderr, "sendto: %s\n", strerror(errno));
 		}
+
+		pings_sent++;
 
 		struct pollfd fds[1];
 		fds[0].fd = sock;
@@ -139,13 +151,14 @@ int main(int argc, char * argv[]) {
 			}
 		}
 
-		if (i + 1 != pings_to_send) {
+		if (!break_from_loop) {
 			syscall_sleep(1,0);
 		}
 	}
 
+	printf("--- %s statistics ---\n", argv[1]);
 	printf("%d packets transmitted, %d received, %d%% packet loss\n",
-		pings_to_send, responses_received, 100*(pings_to_send-responses_received)/pings_to_send);
+		pings_sent, responses_received, 100*(pings_sent-responses_received)/pings_sent);
 
 
 	return 0;
