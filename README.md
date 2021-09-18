@@ -8,7 +8,7 @@ The OS includes a kernel, bootloader, dynamic shared object linker, C standard l
 
 There are no external runtime dependencies and all required source code, totalling roughly 80,000 lines of (primarily) C, is included in this repository, save for [Kuroko](https://github.com/kuroko-lang/kuroko), which lives separately.
 
-![Screenshot](https://klange.dev/s/Screenshot%20from%202021-08-05%2009-50-57.png)
+![Screenshot](https://klange.dev/s/Screenshot%20from%202021-09-18%2013-49-35.png)
 *Demonstration of ToaruOS's UI and some applications.*
 
 ## History
