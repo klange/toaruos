@@ -123,16 +123,22 @@ static void next_line(void) {
 			char buf[1];
 			read(STDERR_FILENO, buf, 1);
 			char c = buf[0];
-			if (c == '\n' || c == '\r') {
-				printf("\r\033[K");
-				fflush(stdout);
-				term_x = 0;
-				return;
-			} else if (c == 'q') {
-				printf("\r\033[K");
-				fflush(stdout);
-				set_buffered();
-				exit(0);
+			switch (c) {
+				case ' ':
+					term_yish = 1;
+					/* fallthrough */
+				case '\n':
+				case '\r':
+					printf("\r\033[K");
+					fflush(stdout);
+					term_x = 0;
+					return;
+				case 'q':
+					printf("\r\033[K");
+					fflush(stdout);
+					set_buffered();
+					exit(0);
+					return;
 			}
 		} while (1);
 	}
