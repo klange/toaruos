@@ -2283,7 +2283,7 @@ int main(int argc, char ** argv) {
 	}
 
 	if (_no_frame) {
-		window = yutani_window_create(yctx, window_width, window_height);
+		window = yutani_window_create_flags(yctx, window_width, window_height, YUTANI_WINDOW_FLAG_NO_ANIMATION);
 	} else {
 		init_decorations();
 		struct decor_bounds bounds;
