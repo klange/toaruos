@@ -11,12 +11,15 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <sys/signal.h>
 #include <sys/signal_defs.h>
 #include <sys/sysfunc.h>
 #include <syscall_nums.h>
+
+static FILE * logfile;
 
 struct regs {
 	/* Pushed by common stub */
@@ -108,7 +111,7 @@ const char * syscall_names[] = {
 
 #if 0
 static void dump_regs(struct regs * r) {
-	printf(
+	fprintf(logfile,
 		"  $rip=0x%016lx\n"
 		"  $rsi=0x%016lx,$rdi=0x%016lx,$rbp=0x%016lx,$rsp=0x%016lx\n"
 		"  $rax=0x%016lx,$rbx=0x%016lx,$rcx=0x%016lx,$rdx=0x%016lx\n"
@@ -127,14 +130,14 @@ static void dump_regs(struct regs * r) {
 
 static void open_flags(int flags) {
 	if (!flags) {
-		printf("O_RDONLY");
+		fprintf(logfile, "O_RDONLY");
 		return;
 	}
 
 	/* That's all that's valid right now */
 	flags &= 0xFFFF;
 
-#define H(flg) do { if (flags & flg) { printf(#flg); flags &= (~flg); if (flags) printf("|"); } } while (0)
+#define H(flg) do { if (flags & flg) { fprintf(logfile, #flg); flags &= (~flg); if (flags) fprintf(logfile, "|"); } } while (0)
 
 	H(O_WRONLY);
 	H(O_RDWR);
@@ -148,17 +151,17 @@ static void open_flags(int flags) {
 	H(O_DIRECTORY);
 
 	if (flags) {
-		printf("(%#x)", flags);
+		fprintf(logfile, "(%#x)", flags);
 	}
 }
 
 static void string_arg(pid_t pid, uintptr_t ptr) {
 	if (ptr == 0) {
-		printf("NULL");
+		fprintf(logfile, "NULL");
 		return;
 	}
 
-	printf("\"");
+	fprintf(logfile, "\"");
 
 	size_t size = 0;
 	char buf = 0;
@@ -167,68 +170,68 @@ static void string_arg(pid_t pid, uintptr_t ptr) {
 		long result = ptrace(PTRACE_PEEKDATA, pid, (void*)ptr, &buf);
 		if (result != 0) break;
 		if (!buf) {
-			printf("\"");
+			fprintf(logfile, "\"");
 			return;
 		}
 		if (buf == '\\') {
-			printf("\\\\");
+			fprintf(logfile, "\\\\");
 		} else if (buf == '"') {
-			printf("\\\"");
+			fprintf(logfile, "\\\"");
 		} else if (buf >= ' ' && buf <= '~') {
-			printf("%c", buf);
+			fprintf(logfile, "%c", buf);
 		} else if (buf) {
-			printf("\\x%02x", buf);
+			fprintf(logfile, "\\x%02x", buf);
 		}
 		ptr++;
 		size++;
 		if (size > 30) break;
 	} while (buf);
 
-	printf("\"...");
+	fprintf(logfile, "\"...");
 }
 
 static void pointer_arg(uintptr_t ptr) {
-	if (ptr == 0) printf("NULL");
-	else printf("%#zx", ptr);
+	if (ptr == 0) fprintf(logfile, "NULL");
+	else fprintf(logfile, "%#zx", ptr);
 }
 
 static void uint_arg(size_t val) {
-	printf("%zu", val);
+	fprintf(logfile, "%zu", val);
 }
 
 static void int_arg(size_t val) {
-	printf("%zd", val);
+	fprintf(logfile, "%zd", val);
 }
 
 static void fd_arg(pid_t pid, int val) {
 	/* TODO: Look up file in user data? */
-	printf("%d", val);
+	fprintf(logfile, "%d", val);
 }
 
 static void fds_arg(pid_t pid, size_t ecount, uintptr_t array) {
-	printf("{");
+	fprintf(logfile, "{");
 	for (size_t count = 0; count < 10 && count < ecount; ++count) {
 		char buf[sizeof(int)];
 		for (unsigned int i = 0; i < sizeof(int); ++i) {
 			if (ptrace(PTRACE_PEEKDATA, pid, (void*)array++, &buf[i])) {
-				printf("?}");
+				fprintf(logfile, "?}");
 				return;
 			}
 		}
 		int x = 0;
 		memcpy(&x,buf,sizeof(int));
-		printf("%d", x);
-		if (count + 1 < ecount) printf(",");
+		fprintf(logfile, "%d", x);
+		if (count + 1 < ecount) fprintf(logfile, ",");
 	}
-	printf("}");
+	fprintf(logfile, "}");
 }
 
-#define C(arg) case arg: printf(#arg); break
+#define C(arg) case arg: fprintf(logfile, #arg); break
 
-#define COMMA printf(", ");
+#define COMMA fprintf(logfile, ", ");
 
 static void handle_syscall(pid_t pid, struct regs * r) {
-	printf("%s(", syscall_names[r->rax]);
+	fprintf(logfile, "%s(", syscall_names[r->rax]);
 	switch (r->rax) {
 		case SYS_OPEN:
 			string_arg(pid, r->rbx); COMMA;
@@ -254,9 +257,9 @@ static void handle_syscall(pid_t pid, struct regs * r) {
 			fd_arg(pid, r->rbx); COMMA;
 			int_arg(r->rcx); COMMA;
 			switch (r->rdx) {
-				case 0: printf("SEEK_SET"); break;
-				case 1: printf("SEEK_CUR"); break;
-				case 2: printf("SEEK_END"); break;
+				case 0: fprintf(logfile, "SEEK_SET"); break;
+				case 1: fprintf(logfile, "SEEK_CUR"); break;
+				case 2: fprintf(logfile, "SEEK_END"); break;
 				default: int_arg(r->rdx); break;
 			}
 			break;
@@ -379,7 +382,7 @@ static void handle_syscall(pid_t pid, struct regs * r) {
 			break;
 		case SYS_EXT:
 			int_arg(r->rbx);
-			printf(") = ?\n");
+			fprintf(logfile, ") = ?\n");
 			return;
 		/* These have no arguments: */
 		case SYS_YIELD:
@@ -394,22 +397,53 @@ static void handle_syscall(pid_t pid, struct regs * r) {
 		case SYS_GETEGID:
 			break;
 		default:
-			printf("...");
+			fprintf(logfile, "...");
 			break;
 	}
 	fflush(stdout);
 }
 
+static int usage(char * argv[]) {
+#define T_I "\033[3m"
+#define T_O "\033[0m"
+	fprintf(stderr, "usage: %s [-o logfile] command...\n"
+			"  -o logfile " T_I "Write tracing output to a file." T_O "\n"
+			"  -h         " T_I "Show this help text." T_O "\n",
+			argv[0]);
+	return 1;
+}
+
 int main(int argc, char * argv[]) {
+	logfile = stdout;
+
+	int opt;
+	while ((opt = getopt(argc, argv, "ho:")) != -1) {
+		switch (opt) {
+			case 'o':
+				logfile = fopen(optarg, "w");
+				if (!logfile) {
+					fprintf(stderr, "%s: %s: %s\n", argv[0], optarg, strerror(errno));
+					return 1;
+				}
+				break;
+			case 'h':
+				return (usage(argv), 0);
+			case '?':
+				return usage(argv);
+		}
+	}
+
+	if (optind == argc) {
+		return usage(argv);
+	}
 
 	pid_t p = fork();
-
 	if (!p) {
 		if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
 			fprintf(stderr, "%s: ptrace: %s\n", argv[0], strerror(errno));
 			return 1;
 		}
-		execvp(argv[1], &argv[1]);
+		execvp(argv[optind], &argv[optind]);
 		return 1;
 	} else {
 		while (1) {
@@ -430,17 +464,17 @@ int main(int argc, char * argv[]) {
 							handle_syscall(p, &regs);
 							break;
 						case PTRACE_EVENT_SYSCALL_EXIT:
-							printf(") = %ld\n", regs.rax);
+							fprintf(logfile, ") = %ld\n", regs.rax);
 							break;
 						default:
-							printf("Unknown event.\n");
+							fprintf(logfile, "Unknown event.\n");
 							break;
 					}
 
 					ptrace(PTRACE_CONT, p, NULL, NULL);
 
 				} else if (WIFEXITED(status)) {
-					fprintf(stderr, "%s: %d has exited\n", argv[0], res);
+					fprintf(logfile, "pid %d has exited\n", res);
 					return 0;
 				}
 			}
