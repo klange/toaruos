@@ -422,19 +422,15 @@ void tab_complete_func(rline_context_t * c) {
 		command_adj += 1;
 	}
 
-	if (command_adj < argc && (!strcmp(argv[command_adj], "time"))) {
-		cursor_adj -= 1;
-		command_adj += 1;
-	}
-
-	/* sudo should shift commands */
-	if (command_adj < argc && (!strcmp(argv[command_adj], "sudo") || !strcmp(argv[command_adj], "gsudo"))) {
-		cursor_adj -= 1;
-		command_adj += 1;
-	}
-
-	/* So should strace */
-	if (command_adj < argc && (!strcmp(argv[command_adj], "strace"))) {
+	/* Various commands are generally prefixes */
+	if (command_adj < argc && (
+		!strcmp(argv[command_adj], "sudo") ||
+		!strcmp(argv[command_adj], "gsudo") ||
+		!strcmp(argv[command_adj], "time") ||
+		/* TODO: Both of these may take additional arguments... */
+		!strcmp(argv[command_adj], "strace") ||
+		!strcmp(argv[command_adj], "dbg")
+	)) {
 		cursor_adj -= 1;
 		command_adj += 1;
 	}

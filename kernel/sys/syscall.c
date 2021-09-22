@@ -1139,7 +1139,7 @@ void syscall_handler(struct regs * r) {
 	this_core->current_process->syscall_registers = r;
 
 	if (this_core->current_process->flags & PROC_FLAG_TRACED) {
-		ptrace_signal(PTRACE_EVENT_SYSCALL_ENTER);
+		ptrace_signal(SIGTRAP, PTRACE_EVENT_SYSCALL_ENTER);
 	}
 
 	arch_syscall_return(r, func(
@@ -1147,6 +1147,6 @@ void syscall_handler(struct regs * r) {
 		arch_syscall_arg3(r), arch_syscall_arg4(r)));
 
 	if (this_core->current_process->flags & PROC_FLAG_TRACED) {
-		ptrace_signal(PTRACE_EVENT_SYSCALL_EXIT);
+		ptrace_signal(SIGTRAP, PTRACE_EVENT_SYSCALL_EXIT);
 	}
 }

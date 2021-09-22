@@ -35,9 +35,9 @@ long ptrace_self(void) {
 /**
  * @brief Trigger a ptrace event on the currently executing thread.
  */
-long ptrace_signal(int reason) {
+long ptrace_signal(int signal, int reason) {
 	__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_SUSPENDED);
-	this_core->current_process->status = 0x7F | (SIGTRAP << 8) | (reason << 16);
+	this_core->current_process->status = 0x7F | (signal << 8) | (reason << 16);
 
 	process_t * parent = process_from_pid(this_core->current_process->tracer);
 	if (parent && !(parent->flags & PROC_FLAG_FINISHED)) {
@@ -45,16 +45,18 @@ long ptrace_signal(int reason) {
 	}
 	switch_task(0);
 
-	return 0;
+	int signum = (this_core->current_process->status >> 8);
+	this_core->current_process->status = 0;
+	return signum;
 }
 
-long ptrace_continue(pid_t pid) {
+long ptrace_continue(pid_t pid, int sig) {
 	process_t * tracee = process_from_pid(pid);
 	if (!tracee || (tracee->tracer != this_core->current_process->id) || !(tracee->flags & PROC_FLAG_SUSPENDED)) return -ESRCH;
 
 	/* Unsuspend */
 	__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_SUSPENDED));
-	tracee->status = 0;
+	tracee->status = (sig << 8);
 	make_process_ready(tracee);
 
 	return 0;
@@ -66,7 +68,7 @@ long ptrace_getregs(pid_t pid, void * data) {
 	if (!tracee || (tracee->tracer != this_core->current_process->id) || !(tracee->flags & PROC_FLAG_SUSPENDED)) return -ESRCH;
 
 	/* Copy registers */
-	memcpy(data, tracee->syscall_registers, sizeof(struct regs));
+	memcpy(data, tracee->interrupt_registers ? tracee->interrupt_registers : tracee->syscall_registers, sizeof(struct regs));
 
 	return 0;
 }
@@ -100,7 +102,7 @@ long ptrace_handle(long request, pid_t pid, void * addr, void * data) {
 		case PTRACE_GETREGS:
 			return ptrace_getregs(pid,data);
 		case PTRACE_CONT:
-			return ptrace_continue(pid);
+			return ptrace_continue(pid,(uintptr_t)data);
 		case PTRACE_PEEKDATA:
 			return ptrace_peek(pid,addr,data);
 		default:

@@ -111,124 +111,163 @@ const char * syscall_names[] = {
 	[SYS_SHUTDOWN]     = "shutdown",
 };
 
+#define M(e) [e] = #e
 const char * errno_names[256] = {
-#define ERRNO(e) [e] = #e
-	ERRNO(EPERM),
-	ERRNO(ENOENT),
-	ERRNO(ESRCH),
-	ERRNO(EINTR),
-	ERRNO(EIO),
-	ERRNO(ENXIO),
-	ERRNO(E2BIG),
-	ERRNO(ENOEXEC),
-	ERRNO(EBADF),
-	ERRNO(ECHILD),
-	ERRNO(EAGAIN),
-	ERRNO(ENOMEM),
-	ERRNO(EACCES),
-	ERRNO(EFAULT),
-	ERRNO(ENOTBLK),
-	ERRNO(EBUSY),
-	ERRNO(EEXIST),
-	ERRNO(EXDEV),
-	ERRNO(ENODEV),
-	ERRNO(ENOTDIR),
-	ERRNO(EISDIR),
-	ERRNO(EINVAL),
-	ERRNO(ENFILE),
-	ERRNO(EMFILE),
-	ERRNO(ENOTTY),
-	ERRNO(ETXTBSY),
-	ERRNO(EFBIG),
-	ERRNO(ENOSPC),
-	ERRNO(ESPIPE),
-	ERRNO(EROFS),
-	ERRNO(EMLINK),
-	ERRNO(EPIPE),
-	ERRNO(EDOM),
-	ERRNO(ERANGE),
-	ERRNO(ENOMSG),
-	ERRNO(EIDRM),
-	ERRNO(ECHRNG),
-	ERRNO(EL2NSYNC),
-	ERRNO(EL3HLT),
-	ERRNO(EL3RST),
-	ERRNO(ELNRNG),
-	ERRNO(EUNATCH),
-	ERRNO(ENOCSI),
-	ERRNO(EL2HLT),
-	ERRNO(EDEADLK),
-	ERRNO(ENOLCK),
-	ERRNO(EBADE),
-	ERRNO(EBADR),
-	ERRNO(EXFULL),
-	ERRNO(ENOANO),
-	ERRNO(EBADRQC),
-	ERRNO(EBADSLT),
-	ERRNO(EDEADLOCK),
-	ERRNO(EBFONT),
-	ERRNO(ENOSTR),
-	ERRNO(ENODATA),
-	ERRNO(ETIME),
-	ERRNO(ENOSR),
-	ERRNO(ENONET),
-	ERRNO(ENOPKG),
-	ERRNO(EREMOTE),
-	ERRNO(ENOLINK),
-	ERRNO(EADV),
-	ERRNO(ESRMNT),
-	ERRNO(ECOMM),
-	ERRNO(EPROTO),
-	ERRNO(EMULTIHOP),
-	ERRNO(ELBIN),
-	ERRNO(EDOTDOT),
-	ERRNO(EBADMSG),
-	ERRNO(EFTYPE),
-	ERRNO(ENOTUNIQ),
-	ERRNO(EBADFD),
-	ERRNO(EREMCHG),
-	ERRNO(ELIBACC),
-	ERRNO(ELIBBAD),
-	ERRNO(ELIBSCN),
-	ERRNO(ELIBMAX),
-	ERRNO(ELIBEXEC),
-	ERRNO(ENOSYS),
-	ERRNO(ENOTEMPTY),
-	ERRNO(ENAMETOOLONG),
-	ERRNO(ELOOP),
-	ERRNO(EOPNOTSUPP),
-	ERRNO(EPFNOSUPPORT),
-	ERRNO(ECONNRESET),
-	ERRNO(ENOBUFS),
-	ERRNO(EAFNOSUPPORT),
-	ERRNO(EPROTOTYPE),
-	ERRNO(ENOTSOCK),
-	ERRNO(ENOPROTOOPT),
-	ERRNO(ESHUTDOWN),
-	ERRNO(ECONNREFUSED),
-	ERRNO(EADDRINUSE),
-	ERRNO(ECONNABORTED),
-	ERRNO(ENETUNREACH),
-	ERRNO(ENETDOWN),
-	ERRNO(ETIMEDOUT),
-	ERRNO(EHOSTDOWN),
-	ERRNO(EHOSTUNREACH),
-	ERRNO(EINPROGRESS),
-	ERRNO(EALREADY),
-	ERRNO(EDESTADDRREQ),
-	ERRNO(EMSGSIZE),
-	ERRNO(EPROTONOSUPPORT),
-	ERRNO(ESOCKTNOSUPPORT),
-	ERRNO(EADDRNOTAVAIL),
-	ERRNO(EISCONN),
-	ERRNO(ENOTCONN),
-	ERRNO(ENOTSUP),
-	ERRNO(EOVERFLOW),
-	ERRNO(ECANCELED),
-	ERRNO(ENOTRECOVERABLE),
-	ERRNO(EOWNERDEAD),
-	ERRNO(ESTRPIPE),
-#undef ERRNO
+	M(EPERM),
+	M(ENOENT),
+	M(ESRCH),
+	M(EINTR),
+	M(EIO),
+	M(ENXIO),
+	M(E2BIG),
+	M(ENOEXEC),
+	M(EBADF),
+	M(ECHILD),
+	M(EAGAIN),
+	M(ENOMEM),
+	M(EACCES),
+	M(EFAULT),
+	M(ENOTBLK),
+	M(EBUSY),
+	M(EEXIST),
+	M(EXDEV),
+	M(ENODEV),
+	M(ENOTDIR),
+	M(EISDIR),
+	M(EINVAL),
+	M(ENFILE),
+	M(EMFILE),
+	M(ENOTTY),
+	M(ETXTBSY),
+	M(EFBIG),
+	M(ENOSPC),
+	M(ESPIPE),
+	M(EROFS),
+	M(EMLINK),
+	M(EPIPE),
+	M(EDOM),
+	M(ERANGE),
+	M(ENOMSG),
+	M(EIDRM),
+	M(ECHRNG),
+	M(EL2NSYNC),
+	M(EL3HLT),
+	M(EL3RST),
+	M(ELNRNG),
+	M(EUNATCH),
+	M(ENOCSI),
+	M(EL2HLT),
+	M(EDEADLK),
+	M(ENOLCK),
+	M(EBADE),
+	M(EBADR),
+	M(EXFULL),
+	M(ENOANO),
+	M(EBADRQC),
+	M(EBADSLT),
+	M(EDEADLOCK),
+	M(EBFONT),
+	M(ENOSTR),
+	M(ENODATA),
+	M(ETIME),
+	M(ENOSR),
+	M(ENONET),
+	M(ENOPKG),
+	M(EREMOTE),
+	M(ENOLINK),
+	M(EADV),
+	M(ESRMNT),
+	M(ECOMM),
+	M(EPROTO),
+	M(EMULTIHOP),
+	M(ELBIN),
+	M(EDOTDOT),
+	M(EBADMSG),
+	M(EFTYPE),
+	M(ENOTUNIQ),
+	M(EBADFD),
+	M(EREMCHG),
+	M(ELIBACC),
+	M(ELIBBAD),
+	M(ELIBSCN),
+	M(ELIBMAX),
+	M(ELIBEXEC),
+	M(ENOSYS),
+	M(ENOTEMPTY),
+	M(ENAMETOOLONG),
+	M(ELOOP),
+	M(EOPNOTSUPP),
+	M(EPFNOSUPPORT),
+	M(ECONNRESET),
+	M(ENOBUFS),
+	M(EAFNOSUPPORT),
+	M(EPROTOTYPE),
+	M(ENOTSOCK),
+	M(ENOPROTOOPT),
+	M(ESHUTDOWN),
+	M(ECONNREFUSED),
+	M(EADDRINUSE),
+	M(ECONNABORTED),
+	M(ENETUNREACH),
+	M(ENETDOWN),
+	M(ETIMEDOUT),
+	M(EHOSTDOWN),
+	M(EHOSTUNREACH),
+	M(EINPROGRESS),
+	M(EALREADY),
+	M(EDESTADDRREQ),
+	M(EMSGSIZE),
+	M(EPROTONOSUPPORT),
+	M(ESOCKTNOSUPPORT),
+	M(EADDRNOTAVAIL),
+	M(EISCONN),
+	M(ENOTCONN),
+	M(ENOTSUP),
+	M(EOVERFLOW),
+	M(ECANCELED),
+	M(ENOTRECOVERABLE),
+	M(EOWNERDEAD),
+	M(ESTRPIPE),
+};
+
+
+const char * signal_names[256] = {
+	M(SIGHUP),
+	M(SIGINT),
+	M(SIGQUIT),
+	M(SIGILL),
+	M(SIGTRAP),
+	M(SIGABRT),
+	M(SIGEMT),
+	M(SIGFPE),
+	M(SIGKILL),
+	M(SIGBUS),
+	M(SIGSEGV),
+	M(SIGSYS),
+	M(SIGPIPE),
+	M(SIGALRM),
+	M(SIGTERM),
+	M(SIGUSR1),
+	M(SIGUSR2),
+	M(SIGCHLD),
+	M(SIGPWR),
+	M(SIGWINCH),
+	M(SIGURG),
+	M(SIGPOLL),
+	M(SIGSTOP),
+	M(SIGTSTP),
+	M(SIGCONT),
+	M(SIGTTIN),
+	M(SIGTTOUT),
+	M(SIGVTALRM),
+	M(SIGPROF),
+	M(SIGXCPU),
+	M(SIGXFSZ),
+	M(SIGWAITING),
+	M(SIGDIAF),
+	M(SIGHATE),
+	M(SIGWINEVENT),
+	M(SIGCAT),
 };
 
 #if 0
@@ -741,29 +780,35 @@ int main(int argc, char * argv[]) {
 			if (res < 0) {
 				fprintf(stderr, "%s: waitpid: %s\n", argv[0], strerror(errno));
 			} else {
-				if (WSTOPSIG(status) == SIGTRAP) {
-					struct regs regs;
-					ptrace(PTRACE_GETREGS, p, NULL, &regs);
+				if (WIFSTOPPED(status)) {
+					if (WSTOPSIG(status) == SIGTRAP) {
+						struct regs regs;
+						ptrace(PTRACE_GETREGS, p, NULL, &regs);
 
-					/* Event type */
-					int event = (status >> 16) & 0xFF;
-					switch (event) {
-						case PTRACE_EVENT_SYSCALL_ENTER:
-							previous_syscall = regs.rax;
-							handle_syscall(p, &regs);
-							break;
-						case PTRACE_EVENT_SYSCALL_EXIT:
-							finish_syscall(p, previous_syscall, &regs);
-							break;
-						default:
-							fprintf(logfile, "Unknown event.\n");
-							break;
+						/* Event type */
+						int event = (status >> 16) & 0xFF;
+						switch (event) {
+							case PTRACE_EVENT_SYSCALL_ENTER:
+								previous_syscall = regs.rax;
+								handle_syscall(p, &regs);
+								break;
+							case PTRACE_EVENT_SYSCALL_EXIT:
+								finish_syscall(p, previous_syscall, &regs);
+								break;
+							default:
+								fprintf(logfile, "Unknown event.\n");
+								break;
+						}
+						ptrace(PTRACE_CONT, p, NULL, NULL);
+					} else {
+						fprintf(logfile, "--- %s ---\n", signal_names[WSTOPSIG(status)]);
+						ptrace(PTRACE_CONT, p, NULL, (void*)(uintptr_t)WSTOPSIG(status));
 					}
-
-					ptrace(PTRACE_CONT, p, NULL, NULL);
-
+				} else if (WIFSIGNALED(status)) {
+					fprintf(logfile, "+++ killed by %s +++\n", signal_names[WTERMSIG(status)]);
+					return 0;
 				} else if (WIFEXITED(status)) {
-					fprintf(logfile, "pid %d has exited\n", res);
+					fprintf(logfile, "+++ exited with %d +++\n", WEXITSTATUS(status));
 					return 0;
 				}
 			}

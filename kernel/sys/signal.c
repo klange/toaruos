@@ -27,6 +27,7 @@
 #include <kernel/process.h>
 #include <kernel/signal.h>
 #include <kernel/spinlock.h>
+#include <kernel/ptrace.h>
 
 static spin_lock_t sig_lock;
 static spin_lock_t sig_lock_b;
@@ -75,6 +76,11 @@ void handle_signal(process_t * proc, signal_t * sig) {
 	uintptr_t handler = sig->handler;
 	uintptr_t signum  = sig->signum;
 	free(sig);
+
+	/* Are we being traced? */
+	if (this_core->current_process->flags & PROC_FLAG_TRACED) {
+		signum = ptrace_signal(signum, 0);
+	}
 
 	if (proc->flags & PROC_FLAG_FINISHED) {
 		return;

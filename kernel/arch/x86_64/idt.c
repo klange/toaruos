@@ -16,9 +16,6 @@
 #include <kernel/arch/x86_64/regs.h>
 #include <kernel/arch/x86_64/irq.h>
 
-#undef DEBUG_FAULTS
-#define LOUD_SEGFAULTS
-
 static struct idt_pointer idtp;
 static idt_entry_t idt[256];
 
@@ -205,30 +202,14 @@ struct regs * isr_handler(struct regs * r) {
 				map_more_stack(faulting_address & 0xFFFFffffFFFFf000);
 				break;
 			}
-#ifdef DEBUG_FAULTS
-			arch_fatal();
-#else
-# ifdef LOUD_SEGFAULTS
-			printf("Page fault in pid=%d (%s; cpu=%d) at %#zx\n", (int)this_core->current_process->id, this_core->current_process->name, this_core->cpu_id, faulting_address);
-			dump_regs(r);
-# endif
 			send_signal(this_core->current_process->id, SIGSEGV, 1);
-#endif
 			break;
 		}
 		case 13: /* GPF */ {
-#ifdef DEBUG_FAULTS
-			arch_fatal();
-#else
 			if (!this_core->current_process || r->cs == 0x08) {
 				arch_fatal();
 			}
-# ifdef LOUD_SEGFAULTS
-			printf("GPF in userspace on CPU %d\n", this_core->cpu_id);
-			dump_regs(r);
-# endif
 			send_signal(this_core->current_process->id, SIGSEGV, 1);
-#endif
 			break;
 		}
 		case 8: /* Double fault */ {
@@ -250,14 +231,10 @@ struct regs * isr_handler(struct regs * r) {
 		}
 		default: {
 			if (r->int_no < 32) {
-#ifdef DEBUG_FAULTS
-				arch_fatal();
-#else
 				if (!this_core->current_process || r->cs == 0x08) {
 					arch_fatal();
 				}
 				send_signal(this_core->current_process->id, SIGILL, 1);
-#endif
 			} else {
 				for (size_t i = 0; i < IRQ_CHAIN_DEPTH; i++) {
 					irq_handler_chain_t handler = irq_routines[i * IRQ_CHAIN_SIZE + (r->int_no - 32)];
