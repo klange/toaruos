@@ -17,6 +17,8 @@
 #include <sys/signal.h>
 #include <sys/signal_defs.h>
 #include <sys/sysfunc.h>
+#include <sys/utsname.h>
+#include <sys/time.h>
 #include <syscall_nums.h>
 
 static FILE * logfile;
@@ -109,6 +111,126 @@ const char * syscall_names[] = {
 	[SYS_SHUTDOWN]     = "shutdown",
 };
 
+const char * errno_names[256] = {
+#define ERRNO(e) [e] = #e
+	ERRNO(EPERM),
+	ERRNO(ENOENT),
+	ERRNO(ESRCH),
+	ERRNO(EINTR),
+	ERRNO(EIO),
+	ERRNO(ENXIO),
+	ERRNO(E2BIG),
+	ERRNO(ENOEXEC),
+	ERRNO(EBADF),
+	ERRNO(ECHILD),
+	ERRNO(EAGAIN),
+	ERRNO(ENOMEM),
+	ERRNO(EACCES),
+	ERRNO(EFAULT),
+	ERRNO(ENOTBLK),
+	ERRNO(EBUSY),
+	ERRNO(EEXIST),
+	ERRNO(EXDEV),
+	ERRNO(ENODEV),
+	ERRNO(ENOTDIR),
+	ERRNO(EISDIR),
+	ERRNO(EINVAL),
+	ERRNO(ENFILE),
+	ERRNO(EMFILE),
+	ERRNO(ENOTTY),
+	ERRNO(ETXTBSY),
+	ERRNO(EFBIG),
+	ERRNO(ENOSPC),
+	ERRNO(ESPIPE),
+	ERRNO(EROFS),
+	ERRNO(EMLINK),
+	ERRNO(EPIPE),
+	ERRNO(EDOM),
+	ERRNO(ERANGE),
+	ERRNO(ENOMSG),
+	ERRNO(EIDRM),
+	ERRNO(ECHRNG),
+	ERRNO(EL2NSYNC),
+	ERRNO(EL3HLT),
+	ERRNO(EL3RST),
+	ERRNO(ELNRNG),
+	ERRNO(EUNATCH),
+	ERRNO(ENOCSI),
+	ERRNO(EL2HLT),
+	ERRNO(EDEADLK),
+	ERRNO(ENOLCK),
+	ERRNO(EBADE),
+	ERRNO(EBADR),
+	ERRNO(EXFULL),
+	ERRNO(ENOANO),
+	ERRNO(EBADRQC),
+	ERRNO(EBADSLT),
+	ERRNO(EDEADLOCK),
+	ERRNO(EBFONT),
+	ERRNO(ENOSTR),
+	ERRNO(ENODATA),
+	ERRNO(ETIME),
+	ERRNO(ENOSR),
+	ERRNO(ENONET),
+	ERRNO(ENOPKG),
+	ERRNO(EREMOTE),
+	ERRNO(ENOLINK),
+	ERRNO(EADV),
+	ERRNO(ESRMNT),
+	ERRNO(ECOMM),
+	ERRNO(EPROTO),
+	ERRNO(EMULTIHOP),
+	ERRNO(ELBIN),
+	ERRNO(EDOTDOT),
+	ERRNO(EBADMSG),
+	ERRNO(EFTYPE),
+	ERRNO(ENOTUNIQ),
+	ERRNO(EBADFD),
+	ERRNO(EREMCHG),
+	ERRNO(ELIBACC),
+	ERRNO(ELIBBAD),
+	ERRNO(ELIBSCN),
+	ERRNO(ELIBMAX),
+	ERRNO(ELIBEXEC),
+	ERRNO(ENOSYS),
+	ERRNO(ENOTEMPTY),
+	ERRNO(ENAMETOOLONG),
+	ERRNO(ELOOP),
+	ERRNO(EOPNOTSUPP),
+	ERRNO(EPFNOSUPPORT),
+	ERRNO(ECONNRESET),
+	ERRNO(ENOBUFS),
+	ERRNO(EAFNOSUPPORT),
+	ERRNO(EPROTOTYPE),
+	ERRNO(ENOTSOCK),
+	ERRNO(ENOPROTOOPT),
+	ERRNO(ESHUTDOWN),
+	ERRNO(ECONNREFUSED),
+	ERRNO(EADDRINUSE),
+	ERRNO(ECONNABORTED),
+	ERRNO(ENETUNREACH),
+	ERRNO(ENETDOWN),
+	ERRNO(ETIMEDOUT),
+	ERRNO(EHOSTDOWN),
+	ERRNO(EHOSTUNREACH),
+	ERRNO(EINPROGRESS),
+	ERRNO(EALREADY),
+	ERRNO(EDESTADDRREQ),
+	ERRNO(EMSGSIZE),
+	ERRNO(EPROTONOSUPPORT),
+	ERRNO(ESOCKTNOSUPPORT),
+	ERRNO(EADDRNOTAVAIL),
+	ERRNO(EISCONN),
+	ERRNO(ENOTCONN),
+	ERRNO(ENOTSUP),
+	ERRNO(EOVERFLOW),
+	ERRNO(ECANCELED),
+	ERRNO(ENOTRECOVERABLE),
+	ERRNO(EOWNERDEAD),
+	ERRNO(ESTRPIPE),
+#undef ERRNO
+};
+
 #if 0
 static void dump_regs(struct regs * r) {
 	fprintf(logfile,
@@ -164,7 +286,7 @@ static void string_arg(pid_t pid, uintptr_t ptr) {
 	fprintf(logfile, "\"");
 
 	size_t size = 0;
-	char buf = 0;
+	uint8_t buf = 0;
 
 	do {
 		long result = ptrace(PTRACE_PEEKDATA, pid, (void*)ptr, &buf);
@@ -173,15 +295,14 @@ static void string_arg(pid_t pid, uintptr_t ptr) {
 			fprintf(logfile, "\"");
 			return;
 		}
-		if (buf == '\\') {
-			fprintf(logfile, "\\\\");
-		} else if (buf == '"') {
-			fprintf(logfile, "\\\"");
-		} else if (buf >= ' ' && buf <= '~') {
-			fprintf(logfile, "%c", buf);
-		} else if (buf) {
-			fprintf(logfile, "\\x%02x", buf);
-		}
+
+		if (buf == '\\') fprintf(logfile, "\\\\");
+		else if (buf == '"') fprintf(logfile, "\\\"");
+		else if (buf >= ' ' && buf < '~') fprintf(logfile, "%c", buf);
+		else if (buf == '\r') fprintf(logfile, "\\r");
+		else if (buf == '\n') fprintf(logfile, "\\n");
+		else fprintf(logfile, "\\x%02x", buf);
+
 		ptr++;
 		size++;
 		if (size > 30) break;
@@ -189,6 +310,9 @@ static void string_arg(pid_t pid, uintptr_t ptr) {
 
 	fprintf(logfile, "\"...");
 }
+
+#define C(arg) case arg: fprintf(logfile, #arg); break
+#define COMMA fprintf(logfile, ", ");
 
 static void pointer_arg(uintptr_t ptr) {
 	if (ptr == 0) fprintf(logfile, "NULL");
@@ -208,27 +332,120 @@ static void fd_arg(pid_t pid, int val) {
 	fprintf(logfile, "%d", val);
 }
 
-static void fds_arg(pid_t pid, size_t ecount, uintptr_t array) {
-	fprintf(logfile, "{");
-	for (size_t count = 0; count < 10 && count < ecount; ++count) {
-		char buf[sizeof(int)];
-		for (unsigned int i = 0; i < sizeof(int); ++i) {
-			if (ptrace(PTRACE_PEEKDATA, pid, (void*)array++, &buf[i])) {
-				fprintf(logfile, "?}");
-				return;
-			}
+static int data_read_bytes(pid_t pid, uintptr_t addr, char * buf, size_t size) {
+	for (unsigned int i = 0; i < size; ++i) {
+		if (ptrace(PTRACE_PEEKDATA, pid, (void*)addr++, &buf[i])) {
+			return 1;
 		}
-		int x = 0;
-		memcpy(&x,buf,sizeof(int));
-		fprintf(logfile, "%d", x);
-		if (count + 1 < ecount) fprintf(logfile, ",");
 	}
-	fprintf(logfile, "}");
+	return 0;
 }
 
-#define C(arg) case arg: fprintf(logfile, #arg); break
+static int data_read_int(pid_t pid, uintptr_t addr) {
+	int x;
+	data_read_bytes(pid, addr, (char*)&x, sizeof(int));
+	return x;
+}
 
-#define COMMA fprintf(logfile, ", ");
+static uintptr_t data_read_ptr(pid_t pid, uintptr_t addr) {
+	uintptr_t x;
+	data_read_bytes(pid, addr, (char*)&x, sizeof(uintptr_t));
+	return x;
+}
+
+static void fds_arg(pid_t pid, size_t ecount, uintptr_t array) {
+	fprintf(logfile, "[");
+	for (size_t count = 0; count < 10 && count < ecount; ++count) {
+		int x = data_read_int(pid, array);
+		fprintf(logfile, "%d", x);
+		if (count + 1 < ecount) fprintf(logfile, ",");
+		array += sizeof(int);
+	}
+	fprintf(logfile, "]");
+}
+
+static void string_array_arg(pid_t pid, uintptr_t array) {
+	fprintf(logfile, "[");
+	uintptr_t val = data_read_ptr(pid, array);
+	for (size_t count = 0; count < 10; ++count) {
+		string_arg(pid, val);
+		array += sizeof(uintptr_t);
+		val = data_read_ptr(pid, array);
+		if (val) { COMMA; }
+		else break;
+	}
+	fprintf(logfile, "]");
+}
+
+static void buffer_arg(pid_t pid, uintptr_t buffer, ssize_t count) {
+	if (count < 0) {
+		fprintf(logfile, "...");
+	} else if (buffer == 0) {
+		fprintf(logfile, "NULL");
+	} else {
+		ssize_t x = 0;
+		uint8_t buf = 0;
+		fprintf(logfile, "\"");
+		while (x < count && x < 30) {
+			long result = ptrace(PTRACE_PEEKDATA, pid, (void*)buffer, &buf);
+			if (result != 0) break;
+
+			if (buf == '\\') fprintf(logfile, "\\\\");
+			else if (buf == '"') fprintf(logfile, "\\\"");
+			else if (buf >= ' ' && buf < '~') fprintf(logfile, "%c", buf);
+			else if (buf == '\r') fprintf(logfile, "\\r");
+			else if (buf == '\n') fprintf(logfile, "\\n");
+			else fprintf(logfile, "\\x%02x", buf);
+
+			buffer++;
+			x++;
+		}
+		fprintf(logfile, "\"");
+		if (x < count) fprintf(logfile, "...");
+	}
+}
+
+static void print_error(int err) {
+	if (err > 255) return;
+	fprintf(logfile, " %s (%s)", errno_names[err], strerror(err));
+}
+
+static void maybe_errno(struct regs * r) {
+	fprintf(logfile, ") = %ld", r->rax);
+	if ((intptr_t)r->rax < 0) print_error(-r->rax);
+	fprintf(logfile, "\n");
+}
+
+static void struct_utsname_arg(pid_t pid, uintptr_t ptr) {
+	if (!ptr) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+
+	fprintf(logfile, "{");
+	fprintf(logfile, "sysname=");
+	string_arg(pid, ptr + offsetof(struct utsname, sysname));
+	COMMA;
+	fprintf(logfile, "nodename=");
+	string_arg(pid, ptr + offsetof(struct utsname, nodename));
+	COMMA;
+	fprintf(logfile, "...}");
+}
+
+static void struct_timeval_arg(pid_t pid, uintptr_t ptr) {
+	if (!ptr) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+
+	fprintf(logfile, "{");
+	fprintf(logfile, "tv_sec=");
+	int_arg(data_read_ptr(pid, ptr + offsetof(struct timeval, tv_sec)));
+	COMMA;
+	fprintf(logfile, "tv_usec=");
+	int_arg(data_read_ptr(pid, ptr + offsetof(struct timeval, tv_usec)));
+	fprintf(logfile, "}");
+}
 
 static void handle_syscall(pid_t pid, struct regs * r) {
 	fprintf(logfile, "%s(", syscall_names[r->rax]);
@@ -239,12 +456,11 @@ static void handle_syscall(pid_t pid, struct regs * r) {
 			break;
 		case SYS_READ:
 			fd_arg(pid, r->rbx); COMMA;
-			pointer_arg(r->rcx); COMMA;
-			uint_arg(r->rdx);
+			/* Plus two more when done */
 			break;
 		case SYS_WRITE:
 			fd_arg(pid, r->rbx); COMMA;
-			pointer_arg(r->rcx); COMMA;
+			buffer_arg(pid, r->rcx, r->rdx); COMMA;
 			uint_arg(r->rdx);
 			break;
 		case SYS_CLOSE:
@@ -284,6 +500,7 @@ static void handle_syscall(pid_t pid, struct regs * r) {
 			string_arg(pid, r->rbx);
 			break;
 		case SYS_GETCWD:
+			/* output is first arg */
 			pointer_arg(r->rbx); COMMA; /* TODO syscall outputs */
 			uint_arg(r->rcx);
 			break;
@@ -296,7 +513,7 @@ static void handle_syscall(pid_t pid, struct regs * r) {
 			string_arg(pid, r->rbx);
 			break;
 		case SYS_GETHOSTNAME:
-			pointer_arg(r->rbx);
+			/* plus one more when done */
 			break;
 		case SYS_MKDIR:
 			string_arg(pid, r->rbx); COMMA;
@@ -326,7 +543,7 @@ static void handle_syscall(pid_t pid, struct regs * r) {
 			break;
 		case SYS_EXECVE:
 			string_arg(pid, r->rbx); COMMA;
-			pointer_arg(r->rcx); COMMA;
+			string_array_arg(pid, r->rcx); COMMA;
 			pointer_arg(r->rdx);
 			break;
 		case SYS_SHM_OBTAIN:
@@ -384,6 +601,39 @@ static void handle_syscall(pid_t pid, struct regs * r) {
 			int_arg(r->rbx);
 			fprintf(logfile, ") = ?\n");
 			return;
+		case SYS_UNAME:
+			/* One output arg */
+			break;
+		case SYS_SLEEPABS:
+			uint_arg(r->rbx); COMMA;
+			uint_arg(r->rcx);
+			break;
+		case SYS_SLEEP:
+			uint_arg(r->rbx); COMMA;
+			uint_arg(r->rcx);
+			break;
+		case SYS_PIPE:
+			/* Arg is a pointer */
+			break;
+		case SYS_DUP2:
+			fd_arg(pid, r->rbx); COMMA;
+			fd_arg(pid, r->rcx);
+			break;
+		case SYS_MOUNT:
+			string_arg(pid, r->rbx); COMMA;
+			string_arg(pid, r->rcx); COMMA;
+			uint_arg(r->rdx); COMMA;
+			pointer_arg(r->rsi);
+			break;
+		case SYS_UMASK:
+			int_arg(r->rbx);
+			break;
+		case SYS_UNLINK:
+			string_arg(pid, r->rbx);
+			break;
+		case SYS_GETTIMEOFDAY:
+			/* two output args */
+			break;
 		/* These have no arguments: */
 		case SYS_YIELD:
 		case SYS_FORK:
@@ -401,6 +651,43 @@ static void handle_syscall(pid_t pid, struct regs * r) {
 			break;
 	}
 	fflush(stdout);
+}
+
+static void finish_syscall(pid_t pid, int syscall, struct regs * r) {
+	switch (syscall) {
+		case -1:
+			break; /* This is ptrace(PTRACE_TRACEME)... probably... */
+		/* read() returns data in second value */
+		case SYS_READ:
+			buffer_arg(pid, r->rcx, r->rax); COMMA;
+			uint_arg(r->rdx);
+			maybe_errno(r);
+			break;
+		case SYS_GETHOSTNAME:
+			string_arg(pid, r->rbx);
+			maybe_errno(r);
+			break;
+		case SYS_UNAME:
+			struct_utsname_arg(pid, r->rbx);
+			maybe_errno(r);
+			break;
+		case SYS_PIPE:
+			fds_arg(pid, 2, r->rbx);
+			maybe_errno(r);
+			break;
+		case SYS_GETTIMEOFDAY:
+			struct_timeval_arg(pid, r->rbx);
+			maybe_errno(r);
+			break;
+		/* sbrk() returns an address */
+		case SYS_SBRK:
+			fprintf(logfile, ") = %#zx\n", r->rax);
+			break;
+		/* Most things return -errno, or positive valid result */
+		default:
+			maybe_errno(r);
+			break;
+	}
 }
 
 static int usage(char * argv[]) {
@@ -446,6 +733,7 @@ int main(int argc, char * argv[]) {
 		execvp(argv[optind], &argv[optind]);
 		return 1;
 	} else {
+		int previous_syscall = -1;
 		while (1) {
 			int status = 0;
 			pid_t res = waitpid(p, &status, WSTOPPED);
@@ -461,10 +749,11 @@ int main(int argc, char * argv[]) {
 					int event = (status >> 16) & 0xFF;
 					switch (event) {
 						case PTRACE_EVENT_SYSCALL_ENTER:
+							previous_syscall = regs.rax;
 							handle_syscall(p, &regs);
 							break;
 						case PTRACE_EVENT_SYSCALL_EXIT:
-							fprintf(logfile, ") = %ld\n", regs.rax);
+							finish_syscall(p, previous_syscall, &regs);
 							break;
 						default:
 							fprintf(logfile, "Unknown event.\n");
