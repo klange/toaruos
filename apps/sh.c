@@ -433,6 +433,12 @@ void tab_complete_func(rline_context_t * c) {
 		command_adj += 1;
 	}
 
+	/* So should strace */
+	if (command_adj < argc && (!strcmp(argv[command_adj], "strace"))) {
+		cursor_adj -= 1;
+		command_adj += 1;
+	}
+
 	/* initial tab completion should be commands, unless typing a file path */
 	if (cursor_adj == 0 && !strchr(prefix,'/')) {
 		complete_mode = COMPLETE_COMMAND;

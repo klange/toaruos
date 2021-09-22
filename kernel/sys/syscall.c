@@ -5,6 +5,7 @@
 #include <sys/utsname.h>
 #include <sys/time.h>
 #include <sys/times.h>
+#include <sys/ptrace.h>
 #include <syscall_nums.h>
 #include <kernel/printf.h>
 #include <kernel/process.h>
@@ -19,6 +20,7 @@
 #include <kernel/time.h>
 #include <kernel/syscall.h>
 #include <kernel/misc.h>
+#include <kernel/ptrace.h>
 
 static char   hostname[256];
 static size_t hostname_len = 0;
@@ -1045,6 +1047,8 @@ extern long net_recv();
 extern long net_send();
 extern long net_shutdown();
 
+extern long ptrace_handle(long,pid_t,void*,void*);
+
 static long (*syscalls[])() = {
 	/* System Call Table */
 	[SYS_EXT]          = sys_exit,
@@ -1107,6 +1111,7 @@ static long (*syscalls[])() = {
 	[SYS_GETGROUPS]    = sys_getgroups,
 	[SYS_SETGROUPS]    = sys_setgroups,
 	[SYS_TIMES]        = sys_times,
+	[SYS_PTRACE]       = ptrace_handle,
 
 	[SYS_SOCKET]       = net_socket,
 	[SYS_SETSOCKOPT]   = net_setsockopt,
@@ -1132,7 +1137,16 @@ void syscall_handler(struct regs * r) {
 
 	scall_func func = syscalls[arch_syscall_number(r)];
 	this_core->current_process->syscall_registers = r;
+
+	if (this_core->current_process->flags & PROC_FLAG_TRACED) {
+		ptrace_signal(PTRACE_EVENT_SYSCALL_ENTER);
+	}
+
 	arch_syscall_return(r, func(
 		arch_syscall_arg0(r), arch_syscall_arg1(r), arch_syscall_arg2(r),
 		arch_syscall_arg3(r), arch_syscall_arg4(r)));
+
+	if (this_core->current_process->flags & PROC_FLAG_TRACED) {
+		ptrace_signal(PTRACE_EVENT_SYSCALL_EXIT);
+	}
 }

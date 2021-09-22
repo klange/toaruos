@@ -202,15 +202,13 @@ void * mmu_map_from_physical(uintptr_t frameaddress) {
  * is returned indicating which level of the page directory is
  * unmapped from -1 (no PDP) to -4 (page not present in table).
  */
-uintptr_t mmu_map_to_physical(uintptr_t virtAddr) {
+uintptr_t mmu_map_to_physical(union PML * root, uintptr_t virtAddr) {
 	uintptr_t realBits = virtAddr & CANONICAL_MASK;
 	uintptr_t pageAddr = realBits >> PAGE_SHIFT;
 	unsigned int pml4_entry = (pageAddr >> 27) & ENTRY_MASK;
 	unsigned int pdp_entry  = (pageAddr >> 18) & ENTRY_MASK;
 	unsigned int pd_entry   = (pageAddr >> 9)  & ENTRY_MASK;
 	unsigned int pt_entry   = (pageAddr) & ENTRY_MASK;
-
-	union PML * root = this_core->current_pml;
 
 	/* Get the PML4 entry for this address */
 	if (!root[pml4_entry].bits.present) return (uintptr_t)-1;

@@ -33,6 +33,7 @@
 #define SYS_CLONE 30
 #define SYS_SETHOSTNAME 31
 #define SYS_GETHOSTNAME 32
+#define SYS_PTRACE 33
 #define SYS_MKDIR 34
 #define SYS_SHM_OBTAIN 35
 #define SYS_SHM_RELEASE 36

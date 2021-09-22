@@ -67,6 +67,7 @@ typedef struct file_descriptors {
 #define PROC_FLAG_RUNNING    0x08
 #define PROC_FLAG_SLEEP_INT  0x10
 #define PROC_FLAG_SUSPENDED  0x20
+#define PROC_FLAG_TRACED     0x40
 
 typedef struct process {
 	pid_t id;    /* PID */
@@ -130,6 +131,9 @@ typedef struct process {
 	uint64_t time_children;     /* sum of user times from waited-for children */
 	uint64_t time_sys_children; /* sum of sys times from waited-for children */
 	uint16_t usage[4];          /* four permille samples over some period (currently 4Hz) */
+
+	/* Tracing */
+	pid_t tracer;
 } process_t;
 
 typedef struct {
