@@ -446,6 +446,7 @@ static int object_relocate(elf_t * object) {
 					symname = (char *)((uintptr_t)object->dyn_string_table + sym->st_name);
 					if (symname && hashmap_has(dumb_symbol_table, symname)) {
 						x = (uintptr_t)hashmap_get(dumb_symbol_table, symname);
+						sym->st_value = x;
 					} else {
 						/* This isn't fatal, but do log a message if debugging is enabled. */
 						TRACE_LD("Symbol not found: %s", symname);
