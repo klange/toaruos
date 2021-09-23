@@ -20,9 +20,16 @@
 #include <sys/sysfunc.h>
 #include <sys/utsname.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <syscall_nums.h>
 
 #include <toaru/rline.h>
+#include <toaru/hashmap.h>
+#include <kernel/elf.h>
+
+static char * last_command = NULL;
+static char * binary_path = NULL;
+static FILE * binary_obj = NULL;
 
 struct regs {
 	uintptr_t r15, r14, r13, r12;
@@ -146,11 +153,204 @@ static void string_arg(pid_t pid, uintptr_t ptr, size_t maxsize) {
 	fprintf(logfile, "\"...");
 }
 
-static char * last_command = NULL;
+extern uintptr_t __ld_symbol_table(void);
+extern uintptr_t __ld_objects_table(void);
+
+static char * read_string(pid_t pid, uintptr_t ptr) {
+	if (!ptr) return strdup("(null)");
+	size_t len = 0;
+	uint8_t buf = 0;
+	while ((data_read_bytes(pid, ptr + len, (char*)&buf, 1), buf)) len++;
+
+	char * out = malloc(len + 1);
+	data_read_bytes(pid, ptr, out, len+1);
+	return out;
+}
+
+typedef struct elf_object {
+	FILE * file;
+	Elf64_Header header;
+	char * dyn_string_table;
+	size_t dyn_string_table_size;
+	Elf64_Sym * dyn_symbol_table;
+	size_t dyn_symbol_table_size;
+	Elf64_Dyn * dynamic;
+	Elf64_Word * dyn_hash;
+	void (*init)(void);
+	void (**init_array)(void);
+	size_t init_array_size;
+	uintptr_t base;
+	list_t * dependencies;
+	int loaded;
+} elf_t;
+
+static int find_symbol(pid_t pid, uintptr_t addr_in, char ** name, uintptr_t *addr_out, char ** objname) {
+
+	intptr_t  current_max = INTPTR_MAX;
+	uintptr_t current_addr = NULL;
+	uintptr_t current_xname = NULL;
+	char * current_name = NULL;
+	char * current_obj = NULL;
+
+	/* Can we cheat and peek at ld.so? */
+	uintptr_t their_symbol_table  = data_read_ptr(pid, __ld_symbol_table());
+
+	if (their_symbol_table) {
+		hashmap_t map;
+		data_read_bytes(pid, their_symbol_table, (char*)&map, sizeof(hashmap_t));
+
+		/* Cool, now let's look at every entry... */
+		for (size_t i = 0; i < map.size; ++i) {
+			uintptr_t ptr;
+			hashmap_entry_t entry;
+			data_read_bytes(pid, (uintptr_t)map.entries + sizeof(uintptr_t) * i, (char*)&ptr, sizeof(uintptr_t));
+			int j = 0;
+			while (ptr) {
+				data_read_bytes(pid, ptr, (char*)&entry, sizeof(hashmap_entry_t));
+				if (entry.value && addr_in >= (uintptr_t)entry.value) {
+					intptr_t x = addr_in - (uintptr_t)entry.value;
+					if (x < current_max) {
+						current_max = x;
+						current_addr = (uintptr_t)entry.value;
+						current_xname = (uintptr_t)entry.key;
+					}
+				}
+				ptr = (uintptr_t)entry.next;
+				j++;
+			}
+		}
+
+		if (current_xname) {
+			current_name = read_string(pid, current_xname);
+
+			/* Figure out where this object is in the objects map */
+			uintptr_t their_objects_table = data_read_ptr(pid, __ld_objects_table());
+			data_read_bytes(pid, their_objects_table, (char*)&map, sizeof(hashmap_t));
+
+			intptr_t  cmax = INTPTR_MAX;
+			uintptr_t best_name = 0;
+			for (size_t i = 0; i < map.size; ++i) {
+				uintptr_t ptr;
+				hashmap_entry_t entry;
+				data_read_bytes(pid, (uintptr_t)map.entries + sizeof(uintptr_t) * i, (char*)&ptr, sizeof(uintptr_t));
+				while (ptr) {
+					data_read_bytes(pid, ptr, (char*)&entry, sizeof(hashmap_entry_t));
+					if (entry.value) {
+						elf_t obj;
+						data_read_bytes(pid, (uintptr_t)entry.value, (char*)&obj, sizeof(elf_t));
+						if (addr_in >= obj.base) {
+							intptr_t x = addr_in - (uintptr_t)obj.base;
+							if (x < cmax) {
+								cmax = x;
+								best_name = (uintptr_t)entry.key;
+							}
+						}
+					}
+					ptr = (uintptr_t)entry.next;
+				}
+			}
+
+			current_obj = read_string(pid, best_name);
+		}
+	}
+
+	FILE * f = binary_obj;
+
+	fseek(f, 0, SEEK_SET);
+	Elf64_Header header;
+	fread(&header, sizeof(Elf64_Header), 1, f);
+
+	for (unsigned int i = 0; i < header.e_shnum; ++i) {
+		fseek(f, header.e_shoff + header.e_shentsize * i, SEEK_SET);
+		Elf64_Shdr sectionHeader;
+		fread(&sectionHeader, sizeof(Elf64_Shdr), 1, f);
+		switch (sectionHeader.sh_type) {
+			case SHT_SYMTAB:
+			case SHT_DYNSYM: {
+				/* Try to get the actual one if possible */
+				Elf64_Sym * symtab = malloc(sectionHeader.sh_size);
+
+				if (sectionHeader.sh_addr > 0x40000000) {
+					data_read_bytes(pid, sectionHeader.sh_addr, (char*)symtab, sectionHeader.sh_size);
+				} else {
+					fseek(f, sectionHeader.sh_offset, SEEK_SET);
+					fread(symtab, sectionHeader.sh_size, 1, f);
+				}
+
+				Elf64_Shdr shdr_strtab;
+				fseek(f, header.e_shoff + header.e_shentsize * sectionHeader.sh_link, SEEK_SET);
+				fread(&shdr_strtab, sizeof(Elf64_Shdr), 1, f);
+				char * strtab = malloc(shdr_strtab.sh_size);
+				fseek(f, shdr_strtab.sh_offset, SEEK_SET);
+				fread(strtab, shdr_strtab.sh_size, 1, f);
+
+				for (unsigned int i = 0; i < sectionHeader.sh_size / sizeof(Elf64_Sym); ++i) {
+					if (!symtab[i].st_value) continue;
+					if (addr_in >= (uintptr_t)symtab[i].st_value) {
+						intptr_t x = addr_in - (uintptr_t)symtab[i].st_value;
+						if (x < current_max) {
+							if (current_name) free(current_name);
+							if (current_obj) free(current_obj);
+							current_max = x;
+							current_addr = symtab[i].st_value;
+							current_name = strdup(strtab + symtab[i].st_name);
+							current_obj = strdup(binary_path);
+						}
+					}
+				}
+
+				free(strtab);
+				free(symtab);
+			}
+			break;
+		}
+	}
+
+	*addr_out = current_addr;
+	*name = current_name;
+	*objname = current_obj;
+
+	if (current_name) return 1;
+	return 0;
+}
+
+static void show_libs(pid_t pid) {
+	hashmap_t map;
+	uintptr_t their_objects_table = data_read_ptr(pid, __ld_objects_table());
+	data_read_bytes(pid, their_objects_table, (char*)&map, sizeof(hashmap_t));
+	for (size_t i = 0; i < map.size; ++i) {
+		uintptr_t ptr;
+		hashmap_entry_t entry;
+		data_read_bytes(pid, (uintptr_t)map.entries + sizeof(uintptr_t) * i, (char*)&ptr, sizeof(uintptr_t));
+		while (ptr) {
+			data_read_bytes(pid, ptr, (char*)&entry, sizeof(hashmap_entry_t));
+			if (entry.value) {
+				elf_t obj;
+				data_read_bytes(pid, (uintptr_t)entry.value, (char*)&obj, sizeof(elf_t));
+				char * s = read_string(pid, (uintptr_t)entry.key);
+				fprintf(stderr, "%s @ %#zx\n", s, (uintptr_t)obj.base);
+			}
+			ptr = (uintptr_t)entry.next;
+		}
+	}
+}
+
+
 static void show_commandline(pid_t pid, int status, struct regs * regs) {
 
 	fprintf(stderr, "[Process %d, $rip=%#zx]\n",
 		pid, regs->rip);
+
+	/* Try to figure out what symbol that is */
+	char * name = NULL;
+	char * objname = NULL;
+	uintptr_t addr = 0;
+	if (find_symbol(pid, regs->rip, &name, &addr, &objname)) {
+		fprintf(stderr, "     %s+%zx in %s\n",
+			name, regs->rip - addr, objname);
+		free(name);
+		free(objname);
+	}
 
 	while (1) {
 		char buf[4096] = {0};
@@ -187,11 +387,14 @@ static void show_commandline(pid_t pid, int status, struct regs * regs) {
 			if (!arg) {
 				fprintf(stderr, "Things that can be shown:\n");
 				fprintf(stderr, "   regs\n");
+				fprintf(stderr, "   libs\n");
 				continue;
 			}
 
 			if (!strcmp(arg, "regs")) {
 				dump_regs(regs);
+			} else if (!strcmp(arg, "libs")) {
+				show_libs(pid);
 			} else {
 				fprintf(stderr, "Don't know how to show '%s'\n", arg);
 			}
@@ -272,6 +475,40 @@ static int usage(char * argv[]) {
 	return 1;
 }
 
+#define DEFAULT_PATH "/bin:/usr/bin"
+static char * find_binary(const char * file) {
+	if (file && (!strstr(file, "/"))) {
+		char * path = getenv("PATH");
+		if (!path) {
+			path = DEFAULT_PATH;
+		}
+		char * xpath = strdup(path);
+		char * p, * last;
+		for ((p = strtok_r(xpath, ":", &last)); p; p = strtok_r(NULL, ":", &last)) {
+			int r;
+			struct stat stat_buf;
+			char * exe = malloc(strlen(p) + strlen(file) + 2);
+			strcpy(exe, p);
+			strcat(exe, "/");
+			strcat(exe, file);
+			r = stat(exe, &stat_buf);
+			if (r != 0) {
+				continue;
+			}
+			if (!(stat_buf.st_mode & 0111)) {
+				continue;
+			}
+			free(xpath);
+			return exe;
+		}
+		free(xpath);
+		return NULL;
+	} else if (file) {
+		return strdup(file);
+	}
+	return NULL;
+}
+
 int main(int argc, char * argv[]) {
 	int opt;
 	while ((opt = getopt(argc, argv, "o:")) != -1) {
@@ -290,13 +527,31 @@ int main(int argc, char * argv[]) {
 	/* TODO find argv[optind] */
 	/* TODO load symbols from it, and from its dependencies... with offsets... from ld.so... */
 
+	binary_path = find_binary(argv[optind]);
+
+	if (!binary_path) {
+		fprintf(stderr, "%s: %s: No such file or not an executable.\n",
+			argv[0], argv[optind]);
+		return 1;
+	}
+
+	binary_obj = fopen(binary_path, "r");
+
+	if (!binary_obj) {
+		fprintf(stderr, "%s: %s: %s\n",
+			argv[0], argv[optind], strerror(errno));
+		return 1;
+	}
+
+	/* Attempt to load symbol information... */
+
 	pid_t p = fork();
 	if (!p) {
 		if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
 			fprintf(stderr, "%s: ptrace: %s\n", argv[0], strerror(errno));
 			return 1;
 		}
-		execvp(argv[optind], &argv[optind]);
+		execv(binary_path, &argv[optind]);
 		return 1;
 	} else {
 		signal(SIGINT, SIG_IGN);
@@ -305,6 +560,8 @@ int main(int argc, char * argv[]) {
 			int status = 0;
 			pid_t res = waitpid(p, &status, WSTOPPED);
 
+			if (res == 0) continue;
+
 			if (res < 0) {
 				if (errno == EINTR) continue;
 				fprintf(stderr, "%s: waitpid: %s\n", argv[0], strerror(errno));
@@ -312,6 +569,7 @@ int main(int argc, char * argv[]) {
 				if (WIFSTOPPED(status)) {
 					if (WSTOPSIG(status) == SIGTRAP) {
 						/* Don't care about TRAP right now */
+						//ptrace(PTRACE_SIGNALS_ONLY_PLZ, p, NULL, NULL);
 						ptrace(PTRACE_CONT, p, NULL, NULL);
 					} else {
 						printf("Program received signal %s.\n", signal_names[WSTOPSIG(status)]);
@@ -327,6 +585,8 @@ int main(int argc, char * argv[]) {
 				} else if (WIFEXITED(status)) {
 					fprintf(stderr, "Process %d exited normally.\n", res);
 					return 0;
+				} else {
+					fprintf(stderr, "Unknown state?\n");
 				}
 			}
 		}
