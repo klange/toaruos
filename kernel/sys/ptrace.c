@@ -16,7 +16,7 @@ long ptrace_attach(pid_t pid) {
 	process_t * tracee = process_from_pid(pid);
 	if (!tracee) return -ESRCH;
 	if (this_core->current_process->user != 0 && this_core->current_process->user != tracee->user) return -EPERM;
-	__sync_or_and_fetch(&tracee->flags, PROC_FLAG_TRACED);
+	__sync_or_and_fetch(&tracee->flags, (PROC_FLAG_TRACE_SYSCALLS | PROC_FLAG_TRACE_SIGNALS));
 	tracee->tracer = this_core->current_process->id;
 	send_signal(pid, SIGSTOP, 1);
 	return 0;
@@ -26,7 +26,7 @@ long ptrace_self(void) {
 	process_t * parent = process_get_parent((process_t*)this_core->current_process);
 	if (!parent) return -EINVAL;
 
-	__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_TRACED);
+	__sync_or_and_fetch(&this_core->current_process->flags, (PROC_FLAG_TRACE_SYSCALLS | PROC_FLAG_TRACE_SIGNALS));
 	this_core->current_process->tracer = parent->id;
 
 	return 0;
@@ -95,6 +95,14 @@ long ptrace_peek(pid_t pid, void * addr, void * data) {
 	return 0;
 }
 
+long ptrace_signals_only(pid_t pid) {
+	process_t * tracee = process_from_pid(pid);
+	if (!tracee || (tracee->tracer != this_core->current_process->id) || !(tracee->flags & PROC_FLAG_SUSPENDED)) return -ESRCH;
+	__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_TRACE_SYSCALLS));
+	return 0;
+}
+
+
 long ptrace_handle(long request, pid_t pid, void * addr, void * data) {
 	switch (request) {
 		case PTRACE_ATTACH:
@@ -107,6 +115,8 @@ long ptrace_handle(long request, pid_t pid, void * addr, void * data) {
 			return ptrace_continue(pid,(uintptr_t)data);
 		case PTRACE_PEEKDATA:
 			return ptrace_peek(pid,addr,data);
+		case PTRACE_SIGNALS_ONLY_PLZ:
+			return ptrace_signals_only(pid);
 		default:
 			return -EINVAL;
 	}

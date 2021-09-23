@@ -1138,7 +1138,7 @@ void syscall_handler(struct regs * r) {
 	scall_func func = syscalls[arch_syscall_number(r)];
 	this_core->current_process->syscall_registers = r;
 
-	if (this_core->current_process->flags & PROC_FLAG_TRACED) {
+	if (this_core->current_process->flags & PROC_FLAG_TRACE_SYSCALLS) {
 		ptrace_signal(SIGTRAP, PTRACE_EVENT_SYSCALL_ENTER);
 	}
 
@@ -1146,7 +1146,7 @@ void syscall_handler(struct regs * r) {
 		arch_syscall_arg0(r), arch_syscall_arg1(r), arch_syscall_arg2(r),
 		arch_syscall_arg3(r), arch_syscall_arg4(r)));
 
-	if (this_core->current_process->flags & PROC_FLAG_TRACED) {
+	if (this_core->current_process->flags & PROC_FLAG_TRACE_SYSCALLS) {
 		ptrace_signal(SIGTRAP, PTRACE_EVENT_SYSCALL_EXIT);
 	}
 }

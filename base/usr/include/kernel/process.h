@@ -67,7 +67,9 @@ typedef struct file_descriptors {
 #define PROC_FLAG_RUNNING    0x08
 #define PROC_FLAG_SLEEP_INT  0x10
 #define PROC_FLAG_SUSPENDED  0x20
-#define PROC_FLAG_TRACED     0x40
+
+#define PROC_FLAG_TRACE_SYSCALLS     0x40
+#define PROC_FLAG_TRACE_SIGNALS      0x80
 
 typedef struct process {
 	pid_t id;    /* PID */

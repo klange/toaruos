@@ -78,7 +78,7 @@ void handle_signal(process_t * proc, signal_t * sig) {
 	free(sig);
 
 	/* Are we being traced? */
-	if (this_core->current_process->flags & PROC_FLAG_TRACED) {
+	if (this_core->current_process->flags & PROC_FLAG_TRACE_SIGNALS) {
 		signum = ptrace_signal(signum, 0);
 	}
 

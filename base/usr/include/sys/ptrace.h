@@ -11,7 +11,8 @@ enum __ptrace_request {
 	PTRACE_DETACH,
 	PTRACE_TRACEME,
 	PTRACE_GETREGS,
-	PTRACE_PEEKDATA
+	PTRACE_PEEKDATA,
+	PTRACE_SIGNALS_ONLY_PLZ
 };
 
 enum __ptrace_event {
