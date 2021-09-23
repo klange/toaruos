@@ -89,6 +89,63 @@ const char * signal_names[256] = {
 	M(SIGCAT),
 };
 
+static int data_read_bytes(pid_t pid, uintptr_t addr, char * buf, size_t size) {
+	for (unsigned int i = 0; i < size; ++i) {
+		if (ptrace(PTRACE_PEEKDATA, pid, (void*)addr++, &buf[i])) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int data_read_int(pid_t pid, uintptr_t addr) {
+	int x;
+	data_read_bytes(pid, addr, (char*)&x, sizeof(int));
+	return x;
+}
+
+static uintptr_t data_read_ptr(pid_t pid, uintptr_t addr) {
+	uintptr_t x;
+	data_read_bytes(pid, addr, (char*)&x, sizeof(uintptr_t));
+	return x;
+}
+
+static void string_arg(pid_t pid, uintptr_t ptr, size_t maxsize) {
+	FILE * logfile = stdout;
+
+	if (ptr == 0) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+
+	fprintf(logfile, "\"");
+
+	size_t size = 0;
+	uint8_t buf = 0;
+
+	do {
+		long result = ptrace(PTRACE_PEEKDATA, pid, (void*)ptr, &buf);
+		if (result != 0) break;
+		if (!buf) {
+			fprintf(logfile, "\"");
+			return;
+		}
+
+		if (buf == '\\') fprintf(logfile, "\\\\");
+		else if (buf == '"') fprintf(logfile, "\\\"");
+		else if (buf >= ' ' && buf < '~') fprintf(logfile, "%c", buf);
+		else if (buf == '\r') fprintf(logfile, "\\r");
+		else if (buf == '\n') fprintf(logfile, "\\n");
+		else fprintf(logfile, "\\x%02x", buf);
+
+		ptr++;
+		size++;
+		if (size > maxsize) break;
+	} while (buf);
+
+	fprintf(logfile, "\"...");
+}
+
 static char * last_command = NULL;
 static void show_commandline(pid_t pid, int status, struct regs * regs) {
 
@@ -143,6 +200,58 @@ static void show_commandline(pid_t pid, int status, struct regs * regs) {
 			if (signum == SIGINT) signum = 0;
 			ptrace(PTRACE_CONT, pid, NULL, (void*)(uintptr_t)signum);
 			return;
+		} else if (!strcmp(buf, "print") || !strcmp(buf,"p")) {
+			char * fmt = arg;
+			char * sp = strstr(arg, " ");
+			if (!sp) {
+				fprintf(stderr, "usage: print fmt addr\n");
+				continue;
+			}
+			*sp = '\0'; sp++;
+
+			uintptr_t addr = strtoul(sp,NULL,0);
+
+			/* Parse any leading numbers */
+			int count = 1;
+
+			if (*fmt >= '1' && *fmt <= '9') {
+				count = (*fmt - '0');
+				fmt++;
+				while (*fmt >= '0' && *fmt <= '9') {
+					count *= 10;
+					count += (*fmt - '0');
+					fmt++;
+				}
+			}
+
+			/* Parse the format */
+			for (int i = 0; i < count; ++i) {
+				if (!strcmp(fmt, "x")) {
+					uint8_t buf[1];
+					data_read_bytes(pid, addr, (char*)buf, 1);
+					printf("%02x", buf[0]);
+					addr += 1;
+				} else if (!strcmp(fmt, "i")) {
+					printf("%d", data_read_int(pid,addr));
+					addr += sizeof(int);
+				} else if (!strcmp(fmt, "l")) {
+					printf("%ld", (intptr_t)data_read_ptr(pid,addr));
+					addr += sizeof(long);
+				} else if (!strcmp(fmt, "p")) {
+					printf("%#zx", data_read_ptr(pid,addr));
+					addr += sizeof(uintptr_t);
+				} else if (!strcmp(fmt, "s")) {
+					string_arg(pid,addr,count == 1 ? 30 : count);
+					break;
+				} else {
+					printf("print: invalid format string");
+					break;
+				}
+				if (i + 1 < count) {
+					printf(" ");
+				}
+			}
+			printf("\n");
 		} else {
 			fprintf(stderr, "dbg: unrecognized command '%s'\n", buf);
 			continue;
