@@ -776,6 +776,14 @@ static char * argv_value(void) {
 	return _argv_value;
 }
 
+static uintptr_t dl_symbol_table_ptr_addr(void) {
+	return (uintptr_t)&dumb_symbol_table;
+}
+
+static uintptr_t dl_objects_table_ptr_addr(void) {
+	return (uintptr_t)&objects_map;
+}
+
 /* Exported methods (dlfcn) */
 typedef struct {
 	char * name;
@@ -787,6 +795,8 @@ ld_exports_t ld_builtin_exports[] = {
 	{"dlclose", dlclose_ld},
 	{"dlerror", dlerror_ld},
 	{"__get_argv", argv_value},
+	{"__ld_symbol_table", dl_symbol_table_ptr_addr},
+	{"__ld_objects_table", dl_objects_table_ptr_addr},
 	{NULL, NULL},
 };
 

@@ -26,3 +26,5 @@ int __cxa_atexit(void (*fn)(void *), void * arg, void *d) {
 	return 0;
 }
 
+void __ld_symbol_table(void) { }
+void __ld_objects_table(void) { }
