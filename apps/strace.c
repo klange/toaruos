@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <signal.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <sys/signal.h>
@@ -109,6 +110,80 @@ const char * syscall_names[] = {
 	[SYS_RECV]         = "recv",
 	[SYS_SEND]         = "send",
 	[SYS_SHUTDOWN]     = "shutdown",
+};
+
+char syscall_mask[] = {
+	[SYS_EXT]          = 1,
+	[SYS_GETEUID]      = 1,
+	[SYS_OPEN]         = 1,
+	[SYS_READ]         = 1,
+	[SYS_WRITE]        = 1,
+	[SYS_CLOSE]        = 1,
+	[SYS_GETTIMEOFDAY] = 1,
+	[SYS_GETPID]       = 1,
+	[SYS_SBRK]         = 1,
+	[SYS_UNAME]        = 1,
+	[SYS_SEEK]         = 1,
+	[SYS_STAT]         = 1,
+	[SYS_GETUID]       = 1,
+	[SYS_SETUID]       = 1,
+	[SYS_READDIR]      = 1,
+	[SYS_CHDIR]        = 1,
+	[SYS_GETCWD]       = 1,
+	[SYS_SETHOSTNAME]  = 1,
+	[SYS_GETHOSTNAME]  = 1,
+	[SYS_MKDIR]        = 1,
+	[SYS_GETTID]       = 1,
+	[SYS_SYSFUNC]      = 1,
+	[SYS_IOCTL]        = 1,
+	[SYS_ACCESS]       = 1,
+	[SYS_STATF]        = 1,
+	[SYS_CHMOD]        = 1,
+	[SYS_UMASK]        = 1,
+	[SYS_UNLINK]       = 1,
+	[SYS_MOUNT]        = 1,
+	[SYS_SYMLINK]      = 1,
+	[SYS_READLINK]     = 1,
+	[SYS_LSTAT]        = 1,
+	[SYS_CHOWN]        = 1,
+	[SYS_SETSID]       = 1,
+	[SYS_SETPGID]      = 1,
+	[SYS_GETPGID]      = 1,
+	[SYS_DUP2]         = 1,
+	[SYS_EXECVE]       = 1,
+	[SYS_FORK]         = 1,
+	[SYS_WAITPID]      = 1,
+	[SYS_YIELD]        = 1,
+	[SYS_SLEEPABS]     = 1,
+	[SYS_SLEEP]        = 1,
+	[SYS_PIPE]         = 1,
+	[SYS_FSWAIT]       = 1,
+	[SYS_FSWAIT2]      = 1,
+	[SYS_FSWAIT3]      = 1,
+	[SYS_CLONE]        = 1,
+	[SYS_OPENPTY]      = 1,
+	[SYS_SHM_OBTAIN]   = 1,
+	[SYS_SHM_RELEASE]  = 1,
+	[SYS_SIGNAL]       = 1,
+	[SYS_KILL]         = 1,
+	[SYS_REBOOT]       = 1,
+	[SYS_GETGID]       = 1,
+	[SYS_GETEGID]      = 1,
+	[SYS_SETGID]       = 1,
+	[SYS_GETGROUPS]    = 1,
+	[SYS_SETGROUPS]    = 1,
+	[SYS_TIMES]        = 1,
+	[SYS_PTRACE]       = 1,
+	[SYS_SOCKET]       = 1,
+	[SYS_SETSOCKOPT]   = 1,
+	[SYS_BIND]         = 1,
+	[SYS_ACCEPT]       = 1,
+	[SYS_LISTEN]       = 1,
+	[SYS_CONNECT]      = 1,
+	[SYS_GETSOCKOPT]   = 1,
+	[SYS_RECV]         = 1,
+	[SYS_SEND]         = 1,
+	[SYS_SHUTDOWN]     = 1,
 };
 
 #define M(e) [e] = #e
@@ -487,6 +562,9 @@ static void struct_timeval_arg(pid_t pid, uintptr_t ptr) {
 }
 
 static void handle_syscall(pid_t pid, struct regs * r) {
+	if (r->rax >= sizeof(syscall_mask)) return;
+	if (!syscall_mask[r->rax]) return;
+
 	fprintf(logfile, "%s(", syscall_names[r->rax]);
 	switch (r->rax) {
 		case SYS_OPEN:
@@ -693,6 +771,9 @@ static void handle_syscall(pid_t pid, struct regs * r) {
 }
 
 static void finish_syscall(pid_t pid, int syscall, struct regs * r) {
+	if (syscall >= (int)sizeof(syscall_mask)) return;
+	if (syscall >= 0 && !syscall_mask[syscall]) return;
+
 	switch (syscall) {
 		case -1:
 			break; /* This is ptrace(PTRACE_TRACEME)... probably... */
@@ -732,9 +813,10 @@ static void finish_syscall(pid_t pid, int syscall, struct regs * r) {
 static int usage(char * argv[]) {
 #define T_I "\033[3m"
 #define T_O "\033[0m"
-	fprintf(stderr, "usage: %s [-o logfile] command...\n"
-			"  -o logfile " T_I "Write tracing output to a file." T_O "\n"
-			"  -h         " T_I "Show this help text." T_O "\n",
+	fprintf(stderr, "usage: %s [-o logfile] [-e trace=...] command...\n"
+			"  -o logfile   " T_I "Write tracing output to a file." T_O "\n"
+			"  -h           " T_I "Show this help text." T_O "\n"
+			"  -e trace=... " T_I "Set tracing options." T_O "\n",
 			argv[0]);
 	return 1;
 }
@@ -743,12 +825,74 @@ int main(int argc, char * argv[]) {
 	logfile = stdout;
 
 	int opt;
-	while ((opt = getopt(argc, argv, "ho:")) != -1) {
+	while ((opt = getopt(argc, argv, "ho:e:")) != -1) {
 		switch (opt) {
 			case 'o':
 				logfile = fopen(optarg, "w");
 				if (!logfile) {
 					fprintf(stderr, "%s: %s: %s\n", argv[0], optarg, strerror(errno));
+					return 1;
+				}
+				break;
+			case 'e':
+				if (strstr(optarg,"trace=") == optarg) {
+					/* First, disable everything. */
+					memset(syscall_mask, 0, sizeof(syscall_mask));
+
+					/* Now look at each comma-separated option */
+					char * option = optarg + 6;
+					char * comma = strstr(option, ",");
+					do {
+						if (comma) *comma = '\0';
+
+						if (*option == '%') {
+							/* Check for special options */
+							if (!strcmp(option+1,"net") || !strcmp(option+1,"network")) {
+								int syscalls[] = {
+									SYS_SOCKET, SYS_SETSOCKOPT, SYS_BIND, SYS_ACCEPT, SYS_LISTEN,
+									SYS_CONNECT, SYS_GETSOCKOPT, SYS_RECV, SYS_SEND, SYS_SHUTDOWN,
+									0
+								};
+								for (int *i = syscalls; *i; i++) {
+									syscall_mask[*i] = 1;
+								}
+							} else if (!strcmp(option+1,"file")) {
+								int syscalls[] = {
+									SYS_OPEN, SYS_READ, SYS_WRITE, SYS_CLOSE, SYS_SEEK,
+									SYS_STAT, SYS_READDIR, SYS_CHDIR, SYS_GETCWD, SYS_MKDIR,
+									SYS_IOCTL, SYS_ACCESS, SYS_STATF, SYS_CHMOD, SYS_UNLINK,
+									SYS_SYMLINK, SYS_READLINK, SYS_LSTAT, SYS_CHOWN, SYS_DUP2,
+									SYS_PIPE, SYS_OPENPTY,
+									0
+								};
+								for (int *i = syscalls; *i; i++) {
+									syscall_mask[*i] = 1;
+								}
+							} else {
+								fprintf(stderr, "%s: Unrecognized syscall group: %s\n", argv[0], option + 1);
+								return 1;
+							}
+						} else {
+							/* Check the list */
+							int set_something = 0;
+							for (size_t i = 0; i < sizeof(syscall_names) / sizeof(*syscall_names); ++i) {
+								if (syscall_names[i] && !strcmp(option,syscall_names[i])) {
+									syscall_mask[i] = 1;
+									set_something = 1;
+									break;
+								}
+							}
+							if (!set_something) {
+								fprintf(stderr, "%s: Unrecognized syscall name: %s\n", argv[0], option);
+								return 1;
+							}
+						}
+						if (comma) { option = comma + 1; }
+					} while (comma);
+				} else {
+					char * eq = strstr(optarg, "=");
+					if (eq) *eq = '\0';
+					fprintf(stderr, "%s: Unrecognized -e option: %s\n", argv[0], optarg);
 					return 1;
 				}
 				break;
@@ -772,6 +916,7 @@ int main(int argc, char * argv[]) {
 		execvp(argv[optind], &argv[optind]);
 		return 1;
 	} else {
+		signal(SIGINT, SIG_IGN);
 		int previous_syscall = -1;
 		while (1) {
 			int status = 0;
