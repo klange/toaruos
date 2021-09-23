@@ -134,6 +134,7 @@ typedef struct process {
 
 	/* Tracing */
 	pid_t tracer;
+	spin_lock_t wait_lock;
 } process_t;
 
 typedef struct {

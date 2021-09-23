@@ -41,7 +41,9 @@ long ptrace_signal(int signal, int reason) {
 
 	process_t * parent = process_from_pid(this_core->current_process->tracer);
 	if (parent && !(parent->flags & PROC_FLAG_FINISHED)) {
+		spin_lock(parent->wait_lock);
 		wakeup_queue(parent->wait_queue);
+		spin_unlock(parent->wait_lock);
 	}
 	switch_task(0);
 

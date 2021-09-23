@@ -964,6 +964,8 @@ int waitpid(int pid, int * status, int options) {
 		volatile process_t * candidate = NULL;
 		int has_children = 0;
 
+		spin_lock(proc->wait_lock);
+
 		/* First, find out if there is anyone to reap */
 		foreach(node, proc->tree_entry->children) {
 			if (!node->value) {
@@ -986,10 +988,12 @@ int waitpid(int pid, int * status, int options) {
 
 		if (!has_children) {
 			/* No valid children matching this description */
+			spin_unlock(proc->wait_lock);
 			return -ECHILD;
 		}
 
 		if (candidate) {
+			spin_unlock(proc->wait_lock);
 			if (status) {
 				*status = candidate->status;
 			}
@@ -1003,10 +1007,11 @@ int waitpid(int pid, int * status, int options) {
 			return pid;
 		} else {
 			if (options & WNOHANG) {
+				spin_unlock(proc->wait_lock);
 				return 0;
 			}
 			/* Wait */
-			if (sleep_on(proc->wait_queue) != 0) {
+			if (sleep_on_unlocking(proc->wait_queue, &proc->wait_lock) != 0) {
 				return -EINTR;
 			}
 		}
@@ -1212,8 +1217,10 @@ void task_exit(int retval) {
 	__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_FINISHED);
 
 	if (parent && !(parent->flags & PROC_FLAG_FINISHED)) {
+		spin_lock(parent->wait_lock);
 		send_signal(parent->group, SIGCHLD, 1);
 		wakeup_queue(parent->wait_queue);
+		spin_unlock(parent->wait_lock);
 	}
 	switch_next();
 }
