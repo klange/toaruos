@@ -48,7 +48,7 @@ long ptrace_signal(int signal, int reason) {
 	switch_task(0);
 
 	int signum = (this_core->current_process->status >> 8);
-	this_core->current_process->status = 0;
+	this_core->current_process->status = 0x7F;
 	return signum;
 }
 
