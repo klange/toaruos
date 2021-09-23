@@ -462,6 +462,7 @@ static void show_commandline(pid_t pid, int status, struct regs * regs) {
 	}
 
 _exitDebugger:
+	ptrace(PTRACE_CONT, pid, NULL, (void*)(uintptr_t)SIGKILL);
 	fprintf(stderr, "Exiting.\n");
 	exit(0);
 }
