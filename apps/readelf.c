@@ -751,6 +751,7 @@ int main(int argc, char * argv[]) {
 						free(symtab);
 					}
 					break;
+				case SHT_DYNSYM:
 				case SHT_SYMTAB:
 					if (show_bits & SHOW_SYMBOLS) {
 						printf("\nSymbol table '%s' contains %ld entries.\n",
