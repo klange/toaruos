@@ -30,6 +30,8 @@
 static char * last_command = NULL;
 static char * binary_path = NULL;
 static FILE * binary_obj = NULL;
+static pid_t  binary_pid = 0;
+static int    binary_is_child = 0;
 
 struct regs {
 	uintptr_t r15, r14, r13, r12;
@@ -484,8 +486,10 @@ static void show_commandline(pid_t pid, int status, struct regs * regs) {
 	}
 
 _exitDebugger:
-	ptrace(PTRACE_CONT, pid, NULL, (void*)(uintptr_t)SIGKILL);
-	fprintf(stderr, "Exiting.\n");
+	if (binary_is_child) {
+		fprintf(stderr, "Terminating child process '%d'.\n", pid);
+		ptrace(PTRACE_CONT, pid, NULL, (void*)(uintptr_t)SIGKILL);
+	}
 	exit(0);
 }
 
@@ -544,10 +548,19 @@ static char * sig_to_str(int signum) {
 	return _buf;
 }
 
+static void pass_sig(int sig) {
+	kill(binary_pid, sig);
+	signal(SIGINT, pass_sig);
+}
+
 int main(int argc, char * argv[]) {
+	pid_t target_pid = 0;
 	int opt;
-	while ((opt = getopt(argc, argv, "o:")) != -1) {
+	while ((opt = getopt(argc, argv, "o:p:h")) != -1) {
 		switch (opt) {
+			case 'p':
+				target_pid = atoi(optarg);
+				break;
 			case 'h':
 				return (usage(argv), 0);
 			case '?':
@@ -580,63 +593,74 @@ int main(int argc, char * argv[]) {
 
 	/* Attempt to load symbol information... */
 
-	pid_t p = fork();
-	if (!p) {
-		if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
+	if (target_pid) {
+		binary_pid = target_pid;
+		if (ptrace(PTRACE_ATTACH, binary_pid, NULL, NULL) < 0) {
 			fprintf(stderr, "%s: ptrace: %s\n", argv[0], strerror(errno));
 			return 1;
 		}
-		execv(binary_path, &argv[optind]);
-		return 1;
+		signal(SIGINT, pass_sig);
 	} else {
+		binary_is_child = 1;
+		binary_pid = fork();
+		if (!binary_pid) {
+			if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
+				fprintf(stderr, "%s: ptrace: %s\n", argv[0], strerror(errno));
+				return 1;
+			}
+			execv(binary_path, &argv[optind]);
+			return 1;
+		}
+
 		signal(SIGINT, SIG_IGN);
+	}
 
-		while (1) {
-			int status = 0;
-			pid_t res = waitpid(p, &status, WSTOPPED);
+	while (1) {
+		int status = 0;
+		pid_t res = waitpid(binary_pid, &status, WSTOPPED);
 
-			if (res == 0) continue;
+		if (res == 0) continue;
 
-			if (res < 0) {
-				if (errno == EINTR) continue;
-				fprintf(stderr, "%s: waitpid: %s\n", argv[0], strerror(errno));
-			} else {
-				if (WIFSTOPPED(status)) {
-					if (WSTOPSIG(status) == SIGTRAP) {
-						/* Don't care about TRAP right now */
-						int event = (status >> 16) & 0xFF;
-						switch (event) {
-							case PTRACE_EVENT_SINGLESTEP: {
-									struct regs regs;
-									ptrace(PTRACE_GETREGS, res, NULL, &regs);
-									show_commandline(res, status, &regs);
-								}
-								break;
-							default:
-								//ptrace(PTRACE_SIGNALS_ONLY_PLZ, p, NULL, NULL);
-								ptrace(PTRACE_CONT, p, NULL, NULL);
-								break;
-						}
-					} else {
-						printf("Program received signal %s.\n", sig_to_str(WSTOPSIG(status)));
-
-						struct regs regs;
-						ptrace(PTRACE_GETREGS, res, NULL, &regs);
-
-						show_commandline(res, status, &regs);
+		if (res < 0) {
+			if (errno == EINTR) continue;
+			fprintf(stderr, "%s: waitpid: %s\n", argv[0], strerror(errno));
+		} else {
+			if (WIFSTOPPED(status)) {
+				if (WSTOPSIG(status) == SIGTRAP) {
+					/* Don't care about TRAP right now */
+					int event = (status >> 16) & 0xFF;
+					switch (event) {
+						case PTRACE_EVENT_SINGLESTEP: {
+								struct regs regs;
+								ptrace(PTRACE_GETREGS, res, NULL, &regs);
+								show_commandline(res, status, &regs);
+							}
+							break;
+						default:
+							//ptrace(PTRACE_SIGNALS_ONLY_PLZ, p, NULL, NULL);
+							ptrace(PTRACE_CONT, res, NULL, NULL);
+							break;
 					}
-				} else if (WIFSIGNALED(status)) {
-					fprintf(stderr, "Process %d was killed by %s.\n", res, signal_names[WTERMSIG(status)]);
-					return 0;
-				} else if (WIFEXITED(status)) {
-					fprintf(stderr, "Process %d exited normally.\n", res);
-					return 0;
 				} else {
-					fprintf(stderr, "Unknown state?\n");
+					printf("Program received signal %s.\n", sig_to_str(WSTOPSIG(status)));
+
+					struct regs regs;
+					ptrace(PTRACE_GETREGS, res, NULL, &regs);
+
+					show_commandline(res, status, &regs);
 				}
+			} else if (WIFSIGNALED(status)) {
+				fprintf(stderr, "Process %d was killed by %s.\n", res, signal_names[WTERMSIG(status)]);
+				return 0;
+			} else if (WIFEXITED(status)) {
+				fprintf(stderr, "Process %d exited normally.\n", res);
+				return 0;
+			} else {
+				fprintf(stderr, "Unknown state?\n");
 			}
 		}
 	}
+	
 
 	return 0;
 }

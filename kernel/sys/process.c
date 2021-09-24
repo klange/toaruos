@@ -527,6 +527,13 @@ void process_reap(process_t * proc) {
 		free(proc->signal_kstack);
 	}
 
+	if (proc->tracees) {
+		while (proc->tracees->length) {
+			free(list_pop(proc->tracees));
+		}
+		free(proc->tracees);
+	}
+
 	/* Unmark the stack bottom's fault detector */
 	mmu_frame_allocate(
 		mmu_get_page(proc->image.stack - KERNEL_STACK_SIZE, 0),
@@ -963,6 +970,7 @@ int waitpid(int pid, int * status, int options) {
 	do {
 		volatile process_t * candidate = NULL;
 		int has_children = 0;
+		int is_parent = 0;
 
 		spin_lock(proc->wait_lock);
 
@@ -975,6 +983,7 @@ int waitpid(int pid, int * status, int options) {
 
 			if (wait_candidate(proc, pid, options, child)) {
 				has_children = 1;
+				is_parent = 1;
 				if (child->flags & PROC_FLAG_FINISHED) {
 					candidate = child;
 					break;
@@ -982,6 +991,19 @@ int waitpid(int pid, int * status, int options) {
 				if ((options & WSTOPPED) && child->flags & PROC_FLAG_SUSPENDED) {
 					candidate = child;
 					break;
+				}
+			}
+		}
+
+		if (!candidate && proc->tracees) {
+			foreach(node, proc->tracees) {
+				process_t * child = node->value;
+				if (wait_candidate(proc,pid,options,child)) {
+					has_children = 1;
+					if (child->flags & PROC_FLAG_SUSPENDED) {
+						candidate = child;
+						break;
+					}
 				}
 			}
 		}
@@ -998,7 +1020,7 @@ int waitpid(int pid, int * status, int options) {
 				*status = candidate->status;
 			}
 			int pid = candidate->id;
-			if (candidate->flags & PROC_FLAG_FINISHED) {
+			if (is_parent && (candidate->flags & PROC_FLAG_FINISHED)) {
 				while (*((volatile int *)&candidate->flags) & PROC_FLAG_RUNNING);
 				proc->time_children += candidate->time_children + candidate->time_total;
 				proc->time_sys_children += candidate->time_sys_children + candidate->time_sys;
@@ -1209,6 +1231,25 @@ void task_exit(int retval) {
 		} else {
 			spin_unlock(this_core->current_process->fds->lock);
 		}
+	}
+
+	if (this_core->current_process->tracees) {
+		spin_lock(this_core->current_process->wait_lock);
+		while (this_core->current_process->tracees->length) {
+			node_t * n = list_pop(this_core->current_process->tracees);
+			process_t * tracee = n->value;
+			free(n);
+			if (is_valid_process(tracee)) {
+				tracee->tracer = 0;
+				__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_TRACE_SIGNALS | PROC_FLAG_TRACE_SYSCALLS));
+				if (tracee->flags & PROC_FLAG_SUSPENDED) {
+					tracee->status = 0;
+					__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_SUSPENDED));
+					make_process_ready(tracee);
+				}
+			}
+		}
+		spin_unlock(this_core->current_process->wait_lock);
 	}
 
 	update_process_times(1);

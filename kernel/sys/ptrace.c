@@ -12,22 +12,38 @@
 #include <kernel/arch/x86_64/regs.h>
 #include <kernel/arch/x86_64/mmu.h>
 
+static void _ptrace_trace(process_t * tracer, process_t * tracee) {
+	spin_lock(tracer->wait_lock);
+	__sync_or_and_fetch(&tracee->flags, (PROC_FLAG_TRACE_SYSCALLS | PROC_FLAG_TRACE_SIGNALS));
+
+	if (!tracer->tracees) {
+		tracer->tracees = list_create("debug tracees", tracer);
+	}
+
+	list_insert(tracer->tracees, tracee);
+
+	tracee->tracer = tracer->id;
+
+	spin_unlock(tracer->wait_lock);
+}
+
 long ptrace_attach(pid_t pid) {
+	process_t * tracer = (process_t *)this_core->current_process;
 	process_t * tracee = process_from_pid(pid);
 	if (!tracee) return -ESRCH;
-	if (this_core->current_process->user != 0 && this_core->current_process->user != tracee->user) return -EPERM;
-	__sync_or_and_fetch(&tracee->flags, (PROC_FLAG_TRACE_SYSCALLS | PROC_FLAG_TRACE_SIGNALS));
-	tracee->tracer = this_core->current_process->id;
-	send_signal(pid, SIGSTOP, 1);
+	if (tracer->user != 0 && tracer->user != tracee->user) return -EPERM;
+
+	_ptrace_trace(tracer, tracee);
+
 	return 0;
 }
 
 long ptrace_self(void) {
-	process_t * parent = process_get_parent((process_t*)this_core->current_process);
-	if (!parent) return -EINVAL;
+	process_t * tracee = (process_t*)this_core->current_process;
+	process_t * tracer = process_get_parent(tracee);
+	if (!tracer) return -EINVAL;
 
-	__sync_or_and_fetch(&this_core->current_process->flags, (PROC_FLAG_TRACE_SYSCALLS | PROC_FLAG_TRACE_SIGNALS));
-	this_core->current_process->tracer = parent->id;
+	_ptrace_trace(tracer, tracee);
 
 	return 0;
 }

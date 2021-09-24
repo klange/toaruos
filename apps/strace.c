@@ -821,10 +821,11 @@ static void finish_syscall(pid_t pid, int syscall, struct regs * r) {
 static int usage(char * argv[]) {
 #define T_I "\033[3m"
 #define T_O "\033[0m"
-	fprintf(stderr, "usage: %s [-o logfile] [-e trace=...] command...\n"
+	fprintf(stderr, "usage: %s [-o logfile] [-e trace=...] [-p PID] [command...]\n"
 			"  -o logfile   " T_I "Write tracing output to a file." T_O "\n"
 			"  -h           " T_I "Show this help text." T_O "\n"
-			"  -e trace=... " T_I "Set tracing options." T_O "\n",
+			"  -e trace=... " T_I "Set tracing options." T_O "\n"
+			"  -p PID       " T_I "Trace an existing process." T_O "\n",
 			argv[0]);
 	return 1;
 }
@@ -832,9 +833,13 @@ static int usage(char * argv[]) {
 int main(int argc, char * argv[]) {
 	logfile = stdout;
 
+	pid_t p = 0;
 	int opt;
-	while ((opt = getopt(argc, argv, "ho:e:")) != -1) {
+	while ((opt = getopt(argc, argv, "ho:e:p:")) != -1) {
 		switch (opt) {
+			case 'p':
+				p = atoi(optarg);
+				break;
 			case 'o':
 				logfile = fopen(optarg, "w");
 				if (!logfile) {
@@ -960,59 +965,66 @@ int main(int argc, char * argv[]) {
 		}
 	}
 
-	if (optind == argc) {
+	if (!p && optind == argc) {
 		return usage(argv);
 	}
 
-	pid_t p = fork();
 	if (!p) {
-		if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
+		p = fork();
+		if (!p) {
+			if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
+				fprintf(stderr, "%s: ptrace: %s\n", argv[0], strerror(errno));
+				return 1;
+			}
+			execvp(argv[optind], &argv[optind]);
+			return 1;
+		}
+		signal(SIGINT, SIG_IGN);
+	} else {
+		if (ptrace(PTRACE_ATTACH, p, NULL, NULL) < 0) {
 			fprintf(stderr, "%s: ptrace: %s\n", argv[0], strerror(errno));
 			return 1;
 		}
-		execvp(argv[optind], &argv[optind]);
-		return 1;
-	} else {
-		signal(SIGINT, SIG_IGN);
-		int previous_syscall = -1;
-		while (1) {
-			int status = 0;
-			pid_t res = waitpid(p, &status, WSTOPPED);
+	}
 
-			if (res < 0) {
-				fprintf(stderr, "%s: waitpid: %s\n", argv[0], strerror(errno));
-			} else {
-				if (WIFSTOPPED(status)) {
-					if (WSTOPSIG(status) == SIGTRAP) {
-						struct regs regs;
-						ptrace(PTRACE_GETREGS, p, NULL, &regs);
+	int previous_syscall = -1;
+	while (1) {
+		int status = 0;
+		pid_t res = waitpid(p, &status, WSTOPPED);
 
-						/* Event type */
-						int event = (status >> 16) & 0xFF;
-						switch (event) {
-							case PTRACE_EVENT_SYSCALL_ENTER:
-								previous_syscall = regs.rax;
-								handle_syscall(p, &regs);
-								break;
-							case PTRACE_EVENT_SYSCALL_EXIT:
-								finish_syscall(p, previous_syscall, &regs);
-								break;
-							default:
-								fprintf(logfile, "Unknown event.\n");
-								break;
-						}
-						ptrace(PTRACE_CONT, p, NULL, NULL);
-					} else {
-						fprintf(logfile, "--- %s ---\n", signal_names[WSTOPSIG(status)]);
-						ptrace(PTRACE_CONT, p, NULL, (void*)(uintptr_t)WSTOPSIG(status));
+		if (res < 0) {
+			fprintf(stderr, "%s: waitpid: %s\n", argv[0], strerror(errno));
+		} else {
+			if (WIFSTOPPED(status)) {
+				if (WSTOPSIG(status) == SIGTRAP) {
+					struct regs regs;
+					ptrace(PTRACE_GETREGS, p, NULL, &regs);
+
+					/* Event type */
+					int event = (status >> 16) & 0xFF;
+					switch (event) {
+						case PTRACE_EVENT_SYSCALL_ENTER:
+							previous_syscall = regs.rax;
+							handle_syscall(p, &regs);
+							break;
+						case PTRACE_EVENT_SYSCALL_EXIT:
+							finish_syscall(p, previous_syscall, &regs);
+							break;
+						default:
+							fprintf(logfile, "Unknown event.\n");
+							break;
 					}
-				} else if (WIFSIGNALED(status)) {
-					fprintf(logfile, "+++ killed by %s +++\n", signal_names[WTERMSIG(status)]);
-					return 0;
-				} else if (WIFEXITED(status)) {
-					fprintf(logfile, "+++ exited with %d +++\n", WEXITSTATUS(status));
-					return 0;
+					ptrace(PTRACE_CONT, p, NULL, NULL);
+				} else {
+					fprintf(logfile, "--- %s ---\n", signal_names[WSTOPSIG(status)]);
+					ptrace(PTRACE_CONT, p, NULL, (void*)(uintptr_t)WSTOPSIG(status));
 				}
+			} else if (WIFSIGNALED(status)) {
+				fprintf(logfile, "+++ killed by %s +++\n", signal_names[WTERMSIG(status)]);
+				return 0;
+			} else if (WIFEXITED(status)) {
+				fprintf(logfile, "+++ exited with %d +++\n", WEXITSTATUS(status));
+				return 0;
 			}
 		}
 	}
