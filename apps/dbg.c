@@ -403,6 +403,23 @@ static void show_commandline(pid_t pid, int status, struct regs * regs) {
 			if (signum == SIGINT) signum = 0;
 			ptrace(PTRACE_CONT, pid, NULL, (void*)(uintptr_t)signum);
 			return;
+		} else if (!strcmp(buf, "poke")) {
+			char * addr = arg;
+			char * data = strstr(addr, " ");
+			if (!data) {
+				fprintf(stderr, "usage: poke addr byte\n");
+				continue;
+			}
+			*data = '\0'; data++;
+
+			uintptr_t addr_ = strtoul(addr, NULL, 0);
+			uintptr_t data_ = strtoul(data, NULL, 0);
+
+			if (ptrace(PTRACE_POKEDATA, pid, (void*)addr_, (void*)&data_) != 0) {
+				fprintf(stderr, "poke: %s\n", strerror(errno));
+				continue;
+			}
+
 		} else if (!strcmp(buf, "print") || !strcmp(buf,"p")) {
 			char * fmt = arg;
 			char * sp = strstr(arg, " ");

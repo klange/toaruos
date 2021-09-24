@@ -75,14 +75,17 @@ long ptrace_getregs(pid_t pid, void * data) {
 	return 0;
 }
 
+extern union PML * mmu_get_page_other(union PML * root, uintptr_t virtAddr);
 long ptrace_peek(pid_t pid, void * addr, void * data) {
 	if (!data || ptr_validate(data, "ptrace")) return -EFAULT;
 	process_t * tracee = process_from_pid(pid);
 	if (!tracee || (tracee->tracer != this_core->current_process->id) || !(tracee->flags & PROC_FLAG_SUSPENDED)) return -ESRCH;
 
-	/* Figure out where *addr is...
-	 *  TODO: We don't ever really page things to disk, and we don't have file
-	 *        mappings that may be not-present, so this is fairly straightforward for now... */
+	union PML * page_entry = mmu_get_page_other(tracee->thread.page_directory->directory, (uintptr_t)addr);
+
+	if (!page_entry) return -EFAULT;
+	if (!page_entry->bits.present || !page_entry->bits.user) return -EFAULT;
+
 	uintptr_t mapped_address = mmu_map_to_physical(tracee->thread.page_directory->directory, (uintptr_t)addr);
 
 	if ((intptr_t)mapped_address < 0 && (intptr_t)mapped_address > -10) return -EFAULT;
@@ -95,13 +98,34 @@ long ptrace_peek(pid_t pid, void * addr, void * data) {
 	return 0;
 }
 
+long ptrace_poke(pid_t pid, void * addr, void * data) {
+	if (!data || ptr_validate(data, "ptrace")) return -EFAULT;
+	process_t * tracee = process_from_pid(pid);
+	if (!tracee || (tracee->tracer != this_core->current_process->id) || !(tracee->flags & PROC_FLAG_SUSPENDED)) return -ESRCH;
+
+	union PML * page_entry = mmu_get_page_other(tracee->thread.page_directory->directory, (uintptr_t)addr);
+
+	if (!page_entry) return -EFAULT;
+	if (!page_entry->bits.present || !page_entry->bits.user || !page_entry->bits.writable) return -EFAULT;
+
+	uintptr_t mapped_address = mmu_map_to_physical(tracee->thread.page_directory->directory, (uintptr_t)addr);
+
+	if ((intptr_t)mapped_address < 0 && (intptr_t)mapped_address > -10) return -EFAULT;
+
+	uintptr_t blarg = (uintptr_t)mmu_map_from_physical(mapped_address);
+
+	/* Yeah, uh, one byte. That works. */
+	*(char*)blarg = *(char*)data;
+
+	return 0;
+}
+
 long ptrace_signals_only(pid_t pid) {
 	process_t * tracee = process_from_pid(pid);
 	if (!tracee || (tracee->tracer != this_core->current_process->id) || !(tracee->flags & PROC_FLAG_SUSPENDED)) return -ESRCH;
 	__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_TRACE_SYSCALLS));
 	return 0;
 }
-
 
 long ptrace_handle(long request, pid_t pid, void * addr, void * data) {
 	switch (request) {
@@ -115,6 +139,8 @@ long ptrace_handle(long request, pid_t pid, void * addr, void * data) {
 			return ptrace_continue(pid,(uintptr_t)data);
 		case PTRACE_PEEKDATA:
 			return ptrace_peek(pid,addr,data);
+		case PTRACE_POKEDATA:
+			return ptrace_poke(pid,addr,data);
 		case PTRACE_SIGNALS_ONLY_PLZ:
 			return ptrace_signals_only(pid);
 		default:

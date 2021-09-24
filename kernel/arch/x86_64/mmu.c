@@ -194,6 +194,43 @@ void * mmu_map_from_physical(uintptr_t frameaddress) {
 	return (void*)(frameaddress | HIGH_MAP_REGION);
 }
 
+union PML * mmu_get_page_other(union PML * root, uintptr_t virtAddr) {
+	uintptr_t realBits = virtAddr & CANONICAL_MASK;
+	uintptr_t pageAddr = realBits >> PAGE_SHIFT;
+	unsigned int pml4_entry = (pageAddr >> 27) & ENTRY_MASK;
+	unsigned int pdp_entry  = (pageAddr >> 18) & ENTRY_MASK;
+	unsigned int pd_entry   = (pageAddr >> 9)  & ENTRY_MASK;
+	unsigned int pt_entry   = (pageAddr) & ENTRY_MASK;
+
+	/* Get the PML4 entry for this address */
+	if (!root[pml4_entry].bits.present) {
+		return NULL;
+	}
+
+	union PML * pdp = mmu_map_from_physical((uintptr_t)root[pml4_entry].bits.page << PAGE_SHIFT);
+
+	if (!pdp[pdp_entry].bits.present) {
+		return NULL;
+	}
+
+	if (pdp[pdp_entry].bits.size) {
+		return NULL;
+	}
+
+	union PML * pd = mmu_map_from_physical((uintptr_t)pdp[pdp_entry].bits.page << PAGE_SHIFT);
+
+	if (!pd[pd_entry].bits.present) {
+		return NULL;
+	}
+
+	if (pd[pd_entry].bits.size) {
+		return NULL;
+	}
+
+	union PML * pt = mmu_map_from_physical((uintptr_t)pd[pd_entry].bits.page << PAGE_SHIFT);
+	return (union PML *)&pt[pt_entry];
+}
+
 /**
  * @brief Find the physical address at a given virtual address.
  *
