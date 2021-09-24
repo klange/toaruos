@@ -527,6 +527,18 @@ static char * find_binary(const char * file) {
 	return NULL;
 }
 
+static char * sig_to_str(int signum) {
+	static char _buf[100];
+	if (signum >= 0 && signum <= 255) {
+		char * maybe = (char*)signal_names[signum];
+		if (maybe) {
+			return maybe;
+		}
+	}
+	sprintf(_buf, "%d", signum);
+	return _buf;
+}
+
 int main(int argc, char * argv[]) {
 	int opt;
 	while ((opt = getopt(argc, argv, "o:")) != -1) {
@@ -590,7 +602,7 @@ int main(int argc, char * argv[]) {
 						//ptrace(PTRACE_SIGNALS_ONLY_PLZ, p, NULL, NULL);
 						ptrace(PTRACE_CONT, p, NULL, NULL);
 					} else {
-						printf("Program received signal %s.\n", signal_names[WSTOPSIG(status)]);
+						printf("Program received signal %s.\n", sig_to_str(WSTOPSIG(status)));
 
 						struct regs regs;
 						ptrace(PTRACE_GETREGS, res, NULL, &regs);
