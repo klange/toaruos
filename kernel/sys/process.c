@@ -1000,7 +1000,7 @@ int waitpid(int pid, int * status, int options) {
 				process_t * child = node->value;
 				if (wait_candidate(proc,pid,options,child)) {
 					has_children = 1;
-					if (child->flags & PROC_FLAG_SUSPENDED) {
+					if (child->flags & (PROC_FLAG_SUSPENDED | PROC_FLAG_FINISHED)) {
 						candidate = child;
 						break;
 					}
@@ -1257,12 +1257,22 @@ void task_exit(int retval) {
 	process_t * parent = process_get_parent((process_t *)this_core->current_process);
 	__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_FINISHED);
 
+	if (this_core->current_process->tracer) {
+		process_t * tracer = process_from_pid(this_core->current_process->tracer);
+		if (tracer && tracer != parent) {
+			spin_lock(tracer->wait_lock);
+			wakeup_queue(tracer->wait_queue);
+			spin_unlock(tracer->wait_lock);
+		}
+	}
+
 	if (parent && !(parent->flags & PROC_FLAG_FINISHED)) {
 		spin_lock(parent->wait_lock);
 		send_signal(parent->group, SIGCHLD, 1);
 		wakeup_queue(parent->wait_queue);
 		spin_unlock(parent->wait_lock);
 	}
+
 	switch_next();
 }
 
