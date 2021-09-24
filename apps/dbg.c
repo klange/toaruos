@@ -403,6 +403,11 @@ static void show_commandline(pid_t pid, int status, struct regs * regs) {
 			if (signum == SIGINT) signum = 0;
 			ptrace(PTRACE_CONT, pid, NULL, (void*)(uintptr_t)signum);
 			return;
+		} else if (!strcmp(buf, "step") || !strcmp(buf,"s")) {
+			int signum = WSTOPSIG(status);
+			if (signum == SIGINT) signum = 0;
+			ptrace(PTRACE_SINGLESTEP, pid, NULL, (void*)(uintptr_t)signum);
+			return;
 		} else if (!strcmp(buf, "poke")) {
 			char * addr = arg;
 			char * data = strstr(addr, " ");
@@ -599,8 +604,19 @@ int main(int argc, char * argv[]) {
 				if (WIFSTOPPED(status)) {
 					if (WSTOPSIG(status) == SIGTRAP) {
 						/* Don't care about TRAP right now */
-						//ptrace(PTRACE_SIGNALS_ONLY_PLZ, p, NULL, NULL);
-						ptrace(PTRACE_CONT, p, NULL, NULL);
+						int event = (status >> 16) & 0xFF;
+						switch (event) {
+							case PTRACE_EVENT_SINGLESTEP: {
+									struct regs regs;
+									ptrace(PTRACE_GETREGS, res, NULL, &regs);
+									show_commandline(res, status, &regs);
+								}
+								break;
+							default:
+								//ptrace(PTRACE_SIGNALS_ONLY_PLZ, p, NULL, NULL);
+								ptrace(PTRACE_CONT, p, NULL, NULL);
+								break;
+						}
 					} else {
 						printf("Program received signal %s.\n", sig_to_str(WSTOPSIG(status)));
 

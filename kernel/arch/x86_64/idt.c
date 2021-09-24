@@ -7,9 +7,12 @@
 #include <kernel/signal.h>
 #include <kernel/misc.h>
 #include <kernel/time.h>
+#include <kernel/ptrace.h>
 
 #include <sys/time.h>
 #include <sys/utsname.h>
+#include <sys/ptrace.h>
+
 #include <kernel/arch/x86_64/mmu.h>
 #include <kernel/arch/x86_64/ports.h>
 #include <kernel/arch/x86_64/pml.h>
@@ -229,11 +232,21 @@ struct regs * isr_handler(struct regs * r) {
 			/* Spurious interrupt */
 			break;
 		}
+		case 1: {
+			/* Debug interrupt */
+			r->rflags &= ~(1 << 8);
+			if (this_core->current_process->flags & PROC_FLAG_TRACE_SIGNALS) {
+				ptrace_signal(SIGTRAP, PTRACE_EVENT_SINGLESTEP);
+			}
+			return r;
+		}
 		default: {
 			if (r->int_no < 32) {
 				if (!this_core->current_process || r->cs == 0x08) {
 					arch_fatal();
 				}
+				printf("int_no %ld in process %d\n",
+					r->int_no, this_core->current_process->id);
 				send_signal(this_core->current_process->id, SIGILL, 1);
 			} else {
 				for (size_t i = 0; i < IRQ_CHAIN_DEPTH; i++) {

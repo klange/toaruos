@@ -127,6 +127,22 @@ long ptrace_signals_only(pid_t pid) {
 	return 0;
 }
 
+long ptrace_singlestep(pid_t pid, int sig) {
+	process_t * tracee = process_from_pid(pid);
+	if (!tracee || (tracee->tracer != this_core->current_process->id) || !(tracee->flags & PROC_FLAG_SUSPENDED)) return -ESRCH;
+
+	struct regs * target = tracee->interrupt_registers ? tracee->interrupt_registers : tracee->syscall_registers;
+
+	/* arch_set_singlestep? */
+	target->rflags |= (1 << 8);
+
+	__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_SUSPENDED));
+	tracee->status = (sig << 8);
+	make_process_ready(tracee);
+
+	return 0;
+}
+
 long ptrace_handle(long request, pid_t pid, void * addr, void * data) {
 	switch (request) {
 		case PTRACE_ATTACH:
@@ -143,6 +159,8 @@ long ptrace_handle(long request, pid_t pid, void * addr, void * data) {
 			return ptrace_poke(pid,addr,data);
 		case PTRACE_SIGNALS_ONLY_PLZ:
 			return ptrace_signals_only(pid);
+		case PTRACE_SINGLESTEP:
+			return ptrace_singlestep(pid,(uintptr_t)data);
 		default:
 			return -EINVAL;
 	}
