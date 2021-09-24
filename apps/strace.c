@@ -561,6 +561,14 @@ static void struct_timeval_arg(pid_t pid, uintptr_t ptr) {
 	fprintf(logfile, "}");
 }
 
+static void signal_arg(int signum) {
+	if (signum >= 0 && signum < 256) {
+		fprintf(logfile, "%s", signal_names[signum]);
+	} else {
+		fprintf(logfile, "%d", signum);
+	}
+}
+
 static void handle_syscall(pid_t pid, struct regs * r) {
 	if (r->rax >= sizeof(syscall_mask)) return;
 	if (!syscall_mask[r->rax]) return;
@@ -671,7 +679,7 @@ static void handle_syscall(pid_t pid, struct regs * r) {
 			string_arg(pid, r->rbx);
 			break;
 		case SYS_SIGNAL:
-			int_arg(r->rbx); COMMA; /* TODO signal name */
+			signal_arg(r->rbx); COMMA;
 			pointer_arg(r->rcx);
 			break;
 		case SYS_SYSFUNC:
@@ -858,11 +866,60 @@ int main(int argc, char * argv[]) {
 								}
 							} else if (!strcmp(option+1,"file")) {
 								int syscalls[] = {
-									SYS_OPEN, SYS_READ, SYS_WRITE, SYS_CLOSE, SYS_SEEK,
-									SYS_STAT, SYS_READDIR, SYS_CHDIR, SYS_GETCWD, SYS_MKDIR,
-									SYS_IOCTL, SYS_ACCESS, SYS_STATF, SYS_CHMOD, SYS_UNLINK,
-									SYS_SYMLINK, SYS_READLINK, SYS_LSTAT, SYS_CHOWN, SYS_DUP2,
-									SYS_PIPE, SYS_OPENPTY,
+									SYS_OPEN, SYS_STATF, SYS_LSTAT, SYS_ACCESS, SYS_EXECVE,
+									SYS_GETCWD, SYS_CHDIR, SYS_MKDIR, SYS_SYMLINK, SYS_UNLINK,
+									SYS_CHMOD, SYS_CHOWN, SYS_MOUNT, SYS_READLINK,
+									0
+								};
+								for (int *i = syscalls; *i; i++) {
+									syscall_mask[*i] = 1;
+								}
+							} else if (!strcmp(option+1,"desc")) {
+								int syscalls[] = {
+									SYS_OPEN, SYS_READ, SYS_WRITE, SYS_CLOSE, SYS_STAT, SYS_FSWAIT,
+									SYS_FSWAIT2, SYS_FSWAIT3, SYS_SEEK, SYS_IOCTL, SYS_PIPE, SYS_MKPIPE,
+									SYS_DUP2, SYS_READDIR, SYS_OPENPTY,
+									0
+								};
+								for (int *i = syscalls; *i; i++) {
+									syscall_mask[*i] = 1;
+								}
+							} else if (!strcmp(option+1,"memory")) {
+								int syscalls[] = {
+									SYS_SBRK, SYS_SHM_OBTAIN, SYS_SHM_RELEASE,
+									0
+								};
+								for (int *i = syscalls; *i; i++) {
+									syscall_mask[*i] = 1;
+								}
+							} else if (!strcmp(option+1,"ipc")) {
+								int syscalls[] = {
+									SYS_SHM_OBTAIN, SYS_SHM_RELEASE,
+									0
+								};
+								for (int *i = syscalls; *i; i++) {
+									syscall_mask[*i] = 1;
+								}
+							} else if (!strcmp(option+1,"signal")) {
+								int syscalls[] = {
+									SYS_SIGNAL, SYS_KILL,
+									0
+								};
+								for (int *i = syscalls; *i; i++) {
+									syscall_mask[*i] = 1;
+								}
+							} else if (!strcmp(option+1,"process")) {
+								int syscalls[] = {
+									SYS_EXT, SYS_EXECVE, SYS_FORK, SYS_CLONE, SYS_WAITPID, SYS_KILL,
+									0
+								};
+								for (int *i = syscalls; *i; i++) {
+									syscall_mask[*i] = 1;
+								}
+							} else if (!strcmp(option+1,"creds")) {
+								int syscalls[] = {
+									SYS_GETUID, SYS_GETGID, SYS_GETGROUPS, SYS_GETEGID, SYS_GETEUID,
+									SYS_SETUID, SYS_SETGID, SYS_SETGROUPS,
 									0
 								};
 								for (int *i = syscalls; *i; i++) {
