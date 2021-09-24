@@ -36,8 +36,8 @@ long ptrace_self(void) {
  * @brief Trigger a ptrace event on the currently executing thread.
  */
 long ptrace_signal(int signal, int reason) {
-	__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_SUSPENDED);
 	this_core->current_process->status = 0x7F | (signal << 8) | (reason << 16);
+	__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_SUSPENDED);
 
 	process_t * parent = process_from_pid(this_core->current_process->tracer);
 	if (parent && !(parent->flags & PROC_FLAG_FINISHED)) {
