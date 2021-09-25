@@ -69,10 +69,6 @@ int main(int argc, char ** argv) {
 		}
 	}
 
-	printf("\n");
-	system("uname -a");
-	printf("\n");
-
 	signal(SIGINT, sig_pass);
 	signal(SIGWINCH, sig_pass);
 	signal(SIGSEGV, sig_segv);
