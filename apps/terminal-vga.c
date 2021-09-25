@@ -170,6 +170,7 @@ static void cell_redraw(uint16_t x, uint16_t y);
 static void cell_redraw_inverted(uint16_t x, uint16_t y);
 
 int is_in_selection(int x, int y) {
+	if (!selection) return 0;
 	if (selection_end_y < selection_start_y) {
 		if (y == selection_end_y) {
 			return (x >= selection_end_x);
