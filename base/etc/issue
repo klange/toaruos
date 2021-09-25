@@ -1,10 +1,2 @@
-\e{bold}\t\e{reset} on \e{bold}\d\e{reset}
-\e{yellow}\l\e{reset} on \e{lightblue}\n\e{reset} - \e{bold}\s \r\e{reset}
-
- This live CD has two available user accounts: \e{bold}local\e{reset} is listed in /etc/sudoers
- and \e{bold} guest\e{reset} is not. For both accounts, the password is the same as the account
- name. The \e{bold}root\e{reset} account can also be accessed directly with the password \e{bold}toor\e{reset}.
- You may also type \e{bold}restart\e{reset} at the login prompt to reboot. Please note that
- VGA text mode and serial terminal access provides only a limited subset of the
- available functionality of ToaruOS.
+ToaruOS 2.0 \n \l
 
