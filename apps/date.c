@@ -32,7 +32,7 @@ static void show_usage(int argc, char * argv[]) {
 }
 
 int main(int argc, char * argv[]) {
-	char * format = "%a %b %d %T %Y %Z";
+	char * format = "%a %d %b %Y %T %Z";
 	struct tm * timeinfo;
 	struct timeval now;
 	char buf[BUFSIZ] = {0};
