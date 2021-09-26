@@ -303,10 +303,11 @@ const char * errno_names[256] = {
 	M(ENOTRECOVERABLE),
 	M(EOWNERDEAD),
 	M(ESTRPIPE),
+	0
 };
 
 
-const char * signal_names[256] = {
+const char * signal_names[NSIG] = {
 	M(SIGHUP),
 	M(SIGINT),
 	M(SIGQUIT),
@@ -343,6 +344,7 @@ const char * signal_names[256] = {
 	M(SIGHATE),
 	M(SIGWINEVENT),
 	M(SIGCAT),
+	M(SIGTTOU),
 };
 
 #if 0
@@ -562,7 +564,7 @@ static void struct_timeval_arg(pid_t pid, uintptr_t ptr) {
 }
 
 static void signal_arg(int signum) {
-	if (signum >= 0 && signum < 256) {
+	if (signum >= 0 && signum < NSIG && signal_names[signum]) {
 		fprintf(logfile, "%s", signal_names[signum]);
 	} else {
 		fprintf(logfile, "%d", signum);
