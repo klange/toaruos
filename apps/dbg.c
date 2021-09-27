@@ -193,6 +193,7 @@ static int find_symbol(pid_t pid, uintptr_t addr_in, char ** name, uintptr_t *ad
 	uintptr_t current_xname = NULL;
 	char * current_name = NULL;
 	char * current_obj = NULL;
+	uintptr_t best_base = 0;
 
 	/* Can we cheat and peek at ld.so? */
 	uintptr_t their_symbol_table  = data_read_ptr(pid, __ld_symbol_table());
@@ -224,39 +225,66 @@ static int find_symbol(pid_t pid, uintptr_t addr_in, char ** name, uintptr_t *ad
 
 		if (current_xname) {
 			current_name = read_string(pid, current_xname);
+		}
+	}
 
-			/* Figure out where this object is in the objects map */
-			uintptr_t their_objects_table = data_read_ptr(pid, __ld_objects_table());
-			data_read_bytes(pid, their_objects_table, (char*)&map, sizeof(hashmap_t));
+	if (addr_in < 0x40000000) {
+		current_obj = strdup("ld.so");
+	}
 
-			intptr_t  cmax = INTPTR_MAX;
-			uintptr_t best_name = 0;
-			for (size_t i = 0; i < map.size; ++i) {
-				uintptr_t ptr;
-				hashmap_entry_t entry;
-				data_read_bytes(pid, (uintptr_t)map.entries + sizeof(uintptr_t) * i, (char*)&ptr, sizeof(uintptr_t));
-				while (ptr) {
-					data_read_bytes(pid, ptr, (char*)&entry, sizeof(hashmap_entry_t));
-					if (entry.value) {
-						elf_t obj;
-						data_read_bytes(pid, (uintptr_t)entry.value, (char*)&obj, sizeof(elf_t));
-						if (addr_in >= obj.base) {
-							intptr_t x = addr_in - (uintptr_t)obj.base;
-							if (x < cmax) {
-								cmax = x;
-								best_name = (uintptr_t)entry.key;
-							}
+	/* Figure out where this object is in the objects map */
+	uintptr_t their_objects_table = data_read_ptr(pid, __ld_objects_table());
+
+	if (!current_obj && their_objects_table) {
+		hashmap_t map;
+		data_read_bytes(pid, their_objects_table, (char*)&map, sizeof(hashmap_t));
+
+		intptr_t  cmax = INTPTR_MAX;
+		uintptr_t best_name = 0;
+		for (size_t i = 0; i < map.size; ++i) {
+			uintptr_t ptr;
+			hashmap_entry_t entry;
+			data_read_bytes(pid, (uintptr_t)map.entries + sizeof(uintptr_t) * i, (char*)&ptr, sizeof(uintptr_t));
+			while (ptr) {
+				data_read_bytes(pid, ptr, (char*)&entry, sizeof(hashmap_entry_t));
+				if (entry.value) {
+					elf_t obj;
+					data_read_bytes(pid, (uintptr_t)entry.value, (char*)&obj, sizeof(elf_t));
+					if (addr_in >= obj.base) {
+						intptr_t x = addr_in - (uintptr_t)obj.base;
+						if (x < cmax) {
+							cmax = x;
+							best_name = (uintptr_t)entry.key;
+							best_base = obj.base;
 						}
 					}
-					ptr = (uintptr_t)entry.next;
 				}
+				ptr = (uintptr_t)entry.next;
 			}
+		}
 
+		if (best_name) {
 			current_obj = read_string(pid, best_name);
 		}
 	}
 
 	FILE * f = binary_obj;
+	if (current_obj) {
+		/* Try to open that */
+		struct stat stat_buf;
+		char path[1024];
+		sprintf(path, "/lib/%s", current_obj);
+		if (stat(path, &stat_buf)) {
+			sprintf(path, "/usr/lib/%s", current_obj);
+			if (stat(path, &stat_buf)) goto _bail;
+		}
+
+		f = fopen(path, "r");
+	} else {
+_bail:
+		current_obj = strdup(binary_path);
+		best_base = 0;
+	}
 
 	fseek(f, 0, SEEK_SET);
 	Elf64_Header header;
@@ -288,15 +316,14 @@ static int find_symbol(pid_t pid, uintptr_t addr_in, char ** name, uintptr_t *ad
 
 				for (unsigned int i = 0; i < sectionHeader.sh_size / sizeof(Elf64_Sym); ++i) {
 					if (!symtab[i].st_value) continue;
-					if (addr_in >= (uintptr_t)symtab[i].st_value) {
-						intptr_t x = addr_in - (uintptr_t)symtab[i].st_value;
+					//if ((symtab[i].st_info & 0xF) != STT_NOTYPE && (symtab[i].st_info & 0xF) != STT_FUNC) continue;
+					if (addr_in >= ((uintptr_t)symtab[i].st_value + best_base)) {
+						intptr_t x = addr_in - ((uintptr_t)symtab[i].st_value + best_base);
 						if (x < current_max) {
 							if (current_name) free(current_name);
-							if (current_obj) free(current_obj);
 							current_max = x;
-							current_addr = symtab[i].st_value;
+							current_addr = symtab[i].st_value + best_base;
 							current_name = strdup(strtab + symtab[i].st_name);
-							current_obj = strdup(binary_path);
 						}
 					}
 				}
@@ -313,6 +340,7 @@ static int find_symbol(pid_t pid, uintptr_t addr_in, char ** name, uintptr_t *ad
 	*objname = current_obj;
 
 	if (current_name) return 1;
+	if (f != binary_obj) fclose(f);
 	return 0;
 }
 
@@ -334,6 +362,32 @@ static void show_libs(pid_t pid) {
 			}
 			ptr = (uintptr_t)entry.next;
 		}
+	}
+}
+
+static void attempt_backtrace(pid_t pid, struct regs * regs) {
+
+	/* We already printed the top, now let's try to dig down */
+	uintptr_t ip = regs->rip;
+	uintptr_t bp = regs->rbp;
+	int depth = 0;
+	int max_depth = 20;
+
+	while (bp && ip && depth < max_depth && ip < 0xFFFfff0000000000UL) {
+		char * name = NULL;
+		char * objname = NULL;
+		uintptr_t addr = 0;
+		if (find_symbol(pid, ip - 1, &name, &addr, &objname)) {
+			fprintf(stderr, "<0x%016zx> %s+%#zx in %s\n",
+				ip,
+				name, ip - addr, objname);
+			free(name);
+			free(objname);
+		}
+
+		ip = data_read_ptr(pid, bp + sizeof(uintptr_t));
+		bp = data_read_ptr(pid, bp);
+		depth++;
 	}
 }
 
@@ -400,6 +454,8 @@ static void show_commandline(pid_t pid, int status, struct regs * regs) {
 			} else {
 				fprintf(stderr, "Don't know how to show '%s'\n", arg);
 			}
+		} else if (!strcmp(buf, "bt") || !strcmp(buf, "backtrace")) {
+			attempt_backtrace(pid, regs);
 		} else if (!strcmp(buf, "continue") || !strcmp(buf,"c")) {
 			int signum = WSTOPSIG(status);
 			if (signum == SIGINT) signum = 0;
