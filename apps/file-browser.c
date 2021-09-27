@@ -704,7 +704,7 @@ static void load_directory(const char * path, int modifies_history) {
 							sprintf(f->filetype, "Python Script");
 						}
 					} else if (has_extension(f, ".ko")) {
-						sprintf(f->icon, "file");
+						sprintf(f->icon, "so");
 						sprintf(f->filetype, "Kernel Module");
 					} else if (has_extension(f, ".o")) {
 						sprintf(f->icon, "so");
