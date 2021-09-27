@@ -219,11 +219,11 @@ void yutani_window_to_device(yutani_server_window_t * window, int32_t x, int32_t
 static void unorder_window(yutani_globals_t * yg, yutani_server_window_t * w) {
 	unsigned short index = w->z;
 	w->z = -1;
-	if (index == YUTANI_ZORDER_BOTTOM) {
+	if (index == YUTANI_ZORDER_BOTTOM && yg->bottom_z == w) {
 		yg->bottom_z = NULL;
 		return;
 	}
-	if (index == YUTANI_ZORDER_TOP) {
+	if (index == YUTANI_ZORDER_TOP && yg->top_z == w) {
 		yg->top_z = NULL;
 		return;
 	}
@@ -1034,6 +1034,15 @@ static void redraw_windows(yutani_globals_t * yg) {
 			 * which is very important on real hardware where these writes are slow.
 			 */
 			flip(yg->backend_ctx);
+		}
+
+		foreach (node, yg->windows) {
+			yutani_server_window_t * w = node->value;
+			if (w->z == YUTANI_ZORDER_MAX && w != yg->top_z) {
+				if (yutani_is_closing_animation[w->anim_mode]) {
+					list_insert(yg->windows_to_remove, w);
+				}
+			}
 		}
 
 		/*
