@@ -201,10 +201,11 @@ int main(int argc, char * argv[]) {
 			};
 			execvp(args[0], args);
 		} else {
-			int result;
+			int result, status;
 			do {
-				result = waitpid(f, NULL, 0);
+				result = waitpid(f, &status, 0);
 			} while (result < 0);
+			if (WEXITSTATUS(status) == 2) break;
 		}
 	}
 

@@ -99,6 +99,10 @@ int main(int argc, char ** argv) {
 			system("reboot");
 		}
 
+		if (!strcmp(username, "disconnect")) {
+			return 2;
+		}
+
 		fprintf(stdout, "password: ");
 		fflush(stdout);
 
