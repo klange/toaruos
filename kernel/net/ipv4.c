@@ -646,8 +646,7 @@ static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 
 	if (sock->unread) {
 		if (sock->unread > msg->msg_iov[0].iov_len) {
-			sock->unread = 0;
-			long out = msg->msg_iov[0].iov_len;
+			unsigned long out = msg->msg_iov[0].iov_len;
 			sock->unread -= out;
 			memcpy(msg->msg_iov[0].iov_base, sock->buf, out);
 			char * x = malloc(sock->unread);
@@ -656,7 +655,7 @@ static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 			sock->buf = x;
 			return out;
 		} else {
-			long out = sock->unread;
+			unsigned long out = sock->unread;
 			sock->unread = 0;
 			memcpy(msg->msg_iov[0].iov_base, sock->buf, out);
 			free(sock->buf);
@@ -677,11 +676,12 @@ static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	if (!data) {
 		return -EINTR;
 	}
-	long resp = ntohs(data->length) - sizeof(struct ipv4_packet) - sizeof(struct tcp_header);
+	unsigned long resp = ntohs(data->length) - sizeof(struct ipv4_packet) - sizeof(struct tcp_header);
 
-	if (resp > (long)msg->msg_iov[0].iov_len) {
+	if (resp > (unsigned long)msg->msg_iov[0].iov_len) {
 		memcpy(msg->msg_iov[0].iov_base, data->payload + sizeof(struct tcp_header),msg->msg_iov[0].iov_len);
 		resp -= msg->msg_iov[0].iov_len;
+		if (resp == 0xFFFFffffFFFFffff) printf("what\n");
 		sock->unread = resp;
 		sock->buf = malloc(resp);
 		memcpy(sock->buf, data->payload + sizeof(struct tcp_header) + msg->msg_iov[0].iov_len, resp);

@@ -73,7 +73,9 @@ void * net_sock_get(sock_t * sock) {
 
 int sock_generic_check(fs_node_t *node) {
 	sock_t * sock = (sock_t*)node;
-	return sock->rx_queue->length ? 0 : 1;
+	if (sock->rx_queue->length) return 0;
+	if (sock->unread) return 0;
+	return 1;
 }
 
 int sock_generic_wait(fs_node_t *node, void * process) {
