@@ -1580,6 +1580,7 @@ static void mouse_stop_drag(yutani_globals_t * yg) {
 }
 
 static void mouse_start_drag(yutani_globals_t * yg, yutani_server_window_t * w) {
+	if (yg->mouse_state == YUTANI_MOUSE_STATE_RESIZING || yg->mouse_state == YUTANI_MOUSE_STATE_ROTATING) return; /* Refuse */
 	set_focused_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
 	if (!w) {
 		yg->mouse_window = get_focused(yg);
