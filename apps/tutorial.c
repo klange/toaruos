@@ -41,6 +41,7 @@ static sprite_t folder;
 static sprite_t package;
 static sprite_t logo;
 static sprite_t mouse_drag;
+static sprite_t cdicon;
 
 static struct TT_Font * _tt_font_thin = NULL;
 static struct TT_Font * _tt_font_bold = NULL;
@@ -179,7 +180,7 @@ static void load_page(int page) {
 			body_text[i++] = "were written by the ToaruOS development team over the course of";
 			body_text[i++] = "many years, but that development team is very small. Some features";
 			body_text[i++] = "may be missing, incomplete, or unstable. Contributions in the form";
-			body_text[i++] = "of bug-fixes and new software are welcome. You can join our community";
+			body_text[i++] = "of bug reports and new ports are welcome. You can join our community";
 			body_text[i++] = "through IRC by joining the #toaruos channel on Libera.chat.";
 			body_text[i++] = "";
 			body_text[i++] = "You can help support ToaruOS by donating:";
@@ -187,6 +188,17 @@ static void load_page(int page) {
 			body_text[i++] = NULL;
 			break;
 		case 2:
+			icon = &cdicon;
+			body_text[i++] = "This is a \"live CD\". You can make changes to the file system, including";
+			body_text[i++] = "installing applications, but those changes will not persist between reboots.";
+			body_text[i++] = "";
+			body_text[i++] = "If you need to enter a password, such as for the \"sudo\" utility or when";
+			body_text[i++] = "using the package manager, the default user account is \"local\" with the";
+			body_text[i++] = "password \"local\". There is also a \"guest\" account available with limited";
+			body_text[i++] = "privileges (password \"guest\"), and a \"root\" account (password \"toor\").";
+			body_text[i++] = NULL;
+			break;
+		case 3:
 			icon = &folder;
 			circle(70, 90, 60);
 			body_text[i++] = "You can explore the file system using the File Browser.";
@@ -195,7 +207,7 @@ static void load_page(int page) {
 			body_text[i++] = "the Applications menu in the upper left.";
 			body_text[i++] = NULL;
 			break;
-		case 3:
+		case 4:
 			icon = &terminal;
 			circle(70, 170, 60);
 			body_text[i++] = "ToaruOS aims to provide a Unix-like environment. You can find";
@@ -205,29 +217,30 @@ static void load_page(int page) {
 			body_text[i++] = "and a featureful text editor (bim).";
 			body_text[i++] = NULL;
 			break;
-		case 4:
+		case 5:
 			icon = &package;
 			circle(70, 250, 60);
 			body_text[i++] = "Many third-party software packages have been ported to ToaruOS";
 			body_text[i++] = "and are available from our package repositories. You can use the";
 			body_text[i++] = "Package Manager to install GCC, Python, Bochs, Quake, and more.";
 			body_text[i++] = "";
-			body_text[i++] = "The Package Manager will prompt you to authenticate. The default";
-			body_text[i++] = "user is 'local' with the password 'local'. There is also a 'root'";
-			body_text[i++] = "user with the password 'toor'.";
+			body_text[i++] = "(Beta users: Not all packages may be available yet. I'm still working";
+			body_text[i++] = "on rebuilding the Python port with a newer release, and haven't gotten";
+			body_text[i++] = "around to rebuilding the Bochs package yet.)";
 			body_text[i++] = NULL;
 			break;
-		case 5:
+		case 6:
 			icon = &mouse_drag;
 			body_text[i++] = "With ToaruOS's window manager, you can drag most windows by";
 			body_text[i++] = "holding Alt, or by using the title bar. You can also resize";
 			body_text[i++] = "windows by dragging from their edges or using Alt + Middle Click.";
 			body_text[i++] = "";
-			body_text[i++] = "If you are running ToaruOS in VirtualBox, be sure to select a Host";
-			body_text[i++] = "key configuration that does not conflict with these key bindings.";
+			body_text[i++] = "Note that if you are running ToaruOS in a virtual machine, your";
+			body_text[i++] = "host operating system configuration may conflict with modifier";
+			body_text[i++] = "keys in ToaruOS.";
 			body_text[i++] = NULL;
 			break;
-		case 6:
+		case 7:
 			icon = NULL;
 			_next_button.title = "Exit";
 			body_text[i++] = "#That's it!";
@@ -348,6 +361,7 @@ int main(int argc, char * argv[]) {
 	load_sprite(&folder, "/usr/share/icons/48/folder.png");
 	load_sprite(&package, "/usr/share/icons/48/package.png");
 	load_sprite(&mouse_drag, "/usr/share/cursor/drag.png");
+	load_sprite(&cdicon, "/usr/share/icons/48/cd.png");
 
 	load_page(0);
 

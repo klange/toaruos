@@ -599,8 +599,12 @@ static void load_directory(const char * path, int modifies_history) {
 			f->selected = 0;
 
 			if (S_ISDIR(statbuf.st_mode)) {
-				/* Directory */
-				sprintf(f->icon, "folder");
+				/* Is this /cdrom? */
+				if (!strcmp(tmp,"//cdrom")) {
+					sprintf(f->icon, "cd");
+				} else {
+					sprintf(f->icon, "folder");
+				}
 				sprintf(f->filetype, "Directory");
 				f->type = 1;
 			} else {
