@@ -210,6 +210,10 @@ void setup_buttons(void) {
 }
 
 void resize_finish(int w, int h) {
+	if (w < 300 || h < 240) {
+		yutani_window_resize_offer(yctx, window, w < 300 ? 300 : w, h < 240 ? 240 : h);
+		return;
+	}
 	yutani_window_resize_accept(yctx, window, w, h);
 	reinit_graphics_yutani(ctx, window);
 	width  = w;
