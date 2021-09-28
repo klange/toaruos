@@ -228,7 +228,7 @@ struct hostent * gethostbyname(const char * name) {
 	int maybe_ip = 1;
 	int dots = 0;
 	for (const char * c = name; *c; ++c) {
-		if (*c < '0' && *c > '9' && *c != '.') {
+		if ((*c < '0' || *c > '9') && *c != '.') {
 			maybe_ip = 0;
 			break;
 		}
