@@ -730,7 +730,7 @@ struct alternative {
 
 #define ALT_BIM    "bim", "vi-like text editor"
 #define ALT_FETCH  "fetch", "URL downloader"
-#define ALT_NETIF  "cat /proc/netif", "to see network configuration"
+#define ALT_NETIF  "ifconfig", "to see network configuration"
 
 static struct alternative cmd_alternatives[] = {
 	/* Propose bim as an alternative for common text editors */
@@ -744,7 +744,6 @@ static struct alternative cmd_alternatives[] = {
 	{"wget",  ALT_FETCH},
 
 	/* We don't have ip or ifconfig commands, suggest cat /proc/netif */
-	{"ifconfig", ALT_NETIF},
 	{"ipconfig", ALT_NETIF},
 	{"ip", ALT_NETIF},
 
