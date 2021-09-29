@@ -21,7 +21,7 @@ With time, ToaruOS's relatively advanced graphical interface and other features 
 
 From its initial release through the middle of 2018, ToaruOS's userspace was built on top of the Newlib C standard library implementation as well as various third-party libraries such as Cairo and Freetype.
 
-Since the release of 1.6.x, all third-pary runtime dependencies have been removed or replaced, and ToaruOS has been entirely "in-house".
+Since the release of 1.6.x, all third-party runtime dependencies have been removed or replaced, and ToaruOS has been entirely "in-house".
 
 In April 2021, work began on ToaruOS 2.0, which brings a rewritten kernel for x86-64 (and potentially other architectures) and support for SMP. The new "Misaka" kernel was merged upstream at the end of May.
 
