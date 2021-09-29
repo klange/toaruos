@@ -22,7 +22,7 @@ class GasHighlighter(Highlighter):
         'sleb128','stabd','stabn','stabs','struct','subsection','symver','tag','text','title',
         'type','uleb128','val','version','vtable_entry','vtable_inherit','warning','weak',
         'weakref',
-        'code32','code64',
+        'code16','code32','code64',
     ]]
 
     types = ['.' + x for x in [
@@ -450,6 +450,8 @@ class GasHighlighter(Highlighter):
 
         'ljmp',
         'rep', 'stos',
+
+        'addr32',
     ]
 
     def dqualifier(self, c):
@@ -520,6 +522,12 @@ class GasHighlighter(Highlighter):
                 if self.findKeywords(self.instructions, self.FLAG_TYPE, self.cKeywordQualifier):
                     return 0
                 self.skip()
+                return 0
+            else if self[0] == '"':
+                self.paintSimpleString()
+                return 0
+            else if self[0] == "'":
+                self.paintSingleString()
                 return 0
             else if self[0] != None:
                 self.skip()
