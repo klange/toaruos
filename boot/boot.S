@@ -55,17 +55,28 @@ unrealmode:
 	jnz can_long
 
 	movl $str_Need_long, %esi
-	movl $str_Need_long_end - str_Need_long, %ecx
-	movl $0xb8000, %edi
-	addr32 rep movsb
+	call print_string
 	jmp _oh_no
 
 can_long:
+
+	/* Spot check memory */
+	movl $0x12345678, %eax
+	movl $0x5000000, %ebx
+	movl %eax, (%ebx)
+	movl (%ebx), %edx
+	cmp %edx, %eax
+	jz good_memory
+
+	movl $str_More_mem, %esi
+	call print_string
+	jmp _oh_no
+
+good_memory:
+
 	/* Print "Loading..." */
 	movl $str_Loading, %esi
-	movl $str_Loading_end - str_Loading, %ecx
-	movl $0xb8000, %edi
-	addr32 rep movsb
+	call print_string
 
 	/* Use BIOS disk reads to locate the kernel and ramdisk
 	 * and load them around the 2MB mark (by loading them
@@ -84,9 +95,7 @@ can_long:
 	je  boot_from_cd
 
 	movl $str_Bad, %esi
-	movl $str_Bad_end - str_Bad, %ecx
-	movl $0xb8000, %edi
-	addr32 rep movsb
+	call print_string
 
 _oh_no:
 	jmp _oh_no
@@ -131,7 +140,7 @@ load_one:
 	movl %ecx, ind_Spinny
 	shr $8, %ecx
 	movb str_Spinny(%ecx), %ah
-	mov $str_Loading_end - str_Loading - 2 + 0xb8000, %ecx
+	mov $0xb8016, %ecx
 	movb %ah, (%ecx)
 
 	jmp load_one
@@ -216,6 +225,21 @@ do_e820.failed:
 	stc
 	ret
 
+print_string:
+	movl $0xb8000, %edi
+print_string.loop:
+	movb (%esi), %ah
+	cmp $0, %ah
+	je print_string.exit
+	movb %ah, (%edi)
+	inc %edi
+	movb $7, (%edi)
+	inc %esi
+	inc %edi
+	jmp print_string.loop
+print_string.exit:
+	ret
+
 .align 8
 gdtr:
 	.word gdt_end - gdt_base - 1
@@ -280,17 +304,13 @@ drive_params_bps:
 	.word 0 /* bytes per sector */
 
 str_Bad:
-	.byte 'B',7,'a',7,'d',7,' ',7,'d',7,'i',7,'s',7,'k',7
-str_Bad_end:
-
+	.asciz "The boot disk does not seem to be a CD."
 str_Loading:
-	.byte 'L',7,'o',7,'a',7,'d',7,'i',7,'n',7,'g',7,'.',7,'.',7,'.',7,' ',7,' ',7
-str_Loading_end:
-
+	.asciz "Loading...  "
 str_Need_long:
-	.byte 'T',7,'o',7,'a',7,'r',7,'u',7,'O',7,'S',7,' ',7,'2',7,' ',7,'r',7,'e',7,'q',7,'u',7,'i',7,'r',7,'e',7,'s',7,' ',7,'a',7,' ',7,'6',7,'4',7,'-',7,'b',7,'i',7,'t',7,' ',7,'p',7,'r',7,'o',7,'c',7,'e',7,'s',7,'s',7,'o',7,'r',7
-str_Need_long_end:
-
+	.asciz "ToaruOS 2.0 requires a 64-bit processor."
+str_More_mem:
+	.asciz "ToaruOS 2.0 needs at least 128MiB of RAM."
 str_Spinny:
 	.byte '|','/','-','\\'
 ind_Spinny:
