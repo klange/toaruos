@@ -25,13 +25,19 @@
 static char   hostname[256];
 static size_t hostname_len = 0;
 
+extern union PML * mmu_get_page_other(union PML * root, uintptr_t virtAddr);
 int ptr_validate(void * ptr, const char * syscall) {
-	if (ptr && !PTR_INRANGE(ptr)) {
-		send_signal(this_core->current_process->id, SIGSEGV, 1);
-		return 1;
+	if (ptr) {
+		if (!PTR_INRANGE(ptr)) {
+			send_signal(this_core->current_process->id, SIGSEGV, 1);
+			return 1;
+		}
+		if (!mmu_validate_user_pointer(ptr,1,0)) return 1;
 	}
 	return 0;
 }
+
+#define PTRCHECK(addr,size,flags) do { if (!mmu_validate_user_pointer(addr,size,flags)) return -EFAULT; } while (0)
 
 static long sys_sbrk(ssize_t size) {
 	if (size & 0xFFF) return -EINVAL;
@@ -97,7 +103,7 @@ static long sys_sysfunc(long fn, char ** args) {
 			 * the stuff in the middle to be mapped necessarily... */
 			PTR_VALIDATE(args);
 			if (!args) return -EFAULT;
-			PTR_VALIDATE(args[0]);
+			if (!PTR_INRANGE(args[0])) return -EFAULT;
 			if (!args[0]) return -EFAULT;
 			volatile process_t * volatile proc = this_core->current_process;
 			if (proc->group != 0) proc = process_from_pid(proc->group);
@@ -119,8 +125,8 @@ static long sys_sysfunc(long fn, char ** args) {
 			/* Align inputs */
 			uintptr_t start = ((uintptr_t)args[0]) & 0xFFFFffffFFFFf000UL;
 			uintptr_t end   = ((uintptr_t)args[0] + (size_t)args[1] + 0xFFF) & 0xFFFFffffFFFFf000UL;
-			PTR_VALIDATE(start);
-			PTR_VALIDATE(end);
+			if (!PTR_INRANGE(start)) return -EFAULT;
+			if (!PTR_INRANGE(end)) return -EFAULT;
 			for (uintptr_t i = start; i < end; i += 0x1000) {
 				union PML * page = mmu_get_page(i, MMU_GET_MAKE);
 				mmu_frame_allocate(page, MMU_FLAG_WRITABLE);
@@ -177,7 +183,7 @@ static long sys_exit(long exitcode) {
 
 static long sys_write(int fd, char * ptr, unsigned long len) {
 	if (FD_CHECK(fd)) {
-		PTR_VALIDATE(ptr);
+		PTRCHECK(ptr,len,MMU_PTR_NULL);
 		fs_node_t * node = FD_ENTRY(fd);
 		if (!(FD_MODE(fd) & 2)) return -EACCES;
 		if (len && !ptr) {
@@ -394,7 +400,7 @@ static long sys_seek(int fd, long offset, long whence) {
 
 static long sys_read(int fd, char * ptr, unsigned long len) {
 	if (FD_CHECK(fd)) {
-		PTR_VALIDATE(ptr);
+		PTRCHECK(ptr,len,MMU_PTR_NULL|MMU_PTR_WRITE);
 		if (len && !ptr) {
 			return -EFAULT;
 		}

@@ -899,3 +899,26 @@ void * mmu_map_module(size_t size) {
 }
 
 
+int mmu_validate_user_pointer(void * addr, size_t size, int flags) {
+	if (addr == NULL && !(flags & MMU_PTR_NULL)) return 0;
+	if (size >     0x800000000000) return 0;
+
+	uintptr_t base = (uintptr_t)addr;
+	uintptr_t end  = size ? (base + (size - 1)) : base;
+
+	/* Get start page, end page */
+	uintptr_t page_base = base >> 12;
+	uintptr_t page_end  =  end >> 12;
+
+	for (uintptr_t page = page_base; page <= page_end; ++page) {
+		if ((page & 0xffff800000000) != 0 && (page & 0xffff800000000) != 0xffff800000000) return 0;
+		union PML * page_entry = mmu_get_page_other(this_core->current_process->thread.page_directory->directory, page << 12);
+		if (!page_entry) return 0;
+		if (!page_entry->bits.present) return 0;
+		if (!page_entry->bits.user) return 0;
+		if (!page_entry->bits.writable && (flags & MMU_PTR_WRITE)) return 0;
+	}
+
+	return 1;
+}
+

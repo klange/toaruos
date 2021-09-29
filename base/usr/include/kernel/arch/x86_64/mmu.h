@@ -12,6 +12,9 @@
 #define MMU_GET_MAKE 0x01
 
 
+#define MMU_PTR_NULL  1
+#define MMU_PTR_WRITE 2
+
 void mmu_frame_set(uintptr_t frame_addr);
 void mmu_frame_clear(uintptr_t frame_addr);
 int mmu_frame_test(uintptr_t frame_addr);
@@ -40,3 +43,5 @@ size_t mmu_total_memory(void);
 size_t mmu_used_memory(void);
 
 void * sbrk(size_t);
+
+int mmu_validate_user_pointer(void * addr, size_t size, int flags);
