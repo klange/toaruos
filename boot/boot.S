@@ -310,7 +310,7 @@ str_Loading:
 str_Need_long:
 	.asciz "ToaruOS 2.0 requires a 64-bit processor."
 str_More_mem:
-	.asciz "ToaruOS 2.0 needs at least 128MiB of RAM."
+	.asciz "ToaruOS 2.0 needs at least 128MiB of RAM, and 1GiB is recommended."
 str_Spinny:
 	.byte '|','/','-','\\'
 ind_Spinny:
