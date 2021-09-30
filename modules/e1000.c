@@ -59,6 +59,8 @@ struct e1000_nic {
 	int configured;
 	process_t * queuer;
 	process_t * processor;
+
+	netif_counters_t counts;
 };
 
 static int device_count = 0;
@@ -171,6 +173,8 @@ static void e1000_queuer(void * data) {
 			while ((nic->rx[nic->rx_index].status & 0x01) && (processed < budget)) {
 				int i = nic->rx_index;
 				if (!(nic->rx[i].errors & (0x97))) {
+					nic->counts.rx_count++;
+					nic->counts.rx_bytes += nic->rx[i].length;
 					net_eth_handle((void*)nic->rx_virt[i], nic->eth.device_node);
 				} else {
 					printf("error bits set in packet: %x\n", nic->rx[i].errors);
@@ -248,6 +252,9 @@ static void send_packet(struct e1000_nic * device, uint8_t* payload, size_t payl
 	device->tx[device->tx_index].length = payload_size;
 	device->tx[device->tx_index].cmd = CMD_EOP | CMD_IFCS | CMD_RS; //| CMD_RPS;
 	device->tx[device->tx_index].status = 0;
+
+	device->counts.tx_count++;
+	device->counts.tx_bytes += payload_size;
 
 	if (++device->tx_index == E1000_NUM_TX_DESC) {
 		device->tx_index = 0;
@@ -352,6 +359,11 @@ static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 		case SIOCGIFMTU: {
 			uint32_t * mtu = argp;
 			*mtu = nic->eth.mtu;
+			return 0;
+		}
+
+		case SIOCGIFCOUNTS: {
+			memcpy(argp, &nic->counts, sizeof(netif_counters_t));
 			return 0;
 		}
 

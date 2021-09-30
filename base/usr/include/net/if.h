@@ -1,6 +1,7 @@
 #pragma once
 
 #include <_cheader.h>
+#include <stdint.h>
 
 _Begin_C_Header
 
@@ -19,6 +20,7 @@ _Begin_C_Header
 #define SIOCGIFMTU      0x12340006 /* Get interface mtu */
 #define SIOCGIFGATEWAY  0x12340007
 #define SIOCSIFGATEWAY  0x12340017
+#define SIOCGIFCOUNTS   0x12340018
 
 /**
  * Flags for interface status
@@ -29,5 +31,12 @@ _Begin_C_Header
 #define IFF_LOOPBACK      0x0008
 #define IFF_RUNNING       0x0010
 #define IFF_MULTICAST     0x0020
+
+typedef struct {
+	size_t tx_count;
+	size_t tx_bytes;
+	size_t rx_count;
+	size_t rx_bytes;
+} netif_counters_t;
 
 _End_C_Header

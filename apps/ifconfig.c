@@ -45,6 +45,19 @@ static char * flagsToStr(uint32_t flags) {
 	return out;
 }
 
+static int print_human_readable_size(char * _out, size_t s) {
+	size_t count = 5;
+	char * prefix = "PTGMK";
+	for (; count > 0 && *prefix; count--, prefix++) {
+		size_t base = 1UL << (count * 10);
+		if (s >= base) {
+			size_t t = s / base;
+			return sprintf(_out, "%zu.%1zu %cB", t, (s - t * base) / (base / 10), *prefix);
+		}
+	}
+	return sprintf(_out, "%d B", (int)s);
+}
+
 static int configure_interface(const char * if_name) {
 	char if_path[100];
 	snprintf(if_path, 100, "/dev/net/%s", if_name);
@@ -97,6 +110,15 @@ static int configure_interface(const char * if_name) {
 		fprintf(stdout,"        ether %02x:%02x:%02x:%02x:%02x:%02x\n",
 			mac_addr[0], mac_addr[1], mac_addr[2],
 			mac_addr[3], mac_addr[4], mac_addr[5]);
+	}
+
+	netif_counters_t counts;
+	if (!ioctl(netdev, SIOCGIFCOUNTS, &counts)) {
+		char _buf[100];
+		print_human_readable_size(_buf, counts.rx_bytes);
+		fprintf(stdout,"        RX packets %zu  bytes %zu (%s)\n", counts.rx_count, counts.rx_bytes, _buf);
+		print_human_readable_size(_buf, counts.tx_bytes);
+		fprintf(stdout,"        TX packets %zu  bytes %zu (%s)\n", counts.tx_count, counts.tx_bytes, _buf);
 	}
 
 	/* TODO stats */
