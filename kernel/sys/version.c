@@ -15,7 +15,7 @@
 
 /* Kernel name. If you change this, you're not
  * my friend any more. */
-const char * __kernel_name = "toaru";
+const char * __kernel_name = "Misaka";
 
 /* This really shouldn't change, and if it does,
  * always ensure it still has the correct arguments
@@ -39,7 +39,7 @@ int    __kernel_version_lower = 7;
 const char * __kernel_version_suffix   = KERNEL_VERSION_SUFFIX;
 
 /* The release codename. */
-const char * __kernel_version_codename = "misaka";
+const char * __kernel_version_codename = "only my railgun";
 
 /* Build architecture */
 const char * __kernel_arch = STRSTR(KERNEL_ARCH);
