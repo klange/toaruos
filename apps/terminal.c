@@ -273,6 +273,7 @@ static void set_title(char * c) {
 
 /* Call a function for each selected cell */
 static void iterate_selection(void (*func)(uint16_t x, uint16_t y)) {
+	if (!selection) return;
 	if (selection_end_y < selection_start_y) {
 		for (int x = selection_end_x; x < term_width; ++x) {
 			func(x, selection_end_y);
@@ -316,94 +317,60 @@ static void redraw_selection(void) {
 	iterate_selection(cell_redraw_offset_inverted);
 }
 
-static void redraw_new_selection(int old_x, int old_y) {
-	if (selection_end_y == selection_start_y && old_y != selection_start_y) {
-		int a, b;
-		a = selection_end_x;
-		b = selection_end_y;
-		selection_end_x = old_x;
-		selection_end_y = old_y;
-		iterate_selection(cell_redraw_offset);
-		selection_end_x = a;
-		selection_end_y = b;
-		iterate_selection(cell_redraw_offset_inverted);
+static term_cell_t * cell_at(uint16_t x, uint16_t _y) {
+	int y = _y;
+	y -= scrollback_offset;
+	if (y >= 0) {
+		return (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
 	} else {
-		int a, b;
-		a = selection_start_x;
-		b = selection_start_y;
-
-		selection_start_x = old_x;
-		selection_start_y = old_y;
-
-		/* Figure out direction */
-		if (old_y < b) {
-			/* Backwards */
-			if (selection_end_y < old_y || (selection_end_y == old_y && selection_end_x < old_x)) {
-				/* Selection extended */
-				iterate_selection(cell_redraw_offset_inverted);
-			} else {
-				/* Selection got smaller */
-				iterate_selection(cell_redraw_offset);
-			}
-		} else if (old_y == b) {
-			/* Was a single line */
-			if (selection_end_y == b) {
-				/* And still is */
-				if (old_x < a) {
-					/* Backwards */
-					if (selection_end_x < old_x) {
-						iterate_selection(cell_redraw_offset_inverted);
-					} else {
-						iterate_selection(cell_redraw_offset);
-					}
-				} else {
-					if (selection_end_x < old_x) {
-						iterate_selection(cell_redraw_offset);
-					} else {
-						iterate_selection(cell_redraw_offset_inverted);
-					}
-				}
-			} else if (selection_end_y < b) {
-				/* Moved up */
-				if (old_x <= a) {
-					/* Should be fine with just append */
-					iterate_selection(cell_redraw_offset_inverted);
-				} else {
-					/* Need to erase first */
-					iterate_selection(cell_redraw_offset);
-					selection_start_x = a;
-					selection_start_y = b;
-					iterate_selection(cell_redraw_offset_inverted);
-				}
-			} else if (selection_end_y > b) {
-				if (old_x >= a) {
-					/* Should be fine with just append */
-					iterate_selection(cell_redraw_offset_inverted);
-				} else {
-					/* Need to erase first */
-					iterate_selection(cell_redraw_offset);
-					selection_start_x = a;
-					selection_start_y = b;
-					iterate_selection(cell_redraw_offset_inverted);
-				}
-			}
-		} else {
-			/* Forward */
-			if (selection_end_y < old_y || (selection_end_y == old_y && selection_end_x < old_x)) {
-				/* Selection got smaller */
-				iterate_selection(cell_redraw_offset);
-			} else {
-				/* Selection extended */
-				iterate_selection(cell_redraw_offset_inverted);
+		node_t * node = scrollback_list->tail;
+		for (; y < -1; y++) {
+			if (!node) break;
+			node = node->prev;
+		}
+		if (node) {
+			struct scrollback_row * row = (struct scrollback_row *)node->value;
+			if (row && x < row->width) {
+				return &row->cells[x];
 			}
 		}
+	}
+	return NULL;
+}
 
-		cell_redraw_offset_inverted(a,b);
-		cell_redraw_offset_inverted(selection_end_x, selection_end_y);
+static void mark_cell(uint16_t x, uint16_t y) {
+	term_cell_t * c = cell_at(x,y);
+	if (c) {
+		c->flags |= 0x200;
+	}
+}
 
-		/* Restore */
-		selection_start_x = a;
-		selection_start_y = b;
+static void mark_selection(void) {
+	iterate_selection(mark_cell);
+}
+
+static void red_cell(uint16_t x, uint16_t y) {
+	term_cell_t * c = cell_at(x,y);
+	if (c) {
+		if (c->flags & 0x200) {
+			c->flags &= ~(0x200);
+		} else {
+			c->flags |= 0x400;
+		}
+	}
+}
+
+static void flip_selection(void) {
+	iterate_selection(red_cell);
+	for (int y = 0; y < term_height; ++y) {
+		for (int x = 0; x < term_width; ++x) {
+			term_cell_t * c = cell_at(x,y);
+			if (c) {
+				if (c->flags & 0x200) cell_redraw_offset(x,y);
+				if (c->flags & 0x400) cell_redraw_offset_inverted(x,y);
+				c->flags &= ~(0x600);
+			}
+		}
 	}
 }
 
@@ -1889,6 +1856,8 @@ static void mouse_event(int button, int x, int y) {
 /* Handle Yutani messages */
 static void * handle_incoming(void) {
 
+	static uint64_t last_click = 0;
+
 	yutani_msg_t * m = yutani_poll(yctx);
 	while (m) {
 		if (menu_process_event(yctx, m)) {
@@ -2063,20 +2032,37 @@ static void * handle_incoming(void) {
 					} else {
 						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
 							redraw_scrollback();
-							selection_start_x = new_x;
-							selection_start_y = new_y;
-							selection_end_x = new_x;
-							selection_end_y = new_y;
-							selection = 1;
+							uint64_t now = get_ticks();
+							if (now - last_click < 500000UL && (new_x == selection_start_x && new_y == selection_start_y)) {
+								/* Double click */
+								while (selection_start_x > 0) {
+									term_cell_t * c = cell_at(selection_start_x-1, selection_start_y);
+									if (!c || c->c == ' ' || !c->c) break;
+									selection_start_x--;
+								}
+								while (selection_end_x < term_width - 1) {
+									term_cell_t * c = cell_at(selection_end_x+1, selection_end_y);
+									if (!c || c->c == ' ' || !c->c) break;
+									selection_end_x++;
+								}
+								selection = 1;
+							} else {
+								last_click = get_ticks();
+								selection_start_x = new_x;
+								selection_start_y = new_y;
+								selection_end_x = new_x;
+								selection_end_y = new_y;
+								selection = 0;
+							}
 							redraw_selection();
 							display_flip();
 						}
 						if (me->command == YUTANI_MOUSE_EVENT_DRAG && me->buttons & YUTANI_MOUSE_BUTTON_LEFT ){
-							int old_end_x = selection_end_x;
-							int old_end_y = selection_end_y;
+							mark_selection();
 							selection_end_x = new_x;
 							selection_end_y = new_y;
-							redraw_new_selection(old_end_x, old_end_y);
+							selection = 1;
+							flip_selection();
 							display_flip();
 						}
 						if (me->command == YUTANI_MOUSE_EVENT_RAISE) {
