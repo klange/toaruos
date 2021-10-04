@@ -8,6 +8,9 @@
 #include <kernel/misc.h>
 #include <kernel/time.h>
 #include <kernel/ptrace.h>
+#include <kernel/hashmap.h>
+#include <kernel/module.h>
+#include <kernel/ksym.h>
 
 #include <sys/time.h>
 #include <sys/utsname.h>
@@ -157,6 +160,97 @@ void irq_uninstall_handler(size_t irq) {
 		irq_routines[i * IRQ_CHAIN_SIZE + irq] = NULL;
 }
 
+static struct LoadedModule * find_module(uintptr_t addr, char ** name) {
+	hashmap_t * modules = modules_get_list();
+
+	for (size_t i = 0; i < modules->size; ++i) {
+		hashmap_entry_t * x = modules->entries[i];
+		while (x) {
+			struct LoadedModule * info = x->value;
+			if (info->baseAddress <= addr && addr <= info->baseAddress + info->loadedSize) {
+				*name = (char*)x->key;
+				return info;
+			}
+			x = x->next;
+		}
+	}
+
+	return NULL;
+}
+
+static int validate_pointer(uintptr_t base, size_t size) {
+	uintptr_t end  = size ? (base + (size - 1)) : base;
+	uintptr_t page_base = base >> 12;
+	uintptr_t page_end  =  end >> 12;
+	for (uintptr_t page = page_base; page <= page_end; ++page) {
+		if ((page & 0xffff800000000) != 0 && (page & 0xffff800000000) != 0xffff800000000) return 0;
+		union PML * page_entry = mmu_get_page_other(this_core->current_process->thread.page_directory->directory, page << 12);
+		if (!page_entry) return 0;
+		if (!page_entry->bits.present) return 0;
+	}
+	return 1;
+}
+
+extern char end[];
+
+static uintptr_t matching_symbol(uintptr_t ip, char ** name) {
+	hashmap_t * symbols = ksym_get_map();
+	uintptr_t best_match = 0;
+	for (size_t i = 0; i < symbols->size; ++i) {
+		hashmap_entry_t * x = symbols->entries[i];
+		while (x) {
+			void* sym_addr = x->value;
+			char* sym_name = x->key;
+			if ((uintptr_t)sym_addr < ip && (uintptr_t)sym_addr > best_match) {
+				best_match = (uintptr_t)sym_addr;
+				*name = sym_name;
+			}
+			x = x->next;
+		}
+	}
+	return best_match;
+}
+
+static void safe_dump_traceback(struct regs * r) {
+	uintptr_t ip = r->rip;
+	uintptr_t bp = r->rbp;
+	int depth = 0;
+	int max_depth = 20;
+
+	while (bp && ip && depth < max_depth) {
+		printf(" 0x%016zx ", ip);
+		if (ip >= 0xffffffff80000000UL) {
+			char * name = NULL;
+			struct LoadedModule * mod = find_module(ip, &name);
+			if (mod) {
+				printf(" in module '%s', base address %#zx (offset %#zx)\n",
+					name, mod->baseAddress, r->rip - mod->baseAddress);
+			} else {
+				printf(" (unknown)\n");
+			}
+		} else if (ip >= (uintptr_t)&end && ip <= 0x800000000000) {
+			printf(" in userspace\n");
+		} else if (ip <= (uintptr_t)&end) {
+			/* Find symbol match */
+			char * name;
+			uintptr_t addr = matching_symbol(ip, &name);
+			if (!addr) {
+				printf(" (no match)\n");
+			} else {
+				printf(" %s+0x%zx\n", name, ip-addr);
+			}
+		} else {
+			printf(" (unknown)\n");
+		}
+		if (!validate_pointer(bp, sizeof(uintptr_t) * 2)) {
+			break;
+		}
+		ip = *(uintptr_t*)(bp + sizeof(uintptr_t));
+		bp = *(uintptr_t*)(bp);
+		depth++;
+	}
+}
+
 static void map_more_stack(uintptr_t fromAddr) {
 	volatile process_t * volatile proc = this_core->current_process;
 	if (proc->group != 0) {
@@ -189,6 +283,7 @@ struct regs * isr_handler(struct regs * r) {
 					printf("pid=%d (%s) ", (int)this_core->current_process->id, this_core->current_process->name);
 				}
 				printf("at %#zx\n", faulting_address);
+				safe_dump_traceback(r);
 				dump_regs(r);
 				arch_fatal();
 			}

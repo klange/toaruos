@@ -25,7 +25,6 @@
 static char   hostname[256];
 static size_t hostname_len = 0;
 
-extern union PML * mmu_get_page_other(union PML * root, uintptr_t virtAddr);
 int ptr_validate(void * ptr, const char * syscall) {
 	if (ptr) {
 		if (!PTR_INRANGE(ptr)) {

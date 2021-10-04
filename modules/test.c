@@ -3,6 +3,7 @@
 
 static int init(int argc, char * argv[]) {
 	printf("Hello, modules.\n");
+	*(volatile int*)0x60000000 = 42;
 	return 0;
 }
 

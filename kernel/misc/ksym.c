@@ -32,3 +32,7 @@ list_t * ksym_list(void) {
 	assert(ksym_hash != NULL);
 	return hashmap_keys(ksym_hash);
 }
+
+hashmap_t * ksym_get_map(void) {
+	return ksym_hash;
+}

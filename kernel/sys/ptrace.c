@@ -91,7 +91,6 @@ long ptrace_getregs(pid_t pid, void * data) {
 	return 0;
 }
 
-extern union PML * mmu_get_page_other(union PML * root, uintptr_t virtAddr);
 long ptrace_peek(pid_t pid, void * addr, void * data) {
 	if (!data || ptr_validate(data, "ptrace")) return -EFAULT;
 	process_t * tracee = process_from_pid(pid);
