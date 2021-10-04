@@ -1011,3 +1011,31 @@ char * tt_get_name_string(struct TT_Font * font, int identifier) {
 
 	return NULL;
 }
+
+void tt_contour_stroke_bounded(gfx_context_t * ctx, struct TT_Contour * in, uint32_t color, float width,
+		int x_0, int y_0, int w, int h) {
+	/* This is a stupid slow thing */
+	for (int y = y_0; y < y_0 + h; y++) {
+		for (int x = x_0; x < x_0 + w; x++) {
+			struct gfx_point p = {(float)x + 0.5, (float)y + 0.5};
+			/* For every line in the contour... */
+			float mindist = 100.0;
+			for (size_t i = 0; i < in->edgeCount; ++i) {
+				struct gfx_point v = { in->edges[i].start.x, in->edges[i].start.y };
+				struct gfx_point w = { in->edges[i].end.x, in->edges[i].end.y };
+
+				float mine = gfx_line_distance(&p,&v,&w);
+				if (mine < mindist) mindist = mine;
+			}
+
+			if (mindist < width + 0.5) {
+				if (mindist < width - 0.5) {
+					GFX(ctx,x,y) = alpha_blend_rgba(GFX(ctx,x,y), color);
+				} else {
+					float alpha = 1.0 - (mindist - width + 0.5);
+					GFX(ctx,x,y) = alpha_blend_rgba(GFX(ctx,x,y), premultiply(rgba(_RED(color),_GRE(color),_BLU(color),(int)((double)_ALP(color) * alpha))));
+				}
+			}
+		}
+	}
+}
