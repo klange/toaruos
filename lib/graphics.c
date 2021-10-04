@@ -1143,23 +1143,33 @@ float gfx_line_distance(const struct gfx_point * p, const struct gfx_point * v, 
  *
  * Maybe acceptable for baked UI elements?
  */
-void draw_line_aa(gfx_context_t * ctx, int x_1, int x_2, int y_1, int y_2, uint32_t color, float thickness) {
-	struct gfx_point v = {(float)x_1, (float)y_1};
-	struct gfx_point w = {(float)x_2, (float)y_2};
+void draw_line_aa_points(gfx_context_t * ctx, struct gfx_point *v, struct gfx_point *w, uint32_t color, float thickness) {
 
-	for (int y = 0; y < ctx->height; ++y) {
-		for (int x = 0; x < ctx->width; ++x) {
+	/* Calculate viable bounds */
+	int x_0 = max(min(v->x - thickness - 1, w->x - thickness - 1), 0);
+	int x_1 = min(max(v->x + thickness + 1, w->x + thickness + 1), ctx->width);
+	int y_0 = max(min(v->y - thickness - 1, w->y - thickness - 1), 0);
+	int y_1 = min(max(v->y + thickness + 1, w->y + thickness + 1), ctx->height);
+
+	for (int y = y_0; y < y_1; ++y) {
+		for (int x = x_0; x < x_1; ++x) {
 			struct gfx_point p = {x,y};
-			float d = gfx_line_distance(&p,&v,&w);
+			float d = gfx_line_distance(&p,v,w);
 			if (d < thickness + 0.5) {
 				if (d < thickness - 0.5) {
-					GFX(ctx,x,y) = color;
+					GFX(ctx,x,y) = alpha_blend_rgba(GFX(ctx,x,y), color);
 				} else {
-					uint32_t f_color = rgb(255 * (1.0 - (d - thickness + 0.5)), 0, 0);
-					GFX(ctx,x,y) = alpha_blend(GFX(ctx,x,y), color, f_color);
+					float alpha = 1.0 - (d - thickness + 0.5);
+					GFX(ctx,x,y) = alpha_blend_rgba(GFX(ctx,x,y), premultiply(rgba(_RED(color),_GRE(color),_BLU(color),(int)((double)_ALP(color) * alpha))));
 				}
 			}
 		}
 	}
+}
+
+void draw_line_aa(gfx_context_t * ctx, int x_1, int x_2, int y_1, int y_2, uint32_t color, float thickness) {
+	struct gfx_point v = {(float)x_1, (float)y_1};
+	struct gfx_point w = {(float)x_2, (float)y_2};
+	draw_line_aa_points(ctx,&v,&w,color,thickness);
 }
 

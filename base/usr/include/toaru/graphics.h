@@ -115,6 +115,7 @@ extern float gfx_point_dot(const struct gfx_point * a, const struct gfx_point * 
 extern struct gfx_point gfx_point_sub(const struct gfx_point * a, const struct gfx_point * b);
 extern struct gfx_point gfx_point_add(const struct gfx_point * a, const struct gfx_point * b);
 extern float gfx_line_distance(const struct gfx_point * p, const struct gfx_point * v, const struct gfx_point * w);
+extern void draw_line_aa_points(gfx_context_t * ctx, struct gfx_point *v, struct gfx_point *w, uint32_t color, float thickness);
 extern void draw_line_aa(gfx_context_t * ctx, int x_1, int x_2, int y_1, int y_2, uint32_t color, float thickness);
 
 struct gradient_definition {
