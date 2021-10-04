@@ -1,10 +1,11 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @file  apps/fetch.c
+ * @brief Obtain files over HTTP.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2015-2018 K. Lange
- *
- * fetch - Retreive documents from HTTP servers.
- *
+ * Copyright (C) 2015-2021 K. Lange
  */
 #include <stdio.h>
 #include <string.h>
@@ -28,6 +29,7 @@ struct http_req {
 	char domain[SIZE];
 	char path[SIZE];
 	int port;
+	int ssl;
 };
 
 struct {
@@ -47,32 +49,38 @@ struct {
 	int machine_readable;
 } fetch_options = {0};
 
-void parse_url(char * d, struct http_req * r) {
+int parse_url(char * d, struct http_req * r) {
 	if (strstr(d, "http://") == d) {
 		d += strlen("http://");
-
-		char * s = strstr(d, "/");
-		if (!s) {
-			strcpy(r->domain, d);
-			strcpy(r->path, "");
-		} else {
-			*s = 0;
-			s++;
-			strcpy(r->domain, d);
-			strcpy(r->path, s);
-		}
-		if (strstr(r->domain,":")) {
-			char * port = strstr(r->domain,":");
-			*port = '\0';
-			port++;
-			r->port = atoi(port);
-		} else {
-			r->port = 80;
-		}
+		r->port = 80;
+		r->ssl = 0;
+	} else if (strstr(d, "https://") == d) {
+		d += strlen("https://");
+		r->port = 443;
+		r->ssl = 1;
 	} else {
-		fprintf(stderr, "sorry, can't parse %s\n", d);
-		exit(1);
+		fprintf(stderr, "Unrecognized protocol: %s\n", d);
+		return 1;
 	}
+
+	char * s = strstr(d, "/");
+	if (!s) {
+		strcpy(r->domain, d);
+		strcpy(r->path, "");
+	} else {
+		*s = 0;
+		s++;
+		strcpy(r->domain, d);
+		strcpy(r->path, s);
+	}
+	if (strstr(r->domain,":")) {
+		char * port = strstr(r->domain,":");
+		*port = '\0';
+		port++;
+		r->port = atoi(port);
+	}
+
+	return 0;
 }
 
 #define BAR_WIDTH 20
@@ -248,7 +256,7 @@ int http_fetch(FILE * f) {
 		fetch_options.size += r;
 		print_progress(0);
 		if (fetch_options.machine_readable && fetch_options.content_length) {
-			fprintf(stdout,"%d %d\n",(int)fetch_options.size, (int)fetch_options.content_length);
+			fprintf(stdout,"%zu %zu\n",fetch_options.size,fetch_options.content_length);
 		}
 		bytes_to_read -= r;
 	}
@@ -300,7 +308,15 @@ int main(int argc, char * argv[]) {
 	}
 
 	struct http_req my_req;
-	parse_url(argv[optind], &my_req);
+	if (parse_url(argv[optind], &my_req)) {
+		return 1;
+	}
+
+	if (my_req.ssl) {
+		/* TODO look for a viable backend. */
+		fprintf(stderr, "%s: no tls backend\n", argv[0]);
+		return 1;
+	}
 
 	if (fetch_options.calculate_output) {
 		char * tmp = strdup(my_req.path);
