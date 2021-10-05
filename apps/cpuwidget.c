@@ -442,7 +442,7 @@ int main (int argc, char ** argv) {
 
 	wina = yutani_window_create(yctx, width + bounds.width, height + bounds.height);
 	yutani_window_move(yctx, wina, left, top);
-	yutani_window_advertise_icon(yctx, wina, "System Monitor", "cpuwidget");
+	yutani_window_advertise_icon(yctx, wina, "System Monitor", "system-monitor");
 
 	ctx_base = init_graphics_yutani_double_buffer(wina);
 
