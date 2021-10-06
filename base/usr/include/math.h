@@ -36,6 +36,8 @@ extern double sinh(double x);
 extern double tan(double x);
 extern double tanh(double x);
 extern double atan(double x);
+extern double log1p(double x);
+extern double expm1(double x);
 
 extern double modf(double x, double *iptr);
 
