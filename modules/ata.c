@@ -594,7 +594,7 @@ static int atapi_device_init(struct ata_device * dev) {
 	while (1) {
 		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
 		if ((status & ATA_SR_ERR)) goto atapi_error;
-		if (timeout-- < 100) goto atapi_timeout;
+		if (timeout-- < 0) goto atapi_timeout;
 		if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRDY)) break;
 	}
 
@@ -607,7 +607,7 @@ static int atapi_device_init(struct ata_device * dev) {
 	while (1) {
 		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
 		if ((status & ATA_SR_ERR)) goto atapi_error_read;
-		if (timeout-- < 100) goto atapi_timeout;
+		if (timeout-- < 0) goto atapi_timeout;
 		if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRDY)) break;
 		if ((status & ATA_SR_DRQ)) break;
 	}
