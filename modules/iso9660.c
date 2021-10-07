@@ -139,16 +139,15 @@ static void file_from_dir_entry(iso_9660_fs_t * this, size_t sector, iso_9660_di
 
 #define CACHE_SIZE 64
 
-static void read_sector(iso_9660_fs_t * this, uint32_t sector_id, char * buffer) {
+static int read_sector(iso_9660_fs_t * this, uint32_t sector_id, char * buffer) {
 	if (this->cache) {
 		void * sector_id_v = (void *)(uintptr_t)sector_id;
 		if (hashmap_has(this->cache, sector_id_v)) {
 			memcpy(buffer,hashmap_get(this->cache, sector_id_v), this->block_size);
-
 			node_t * me = list_find(this->lru, sector_id_v);
 			list_delete(this->lru, me);
 			list_append(this->lru, me);
-
+			return 0;
 		} else {
 			if (this->lru->length > CACHE_SIZE) {
 				node_t * l = list_dequeue(this->lru);
@@ -156,14 +155,20 @@ static void read_sector(iso_9660_fs_t * this, uint32_t sector_id, char * buffer)
 				hashmap_remove(this->cache, l->value);
 				free(l);
 			}
-			read_fs(this->block_device, sector_id * this->block_size, this->block_size, (uint8_t *)buffer);
+			int result = read_fs(this->block_device, sector_id * this->block_size, this->block_size, (uint8_t *)buffer);
+			if (result < 0) return result;
+			if (result == 0) return 1;
 			char * buf = malloc(this->block_size);
 			memcpy(buf, buffer, this->block_size);
 			hashmap_set(this->cache, sector_id_v, buf);
 			list_insert(this->lru, sector_id_v);
+			return 0;
 		}
 	} else {
-		read_fs(this->block_device, sector_id * this->block_size, this->block_size, (uint8_t *)buffer);
+		int result = read_fs(this->block_device, sector_id * this->block_size, this->block_size, (uint8_t *)buffer);
+		if (result < 0) return result;
+		if (result == 0) return 1;
+		return 0;
 	}
 }
 
@@ -433,7 +438,7 @@ static fs_node_t * iso_fs_mount(const char * device, const char * mount_path) {
 	int i = 0x10;
 	int found = 0;
 	while (1) {
-		read_sector(this,i,(char*)tmp);
+		if (read_sector(this,i,(char*)tmp)) break;
 		if (tmp[0] == 0x00) {
 			//debug_print(WARNING, " Boot Record");
 		} else if (tmp[0] == 0x01) {
