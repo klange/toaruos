@@ -150,6 +150,8 @@ static uint64_t precise_time_since(uint64_t start_time) {
 static int _decor_get_bounds(yutani_window_t * win, struct decor_bounds * bounds) {
 	if (is_desktop_background) {
 		memset(bounds, 0, sizeof(struct decor_bounds));
+		bounds->height = 54;
+		bounds->width = 20;
 		bounds->top_height = 54;
 		bounds->left_width = 20;
 		return 0;
