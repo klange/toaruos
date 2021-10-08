@@ -1,0 +1,11 @@
+#!/bin/kuroko
+import os
+import kuroko
+
+try:
+    os.stat('/usr/bin/pdfviewer')
+    os.execl('/usr/bin/pdfviewer','pdfviewer',kuroko.argv[1])
+except os.OSError:
+    if os.system('showdialog "PDF Viewer" "/usr/share/icons/48/pdf.png" "Do you want to install the PDF viewer from the Package Manager?"') == 0:
+        os.system('terminal gsudo sh -c "msk update; msk install mupdf"')
+        os.execl('/usr/bin/pdfviewer','pdfviewer',kuroko.argv[1])

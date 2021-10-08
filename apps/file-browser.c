@@ -667,6 +667,10 @@ static void load_directory(const char * path, int modifies_history) {
 						sprintf(f->icon, "font");
 						sprintf(f->launcher,"exec font-preview");
 						sprintf(f->filetype, "TrueType Font");
+					} else if (has_extension(f, ".pdf")) {
+						sprintf(f->icon, "pdf");
+						sprintf(f->launcher,"exec maybe-pdfviewer.krk");
+						sprintf(f->filetype, "Portable Document Format");
 					} else if (has_extension(f, ".tgz") || has_extension(f, ".tar.gz")) {
 						sprintf(f->icon, "package_targz");
 						sprintf(f->filetype, "Compressed Archive File");
