@@ -419,6 +419,8 @@ static void vmware_set_resolution(uint16_t w, uint16_t h) {
 	lfb_resolution_s = bpl;
 	lfb_resolution_y = h;
 	lfb_resolution_b = 32;
+
+	lfb_memsize = vmware_read(15);
 }
 
 static void graphics_install_vmware(uint16_t w, uint16_t h) {
@@ -437,9 +439,9 @@ static void graphics_install_vmware(uint16_t w, uint16_t h) {
 	uintptr_t fb_addr = vmware_read(SVGA_REG_FB_START);
 	printf("vmware fb address: %p\n", (void*)fb_addr);
 
-	size_t fb_size = vmware_read(15);
+	lfb_memsize = vmware_read(15);
 
-	printf("vmware fb size: 0x%lx\n", fb_size);
+	printf("vmware fb size: 0x%lx\n", lfb_memsize);
 
 	lfb_vid_memory = mmu_map_from_physical(fb_addr);
 
