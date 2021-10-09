@@ -1475,6 +1475,31 @@ static void key_event(int ret, key_event_t * event) {
 			return;
 		}
 
+		if ((event->modifiers & KEY_MOD_LEFT_CTRL || event->modifiers & KEY_MOD_RIGHT_CTRL) &&
+			(event->keycode == '0')) {
+			scale_fonts  = 0;
+			font_scaling = 1.0;
+			reinit();
+			return;
+		}
+
+		if ((event->modifiers & KEY_MOD_LEFT_SHIFT || event->modifiers & KEY_MOD_RIGHT_SHIFT) &&
+			(event->modifiers & KEY_MOD_LEFT_CTRL || event->modifiers & KEY_MOD_RIGHT_CTRL) &&
+			(event->keycode == '=')) {
+			scale_fonts  = 1;
+			font_scaling = font_scaling * 1.2;
+			reinit();
+			return;
+		}
+
+		if ((event->modifiers & KEY_MOD_LEFT_CTRL || event->modifiers & KEY_MOD_RIGHT_CTRL) &&
+			(event->keycode == '-')) {
+			scale_fonts  = 1;
+			font_scaling = font_scaling * 0.8333333;
+			reinit();
+			return;
+		}
+
 		/* Left alt */
 		if (event->modifiers & KEY_MOD_LEFT_ALT || event->modifiers & KEY_MOD_RIGHT_ALT) {
 			handle_input('\033');
