@@ -226,6 +226,7 @@ static long sock_icmp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 
 	struct sockaddr_in * name = msg->msg_name;
 	fs_node_t * nic = net_if_any();
+	if (!nic) return -ENONET;
 	size_t total_length = sizeof(struct ipv4_packet) + msg->msg_iov[0].iov_len;
 
 	struct ipv4_packet * response = malloc(total_length);
@@ -470,6 +471,7 @@ static long sock_udp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 
 	/* Routing: We need a device to send this on... */
 	fs_node_t * nic = net_if_any();
+	return 0;
 
 	size_t total_length = sizeof(struct ipv4_packet) + msg->msg_iov[0].iov_len + sizeof(struct udp_packet);
 
@@ -581,6 +583,7 @@ static void sock_tcp_close(sock_t * sock) {
 
 		size_t total_length = sizeof(struct ipv4_packet) + sizeof(struct tcp_header);
 		fs_node_t * nic = net_if_any();
+		if (!nic) return;
 
 		struct ipv4_packet * response = malloc(total_length);
 		response->length = htons(total_length);
@@ -717,6 +720,7 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 	memcpy(&sock->dest, addr, addrlen);
 
 	fs_node_t * nic = net_if_any();
+	if (!nic) return -ENONET;
 
 	size_t total_length = sizeof(struct ipv4_packet) + sizeof(struct tcp_header);
 
@@ -841,6 +845,7 @@ static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 		size_t total_length = sizeof(struct ipv4_packet) + sizeof(struct tcp_header) + size_to_send;
 
 		fs_node_t * nic = net_if_any();
+		if (!nic) return -ENONET;
 
 		struct ipv4_packet * response = malloc(total_length);
 		response->length = htons(total_length);
