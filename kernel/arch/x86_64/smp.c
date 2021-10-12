@@ -185,6 +185,28 @@ void lapic_send_ipi(int i, uint32_t val) {
 	do { asm volatile ("pause" : : : "memory"); } while (lapic_read(0x300) & (1 << 12));
 }
 
+
+uintptr_t xtoi(const char * c) {
+	uintptr_t out = 0;
+	if (c[0] == '0' && c[1] == 'x') {
+		c += 2;
+	}
+
+	while (*c) {
+		out *= 0x10;
+		if (*c >= '0' && *c <= '9') {
+			out += (*c - '0');
+		} else if (*c >= 'a' && *c <= 'f') {
+			out += (*c - 'a' + 0xa);
+		} else if (*c >= 'A' && *c <= 'F') {
+			out += (*c - 'A' + 0xa);
+		}
+		c++;
+	}
+
+	return out;
+}
+
 void smp_initialize(void) {
 	/* Locate ACPI tables */
 	uintptr_t scan = 0xE0000;
@@ -194,6 +216,9 @@ void smp_initialize(void) {
 	extern struct multiboot * mboot_struct;
 	if (mboot_struct->config_table) {
 		scan = mboot_struct->config_table;
+		scan_top = scan + 0x100000;
+	} else if (args_present("acpi")) {
+		scan = xtoi(args_value("acpi"));
 		scan_top = scan + 0x100000;
 	}
 
