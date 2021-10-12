@@ -99,6 +99,7 @@ struct {
 	{0x8086, 0x1237, "PCI & Memory"},
 	{0x8086, 0x2415, "82801AA AC'97 Audio Controller"},
 	{0x8086, 0x2448, "82801 Mobile PCI Bridge"},
+	{0x8086, 0x2668, "ICH6 HD Audio Controller"},
 	{0x8086, 0x29c0, "DRAM Controller"},
 	{0x8086, 0x2918, "ICH9 LPC Interface Controller"},
 	{0x8086, 0x2922, "ICH9 6-port SATA Controller"},
