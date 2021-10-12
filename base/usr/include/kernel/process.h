@@ -192,7 +192,7 @@ struct ProcessorLocal {
 #endif
 };
 
-extern struct ProcessorLocal processor_local_data[32];
+extern struct ProcessorLocal processor_local_data[];
 extern int processor_count;
 
 /**

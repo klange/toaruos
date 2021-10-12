@@ -247,13 +247,13 @@ void smp_initialize(void) {
 				switch (entry[0]) {
 					case 0:
 						if (entry[4] & 0x01) {
+							if (cores == 32) { /* TODO define this somewhere better */
+								printf("smp: too many cores\n");
+								goto _toomany;
+							}
 							processor_local_data[cores].cpu_id = cores;
 							processor_local_data[cores].lapic_id = entry[3];
 							cores++;
-							if (cores == 33) {
-								printf("smp: too many cores\n");
-								arch_fatal();
-							}
 						}
 						break;
 					/* TODO: Other entries */
@@ -262,6 +262,7 @@ void smp_initialize(void) {
 		}
 	}
 
+_toomany:
 	processor_count = cores;
 
 	if (!lapic_base) return;
