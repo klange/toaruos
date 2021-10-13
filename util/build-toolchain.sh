@@ -5,7 +5,6 @@ SYSROOT="$DIR/../base"
 
 cd $DIR
 mkdir -p $PREFIX/bin
-gcc -I$DIR/../kuroko/src -DNO_RLINE -DSTATIC_ONLY -DKRK_DISABLE_THREADS -o "$PREFIX/bin/kuroko" $DIR/../kuroko/src/*.c
 
 mkdir -p $DIR/build/binutils
 cd $DIR/build/binutils
