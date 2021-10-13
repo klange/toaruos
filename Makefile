@@ -149,7 +149,6 @@ kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/gensym.krk
 	${CC} -c kernel/symbols.S -o $@
 
 kernel/%.o: kernel/%.S
-	echo ${PATH}
 	${CC} -c $< -o $@
 
 HEADERS = $(wildcard base/usr/include/kernel/*.h) $(wildcard base/usr/include/kernel/*/*.h)
