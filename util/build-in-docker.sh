@@ -3,6 +3,7 @@
 # Give other users access to /root
 # (We probably should have just built the build tools somewhere else...)
 chmod o+x /root
+chmod -R o+rw /root/gcc_local/bin
 
 # Who owns this directory?
 NEWUID=`stat -c '%u' .`
