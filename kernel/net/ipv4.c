@@ -471,7 +471,7 @@ static long sock_udp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 
 	/* Routing: We need a device to send this on... */
 	fs_node_t * nic = net_if_any();
-	return 0;
+	if (!nic) return 0;
 
 	size_t total_length = sizeof(struct ipv4_packet) + msg->msg_iov[0].iov_len + sizeof(struct udp_packet);
 
