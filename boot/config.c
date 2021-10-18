@@ -124,6 +124,7 @@ int kmain() {
 
 		if (_debug) {
 			txt_debug = 1;
+			strcat(cmdline, "debug ");
 		}
 
 		if (!_vbox) {
