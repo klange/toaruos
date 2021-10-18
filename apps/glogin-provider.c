@@ -327,6 +327,7 @@ redo_everything:
 		if (!skip_animation) {
 			struct timeval start;
 			gettimeofday(&start, NULL);
+			int last_offset = 0;
 
 			while (1) {
 				uint32_t tick;
@@ -348,8 +349,10 @@ redo_everything:
 				memcpy(ctx->backbuffer, foo, sizeof(uint32_t) * width * height);
 				draw_sprite(ctx, &logo, center_x(logo.width), center_y(logo.height) - i);
 				flip(ctx);
-				yutani_flip_region(y, wina, center_x(logo.width), center_y(logo.height) - i, logo.width, logo.height + 5);
+				yutani_flip_region(y, wina, center_x(logo.width), center_y(logo.height) - i, logo.width, logo.height + (i - last_offset));
 				usleep(10000);
+
+				last_offset = i;
 			}
 		}
 		TRACE("End animation.");
