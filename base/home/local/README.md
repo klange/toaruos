@@ -14,9 +14,9 @@ toolchain with:
 
     sudo msk install build-essential
 
-Or you can install Python with:
+Or you can install some games with:
 
-    sudo msk install python
+    sudo msk install doom quake
 
 The password for the default user (`local`) is `local`.
 
