@@ -64,13 +64,31 @@ int bios_main(void) {
 	return kmain();
 }
 
+extern void do_bios_call(void);
+extern volatile uint16_t dap_sectors;
+extern volatile uint32_t dap_buffer;
+extern volatile uint32_t dap_lba_low;
+extern volatile uint32_t dap_lba_high;
+extern uint8_t disk_space[];
+
+int bios_call(char * into, uint32_t sector) {
+	dap_buffer = (uint32_t)disk_space;
+	dap_lba_low = sector;
+	dap_lba_high = 0;
+	dap_sectors = 1;
+	do_bios_call();
+	memcpy(into, disk_space, 2048);
+}
+
 iso_9660_volume_descriptor_t * root = NULL;
 iso_9660_directory_entry_t * dir_entry = NULL;
 static char * dir_entries = NULL;
 
 int navigate(char * name) {
 	dir_entry = (iso_9660_directory_entry_t*)&root->root;
+
 	dir_entries = (char*)(DATA_LOAD_BASE + dir_entry->extent_start_LSB * ISO_SECTOR_SIZE);
+	bios_call(dir_entries, dir_entry->extent_start_LSB);
 	long offset = 0;
 	while (1) {
 		iso_9660_directory_entry_t * dir = (iso_9660_directory_entry_t *)(dir_entries + offset);

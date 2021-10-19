@@ -589,10 +589,26 @@ static void finish_boot(void) {
 		);
 }
 
+extern int bios_call(char * into, uint32_t sector);
+
+static int spin_x = 0;
+static void spin(void) {
+	static char spinchars[] = "/-\\|";
+	static char tmp[] = "x";
+	static int  spincnt = 0;
+
+	x = spin_x;
+	spincnt = (spincnt + 1) & 0x3;
+	tmp[0] = spinchars[spincnt];
+
+	print_(tmp);
+}
+
 void boot(void) {
 	clear_();
 	print("Looking for ISO9660 filesystem... ");
 	for (int i = 0x10; i < 0x15; ++i) {
+		bios_call((char*)(DATA_LOAD_BASE + ISO_SECTOR_SIZE * i), i);
 		root = (void*)(DATA_LOAD_BASE + ISO_SECTOR_SIZE * i);
 		switch (root->type) {
 			case 1:
@@ -612,6 +628,14 @@ done:
 
 	kernel_load_start = (char*)(DATA_LOAD_BASE + dir_entry->extent_start_LSB * ISO_SECTOR_SIZE);
 
+	print_("Loading kernel... "); spin_x = x;
+	for (int i = 0, j = 0; i < dir_entry->extent_length_LSB; j++) {
+		if (!(j & 0x3FF)) spin();
+		bios_call(kernel_load_start + i, dir_entry->extent_start_LSB + j);
+		i += ISO_SECTOR_SIZE;
+	}
+	print_("\n");
+
 	print("Looking for ramdisk... ");
 	if (!navigate(ramdisk_path)) {
 		print_("Failed to locate ramdisk.\n");
@@ -620,6 +644,15 @@ done:
 	print("found.\n");
 
 	ramdisk_off = DATA_LOAD_BASE + dir_entry->extent_start_LSB * ISO_SECTOR_SIZE;
+
+	print_("Loading ramdisk... "); spin_x = x;
+	for (int i = 0, j = 0; i < dir_entry->extent_length_LSB; j++) {
+		if (!(j & 0x3FF)) spin();
+		bios_call((char*)(ramdisk_off + i), dir_entry->extent_start_LSB + j);
+		i += ISO_SECTOR_SIZE;
+	}
+	print_("\n");
+
 	ramdisk_len = dir_entry->extent_length_LSB;
 
 	multiboot_header.cmdline = (uintptr_t)cmdline;

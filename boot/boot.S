@@ -73,16 +73,6 @@ can_long:
 	jmp _oh_no
 
 good_memory:
-
-	/* Print "Loading..." */
-	movl $str_Loading, %esi
-	call print_string
-
-	/* Use BIOS disk reads to locate the kernel and ramdisk
-	 * and load them around the 2MB mark (by loading them
-	 * in smaller chunks and copying those up thanks to
-	 * our unreal mode %ds) */
-
 	/* Ask for drive params */
 	mov $0x48, %ah
 	mov boot_disk, %dl
@@ -102,52 +92,7 @@ _oh_no:
 
 .extern _bss_start
 
-	/* To load from the CD, we have 2048 byte sectors */
 boot_from_cd:
-	movl $0x4000000, %ebx
-	movl $0x0, dap_lba_low       /* Sector 10h generally has our primary boot descriptor */
-	movw $_bss_start, dap_buffer /* Load into root_data */
-
-	/* Load one sector */
-load_one:
-	mov $0x42, %ah     /* Extended read */
-	mov boot_disk, %dl /* Using our boot disk */
-	mov $dap, %si      /* From the DAP below */
-	int $0x13
-
-	cmp $0, %ah
-	jnz done
-
-	/* Move the sector up */
-	movl $_bss_start, %esi
-	movl %ebx, %edi
-	xor %ecx, %ecx
-	movw drive_params_bps, %cx
-	addr32 rep movsb
-
-	/* Increment */
-	movl dap_lba_low, %ecx
-	add $1, %ecx
-	movl %ecx, dap_lba_low
-	xor %ecx, %ecx
-	movw drive_params_bps, %cx
-	add %ecx, %ebx
-
-	/* Update spinner */
-	movl ind_Spinny, %ecx
-	inc %ecx
-	and $0x3FF, %ecx
-	movl %ecx, ind_Spinny
-	shr $8, %ecx
-	movb str_Spinny(%ecx), %ah
-	mov $0xb8016, %ecx
-	movb %ah, (%ecx)
-
-	jmp load_one
-
-done:
-	/* The entire CD is now in memory at 64MiB, hopefully. */
-
 	/* Collect information on lower memory. */
 	mov $0x500, %ax
 	mov %ax, %es
@@ -240,6 +185,100 @@ print_string.loop:
 print_string.exit:
 	ret
 
+pm_stack:
+	.quad 0
+
+.global do_bios_call
+do_bios_call:
+.code32
+	/* Standard function entry point stuff */
+	push %ebp
+	mov  %esp, %ebp
+	push %ebx
+	push %edi
+	push %esi
+	/* Save stack because bios might mess it up? */
+	movl %esp, %eax
+	movl %eax, (pm_stack)
+
+	/* Prepare intermediary mode */
+	mov $0x20, %ax
+	mov %ax, %ds
+	mov %ax, %es
+	mov %ax, %fs
+	mov %ax, %gs
+	mov %ax, %ss
+
+	/* Enable intermediary mode */
+	ljmp $0x18,$do_bios_call.0
+
+do_bios_call.0:
+.code16
+	/* Disable protected mode */
+	mov %cr0, %eax
+	and $~1, %eax
+	mov %eax, %cr0
+
+	/* Jump to deactivate protected mode */
+	ljmp $0x0,$do_bios_call.1
+
+do_bios_call.1:
+	/* Set up real mode segments */
+	xor %ax, %ax
+	mov %ax, %ds
+	mov %ax, %es
+	mov %ax, %fs
+	mov %ax, %gs
+	mov %ax, %ss
+
+	/* Enable interrupts while BIOS is active */
+	sti
+
+	/* Perform disk read */
+	mov $0x42, %ah     /* Extended read */
+	mov boot_disk, %dl /* Using our boot disk */
+	mov $dap, %si      /* From the DAP below */
+	int $0x13
+
+	/* Disable interrupts again */
+	cli
+
+	/* Restore data segment, gdt */
+	xor %ax,%ax
+	mov %ax, %ds
+	lgdtw gdtr
+
+	/* Enable protected mode */
+	mov %cr0, %eax
+	or $1, %eax
+	mov %eax, %cr0
+
+	/* Jump to activate protected mode */
+	ljmp $0x08,$do_bios_call.2
+
+do_bios_call.2:
+.code32
+	/* Restore protected mode data segments */
+	mov $0x10, %ax
+	mov %ax, %ds
+	mov %ax, %es
+	mov %ax, %fs
+	mov %ax, %gs
+	mov %ax, %ss
+
+	/* Restore stack */
+	movl (pm_stack), %eax
+	movl %eax, %esp
+
+	/* Pop callee-saved registers we may messed with */
+	pop %esi
+	pop %edi
+	pop %ebx
+	pop %ebp
+
+	/* Return */
+	ret
+
 .align 8
 gdtr:
 	.word gdt_end - gdt_base - 1
@@ -253,11 +292,26 @@ gdt_base:
 	.byte 0x9a
 	.byte 0xcf
 	.byte 0
+
 	.word 0xffff
 	.word 0
 	.byte 0
 	.byte 0x92
 	.byte 0xcf
+	.byte 0
+
+	.word 0xffff
+	.word 0
+	.byte 0
+	.byte 0x9e
+	.byte 0
+	.byte 0
+
+	.word 0xffff
+	.word 0
+	.byte 0
+	.byte 0x92
+	.byte 0
 	.byte 0
 gdt_end:
 
@@ -286,8 +340,10 @@ dap_sectors:
 .global dap_buffer
 dap_buffer:
 	.long 0x0
+.global dap_lba_low
 dap_lba_low:
 	.long 0
+.global dap_lba_high
 dap_lba_high:
 	.long 0
 
@@ -305,13 +361,13 @@ drive_params_bps:
 
 str_Bad:
 	.asciz "The boot disk does not seem to be a CD."
-str_Loading:
-	.asciz "Loading...  "
 str_Need_long:
 	.asciz "ToaruOS 2.0 requires a 64-bit processor."
 str_More_mem:
 	.asciz "ToaruOS 2.0 needs at least 128MiB of RAM, and 1GiB is recommended."
-str_Spinny:
-	.byte '|','/','-','\\'
-ind_Spinny:
-	.long 0
+str_Out_of_modes:
+	.asciz "Out of display modes"
+
+.global disk_space
+disk_space:
+	.zero 2048
