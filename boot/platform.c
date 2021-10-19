@@ -44,10 +44,17 @@ void * memset(void * dest, int c, long n) {
 	return dest;
 }
 
-int bios_main(void) {
-	/* Zero BSS */
-	memset(&_bss_start,0,(uintptr_t)&_bss_end-(uintptr_t)&_bss_start);
+extern void init_graphics(void);
+extern void do_bios_call(uint32_t function, uint32_t arg1);
 
+extern uint32_t vbe_cont_info_mode_off;
+extern uint16_t vbe_info_pitch;
+extern uint16_t vbe_info_width;
+extern uint16_t vbe_info_height;
+extern uint8_t vbe_info_bpp;
+extern uint16_t vbe_info;
+
+void text_reset(void) {
 	/* Hide the cursor */
 	outportb(0x3D4, 14);
 	outportb(0x3D5, 0xFF);
@@ -60,11 +67,58 @@ int bios_main(void) {
 	char b = inportb(0x3C1);
 	b &= ~8;
 	outportb(0x3c0, b);
+}
+
+extern int in_graphics_mode;
+int bios_text_mode(void) {
+	do_bios_call(3, 3);
+	vbe_info_width = 0;
+	in_graphics_mode = 0;
+	text_reset();
+}
+
+int bios_main(void) {
+	/* Zero BSS */
+	memset(&_bss_start,0,(uintptr_t)&_bss_end-(uintptr_t)&_bss_start);
+
+	text_reset();
+
+	int best_match = 0;
+	int match_score = 0;
+	int found_24bit = 0;
+
+#define MATCH(w,h,s) if (match_score < s && vbe_info_width == w && vbe_info_height == h) { best_match = *x; match_score = s; }
+
+	uint32_t vbe_addr = ((vbe_cont_info_mode_off & 0xFFFF0000) >> 12) + (vbe_cont_info_mode_off & 0xFFFF);
+
+	for (uint16_t * x = (uint16_t*)vbe_addr; *x != 0xFFFF;  x++) {
+		/* Query mode info */
+		do_bios_call(2, *x);
+
+		if (!(vbe_info & (1 << 7))) continue;
+		if (vbe_info_bpp != 32) continue;
+		if (!match_score) { best_match = *x; match_score = 1; }
+
+		MATCH(1024,768,2);
+		MATCH(1280,720,50);
+		MATCH(1920,1080,75);
+		MATCH(1440,900,100);
+
+		//print_int_(vbe_info_width); print_("x"); print_int_(vbe_info_height); print_("x"); print_int_(vbe_info_bpp); print_("bpp\n");
+	}
+
+	if (best_match) {
+		do_bios_call(2, best_match);
+		do_bios_call(3, best_match | 0x4000);
+	} else {
+		vbe_info_width = 0;
+	}
+
+	init_graphics();
 
 	return kmain();
 }
 
-extern void do_bios_call(void);
 extern volatile uint16_t dap_sectors;
 extern volatile uint32_t dap_buffer;
 extern volatile uint32_t dap_lba_low;
@@ -77,7 +131,7 @@ int bios_call(char * into, uint32_t sector) {
 	dap_buffer = (uint32_t)disk_space;
 	dap_lba_low = sector * dap_sectors;
 	dap_lba_high = 0;
-	do_bios_call();
+	do_bios_call(1,0);
 	memcpy(into, disk_space, 2048);
 }
 
@@ -120,7 +174,6 @@ try_again:
 
 	return 0;
 }
-
 
 
 #endif

@@ -59,7 +59,6 @@ unrealmode:
 	jmp _oh_no
 
 can_long:
-
 	/* Spot check memory */
 	movl $0x12345678, %eax
 	movl $0x5000000, %ebx
@@ -95,6 +94,13 @@ boot_from_cd:
 	mov $0x0, %di
 	call do_e820
 	jc hang
+
+	/* Get video mode info */
+	mov $0, %ax
+	mov %ax, %es
+	mov $vbe_cont_info, %di
+	mov $0x4F00, %ax
+	int $0x10
 
 	/* Actually switch to protected mode. */
 	mov %cr0, %eax
@@ -185,9 +191,12 @@ do_bios_call:
 	/* Standard function entry point stuff */
 	push %ebp
 	mov  %esp, %ebp
+	push %eax
 	push %ebx
-	push %edi
+	push %ecx
+	push %edx
 	push %esi
+	push %edi
 	/* Save stack because bios might mess it up? */
 	movl %esp, %eax
 	movl %eax, (pm_stack)
@@ -225,12 +234,50 @@ do_bios_call.1:
 	/* Enable interrupts while BIOS is active */
 	sti
 
-	/* Perform disk read */
+	/* Function switch */
+	movl 32(%esp), %ebx
+
+	/* 1: Read disk */
+	mov $0x01, %ax
+	cmp %bx, %ax
+	je do_bios_call.read_disk
+
+	/* 2: Query mode index */
+	mov $0x02, %ax
+	cmp %bx, %ax
+	je do_bios_call.query_mode
+
+	/* 3: Set mode */
+	mov $0x03, %ax
+	cmp %bx, %ax
+	je do_bios_call.set_mode
+
+	/* Else: Bad call, jump to loop. */
+	jmp do_bios_call.done
+
+do_bios_call.read_disk:
 	mov $0x42, %ah     /* Extended read */
 	mov boot_disk, %dl /* Using our boot disk */
 	mov $dap, %si      /* From the DAP below */
 	int $0x13
+	jmp do_bios_call.done
 
+do_bios_call.query_mode:
+	movl 36(%esp), %ecx
+	mov $0x0, %ax
+	mov %ax, %es
+	mov $vbe_info, %edi
+	mov $0x4F01, %ax
+	int $0x10
+	jmp do_bios_call.done
+
+do_bios_call.set_mode:
+	movl 36(%esp), %ebx
+	mov $0x4F02, %ax
+	int $0x10
+	jmp do_bios_call.done
+
+do_bios_call.done:
 	/* Disable interrupts again */
 	cli
 
@@ -262,9 +309,12 @@ do_bios_call.2:
 	movl %eax, %esp
 
 	/* Pop callee-saved registers we may messed with */
-	pop %esi
 	pop %edi
+	pop %esi
+	pop %edx
+	pop %ecx
 	pop %ebx
+	pop %eax
 	pop %ebp
 
 	/* Return */
@@ -350,12 +400,67 @@ drive_params:
 drive_params_bps:
 	.word 0 /* bytes per sector */
 
+.align 4
+.global vbe_info
+vbe_info:
+	.word 0 /* attributes */
+	.word 0 /* old shit (window a/b) */
+	.word 0 /* Granulatory of banks, don't care. */
+	.word 0 /* Window size, don't care. */
+	.long 0 /* Segments... */
+	.long 0 /* old bank switching thing */
+.global vbe_info_pitch
+vbe_info_pitch:
+	.word 0 /* PITCH */
+.global vbe_info_width
+vbe_info_width:
+	.word 0 /* WIDTH */
+.global vbe_info_height
+vbe_info_height:
+	.word 0 /* HEIGHT */
+	.word 0 /* w, y */
+	.byte 0 /* planes */
+.global vbe_info_bpp
+vbe_info_bpp:
+	.byte 0 /* bits per pixel */
+	.byte 0 /* banks */
+	.byte 0 /* Memory model */
+	.byte 0 /* bank size */
+	.byte 0 /* pages */
+	.byte 0 /* reserved */
+	.byte 0 /* RED mask */
+	.byte 0 /* RED offset */
+	.byte 0 /* GREEN mask */
+	.byte 0 /* GREEN offset */
+	.byte 0 /* BLUE maask */
+	.byte 0 /* BLUE offset */
+	.byte 0 /* ALPHA mask */
+	.byte 0 /* ALPHA offset */
+	.byte 0 /* Color attributes */
+.global vbe_info_fbaddr
+vbe_info_fbaddr:
+	.long 0 /* Framebuffer address */
+	.long 0 /* Extra memory offset */
+	.word 0 /* Extra memory size */
+	.zero 206 /* Other crap */
+
+.align 4
+vbe_cont_info:
+	.ascii "VBE2"
+	.word 0x200
+	.long 0
+	.long 0 /* caps */
+.global vbe_cont_info_mode_off
+vbe_cont_info_mode_off:
+	.word 0 /* MODES */
+vbe_cont_info_mode_seg:
+	.word 0
+	.zero 494
+
 str_Need_long:
 	.asciz "ToaruOS 2.0 requires a 64-bit processor."
 str_More_mem:
 	.asciz "ToaruOS 2.0 needs at least 128MiB of RAM, and 1GiB is recommended."
-str_Out_of_modes:
-	.asciz "Out of display modes"
 
 .global disk_space
 disk_space:

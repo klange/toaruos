@@ -618,6 +618,7 @@ static void finish_boot(void) {
 		);
 }
 
+extern void do_bios_call(uint32_t function, uint32_t arg1);
 extern int bios_call(char * into, uint32_t sector);
 
 static int spin_x = 0;
@@ -633,7 +634,21 @@ static void spin(void) {
 	print_(tmp);
 }
 
+extern uint16_t * vbe_cont_info_mode_off;
+extern uint32_t *vbe_info_fbaddr;
+extern uint16_t vbe_info_pitch;
+extern uint16_t vbe_info_width;
+extern uint16_t vbe_info_height;
+extern uint8_t vbe_info_bpp;
+
+extern void bios_text_mode(void);
+
 void boot(void) {
+	/* Did we ask for VGA text mode and are currently in a video mode? */
+	if (boot_mode == 2) {
+		bios_text_mode();
+	}
+
 	clear_();
 	print("Looking for ISO9660 filesystem... ");
 	for (int i = 0x10; i < 0x15; ++i) {
@@ -685,6 +700,14 @@ done:
 	ramdisk_len = dir_entry->extent_length_LSB;
 
 	multiboot_header.cmdline = (uintptr_t)cmdline;
+
+	if (vbe_info_width) {
+		multiboot_header.framebuffer_addr   = (uint32_t)vbe_info_fbaddr;
+		multiboot_header.framebuffer_pitch  = vbe_info_pitch;
+		multiboot_header.framebuffer_width  = vbe_info_width;
+		multiboot_header.framebuffer_height = vbe_info_height;
+		multiboot_header.framebuffer_bpp    = vbe_info_bpp;
+	}
 
 	print("Loading kernel from 0x"); print_hex((uint32_t)kernel_load_start); print("... ");
 	if (!load_kernel()) {

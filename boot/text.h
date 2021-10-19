@@ -6,6 +6,7 @@ void move_cursor(int _x, int _y);
 void set_attr(int _attr);
 void print_(char * str);
 void print_hex_(unsigned int value);
+void print_int_(unsigned int value);
 void clear_();
 
 void print_banner(char * str);

@@ -9,7 +9,7 @@
 #include "editor.h"
 
 /* Basic text strings */
-#define BASE_VERSION "ToaruOS Bootloader v4.0"
+#define BASE_VERSION "ToaruOS Bootloader v5.0"
 char * VERSION_TEXT = BASE_VERSION
 #ifdef EFI_PLATFORM
 	" (EFI)";
