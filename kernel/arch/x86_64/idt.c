@@ -114,7 +114,7 @@ void idt_ap_install(void) {
 static spin_lock_t dump_lock = {0};
 static void dump_regs(struct regs * r) {
 	spin_lock(dump_lock);
-	printf(
+	dprintf(
 		"Registers at interrupt:\n"
 		"  $rip=0x%016lx\n"
 		"  $rsi=0x%016lx,$rdi=0x%016lx,$rbp=0x%016lx,$rsp=0x%016lx\n"
@@ -218,29 +218,29 @@ static void safe_dump_traceback(struct regs * r) {
 	int max_depth = 20;
 
 	while (bp && ip && depth < max_depth) {
-		printf(" 0x%016zx ", ip);
+		dprintf(" 0x%016zx ", ip);
 		if (ip >= 0xffffffff80000000UL) {
 			char * name = NULL;
 			struct LoadedModule * mod = find_module(ip, &name);
 			if (mod) {
-				printf(" in module '%s', base address %#zx (offset %#zx)\n",
+				dprintf("\a in module '%s', base address %#zx (offset %#zx)\n",
 					name, mod->baseAddress, r->rip - mod->baseAddress);
 			} else {
-				printf(" (unknown)\n");
+				dprintf("\a (unknown)\n");
 			}
 		} else if (ip >= (uintptr_t)&end && ip <= 0x800000000000) {
-			printf(" in userspace\n");
+			dprintf("\a in userspace\n");
 		} else if (ip <= (uintptr_t)&end) {
 			/* Find symbol match */
 			char * name;
 			uintptr_t addr = matching_symbol(ip, &name);
 			if (!addr) {
-				printf(" (no match)\n");
+				dprintf("\a (no match)\n");
 			} else {
-				printf(" %s+0x%zx\n", name, ip-addr);
+				dprintf("\a %s+0x%zx\n", name, ip-addr);
 			}
 		} else {
-			printf(" (unknown)\n");
+			dprintf("\a (unknown)\n");
 		}
 		if (!validate_pointer(bp, sizeof(uintptr_t) * 2)) {
 			break;
@@ -266,6 +266,19 @@ static void map_more_stack(uintptr_t fromAddr) {
 	spin_unlock(proc->image.lock);
 }
 
+extern void arch_fatal_prepare(void);
+static void panic(const char * desc, struct regs * r, uintptr_t faulting_address) {
+	arch_fatal_prepare();
+	dprintf("\033[31mPanic!\033[0m %s pid=%d (%s) at %#zx\n", desc,
+		this_core->current_process ? (int)this_core->current_process->id : 0,
+		this_core->current_process ? this_core->current_process->name : "kernel",
+		faulting_address
+	);
+	dump_regs(r);
+	safe_dump_traceback(r);
+	arch_fatal();
+}
+
 struct regs * isr_handler(struct regs * r) {
 	this_core->interrupt_registers = r;
 
@@ -278,14 +291,7 @@ struct regs * isr_handler(struct regs * r) {
 			uintptr_t faulting_address;
 			asm volatile("mov %%cr2, %0" : "=r"(faulting_address));
 			if (!this_core->current_process || r->cs == 0x08) {
-				printf("Page fault in kernel ");
-				if (this_core->current_process) {
-					printf("pid=%d (%s) ", (int)this_core->current_process->id, this_core->current_process->name);
-				}
-				printf("at %#zx\n", faulting_address);
-				safe_dump_traceback(r);
-				dump_regs(r);
-				arch_fatal();
+				panic("Page fault in kernel", r, faulting_address);
 			}
 			if (faulting_address == 0xFFFFB00F) {
 				/* Thread exit */
@@ -305,13 +311,13 @@ struct regs * isr_handler(struct regs * r) {
 		}
 		case 13: /* GPF */ {
 			if (!this_core->current_process || r->cs == 0x08) {
-				arch_fatal();
+				panic("GPF in kernel", r, 0);
 			}
 			send_signal(this_core->current_process->id, SIGSEGV, 1);
 			break;
 		}
 		case 8: /* Double fault */ {
-			arch_fatal();
+			panic("Double fault", r, 0);
 			break;
 		}
 		case 127: /* syscall */ {
@@ -338,10 +344,8 @@ struct regs * isr_handler(struct regs * r) {
 		default: {
 			if (r->int_no < 32) {
 				if (!this_core->current_process || r->cs == 0x08) {
-					arch_fatal();
+					panic("Unexpected interrupt", r, r->int_no);
 				}
-				printf("int_no %ld in process %d\n",
-					r->int_no, this_core->current_process->id);
 				send_signal(this_core->current_process->id, SIGILL, 1);
 			} else {
 				for (size_t i = 0; i < IRQ_CHAIN_DEPTH; i++) {

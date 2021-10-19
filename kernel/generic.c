@@ -27,6 +27,7 @@ extern void random_initialize(void);
 extern int system(const char * path, int argc, const char ** argv, const char ** envin);
 extern void snd_install(void);
 extern void net_install(void);
+extern void console_initialize(void);
 
 void generic_startup(void) {
 	args_parse(arch_get_cmdline());
@@ -36,6 +37,7 @@ void generic_startup(void) {
 	tarfs_register_init();
 	tmpfs_register_init();
 	map_vfs_directory("/dev");
+	console_initialize();
 	packetfs_initialize();
 	zero_initialize();
 	procfs_initialize();
@@ -64,6 +66,8 @@ int generic_main(void) {
 	if (args_present("init")) {
 		boot_app = args_value("init");
 	}
+
+	dprintf("Running %s as init process.\n", boot_app);
 
 	const char * argv[] = {
 		boot_app,

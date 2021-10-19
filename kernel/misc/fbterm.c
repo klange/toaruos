@@ -11,10 +11,6 @@
 #include <kernel/string.h>
 #include <kernel/args.h>
 
-/* Exported cell sizing */
-size_t fbterm_width = 0;
-size_t fbterm_height = 0;
-
 /* Whether to scroll or wrap when cursor reaches the bottom. */
 static int fbterm_scroll = 0;
 
@@ -40,7 +36,7 @@ static uint32_t bg_color = BG_COLOR;
 
 extern uint32_t lfb_resolution_s;
 
-static void set_point(int x, int y, uint32_t value) {
+static inline void set_point(int x, int y, uint32_t value) {
 	((uint32_t*)lfb_vid_memory)[y * (lfb_resolution_s/4) + x] = value;
 }
 
@@ -56,6 +52,14 @@ static void write_char(int x, int y, int val, uint32_t color) {
 			} else {
 				set_point(x+j,y+i,bg_color);
 			}
+		}
+	}
+}
+
+static void fbterm_init_framebuffer(void) {
+	for (size_t y = 0; y < lfb_resolution_y; ++y) {
+		for (size_t x = 0; x < lfb_resolution_x; ++x) {
+			set_point(x,y,BG_COLOR);
 		}
 	}
 }
@@ -95,6 +99,8 @@ static char term_buf[1024] = {0};
 static int term_buf_c = 0;
 
 static void invert_at(int x, int y) {
+	/* Disable cursor for now, as it reads from video memory which is generally slow. */
+#if 0
 	for (uint8_t i = 0; i < char_height; ++i) {
 		for (uint8_t j = 0; j < char_width; ++j) {
 			uint32_t current = ((uint32_t*)lfb_vid_memory)[(y+i) * lfb_resolution_x + (x+j)];
@@ -105,6 +111,7 @@ static void invert_at(int x, int y) {
 			((uint32_t*)lfb_vid_memory)[(y+i) * lfb_resolution_x + (x+j)] = current;
 		}
 	}
+#endif
 }
 
 static void process_char(char ch) {
@@ -240,6 +247,27 @@ size_t fbterm_write(size_t size, uint8_t *buffer) {
 	return size;
 }
 
+static void draw_square(int x, int y) {
+	for (size_t _y = 0; _y < 7; ++_y) {
+		for (size_t _x = 0; _x < 7; ++_x) {
+			set_point(1 + x * 8 + _x, 1 + y * 8 + _y,
+				0xFF00B2FF - (y * 8 + _y) * 0x200);
+		}
+	}
+}
+
+static void fbterm_draw_logo(void) {
+	uint64_t logo_squares = 0x981818181818FFFFUL;
+	for (size_t y = 0; y < 8; ++y) {
+		for (size_t x = 0; x < 8; ++x) {
+			if (logo_squares & (1 << x)) {
+				draw_square(x,y);
+			}
+		}
+		logo_squares >>= 8;
+	}
+}
+
 void fbterm_initialize(void) {
 	if (!lfb_resolution_x) return;
 
@@ -247,8 +275,12 @@ void fbterm_initialize(void) {
 		fbterm_scroll = 1;
 	}
 
-	fbterm_width = (lfb_resolution_x - LEFT_PAD) / char_width;
-	fbterm_height = (lfb_resolution_y) / char_height;
+	fbterm_init_framebuffer();
+	fbterm_draw_logo();
+	y = 66;
+
 	previous_writer = printf_output;
 	printf_output = fbterm_write;
+
+	dprintf("fbterm: Generic framebuffer text output enabled.\n");
 }

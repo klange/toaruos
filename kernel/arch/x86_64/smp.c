@@ -321,6 +321,8 @@ _toomany:
 		/* Wait for AP to signal it is ready before starting next AP */
 		do { asm volatile ("pause" : : : "memory"); } while (!_ap_startup_flag);
 	}
+
+	dprintf("SMP enabled with %d cores\n", cores);
 }
 
 void arch_wakeup_others(void) {

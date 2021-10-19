@@ -59,6 +59,11 @@ static void write_char(int x, int y, int val, uint32_t color) {
 
 static unsigned int line_offset = 0;
 static void fb_update_message(char * c, int line) {
+	FILE * console = fopen("/dev/console","a");
+	fprintf(console, "\r%s\033[K%s", c, line == 0 ? "\n" : "");
+	fflush(console);
+	fclose(console);
+	#if 0
 	int x = 20;
 	int y = 20 + line_offset * char_height;
 	if (line == 0) {
@@ -73,15 +78,18 @@ static void fb_update_message(char * c, int line) {
 		write_char(x, y, ' ', FG_COLOR);
 		x += char_width;
 	}
+	#endif
 }
 
 static void fb_clear_screen(void) {
+	#if 0
 	line_offset = 0;
 	for (int y = 0; y < height; ++y) {
 		for (int x = 0; x < width; ++x) {
 			set_point(x,y,BG_COLOR);
 		}
 	}
+	#endif
 }
 
 static void placech(unsigned char c, int x, int y, int attr) {
@@ -203,7 +211,7 @@ int main(int argc, char * argv[]) {
 				memcpy(tmp, p->data, p->size);
 				tmp[p->size] = '\0';
 				update_message(tmp, 0);
-				update_message("", 1);
+				//update_message("", 1);
 				free(tmp);
 			}
 		}

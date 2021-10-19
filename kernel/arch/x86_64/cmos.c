@@ -15,6 +15,11 @@
 #include <kernel/arch/x86_64/irq.h>
 #include <sys/time.h>
 
+uint64_t arch_boot_time = 0;
+uint64_t tsc_basis_time = 0;
+
+unsigned long tsc_mhz = 3500; /* XXX */
+
 #define from_bcd(val)  ((val / 16) * 10 + (val & 0xf))
 #define CMOS_ADDRESS   0x70
 #define CMOS_DATA      0x71
@@ -126,9 +131,6 @@ uint32_t read_cmos(void) {
 	return time;
 }
 
-static uint64_t boot_time = 0;
-unsigned long tsc_mhz = 3500; /* XXX */
-
 static inline uint64_t read_tsc(void) {
 	uint32_t lo, hi;
 	asm volatile ( "rdtsc" : "=a"(lo), "=d"(hi) );
@@ -144,7 +146,8 @@ size_t arch_cpu_mhz(void) {
 }
 
 void arch_clock_initialize(void) {
-	boot_time = read_cmos();
+	dprintf("Calibrating system timestamp counter.\n");
+	arch_boot_time = read_cmos();
 	uintptr_t end_lo, end_hi;
 	uint32_t start_lo, start_hi;
 	asm volatile (
@@ -200,11 +203,15 @@ void arch_clock_initialize(void) {
 	uintptr_t start = ((uintptr_t)(start_hi & 0xFFFFffff) << 32) | (start_lo & 0xFFFFffff);
 	tsc_mhz = (end - start) / 10000;
 	if (tsc_mhz == 0) tsc_mhz = 2000; /* uh oh */
+	tsc_basis_time = start / tsc_mhz;
+
+	dprintf("TSC timed at %lu MHz. Use tsc_mhz= to override if this is very wrong.\n", tsc_mhz);
+	dprintf("Boot time is %lus. Initial TSC timestamp was %luus.\n", arch_boot_time, tsc_basis_time);
 }
 
 #define SUBSECONDS_PER_SECOND 1000000
 static void update_ticks(uint64_t ticks, uint64_t *timer_ticks, uint64_t *timer_subticks) {
-	*timer_subticks = ticks;
+	*timer_subticks = ticks - tsc_basis_time;
 	*timer_ticks = *timer_subticks / SUBSECONDS_PER_SECOND;
 	*timer_subticks = *timer_subticks % SUBSECONDS_PER_SECOND;
 }
@@ -213,7 +220,7 @@ int gettimeofday(struct timeval * t, void *z) {
 	uint64_t tsc = read_tsc();
 	uint64_t timer_ticks, timer_subticks;
 	update_ticks(tsc / tsc_mhz, &timer_ticks, &timer_subticks);
-	t->tv_sec = boot_time + timer_ticks;
+	t->tv_sec = arch_boot_time + timer_ticks;
 	t->tv_usec = timer_subticks;
 	return 0;
 }
@@ -226,6 +233,12 @@ uint64_t now(void) {
 
 
 void relative_time(unsigned long seconds, unsigned long subseconds, unsigned long * out_seconds, unsigned long * out_subseconds) {
+	if (!arch_boot_time) {
+		*out_seconds = 0;
+		*out_subseconds = 0;
+		return;
+	}
+
 	uint64_t tsc = read_tsc();
 	uint64_t timer_ticks, timer_subticks;
 	update_ticks(tsc / tsc_mhz, &timer_ticks, &timer_subticks);

@@ -22,6 +22,7 @@
 #include <kernel/args.h>
 #include <kernel/ksym.h>
 #include <kernel/misc.h>
+#include <kernel/version.h>
 
 #include <kernel/arch/x86_64/ports.h>
 #include <kernel/arch/x86_64/cmos.h>
@@ -32,6 +33,7 @@
 extern void arch_clock_initialize(void);
 
 extern char end[];
+extern unsigned long tsc_mhz;
 
 extern void gdt_install(void);
 extern void idt_install(void);
@@ -46,8 +48,11 @@ extern void pci_remap(void);
 
 struct multiboot * mboot_struct = NULL;
 
+static int _serial_debug = 1;
 #define EARLY_LOG_DEVICE 0x3F8
 static size_t _early_log_write(size_t size, uint8_t * buffer) {
+	if (!_serial_debug) return size;
+
 	for (unsigned int i = 0; i < size; ++i) {
 		outportb(EARLY_LOG_DEVICE, buffer[i]);
 	}
@@ -178,21 +183,25 @@ void mount_multiboot_ramdisks(struct multiboot * mboot) {
 		uint8_t * data = mmu_map_from_physical(mods[i].mod_start);
 		if (data[0] == 0x1F && data[1] == 0x8B) {
 			/* Yes - decompress it first */
+			dprintf("Decompressing initial ramdisk...\n");
 			uint32_t decompressedSize = *(uint32_t*)mmu_map_from_physical(mods[i].mod_end - sizeof(uint32_t));
 			size_t pageCount = (((size_t)decompressedSize + 0xFFF) & ~(0xFFF)) >> 12;
 			uintptr_t physicalAddress = mmu_allocate_n_frames(pageCount) << 12;
 			if (physicalAddress == (uintptr_t)-1) {
-				printf("gzip: failed to allocate pages for decompressed payload, skipping\n");
+				dprintf("gzip: failed to allocate pages for decompressed payload, skipping\n");
 				continue;
 			}
 			gzip_inputPtr = (void*)data;
 			gzip_outputPtr = mmu_map_from_physical(physicalAddress);
 			/* Do the deed */
 			if (gzip_decompress()) {
-				printf("gzip: failed to decompress payload, skipping\n");
+				dprintf("gzip: failed to decompress payload, skipping\n");
 				continue;
 			}
 			ramdisk_mount(physicalAddress, decompressedSize);
+			dprintf("Decompressed %u kB to %u kB, freeing compressed image.\n",
+				(mods[i].mod_end - mods[i].mod_start) / 1024,
+				(decompressedSize) / 1024);
 			/* Free the pages from the original mod */
 			for (size_t j = mods[i].mod_start; j < mods[i].mod_end; j += 0x1000) {
 				mmu_frame_clear(j);
@@ -241,6 +250,15 @@ int kmain(struct multiboot * mboot, uint32_t mboot_mag, void* esp) {
 	 * as soon as we can call printf(), which is as soon as we get to long mode. */
 	early_log_initialize();
 
+	dprintf("%s %d.%d.%d-%s \"%s\" %s\n",
+		__kernel_name,
+		__kernel_version_major,
+		__kernel_version_minor,
+		__kernel_version_lower,
+		__kernel_version_suffix,
+		__kernel_version_codename,
+		__kernel_arch);
+
 	/* Initialize GS base */
 	arch_set_core_base((uintptr_t)&processor_local_data[0]);
 
@@ -269,8 +287,11 @@ int kmain(struct multiboot * mboot, uint32_t mboot_mag, void* esp) {
 
 	/* Should we override the TSC timing? */
 	if (args_present("tsc_mhz")) {
-		extern unsigned long tsc_mhz;
 		tsc_mhz = atoi(args_value("tsc_mhz"));
+	}
+
+	if (!args_present("debug")) {
+		_serial_debug = 0;
 	}
 
 	/* Scheduler is running and we have parsed the kcmdline, initialize video. */
