@@ -5,16 +5,22 @@ int txt_debug = 0;
 #ifdef EFI_PLATFORM
 #include <efi.h>
 extern EFI_SYSTEM_TABLE *ST;
+#else
+#include <stdint.h>
+#endif
 
 #include "../apps/terminal-font.h"
-
 #define char_height LARGE_FONT_CELL_HEIGHT
 #define char_width  LARGE_FONT_CELL_WIDTH
 
-EFI_GRAPHICS_OUTPUT_PROTOCOL * GOP;
-
 static int offset_x = 0;
 static int offset_y = 0;
+
+static void write_char(int x, int y, int val, int attr);
+
+#ifdef EFI_PLATFORM
+
+EFI_GRAPHICS_OUTPUT_PROTOCOL * GOP;
 
 static EFI_GUID efi_graphics_output_protocol_guid =
   {0x9042a9de,0x23dc,0x4a38,  {0x96,0xfb,0x7a,0xde,0xd0,0x80,0x51,0x6a}};
@@ -46,6 +52,69 @@ no_graphics:
 	return 1;
 }
 
+static void set_point(int x, int y, uint32_t color) {
+	((uint32_t *)GOP->Mode->FrameBufferBase)[(x + offset_x) + (y + offset_y) * GOP->Mode->Info->PixelsPerScanLine] = color;
+}
+void clear_() {
+	x = 0;
+	y = 0;
+	memset((void*)GOP->Mode->FrameBufferBase,0,GOP->Mode->FrameBufferSize);
+}
+
+static void placech(unsigned char c, int x, int y, int attr) {
+	write_char(x * char_width, y * char_height, c, attr);
+}
+
+#else
+extern uint32_t *vbe_info_fbaddr;
+extern uint16_t vbe_info_pitch;
+extern uint16_t vbe_info_width;
+extern uint16_t vbe_info_height;
+extern uint8_t vbe_info_bpp;
+
+void init_graphics(void) {
+	offset_x = (vbe_info_width - 80 * char_width) / 2;
+	offset_y = (vbe_info_height - 24 * char_height) / 2;
+}
+
+static void set_point(int x, int y, uint32_t color) {
+	if (vbe_info_bpp == 24) {
+		*((uint8_t*)vbe_info_fbaddr + (x + offset_x) * 3 + (y + offset_y) * (vbe_info_pitch))     = (color >> 0) & 0xFF;
+		*((uint8_t*)vbe_info_fbaddr + (x + offset_x) * 3 + (y + offset_y) * (vbe_info_pitch) + 1) = (color >> 8) & 0xFF;
+		*((uint8_t*)vbe_info_fbaddr + (x + offset_x) * 3 + (y + offset_y) * (vbe_info_pitch) + 2) = (color >> 16) & 0xFF;
+	} else if (vbe_info_bpp == 32) {
+		vbe_info_fbaddr[(x + offset_x) + (y + offset_y) * (vbe_info_pitch / 4)] = color;
+	}
+}
+
+static unsigned short * textmemptr = (unsigned short *)0xB8000;
+
+static void placech_vga(unsigned char c, int x, int y, int attr) {
+	unsigned short *where;
+	unsigned att = attr << 8;
+	where = textmemptr + (y * 80 + x);
+	*where = c | att;
+}
+
+static void placech(unsigned char c, int x, int y, int attr) {
+	vbe_info_width ? write_char(x * char_width, y * char_height, c, attr) : placech_vga(c,x,y,attr);
+}
+
+void clear_() {
+	x = 0;
+	y = 0;
+	if (vbe_info_width) {
+		memset(vbe_info_fbaddr, 0, vbe_info_pitch * vbe_info_height);
+	} else {
+		for (int y = 0; y < 24; ++y) {
+			for (int x = 0; x < 80; ++x) {
+				placech_vga(' ', x, y, 0x00);
+			}
+		}
+	}
+}
+#endif
+
 static uint32_t term_colors[] = {
 	0xFF000000,
 	0xFFCC0000,
@@ -71,10 +140,6 @@ char vga_to_ansi[] = {
 	8,12,10,14, 9,13,11,15
 };
 
-static void set_point(int x, int y, uint32_t color) {
-
-	((uint32_t *)GOP->Mode->FrameBufferBase)[(x + offset_x) + (y + offset_y) * GOP->Mode->Info->PixelsPerScanLine] = color;
-}
 
 static void write_char(int x, int y, int val, int attr) {
 	if (val > 128) {
@@ -96,37 +161,6 @@ static void write_char(int x, int y, int val, int attr) {
 	}
 }
 
-static void placech(unsigned char c, int x, int y, int attr) {
-	write_char(x * char_width, y * char_height, c, attr);
-}
-
-void clear_() {
-	x = 0;
-	y = 0;
-	memset((void*)GOP->Mode->FrameBufferBase,0,GOP->Mode->FrameBufferSize);
-}
-
-#else
-
-static unsigned short * textmemptr = (unsigned short *)0xB8000;
-
-static void placech(unsigned char c, int x, int y, int attr) {
-	unsigned short *where;
-	unsigned att = attr << 8;
-	where = textmemptr + (y * 80 + x);
-	*where = c | att;
-}
-
-void clear_() {
-	x = 0;
-	y = 0;
-	for (int y = 0; y < 24; ++y) {
-		for (int x = 0; x < 80; ++x) {
-			placech(' ', x, y, 0x00);
-		}
-	}
-}
-#endif
 
 int x = 0;
 int y = 0;

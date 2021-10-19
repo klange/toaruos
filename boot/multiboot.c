@@ -657,6 +657,19 @@ done:
 
 	multiboot_header.cmdline = (uintptr_t)cmdline;
 
+extern uint32_t *vbe_info_fbaddr;
+extern uint16_t vbe_info_pitch;
+extern uint16_t vbe_info_width;
+extern uint16_t vbe_info_height;
+extern uint8_t vbe_info_bpp;
+	if (vbe_info_width) {
+		multiboot_header.framebuffer_addr   = (uint32_t)vbe_info_fbaddr;
+		multiboot_header.framebuffer_pitch  = vbe_info_pitch;
+		multiboot_header.framebuffer_width  = vbe_info_width;
+		multiboot_header.framebuffer_height = vbe_info_height;
+		multiboot_header.framebuffer_bpp    = vbe_info_bpp;
+	}
+
 	print("Loading kernel from 0x"); print_hex((uint32_t)kernel_load_start); print("... ");
 	if (!load_kernel()) {
 		print_("Failed to load kernel.\n");

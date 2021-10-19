@@ -59,7 +59,6 @@ unrealmode:
 	jmp _oh_no
 
 can_long:
-
 	/* Spot check memory */
 	movl $0x12345678, %eax
 	movl $0x5000000, %ebx
@@ -104,6 +103,71 @@ boot_from_cd:
 	mov $0x0, %di
 	call do_e820
 	jc hang
+
+	/* Skip video mode set */
+	jmp vbe_done
+
+	/* Get video mode info */
+	mov $0, %ax
+	mov %ax, %es
+	mov $vbe_cont_info, %di
+	mov $0x4F00, %ax
+	int $0x10
+
+	/* Now let's look at the video modes */
+	mov (vbe_cont_info_mode_seg), %ax
+	mov %ax, %fs
+	mov (vbe_cont_info_mode_off), %ax
+	mov %ax, %si
+
+	mov $vbe_info, %di
+
+vbe_loop:
+	mov %fs:(%si), %cx
+
+	mov $0xFFFF, %dx
+	cmp %cx, %dx
+	je vbe_out_of_modes
+
+	/* Check the mode */
+	mov $0x4F01, %ax
+	int $0x10
+
+	/* Is it 1024? */
+	mov $1024, %dx
+	movw (vbe_info_width), %ax
+	cmp %ax, %dx
+	jne vbe_next
+
+	/* Is it 768? */
+	mov $768, %dx
+	movw (vbe_info_height), %ax
+	cmp %ax, %dx
+	jne vbe_next
+
+	/* Is it 32 bpp? */
+	mov $32, %dl
+	movb (vbe_info_bpp), %al
+	cmp %al, %dl
+	jne vbe_next
+
+	mov %cx, %bx
+	mov $0x4F02, %ax
+	int $0x10
+
+	jmp vbe_done
+
+vbe_next:
+	add $2, %si
+	mov $0, %ax
+	mov %ax, %es
+	mov $vbe_info, %di
+	jmp vbe_loop
+
+vbe_out_of_modes:
+	movw $0x0, (vbe_info_width)
+
+vbe_done:
 
 	/* Actually switch to protected mode. */
 	mov %cr0, %eax
@@ -359,14 +423,66 @@ drive_params:
 drive_params_bps:
 	.word 0 /* bytes per sector */
 
+.global vbe_info
+vbe_info:
+	.word 0 /* attributes */
+	.word 0 /* old shit (window a/b) */
+	.word 0 /* Granulatory of banks, don't care. */
+	.word 0 /* Window size, don't care. */
+	.long 0 /* Segments... */
+	.long 0 /* old bank switching thing */
+.global vbe_info_pitch
+vbe_info_pitch:
+	.word 0 /* PITCH */
+.global vbe_info_width
+vbe_info_width:
+	.word 0 /* WIDTH */
+.global vbe_info_height
+vbe_info_height:
+	.word 0 /* HEIGHT */
+	.word 0 /* w, y */
+	.byte 0 /* planes */
+.global vbe_info_bpp
+vbe_info_bpp:
+	.byte 0 /* bits per pixel */
+	.byte 0 /* banks */
+	.byte 0 /* Memory model */
+	.byte 0 /* bank size */
+	.byte 0 /* pages */
+	.byte 0 /* reserved */
+	.byte 0 /* RED mask */
+	.byte 0 /* RED offset */
+	.byte 0 /* GREEN mask */
+	.byte 0 /* GREEN offset */
+	.byte 0 /* BLUE maask */
+	.byte 0 /* BLUE offset */
+	.byte 0 /* ALPHA mask */
+	.byte 0 /* ALPHA offset */
+	.byte 0 /* Color attributes */
+.global vbe_info_fbaddr
+vbe_info_fbaddr:
+	.long 0 /* Framebuffer address */
+	.long 0 /* Extra memory offset */
+	.word 0 /* Extra memory size */
+	.zero 206 /* Other crap */
+
+vbe_cont_info:
+	.ascii "VBE"
+	.word 0
+	.long 0
+	.long 0 /* caps */
+vbe_cont_info_mode_off:
+	.word 0 /* MODES */
+vbe_cont_info_mode_seg:
+	.word 0
+	.zero 494
+
 str_Bad:
 	.asciz "The boot disk does not seem to be a CD."
 str_Need_long:
 	.asciz "ToaruOS 2.0 requires a 64-bit processor."
 str_More_mem:
 	.asciz "ToaruOS 2.0 needs at least 128MiB of RAM, and 1GiB is recommended."
-str_Out_of_modes:
-	.asciz "Out of display modes"
 
 .global disk_space
 disk_space:
