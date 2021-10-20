@@ -3,35 +3,34 @@
     Instead of jumping straight to our C entry point, however, we need
     to (obviously) get ourselves set up for long mode first by setting
     up initial page tables, etc.
-
-    We use a multiboot "1.0" header and build the whole kernel into an
-    elf32 binary so that we can safely load with qemu's -kernel mode.
 */
 .section .multiboot
 .code32
-.align 4
 
+.extern bss_start
+.extern end
+.extern phys
+
+/* Multiboot 1 header */
 .set MB_MAGIC,              0x1BADB002
 .set MB_FLAG_PAGE_ALIGN,    1 << 0
 .set MB_FLAG_MEMORY_INFO,   1 << 1
 .set MB_FLAG_GRAPHICS,      1 << 2
-.set MB_FLAG_AOUT,          1 << 12
-.set MB_FLAGS,              MB_FLAG_PAGE_ALIGN | MB_FLAG_MEMORY_INFO | MB_FLAG_GRAPHICS
+.set MB_FLAG_AOUT,          1 << 16
+.set MB_FLAGS,              MB_FLAG_PAGE_ALIGN | MB_FLAG_MEMORY_INFO | MB_FLAG_GRAPHICS | MB_FLAG_AOUT
 .set MB_CHECKSUM,           -(MB_MAGIC + MB_FLAGS)
 
-.extern bss_start
-.extern end
-
 /* Multiboot section */
+.align 4
 multiboot_header:
 .long MB_MAGIC
 .long MB_FLAGS
 .long MB_CHECKSUM
-.long 0 // 0x00100000 /* header_addr */
-.long 0 // 0x00100000 /* load_addr */
-.long 0 // bss_start /* load_end_addr */
-.long 0 // end /* bss_end_addr */
-.long 0 // start /* entry_addr */
+.long multiboot_header /* header_addr */
+.long phys             /* load_addr */
+.long bss_start        /* load_end_addr */
+.long end              /* bss_end_addr */
+.long start            /* entry_addr */
 
 /* Request linear graphics mode */
 .long 0x00000000
