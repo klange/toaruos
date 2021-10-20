@@ -27,10 +27,10 @@ hashmap_t * modules_get_list(void) {
 	return _modules_table;
 }
 
-int elf_module(const char * path) {
+int elf_module(char ** args) {
 	Elf64_Header header;
 
-	fs_node_t * file = kopen(path,0);
+	fs_node_t * file = kopen(args[0],0);
 
 	if (!file) {
 		return -ENOENT;
@@ -169,7 +169,11 @@ int elf_module(const char * path) {
 
 	hashmap_set(_modules_table, moduleData->name, loadedData);
 
-	return moduleData->init(0,NULL);
+	/* Count arguments */
+	int argc = 0;
+	for (char ** aa = args; *aa; ++aa) ++argc;
+
+	return moduleData->init(argc, args);
 }
 
 int elf_exec(const char * path, fs_node_t * file, int argc, const char *const argv[], const char *const env[], int interp) {

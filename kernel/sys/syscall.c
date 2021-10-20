@@ -58,7 +58,7 @@ static long sys_sbrk(ssize_t size) {
 	return (long)out;
 }
 
-extern int elf_module(const char * path);
+extern int elf_module(char ** args);
 
 static long sys_sysfunc(long fn, char ** args) {
 	/* FIXME: Most of these should be top-level, many are hacks/broken in Misaka */
@@ -93,7 +93,8 @@ static long sys_sysfunc(long fn, char ** args) {
 			if (!args) return -EFAULT;
 			PTR_VALIDATE(args[0]);
 			if (!args[0]) return -EFAULT;
-			return elf_module(args[0]);
+			for (char ** aa = args; *aa; ++aa) { PTR_VALIDATE(*aa); }
+			return elf_module(args);
 
 		case TOARU_SYS_FUNC_SETHEAP: {
 			/* I'm not really sure how this should be done...
