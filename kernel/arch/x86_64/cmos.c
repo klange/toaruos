@@ -146,7 +146,7 @@ size_t arch_cpu_mhz(void) {
 }
 
 void arch_clock_initialize(void) {
-	dprintf("Calibrating system timestamp counter.\n");
+	dprintf("tsc: Calibrating system timestamp counter.\n");
 	arch_boot_time = read_cmos();
 	uintptr_t end_lo, end_hi;
 	uint32_t start_lo, start_hi;
@@ -205,8 +205,9 @@ void arch_clock_initialize(void) {
 	if (tsc_mhz == 0) tsc_mhz = 2000; /* uh oh */
 	tsc_basis_time = start / tsc_mhz;
 
-	dprintf("TSC timed at %lu MHz. Use tsc_mhz= to override if this is very wrong.\n", tsc_mhz);
-	dprintf("Boot time is %lus. Initial TSC timestamp was %luus.\n", arch_boot_time, tsc_basis_time);
+	dprintf("tsc: TSC timed at %lu MHz..\n", tsc_mhz);
+	dprintf("tsc: Boot time is %lus.\n", arch_boot_time);
+	dprintf("tsc: Initial TSC timestamp was %luus.\n", tsc_basis_time);
 }
 
 #define SUBSECONDS_PER_SECOND 1000000

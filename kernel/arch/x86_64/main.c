@@ -284,18 +284,18 @@ static void mount_ramdisk(uintptr_t addr, size_t len) {
 		size_t pageCount = (((size_t)decompressedSize + 0xFFF) & ~(0xFFF)) >> 12;
 		uintptr_t physicalAddress = mmu_allocate_n_frames(pageCount) << 12;
 		if (physicalAddress == (uintptr_t)-1) {
-			dprintf("gzip: failed to allocate pages for decompressed payload, skipping\n");
+			dprintf("gzip: failed to allocate pages\n");
 			return;
 		}
 		gzip_inputPtr = (void*)data;
 		gzip_outputPtr = mmu_map_from_physical(physicalAddress);
 		/* Do the deed */
 		if (gzip_decompress()) {
-			dprintf("gzip: failed to decompress payload, skipping\n");
+			dprintf("gzip: failed to decompress payload\n");
 			return;
 		}
 		ramdisk_mount(physicalAddress, decompressedSize);
-		dprintf("multiboot: Decompressed %lu kB to %u kB, freeing compressed image.\n",
+		dprintf("multiboot: Decompressed %lu kB to %u kB.\n",
 			(len) / 1024,
 			(decompressedSize) / 1024);
 		/* Free the pages from the original mod */
