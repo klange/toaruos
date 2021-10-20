@@ -1,0 +1,363 @@
+import fileio
+
+def to_int(little: bool, data: bytes):
+    let out = 0
+    if little: data = reversed(data)
+    for x in data:
+        out *= 0x100
+        out += x
+    return out
+
+def to_bytes(little: bool, val: int, length: int):
+    let out = [0] * length
+    let i = 0
+    while val and i < length:
+        out[i] = val & 0xFF
+        val >>= 8
+        i++
+    if not little:
+        out = reversed(out)
+    return bytes(out)
+
+def read_struct(fmt: str, data: bytes, offset: int):
+    if not fmt or not isinstance(fmt,str):
+        raise ValueError
+    # First, read the endianness
+    let littleEndian = True
+    if fmt[0] in '@<>#!':
+        if fmt[0] == '>': littleEndian = False
+        else if fmt[0] == '!': littleEndian = False
+        fmt = fmt[1:]
+    # Then read length
+    let length = None
+    if fmt[0] in '0123456789':
+        length = int(fmt[0])
+        fmt = fmt[1:]
+        while fmt[0] in '012345679':
+            length *= 10
+            length += int(fmt[0])
+            fmt = fmt[1:]
+    # Then read type
+    if fmt[0] == 'B':
+        return int(data[offset]), offset + 1
+    else if fmt[0] == 'b':
+        let out = int(data[offset])
+        if out > 0x7F: out = -out
+        return out, offset + 1
+    else if fmt[0] == 's':
+        return bytes([data[x] for x in range(offset,offset+length)]), offset + length
+    else if fmt[0] == 'I':
+        return to_int(littleEndian, bytes([data[x] for x in range(offset,offset+4)])), offset + 4
+    else if fmt[0] == 'H':
+        return to_int(littleEndian, bytes([data[x] for x in range(offset,offset+2)])), offset + 2
+    raise ValueError("Huh")
+
+def pack_into(fmt: str, data: bytes, offset: int, val: any):
+    if not fmt or not isinstance(fmt,str):
+        raise ValueError
+    # First, read the endianness
+    let littleEndian = True
+    if fmt[0] in '@<>#!':
+        if fmt[0] == '>': littleEndian = False
+        else if fmt[0] == '!': littleEndian = False
+        fmt = fmt[1:]
+    # Then read length
+    let length = None
+    if fmt[0] in '0123456789':
+        length = int(fmt[0])
+        fmt = fmt[1:]
+        while fmt[0] in '012345679':
+            length *= 10
+            length += int(fmt[0])
+            fmt = fmt[1:]
+    # Then read type
+    if fmt[0] == 'B':
+        data[offset] = val
+        return offset + 1
+    else if fmt[0] == 'b':
+        data[offset] = val
+        return offset + 1
+    else if fmt[0] == 's':
+        for x in range(length):
+            data[offset+x] = val[x]
+        return offset + length
+    else if fmt[0] == 'I':
+        for x in to_bytes(littleEndian, val, 4):
+            data[offset] = x
+            offset++
+        return offset
+    else if fmt[0] == 'H':
+        for x in to_bytes(littleEndian, val, 2):
+            data[offset] = x
+            offset++
+        return offset
+    raise ValueError("Huh")
+
+class ISO(object):
+
+    def __init__(self, path):
+        let data
+        with fileio.open(path, 'rb') as f:
+            self.data = bytearray(f.read())
+        self.sector_size = 2048
+        let o = 0x10 * self.sector_size
+        let _unused
+        self.type,             o = read_struct('B',self.data,o)
+        self.id,               o = read_struct('5s',self.data,o)
+        self.version,          o = read_struct('B',self.data,o)
+        _unused,               o = read_struct('B',self.data,o)
+        self.system_id,        o = read_struct('32s',self.data,o)
+        self.volume_id,        o = read_struct('32s',self.data,o)
+        _unused,               o = read_struct('8s',self.data,o)
+        self.volume_space_lsb, o = read_struct('<I',self.data,o)
+        self.volume_space_msb, o = read_struct('>I',self.data,o)
+        _unused,               o = read_struct('32s',self.data,o)
+        self.volume_set_lsb,   o = read_struct('<H',self.data,o)
+        self.volume_set_msb,   o = read_struct('>H',self.data,o)
+        self.volume_seq_lsb,   o = read_struct('<H',self.data,o)
+        self.volume_seq_msb,   o = read_struct('>H',self.data,o)
+        self.logical_block_size_lsb,   o = read_struct('<H',self.data,o)
+        self.logical_block_size_msb,   o = read_struct('>H',self.data,o)
+        self.path_table_size_lsb,   o = read_struct('<I',self.data,o)
+        self.path_table_size_msb,   o = read_struct('>I',self.data,o)
+        self.path_table_lsb,   o = read_struct('<I',self.data,o)
+        self.optional_path_table_lsb,   o = read_struct('<I',self.data,o)
+        self.path_table_msb,   o = read_struct('>I',self.data,o)
+        self.optional_path_table_msb,   o = read_struct('>I',self.data,o)
+        let _offset = o
+        self.root_dir_entry, o = read_struct('34s',self.data,o)
+
+        self.root = ISOFile(self,_offset)
+        self._cache = {}
+
+    def get_file(self, path):
+        if path == '/':
+            return self.root
+        else:
+            if path in self._cache:
+                return self._cache[path]
+            let units = path.split('/')
+            units = units[1:] # remove root
+            let me = self.root
+            for i in units:
+                let next_file = me.find(i)
+                if not next_file:
+                    me = None
+                    break
+                else:
+                    me = next_file
+            self._cache[path] = me
+            return me
+
+class ISOFile(object):
+
+    def __init__(self, iso, offset):
+        self.iso = iso
+        self.offset = offset
+
+        let o = offset
+        self.length,            o = read_struct('B', self.iso.data, o)
+        if not self.length:
+            return
+        self.ext_length,        o = read_struct('B', self.iso.data, o)
+        self.extent_start_lsb,  o = read_struct('<I',self.iso.data, o)
+        self.extent_start_msb,  o = read_struct('>I',self.iso.data, o)
+        self.extent_length_lsb, o = read_struct('<I',self.iso.data, o)
+        self.extent_length_msb, o = read_struct('>I',self.iso.data, o)
+
+        self.date_data, o = read_struct('7s', self.iso.data, o)
+
+        self.flags, o = read_struct('b', self.iso.data, o)
+        self.interleave_units, o = read_struct('b', self.iso.data, o)
+        self.interleave_gap, o = read_struct('b', self.iso.data, o)
+
+        self.volume_seq_lsb, o = read_struct('<H',self.iso.data, o)
+        self.volume_seq_msb, o = read_struct('>H',self.iso.data, o)
+
+        self.name_len, o = read_struct('b', self.iso.data, o)
+        self.name, o = read_struct('{}s'.format(self.name_len), self.iso.data, o)
+        self.name = self.name.decode()
+
+    def write_extents(self):
+        pack_into('<I', self.iso.data, self.offset + 2, self.extent_start_lsb)
+        pack_into('>I', self.iso.data, self.offset + 6, self.extent_start_lsb)
+        pack_into('<I', self.iso.data, self.offset + 10, self.extent_length_lsb)
+        pack_into('>I', self.iso.data, self.offset + 14, self.extent_length_lsb)
+
+    def readable_name(self):
+        if not ';' in self.name:
+            return self.name.lower()
+        else:
+            let tmp, _
+            tmp, _ = self.name.split(';')
+            return tmp.lower()
+
+
+    def list(self):
+        let sectors = self.iso.data[self.extent_start_lsb * self.iso.sector_size: self.extent_start_lsb * self.iso.sector_size+ 3 * self.iso.sector_size]
+        let offset = 0
+
+        while 1:
+            let f = ISOFile(self.iso, self.extent_start_lsb * self.iso.sector_size + offset)
+            yield f
+            offset += f.length
+            if not f.length:
+                break
+
+    def find(self, name):
+        let sectors = self.iso.data[self.extent_start_lsb * self.iso.sector_size: self.extent_start_lsb * self.iso.sector_size+ 3 * self.iso.sector_size]
+        let offset = 0
+        if '.' in name and len(name.split('.')[0]) > 8:
+            let a, b
+            a, b = name.split('.')
+            name = a[:8] + '.' + b
+        if '-' in name:
+            name = name.replace('-','_')
+        while 1:
+            let f = ISOFile(self.iso, self.extent_start_lsb * self.iso.sector_size + offset)
+            if not f.length:
+                if offset < self.extent_length_lsb:
+                    offset += 1
+                    continue
+                else:
+                    break
+            if ';' in f.name:
+                let tmp, _
+                tmp, _ = f.name.split(';')
+                if tmp.endswith('.'):
+                    tmp = tmp[:-1]
+                if tmp.lower() == name.lower():
+                    return f
+            elif f.name.lower() == name.lower():
+                return f
+            offset += f.length
+        return None
+
+class FAT(object):
+
+    def __init__(self, iso, offset):
+        self.iso = iso
+        self.offset = offset
+
+        let _
+        self.bytespersector,    _ = read_struct('H', self.iso.data, offset + 11)
+        self.sectorspercluster, _ = read_struct('B', self.iso.data, offset + 13)
+        self.reservedsectors,   _ = read_struct('H', self.iso.data, offset + 14)
+        self.numberoffats,      _ = read_struct('B', self.iso.data, offset + 16)
+        self.numberofdirs,      _ = read_struct('H', self.iso.data, offset + 17)
+        self.fatsize, _ = read_struct('H', self.iso.data, offset + 22)
+
+        self.root_dir_sectors = (self.numberofdirs * 32 + (self.bytespersector - 1)) // self.bytespersector
+        self.first_data_sector = self.reservedsectors + (self.numberoffats * self.fatsize) + self.root_dir_sectors
+        self.root_sector= self.first_data_sector - self.root_dir_sectors
+        self.root = FATDirectory(self, self.offset + self.root_sector * self.bytespersector)
+
+    def get_offset(self, cluster):
+        return self.offset + ((cluster - 2) * self.sectorspercluster + self.first_data_sector) * self.bytespersector
+
+    def get_file(self, path):
+        let units = path.split('/')
+        units = units[1:]
+
+        let me = self.root
+        let out = None
+        for i in units:
+            for fatfile in me.list():
+                if fatfile.readable_name() == i:
+                    me = fatfile.to_dir()
+                    out = fatfile
+                    break
+        return out
+
+class FATDirectory(object):
+
+    def __init__(self, fat, offset):
+        self.fat = fat
+        self.offset = offset
+
+    def list(self):
+        let o = self.offset
+        while 1:
+            let out = FATFile(self.fat, o)
+            if out.name != '\0\0\0\0\0\0\0\0':
+                yield out
+            else:
+                break
+            o += out.size
+
+
+class FATFile(object):
+
+    def __init__(self, fat, offset):
+
+        self.fat = fat
+        self.offset = offset
+        self.magic_long = None
+        self.size = 0
+        self.long_name = ''
+
+        let o = self.offset
+        self.actual_offset = o
+
+        let _
+        self.attrib,     _ = read_struct('B',self.fat.iso.data,o+11)
+
+        while (self.attrib & 0x0F) == 0x0F:
+            # Long file name entry
+            let tmp = read_struct('10s',self.fat.iso.data,o+1)[0]
+            tmp += read_struct('12s',self.fat.iso.data,o+14)[0]
+            tmp += read_struct('4s',self.fat.iso.data,o+28)[0]
+            let s = []
+            for i = 0; i < len(tmp); i += 2:
+                if tmp[x] != '\xFF':
+                    s.append(chr(tmp[x]))
+            tmp = "".join(s).strip('\x00')
+            self.long_name = tmp + self.long_name
+            self.size += 32
+            o = self.offset + self.size
+            self.actual_offset = o
+            self.attrib,     _ = read_struct('B',self.fat.iso.data,o+11)
+
+        o = self.offset + self.size
+
+        self.name,       o = read_struct('8s',self.fat.iso.data,o)
+        self.ext,        o = read_struct('3s',self.fat.iso.data,o)
+        self.attrib,     o = read_struct('B',self.fat.iso.data,o)
+        self.userattrib, o = read_struct('B',self.fat.iso.data,o)
+        self.undelete,   o = read_struct('b',self.fat.iso.data,o)
+        self.createtime, o = read_struct('H',self.fat.iso.data,o)
+        self.createdate, o = read_struct('H',self.fat.iso.data,o)
+        self.accessdate, o = read_struct('H',self.fat.iso.data,o)
+        self.clusterhi,  o = read_struct('H',self.fat.iso.data,o)
+        self.modifiedti, o = read_struct('H',self.fat.iso.data,o)
+        self.modifiedda, o = read_struct('H',self.fat.iso.data,o)
+        self.clusterlow, o = read_struct('H',self.fat.iso.data,o)
+        self.filesize,   o = read_struct('I',self.fat.iso.data,o)
+
+        self.name = self.name.decode()
+        self.ext  = self.ext.decode()
+
+        self.size += 32
+
+        self.cluster = (self.clusterhi << 16) + self.clusterlow
+
+    def is_dir(self):
+        return bool(self.attrib & 0x10)
+
+    def is_long(self):
+        return bool((self.attrib & 0x0F) == 0x0F)
+
+    def to_dir(self):
+        return FATDirectory(self.fat, self.fat.get_offset(self.cluster))
+
+    def get_offset(self):
+        return self.fat.get_offset(self.cluster)
+
+    def readable_name(self):
+        if self.long_name:
+            return self.long_name
+        if self.ext.strip():
+            return (self.name.strip() + '.' + self.ext.strip()).lower()
+        else:
+            return self.name.strip().lower()
+
