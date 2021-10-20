@@ -38,6 +38,67 @@ multiboot_header:
 .long 768
 .long 32
 
+/* Multiboot 2 header */
+.set MB2_MAGIC,    0xe85250d6
+.set MB2_ARCH,     0
+.set MB2_LENGTH,   (multiboot2_header_end - multiboot2_header)
+.set MB2_CHECKSUM, -(MB2_MAGIC + MB2_ARCH + MB2_LENGTH)
+.align 8
+multiboot2_header:
+.long MB2_MAGIC
+.long MB2_ARCH
+.long MB2_LENGTH
+.long MB2_CHECKSUM
+
+/* Address tag */
+.align 8
+mb2_tag_addr:
+.word 2
+.word 0
+.long 24
+.long multiboot2_header
+.long phys
+.long bss_start
+.long end
+
+/* Entry tag */
+.align 8
+mb2_tag_entry:
+.word 3
+.word 0
+.long 12
+.long start
+
+/* Framebuffer tag */
+.align 8
+mb2_tag_fb:
+.word 5
+.word 0
+.long 20
+.long 1024
+.long 768
+.long 32
+
+.align 8
+.word 4
+.word 0
+.long 12
+.long 2 /* We support EGA text, but don't require it */
+
+/* Modules must be aligned */
+.align 8
+.word 6
+.word 0
+.long 8
+
+/* End tag */
+.align 8
+.word 0
+.word 0
+.long 8
+
+multiboot2_header_end:
+
 /* .stack resides in .bss */
 .section .stack, "aw", @nobits
 stack_bottom:

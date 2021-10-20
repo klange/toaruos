@@ -214,7 +214,17 @@ void smp_initialize(void) {
 	int good = 0;
 
 	extern struct multiboot * mboot_struct;
-	if (mboot_struct->config_table) {
+	extern int mboot_is_2;
+	if (mboot_is_2) {
+		extern void * mboot2_find_tag(void * fromStruct, uint32_t type);
+		scan = (uintptr_t)mboot2_find_tag(mboot_struct, 14);
+		if (!scan) scan = (uintptr_t)mboot2_find_tag(mboot_struct, 15);
+
+		/* tag header */
+		scan += 8;
+
+		scan_top = scan + 0x100000;
+	} else if (mboot_struct->config_table) {
 		scan = mboot_struct->config_table;
 		scan_top = scan + 0x100000;
 	} else if (args_present("acpi")) {
@@ -297,6 +307,10 @@ _toomany:
 
 	if (cores <= 1) return;
 
+	/* Get a page we can backup the previous contents of the bootstrap target page to, as it probably has mmap crap in multiboot2 */
+	uintptr_t tmp_space = mmu_allocate_a_frame() << 12;
+	memcpy(mmu_map_from_physical(tmp_space), mmu_map_from_physical(0x1000), 0x1000);
+
 	/* Map the bootstrap code */
 	memcpy(mmu_map_from_physical(0x1000), &_ap_bootstrap_start, (uintptr_t)&_ap_bootstrap_end - (uintptr_t)&_ap_bootstrap_start);
 
@@ -322,7 +336,11 @@ _toomany:
 		do { asm volatile ("pause" : : : "memory"); } while (!_ap_startup_flag);
 	}
 
-	dprintf("SMP enabled with %d cores\n", cores);
+	/* Copy data back */
+	memcpy(mmu_map_from_physical(0x1000), mmu_map_from_physical(tmp_space), 0x1000);
+	mmu_frame_clear(tmp_space);
+
+	dprintf("smp: enabled with %d cores\n", cores);
 }
 
 void arch_wakeup_others(void) {

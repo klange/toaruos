@@ -347,28 +347,17 @@ static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y)
 	finalize_graphics("bochs");
 }
 
-extern struct multiboot * mboot_struct;
+extern void arch_framebuffer_initialize();
 
 static void graphics_install_preset(uint16_t w, uint16_t h) {
 	/* Extract framebuffer information from multiboot */
-	lfb_vid_memory = mmu_map_from_physical(mboot_struct->framebuffer_addr);
-	lfb_resolution_x = mboot_struct->framebuffer_width;
-	lfb_resolution_y = mboot_struct->framebuffer_height;
-	lfb_resolution_s = mboot_struct->framebuffer_pitch;
-	lfb_resolution_b = 32;
+	arch_framebuffer_initialize();
 
 	/* Make sure memsize is actually big enough */
 	size_t minsize = lfb_resolution_s * lfb_resolution_y * 4;
 	if (lfb_memsize < minsize) lfb_memsize = minsize;
 
 	finalize_graphics("preset");
-}
-
-static void check_multiboot(void) {
-	if ((mboot_struct->flags & MULTIBOOT_FLAG_FB) && (mboot_struct->framebuffer_width)) {
-		PREFERRED_W = mboot_struct->framebuffer_width;
-		PREFERRED_H = mboot_struct->framebuffer_height;
-	}
 }
 
 #define SVGA_IO_BASE (vmware_io)
@@ -524,7 +513,6 @@ static int lfb_init(const char * c) {
 
 	uint16_t x, y;
 	if (argc < 3) {
-		check_multiboot();
 		x = PREFERRED_W;
 		y = PREFERRED_H;
 	} else {

@@ -67,7 +67,7 @@ int generic_main(void) {
 		boot_app = args_value("init");
 	}
 
-	dprintf("Running %s as init process.\n", boot_app);
+	dprintf("generic: Running %s as init process.\n", boot_app);
 
 	const char * argv[] = {
 		boot_app,
