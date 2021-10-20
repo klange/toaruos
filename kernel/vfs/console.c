@@ -23,13 +23,14 @@ extern uint64_t arch_boot_time;
 /** Things we use for framebuffer output. */
 extern uint16_t lfb_resolution_x;
 extern size_t (*printf_output)(size_t, uint8_t *);
-extern size_t fbterm_write(size_t, uint8_t *);
+
+static size_t (*console_write)(size_t, uint8_t *) = NULL;
 
 static uint8_t tmp_buffer[4096] __attribute__((aligned(4096)));
 static uint8_t * buffer_start = tmp_buffer;
 
 static ssize_t write_console(size_t size, uint8_t *buffer) {
-	if (lfb_resolution_x) return fbterm_write(size,buffer);
+	if (console_write) return console_write(size,buffer);
 
 	if (buffer_start + size >= tmp_buffer + sizeof(tmp_buffer)) {
 		return 0; /* uh oh */
@@ -57,15 +58,18 @@ static int cb_printf(void * user, char c) {
 	return 0;
 }
 
+void console_set_output(size_t (*output)(size_t,uint8_t*)) {
+	console_write = output;
+
+	if (buffer_start != tmp_buffer) {
+		console_write(buffer_start - tmp_buffer, tmp_buffer);
+		buffer_start = tmp_buffer;
+	}
+}
+
 int dprintf(const char * fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-
-	/* Is a viable output ready? */
-	if (lfb_resolution_x && buffer_start != tmp_buffer) {
-		fbterm_write(buffer_start - tmp_buffer, tmp_buffer);
-		buffer_start = tmp_buffer;
-	}
 
 	/* Is this a FATAL message? */
 

@@ -10,9 +10,20 @@
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/args.h>
+#include <kernel/mmu.h>
 
 /* Whether to scroll or wrap when cursor reaches the bottom. */
-static int fbterm_scroll = 0;
+static int fbterm_scroll = 1;
+static void (*write_char)(int, int, int, uint32_t) = NULL;
+static int (*get_width)(void) = NULL;
+static int (*get_height)(void) = NULL;
+static void (*scroll_terminal)(void) = NULL;
+
+static int x = 0;
+static int y = 0;
+static int term_state = 0;
+static char term_buf[1024] = {0};
+static int term_buf_c = 0;
 
 /* Is this in a header somewhere? */
 extern uint8_t * lfb_vid_memory;
@@ -40,10 +51,14 @@ static inline void set_point(int x, int y, uint32_t value) {
 	((uint32_t*)lfb_vid_memory)[y * (lfb_resolution_s/4) + x] = value;
 }
 
-static void write_char(int x, int y, int val, uint32_t color) {
+static void fb_write_char(int _x, int _y, int val, uint32_t color) {
 	if (val > 128) {
 		val = 4;
 	}
+
+	int x = 1 + _x * char_width;
+	int y = _y * char_height;
+
 	uint16_t * c = large_font[val];
 	for (uint8_t i = 0; i < char_height; ++i) {
 		for (uint8_t j = 0; j < char_width; ++j) {
@@ -55,21 +70,6 @@ static void write_char(int x, int y, int val, uint32_t color) {
 		}
 	}
 }
-
-static void fbterm_init_framebuffer(void) {
-	for (size_t y = 0; y < lfb_resolution_y; ++y) {
-		for (size_t x = 0; x < lfb_resolution_x; ++x) {
-			set_point(x,y,BG_COLOR);
-		}
-	}
-}
-
-/* We push text in one pixel, which unfortunately means we have slightly less room,
- * but it also means the text doesn't run right into the left and right edges which
- * just looks kinda bad. */
-#define LEFT_PAD 1
-static int x = LEFT_PAD;
-static int y = 0;
 
 /**
  * @brief Basic 16-color ANSI palette with Tango colors.
@@ -94,24 +94,90 @@ static uint32_t term_colors[] = {
 	0xFFEEEEEC,
 };
 
-static int term_state = 0;
-static char term_buf[1024] = {0};
-static int term_buf_c = 0;
+static int fb_get_width(void) {
+	return (lfb_resolution_x - 1) / char_width;
+}
 
-static void invert_at(int x, int y) {
-	/* Disable cursor for now, as it reads from video memory which is generally slow. */
-#if 0
-	for (uint8_t i = 0; i < char_height; ++i) {
-		for (uint8_t j = 0; j < char_width; ++j) {
-			uint32_t current = ((uint32_t*)lfb_vid_memory)[(y+i) * lfb_resolution_x + (x+j)];
-			uint8_t r = (current >> 16) & 0xFF;
-			uint8_t g = (current >> 8) & 0xFF;
-			uint8_t b = (current) & 0xFF;
-			current = 0xFF000000 | ((0xFF-r) << 16) | ((0xFF-g) << 8) | ((0xFF-b));
-			((uint32_t*)lfb_vid_memory)[(y+i) * lfb_resolution_x + (x+j)] = current;
+static int fb_get_height(void) {
+	return lfb_resolution_y / char_height;
+}
+
+static void fb_scroll_terminal(void) {
+	memmove(lfb_vid_memory, lfb_vid_memory + sizeof(uint32_t) * lfb_resolution_x * char_height, (lfb_resolution_y - char_height) * lfb_resolution_x * 4);
+	memset(lfb_vid_memory + sizeof(uint32_t) * (lfb_resolution_y - char_height) * lfb_resolution_x, 0x05, char_height * lfb_resolution_x * 4);
+}
+
+static void draw_square(int x, int y) {
+	for (size_t _y = 0; _y < 7; ++_y) {
+		for (size_t _x = 0; _x < 7; ++_x) {
+			set_point(1 + x * 8 + _x, 1 + y * 8 + _y,
+				0xFF00B2FF - (y * 8 + _y) * 0x200);
 		}
 	}
-#endif
+}
+
+static void fbterm_draw_logo(void) {
+	uint64_t logo_squares = 0x981818181818FFFFUL;
+	for (size_t y = 0; y < 8; ++y) {
+		for (size_t x = 0; x < 8; ++x) {
+			if (logo_squares & (1 << x)) {
+				draw_square(x,y);
+			}
+		}
+		logo_squares >>= 8;
+	}
+}
+
+static void fbterm_init_framebuffer(void) {
+	write_char = fb_write_char;
+	get_width = fb_get_width;
+	get_height = fb_get_height;
+	scroll_terminal = fb_scroll_terminal;
+
+	for (size_t y = 0; y < lfb_resolution_y; ++y) {
+		for (size_t x = 0; x < lfb_resolution_x; ++x) {
+			set_point(x,y,BG_COLOR);
+		}
+	}
+
+	fbterm_draw_logo();
+	y = 4;
+}
+
+static void ega_write_char(int x, int y, int ch, uint32_t color) {
+	unsigned short att = 7 << 8;
+	unsigned short *where = (unsigned short*)(mmu_map_from_physical(0xB8000)) + (y * 80 + x);
+	*where = (ch & 0xFF) | att;
+}
+
+static int ega_get_width(void) { return 80; }
+static int ega_get_height(void) { return 25; }
+
+static void ega_scroll_terminal(void) {
+	memmove(mmu_map_from_physical(0xB8000), (char*)mmu_map_from_physical(0xB8000) + sizeof(unsigned short) * 80, sizeof(unsigned short) * (80 * 24));
+	memset((char*)mmu_map_from_physical(0xB8000) + sizeof(unsigned short) * (80 * 24), 0x00, 80 * sizeof(unsigned short));
+}
+
+static void fbterm_init_ega(void) {
+	write_char = ega_write_char;
+	get_width = ega_get_width;
+	get_height = ega_get_height;
+	scroll_terminal = ega_scroll_terminal;
+}
+
+static void cursor_update(void) {
+	if (x >= get_width()) {
+		x = 0;
+		y++;
+	}
+	if (y >= get_height()) {
+		if (fbterm_scroll) {
+			y--;
+			scroll_terminal();
+		} else {
+			y = 0;
+		}
+	}
 }
 
 static void process_char(char ch) {
@@ -171,19 +237,14 @@ static void process_char(char ch) {
 				}
 				case 'G': {
 					/* Set cursor column */
-					invert_at(x,y);
-					x = LEFT_PAD + (atoi(term_buf) - 1) * char_width;
-					invert_at(x,y);
+					x = atoi(term_buf) - 1;
 					break;
 				}
 				case 'K': {
 					if (atoi(term_buf) == 0) {
-						for (int j = y; j < y + char_height; ++j) {
-							for (int i = x; i < lfb_resolution_x; ++i) {
-								set_point(i,j,bg_color);
-							}
+						for (int i = x; i < get_width(); ++i) {
+							write_char(i,y,' ',bg_color);
 						}
-						invert_at(x,y);
 					}
 					break;
 				}
@@ -202,38 +263,25 @@ static void process_char(char ch) {
 	write_char(x,y,' ',bg_color);
 	switch (ch) {
 		case '\n':
-			x = LEFT_PAD;
-			y += char_height;
+			x = 0;
+			y++;
 			break;
 		case '\r':
-			x = LEFT_PAD;
+			x = 0;
 			break;
 		case '\b':
-			if (x > LEFT_PAD) {
-				x -= char_width;
+			if (x) {
+				x--;
 				write_char(x,y,' ',fg_color);
 			}
 			break;
 		default:
 			if ((unsigned int)ch > 127) return;
 			write_char(x,y,ch,fg_color);
-			x += char_width;
+			x++;
 			break;
 	}
-	if (x > lfb_resolution_x) {
-		y += char_height;
-		x = LEFT_PAD;
-	}
-	if (y > lfb_resolution_y - char_height) {
-		if (fbterm_scroll) {
-			y -= char_height;
-			memmove(lfb_vid_memory, lfb_vid_memory + sizeof(uint32_t) * lfb_resolution_x * char_height, (lfb_resolution_y - char_height) * lfb_resolution_x * 4);
-			memset(lfb_vid_memory + sizeof(uint32_t) * (lfb_resolution_y - char_height) * lfb_resolution_x, 0x05, char_height * lfb_resolution_x * 4);
-		} else {
-			y = 0;
-		}
-	}
-	invert_at(x,y);
+	cursor_update();
 }
 
 static size_t (*previous_writer)(size_t,uint8_t*) = NULL;
@@ -247,40 +295,24 @@ size_t fbterm_write(size_t size, uint8_t *buffer) {
 	return size;
 }
 
-static void draw_square(int x, int y) {
-	for (size_t _y = 0; _y < 7; ++_y) {
-		for (size_t _x = 0; _x < 7; ++_x) {
-			set_point(1 + x * 8 + _x, 1 + y * 8 + _y,
-				0xFF00B2FF - (y * 8 + _y) * 0x200);
-		}
-	}
-}
-
-static void fbterm_draw_logo(void) {
-	uint64_t logo_squares = 0x981818181818FFFFUL;
-	for (size_t y = 0; y < 8; ++y) {
-		for (size_t x = 0; x < 8; ++x) {
-			if (logo_squares & (1 << x)) {
-				draw_square(x,y);
-			}
-		}
-		logo_squares >>= 8;
-	}
-}
-
 void fbterm_initialize(void) {
-	if (!lfb_resolution_x) return;
-
-	if (args_present("fbterm-scroll")) {
-		fbterm_scroll = 1;
+	if (args_present("no-fbterm-scroll")) {
+		fbterm_scroll = 0;
 	}
 
-	fbterm_init_framebuffer();
-	fbterm_draw_logo();
-	y = 66;
+	if (lfb_resolution_x) {
+		fbterm_init_framebuffer();
+	} else {
+#ifdef __x86_64__
+		fbterm_init_ega();
+#else
+		return;
+#endif
+	}
 
 	previous_writer = printf_output;
 	printf_output = fbterm_write;
+	console_set_output(fbterm_write);
 
 	dprintf("fbterm: Generic framebuffer text output enabled.\n");
 }

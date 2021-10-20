@@ -12,3 +12,4 @@ extern size_t xvasprintf(int (*callback)(void *, char), void * userData, const c
 
 __attribute__((format(__printf__,1,2)))
 extern int dprintf(const char *fmt, ...);
+extern void console_set_output(size_t (*output)(size_t,uint8_t*));
