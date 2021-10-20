@@ -13,7 +13,7 @@
 #include <kernel/mmu.h>
 
 /* Whether to scroll or wrap when cursor reaches the bottom. */
-static int fbterm_scroll = 1;
+static int fbterm_scroll = 0;
 static void (*write_char)(int, int, int, uint32_t) = NULL;
 static int (*get_width)(void) = NULL;
 static int (*get_height)(void) = NULL;
@@ -296,14 +296,14 @@ size_t fbterm_write(size_t size, uint8_t *buffer) {
 }
 
 void fbterm_initialize(void) {
-	if (args_present("no-fbterm-scroll")) {
-		fbterm_scroll = 0;
-	}
-
 	if (lfb_resolution_x) {
+		if (args_present("fbterm-scroll")) {
+			fbterm_scroll = 1;
+		}
 		fbterm_init_framebuffer();
 	} else {
 #ifdef __x86_64__
+		fbterm_scroll = 1;
 		fbterm_init_ega();
 #else
 		return;
