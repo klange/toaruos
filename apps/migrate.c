@@ -62,7 +62,7 @@ void copy_link(char * source, char * dest, int mode, int uid, int gid) {
 
 void copy_file(char * source, char * dest, int mode,int uid, int gid) {
 	//fprintf(stderr, "need to copy file %s to %s %x\n", source, dest, mode);
-	TRACE_("Copying %s...", dest);
+	//TRACE_("Copying %s...", dest);
 
 	int d_fd = open(dest, O_WRONLY | O_CREAT, mode);
 	int s_fd = open(source, O_RDONLY);
@@ -98,7 +98,7 @@ void copy_directory(char * source, char * dest, int mode, int uid, int gid) {
 		return;
 	}
 
-	TRACE_("Creating %s/...", dest);
+	TRACE_("Copying %s/...", dest);
 	//fprintf(stderr, "Creating %s\n", dest);
 	if (!strcmp(dest, "/")) {
 		dest = "";

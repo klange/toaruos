@@ -20,138 +20,10 @@
 
 #include "terminal-font.h"
 
-static void do_nothing() {
-	/* do nothing */
-}
+static FILE * console;
 
-/* Framebuffer setup */
-static int framebuffer_fd = -1;
-static long width, height, depth;
-static char * framebuffer;
-static void (*update_message)(char * c, int line) = do_nothing;
-static void (*clear_screen)(void) = do_nothing;
-
-static void set_point(int x, int y, uint32_t value) {
-	uint32_t * disp = (uint32_t *)framebuffer;
-	uint32_t * cell = &disp[y * width + x];
-	*cell = value;
-}
-
-#define BG_COLOR 0xFF050505
-#define FG_COLOR 0xFFCCCCCC
-#define char_width  LARGE_FONT_CELL_WIDTH
-#define char_height LARGE_FONT_CELL_HEIGHT
-static void write_char(int x, int y, int val, uint32_t color) {
-	if (val > 128) {
-		val = 4;
-	}
-	uint16_t * c = large_font[val];
-	for (uint8_t i = 0; i < char_height; ++i) {
-		for (uint8_t j = 0; j < char_width; ++j) {
-			if (c[i] & (1 << (LARGE_FONT_MASK-j))) {
-				set_point(x+j,y+i,color);
-			} else {
-				set_point(x+j,y+i,BG_COLOR);
-			}
-		}
-	}
-}
-
-static unsigned int line_offset = 0;
-static void fb_update_message(char * c, int line) {
-	FILE * console = fopen("/dev/console","a");
-	fprintf(console, "\r%s\033[K%s", c, line == 0 ? "\n" : "");
-	fflush(console);
-	fclose(console);
-	#if 0
-	int x = 20;
-	int y = 20 + line_offset * char_height;
-	if (line == 0) {
-		line_offset++;
-	}
-	while (*c) {
-		write_char(x, y, *c, FG_COLOR);
-		c++;
-		x += char_width;
-	}
-	while (x < width - char_width) {
-		write_char(x, y, ' ', FG_COLOR);
-		x += char_width;
-	}
-	#endif
-}
-
-static void fb_clear_screen(void) {
-	#if 0
-	line_offset = 0;
-	for (int y = 0; y < height; ++y) {
-		for (int x = 0; x < width; ++x) {
-			set_point(x,y,BG_COLOR);
-		}
-	}
-	#endif
-}
-
-static void placech(unsigned char c, int x, int y, int attr) {
-	unsigned short *where;
-	unsigned att = attr << 8;
-	where = (unsigned short*)(framebuffer) + (y * 80 + x);
-	*where = c | att;
-}
-
-static void vga_update_message(char * c, int line) {
-	int x = 1;
-	int y = 1 + line_offset;
-	if (line == 0) {
-		line_offset++;
-	}
-	while (*c) {
-		placech(*c, x, y, 0x7);
-		c++;
-		x++;
-	}
-	while (x < 80) {
-		placech(' ', x, y, 0x7);
-		x++;
-	}
-}
-
-static void vga_clear_screen(void) {
-	line_offset = 0;
-	for (int y = 0; y < 24; ++y) {
-		for (int x = 0; x < 80; ++x) {
-			placech(' ', x, y, 0); /* Clear */
-		}
-	}
-}
-
-static void reinit_video(int signum) {
-	ioctl(framebuffer_fd, IO_VID_WIDTH,  &width);
-	ioctl(framebuffer_fd, IO_VID_HEIGHT, &height);
-	ioctl(framebuffer_fd, IO_VID_DEPTH,  &depth);
-	ioctl(framebuffer_fd, IO_VID_ADDR,   &framebuffer);
-	ioctl(framebuffer_fd, IO_VID_SIGNAL, NULL);
-	if (signum) {
-		char screen_update_msg[512];
-		snprintf(screen_update_msg, 511, "Display resolution changed to %ldx%ld", width, height);
-		clear_screen();
-		update_message(screen_update_msg,0);
-	}
-	signal(SIGWINEVENT, reinit_video);
-}
-
-static void check_framebuffer(void) {
-	framebuffer_fd = open("/dev/fb0", O_RDONLY);
-	if (framebuffer_fd >= 0) {
-		update_message = fb_update_message;
-		clear_screen = fb_clear_screen;
-	} else {
-		framebuffer_fd = open("/dev/vga0", O_RDONLY);
-		if (framebuffer_fd < 0) return;
-		update_message = vga_update_message;
-		clear_screen = vga_clear_screen;
-	}
-	reinit_video(0);
+static void update_message(char * c) {
+	fprintf(console, "%s\n", c);
 }
 
 static FILE * pex_endpoint = NULL;
@@ -171,7 +43,7 @@ static void say_hello(void) {
 	char hello_msg[512];
 	snprintf(hello_msg, 511, "ToaruOS %s is starting up...", u.release);
 	/* Add it to the log */
-	update_message(hello_msg, 0);
+	update_message(hello_msg);
 }
 
 int main(int argc, char * argv[]) {
@@ -181,10 +53,9 @@ int main(int argc, char * argv[]) {
 	}
 
 	open_socket();
+	console = fopen("/dev/console","a");
 
 	if (!fork()) {
-		check_framebuffer();
-		clear_screen();
 		say_hello();
 
 		while (1) {
@@ -203,15 +74,14 @@ int main(int argc, char * argv[]) {
 				char * tmp = malloc(p->size + 1);
 				memcpy(tmp, p->data, p->size);
 				tmp[p->size] = '\0';
-				update_message(tmp+1, 1);
+				update_message(tmp+1);
 				free(tmp);
 			} else {
 				/* Make sure message is nil terminated (it should be...) */
 				char * tmp = malloc(p->size + 1);
 				memcpy(tmp, p->data, p->size);
 				tmp[p->size] = '\0';
-				update_message(tmp, 0);
-				//update_message("", 1);
+				update_message(tmp);
 				free(tmp);
 			}
 		}
