@@ -47,10 +47,21 @@ static uintptr_t ramdisk_len = 0;
 uintptr_t final_offset = 0;
 uintptr_t _xmain = 0;
 
-static int load_kernel(void) {
-	clear();
-	Elf32_Header * header = (Elf32_Header *)kernel_load_start;
+static int load_aout(uint32_t * hdr) {
+	uintptr_t base_offset = (uintptr_t)hdr - (uintptr_t)kernel_load_start;
+	uintptr_t hdr_offset  = hdr[3] - base_offset;
 
+	memcpy((void*)(uintptr_t)hdr[4], kernel_load_start + (hdr[4] - hdr_offset), (hdr[5] - hdr[4]));
+	memset((void*)(uintptr_t)hdr[5], 0, (hdr[6] - hdr[5]));
+	_xmain = (uintptr_t)hdr[7];
+
+	if (hdr[6] > final_offset) final_offset = hdr[6];
+	final_offset = (final_offset & ~(0xFFF)) + ((final_offset & 0xFFF) ? 0x1000 : 0);
+
+	return 1;
+}
+
+static int load_elf32(Elf32_Header * header) {
 	if (header->e_ident[0] != ELFMAG0 ||
 	    header->e_ident[1] != ELFMAG1 ||
 	    header->e_ident[2] != ELFMAG2 ||
@@ -80,6 +91,24 @@ static int load_kernel(void) {
 
 	print("Loaded with end at 0x"); print_hex(final_offset); print("\n");
 	return 1;
+}
+
+static int load_kernel(void) {
+	clear();
+
+	/* Check for Multiboot header */
+	for (uintptr_t x = 0; x < 8192; x += 4) {
+		uint32_t * check = (uint32_t *)(kernel_load_start + x);
+		if (*check == 0x1BADB002) {
+			if (check[1] & (1 << 16)) {
+				return load_aout(check);
+			} else {
+				return load_elf32((void*)kernel_load_start);
+			}
+		}
+	}
+
+	return 0;
 }
 
 static void relocate_ramdisk(mboot_mod_t * mboot_mods) {
