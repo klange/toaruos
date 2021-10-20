@@ -69,13 +69,14 @@ extern volatile uint16_t dap_sectors;
 extern volatile uint32_t dap_buffer;
 extern volatile uint32_t dap_lba_low;
 extern volatile uint32_t dap_lba_high;
+extern volatile uint16_t drive_params_bps;
 extern uint8_t disk_space[];
 
 int bios_call(char * into, uint32_t sector) {
+	dap_sectors = 2048 / drive_params_bps;
 	dap_buffer = (uint32_t)disk_space;
-	dap_lba_low = sector;
+	dap_lba_low = sector * dap_sectors;
 	dap_lba_high = 0;
-	dap_sectors = 1;
 	do_bios_call();
 	memcpy(into, disk_space, 2048);
 }

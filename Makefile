@@ -308,10 +308,15 @@ BUILD_KRK=$(TOOLCHAIN)/local/bin/kuroko
 $(TOOLCHAIN)/local/bin/kuroko: kuroko/src/*.c
 	cc -Ikuroko/src -DNO_RLINE -DSTATIC_ONLY -DKRK_DISABLE_THREADS -o "${TOOLCHAIN}/local/bin/kuroko" kuroko/src/*.c
 
-image.iso: cdrom/fat.img cdrom/boot.sys util/update-extents.krk $(BUILD_KRK)
+image.iso: cdrom/fat.img cdrom/boot.sys boot/mbr.S util/update-extents.krk | $(BUILD_KRK)
 	xorriso -as mkisofs -R -J -c bootcat \
 	  -b boot.sys -no-emul-boot -boot-load-size full \
 	  -eltorito-alt-boot -e fat.img -no-emul-boot -isohybrid-gpt-basdat \
 	  -o image.iso cdrom
+	${AS} --32 $$(kuroko util/make_mbr.krk) -o boot/mbr.o boot/mbr.S
+	${LD} -melf_i386 -T boot/link.ld -o boot/mbr.sys boot/mbr.o
+	tail -c +513 image.iso > image.dat
+	cat boot/mbr.sys image.dat > image.iso
+	rm image.dat
 	kuroko util/update-extents.krk
 

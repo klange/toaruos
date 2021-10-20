@@ -70,6 +70,8 @@ can_long:
 
 	movl $str_More_mem, %esi
 	call print_string
+
+_oh_no:
 	jmp _oh_no
 
 good_memory:
@@ -78,17 +80,6 @@ good_memory:
 	mov boot_disk, %dl
 	mov $drive_params, %si
 	int $0x13
-
-	/* Are we a CD? Do we need to load more of ourselves? */
-	mov drive_params_bps, %ax
-	cmp $0x800, %ax
-	je  boot_from_cd
-
-	movl $str_Bad, %esi
-	call print_string
-
-_oh_no:
-	jmp _oh_no
 
 .extern _bss_start
 
@@ -359,8 +350,6 @@ drive_params:
 drive_params_bps:
 	.word 0 /* bytes per sector */
 
-str_Bad:
-	.asciz "The boot disk does not seem to be a CD."
 str_Need_long:
 	.asciz "ToaruOS 2.0 requires a 64-bit processor."
 str_More_mem:
