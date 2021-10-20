@@ -648,7 +648,8 @@ void process_delete(process_t * proc) {
  */
 void make_process_ready(volatile process_t * proc) {
 	if (proc->sleep_node.owner != NULL) {
-		spin_lock(sleep_lock);
+		int sleep_lock_is_mine = sleep_lock.owner == (this_core->cpu_id = 1);
+		if (!sleep_lock_is_mine) spin_lock(sleep_lock);
 		if (proc->sleep_node.owner == sleep_queue) {
 			/* The sleep queue is slightly special... */
 			if (proc->timed_sleep_node) {
@@ -656,13 +657,12 @@ void make_process_ready(volatile process_t * proc) {
 				proc->sleep_node.owner = NULL;
 				free(proc->timed_sleep_node->value);
 			}
-			spin_unlock(sleep_lock);
 		} else {
 			/* This was blocked on a semaphore we can interrupt. */
 			__sync_or_and_fetch(&proc->flags, PROC_FLAG_SLEEP_INT);
 			list_delete((list_t*)proc->sleep_node.owner, (node_t*)&proc->sleep_node);
-			spin_unlock(sleep_lock);
 		}
+		if (!sleep_lock_is_mine) spin_unlock(sleep_lock);
 	}
 
 	spin_lock(process_queue_lock);
