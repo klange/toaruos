@@ -112,7 +112,9 @@ uintptr_t mmu_first_n_frames(int n) {
 		}
 	}
 
+	arch_fatal_prepare();
 	printf("failed to allocate %d contiguous frames\n", n);
+	arch_dump_traceback();
 	arch_fatal();
 	return (uintptr_t)-1;
 }
@@ -135,7 +137,9 @@ uintptr_t mmu_first_frame(void) {
 		}
 	}
 
+	arch_fatal_prepare();
 	printf("error: out allocatable frames\n");
+	arch_dump_traceback();
 	arch_fatal();
 	return (uintptr_t)-1;
 }
@@ -806,7 +810,9 @@ void mmu_init(size_t memsize, uintptr_t firstFreePage) {
  */
 void * sbrk(size_t bytes) {
 	if (!heapStart) {
+		arch_fatal_prepare();
 		printf("sbrk: Called before heap was ready.\n");
+		arch_dump_traceback();
 		arch_fatal();
 	}
 
@@ -816,12 +822,16 @@ void * sbrk(size_t bytes) {
 	}
 
 	if (bytes & PAGE_LOW_MASK) {
+		arch_fatal_prepare();
 		printf("sbrk: Size must be multiple of 4096, was %#zx\n", bytes);
+		arch_dump_traceback();
 		arch_fatal();
 	}
 
 	if (bytes > 0xF00000) {
+		arch_fatal_prepare();
 		printf("sbrk: Size must be within a reasonable bound, was %#zx\n", bytes);
+		arch_dump_traceback();
 		arch_fatal();
 	}
 
@@ -855,7 +865,9 @@ static uintptr_t mmio_base_address = MMIO_BASE_START;
  */
 void * mmu_map_mmio_region(uintptr_t physical_address, size_t size) {
 	if (size & PAGE_LOW_MASK) {
+		arch_fatal_prepare();
 		printf("mmu_map_mmio_region: MMIO region size must be multiple of 4096 bytes, was %#zx.\n", size);
+		arch_dump_traceback();
 		arch_fatal();
 	}
 

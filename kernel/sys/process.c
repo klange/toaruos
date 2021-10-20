@@ -73,7 +73,7 @@ void update_process_times(int includeSystem) {
 	}
 }
 
-#define must_have_lock(lck) if (lck.owner != this_core->cpu_id+1) { printf("Failed lock check.\n"); arch_fatal(); }
+#define must_have_lock(lck) if (lck.owner != this_core->cpu_id+1) { arch_fatal_prepare(); printf("Failed lock check.\n"); arch_dump_traceback(); arch_fatal(); }
 
 /**
  * @brief Restore the context of the next available process's kernel thread.
@@ -117,9 +117,11 @@ void switch_next(void) {
 	arch_set_kernel_stack(this_core->current_process->image.stack);
 
 	if ((this_core->current_process->flags & PROC_FLAG_FINISHED) ||  (!this_core->current_process->signal_queue)) {
+		arch_fatal_prepare();
 		printf("Should not have this process...\n");
 		if (this_core->current_process->flags & PROC_FLAG_FINISHED) printf("It is marked finished.\n");
 		if (!this_core->current_process->signal_queue) printf("It doesn't have a signal queue.\n");
+		arch_dump_traceback();
 		arch_fatal();
 		__builtin_unreachable();
 	}
@@ -162,10 +164,12 @@ void switch_task(uint8_t reschedule) {
 	if (!this_core->current_process) return;
 
 	if (this_core->current_process == this_core->kernel_idle_task && __builtin_return_address(0) != &_ret_from_preempt_source) {
+		arch_fatal_prepare();
 		printf("Context switch from kernel_idle_task triggered from somewhere other than pre-emption source. Halting.\n");
 		printf("This generally means that a driver responding to interrupts has attempted to yield in its interrupt context.\n");
 		printf("Ensure that all device drivers which respond to interrupts do so with non-blocking data structures.\n");
 		printf("   Return address of switch_task: %p\n", __builtin_return_address(0));
+		arch_dump_traceback();
 		arch_fatal();
 	}
 
@@ -689,7 +693,9 @@ volatile process_t * next_ready_process(void) {
 
 	if (!process_queue->head) {
 		if (process_queue->length) {
+			arch_fatal_prepare();
 			printf("Queue has a length but head is NULL\n");
+			arch_dump_traceback();
 			arch_fatal();
 		}
 		spin_unlock(process_queue_lock);
@@ -699,7 +705,9 @@ volatile process_t * next_ready_process(void) {
 	node_t * np = list_dequeue(process_queue);
 
 	if ((uintptr_t)np < 0xFFFFff0000000000UL || (uintptr_t)np > 0xFFFFfff000000000UL) {
+		arch_fatal_prepare();
 		printf("Suspicious pointer in queue: %#zx\n", (uintptr_t)np);
+		arch_dump_traceback();
 		arch_fatal();
 	}
 	volatile process_t * next = np->value;

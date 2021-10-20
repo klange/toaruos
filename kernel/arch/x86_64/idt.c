@@ -211,9 +211,7 @@ static uintptr_t matching_symbol(uintptr_t ip, char ** name) {
 	return best_match;
 }
 
-static void safe_dump_traceback(struct regs * r) {
-	uintptr_t ip = r->rip;
-	uintptr_t bp = r->rbp;
+static void dump_traceback(uintptr_t ip, uintptr_t bp) {
 	int depth = 0;
 	int max_depth = 20;
 
@@ -224,7 +222,7 @@ static void safe_dump_traceback(struct regs * r) {
 			struct LoadedModule * mod = find_module(ip, &name);
 			if (mod) {
 				dprintf("\a in module '%s', base address %#zx (offset %#zx)\n",
-					name, mod->baseAddress, r->rip - mod->baseAddress);
+					name, mod->baseAddress, ip - mod->baseAddress);
 			} else {
 				dprintf("\a (unknown)\n");
 			}
@@ -251,6 +249,14 @@ static void safe_dump_traceback(struct regs * r) {
 	}
 }
 
+static void safe_dump_traceback(struct regs * r) {
+	dump_traceback(r->rip, r->rbp);
+}
+
+void arch_dump_traceback(void) {
+	dump_traceback((uintptr_t)arch_dump_traceback+1, (uintptr_t)__builtin_frame_address(0));
+}
+
 static void map_more_stack(uintptr_t fromAddr) {
 	volatile process_t * volatile proc = this_core->current_process;
 	if (proc->group != 0) {
@@ -266,7 +272,6 @@ static void map_more_stack(uintptr_t fromAddr) {
 	spin_unlock(proc->image.lock);
 }
 
-extern void arch_fatal_prepare(void);
 static void panic(const char * desc, struct regs * r, uintptr_t faulting_address) {
 	arch_fatal_prepare();
 	dprintf("\033[31mPanic!\033[0m %s pid=%d (%s) at %#zx\n", desc,
