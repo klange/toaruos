@@ -143,7 +143,6 @@ static char ata_drive_char = 'a';
 static int  cdrom_number = 0;
 static uint32_t ata_pci = 0x00000000;
 static list_t * atapi_waiter;
-static int atapi_in_progress = 0;
 
 typedef union {
 	uint8_t command_bytes[12];
@@ -183,8 +182,8 @@ static struct ata_device ata_primary_slave    = {.io_base = 0x1F0, .control = 0x
 static struct ata_device ata_secondary_master = {.io_base = 0x170, .control = 0x376, .slave = 0};
 static struct ata_device ata_secondary_slave  = {.io_base = 0x170, .control = 0x376, .slave = 1};
 
-//static volatile uint8_t ata_lock = 0;
 static spin_lock_t ata_lock = { 0 };
+static spin_lock_t atapi_cmd_lock = { 0 };
 
 /* TODO support other sector sizes */
 #define ATA_SECTOR_SIZE 512
@@ -465,18 +464,18 @@ static void ata_soft_reset(struct ata_device * dev) {
 
 static int ata_irq_handler(struct regs *r) {
 	inportb(ata_primary_master.io_base + ATA_REG_STATUS);
-	if (atapi_in_progress) {
-		wakeup_queue(atapi_waiter);
-	}
+	spin_lock(atapi_cmd_lock);
+	wakeup_queue(atapi_waiter);
+	spin_unlock(atapi_cmd_lock);
 	irq_ack(14);
 	return 1;
 }
 
 static int ata_irq_handler_s(struct regs *r) {
 	inportb(ata_secondary_master.io_base + ATA_REG_STATUS);
-	if (atapi_in_progress) {
-		wakeup_queue(atapi_waiter);
-	}
+	spin_lock(atapi_cmd_lock);
+	wakeup_queue(atapi_waiter);
+	spin_unlock(atapi_cmd_lock);
 	irq_ack(15);
 	return 1;
 }
@@ -783,14 +782,13 @@ static void ata_device_read_sector_atapi(struct ata_device * dev, uint64_t lba, 
 	outportb(bus + ATA_REG_COMMAND, ATA_CMD_PACKET);
 
 	/* poll */
+	int timeout = 100;
 	while (1) {
 		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
 		if ((status & ATA_SR_ERR)) goto atapi_error_on_read_setup;
+		if (timeout-- < 0) { dprintf("atapi: timeout while waiting for controller to be ready\n"); goto atapi_timeout; }
 		if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRQ)) break;
 	}
-
-	atapi_in_progress = 1;
-
 
 	atapi_command_t command;
 	command.command_bytes[0] = 0xA8;
@@ -806,14 +804,12 @@ static void ata_device_read_sector_atapi(struct ata_device * dev, uint64_t lba, 
 	command.command_bytes[10] = 0;
 	command.command_bytes[11] = 0;
 
+	spin_lock(atapi_cmd_lock);
 	for (int i = 0; i < 6; ++i) {
 		outports(bus, command.command_words[i]);
 	}
 
-	/* Wait */
-	sleep_on(atapi_waiter);
-
-	atapi_in_progress = 0;
+	sleep_on_unlocking(atapi_waiter, &atapi_cmd_lock);
 
 	while (1) {
 		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
@@ -824,18 +820,22 @@ static void ata_device_read_sector_atapi(struct ata_device * dev, uint64_t lba, 
 	uint16_t size_to_read = inportb(bus + ATA_REG_LBA2) << 8;
 	size_to_read = size_to_read | inportb(bus + ATA_REG_LBA1);
 
-
 	inportsm(bus,buf,size_to_read/2);
 
+	timeout = 1000;
 	while (1) {
 		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
 		if ((status & ATA_SR_ERR)) goto atapi_error_on_read_setup;
+		if (timeout-- < 0) { dprintf("atapi: timeout while waiting for controller to be ready after transaction\n"); goto atapi_timeout; }
 		if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRDY)) break;
 	}
 
 atapi_error_on_read_setup:
 	spin_unlock(ata_lock);
+	return;
 
+atapi_timeout:
+	spin_unlock(ata_lock);
 }
 
 static void ata_device_write_sector(struct ata_device * dev, uint64_t lba, uint8_t * buf) {
