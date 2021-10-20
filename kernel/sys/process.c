@@ -1148,14 +1148,14 @@ int process_awaken_from_fswait(process_t * process, int index) {
 }
 
 void process_awaken_signal(process_t * process) {
+	spin_lock(sleep_lock);
 	spin_lock(process->sched_lock);
 	if (process->node_waits) {
-		spin_lock(sleep_lock);
 		process_awaken_from_fswait(process, -1);
-		spin_unlock(sleep_lock);
 	} else {
 		spin_unlock(process->sched_lock);
 	}
+	spin_unlock(sleep_lock);
 }
 
 int process_alert_node_locked(process_t * process, void * value) {
