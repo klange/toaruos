@@ -648,7 +648,7 @@ void process_delete(process_t * proc) {
  */
 void make_process_ready(volatile process_t * proc) {
 	if (proc->sleep_node.owner != NULL) {
-		int sleep_lock_is_mine = sleep_lock.owner == (this_core->cpu_id = 1);
+		int sleep_lock_is_mine = sleep_lock.owner == (this_core->cpu_id + 1);
 		if (!sleep_lock_is_mine) spin_lock(sleep_lock);
 		if (proc->sleep_node.owner == sleep_queue) {
 			/* The sleep queue is slightly special... */
