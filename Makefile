@@ -158,8 +158,8 @@ kernel/%.o: kernel/%.c ${HEADERS}
 
 clean:
 	-rm -f ${KERNEL_ASMOBJS}
-	-rm -f ${KERNEL_OBJS}
-	-rm -f kernel/symbols.o misaka-kernel misaka-kernel.64
+	-rm -f ${KERNEL_OBJS} $(MODULES)
+	-rm -f kernel/symbols.o kernel/symbols.S misaka-kernel misaka-kernel.64
 	-rm -f ramdisk.tar ramdisk.igz 
 	-rm -f $(APPS_Y) $(LIBS_Y) $(KRK_MODS_Y) $(KRK_MODS)
 	-rm -f $(APPS_X) $(LIBS_X) $(KRK_MODS_X) $(APPS_KRK_X) $(APPS_SH_X)
