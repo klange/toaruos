@@ -195,6 +195,8 @@ static void next_mem(gfx_context_t * ctx) {
 	old_use = mem_use;
 }
 
+static char ifnames[32][256];
+
 static int count_interfaces(void) {
 	int count = 0;
 	DIR * d = opendir("/dev/net");
@@ -205,6 +207,7 @@ static int count_interfaces(void) {
 	struct dirent * ent;
 	while ((ent = readdir(d))) {
 		if (ent->d_name[0] == '.') continue;
+		snprintf(ifnames[count>>1], 255, ent->d_name);
 		count += 2;
 	}
 
@@ -314,8 +317,8 @@ static void draw_legend_net(void) {
 	struct decor_bounds bounds;
 	decor_get_bounds(NULL, &bounds);
 	for (int i = 0; i < if_count; ++i) {
-		char _net_name[] = "net          ";
-		sprintf(_net_name, "%s", (i & 1) ? "TX" : "RX");
+		char _net_name[300];
+		sprintf(_net_name, "%s (%s)", (i & 1) ? "TX" : "RX", ifnames[i>>1]);
 		draw_rounded_rectangle(ctx_base,
 			bounds.left_width + i * available_width + 30,
 			bounds.top_height + 3 * (top_pad + graph_height) + 2 * bottom_pad + 5,
