@@ -498,7 +498,7 @@ static long sock_udp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 	net_ipv4_send(response,nic);
 	free(response);
 
-	return 0;
+	return msg->msg_iov[0].iov_len;
 }
 
 static long sock_udp_recv(sock_t * sock, struct msghdr * msg, int flags) {
