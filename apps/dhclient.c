@@ -262,7 +262,10 @@ static int configure_interface(const char * if_name) {
 		return 1;
 	}
 
-	if (ioctl(netdev, SIOCGIFHWADDR, &mac_addr)) {
+	int res = ioctl(netdev, SIOCGIFHWADDR, &mac_addr);
+
+	if (res == 1) return 0; /* Loopback, skip */
+	if (res) {
 		fprintf(stderr, "%s: %s: could not get mac address\n", _argv_0, if_name);
 		return 1;
 	}
