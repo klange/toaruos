@@ -22,9 +22,12 @@
 static hashmap_t * interfaces = NULL;
 extern list_t * net_raw_sockets_list;
 static fs_node_t * _if_first = NULL;
+static fs_node_t * _if_loop = NULL;
 
 extern void ipv4_install(void);
 extern hashmap_t * net_arp_cache;
+
+extern fs_node_t * loopbook_install(void);
 
 void net_install(void) {
 	/* Set up virtual devices */
@@ -33,6 +36,8 @@ void net_install(void) {
 	net_raw_sockets_list = list_create("raw sockets", NULL);
 	net_arp_cache = hashmap_create_int(10);
 	ipv4_install();
+	_if_loop = loopbook_install();
+	_if_first = NULL;
 }
 
 /* kinda temporary for now */
@@ -53,5 +58,11 @@ fs_node_t * net_if_lookup(const char * name) {
 }
 
 fs_node_t * net_if_any(void) {
+	return _if_first;
+}
+
+fs_node_t * net_if_route(uint32_t addr) {
+	/* First off, let's do stupid stuff. */
+	if (addr == 0x0100007F) return _if_loop;
 	return _if_first;
 }

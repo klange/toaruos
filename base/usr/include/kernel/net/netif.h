@@ -10,6 +10,7 @@
 
 int net_add_interface(const char * name, fs_node_t * deviceNode);
 fs_node_t * net_if_lookup(const char * name);
+fs_node_t * net_if_route(uint32_t addr);
 
 typedef struct SockData {
 	fs_node_t _fnode;

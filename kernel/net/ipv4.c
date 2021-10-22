@@ -31,7 +31,6 @@
 #define DEFAULT_TCP_WINDOW_SIZE 65535
 
 static int _debug __attribute__((unused)) = 0;
-extern fs_node_t * net_if_any(void);
 
 static void ip_ntoa(const uint32_t src_addr, char * out) {
 	snprintf(out, 16, "%d.%d.%d.%d",
@@ -225,7 +224,7 @@ static long sock_icmp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 	}
 
 	struct sockaddr_in * name = msg->msg_name;
-	fs_node_t * nic = net_if_any();
+	fs_node_t * nic = net_if_route(name->sin_addr.s_addr);
 	if (!nic) return -ENONET;
 	size_t total_length = sizeof(struct ipv4_packet) + msg->msg_iov[0].iov_len;
 
@@ -470,7 +469,7 @@ static long sock_udp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 	printf("udp: want to send to %s\n", dest);
 
 	/* Routing: We need a device to send this on... */
-	fs_node_t * nic = net_if_any();
+	fs_node_t * nic = net_if_route(name->sin_addr.s_addr);
 	if (!nic) return 0;
 
 	size_t total_length = sizeof(struct ipv4_packet) + msg->msg_iov[0].iov_len + sizeof(struct udp_packet);
@@ -582,7 +581,7 @@ static void sock_tcp_close(sock_t * sock) {
 		spin_unlock(tcp_port_lock);
 
 		size_t total_length = sizeof(struct ipv4_packet) + sizeof(struct tcp_header);
-		fs_node_t * nic = net_if_any();
+		fs_node_t * nic = net_if_route(((struct sockaddr_in*)&sock->dest)->sin_addr.s_addr);
 		if (!nic) return;
 
 		struct ipv4_packet * response = malloc(total_length);
@@ -719,7 +718,7 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 
 	memcpy(&sock->dest, addr, addrlen);
 
-	fs_node_t * nic = net_if_any();
+	fs_node_t * nic = net_if_route(dest->sin_addr.s_addr);
 	if (!nic) return -ENONET;
 
 	size_t total_length = sizeof(struct ipv4_packet) + sizeof(struct tcp_header);
@@ -844,7 +843,7 @@ static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 		size_t size_to_send = size_remaining > 1024 ? 1024 : size_remaining;
 		size_t total_length = sizeof(struct ipv4_packet) + sizeof(struct tcp_header) + size_to_send;
 
-		fs_node_t * nic = net_if_any();
+		fs_node_t * nic = net_if_route(((struct sockaddr_in*)&sock->dest)->sin_addr.s_addr);
 		if (!nic) return -ENONET;
 
 		struct ipv4_packet * response = malloc(total_length);
