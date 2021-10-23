@@ -170,7 +170,7 @@ struct scrollback_row {
 	term_cell_t cells[];
 };
 
-#define MAX_SCROLLBACK 10240
+#define MAX_SCROLLBACK 1000
 static list_t * scrollback_list = NULL;
 static int scrollback_offset = 0;
 
@@ -1099,20 +1099,34 @@ static int is_wide(uint32_t codepoint) {
 static void save_scrollback(void) {
 
 	/* If the scrollback is already full, remove the oldest element. */
+	struct scrollback_row * row = NULL;
+	node_t * n = NULL;
+
 	if (scrollback_list->length == MAX_SCROLLBACK) {
-		node_t * n = list_dequeue(scrollback_list);
-		free(n->value);
-		free(n);
+		n = list_dequeue(scrollback_list);
+		row = n->value;
+		if (row->width < term_width) {
+			free(row);
+			row = NULL;
+		}
 	}
 
-	struct scrollback_row * row = malloc(sizeof(struct scrollback_row) + sizeof(term_cell_t) * term_width + 20);
-	row->width = term_width;
+	if (!row) {
+		row = malloc(sizeof(struct scrollback_row) + sizeof(term_cell_t) * term_width);
+		row->width = term_width;
+	}
+
+	if (!n) {
+		list_insert(scrollback_list, row);
+	} else {
+		n->value = row;
+		list_append(scrollback_list, n);
+	}
+
 	for (int i = 0; i < term_width; ++i) {
 		term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (i) * sizeof(term_cell_t));
 		memcpy(&row->cells[i], cell, sizeof(term_cell_t));
 	}
-
-	list_insert(scrollback_list, row);
 }
 
 /* Draw the scrollback. */
