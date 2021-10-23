@@ -185,7 +185,7 @@ union PML heap_base_pml[512] _pagemap;
 union PML heap_base_pd[512] _pagemap;
 union PML heap_base_pt[512*3] _pagemap;
 union PML low_base_pmls[34][512] _pagemap;
-union PML twom_high_pds[4][512] _pagemap;
+union PML twom_high_pds[64][512] _pagemap;
 
 /**
  * @brief Maps a frame address to a virtual address.
@@ -705,16 +705,11 @@ void mmu_init(size_t memsize, uintptr_t firstFreePage) {
 	init_page_region[0][510].raw = (uintptr_t)&heap_base_pml | KERNEL_PML_ACCESS;
 
 	/* Identity map from -128GB in the boot PML using 2MiB pages */
-	high_base_pml[0].raw = (uintptr_t)&twom_high_pds[0] | KERNEL_PML_ACCESS;
-	high_base_pml[1].raw = (uintptr_t)&twom_high_pds[1] | KERNEL_PML_ACCESS;
-	high_base_pml[2].raw = (uintptr_t)&twom_high_pds[2] | KERNEL_PML_ACCESS;
-	high_base_pml[3].raw = (uintptr_t)&twom_high_pds[3] | KERNEL_PML_ACCESS;
-
-	for (uintptr_t i = 0; i < 512; i += 1) {
-		twom_high_pds[0][i].raw = (0x00000000 + i * LARGE_PAGE_SIZE) | LARGE_PAGE_BIT | KERNEL_PML_ACCESS;
-		twom_high_pds[1][i].raw = (0x40000000 + i * LARGE_PAGE_SIZE) | LARGE_PAGE_BIT | KERNEL_PML_ACCESS;
-		twom_high_pds[2][i].raw = (0x80000000 + i * LARGE_PAGE_SIZE) | LARGE_PAGE_BIT | KERNEL_PML_ACCESS;
-		twom_high_pds[3][i].raw = (0xC0000000 + i * LARGE_PAGE_SIZE) | LARGE_PAGE_BIT | KERNEL_PML_ACCESS;
+	for (size_t i = 0; i < 64; ++i) {
+		high_base_pml[i].raw = (uintptr_t)&twom_high_pds[i] | KERNEL_PML_ACCESS;
+		for (uintptr_t j = 0; j < 512; ++j) {
+			twom_high_pds[i][j].raw = ((i << 30) + (j << 21)) | LARGE_PAGE_BIT | KERNEL_PML_ACCESS;
+		}
 	}
 
 	/* Map low base PDP */
