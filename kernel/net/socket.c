@@ -93,6 +93,11 @@ int sock_generic_wait(fs_node_t *node, void * process) {
 void sock_generic_close(fs_node_t *node) {
 	sock_t * sock = (sock_t*)node;
 	sock->sock_close(sock);
+	while (sock->rx_queue->length) {
+		node_t * n = list_dequeue(sock->rx_queue);
+		free(n->value);
+		free(n);
+	}
 	printf("net: socket closed\n");
 }
 
