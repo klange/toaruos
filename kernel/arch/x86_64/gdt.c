@@ -63,7 +63,7 @@ FullGDT gdt[32] __attribute__((used)) = {{
 
 void gdt_install(void) {
 	for (int i = 1; i < 32; ++i) {
-		memcpy(&gdt[i], &gdt[0], sizeof(gdt));
+		memcpy(&gdt[i], &gdt[0], sizeof(*gdt));
 	}
 
 	for (int i = 0; i < 32; ++i) {
