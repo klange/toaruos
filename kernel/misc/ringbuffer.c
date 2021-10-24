@@ -19,6 +19,7 @@
 #include <kernel/string.h>
 #include <kernel/vfs.h>
 #include <kernel/printf.h>
+#include <kernel/mmu.h>
 
 size_t ring_buffer_unread(ring_buffer_t * ring_buffer) {
 	if (ring_buffer->read_ptr == ring_buffer->write_ptr) {
@@ -142,7 +143,11 @@ size_t ring_buffer_write(ring_buffer_t * ring_buffer, size_t size, uint8_t * buf
 ring_buffer_t * ring_buffer_create(size_t size) {
 	ring_buffer_t * out = malloc(sizeof(ring_buffer_t));
 
-	out->buffer     = malloc(size);
+	if (size == 4096) {
+		out->buffer = mmu_map_from_physical(mmu_allocate_a_frame() << 12);
+	} else {
+		out->buffer     = malloc(size);
+	}
 	out->write_ptr  = 0;
 	out->read_ptr   = 0;
 	out->size       = size;
@@ -160,7 +165,11 @@ ring_buffer_t * ring_buffer_create(size_t size) {
 }
 
 void ring_buffer_destroy(ring_buffer_t * ring_buffer) {
-	free(ring_buffer->buffer);
+	if (ring_buffer->size == 4096) {
+		mmu_frame_clear((uintptr_t)ring_buffer->buffer & 0xFFFFFFFFF);
+	} else {
+		free(ring_buffer->buffer);
+	}
 
 	wakeup_queue(ring_buffer->wait_queue_writers);
 	wakeup_queue(ring_buffer->wait_queue_readers);
