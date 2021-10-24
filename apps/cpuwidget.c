@@ -120,6 +120,9 @@ static void graph_between(gfx_context_t * ctx, size_t old, size_t new, size_t sc
 		}
 	}
 
+	if (old > scale) old = scale;
+	if (new > scale) new = scale;
+
 	static float samples[EASE_WIDTH];
 	for (int i = 0; i < EASE_WIDTH; ++i) {
 		size_t value = old * factor[i] + new * (1.0 - factor[i]);
