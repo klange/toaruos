@@ -498,6 +498,7 @@ static void update_network_status(void) {
 	struct dirent * ent;
 	while ((ent = readdir(d))) {
 		if (ent->d_name[0] == '.') continue;
+		if (!strcmp(ent->d_name, "lo")) continue; /* Ignore loopback */
 		check_network(ent->d_name);
 	}
 
