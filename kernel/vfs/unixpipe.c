@@ -9,6 +9,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014-2021 K. Lange
  */
+#include <errno.h>
 #include <kernel/types.h>
 #include <kernel/printf.h>
 #include <kernel/pipe.h>
@@ -38,38 +39,19 @@ static void close_complete(struct unix_pipe * self) {
 
 static ssize_t read_unixpipe(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
 	struct unix_pipe * self = node->device;
-	size_t read = 0;
-
-	while (read < size) {
-		if (self->write_closed && !ring_buffer_unread(self->buffer)) {
-			return read;
-		}
-		size_t r = ring_buffer_read(self->buffer, 1, buffer+read);
-		if (r && *((char *)(buffer + read)) == '\n') {
-			return read+r;
-		}
-		read += r;
+	if (self->write_closed && !ring_buffer_unread(self->buffer)) {
+		return 0;
 	}
-
-	return read;
+	return ring_buffer_read(self->buffer, size, buffer);
 }
 
 static ssize_t write_unixpipe(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
 	struct unix_pipe * self = node->device;
-	size_t written = 0;
-
-	while (written < size) {
-		if (self->read_closed) {
-			/* SIGPIPE to current process */
-			send_signal(this_core->current_process->id, SIGPIPE, 1);
-
-			return written;
-		}
-		size_t w = ring_buffer_write(self->buffer, 1, buffer+written);
-		written += w;
+	if (self->read_closed) {
+		send_signal(this_core->current_process->id, SIGPIPE, 1);
+		return -EPIPE;
 	}
-
-	return written;
+	return ring_buffer_write(self->buffer, size, buffer);
 }
 
 static void close_read_pipe(fs_node_t * node) {
