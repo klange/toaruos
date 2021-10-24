@@ -279,55 +279,70 @@ static void demarcate(gfx_context_t * ctx) {
 	}
 }
 
-static void draw_legend_cpu(void) {
-	int available_width = ctx_cpu->width / cpu_count;
+static char * ellipsify(char * input, int font_size, struct TT_Font * font, int max_width, int * out_width) {
+	int len = strlen(input);
+	char * out = malloc(len + 4);
+	memcpy(out, input, len + 1);
+	int width;
+	tt_set_size(font, font_size);
+	while ((width = tt_string_width(font, out)) > max_width) {
+		len--;
+		out[len+0] = '.';
+		out[len+1] = '.';
+		out[len+2] = '.';
+		out[len+3] = '\0';
+	}
+
+	if (out_width) *out_width = width;
+
+	return out;
+}
+
+static void draw_legend_element(int which, int count, int index, uint32_t color, char * label) {
 	struct decor_bounds bounds;
-	decor_get_bounds(NULL, &bounds);
+	decor_get_bounds(wina, &bounds);
+
+	/* Available display width */
+	int legend_width = ctx_base->width - bounds.width - 40;
+	if (legend_width <= 0) return;
+
+	/* Calculate graph offset from the usual rule */
+	int y = bounds.top_height + (which + 1) * (top_pad + graph_height) + which * bottom_pad + 4;
+
+	/* Space to give to each unit. */
+	int unit_width = legend_width / count;
+
+	/* Left offset of this unit */
+	int unit_x = unit_width * index + bounds.left_width + 10;
+
+	/* First draw blob */
+	draw_rounded_rectangle(ctx_base,
+		unit_x, y, 20, 20, 5, color);
+
+	if (unit_width > 22) {
+		char * label_cropped = ellipsify(label, 12, tt_thin, unit_width - 22, NULL);
+		tt_draw_string(ctx_base, tt_thin, 22 + unit_x, y + 14, label_cropped, rgb(0,0,0));
+	}
+
+}
+
+static void draw_legend_cpu(void) {
 	for (int i = 0; i < cpu_count; ++i) {
 		char _cpu_name[] = "CPU    ";
 		sprintf(_cpu_name, "CPU %d", i+1);
-		draw_rounded_rectangle(ctx_base,
-			bounds.left_width + i * available_width + 30,
-			bounds.top_height + top_pad + graph_height + 5,
-			20, 20, 5, colors[i]);
-		tt_set_size(tt_thin, 13);
-		tt_draw_string(ctx_base, tt_thin,
-			bounds.left_width + i * available_width + 60,
-			bounds.top_height + top_pad + graph_height + 20,
-			_cpu_name, rgb(0,0,0));
+		draw_legend_element(0, cpu_count, i, colors[i], _cpu_name);
 	}
 }
 
 static void draw_legend_mem(void) {
-	struct decor_bounds bounds;
-	decor_get_bounds(NULL, &bounds);
-	draw_rounded_rectangle(ctx_base,
-		bounds.left_width + 30,
-		bounds.top_height + 2 * (top_pad + graph_height) + bottom_pad + 5,
-		20, 20, 5, rgb(250,110,240));
-	tt_set_size(tt_thin, 13);
-	tt_draw_string(ctx_base, tt_thin,
-		bounds.left_width + 60,
-		bounds.top_height + 2 * (top_pad + graph_height) + bottom_pad + 20,
-		"Memory Usage", rgb(0,0,0));
+	draw_legend_element(1, 1, 0, rgb(250,110,240), "Memory Usage");
 }
 
 static void draw_legend_net(void) {
-	int available_width = ctx_net->width / if_count;
-	struct decor_bounds bounds;
-	decor_get_bounds(NULL, &bounds);
 	for (int i = 0; i < if_count; ++i) {
 		char _net_name[300];
 		sprintf(_net_name, "%s (%s)", (i & 1) ? "TX" : "RX", ifnames[i>>1]);
-		draw_rounded_rectangle(ctx_base,
-			bounds.left_width + i * available_width + 30,
-			bounds.top_height + 3 * (top_pad + graph_height) + 2 * bottom_pad + 5,
-			20, 20, 5, if_colors[i]);
-		tt_set_size(tt_thin, 13);
-		tt_draw_string(ctx_base, tt_thin,
-			bounds.left_width + i * available_width + 60,
-			bounds.top_height + 3 * (top_pad + graph_height) + 2 * bottom_pad + 20,
-			_net_name, rgb(0,0,0));
+		draw_legend_element(2, if_count, i, if_colors[i], _net_name);
 	}
 }
 
