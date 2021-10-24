@@ -127,15 +127,20 @@ void _menu_activate_MenuEntry_Normal(struct MenuEntry * self, int flags) {
 	}
 }
 
+static struct MenuEntryVTable _menu_vtable_MenuEntry_Normal = {
+	.methods = 3,
+	.renderer = _menu_draw_MenuEntry_Normal,
+	.focus_change = _menu_focus_MenuEntry_Normal,
+	.activate = _menu_activate_MenuEntry_Normal,
+};
+
 struct MenuEntry * menu_create_normal(const char * icon, const char * action, const char * title, void (*callback)(struct MenuEntry *)) {
 	struct MenuEntry_Normal * out = malloc(sizeof(struct MenuEntry_Normal));
 
 	out->_type = MenuEntry_Normal;
 	out->height = MENU_ENTRY_HEIGHT;
 	out->hilight = 0;
-	out->renderer = _menu_draw_MenuEntry_Normal;
-	out->focus_change = _menu_focus_MenuEntry_Normal;
-	out->activate = _menu_activate_MenuEntry_Normal;
+	out->vtable = &_menu_vtable_MenuEntry_Normal;
 	out->icon = icon ? strdup(icon) : NULL;
 	out->title = strdup(title);
 	out->action = action ? strdup(action) : NULL;
@@ -164,7 +169,7 @@ void _menu_draw_MenuEntry_Submenu(gfx_context_t * ctx, struct MenuEntry * self, 
 
 void _menu_focus_MenuEntry_Submenu(struct MenuEntry * self, int focused) {
 	if (focused) {
-		self->activate(self, focused);
+		self->vtable->activate(self, focused);
 	}
 }
 
@@ -195,15 +200,20 @@ void _menu_activate_MenuEntry_Submenu(struct MenuEntry * self, int focused) {
 
 }
 
+static struct MenuEntryVTable _menu_vtable_MenuEntry_Submenu = {
+	.methods = 3,
+	.renderer = _menu_draw_MenuEntry_Submenu,
+	.focus_change = _menu_focus_MenuEntry_Submenu,
+	.activate = _menu_activate_MenuEntry_Submenu,
+};
+
 struct MenuEntry * menu_create_submenu(const char * icon, const char * action, const char * title) {
 	struct MenuEntry_Submenu * out = malloc(sizeof(struct MenuEntry_Submenu));
 
 	out->_type = MenuEntry_Submenu;
 	out->height = MENU_ENTRY_HEIGHT;
 	out->hilight = 0;
-	out->renderer = _menu_draw_MenuEntry_Submenu;
-	out->focus_change = _menu_focus_MenuEntry_Submenu;
-	out->activate = _menu_activate_MenuEntry_Submenu;
+	out->vtable = &_menu_vtable_MenuEntry_Submenu;
 	out->icon = icon ? strdup(icon) : NULL;
 	out->title = strdup(title);
 	out->action = action ? strdup(action) : NULL;
@@ -232,16 +242,21 @@ void _menu_activate_MenuEntry_Separator(struct MenuEntry * self, int focused) {
 
 }
 
+static struct MenuEntryVTable _menu_vtable_MenuEntry_Separator = {
+	.methods = 3,
+	.renderer = _menu_draw_MenuEntry_Separator,
+	.focus_change = _menu_focus_MenuEntry_Separator,
+	.activate = _menu_activate_MenuEntry_Separator,
+};
+
 struct MenuEntry * menu_create_separator(void) {
 	struct MenuEntry_Separator * out = malloc(sizeof(struct MenuEntry_Separator));
 
 	out->_type = MenuEntry_Separator;
 	out->height = 6;
 	out->hilight = 0;
-	out->renderer = _menu_draw_MenuEntry_Separator;
-	out->focus_change = _menu_focus_MenuEntry_Separator;
 	out->rwidth = 10; /* at least a bit please */
-	out->activate = _menu_activate_MenuEntry_Separator;
+	out->vtable = &_menu_vtable_MenuEntry_Separator;
 
 	return (struct MenuEntry *)out;
 }
@@ -545,8 +560,8 @@ static void _menu_redraw(yutani_window_t * menu_window, yutani_t * yctx, struct 
 	int offset = (menu->flags & MENU_FLAG_BUBBLE) ? 12 : 4;
 	foreach(node, entries) {
 		struct MenuEntry * entry = node->value;
-		if (entry->renderer) {
-			entry->renderer(ctx, entry, offset);
+		if (entry->vtable->methods >= 1 && entry->vtable->renderer) {
+			entry->vtable->renderer(ctx, entry, offset);
 		}
 
 		offset += entry->height;
@@ -734,7 +749,9 @@ void menu_key_action(struct MenuList * menu, struct yutani_msg_key_event * me) {
 		if (hilighted) {
 			hilighted->hilight = 1;
 			if (hilighted->_type == MenuEntry_Submenu) {
-				hilighted->activate(hilighted, 0);
+				if (hilighted->vtable->methods >= 3 && hilighted->vtable->activate) {
+					hilighted->vtable->activate(hilighted, 0);
+				}
 				_menu_redraw(window,yctx,menu,1);
 			} else {
 				struct menu_bar * bar = NULL;
@@ -764,7 +781,9 @@ void menu_key_action(struct MenuList * menu, struct yutani_msg_key_event * me) {
 		}
 		if (hilighted) {
 			hilighted->hilight = 1;
-			hilighted->activate(hilighted, 0);
+			if (hilighted->vtable->methods >= 3 && hilighted->vtable->activate) {
+				hilighted->vtable->activate(hilighted, 0);
+			}
 		}
 	} else if (me->event.keycode == KEY_ARROW_LEFT) {
 		if (menu->parent) {
@@ -800,18 +819,26 @@ void menu_mouse_action(struct MenuList * menu, struct yutani_msg_window_mouse_ev
 			if (!entry->hilight) {
 				changed = 1;
 				entry->hilight = 1;
-				entry->focus_change(entry, 1);
+				if (entry->vtable->methods >= 2 && entry->vtable->focus_change) {
+					entry->vtable->focus_change(entry, 1);
+				}
 			}
-			if (me->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(me)) {
-				if (entry->activate) {
-					entry->activate(entry, 0);
+			if (entry->vtable->methods >= 4 && entry->vtable->mouse_event) {
+				if (entry->vtable->mouse_event(entry, me)) {
+					_menu_redraw(window,yctx,menu,1);
+				}
+			} else if (me->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(me)) {
+				if (entry->vtable->methods >= 3 && entry->vtable->activate) {
+					entry->vtable->activate(entry, 0);
 				}
 			}
 		} else {
 			if (entry->hilight) {
 				changed = 1;
 				entry->hilight = 0;
-				entry->focus_change(entry, 0);
+				if (entry->vtable->methods >= 2 && entry->vtable->focus_change) {
+					entry->vtable->focus_change(entry, 0);
+				}
 			}
 		}
 		offset += entry->height;

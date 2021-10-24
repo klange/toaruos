@@ -4,6 +4,7 @@
 #include <toaru/graphics.h>
 #include <toaru/hashmap.h>
 #include <toaru/list.h>
+#include <toaru/yutani.h>
 
 _Begin_C_Header
 
@@ -15,6 +16,15 @@ enum MenuEntry_Type {
 };
 
 struct MenuList;
+struct MenuEntry;
+
+struct MenuEntryVTable {
+	size_t methods;
+	void (*renderer)(gfx_context_t *, struct MenuEntry *, int);
+	void (*focus_change)(struct MenuEntry *, int);
+	void (*activate)(struct MenuEntry *, int);
+	int (*mouse_event)(struct MenuEntry *, struct yutani_msg_window_mouse_event *);
+};
 
 struct MenuEntry {
 	enum MenuEntry_Type _type;
@@ -27,10 +37,7 @@ struct MenuEntry {
 	int hilight; /* Is currently hilighted */
 	int offset; /* Our offset when we were rendered */
 
-	void (*renderer)(gfx_context_t *, struct MenuEntry *, int);
-	void (*focus_change)(struct MenuEntry *, int);
-	void (*activate)(struct MenuEntry *, int);
-
+	struct MenuEntryVTable * vtable;
 	void (*callback)(struct MenuEntry *);
 };
 
