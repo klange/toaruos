@@ -21,7 +21,7 @@
 #include <sys/signal_defs.h>
 #include <sys/ioctl.h>
 
-#define UNIX_PIPE_BUFFER 512
+#define UNIX_PIPE_BUFFER 4096
 
 struct unix_pipe {
 	fs_node_t * read_end;
