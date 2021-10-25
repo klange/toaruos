@@ -1033,7 +1033,12 @@ static void redraw_windows(yutani_globals_t * yg) {
 			 * Flip the updated areas. This minimizes writes to video memory,
 			 * which is very important on real hardware where these writes are slow.
 			 */
-			flip(yg->backend_ctx);
+			if (yg->backend_ctx->size == 0) {
+				extern void gfx_flip_24bit(gfx_context_t * ctx);
+				gfx_flip_24bit(yg->backend_ctx);
+			} else {
+				flip(yg->backend_ctx);
+			}
 		}
 
 		foreach (node, yg->windows) {

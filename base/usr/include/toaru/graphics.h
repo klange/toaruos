@@ -45,6 +45,8 @@ typedef struct context {
 	char *   clips;
 	int32_t  clips_size;
 	uint32_t stride;
+
+	uint32_t _true_stride;
 } gfx_context_t;
 
 extern gfx_context_t * init_graphics_fullscreen();

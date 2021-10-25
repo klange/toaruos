@@ -89,6 +89,18 @@ void flip(gfx_context_t * ctx) {
 	}
 }
 
+void gfx_flip_24bit(gfx_context_t * ctx) {
+	for (size_t y = 0; y < ctx->height; ++y) {
+		if (_is_in_clip(ctx,y)) {
+			for (size_t x = 0; x < ctx->width; ++x) {
+				((uint8_t*)ctx->buffer)[y * ctx->_true_stride + x * 3] = ((uint8_t*)ctx->backbuffer)[y * ctx->stride + x * 4];
+				((uint8_t*)ctx->buffer)[y * ctx->_true_stride + x * 3+1] = ((uint8_t*)ctx->backbuffer)[y * ctx->stride + x * 4+1];
+				((uint8_t*)ctx->buffer)[y * ctx->_true_stride + x * 3+2] = ((uint8_t*)ctx->backbuffer)[y * ctx->stride + x * 4+2];
+			}
+		}
+	}
+}
+
 void clearbuffer(gfx_context_t * ctx) {
 	memset(ctx->backbuffer, 0, ctx->size);
 }
@@ -117,6 +129,14 @@ gfx_context_t * init_graphics_fullscreen() {
 	ioctl(framebuffer_fd, IO_VID_SIGNAL, NULL);
 
 	out->size   = GFX_H(out) * GFX_S(out);
+
+	if (out->depth == 24) {
+		out->depth = 32;
+		out->_true_stride = out->stride;
+		out->stride = 4 * GFX_W(out);
+		out->size = 0;
+	}
+
 	out->backbuffer = out->buffer;
 	return out;
 }
