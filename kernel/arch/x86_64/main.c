@@ -389,7 +389,7 @@ void arch_framebuffer_initialize(void) {
 		lfb_resolution_x = mboot_struct->framebuffer_width;
 		lfb_resolution_y = mboot_struct->framebuffer_height;
 		lfb_resolution_s = mboot_struct->framebuffer_pitch;
-		lfb_resolution_b = 32;
+		lfb_resolution_b = mboot_struct->framebuffer_bpp;
 	} else {
 		struct MB2_Framebuffer * fb = mboot2_find_tag(mboot_struct, 8);
 		if (fb) {
