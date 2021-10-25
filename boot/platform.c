@@ -85,7 +85,6 @@ int bios_main(void) {
 
 	int best_match = 0;
 	int match_score = 0;
-	int found_24bit = 0;
 
 #define MATCH(w,h,s) if (match_score < s && vbe_info_width == w && vbe_info_height == h) { best_match = *x; match_score = s; }
 
@@ -96,13 +95,21 @@ int bios_main(void) {
 		do_bios_call(2, *x);
 
 		if (!(vbe_info & (1 << 7))) continue;
-		if (vbe_info_bpp != 32) continue;
-		if (!match_score) { best_match = *x; match_score = 1; }
+		if (vbe_info_bpp < 24) continue;
 
-		MATCH(1024,768,2);
-		MATCH(1280,720,50);
-		MATCH(1920,1080,75);
-		MATCH(1440,900,100);
+		if (vbe_info_bpp == 32) {
+			if (match_score < 9) { best_match = *x; match_score = 9; }
+			MATCH(1024,768,10);
+			MATCH(1280,720,50);
+			MATCH(1920,1080,75);
+			MATCH(1440,900,100);
+		} else if (vbe_info_bpp == 24) {
+			if (!match_score) { best_match = *x; match_score = 1; }
+			MATCH(1024,768,3);
+			MATCH(1280,720,4);
+			MATCH(1920,1080,5);
+			MATCH(1440,900,6);
+		}
 
 		//print_int_(vbe_info_width); print_("x"); print_int_(vbe_info_height); print_("x"); print_int_(vbe_info_bpp); print_("bpp\n");
 	}
