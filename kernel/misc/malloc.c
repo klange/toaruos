@@ -35,6 +35,7 @@
 #include <kernel/printf.h>
 #include <kernel/spinlock.h>
 #include <kernel/mmu.h>
+#include <kernel/misc.h>
 /* }}} */
 /* Definitions {{{ */
 
@@ -44,7 +45,7 @@
  */
 #ifdef __x86_64__
 #define NUM_BINS 10U								/* Number of bins, total, under 64-bit. */
-#define SMALLEST_BIN_LOG 3U							/* Logarithm base two of the smallest bin: log_2(sizeof(int32)). */
+#define SMALLEST_BIN_LOG 3U							/* Logarithm base two of the smallest bin: log_2(sizeof(int64)). */
 #else
 #define NUM_BINS 11U								/* Number of bins, total, under 32-bit. */
 #define SMALLEST_BIN_LOG 2U							/* Logarithm base two of the smallest bin: log_2(sizeof(int32)). */
@@ -59,11 +60,18 @@
 
 #define BIN_MAGIC 0xDEFAD00D
 
-#if 0
-#define assert(statement) ((statement) ? (void)0 : printf("assertion failed in %s:%d %s\n", __FILE__, __LINE__, __FUNCTION__, #statement))
+#if 1
+#define assert(statement) ((statement) ? (void)0 : __assert_fail(__FILE__, __LINE__, #statement))
 #else
 #define assert(statement) (void)0
 #endif
+
+static void __assert_fail(const char * f, int l, const char * stmt) {
+	arch_fatal_prepare();
+	dprintf("assertion failed in %s:%d %s\n", f, l, stmt);
+	arch_dump_traceback();
+	arch_fatal();
+}
 
 
 /* }}} */
@@ -156,7 +164,7 @@ typedef struct _klmalloc_bin_header {
 	struct _klmalloc_bin_header *  next;	/* Pointer to the next node. */
 	void * head;							/* Head of this bin. */
 	uintptr_t size;							/* Size of this bin, if big; otherwise bin index. */
-	uint32_t bin_magic;
+	uintptr_t bin_magic;
 } klmalloc_bin_header;
 
 /*
@@ -168,7 +176,7 @@ typedef struct _klmalloc_big_bin_header {
 	struct _klmalloc_big_bin_header * next;
 	void * head;
 	uintptr_t size;
-	uint32_t bin_magic;
+	uintptr_t bin_magic;
 	struct _klmalloc_big_bin_header * prev;
 	struct _klmalloc_big_bin_header * forward[SKIP_MAX_LEVEL+1];
 } klmalloc_big_bin_header;
@@ -488,6 +496,7 @@ static void klmalloc_stack_push(klmalloc_bin_header *header, void *ptr) {
 	if (header->size > NUM_BINS) {
 		assert((uintptr_t)ptr < (uintptr_t)header + header->size);
 	} else {
+		assert((((uintptr_t)ptr - sizeof(klmalloc_bin_header)) & ((1UL << (header->size + SMALLEST_BIN_LOG)) - 1)) == 0);
 		assert((uintptr_t)ptr < (uintptr_t)header + PAGE_SIZE);
 	}
 	uintptr_t **item = (uintptr_t **)ptr;
@@ -568,6 +577,8 @@ static void * __attribute__ ((malloc)) klmalloc(uintptr_t size) {
 			}
 			base[available << bucket_id] = NULL;
 			bin_header->size = bucket_id;
+		} else {
+			assert(bin_header->bin_magic == BIN_MAGIC);
 		}
 		uintptr_t ** item = klmalloc_stack_pop(bin_header);
 		if (klmalloc_stack_empty(bin_header)) {
@@ -788,6 +799,7 @@ static void klfree(void *ptr) {
 		 */
 		klmalloc_skip_list_insert(bheader);
 	} else {
+
 		/*
 		 * If the stack is empty, we are freeing
 		 * a block from a previously full bin.
