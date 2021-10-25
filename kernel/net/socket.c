@@ -46,8 +46,9 @@ void net_sock_alert(sock_t * sock) {
 
 void net_sock_add(sock_t * sock, void * frame, size_t size) {
 	spin_lock(sock->rx_lock);
-	char * bleh = malloc(size);
-	memcpy(bleh, frame, size);
+	char * bleh = malloc(size + sizeof(size_t));
+	*(size_t*)bleh = size;
+	memcpy(bleh + sizeof(size_t), frame, size);
 	list_insert(sock->rx_queue, bleh);
 	wakeup_queue(sock->rx_wait);
 	net_sock_alert(sock);
@@ -126,10 +127,11 @@ static long sock_raw_recv(sock_t * sock, struct msghdr * msg, int flags) {
 		return -ENOTSUP;
 	}
 	if (msg->msg_iovlen == 0) return 0;
-	if (msg->msg_iov[0].iov_len != 4096) return -EINVAL;
-	void * data = net_sock_get(sock);
+	char * data = net_sock_get(sock);
 	if (!data) return -EINTR;
-	memcpy(msg->msg_iov[0].iov_base, data, 4096);
+	size_t packet_size = *(size_t*)data;
+	if (msg->msg_iov[0].iov_len < packet_size) return -EINVAL;
+	memcpy(msg->msg_iov[0].iov_base, data + sizeof(size_t), packet_size);
 	free(data);
 	return 4096;
 }

@@ -27,20 +27,26 @@ struct ethernet_packet {
 
 extern spin_lock_t net_raw_sockets_lock;
 extern list_t * net_raw_sockets_list;
-extern void net_ipv4_handle(void * packet, fs_node_t * nic);
+extern void net_ipv4_handle(void * packet, fs_node_t * nic, size_t);
 extern void net_arp_handle(void * packet, fs_node_t * nic);
 
-void net_eth_handle(struct ethernet_packet * frame, fs_node_t * nic) {
+void net_eth_handle(struct ethernet_packet * frame, fs_node_t * nic, size_t size) {
+	struct EthernetDevice * nic_eth = nic->device;
+
+	if (size < sizeof(struct ethernet_packet)) {
+		dprintf("eth: %s: invalid ethernet frame (too small)\n",
+			nic_eth->if_name);
+		return;
+	}
+
 	spin_lock(net_raw_sockets_lock);
 	foreach(node, net_raw_sockets_list) {
 		sock_t * sock = node->value;
 		if (!sock->_fnode.device || sock->_fnode.device == nic) {
-			net_sock_add(sock, frame, 4096);
+			net_sock_add(sock, frame, size);
 		}
 	}
 	spin_unlock(net_raw_sockets_lock);
-
-	struct EthernetDevice * nic_eth = nic->device;
 
 	if (!memcmp(frame->destination, nic_eth->mac, 6) || !memcmp(frame->destination, ETHERNET_BROADCAST_MAC, 6)) {
 		/* Now pass the frame to the appropriate handler... */
@@ -54,7 +60,7 @@ void net_eth_handle(struct ethernet_packet * frame, fs_node_t * nic) {
 				if (packet->source != 0xFFFFFFFF) {
 					net_arp_cache_add(nic->device, packet->source, frame->source, 0);
 				}
-				net_ipv4_handle(packet, nic);
+				net_ipv4_handle(packet, nic, size - sizeof(struct ethernet_packet));
 				break;
 			}
 		}

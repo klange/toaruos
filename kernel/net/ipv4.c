@@ -15,6 +15,7 @@
 #include <kernel/vfs.h>
 #include <kernel/time.h>
 #include <kernel/misc.h>
+#include <kernel/assert.h>
 
 #include <kernel/net/netif.h>
 #include <kernel/net/eth.h>
@@ -158,7 +159,9 @@ static void icmp_handle(struct ipv4_packet * packet, const char * src, const cha
 	/* Is this a PING request? */
 	if (header->type == 8 && header->code == 0) {
 		printf("net: ping with %d bytes of payload\n", ntohs(packet->length));
-		if (ntohs(packet->length) & 1) packet->length++;
+		if (ntohs(packet->length) & 1) {
+			packet->length = htons(ntohs(packet->length) + 1);
+		}
 
 		struct ipv4_packet * response = malloc(ntohs(packet->length));
 		memcpy(response, packet, ntohs(packet->length));
@@ -203,15 +206,19 @@ static long sock_icmp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	}
 	if (msg->msg_iovlen == 0) return 0;
 
-	struct ipv4_packet * data = net_sock_get(sock);
-	if (!data) {
-		return -EINTR;
+	char * packet = net_sock_get(sock);
+	if (!packet) return -EINTR;
+	size_t packet_size = *(size_t*)packet;
+	struct ipv4_packet * data = (struct ipv4_packet*)(packet + sizeof(size_t));
+
+	if (packet_size > msg->msg_iov[0].iov_len) {
+		dprintf("ICMP recv too big for vector\n");
+		packet_size = msg->msg_iov[0].iov_len;
 	}
 
-	long resp = ntohs(data->length);
-	memcpy(msg->msg_iov[0].iov_base, data, resp);
-	free(data);
-	return resp;
+	memcpy(msg->msg_iov[0].iov_base, data, packet_size);
+	free(packet);
+	return packet_size;
 }
 
 static long sock_icmp_send(sock_t * sock, const struct msghdr *msg, int flags) {
@@ -372,7 +379,11 @@ static int tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet, 
 	return retval;
 }
 
-void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic) {
+void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic, size_t size) {
+
+	if (size < sizeof(struct ipv4_packet)) {
+		dprintf("ipv4: Incoming packet is too small.\n");
+	}
 
 	char dest[16];
 	char src[16];
@@ -514,12 +525,9 @@ static long sock_udp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	}
 	if (msg->msg_iovlen == 0) return 0;
 
-	struct ipv4_packet * data = net_sock_get(sock);
-
-	if (!data) {
-		/* We need to figure out why, but that's... complicated for now. */
-		return -EINTR;
-	}
+	char * packet = net_sock_get(sock);
+	if (!packet) return -EINTR;
+	struct ipv4_packet * data = (struct ipv4_packet*)(packet + sizeof(size_t));
 
 	printf("udp: got response, size is %u - sizeof(ipv4) - sizeof(udp) = %lu\n",
 		ntohs(data->length), ntohs(data->length) - sizeof(struct ipv4_packet) - sizeof(struct udp_packet));
@@ -528,7 +536,7 @@ static long sock_udp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	printf("udp: data copied to iov 0, return length?\n");
 
 	long resp = ntohs(data->length) - sizeof(struct ipv4_packet) - sizeof(struct udp_packet);
-	free(data);
+	free(packet);
 	return resp;
 }
 
@@ -674,11 +682,23 @@ static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 		process_wait_nodes((process_t *)this_core->current_process, (fs_node_t*[]){(fs_node_t*)sock,NULL}, 200);
 	}
 
-	struct ipv4_packet * data = net_sock_get(sock);
-	if (!data) {
-		return -EINTR;
+	char * packet = net_sock_get(sock);
+	if (!packet) return -EINTR;
+	struct ipv4_packet * data = (struct ipv4_packet*)(packet + sizeof(size_t));
+	size_t packet_size = *(size_t*)packet;
+	unsigned long resp = ntohs(data->length);
+
+	if (resp != packet_size) {
+		dprintf("packet size does not match: %zu %zu\n", resp, packet_size);
+		resp = packet_size;
 	}
-	unsigned long resp = ntohs(data->length) - sizeof(struct ipv4_packet) - sizeof(struct tcp_header);
+
+	if (resp < sizeof(struct ipv4_packet) + sizeof(struct tcp_header)) {
+		dprintf("Invalid receive data?\n");
+		assert(0);
+	}
+
+	resp -=  sizeof(struct ipv4_packet) + sizeof(struct tcp_header);
 
 	if (resp > (unsigned long)msg->msg_iov[0].iov_len) {
 		memcpy(msg->msg_iov[0].iov_base, data->payload + sizeof(struct tcp_header),msg->msg_iov[0].iov_len);
@@ -687,12 +707,12 @@ static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 		sock->unread = resp;
 		sock->buf = malloc(resp);
 		memcpy(sock->buf, data->payload + sizeof(struct tcp_header) + msg->msg_iov[0].iov_len, resp);
-		free(data);
+		free(packet);
 		return msg->msg_iov[0].iov_len;
 	}
 
 	memcpy(msg->msg_iov[0].iov_base, data->payload + sizeof(struct tcp_header), resp);
-	free(data);
+	free(packet);
 	return resp;
 }
 
@@ -793,12 +813,11 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 	printf("tcp: queue should have data now (len = %lu), trying to read\n", sock->rx_queue->length);
 
 	/* wait for signal that we connected or timed out */
-	struct ipv4_packet * data = net_sock_get(sock);
-	if (!data) {
-		return -EINTR;
-	}
+	char * packet = net_sock_get(sock);
+	if (!packet) return -EINTR;
+	//struct ipv4_packet * data = packet + sizeof(size_t);
 	printf("tcp: connect complete\n");
-	free(data);
+	free(packet);
 
 	return 0;
 }

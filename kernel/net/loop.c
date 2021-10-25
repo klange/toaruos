@@ -92,7 +92,7 @@ static ssize_t write_loop(fs_node_t *node, off_t offset, size_t size, uint8_t *b
 	nic->counts.rx_bytes += size;
 	nic->counts.tx_bytes += size;
 
-	net_eth_handle((void*)buffer, node);
+	net_eth_handle((void*)buffer, node, size);
 	return size;
 }
 

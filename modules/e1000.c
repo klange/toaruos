@@ -175,7 +175,7 @@ static void e1000_queuer(void * data) {
 				if (!(nic->rx[i].errors & (0x97))) {
 					nic->counts.rx_count++;
 					nic->counts.rx_bytes += nic->rx[i].length;
-					net_eth_handle((void*)nic->rx_virt[i], nic->eth.device_node);
+					net_eth_handle((void*)nic->rx_virt[i], nic->eth.device_node, nic->rx[i].length);
 				} else {
 					printf("error bits set in packet: %x\n", nic->rx[i].errors);
 				}

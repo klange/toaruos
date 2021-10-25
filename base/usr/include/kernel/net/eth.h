@@ -10,7 +10,7 @@
 #define MAC_FORMAT "%02x:%02x:%02x:%02x:%02x:%02x"
 #define FORMAT_MAC(m) (m)[0], (m)[1], (m)[2], (m)[3], (m)[4], (m)[5]
 
-void net_eth_handle(struct ethernet_packet * frame, fs_node_t * nic);
+void net_eth_handle(struct ethernet_packet * frame, fs_node_t * nic, size_t size);
 
 struct EthernetDevice {
 	char if_name[32];
