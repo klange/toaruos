@@ -307,10 +307,10 @@ static void volume_lower(void) {
 	set_volume();
 }
 
-#define VOLUME_SLIDER_LEFT_PAD  36
-#define VOLUME_SLIDER_RIGHT_PAD  12
+#define VOLUME_SLIDER_LEFT_PAD  38
+#define VOLUME_SLIDER_RIGHT_PAD  14
 #define VOLUME_SLIDER_PAD (VOLUME_SLIDER_LEFT_PAD + VOLUME_SLIDER_RIGHT_PAD)
-#define VOLUME_SLIDER_VERT_PAD   8
+#define VOLUME_SLIDER_VERT_PAD   10
 #define VOLUME_SLIDER_BALL_RADIUS 8
 
 struct SliderStuff {
@@ -341,18 +341,28 @@ void _menu_draw_MenuEntry_Slider(gfx_context_t * ctx, struct MenuEntry * self, i
 	stuff.on  = rgba(0,120,220,0);
 	stuff.off = rgba(140,140,140,0);
 	draw_rounded_rectangle_pattern(ctx,
-		VOLUME_SLIDER_LEFT_PAD - 1, offset + VOLUME_SLIDER_VERT_PAD - 1,
-		ctx->width - VOLUME_SLIDER_PAD + 2, self->height - 2 * VOLUME_SLIDER_VERT_PAD + 2, 6, volume_pattern, &stuff);
+		/* x */ VOLUME_SLIDER_LEFT_PAD - 4,
+		/* y */ offset + VOLUME_SLIDER_VERT_PAD - 1,
+		/* w */ ctx->width - VOLUME_SLIDER_PAD + 8,
+		/* h */ self->height - 2 * VOLUME_SLIDER_VERT_PAD + 2, 6, volume_pattern, &stuff);
 	stuff.on  = rgba(40,160,255,0);
 	stuff.off = rgba(200,200,200,0);
 	draw_rounded_rectangle_pattern(ctx,
-		VOLUME_SLIDER_LEFT_PAD, offset + VOLUME_SLIDER_VERT_PAD,
-		ctx->width - VOLUME_SLIDER_PAD, self->height - 2 * VOLUME_SLIDER_VERT_PAD, 5, volume_pattern, &stuff);
+		/* x */ VOLUME_SLIDER_LEFT_PAD - 3,
+		/* y */ offset + VOLUME_SLIDER_VERT_PAD,
+		/* w */ ctx->width - VOLUME_SLIDER_PAD + 6,
+		/* h */ self->height - 2 * VOLUME_SLIDER_VERT_PAD, 5, volume_pattern, &stuff);
 
-	draw_rounded_rectangle(ctx, stuff.level - VOLUME_SLIDER_BALL_RADIUS + VOLUME_SLIDER_LEFT_PAD, offset + 12 - VOLUME_SLIDER_BALL_RADIUS,
-		VOLUME_SLIDER_BALL_RADIUS * 2, VOLUME_SLIDER_BALL_RADIUS * 2, VOLUME_SLIDER_BALL_RADIUS, rgb(140,140,140));
-	draw_rounded_rectangle(ctx, stuff.level - VOLUME_SLIDER_BALL_RADIUS + 1 + VOLUME_SLIDER_LEFT_PAD, offset + 12 - VOLUME_SLIDER_BALL_RADIUS + 1,
-		VOLUME_SLIDER_BALL_RADIUS * 2 - 2, VOLUME_SLIDER_BALL_RADIUS * 2 - 2, VOLUME_SLIDER_BALL_RADIUS - 1, rgb(220,220,220));
+	draw_rounded_rectangle(ctx,
+		/* x */ stuff.level - VOLUME_SLIDER_BALL_RADIUS + VOLUME_SLIDER_LEFT_PAD,
+		/* y */ offset + 12 - VOLUME_SLIDER_BALL_RADIUS,
+		/* w */ VOLUME_SLIDER_BALL_RADIUS * 2,
+		/* h */ VOLUME_SLIDER_BALL_RADIUS * 2, VOLUME_SLIDER_BALL_RADIUS, rgb(140,140,140));
+	draw_rounded_rectangle(ctx,
+		/* x */ stuff.level - VOLUME_SLIDER_BALL_RADIUS + 1 + VOLUME_SLIDER_LEFT_PAD,
+		/* y */ offset + 12 - VOLUME_SLIDER_BALL_RADIUS + 1,
+		/* w */ VOLUME_SLIDER_BALL_RADIUS * 2 - 2,
+		/* h */ VOLUME_SLIDER_BALL_RADIUS * 2 - 2, VOLUME_SLIDER_BALL_RADIUS - 1, rgb(220,220,220));
 }
 
 int _menu_mouse_MenuEntry_Slider(struct MenuEntry * self, struct yutani_msg_window_mouse_event * event) {
