@@ -153,6 +153,7 @@ _isr2:
 .extern isr_handler
 .type isr_handler, @function
 
+.global isr_common
 isr_common:
     /* Save all registers */
     _swapgs
