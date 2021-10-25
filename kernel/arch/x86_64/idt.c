@@ -129,6 +129,14 @@ static void dump_regs(struct regs * r) {
 		r->r12, r->r13, r->r14, r->r15,
 		r->cs, r->ss, r->rflags, r->int_no, r->err_code
 	);
+
+	uint32_t gs_base_low, gs_base_high;
+	asm volatile ( "rdmsr" : "=a" (gs_base_low), "=d" (gs_base_high): "c" (0xc0000101) );
+	uint32_t kgs_base_low, kgs_base_high;
+	asm volatile ( "rdmsr" : "=a" (kgs_base_low), "=d" (kgs_base_high): "c" (0xc0000102) );
+	dprintf("  gs=0x%08x%08x kgs=0x%08x%08x\n",
+		gs_base_high, gs_base_low, kgs_base_high, kgs_base_low);
+
 	spin_unlock(dump_lock);
 }
 
