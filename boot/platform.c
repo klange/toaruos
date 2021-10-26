@@ -77,12 +77,7 @@ int bios_text_mode(void) {
 	text_reset();
 }
 
-int bios_main(void) {
-	/* Zero BSS */
-	memset(&_bss_start,0,(uintptr_t)&_bss_end-(uintptr_t)&_bss_start);
-
-	text_reset();
-
+int bios_video_mode(void) {
 	int best_match = 0;
 	int match_score = 0;
 
@@ -122,6 +117,23 @@ int bios_main(void) {
 	}
 
 	init_graphics();
+}
+
+void bios_toggle_mode(void) {
+	if (in_graphics_mode) {
+		bios_text_mode();
+	} else {
+		bios_video_mode();
+	}
+}
+
+int bios_main(void) {
+	/* Zero BSS */
+	memset(&_bss_start,0,(uintptr_t)&_bss_end-(uintptr_t)&_bss_start);
+
+	text_reset();
+	bios_video_mode();
+
 
 	return kmain();
 }

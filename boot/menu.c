@@ -168,6 +168,11 @@ void show_menu(void) {
 				boot_mode = boot_mode_names[i].index;
 				break;
 			}
+#ifndef EFI_PLATFORM
+		} else if (s == 0x2f) { /* v */
+			void bios_toggle_mode(void);
+			bios_toggle_mode();
+#endif
 		} else if (!timeout) {
 			goto read_again;
 		}
