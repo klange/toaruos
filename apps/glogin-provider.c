@@ -255,16 +255,15 @@ int main (int argc, char ** argv) {
 
 	int width  = y->display_width;
 	int height = y->display_height;
-	int skip_animation = 0;
+	char * bg_cache = NULL;
 
 	/* Do something with a window */
 	TRACE("Connecting to window server...");
 	yutani_window_t * wina = yutani_window_create(y, width, height);
 	assert(wina);
-	yutani_set_stack(y, wina, 0);
+	//yutani_set_stack(y, wina, 0);
 	ctx = init_graphics_yutani_double_buffer(wina);
 	draw_fill(ctx, rgba(0,0,0,255));
-	yutani_flip(y, wina);
 	TRACE("... done.");
 
 	tt_font_thin = tt_font_from_shm("sans-serif");
@@ -273,12 +272,6 @@ int main (int argc, char ** argv) {
 redo_everything:
 	win_width = width;
 	win_height = height;
-
-#if 0
-	cairo_surface_t * cs = cairo_image_surface_create_for_data((void*)ctx->backbuffer, CAIRO_FORMAT_ARGB32, ctx->width, ctx->height, cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, ctx->width));
-	cairo_t * cr = cairo_create(cs);
-#endif
-
 
 	TRACE("Loading wallpaper...");
 	{
@@ -310,53 +303,21 @@ redo_everything:
 	}
 	TRACE("... done.");
 
+	draw_fill(ctx, rgb(0,0,0));
+	draw_sprite(ctx, bg_sprite, center_x(width), center_y(height));
+
+	bg_cache = malloc(sizeof(uint32_t) * width * height);
+	memcpy(bg_cache, ctx->backbuffer, sizeof(uint32_t) * width * height);
+
 	while (1) {
 
-		yutani_set_stack(y, wina, 0);
-		yutani_focus_window(y, wina->wid);
-
-		draw_fill(ctx, rgb(0,0,0));
-		draw_sprite(ctx, bg_sprite, center_x(width), center_y(height));
+		#if 0
 		flip(ctx);
 		yutani_flip(y, wina);
+		#endif
 
-		char * foo = malloc(sizeof(uint32_t) * width * height);
-		memcpy(foo, ctx->backbuffer, sizeof(uint32_t) * width * height);
-
-		TRACE("Begin animation.");
-		if (!skip_animation) {
-			struct timeval start;
-			gettimeofday(&start, NULL);
-			int last_offset = 0;
-
-			while (1) {
-				uint32_t tick;
-				struct timeval t;
-				gettimeofday(&t, NULL);
-
-				uint32_t sec_diff = t.tv_sec - start.tv_sec;
-				uint32_t usec_diff = t.tv_usec - start.tv_usec;
-
-				if (t.tv_usec < start.tv_usec) {
-					sec_diff -= 1;
-					usec_diff = (1000000 + t.tv_usec) - start.tv_usec;
-				}
-
-				tick = (uint32_t)(sec_diff * 1000 + usec_diff / 1000);
-				int i = (float)LOGO_FINAL_OFFSET * (float)tick / 700.0f;
-				if (i >= LOGO_FINAL_OFFSET) break;
-
-				memcpy(ctx->backbuffer, foo, sizeof(uint32_t) * width * height);
-				draw_sprite(ctx, &logo, center_x(logo.width), center_y(logo.height) - i);
-				flip(ctx);
-				yutani_flip_region(y, wina, center_x(logo.width), center_y(logo.height) - i, logo.width, logo.height + (i - last_offset));
-				usleep(10000);
-
-				last_offset = i;
-			}
-		}
-		TRACE("End animation.");
-		skip_animation = 0;
+		//yutani_set_stack(y, wina, 0);
+		yutani_focus_window(y, wina->wid);
 
 		char username[INPUT_SIZE] = {0};
 		char password[INPUT_SIZE] = {0};
@@ -417,7 +378,7 @@ redo_everything:
 				// update time info
 				get_updated_hostname_with_time_info(hostname);
 
-				memcpy(ctx->backbuffer, foo, sizeof(uint32_t) * width * height);
+				memcpy(ctx->backbuffer, bg_cache, sizeof(uint32_t) * width * height);
 				draw_sprite(ctx, &logo, center_x(logo.width), center_y(logo.height) - LOGO_FINAL_OFFSET);
 
 				tt_draw_string_shadow(ctx, tt_font_bold, hostname, 12, hostname_label_left, height - 22, rgb(255,255,255), rgb(0,0,0), 4);
@@ -476,12 +437,9 @@ collect_events:
 								yutani_window_resize_accept(y, wina, width, height);
 								reinit_graphics_yutani(ctx, wina);
 								yutani_window_resize_done(y, wina);
-
 								sprite_free(bg_sprite);
-								//cairo_destroy(cr);
-								//cairo_surface_destroy(cs);
+								free(bg_cache);
 
-								skip_animation = 1;
 								goto redo_everything;
 							}
 							break;
