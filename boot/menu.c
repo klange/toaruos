@@ -31,8 +31,11 @@ void toggle(int ndx, int value, char *str) {
 	}
 }
 
+
 void show_menu(void) {
 	if (detect_qemu()) return;
+
+	static int timeout_shown = 0;
 
 	int s;
 
@@ -48,28 +51,30 @@ void show_menu(void) {
 	sel_max += base_sel + 1;
 	clear_();
 
-	draw_logo(10);
+	if (!timeout_shown) {
+		timeout_shown = 1;
+		draw_logo(10);
+		while (1) {
+			move_cursor(0,15);
+			*timeout_val = timeout + '0';
+			set_attr(0x08);
+			print_banner("Press <Enter> to boot now, <e> to edit command line,");
+			print_banner("or use \030/\031/\032/\033 to select a menu option.");
+			print_banner(timeout_msg);
 
-	while (1) {
-		move_cursor(0,15);
-		*timeout_val = timeout + '0';
-		set_attr(0x08);
-		print_banner("Press <Enter> to boot now, <e> to edit command line,");
-		print_banner("or use \030/\031/\032/\033 to select a menu option.");
-		print_banner(timeout_msg);
-
-		s = read_scancode(!!timeout);
-		if (timeout && s == -1) {
-			timeout--;
-			if (!timeout) {
-				boot_mode = boot_mode_names[sel].index;
-				return;
+			s = read_scancode(1);
+			if (timeout && s == -1) {
+				timeout--;
+				if (!timeout) {
+					boot_mode = boot_mode_names[sel].index;
+					return;
+				}
+				continue;
 			}
-			continue;
-		}
 
-		clear_();
-		goto _key_read;
+			clear_();
+			goto _key_read;
+		}
 	}
 
 	do {
@@ -112,7 +117,7 @@ void show_menu(void) {
 		}
 
 		read_again:
-		s = read_scancode(!!timeout);
+		s = read_scancode(0);
 		_key_read:
 		timeout = 0;
 		if (s == 0x50) { /* DOWN */
