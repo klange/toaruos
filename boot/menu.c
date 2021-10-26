@@ -5,6 +5,8 @@
 #include "qemu.h"
 #include "editor.h"
 
+extern void draw_logo(int);
+
 struct option boot_options[20] = {{0}};
 
 int sel_max = 0;
@@ -32,6 +34,8 @@ void toggle(int ndx, int value, char *str) {
 void show_menu(void) {
 	if (detect_qemu()) return;
 
+	int s;
+
 	int timeout = 4;
 	char timeout_msg[] = "Normal boot will commence in 0 seconds.";
 	char * timeout_val = strchr(timeout_msg,'0');
@@ -43,6 +47,30 @@ void show_menu(void) {
 	}
 	sel_max += base_sel + 1;
 	clear_();
+
+	draw_logo(10);
+
+	while (1) {
+		move_cursor(0,15);
+		*timeout_val = timeout + '0';
+		set_attr(0x08);
+		print_banner("Press <Enter> to boot now, <e> to edit command line,");
+		print_banner("or use \030/\031/\032/\033 to select a menu option.");
+		print_banner(timeout_msg);
+
+		s = read_scancode(!!timeout);
+		if (timeout && s == -1) {
+			timeout--;
+			if (!timeout) {
+				boot_mode = boot_mode_names[sel].index;
+				return;
+			}
+			continue;
+		}
+
+		clear_();
+		goto _key_read;
+	}
 
 	do {
 		move_cursor(0,0);
@@ -69,14 +97,7 @@ void show_menu(void) {
 		}
 
 		set_attr(0x07);
-		move_cursor(0,15);
-		if (timeout) {
-			*timeout_val = timeout + '0';
-			print_banner(timeout_msg);
-		} else {
-			print_("\n");
-		}
-		print_("\n");
+		move_cursor(0,17);
 		print_banner(sel <= base_sel ? HELP_TEXT : HELP_TEXT_OPT);
 		print_("\n");
 
@@ -90,17 +111,10 @@ void show_menu(void) {
 			print_banner(LINK_TEXT);
 		}
 
-		int s = read_scancode(!!timeout);
-		if (timeout && s == -1) {
-			timeout--;
-			if (!timeout) {
-				boot_mode = boot_mode_names[sel].index;
-				return;
-			}
-			continue;
-		} else {
-			timeout = 0;
-		}
+		read_again:
+		s = read_scancode(!!timeout);
+		_key_read:
+		timeout = 0;
 		if (s == 0x50) { /* DOWN */
 			if (sel > base_sel && sel < sel_max - 1) {
 				sel = (sel + 2) % sel_max;
@@ -149,6 +163,8 @@ void show_menu(void) {
 				boot_mode = boot_mode_names[i].index;
 				break;
 			}
+		} else {
+			goto read_again;
 		}
 	} while (1);
 }

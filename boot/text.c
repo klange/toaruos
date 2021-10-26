@@ -15,10 +15,14 @@ extern EFI_SYSTEM_TABLE *ST;
 
 static int offset_x = 0;
 static int offset_y = 0;
+static int center_x = 0;
+static int center_y = 0;
 
 static void write_char(int x, int y, int val, int attr);
 
 #ifdef EFI_PLATFORM
+
+int in_graphics_mode = 1;
 
 EFI_GRAPHICS_OUTPUT_PROTOCOL * GOP;
 
@@ -45,6 +49,9 @@ int init_graphics() {
 
 	offset_x = (total_width - 80 * char_width) / 2;
 	offset_y = (total_height - 24 * char_height) / 2;
+
+	center_x = total_width / 2;
+	center_y = total_height / 2;
 
 	return 0;
 
@@ -79,6 +86,9 @@ void init_graphics(void) {
 	in_graphics_mode = 1;
 	offset_x = (vbe_info_width - 80 * char_width) / 2;
 	offset_y = (vbe_info_height - 24 * char_height) / 2;
+
+	center_x = vbe_info_width / 2;
+	center_y = vbe_info_height / 2;
 }
 
 static void set_point(int x, int y, uint32_t color) {
@@ -261,5 +271,36 @@ void print_int_(unsigned int value) {
 		char t[2] = {tmp[i],'\0'};
 		print_(t);
 		i++;
+	}
+}
+
+static void draw_square(int x, int y, int stage) {
+	for (int _y = 0; _y < 7; ++_y) {
+		unsigned int color_green = 0xB2 - (y * 8 + _y) * 2;
+		unsigned int color_blue  = 0xFF;
+
+		if (stage > 0 && y + 1 != stage) {
+			color_green /= 2;
+			color_blue  /= 2;
+		}
+
+		unsigned int color = 0xFF000000 | (color_green << 8) | color_blue;
+
+		for (int _x = 0; _x < 7; ++_x) {
+			set_point(center_x - 32 - offset_x + x * 8 + _x, center_y - 32 - offset_y + y * 8 + _y, color);
+		}
+	}
+}
+
+void draw_logo(int stage) {
+	if (!in_graphics_mode) return;
+	uint64_t logo_squares = 0x981818181818FFFFUL;
+	for (int y = 0; y < 8; ++y) {
+		for (int x = 0; x < 8; ++x) {
+			if (logo_squares & (1 << x)) {
+				draw_square(x,y,stage);
+			}
+		}
+		logo_squares >>= 8;
 	}
 }
