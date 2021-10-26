@@ -727,8 +727,7 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 							} else {
 								double x = 0.75 + time_diff * 0.25;
 								opacity *= time_diff;
-								if (!yutani_window_is_top(yg, window) && !yutani_window_is_bottom(yg, window) &&
-										!(window->server_flags & YUTANI_WINDOW_FLAG_ALT_ANIMATION)) {
+								if (!(window->server_flags & YUTANI_WINDOW_FLAG_ALT_ANIMATION)) {
 									int t_x = (window->width * (1.0 - x)) / 2;
 									int t_y = (window->height * (1.0 - x)) / 2;
 									gfx_matrix_translate(m, t_x, t_y);
@@ -816,6 +815,9 @@ static void yutani_post_vbox_rects(yutani_globals_t * yg) {
  * This is called for rendering and for screenshots.
  */
 static void yutani_blit_windows(yutani_globals_t * yg) {
+	if (!yg->bottom_z || yg->bottom_z->anim_mode) {
+		draw_fill(yg->backend_ctx, rgb(0,0,0));
+	}
 	if (yg->bottom_z) yutani_blit_window(yg, yg->bottom_z, yg->bottom_z->x, yg->bottom_z->y);
 	foreach (node, yg->mid_zs) {
 		yutani_server_window_t * w = node->value;
@@ -2077,7 +2079,7 @@ int main(int argc, char * argv[]) {
 	yg->width = yg->backend_ctx->width;
 	yg->height = yg->backend_ctx->height;
 
-	draw_fill(yg->backend_ctx, rgb(5,5,5));
+	draw_fill(yg->backend_ctx, rgb(0,0,0));
 	flip(yg->backend_ctx);
 
 	yg->backend_framebuffer = yg->backend_ctx->backbuffer;
