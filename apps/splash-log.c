@@ -14,11 +14,16 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/utsname.h>
+#include <sys/times.h>
+#include <sys/fswait.h>
 
 #include <kernel/video.h>
 #include <toaru/pex.h>
+#include <toaru/hashmap.h>
 
 #include "terminal-font.h"
+
+#define TIMEOUT_SECS 2
 
 static FILE * console;
 
@@ -46,43 +51,116 @@ static void say_hello(void) {
 	update_message(hello_msg);
 }
 
+static int tokenize(char * str, char * sep, char **buf) {
+	char * pch_i;
+	char * save_i;
+	int    argc = 0;
+	pch_i = strtok_r(str,sep,&save_i);
+	if (!pch_i) { return 0; }
+	while (pch_i != NULL) {
+		buf[argc] = (char *)pch_i;
+		++argc;
+		pch_i = strtok_r(NULL,sep,&save_i);
+	}
+	buf[argc] = NULL;
+	return argc;
+}
+
+static hashmap_t * get_cmdline(void) {
+	int fd = open("/proc/cmdline", O_RDONLY);
+	char * out = malloc(1024);
+	size_t r = read(fd, out, 1024);
+	out[r] = '\0';
+	if (out[r-1] == '\n') {
+		out[r-1] = '\0';
+	}
+
+	char * arg = strdup(out);
+	char * argv[1024];
+	int argc = tokenize(arg, " ", argv);
+
+	/* New let's parse the tokens into the arguments list so we can index by key */
+
+	hashmap_t * args = hashmap_create(10);
+
+	for (int i = 0; i < argc; ++i) {
+		char * c = strdup(argv[i]);
+
+		char * name;
+		char * value;
+
+		name = c;
+		value = NULL;
+		/* Find the first = and replace it with a null */
+		char * v = c;
+		while (*v) {
+			if (*v == '=') {
+				*v = '\0';
+				v++;
+				value = v;
+				goto _break;
+			}
+			v++;
+		}
+
+_break:
+		hashmap_set(args, name, value);
+	}
+
+	free(arg);
+	free(out);
+
+	return args;
+}
+
+
 int main(int argc, char * argv[]) {
 	if (getuid() != 0) {
 		fprintf(stderr, "%s: only root should run this\n", argv[0]);
 		return 1;
 	}
 
-	open_socket();
-	console = fopen("/dev/console","a");
-
 	if (!fork()) {
-		say_hello();
+		hashmap_t * cmdline = get_cmdline();
+
+		int quiet = 0;
+		clock_t start = times(NULL);
+
+		if (!hashmap_has(cmdline, "debug")) {
+			quiet = 1;
+		}
+
+		open_socket();
+		console = fopen("/dev/console","a");
+
+		if (!quiet) say_hello();
 
 		while (1) {
-			pex_packet_t * p = calloc(PACKET_SIZE, 1);
-			pex_listen(pex_endpoint, p);
+			int pex_fd[] = {fileno(pex_endpoint)};
+			int index = fswait2(1, pex_fd, 100);
 
-			if (p->size < 4)  continue; /* Ignore blank messages, erroneous line feeds, etc. */
-			if (p->size > 80) continue; /* Ignore overly large messages */
+			if (index == 0) {
+				pex_packet_t * p = calloc(PACKET_SIZE, 1);
+				pex_listen(pex_endpoint, p);
 
-			if (!strncmp((char*)p->data, "!quit", 5)) {
-				/* Use the special message !quit to exit. */
-				fclose(pex_endpoint);
-				return 0;
-			} else if (p->data[0] == ':') {
-				/* Make sure message is nil terminated (it should be...) */
-				char * tmp = malloc(p->size + 1);
-				memcpy(tmp, p->data, p->size);
-				tmp[p->size] = '\0';
-				update_message(tmp+1);
-				free(tmp);
-			} else {
-				/* Make sure message is nil terminated (it should be...) */
-				char * tmp = malloc(p->size + 1);
-				memcpy(tmp, p->data, p->size);
-				tmp[p->size] = '\0';
-				update_message(tmp);
-				free(tmp);
+				if (p->size < 4)  { free(p); continue; } /* Ignore blank messages, erroneous line feeds, etc. */
+				if (p->size > 80) { free(p); continue; } /* Ignore overly large messages */
+
+				if (!strncmp((char*)p->data, "!quit", 5)) {
+					/* Use the special message !quit to exit. */
+					fclose(pex_endpoint);
+					return 0;
+				}
+
+				if (!quiet) {
+					p->data[p->size] = '\0';
+					update_message((char*)p->data + (p->data[0] == ':' ? 1 : 0));
+				}
+
+				free(p);
+			} else if (quiet && times(NULL) - start > TIMEOUT_SECS * 1000000L) {
+				quiet = 0;
+				update_message("Startup is taking a while, enabling log.");
 			}
 		}
 	}
