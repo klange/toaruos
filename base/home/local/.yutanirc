@@ -5,5 +5,5 @@ cd ~/Desktop
 file-browser --wallpaper &
 toastd --really # Daemonizes
 cd ~
-if not stat -q ~/.tutorial-shown then sh -c "touch ~/.tutorial-shown; tutorial &"
+if not stat -q ~/.tutorial-shown then show-tutorial.sh
 exec panel --really
