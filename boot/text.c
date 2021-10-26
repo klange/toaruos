@@ -97,7 +97,7 @@ static void set_point(int x, int y, uint32_t color) {
 		*((uint8_t*)vbe_info_fbaddr + (x + offset_x) * 3 + (y + offset_y) * (vbe_info_pitch) + 1) = (color >> 8) & 0xFF;
 		*((uint8_t*)vbe_info_fbaddr + (x + offset_x) * 3 + (y + offset_y) * (vbe_info_pitch) + 2) = (color >> 16) & 0xFF;
 	} else if (vbe_info_bpp == 32) {
-		vbe_info_fbaddr[(x + offset_x) + (y + offset_y) * (vbe_info_pitch / 4)] = color;
+		vbe_info_fbaddr[(x + offset_x) + (y + offset_y) * (vbe_info_pitch >> 2)] = color;
 	}
 }
 
@@ -163,14 +163,12 @@ static void write_char(int x, int y, int val, int attr) {
 	uint32_t fg_color = term_colors[vga_to_ansi[attr & 0xF]];
 	uint32_t bg_color = term_colors[vga_to_ansi[(attr >> 4) & 0xF]];
 
+	uint32_t colors[] = {bg_color, fg_color};
+
 	uint16_t * c = large_font[val];
 	for (uint8_t i = 0; i < char_height; ++i) {
 		for (uint8_t j = 0; j < char_width; ++j) {
-			if (c[i] & (1 << (LARGE_FONT_MASK-j))) {
-				set_point(x+j,y+i,fg_color);
-			} else {
-				set_point(x+j,y+i,bg_color);
-			}
+			set_point(x+j,y+i,colors[!!(c[i] & (1 << LARGE_FONT_MASK-j))]);
 		}
 	}
 }
@@ -232,10 +230,7 @@ void print_banner(char * str) {
 	int off = (80 - len) / 2;
 
 	for (int i = 0; i < 80; ++i) {
-		placech(' ', i, y, attr);
-	}
-	for (int i = 0; i < len; ++i) {
-		placech(str[i], i + off, y, attr);
+		placech((i >= off && i - off < len) ? str[i-off] : ' ', i, y, attr);
 	}
 
 	y++;
