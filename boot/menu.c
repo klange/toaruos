@@ -117,9 +117,9 @@ void show_menu(void) {
 		}
 
 		read_again:
+		timeout = 0;
 		s = read_scancode(0);
 		_key_read:
-		timeout = 0;
 		if (s == 0x50) { /* DOWN */
 			if (sel > base_sel && sel < sel_max - 1) {
 				sel = (sel + 2) % sel_max;
@@ -168,7 +168,7 @@ void show_menu(void) {
 				boot_mode = boot_mode_names[i].index;
 				break;
 			}
-		} else {
+		} else if (!timeout) {
 			goto read_again;
 		}
 	} while (1);
