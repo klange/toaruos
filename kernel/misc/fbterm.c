@@ -39,7 +39,7 @@ extern size_t lfb_memsize;
 #define char_width  LARGE_FONT_CELL_WIDTH
 
 /* Default colors */
-#define BG_COLOR 0xFF050505 /* Background */
+#define BG_COLOR 0xFF000000 /* Background */
 #define FG_COLOR 0xFFCCCCCC /* Main text color */
 
 static uint32_t fg_color = FG_COLOR;
@@ -110,14 +110,16 @@ static int fb_get_height(void) {
 
 static void fb_scroll_terminal(void) {
 	memmove(lfb_vid_memory, lfb_vid_memory + sizeof(uint32_t) * lfb_resolution_x * char_height, (lfb_resolution_y - char_height) * lfb_resolution_x * 4);
-	memset(lfb_vid_memory + sizeof(uint32_t) * (lfb_resolution_y - char_height) * lfb_resolution_x, 0x05, char_height * lfb_resolution_x * 4);
+	memset(lfb_vid_memory + sizeof(uint32_t) * (lfb_resolution_y - char_height) * lfb_resolution_x, 0x00, char_height * lfb_resolution_x * 4);
 }
 
 static void draw_square(int x, int y) {
+	int center_x = lfb_resolution_x / 2;
+	int center_y = lfb_resolution_y / 2;
 	for (size_t _y = 0; _y < 7; ++_y) {
+		uint32_t color = 0xFF00B2FF - (y * 8 + _y) * 0x200;
 		for (size_t _x = 0; _x < 7; ++_x) {
-			set_point(1 + x * 8 + _x, 1 + y * 8 + _y,
-				0xFF00B2FF - (y * 8 + _y) * 0x200);
+			set_point(center_x - 32 + x * 8 + _x, center_y - 32 + y * 8 + _y, color);
 		}
 	}
 }
@@ -139,15 +141,7 @@ static void fbterm_init_framebuffer(void) {
 	get_width = fb_get_width;
 	get_height = fb_get_height;
 	scroll_terminal = fb_scroll_terminal;
-
-	for (size_t y = 0; y < lfb_resolution_y; ++y) {
-		for (size_t x = 0; x < lfb_resolution_x; ++x) {
-			set_point(x,y,BG_COLOR);
-		}
-	}
-
 	fbterm_draw_logo();
-	y = 4;
 }
 
 static void ega_write_char(int x, int y, int ch, uint32_t color) {
