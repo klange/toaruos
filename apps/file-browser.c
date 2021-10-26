@@ -66,7 +66,6 @@ static int nav_bar_height = 36;
 static sprite_t * wallpaper_buffer = NULL; /* Prebaked wallpaper texture */
 static sprite_t * wallpaper_old = NULL; /* Previous wallpaper when transitioning */
 static uint64_t timer = 0; /* Timer for wallpaper transition fade */
-static int restart = 0; /* Signal for desktop wallpaper to kill itself to save memory (this is dumb) */
 static char title[512]; /* Application title bar */
 static int FILE_HEIGHT = 80; /* Height of one row of icons */
 static int FILE_WIDTH = 100; /* Width of one column of icons */
@@ -1187,10 +1186,9 @@ static void redraw_window(void) {
 			draw_sprite(ctx, wallpaper_old, 0, 0);
 			uint64_t ellapsed = precise_time_since(timer);
 			if (ellapsed > 1000) {
-				free(wallpaper_old);
+				sprite_free(wallpaper_old);
 				wallpaper_old = NULL;
 				draw_sprite(ctx, wallpaper_buffer, 0, 0);
-				restart = 1; /* quietly restart */
 			} else {
 				draw_sprite_alpha(ctx, wallpaper_buffer, 0, 0, (float)ellapsed / 1000.0);
 			}
@@ -1239,7 +1237,7 @@ static void draw_background(int width, int height) {
 	/* If the wallpaper is already loaded, free it. */
 	if (wallpaper_buffer) {
 		if (wallpaper_old) {
-			free(wallpaper_old);
+			sprite_free(wallpaper_old);
 		}
 		wallpaper_old = wallpaper_buffer;
 		timer = precise_current_time();
@@ -1888,7 +1886,7 @@ int main(int argc, char * argv[]) {
 		signal(SIGUSR1, sig_usr1);
 		signal(SIGUSR2, sig_usr2);
 		draw_background(yctx->display_width, yctx->display_height);
-		main_window = yutani_window_create_flags(yctx, yctx->display_width, yctx->display_height, YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS | YUTANI_WINDOW_FLAG_ALT_ANIMATION);
+		main_window = yutani_window_create_flags(yctx, yctx->display_width, yctx->display_height, YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS);
 		yutani_window_move(yctx, main_window, 0, 0);
 		yutani_set_stack(yctx, main_window, YUTANI_ZORDER_BOTTOM);
 		arg_ind++;
@@ -1991,11 +1989,6 @@ int main(int argc, char * argv[]) {
 		waitpid(-1, NULL, WNOHANG);
 		int fds[1] = {fileno(yctx->sock)};
 		int index = fswait2(1,fds,wallpaper_old ? 10 : 200);
-
-		if (restart) {
-			execvp(argv[0],argv);
-			return 1;
-		}
 
 		maybe_blink_cursor();
 
