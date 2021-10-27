@@ -113,7 +113,7 @@ uintptr_t mmu_first_n_frames(int n) {
 	}
 
 	arch_fatal_prepare();
-	printf("failed to allocate %d contiguous frames\n", n);
+	dprintf("Failed to allocate %d contiguous frames.\n", n);
 	arch_dump_traceback();
 	arch_fatal();
 	return (uintptr_t)-1;
@@ -138,7 +138,7 @@ uintptr_t mmu_first_frame(void) {
 	}
 
 	arch_fatal_prepare();
-	printf("error: out allocatable frames\n");
+	dprintf("Out of memory.\n");
 	arch_dump_traceback();
 	arch_fatal();
 	return (uintptr_t)-1;
