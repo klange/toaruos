@@ -209,7 +209,7 @@ static int update_stores(int argc, char * argv[]) {
 			sprintf(cmd, "fetch -vo /tmp/.msk_remote_%s %s/manifest", remote_name, remote_path);
 			fprintf(stderr, "Downloading remote manifest '%s'...\n", remote_name);
 			if (system(cmd)) {
-				fprintf(stderr, "Error loading remote '%s' from '%s'.\n", remote_name, remote_path);
+				fprintf(stderr, "Skipping unavailable remote manifest '%s' (%s).\n", remote_name, remote_path);
 				goto _next;
 			}
 			sprintf(cmd, "/tmp/.msk_remote_%s", remote_name);
@@ -242,7 +242,7 @@ static int update_stores(int argc, char * argv[]) {
 		one_success = 1;
 
 _next:
-		tok = strtok_r(NULL, " ", &save);
+		tok = strtok_r(NULL, ",", &save);
 	} while (tok);
 	free(order);
 
