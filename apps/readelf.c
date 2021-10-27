@@ -454,6 +454,9 @@ int main(int argc, char * argv[]) {
 			case 'a':
 				show_bits |= SHOW_FILE_HEADER | SHOW_SECTION_HEADERS | SHOW_PROGRAM_HEADERS | SHOW_SYMBOLS | SHOW_DYNAMIC | SHOW_RELOCATIONS;
 				break;
+			case 'd':
+				show_bits |= SHOW_DYNAMIC;
+				break;
 			case 'h':
 				show_bits |= SHOW_FILE_HEADER;
 				break;
