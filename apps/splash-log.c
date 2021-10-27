@@ -124,6 +124,7 @@ int main(int argc, char * argv[]) {
 		hashmap_t * cmdline = get_cmdline();
 
 		int quiet = 0;
+		char * last_message = NULL;
 		clock_t start = times(NULL);
 
 		if (!hashmap_has(cmdline, "debug")) {
@@ -157,10 +158,26 @@ int main(int argc, char * argv[]) {
 					update_message((char*)p->data + (p->data[0] == ':' ? 1 : 0));
 				}
 
+				if (last_message) {
+					free(last_message);
+					last_message = NULL;
+				}
+
+				if (quiet) {
+					last_message = strdup((char*)p->data + (p->data[0] == ':' ? 1 : 0));
+				}
+
 				free(p);
 			} else if (quiet && times(NULL) - start > TIMEOUT_SECS * 1000000L) {
 				quiet = 0;
-				update_message("Startup is taking a while, enabling log.");
+				if (last_message) {
+					update_message("Startup is taking a while, enabling log. Last message was:");
+					update_message(last_message);
+					free(last_message);
+					last_message = NULL;
+				} else {
+					update_message("Startup is taking a while, enabling log.");
+				}
 			}
 		}
 	}
