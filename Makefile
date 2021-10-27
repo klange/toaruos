@@ -55,7 +55,7 @@ EMU_ARGS += -netdev hubport,id=u1,hubid=0, -device e1000e,netdev=u1  -object fil
 # Add an XHCI tablet
 EMU_ARGS += -device qemu-xhci -device usb-tablet
 
-APPS=$(patsubst apps/%.c,%,$(wildcard apps/*.c)) $(patsubst apps/%.c++,%,$(wildcard apps/*.c++))
+APPS=$(patsubst apps/%.c,%,$(wildcard apps/*.c))
 APPS_X=$(foreach app,$(APPS),$(BASE)/bin/$(app))
 APPS_Y=$(foreach app,$(APPS),.make/$(app).mak)
 APPS_SH=$(patsubst apps/%.sh,%.sh,$(wildcard apps/*.sh))
@@ -79,11 +79,10 @@ LIBC_OBJS += $(patsubst %.c,%.o,$(wildcard libc/*/*.c))
 LIBC_OBJS += $(patsubst %.c,%.o,$(wildcard libc/arch/${ARCH}/*.c))
 
 GCC_SHARED = $(BASE)/usr/lib/libgcc_s.so.1 $(BASE)/usr/lib/libgcc_s.so
-LIBSTDCXX =  $(BASE)/usr/lib/libstdc++.so.6.0.28 $(BASE)/usr/lib/libstdc++.so.6 $(BASE)/usr/lib/libstdc++.so
 
 CRTS  = $(BASE)/lib/crt0.o $(BASE)/lib/crti.o $(BASE)/lib/crtn.o
 
-LC = $(BASE)/lib/libc.so $(GCC_SHARED) $(LIBSTDCXX)
+LC = $(BASE)/lib/libc.so $(GCC_SHARED)
 
 .PHONY: all system clean run shell
 
@@ -167,7 +166,7 @@ clean:
 	-rm -f $(BASE)/lib/libc.so $(BASE)/lib/libc.a
 	-rm -f $(LIBC_OBJS) $(BASE)/lib/ld.so $(BASE)/lib/libkuroko.so $(BASE)/lib/libm.so
 	-rm -f $(BASE)/bin/kuroko
-	-rm -f $(GCC_SHARED) $(LIBSTDCXX)
+	-rm -f $(GCC_SHARED)
 	-rm -f boot/efi/*.o boot/bios/*.o
 
 libc/%.o: libc/%.c base/usr/include/syscall.h 
@@ -238,9 +237,6 @@ endif
 .make/%.mak: apps/%.c util/auto-dep.krk | dirs $(CRTS)
 	kuroko util/auto-dep.krk --make $< > $@
 
-.make/%.mak: apps/%.c++ util/auto-dep.krk | dirs $(CRTS)
-	kuroko util/auto-dep.krk --make $< > $@
-
 .make/%.kmak: lib/kuroko/%.c util/auto-dep.krk | dirs
 	kuroko util/auto-dep.krk --makekurokomod $< > $@
 
@@ -257,12 +253,6 @@ libs: $(LIBS_X)
 
 .PHONY: apps
 apps: $(APPS_X)
-
-.PHONY: libstdcxx
-libstdcxx: $(LIBSTDCXX)
-
-util/local/${TARGET}/lib/libstdc++.so.6.0.28: | $(BASE)/lib/libm.so
-	cd util/build/gcc && make all-target-libstdc++-v3 && make install-target-libstdc++-v3
 
 SOURCE_FILES  = $(wildcard kernel/*.c kernel/*/*.c kernel/*/*/*.c kernel/*/*/*/*.c)
 SOURCE_FILES += $(wildcard apps/*.c linker/*.c libc/*.c libc/*/*.c lib/*.c lib/kuroko/*.c)
