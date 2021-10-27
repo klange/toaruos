@@ -38,7 +38,7 @@ int ptr_validate(void * ptr, const char * syscall) {
 
 #define PTRCHECK(addr,size,flags) do { if (!mmu_validate_user_pointer(addr,size,flags)) return -EFAULT; } while (0)
 
-static long sys_sbrk(ssize_t size) {
+long sys_sbrk(ssize_t size) {
 	if (size & 0xFFF) return -EINVAL;
 	volatile process_t * volatile proc = this_core->current_process;
 	if (proc->group != 0) {
@@ -60,7 +60,7 @@ static long sys_sbrk(ssize_t size) {
 
 extern int elf_module(char ** args);
 
-static long sys_sysfunc(long fn, char ** args) {
+long sys_sysfunc(long fn, char ** args) {
 	/* FIXME: Most of these should be top-level, many are hacks/broken in Misaka */
 	switch (fn) {
 		case TOARU_SYS_FUNC_SYNC:
@@ -176,12 +176,12 @@ static long sys_sysfunc(long fn, char ** args) {
 }
 
 __attribute__((noreturn))
-static long sys_exit(long exitcode) {
+long sys_exit(long exitcode) {
 	task_exit((exitcode & 0xFF) << 8);
 	__builtin_unreachable();
 }
 
-static long sys_write(int fd, char * ptr, unsigned long len) {
+long sys_write(int fd, char * ptr, unsigned long len) {
 	if (FD_CHECK(fd)) {
 		PTRCHECK(ptr,len,MMU_PTR_NULL);
 		fs_node_t * node = FD_ENTRY(fd);
@@ -237,7 +237,7 @@ static long stat_node(fs_node_t * fn, uintptr_t st) {
 	return 0;
 }
 
-static long sys_stat(int fd, uintptr_t st) {
+long sys_stat(int fd, uintptr_t st) {
 	PTR_VALIDATE(st);
 	if (!st) return -EFAULT;
 	if (FD_CHECK(fd)) {
@@ -246,7 +246,7 @@ static long sys_stat(int fd, uintptr_t st) {
 	return -EBADF;
 }
 
-static long sys_statf(char * file, uintptr_t st) {
+long sys_statf(char * file, uintptr_t st) {
 	int result;
 	PTR_VALIDATE(file);
 	PTR_VALIDATE(st);
@@ -261,14 +261,14 @@ static long sys_statf(char * file, uintptr_t st) {
 	return result;
 }
 
-static long sys_symlink(char * target, char * name) {
+long sys_symlink(char * target, char * name) {
 	PTR_VALIDATE(target);
 	PTR_VALIDATE(name);
 	if (!target || !name) return -EFAULT;
 	return symlink_fs(target, name);
 }
 
-static long sys_readlink(const char * file, char * ptr, long len) {
+long sys_readlink(const char * file, char * ptr, long len) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
 	fs_node_t * node = kopen((char *) file, O_PATH | O_NOFOLLOW);
@@ -280,7 +280,7 @@ static long sys_readlink(const char * file, char * ptr, long len) {
 	return rv;
 }
 
-static long sys_lstat(char * file, uintptr_t st) {
+long sys_lstat(char * file, uintptr_t st) {
 	PTR_VALIDATE(file);
 	PTR_VALIDATE(st);
 	if (!file || !st) return -EFAULT;
@@ -292,7 +292,7 @@ static long sys_lstat(char * file, uintptr_t st) {
 	return result;
 }
 
-static long sys_open(const char * file, long flags, long mode) {
+long sys_open(const char * file, long flags, long mode) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
 	fs_node_t * node = kopen((char *)file, flags);
@@ -368,7 +368,7 @@ static long sys_open(const char * file, long flags, long mode) {
 	return fd;
 }
 
-static long sys_close(int fd) {
+long sys_close(int fd) {
 	if (FD_CHECK(fd)) {
 		close_fs(FD_ENTRY(fd));
 		FD_ENTRY(fd) = NULL;
@@ -377,7 +377,7 @@ static long sys_close(int fd) {
 	return -EBADF;
 }
 
-static long sys_seek(int fd, long offset, long whence) {
+long sys_seek(int fd, long offset, long whence) {
 	if (FD_CHECK(fd)) {
 		if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE)) return -ESPIPE;
 		switch (whence) {
@@ -398,7 +398,7 @@ static long sys_seek(int fd, long offset, long whence) {
 	return -EBADF;
 }
 
-static long sys_read(int fd, char * ptr, unsigned long len) {
+long sys_read(int fd, char * ptr, unsigned long len) {
 	if (FD_CHECK(fd)) {
 		PTRCHECK(ptr,len,MMU_PTR_NULL|MMU_PTR_WRITE);
 		if (len && !ptr) {
@@ -416,7 +416,7 @@ static long sys_read(int fd, char * ptr, unsigned long len) {
 	return -EBADF;
 }
 
-static long sys_ioctl(int fd, int request, void * argp) {
+long sys_ioctl(int fd, int request, void * argp) {
 	if (FD_CHECK(fd)) {
 		PTR_VALIDATE(argp);
 		return ioctl_fs(FD_ENTRY(fd), request, argp);
@@ -424,7 +424,7 @@ static long sys_ioctl(int fd, int request, void * argp) {
 	return -EBADF;
 }
 
-static long sys_readdir(int fd, long index, struct dirent * entry) {
+long sys_readdir(int fd, long index, struct dirent * entry) {
 	if (FD_CHECK(fd)) {
 		PTR_VALIDATE(entry);
 		if (!entry) return -EFAULT;
@@ -440,13 +440,13 @@ static long sys_readdir(int fd, long index, struct dirent * entry) {
 	return -EBADF;
 }
 
-static long sys_mkdir(char * path, uint64_t mode) {
+long sys_mkdir(char * path, uint64_t mode) {
 	PTR_VALIDATE(path);
 	if (!path) return -EFAULT;
 	return mkdir_fs(path, mode);
 }
 
-static long sys_access(const char * file, long flags) {
+long sys_access(const char * file, long flags) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
 	fs_node_t * node = kopen((char *)file, 0);
@@ -455,7 +455,7 @@ static long sys_access(const char * file, long flags) {
 	return 0;
 }
 
-static long sys_chmod(char * file, long mode) {
+long sys_chmod(char * file, long mode) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
 	fs_node_t * fn = kopen(file, 0);
@@ -481,7 +481,7 @@ static int current_group_matches(gid_t gid) {
 	return 0;
 }
 
-static long sys_chown(char * file, uid_t uid, uid_t gid) {
+long sys_chown(char * file, uid_t uid, uid_t gid) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
 	fs_node_t * fn = kopen(file, 0);
@@ -522,22 +522,22 @@ _access:
 	return -EACCES;
 }
 
-static long sys_gettimeofday(struct timeval * tv, void * tz) {
+long sys_gettimeofday(struct timeval * tv, void * tz) {
 	PTR_VALIDATE(tv);
 	PTR_VALIDATE(tz);
 	if (!tv) return -EFAULT;
 	return gettimeofday(tv, tz);
 }
 
-static long sys_getuid(void) {
+long sys_getuid(void) {
 	return (long)this_core->current_process->real_user;
 }
 
-static long sys_geteuid(void) {
+long sys_geteuid(void) {
 	return (long)this_core->current_process->user;
 }
 
-static long sys_setuid(uid_t new_uid) {
+long sys_setuid(uid_t new_uid) {
 	if (this_core->current_process->user == USER_ROOT_UID) {
 		this_core->current_process->user = new_uid;
 		this_core->current_process->real_user = new_uid;
@@ -546,15 +546,15 @@ static long sys_setuid(uid_t new_uid) {
 	return -EPERM;
 }
 
-static long sys_getgid(void) {
+long sys_getgid(void) {
 	return (long)this_core->current_process->real_user_group;
 }
 
-static long sys_getegid(void) {
+long sys_getegid(void) {
 	return (long)this_core->current_process->user_group;
 }
 
-static long sys_setgid(gid_t new_gid) {
+long sys_setgid(gid_t new_gid) {
 	if (this_core->current_process->user == USER_ROOT_UID) {
 		this_core->current_process->user_group = new_gid;
 		this_core->current_process->real_user_group = new_gid;
@@ -563,7 +563,7 @@ static long sys_setgid(gid_t new_gid) {
 	return -EPERM;
 }
 
-static long sys_getgroups(int size, gid_t list[]) {
+long sys_getgroups(int size, gid_t list[]) {
 	if (size == 0) {
 		return this_core->current_process->supplementary_group_count;
 	} else if (size < this_core->current_process->supplementary_group_count) {
@@ -579,7 +579,7 @@ static long sys_getgroups(int size, gid_t list[]) {
 	}
 }
 
-static long sys_setgroups(int size, const gid_t list[]) {
+long sys_setgroups(int size, const gid_t list[]) {
 	if (this_core->current_process->user != USER_ROOT_UID) return -EPERM;
 	if (size < 0) return -EINVAL;
 	if (size > 32) return -EINVAL; /* Arbitrary decision */
@@ -607,16 +607,16 @@ static long sys_setgroups(int size, const gid_t list[]) {
 }
 
 
-static long sys_getpid(void) {
+long sys_getpid(void) {
 	/* The user actually wants the pid of the originating thread (which can be us). */
 	return this_core->current_process->group ? (long)this_core->current_process->group : (long)this_core->current_process->id;
 }
 
-static long sys_gettid(void) {
+long sys_gettid(void) {
 	return (long)this_core->current_process->id;
 }
 
-static long sys_setsid(void) {
+long sys_setsid(void) {
 	if (this_core->current_process->job == this_core->current_process->group) {
 		return -EPERM;
 	}
@@ -625,7 +625,7 @@ static long sys_setsid(void) {
 	return this_core->current_process->session;
 }
 
-static long sys_setpgid(pid_t pid, pid_t pgid) {
+long sys_setpgid(pid_t pid, pid_t pgid) {
 	if (pgid < 0) {
 		return -EINVAL;
 	}
@@ -657,7 +657,7 @@ static long sys_setpgid(pid_t pid, pid_t pgid) {
 	return 0;
 }
 
-static long sys_getpgid(pid_t pid) {
+long sys_getpgid(pid_t pid) {
 	process_t * proc;
 	if (pid == 0) {
 		proc = (process_t*)this_core->current_process;
@@ -672,7 +672,7 @@ static long sys_getpgid(pid_t pid) {
 	return proc->job;
 }
 
-static long sys_uname(struct utsname * name) {
+long sys_uname(struct utsname * name) {
 	PTR_VALIDATE(name);
 	if (!name) return -EFAULT;
 	char version_number[256];
@@ -695,7 +695,7 @@ static long sys_uname(struct utsname * name) {
 	return 0;
 }
 
-static long sys_chdir(char * newdir) {
+long sys_chdir(char * newdir) {
 	PTR_VALIDATE(newdir);
 	if (!newdir) return -EFAULT;
 	char * path = canonicalize_path(this_core->current_process->wd_name, newdir);
@@ -719,7 +719,7 @@ static long sys_chdir(char * newdir) {
 	}
 }
 
-static long sys_getcwd(char * buf, size_t size) {
+long sys_getcwd(char * buf, size_t size) {
 	if (buf) {
 		PTR_VALIDATE(buf);
 		size_t len = strlen(this_core->current_process->wd_name) + 1;
@@ -728,11 +728,11 @@ static long sys_getcwd(char * buf, size_t size) {
 	return 0;
 }
 
-static long sys_dup2(int old, int new) {
+long sys_dup2(int old, int new) {
 	return process_move_fd((process_t *)this_core->current_process, old, new);
 }
 
-static long sys_sethostname(char * new_hostname) {
+long sys_sethostname(char * new_hostname) {
 	if (this_core->current_process->user == USER_ROOT_UID) {
 		PTR_VALIDATE(new_hostname);
 		if (!new_hostname) return -EFAULT;
@@ -748,14 +748,14 @@ static long sys_sethostname(char * new_hostname) {
 	}
 }
 
-static long sys_gethostname(char * buffer) {
+long sys_gethostname(char * buffer) {
 	PTR_VALIDATE(buffer);
 	if (!buffer) return -EFAULT;
 	memcpy(buffer, hostname, hostname_len);
 	return hostname_len;
 }
 
-static long sys_mount(char * arg, char * mountpoint, char * type, unsigned long flags, void * data) {
+long sys_mount(char * arg, char * mountpoint, char * type, unsigned long flags, void * data) {
 	/* TODO: Make use of flags and data from mount command. */
 	(void)flags;
 	(void)data;
@@ -771,18 +771,18 @@ static long sys_mount(char * arg, char * mountpoint, char * type, unsigned long 
 	return -EFAULT;
 }
 
-static long sys_umask(long mode) {
+long sys_umask(long mode) {
 	this_core->current_process->mask = mode & 0777;
 	return 0;
 }
 
-static long sys_unlink(char * file) {
+long sys_unlink(char * file) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
 	return unlink_fs(file);
 }
 
-static long sys_execve(const char * filename, char *const argv[], char *const envp[]) {
+long sys_execve(const char * filename, char *const argv[], char *const envp[]) {
 	PTR_VALIDATE(filename);
 	PTR_VALIDATE(argv);
 	PTR_VALIDATE(envp);
@@ -839,27 +839,27 @@ static long sys_execve(const char * filename, char *const argv[], char *const en
 	return exec(filename, argc, argv_, envp_, 0);
 }
 
-static long sys_fork(void) {
+long sys_fork(void) {
 	return fork();
 }
 
-static long sys_clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
+long sys_clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 	if (!new_stack || !PTR_INRANGE(new_stack)) return -EINVAL;
 	if (!thread_func || !PTR_INRANGE(thread_func)) return -EINVAL;
 	return (int)clone(new_stack, thread_func, arg);
 }
 
-static long sys_waitpid(int pid, int * status, int options) {
+long sys_waitpid(int pid, int * status, int options) {
 	if (status && !PTR_INRANGE(status)) return -EINVAL;
 	return waitpid(pid, status, options);
 }
 
-static long sys_yield(void) {
+long sys_yield(void) {
 	switch_task(1);
 	return 1;
 }
 
-static long sys_sleepabs(unsigned long seconds, unsigned long subseconds) {
+long sys_sleepabs(unsigned long seconds, unsigned long subseconds) {
 	/* Mark us as asleep until <some time period> */
 	sleep_until((process_t *)this_core->current_process, seconds, subseconds);
 
@@ -878,13 +878,13 @@ static long sys_sleepabs(unsigned long seconds, unsigned long subseconds) {
 	}
 }
 
-static long sys_sleep(unsigned long seconds, unsigned long subseconds) {
+long sys_sleep(unsigned long seconds, unsigned long subseconds) {
 	unsigned long s, ss;
 	relative_time(seconds, subseconds * 10000, &s, &ss);
 	return sys_sleepabs(s, ss);
 }
 
-static long sys_pipe(int pipes[2]) {
+long sys_pipe(int pipes[2]) {
 	if (!pipes || !PTR_INRANGE(pipes)) {
 		return -EFAULT;
 	}
@@ -903,7 +903,7 @@ static long sys_pipe(int pipes[2]) {
 	return 0;
 }
 
-static long sys_signal(long signum, uintptr_t handler) {
+long sys_signal(long signum, uintptr_t handler) {
 	if (signum > NUMSIGNALS) {
 		return -EINVAL;
 	}
@@ -912,7 +912,7 @@ static long sys_signal(long signum, uintptr_t handler) {
 	return old;
 }
 
-static long sys_fswait(int c, int fds[]) {
+long sys_fswait(int c, int fds[]) {
 	PTR_VALIDATE(fds);
 	if (!fds) return -EFAULT;
 	for (int i = 0; i < c; ++i) {
@@ -929,7 +929,7 @@ static long sys_fswait(int c, int fds[]) {
 	return result;
 }
 
-static long sys_fswait_timeout(int c, int fds[], int timeout) {
+long sys_fswait_timeout(int c, int fds[], int timeout) {
 	PTR_VALIDATE(fds);
 	if (!fds) return -EFAULT;
 	for (int i = 0; i < c; ++i) {
@@ -946,7 +946,7 @@ static long sys_fswait_timeout(int c, int fds[], int timeout) {
 	return result;
 }
 
-static long sys_fswait_multi(int c, int fds[], int timeout, int out[]) {
+long sys_fswait_multi(int c, int fds[], int timeout, int out[]) {
 	PTR_VALIDATE(fds);
 	PTR_VALIDATE(out);
 	if (!fds || !out) return -EFAULT;
@@ -971,20 +971,20 @@ static long sys_fswait_multi(int c, int fds[], int timeout, int out[]) {
 	return result;
 }
 
-static long sys_shm_obtain(char * path, size_t * size) {
+long sys_shm_obtain(char * path, size_t * size) {
 	PTR_VALIDATE(path);
 	PTR_VALIDATE(size);
 	if (!path || !size) return -EFAULT;
 	return (long)shm_obtain(path, size);
 }
 
-static long sys_shm_release(char * path) {
+long sys_shm_release(char * path) {
 	PTR_VALIDATE(path);
 	if (!path) return -EFAULT;
 	return shm_release(path);
 }
 
-static long sys_openpty(int * master, int * slave, char * name, void * _ign0, void * size) {
+long sys_openpty(int * master, int * slave, char * name, void * _ign0, void * size) {
 	/* We require a place to put these when we are done. */
 	if (!master || !slave) return -EINVAL;
 	if (master && !PTR_INRANGE(master)) return -EINVAL;
@@ -1011,7 +1011,7 @@ static long sys_openpty(int * master, int * slave, char * name, void * _ign0, vo
 	return 0;
 }
 
-static long sys_kill(pid_t process, int signal) {
+long sys_kill(pid_t process, int signal) {
 	if (process < -1) {
 		return group_send_signal(-process, signal, 0);
 	} else if (process == 0) {
@@ -1021,7 +1021,7 @@ static long sys_kill(pid_t process, int signal) {
 	}
 }
 
-static long sys_reboot(void) {
+long sys_reboot(void) {
 	if (this_core->current_process->user != USER_ROOT_UID) {
 		return -EPERM;
 	}
@@ -1029,7 +1029,7 @@ static long sys_reboot(void) {
 	return arch_reboot();
 }
 
-static long sys_times(struct tms *buf) {
+long sys_times(struct tms *buf) {
 	if (buf) {
 		PTR_VALIDATE(buf);
 
