@@ -1442,14 +1442,14 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 		HIST_APPEND(e);
 	}
 
+	if (!env->loading) {
+		unhighlight_matching_paren();
+	}
+
 	/* Allocate more space as needed */
 	if (env->line_count == env->line_avail) {
 		env->line_avail *= 2;
 		lines = realloc(lines, sizeof(line_t *) * env->line_avail);
-	}
-
-	if (!env->loading) {
-		unhighlight_matching_paren();
 	}
 
 	/* Shift later lines down */
