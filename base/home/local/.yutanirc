@@ -6,4 +6,5 @@ file-browser --wallpaper &
 toastd --really # Daemonizes
 cd ~
 if not stat -q ~/.tutorial-shown then show-tutorial.sh
+show-toasts.krk &
 exec panel --really
