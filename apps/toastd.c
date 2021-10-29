@@ -92,14 +92,16 @@ static void handle_msg(JSON_Value * msg) {
 		if (!load_sprite(&myIcon, msg_icon->string)) {
 			/* Is this a reasonable icon to display? */
 			if (myIcon.width < 100) {
-				textOffset = myIcon.width + 4; /* Sounds like a fine padding... */
+				textOffset = myIcon.width + 8; /* Sounds like a fine padding... */
 				draw_sprite(ctx, &myIcon, 10, (background_sprite.height - myIcon.height) / 2);
 			}
 			free(myIcon.bitmap);
 		}
 	}
 
-	markup_draw_string(ctx, 10 + textOffset, 26, msg_body->string, rgb(255,255,255));
+	int height = markup_string_height(msg_body->string);
+
+	markup_draw_string(ctx, 10 + textOffset, (ctx->height - height) / 2, msg_body->string, rgb(255,255,255));
 	yutani_flip(yctx, win);
 }
 

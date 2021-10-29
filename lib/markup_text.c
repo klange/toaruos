@@ -140,6 +140,20 @@ int markup_string_width(const char * str) {
 	return state.max_cursor_x - state.initial_left;
 }
 
+int markup_string_height(const char * str) {
+	struct MarkupState state = {list_create(), 0, 0, 0, 0, 0, NULL, 0, list_create()};
+	struct markup_state * parser = markup_init(&state, parser_open, parser_close, parser_dryrun);
+	while (*str) {
+		if (markup_parse(parser, *str++)) {
+			break;
+		}
+	}
+	markup_finish(parser);
+	list_free(state.state);
+	list_free(state.colors);
+	return state.cursor_y;
+}
+
 int markup_draw_string(gfx_context_t * ctx, int x, int y, const char * str, uint32_t color) {
 	struct MarkupState state = {list_create(), 0, x, y, x, color, ctx, x, list_create()};
 	struct markup_state * parser = markup_init(&state, parser_open, parser_close, parser_data);
