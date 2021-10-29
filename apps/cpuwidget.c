@@ -240,6 +240,8 @@ static void refresh_interfaces(size_t ifs[32]) {
 			ifs[ind + 1] = counts.tx_bytes;
 			ind += 2;
 		}
+
+		close(netdev);
 	}
 
 	closedir(d);
