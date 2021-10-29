@@ -6,9 +6,9 @@ While many independent, hobby, and research OSes aim to experiment with new desi
 
 The OS includes a kernel, bootloader, dynamic shared object linker, C standard library, its own composited windowing system, a dynamic bytecode-compiled programming language, advanced code editor, and dozens of other utilities and example applications.
 
-There are no external runtime dependencies and all required source code, totalling roughly 80,000 lines of (primarily) C, is included in this repository, save for [Kuroko](https://github.com/kuroko-lang/kuroko), which lives separately.
+There are no external runtime dependencies and all required source code, totalling roughly 100k lines of (primarily) C, is included in this repository, save for [Kuroko](https://github.com/kuroko-lang/kuroko), which lives separately.
 
-![Screenshot](https://klange.dev/s/Screenshot%20from%202021-09-18%2013-49-35.png)
+![Screenshot](https://klange.dev/s/Screenshot%20from%202021-10-29%2010-44-22.png)
 *Demonstration of ToaruOS's UI and some applications.*
 
 ## History
@@ -21,7 +21,7 @@ With time, ToaruOS's relatively advanced graphical interface and other features 
 
 From its initial release through the middle of 2018, ToaruOS's userspace was built on top of the Newlib C standard library implementation as well as various third-party libraries such as Cairo and Freetype.
 
-Since the release of 1.6.x, all third-pary runtime dependencies have been removed or replaced, and ToaruOS has been entirely "in-house".
+Since the release of 1.6.x, all third-party runtime dependencies have been removed or replaced, and ToaruOS has been entirely "in-house".
 
 In April 2021, work began on ToaruOS 2.0, which brings a rewritten kernel for x86-64 (and potentially other architectures) and support for SMP. The new "Misaka" kernel was merged upstream at the end of May.
 
