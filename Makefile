@@ -31,7 +31,7 @@ KERNEL_SOURCES += $(wildcard kernel/arch/${ARCH}/*.S)
 MODULES = $(patsubst modules/%.c,$(BASE)/mod/%.ko,$(wildcard modules/*.c))
 
 # Configs you can override.
-SMP ?= 2
+SMP ?= 4
 RAM ?= 3G
 EXTRA_ARGS ?=
 EMU_KVM  ?= -enable-kvm
