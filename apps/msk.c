@@ -307,6 +307,13 @@ static int install_package(char * pkg) {
 			}
 			hashmap_set(hashmap_get(msk_manifest->sections, pkg), "source", "/tmp/msk.file");
 		}
+	} else if (msk_remote[0] == '/') {
+		char * source = confreader_get(msk_manifest, pkg, "source");
+		if (source) {
+			char * pkg_name = malloc(strlen(msk_remote) + strlen(source) + 2);
+			sprintf(pkg_name, "%s/%s", msk_remote, source);
+			hashmap_set(hashmap_get(msk_manifest->sections, pkg), "source", pkg_name);
+		}
 	}
 
 	fprintf(stderr, "Install '%s'...\n", pkg);
