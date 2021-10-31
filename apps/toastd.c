@@ -62,6 +62,8 @@ static void handle_msg(JSON_Value * msg) {
 		background_sprite.height,
 		YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS | YUTANI_WINDOW_FLAG_ALT_ANIMATION);
 
+	yutani_set_stack(yctx, win, YUTANI_ZORDER_OVERLAY);
+
 	/* TODO: We need to figure out how to place this... */
 	yutani_window_move(yctx, win, yctx->display_width - background_sprite.width - PAD_RIGHT, PAD_TOP + background_sprite.height * windows->length);
 

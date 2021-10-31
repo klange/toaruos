@@ -227,11 +227,17 @@ static void unorder_window(yutani_globals_t * yg, yutani_server_window_t * w) {
 		yg->top_z = NULL;
 		return;
 	}
-
-	node_t * n = list_find(yg->mid_zs, w);
-	if (!n) return;
-	list_delete(yg->mid_zs, n);
-	free(n);
+	if (index == YUTANI_ZORDER_OVERLAY) {
+		node_t * n = list_find(yg->overlay_zs, w);
+		if (!n) return;
+		list_delete(yg->overlay_zs, n);
+		free(n);
+	} else {
+		node_t * n = list_find(yg->mid_zs, w);
+		if (!n) return;
+		list_delete(yg->mid_zs, n);
+		free(n);
+	}
 }
 
 /**
@@ -247,7 +253,11 @@ static void reorder_window(yutani_globals_t * yg, yutani_server_window_t * windo
 	window->z = new_zed;
 
 	if (new_zed != YUTANI_ZORDER_TOP && new_zed != YUTANI_ZORDER_BOTTOM) {
-		list_insert(yg->mid_zs, window);
+		if (new_zed == YUTANI_ZORDER_OVERLAY) {
+			list_insert(yg->overlay_zs, window);
+		} else {
+			list_insert(yg->mid_zs, window);
+		}
 		return;
 	}
 
@@ -276,6 +286,7 @@ static void make_top(yutani_globals_t * yg, yutani_server_window_t * w) {
 
 	if (index == YUTANI_ZORDER_BOTTOM) return;
 	if (index == YUTANI_ZORDER_TOP) return;
+	if (index == YUTANI_ZORDER_OVERLAY) return;
 
 	node_t * n = list_find(yg->mid_zs, w);
 	if (!n) return; /* wat */
@@ -581,6 +592,10 @@ static yutani_server_window_t * check_top_at(yutani_globals_t * yg, yutani_serve
  */
 static yutani_server_window_t * top_at(yutani_globals_t * yg, uint16_t x, uint16_t y) {
 	if (check_top_at(yg, yg->top_z, x, y)) return yg->top_z;
+	foreachr(node, yg->overlay_zs) {
+		yutani_server_window_t * w = node->value;
+		if (check_top_at(yg, w, x, y)) return w;
+	}
 	foreachr(node, yg->mid_zs) {
 		yutani_server_window_t * w = node->value;
 		if (check_top_at(yg, w, x, y)) return w;
@@ -768,29 +783,39 @@ static void yutani_post_vbox_rects(yutani_globals_t * yg) {
 	char tmp[4096];
 	uint32_t * count = (uint32_t *)tmp;
 	*count = 0;
-	int32_t * magic = (int32_t *)tmp;
-	magic++;
+
+	struct Rect {
+		int32_t x;
+		int32_t y;
+		int32_t xe;
+		int32_t ye;
+	} __attribute__((packed));
+
+
+	struct Rect * rects = (struct Rect *)(tmp+sizeof(int32_t));
+
+#define DO_WINDOW(win) if (win && !win->hidden && *count < 255 ) { \
+	rects->x = (win)->x; \
+	rects->y = (win)->y; \
+	rects->xe = (win)->x + (win)->width; \
+	rects->ye = (win)->y + (win)->height; \
+	rects++; \
+	(*count)++; \
+}
 
 	/* Add top window if it exists */
-	if (yg->top_z) {
-		*magic = yg->top_z->x; magic++;
-		*magic = yg->top_z->y; magic++;
-		*magic = yg->top_z->x + yg->top_z->width; magic++;
-		*magic = yg->top_z->y + yg->top_z->height; magic++;
-		(*count)++;
-	}
+	DO_WINDOW(yg->top_z);
 
 	/* Add regular windows */
 	foreach (node, yg->mid_zs) {
 		yutani_server_window_t * w = node->value;
-		if (w) {
-			*magic = w->x; magic++;
-			*magic = w->y; magic++;
-			*magic = w->x + w->width; magic++;
-			*magic = w->y + w->height; magic++;
-			(*count)++;
-			if (*count == 254) break;
-		}
+		DO_WINDOW(w);
+	}
+
+	/* Add overlay windows */
+	foreach (node, yg->overlay_zs) {
+		yutani_server_window_t * w = node->value;
+		DO_WINDOW(w);
 	}
 
 	/*
@@ -799,10 +824,10 @@ static void yutani_post_vbox_rects(yutani_globals_t * yg) {
 	 */
 	if (*count == 0) {
 		*count = 1;
-		*magic = 0; magic++;
-		*magic = 0; magic++;
-		*magic = yg->width; magic++;
-		*magic = yg->height; magic++;
+		rects->x = 0;
+		rects->y = 0;
+		rects->xe = yg->width;
+		rects->ye = yg->height;
 	}
 
 	/* Post rectangle data to driver */
@@ -820,6 +845,10 @@ static void yutani_blit_windows(yutani_globals_t * yg) {
 	}
 	if (yg->bottom_z) yutani_blit_window(yg, yg->bottom_z, yg->bottom_z->x, yg->bottom_z->y);
 	foreach (node, yg->mid_zs) {
+		yutani_server_window_t * w = node->value;
+		if (w) yutani_blit_window(yg, w, w->x, w->y);
+	}
+	foreach (node, yg->overlay_zs) {
 		yutani_server_window_t * w = node->value;
 		if (w) yutani_blit_window(yg, w, w->x, w->y);
 	}
@@ -956,6 +985,10 @@ static void redraw_windows(yutani_globals_t * yg) {
 	if (yg->bottom_z && yg->bottom_z->anim_mode) mark_window(yg, yg->bottom_z);
 	if (yg->top_z && yg->top_z->anim_mode) mark_window(yg, yg->top_z);
 	foreach (node, yg->mid_zs) {
+		yutani_server_window_t * w = node->value;
+		if (w && w->anim_mode) mark_window(yg, w);
+	}
+	foreach (node, yg->overlay_zs) {
 		yutani_server_window_t * w = node->value;
 		if (w && w->anim_mode) mark_window(yg, w);
 	}
@@ -2123,6 +2156,7 @@ int main(int argc, char * argv[]) {
 	yg->key_binds = hashmap_create_int(10);
 	yg->clients_to_windows = hashmap_create_int(10);
 	yg->mid_zs = list_create();
+	yg->overlay_zs = list_create();
 	yg->windows_to_remove = list_create();
 
 	yg->window_subscribers = list_create();
@@ -2489,6 +2523,7 @@ int main(int argc, char * argv[]) {
 					foreach (node, yg->mid_zs) {
 						yutani_query_result(yg, p->source, node->value);
 					}
+					/* Exclude overlay windows? */
 					yutani_query_result(yg, p->source, yg->top_z);
 					yutani_msg_buildx_window_advertise_alloc(response, 0);
 					yutani_msg_buildx_window_advertise(response,0, 0, NULL, 0, NULL);

@@ -313,9 +313,10 @@ struct yutani_msg_clipboard {
  *
  * Specifies which stack set a window should appear in.
  */
-#define YUTANI_ZORDER_MAX    0xFFFF
-#define YUTANI_ZORDER_TOP    0xFFFF
-#define YUTANI_ZORDER_BOTTOM 0x0000
+#define YUTANI_ZORDER_MAX     0xFFFF
+#define YUTANI_ZORDER_TOP     0xFFFF
+#define YUTANI_ZORDER_OVERLAY 0xFFFE
+#define YUTANI_ZORDER_BOTTOM  0x0000
 
 /*
  * YUTANI_MOUSE_BUTTON
