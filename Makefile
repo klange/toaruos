@@ -1,9 +1,11 @@
+# ToaruOS 2.0 root Makefile
 TOOLCHAIN=util
 BASE=base
 export PATH := $(shell $(TOOLCHAIN)/activate.sh)
 
 include build/x86_64.mk
 
+# Cross compiler binaries
 CC = ${TARGET}-gcc
 NM = ${TARGET}-nm
 CXX= ${TARGET}-g++
@@ -11,6 +13,7 @@ AR = ${TARGET}-ar
 AS = ${TARGET}-as
 OC = ${TARGET}-objcopy
 
+# CFLAGS for kernel objects and modules
 KERNEL_CFLAGS  = -ffreestanding -O2 -std=gnu11 -g -static
 KERNEL_CFLAGS += -Wall -Wextra -Wno-unused-function -Wno-unused-parameter
 KERNEL_CFLAGS += -pedantic -Wwrite-strings ${ARCH_KERNEL_CFLAGS}
@@ -19,18 +22,29 @@ KERNEL_CFLAGS += -pedantic -Wwrite-strings ${ARCH_KERNEL_CFLAGS}
 KERNEL_CFLAGS += -D_KERNEL_ -DKERNEL_ARCH=${ARCH}
 KERNEL_CFLAGS += -DKERNEL_GIT_TAG=`util/make-version`
 
+# Automatically find kernel sources from relevant paths
 KERNEL_OBJS =  $(patsubst %.c,%.o,$(wildcard kernel/*.c))
 KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/*/*.c))
 KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/arch/${ARCH}/*.c))
 
+# Assembly sources only come from the arch-dependent directory
 KERNEL_ASMOBJS  = $(filter-out kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard kernel/arch/${ARCH}/*.S)))
 
+# These sources are used to determine if we should update symbols.o
 KERNEL_SOURCES  = $(wildcard kernel/*.c) $(wildcard kernel/*/*.c) $(wildcard kernel/${ARCH}/*/*.c)
 KERNEL_SOURCES += $(wildcard kernel/arch/${ARCH}/*.S)
 
+# Kernel modules are one file = one module; if you want to build more complicated
+# modules, you could potentially use `ld -r` to turn multiple source objects into
+# a single relocatable object file.
 MODULES = $(patsubst modules/%.c,$(BASE)/mod/%.ko,$(wildcard modules/*.c))
 
 # Configs you can override.
+#   SMP: Argument to -smp, use 1 to disable SMP.
+#   RAM: Argument to -m, QEMU takes suffixes like "M" or "G".
+#   EXTRA_ARGS: Added raw to the QEMU command line
+#   EMU_KVM: Unset this (EMU_KVM=) to use TCG, or replace it with something like EMU_KVM=-enable-haxm
+#   EMU_MACH: Argument to -M, 'pc' should be the older default in QEMU; we use q35 to test AHCI.
 SMP ?= 4
 RAM ?= 3G
 EXTRA_ARGS ?=
@@ -44,16 +58,19 @@ EMU_ARGS += -smp $(SMP)
 EMU_ARGS += ${EMU_KVM}
 EMU_ARGS += -no-reboot
 EMU_ARGS += -serial mon:stdio
-EMU_ARGS += -rtc base=utc
 EMU_ARGS += -soundhw pcspk,ac97
 
-# Configures two network devices on the same network
-EMU_ARGS += -net user
-EMU_ARGS += -netdev hubport,id=u1,hubid=0, -device e1000e,netdev=u1  -object filter-dump,id=f1,netdev=u1,file=qemu-e1000e.pcap
+# UTC is the default setting.
+#EMU_ARGS += -rtc base=utc
+
+# Customize network options here. QEMU's default is an e1000(e) under PIIX (Q35), with user networking
+# so we don't need to do anything normally.
+#EMU_ARGS += -net user
+#EMU_ARGS += -netdev hubport,id=u1,hubid=0, -device e1000e,netdev=u1  -object filter-dump,id=f1,netdev=u1,file=qemu-e1000e.pcap
 #EMU_ARGS += -netdev hubport,id=u2,hubid=0, -device e1000e,netdev=u2
 
-# Add an XHCI tablet
-EMU_ARGS += -device qemu-xhci -device usb-tablet
+# Add an XHCI tablet if you want to dev on USB
+#EMU_ARGS += -device qemu-xhci -device usb-tablet
 
 APPS=$(patsubst apps/%.c,%,$(wildcard apps/*.c))
 APPS_X=$(foreach app,$(APPS),$(BASE)/bin/$(app))
