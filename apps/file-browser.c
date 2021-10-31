@@ -116,6 +116,7 @@ static struct menu_bar_entries menu_entries[] = {
 
 /* Right click context menu */
 static struct MenuList * context_menu = NULL;
+static struct MenuList * directory_context_menu = NULL;
 
 /**
  * Accurate time comparison.
@@ -1869,6 +1870,29 @@ static void redraw_window_callback(struct menu_bar * self) {
 	redraw_window();
 }
 
+static void show_context_menu(struct yutani_msg_window_mouse_event * me) {
+	if (!context_menu->window && !directory_context_menu->window) {
+		struct File * f = get_file_at_offset(hilighted_offset);
+		if (f && !f->selected) {
+			toggle_selected(hilighted_offset, me->modifiers);
+		}
+
+		int _have_selection = 0;
+		for (int i = 0; i < file_pointers_len; ++i) {
+			if (file_pointers[i]->selected) {
+				_have_selection = 1;
+				break;
+			}
+		}
+
+		if (_have_selection) {
+			menu_show_at(context_menu, main_window, me->new_x, me->new_y);
+		} else {
+			menu_show_at(directory_context_menu, main_window, me->new_x, me->new_y);
+		}
+	}
+}
+
 int main(int argc, char * argv[]) {
 
 	yctx = yutani_init();
@@ -1971,6 +1995,16 @@ int main(int argc, char * argv[]) {
 	}
 	menu_insert(context_menu, menu_create_normal("refresh",NULL,"Refresh",_menu_action_refresh));
 	menu_insert(context_menu, menu_create_normal("utilities-terminal","terminal","Open Terminal",launch_application_menu));
+
+	directory_context_menu = menu_create(); /* the other right click menu */
+	menu_insert(directory_context_menu, menu_create_normal(NULL,NULL,"Paste",_menu_action_paste));
+	menu_insert(directory_context_menu, menu_create_separator());
+	if (!is_desktop_background) {
+		menu_insert(directory_context_menu, menu_create_normal("up",NULL,"Up",_menu_action_up));
+	}
+	menu_insert(directory_context_menu, menu_create_normal("refresh",NULL,"Refresh",_menu_action_refresh));
+	menu_insert(directory_context_menu, menu_create_normal("utilities-terminal","terminal","Open Terminal",launch_application_menu));
+
 
 	history_back = list_create();
 	history_forward = list_create();
@@ -2323,13 +2357,7 @@ int main(int argc, char * argv[]) {
 										}
 									}
 								} else if (me->buttons & YUTANI_MOUSE_BUTTON_RIGHT) {
-									if (!context_menu->window) {
-										struct File * f = get_file_at_offset(hilighted_offset);
-										if (f && !f->selected) {
-											toggle_selected(hilighted_offset, me->modifiers);
-										}
-										menu_show_at(context_menu, main_window, me->new_x, me->new_y);
-									}
+									show_context_menu(me);
 								}
 
 							} else {
