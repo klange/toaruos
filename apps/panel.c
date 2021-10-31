@@ -922,6 +922,9 @@ static void redraw_altf2(void) {
 }
 
 static void redraw_alttab(void) {
+	if (!actx) return;
+	if (new_focused == -1) return;
+
 	/* Draw the background, right now just a dark semi-transparent box */
 	draw_fill(actx, 0);
 	draw_rounded_rectangle(actx,0,0, ALTTAB_WIDTH, ALTTAB_HEIGHT, 10, ALTTAB_BACKGROUND);
@@ -954,6 +957,9 @@ static void redraw_alttab(void) {
 			draw_sprite_scaled(actx, &tmp, center_x_a(sw), ALTTAB_OFFSET + oy, sw, sh);
 
 			shm_release(key);
+
+			sprite_t * icon = icon_get_48(ad->icon);
+			draw_sprite(actx, icon, center_x_a(-ALTTAB_WIN_SIZE) - 50, ALTTAB_OFFSET + ALTTAB_WIN_SIZE - 50);
 		} else {
 			sprite_t * icon = icon_get_48(ad->icon);
 			draw_sprite(actx, icon, center_x_a(48), ALTTAB_OFFSET + (ALTTAB_WIN_SIZE - 48) / 2);
@@ -1086,6 +1092,7 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 
 		free(actx->backbuffer);
 		free(actx);
+		actx = NULL;
 
 		yutani_close(yctx, alttab);
 
@@ -1767,10 +1774,6 @@ int main (int argc, char ** argv) {
 			menu_force_redraw(clockmenu);
 		}
 
-		if (was_tabbing) {
-			redraw_alttab();
-		}
-
 		if (index == 0) {
 			/* Respond to Yutani events */
 			yutani_msg_t * m = yutani_poll(yctx);
@@ -1818,6 +1821,9 @@ int main (int argc, char ** argv) {
 				update_network_status();
 				update_weather_status();
 				redraw();
+				if (was_tabbing) {
+					redraw_alttab();
+				}
 			}
 		}
 	}
