@@ -320,6 +320,7 @@ int main(int argc, char * argv[]) {
 
 	struct TTKButton * _down_button = NULL;
 
+	vm.binpath = strdup("/bin/calculator"); /* Just assume this so we can get module imports */
 	krk_initVM(KRK_GLOBAL_CLEAN_OUTPUT);
 	krk_startModule("__main__");
 
