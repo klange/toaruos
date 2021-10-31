@@ -8,9 +8,12 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <math.h>
+#include <pthread.h>
 
 #include <sys/time.h>
 #include <sys/stat.h>
+
+#include <sys/fswait.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -38,6 +41,10 @@ static int scroll_offset = 0; /* How far the icon view should be scrolled */
 static int hilighted_offset = -1; /* Which file is hovered by the mouse */
 static uint64_t last_click = 0; /* For double click */
 static int last_click_offset = -1; /* So that clicking two different things quickly doesn't count as a double click */
+
+static int installation_done = 0;
+static int currently_installing = 0;
+static pthread_t _waiter_thread;
 
 struct TT_Font * tt_font_thin = NULL;
 struct TT_Font * tt_font_bold = NULL;
@@ -330,17 +337,44 @@ static void _menu_action_refresh(struct MenuEntry * entry) {
 	redraw_window();
 }
 
-static void install_package(struct Package * package) {
-	if (package->installed) return;
 
+static void * package_installer_thread(void * arg) {
+	char * packages = arg;
 	putenv("MSK_YES=1");
 	char tmp[1024];
-	sprintf(tmp, "terminal msk install %s", package->name);
+	sprintf(tmp, "terminal msk install %s", packages);
+	free(packages);
 	system(tmp);
+	installation_done = 1;
+	return NULL;
+}
 
-	load_manifest();
-	reinitialize_contents();
-	redraw_window();
+static void install_packages(void) {
+	if (currently_installing) return;
+
+	/* Figure out what packages to install */
+	size_t c_len = 0;
+	for (int i = 0; i <pkg_pointers_len; ++i) {
+		if (pkg_pointers[i]->selected) {
+			c_len += strlen(pkg_pointers[i]->name) + 2;
+		}
+	}
+
+	if (!c_len) return; /* Nothing selected? */
+
+	char * packages = malloc(c_len);
+	char * cursor = packages;
+
+	for (int i = 0; i <pkg_pointers_len; ++i) {
+		if (pkg_pointers[i]->selected) {
+			cursor += sprintf(cursor, "%s ", pkg_pointers[i]->name);
+		}
+	}
+
+	installation_done = 0;
+	currently_installing = 1;
+
+	pthread_create(&_waiter_thread, NULL, package_installer_thread, packages);
 }
 
 static void _menu_action_about(struct MenuEntry * entry) {
@@ -503,7 +537,24 @@ int main(int argc, char * argv[]) {
 		/* also redraws window */
 	}
 
+	int fds[1] = {fileno(yctx->sock)};
+
 	while (application_running) {
+		int index = fswait2(1,fds,200);
+
+		/* Were we waiting for a package to install? */
+		if (currently_installing) {
+			if (installation_done) {
+				currently_installing = 0;
+				installation_done = 0;
+				load_manifest();
+				reinitialize_contents();
+				redraw_window();
+			}
+		}
+
+		if (index != 0) continue;
+
 		yutani_msg_t * m = yutani_poll(yctx);
 		while (m) {
 			if (menu_process_event(yctx, m)) {
@@ -530,11 +581,7 @@ int main(int argc, char * argv[]) {
 									arrow_select(-1);
 									break;
 								case '\n':
-									for (int i = 0; i <pkg_pointers_len; ++i) {
-										if (pkg_pointers[i]->selected) {
-											install_package(pkg_pointers[i]);
-										}
-									}
+									install_packages();
 									break;
 								case 'f':
 									if (ke->event.modifiers & YUTANI_KEY_MODIFIER_ALT) {
@@ -640,8 +687,7 @@ int main(int argc, char * argv[]) {
 									struct Package * f = get_package_at_offset(hilighted_offset);
 									if (f) {
 										if (last_click_offset == hilighted_offset && precise_time_since(last_click) < 400) {
-											install_package(f);
-											//open_file(f);
+											install_packages();
 											last_click = 0;
 										} else {
 											last_click = precise_current_time();
