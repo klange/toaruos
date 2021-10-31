@@ -160,15 +160,18 @@ static int mouse_state;
 #define PACKETS_IN_PIPE 1024
 #define DISCARD_POINT 32
 
-static int vbox_irq_handler(struct regs *r) {
-	if (!vbox_vmmdev[2]) return 0;
+#define VMM_Event_DisplayChange (1 << 2)
+static void vbox_do_modeset(void) {
+	outportl(vbox_port, vbox_phys_disp);
+	outportl(vbox_port, vbox_phys_disp);
+	if (lfb_resolution_x && vbox_disp->xres && (vbox_disp->xres != lfb_resolution_x  || vbox_disp->yres != lfb_resolution_y)) {
+		lfb_set_resolution(vbox_disp->xres, vbox_disp->yres);
+	}
+}
 
-	vbox_irq_ack->events = vbox_vmmdev[2];
-	outportl(vbox_port, vbox_phys_ack);
-	irq_ack(vbox_irq);
-
+#define VMM_Event_Mouse (1 << 9)
+static void vbox_do_mouse(void) {
 	outportl(vbox_port, vbox_phys_mouse_get);
-
 	unsigned int x, y;
 
 	if (lfb_vid_memory && lfb_resolution_x && lfb_resolution_y && vbox_mg->x && vbox_mg->y) {
@@ -190,12 +193,19 @@ static int vbox_irq_handler(struct regs *r) {
 		read_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&bitbucket);
 	}
 	write_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&packet);
+}
 
-	outportl(vbox_port, vbox_phys_disp);
-	if (lfb_resolution_x && vbox_disp->xres && (vbox_disp->xres != lfb_resolution_x  || vbox_disp->yres != lfb_resolution_y)) {
+static int vbox_irq_handler(struct regs *r) {
+	if (!vbox_vmmdev[2]) return 0;
 
-		lfb_set_resolution(vbox_disp->xres, vbox_disp->yres);
-	}
+	uint32_t events;
+
+	events = vbox_irq_ack->events = vbox_vmmdev[2];
+	outportl(vbox_port, vbox_phys_ack);
+	irq_ack(vbox_irq);
+
+	if (events & VMM_Event_Mouse) vbox_do_mouse();
+	if (events & VMM_Event_DisplayChange) vbox_do_modeset();
 
 	return 1;
 }
@@ -375,7 +385,7 @@ static int vbox_install(int argc, char * argv[]) {
 			vbox_pointershape->header.rc = 0;
 			vbox_pointershape->header.reserved1 = 0;
 			vbox_pointershape->header.reserved2 = 0;
-			vbox_pointershape->flags = (1 << 0) | (1 << 1) | (1 << 2);
+			vbox_pointershape->flags = (1 << 0) | (1 << 1) | (1 << 2); /* visible, alpha, shape */
 			vbox_pointershape->xHot = 26;
 			vbox_pointershape->yHot = 26;
 			vbox_pointershape->width = 48;
@@ -452,6 +462,9 @@ static int vbox_install(int argc, char * argv[]) {
 			printf("Setting vbox mem device at %p\n", (void*)vbox_vmmdev);
 		}
 	}
+
+	/* Try a mode set */
+	vbox_do_modeset();
 
 	vbox_vmmdev[3] = 0xFFFFFFFF; /* Enable all for now */
 
