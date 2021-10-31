@@ -30,10 +30,12 @@
 #include <sys/ioctl.h>
 #include <sys/fswait.h>
 #include <sys/socket.h>
+#include <sys/shm.h>
 #include <net/if.h>
 #include <arpa/inet.h>
 
 #include <toaru/yutani.h>
+#include <toaru/yutani-internal.h>
 #include <toaru/graphics.h>
 #include <toaru/hashmap.h>
 #include <toaru/spinlock.h>
@@ -66,9 +68,10 @@
 #define GRADIENT_AT(y) premultiply(rgba(72, 167, 255, ((24-(y))*160)/24))
 
 #define ALTTAB_WIDTH  250
-#define ALTTAB_HEIGHT 100
+#define ALTTAB_HEIGHT 200
 #define ALTTAB_BACKGROUND premultiply(rgba(0,0,0,150))
 #define ALTTAB_OFFSET 10
+#define ALTTAB_WIN_SIZE 140
 
 #define ALTF2_WIDTH 400
 #define ALTF2_HEIGHT 200
@@ -175,6 +178,9 @@ struct window_ad {
 	char * icon;
 	char * strings;
 	int left;
+	uint32_t bufid;
+	uint32_t width;
+	uint32_t height;
 };
 
 typedef struct {
@@ -923,18 +929,39 @@ static void redraw_alttab(void) {
 	if (ads_by_z[new_focused]) {
 		struct window_ad * ad = ads_by_z[new_focused];
 
-		sprite_t * icon = icon_get_48(ad->icon);
+		/* try very hard to get a window texture */
+		char key[1024];
+		YUTANI_SHMKEY_EXP(yctx->server_ident, key, 1024, ad->bufid);
+		size_t size;
+		uint32_t * buf =  shm_obtain(key, &size);
 
-		/* Draw it, scaled if necessary */
-		if (icon->width == 48) {
-			draw_sprite(actx, icon, center_x_a(48), ALTTAB_OFFSET);
+		if (buf) {
+			sprite_t tmp;
+			tmp.width = ad->width;
+			tmp.height = ad->height;
+			tmp.bitmap = buf;
+
+			int oy = 0;
+			int sw, sh;
+			if (tmp.width > tmp.height) {
+				sw = ALTTAB_WIN_SIZE;
+				sh = tmp.height * ALTTAB_WIN_SIZE / tmp.width;
+				oy = (ALTTAB_WIN_SIZE - sh) / 2;
+			} else {
+				sh = ALTTAB_WIN_SIZE;
+				sw = tmp.width * ALTTAB_WIN_SIZE / tmp.height;
+			}
+			draw_sprite_scaled(actx, &tmp, center_x_a(sw), ALTTAB_OFFSET + oy, sw, sh);
+
+			shm_release(key);
 		} else {
-			draw_sprite_scaled(actx, icon, center_x_a(48), ALTTAB_OFFSET, 48, 48);
+			sprite_t * icon = icon_get_48(ad->icon);
+			draw_sprite(actx, icon, center_x_a(48), ALTTAB_OFFSET + (ALTTAB_WIN_SIZE - 48) / 2);
 		}
 
 		tt_set_size(font, 16);
 		int t = tt_string_width(font, ad->name);
-		tt_draw_string(actx, font, center_x_a(t), 12 + ALTTAB_OFFSET + 40 + 16, ad->name, rgb(255,255,255));
+		tt_draw_string(actx, font, center_x_a(t), 12 + ALTTAB_OFFSET + 140 + 16, ad->name, rgb(255,255,255));
 	}
 
 	flip(actx);
@@ -1078,7 +1105,10 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 		} else {
 			new_focused = active_window + direction;
 			/* Create tab window */
-			alttab = yutani_window_create(yctx, ALTTAB_WIDTH, ALTTAB_HEIGHT);
+			alttab = yutani_window_create_flags(yctx, ALTTAB_WIDTH, ALTTAB_HEIGHT,
+				YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS | YUTANI_WINDOW_FLAG_NO_ANIMATION);
+
+			yutani_set_stack(yctx, alttab, YUTANI_ZORDER_OVERLAY);
 
 			/* Center window */
 			yutani_window_move(yctx, alttab, center_x(ALTTAB_WIDTH), center_y(ALTTAB_HEIGHT));
@@ -1300,11 +1330,14 @@ static void update_window_list(void) {
 
 		char * s = malloc(wa->size);
 		memcpy(s, wa->strings, wa->size);
-		ad->name = &s[wa->offsets[0]];
-		ad->icon = &s[wa->offsets[1]];
+		ad->name = &s[0];
+		ad->icon = &s[wa->icon];
 		ad->strings = s;
 		ad->flags = wa->flags;
 		ad->wid = wa->wid;
+		ad->bufid = wa->bufid;
+		ad->width = wa->width;
+		ad->height = wa->height;
 
 		ads_by_z[i] = ad;
 		i++;
@@ -1732,6 +1765,10 @@ int main (int argc, char ** argv) {
 
 		if (clockmenu->window) {
 			menu_force_redraw(clockmenu);
+		}
+
+		if (was_tabbing) {
+			redraw_alttab();
 		}
 
 		if (index == 0) {

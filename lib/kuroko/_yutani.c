@@ -162,8 +162,11 @@ static KrkValue _message_getattr(int argc, KrkValue argv[], int hasKw) {
 			WID();
 			DO_FIELD("flags", TO_INT(flags));
 			DO_FIELD("size", TO_INT(size));
-			DO_FIELD("name", { char * s = me->strings + me->offsets[0]; size_t l = strlen(s); return OBJECT_VAL(krk_copyString(s,l)); });
-			DO_FIELD("icon", { char * s = me->strings + me->offsets[1]; size_t l = strlen(s); return OBJECT_VAL(krk_copyString(s,l)); });
+			DO_FIELD("width", TO_INT(width));
+			DO_FIELD("height", TO_INT(height));
+			DO_FIELD("bufid", TO_INT(bufid));
+			DO_FIELD("name", { char * s = me->strings; size_t l = strlen(s); return OBJECT_VAL(krk_copyString(s,l)); });
+			DO_FIELD("icon", { char * s = me->strings + me->icon; size_t l = strlen(s); return OBJECT_VAL(krk_copyString(s,l)); });
 		} break;
 		case YUTANI_MSG_WINDOW_MOVE: {
 			STRUCT(struct yutani_msg_window_move);

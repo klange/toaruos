@@ -186,7 +186,10 @@ struct yutani_msg_window_resize {
 struct yutani_msg_window_advertise {
 	yutani_wid_t wid;
 	uint32_t flags; /* Types, focused, etc. */
-	uint16_t offsets[5]; /* Name, Icon, and three reserved slots */
+	uint32_t icon;  /* Icon offset in strings[] */
+	uint32_t bufid;
+	uint32_t width;
+	uint32_t height;
 	uint32_t size;
 	char strings[];
 };

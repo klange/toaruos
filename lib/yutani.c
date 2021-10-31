@@ -350,7 +350,7 @@ void yutani_msg_buildx_window_resize(yutani_msg_t * msg, uint32_t type, yutani_w
 }
 
 
-void yutani_msg_buildx_window_advertise(yutani_msg_t * msg, yutani_wid_t wid, uint32_t flags, uint16_t * offsets, size_t length, char * data) {
+void yutani_msg_buildx_window_advertise(yutani_msg_t * msg, yutani_wid_t wid, uint32_t flags, uint32_t icon, uint32_t bufid, uint32_t width, uint32_t height, size_t length, char * data) {
 	msg->magic = YUTANI_MSG__MAGIC;
 	msg->type  = YUTANI_MSG_WINDOW_ADVERTISE;
 	msg->size  = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_advertise) + length;
@@ -360,11 +360,10 @@ void yutani_msg_buildx_window_advertise(yutani_msg_t * msg, yutani_wid_t wid, ui
 	mw->wid = wid;
 	mw->flags = flags;
 	mw->size = length;
-	if (offsets) {
-		memcpy(mw->offsets, offsets, sizeof(uint16_t)*5);
-	} else {
-		memset(mw->offsets, 0, sizeof(uint16_t)*5);
-	}
+	mw->icon = icon;
+	mw->bufid = bufid;
+	mw->width = width;
+	mw->height = height;
 	if (data) {
 		memcpy(mw->strings, data, mw->size);
 	}
@@ -775,8 +774,8 @@ void yutani_window_resize_done(yutani_t * yctx, yutani_window_t * window) {
 void yutani_window_advertise(yutani_t * yctx, yutani_window_t * window, char * name) {
 
 	uint32_t flags = 0; /* currently, no client flags */
-	uint16_t offsets[5] = {0,0,0,0,0};
 	uint32_t length = 0;
+	uint32_t icon = 0;
 	char * strings;
 
 	if (!name) {
@@ -785,15 +784,11 @@ void yutani_window_advertise(yutani_t * yctx, yutani_window_t * window, char * n
 	} else {
 		length = strlen(name) + 1;
 		strings = name;
-		/* All the other offsets will point to null characters */
-		offsets[1] = strlen(name);
-		offsets[2] = strlen(name);
-		offsets[3] = strlen(name);
-		offsets[4] = strlen(name);
+		icon = strlen(name);
 	}
 
 	yutani_msg_buildx_window_advertise_alloc(m, length);
-	yutani_msg_buildx_window_advertise(m, window->wid, flags, offsets, length, strings);
+	yutani_msg_buildx_window_advertise(m, window->wid, flags, icon, 0, 0, 0, length, strings);
 	yutani_msg_send(yctx, m);
 }
 
@@ -808,28 +803,21 @@ void yutani_window_advertise(yutani_t * yctx, yutani_window_t * window, char * n
 void yutani_window_advertise_icon(yutani_t * yctx, yutani_window_t * window, char * name, char * icon) {
 
 	uint32_t flags = 0; /* currently no client flags */
-	uint16_t offsets[5] = {0,0,0,0,0};
+	uint32_t iconx = 0;
 	uint32_t length = strlen(name) + strlen(icon) + 2;
 	char * strings = malloc(length);
 
 	if (name) {
 		memcpy(&strings[0], name, strlen(name)+1);
-		offsets[0] = 0;
-		offsets[1] = strlen(name);
-		offsets[2] = strlen(name);
-		offsets[3] = strlen(name);
-		offsets[4] = strlen(name);
+		iconx = strlen(name);
 	}
 	if (icon) {
-		memcpy(&strings[offsets[1]+1], icon, strlen(icon)+1);
-		offsets[1] = strlen(name)+1;
-		offsets[2] = strlen(name)+1+strlen(icon);
-		offsets[3] = strlen(name)+1+strlen(icon);
-		offsets[4] = strlen(name)+1+strlen(icon);
+		memcpy(&strings[strlen(name)+1], icon, strlen(icon)+1);
+		iconx = strlen(name)+1;
 	}
 
 	yutani_msg_buildx_window_advertise_alloc(m, length);
-	yutani_msg_buildx_window_advertise(m, window->wid, flags, offsets, length, strings);
+	yutani_msg_buildx_window_advertise(m, window->wid, flags, iconx, 0, 0, 0, length, strings);
 	yutani_msg_send(yctx, m);
 	free(strings);
 }

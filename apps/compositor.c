@@ -381,11 +381,7 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 	win->rotation = 0;
 	win->newbufid = 0;
 	win->client_flags   = 0;
-	win->client_offsets[0] = 0;
-	win->client_offsets[1] = 0;
-	win->client_offsets[2] = 0;
-	win->client_offsets[3] = 0;
-	win->client_offsets[4] = 0;
+	win->client_icon = 0;
 	win->client_length  = 0;
 	win->client_strings = NULL;
 	win->anim_mode = 0;
@@ -1261,7 +1257,7 @@ static uint32_t ad_flags(yutani_globals_t * yg, yutani_server_window_t * win) {
 static void yutani_query_result(yutani_globals_t * yg, uintptr_t dest, yutani_server_window_t * win) {
 	if (win && win->client_length) {
 		yutani_msg_buildx_window_advertise_alloc(response, win->client_length);
-		yutani_msg_buildx_window_advertise(response, win->wid, ad_flags(yg, win), win->client_offsets, win->client_length, win->client_strings);
+		yutani_msg_buildx_window_advertise(response, win->wid, ad_flags(yg, win), win->client_icon, win->bufid, win->width, win->height, win->client_length, win->client_strings);
 		pex_send(yg->server, dest, response->size, (char *)response);
 	}
 }
@@ -2526,7 +2522,7 @@ int main(int argc, char * argv[]) {
 					/* Exclude overlay windows? */
 					yutani_query_result(yg, p->source, yg->top_z);
 					yutani_msg_buildx_window_advertise_alloc(response, 0);
-					yutani_msg_buildx_window_advertise(response,0, 0, NULL, 0, NULL);
+					yutani_msg_buildx_window_advertise(response,0, 0, 0, 0, 0, 0, 0, NULL);
 					pex_send(server, p->source, response->size, (char *)response);
 				}
 				break;
@@ -2555,10 +2551,7 @@ int main(int argc, char * argv[]) {
 					if (w) {
 						if (w->client_strings) free(w->client_strings);
 
-						for (int i = 0; i < 5; ++i) {
-							w->client_offsets[i] = wa->offsets[i];
-						}
-
+						w->client_icon    = wa->icon;
 						w->client_flags   = wa->flags;
 						w->client_length  = wa->size;
 						w->client_strings = malloc(wa->size);

@@ -126,7 +126,7 @@ typedef struct YutaniServerWindow {
 
 	/* Client advertisements */
 	uint32_t client_flags;
-	uint16_t client_offsets[5];
+	uint32_t client_icon;
 	uint32_t client_length;
 	char *   client_strings;
 
