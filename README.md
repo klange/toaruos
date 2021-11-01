@@ -27,7 +27,7 @@ In April 2021, work began on ToaruOS 2.0, which brings a rewritten kernel for x8
 
 ## Features
 
-- **Dynamically linked userspace** with support for runtime `dlopen`ing of additional libraries.
+- **Dynamically linked userspace** with shared libraries and `dlopen`.
 - **Composited graphical UI** with software acceleration and a late-2000s design inspiration.
 - **VM integration** for absolute mouse and automatic display sizing in VirtualBox and VMware Workstation.
 - **Unix-like terminal interface** including a feature-rich terminal emulator and several familiar utilities.
@@ -37,10 +37,10 @@ In April 2021, work began on ToaruOS 2.0, which brings a rewritten kernel for x8
 
 - **Misaka** (kernel), [kernel/](kernel/), a hybrid modular kernel, and the core of the operating system.
 - **Yutani** (window compositor), [apps/compositor.c](apps/compositor.c), manages window buffers, layout, and input routing.
-- **Bim** (text editor), [apps/bim.c](apps/bim.c), is a vim-inspired editor with syntax highlighting.
-- **Terminal**, [apps/terminal.c](apps/terminal.c), xterm-esque terminal emulator with 256 and 24-bit color support.
+- **Bim** (text editor), [apps/bim.c](apps/bim.c), is a Vim-inspired editor with syntax highlighting.
+- **Terminal**, [apps/terminal.c](apps/terminal.c), xterm-esque terminal emulator with 24-bit color support.
 - **ld.so** (dynamic linker/loader), [linker/linker.c](linker/linker.c), loads dynamically-linked ELF binaries.
-- **Esh** (shell), [apps/sh.c](apps/sh.c), supports pipes, redirections, variables, and more.
+- **Esh** (shell), [apps/sh.c](apps/sh.c), supports pipes, redirections, variables, etc.
 - **Kuroko** (interpreter), [kuroko/](https://kuroko-lang.github.io/), a dynamic bytecode-compiled programming language.
 
 ## Current Goals
@@ -80,29 +80,52 @@ In an indeterminate order, the C library, kernel, userspace librares and applica
 - **apps** - Userspace applications, all first-party.
 - **base** - Ramdisk root filesystem staging directory. Includes C headers in `base/usr/include`, as well as graphical resources for the compositor and window decorator.
 - **boot** - BIOS and EFI loader with interactive menus.
-- **build** - Auxiliary build scripts for future platform ports.
+- **build** - Auxiliary build scripts for platform ports.
 - **kernel** - The Misaka kernel.
 - **kuroko** - Submodule checkout of the Kuroko interpreter.
 - **lib** - Userspace libraries.
 - **libc** - C standard library implementation.
 - **linker** - Userspace dynamic linker/loader, implements shared library support.
-- **modules** - Where loadable module sources will go when they are re-implemented for Misaka.
+- **modules** - Loadable driver modules for the kernel.
 - **util** - Utility scripts, staging directory for the toolchain (binutils/gcc).
 - **.make** - Generated Makefiles.
 
 ## Running ToaruOS
 
+### VirtualBox and VMware Workstation
+
+The best end-user experience with ToaruOS will be had in either of these virtual machines, as ToaruOS has support for their automatic display sizing and absolute mouse positioning.
+
+Set up a new VM for an "other" 64-bit guest, supply it with at least 1GiB of RAM, attach the CD image, remove or ignore any hard disks, and select an Intel Gigabit NIC. Two or more CPUs are recommended, as well.
+
+![VMware screenshot](https://klange.dev/s/Screenshot%202021-11-02%20072852.png)
+*ToaruOS running in VMware Workstation on a Windows host.*
+
+By default, the bootloader will pass a flag to the VirtualBox device driver to disable "Seamless" support as our implementation has a performance overhead. To enable Seamless mode, use the bootloader menu to check the "VirtualBox Seamless" option before booting. The menu also has options to disable automatic guest display sizing if you experience issues with this feature.
+
 ### QEMU
 
+Most development of ToaruOS happens in QEMU, as it provides the most flexibility in hardware and the best debugging experience. A recommended QEMU command line in an Ubuntu 20.04 host is:
+
 ```
-qemu-system-x86_64 -M q35 -enable-kvm -m 1G -soundhw ac97 -cdrom image.iso
+qemu-system-x86_64 -enable-kvm -m 1G -soundhw ac97 -cdrom image.iso -smp 2
 ```
+
+Replace `-enable-kvm` with `-accel hvm` or `-accel haxm` as appropriate on host platforms without KVM, or remove it to try under QEMU's TCG software emulation.
+
+Note that QEMU command line options are not stable and these flags may produce warnings in newer versions.
+
+The option `-M q35` will replace the PIIX chipset emulation with a newer one, which has the side effect of switching the IDE controller for a SATA one. This can result in faster boot times at the expense of ToaruOS not being able to read its own CD at runtime until we get around to finishing our AHCI driver.
 
 ### Other
 
-The legacy BIOS loader has been tested in VirtualBox and VMWare. For both, set up a virtual machine with an "Other (64-bit)" guest OS and attach the CD image. A least 32MB of display memory and 1GB of RAM are recommended. Some hardware configurations may not be supported.
+ToaruOS has been successfully tested on real hardware. If the native BIOS or EFI loaders fail to function, try booting with Grub. ToaruOS complies with the "Multiboot" and "Multiboot 2" specs so it may be loaded with either the `multiboot` or `multiboot2` commands as follows:
 
-EFI systems are also supported, though the EFI loader remains experimental. ToaruOS can also be booted in Multiboot-compatible loaders, such as [GRUB](https://github.com/klange/toaruos-grub/tree/misaka).
+```
+multiboot2 /path/to/misaka-kernel root=/dev/ram0 migrate vid=auto start=live-session
+module2 /path/to/ramdisk.igz
+set gfxpayload=keep
+```
 
 ## Community
 
