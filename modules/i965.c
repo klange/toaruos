@@ -92,6 +92,7 @@ static void find_intel(uint32_t device, uint16_t v, uint16_t d, void * extra) {
 
 static int i965_install(int argc, char * argv[]) {
 	if (args_present("noi965")) return -ENODEV;
+	if (!lfb_resolution_x) return -ENODEV;
 	pci_scan(find_intel, -1, NULL);
 	return 0;
 }
