@@ -99,7 +99,7 @@ The best end-user experience with ToaruOS will be had in either of these virtual
 Set up a new VM for an "other" 64-bit guest, supply it with at least 1GiB of RAM, attach the CD image, remove or ignore any hard disks, and select an Intel Gigabit NIC. Two or more CPUs are recommended, as well.
 
 ![VirtualBox screenshot](https://klange.dev/s/Screenshot%20from%202021-11-02%2009-44-42.png)
-*ToaruOS running VirtualBox on a Linux host.*
+*ToaruOS running in VirtualBox on a Linux host.*
 
 ![VMware screenshot](https://klange.dev/s/Screenshot%202021-11-02%20072852.png)
 *ToaruOS running in VMware Workstation on a Windows host.*
