@@ -73,6 +73,12 @@ int main(int argc, char * argv[]) {
 	/* from environment */
 	sprintf(data_lines[i++], C_A "WM Theme: " C_O "%s", wm_theme);
 
+	prog_lines[i] = "font-tool -n";
+	sprintf(data_lines[i++], C_A "Font: " C_O);
+
+	prog_lines[i] = "cpu-name.krk";
+	sprintf(data_lines[i++], C_A "CPU: " C_O);
+
 	prog_lines[i] = "free -ut";
 	sprintf(data_lines[i++], C_A "RAM: " C_O);
 

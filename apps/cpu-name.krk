@@ -1,0 +1,22 @@
+#!/bin/kuroko
+
+import fileio
+
+let lines
+let cpus = {0: {}}
+let current = 0
+
+with fileio.open('/proc/cpuinfo','r') as f:
+    lines = f.readlines()
+
+for line in lines:
+    if line == '\n':
+        current++
+        cpus[current] = {}
+        continue
+    line = line.strip()
+    if ': ' in line:
+        let key, value = line.split(': ')
+        cpus[current][key] = value
+
+print(cpus[0]['Model name'])
