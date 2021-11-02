@@ -96,14 +96,16 @@ int bios_video_mode(void) {
 			if (match_score < 9) { best_match = *x; match_score = 9; }
 			MATCH(1024,768,10);
 			MATCH(1280,720,50);
+			MATCH(1280,800,60);
 			MATCH(1920,1080,75);
 			MATCH(1440,900,100);
 		} else if (vbe_info_bpp == 24) {
 			if (!match_score) { best_match = *x; match_score = 1; }
 			MATCH(1024,768,3);
 			MATCH(1280,720,4);
-			MATCH(1920,1080,5);
-			MATCH(1440,900,6);
+			MATCH(1280,800,5);
+			MATCH(1920,1080,6);
+			MATCH(1440,900,7);
 		}
 
 		//print_int_(vbe_info_width); print_("x"); print_int_(vbe_info_height); print_("x"); print_int_(vbe_info_bpp); print_("bpp\n");
