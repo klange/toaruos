@@ -381,7 +381,9 @@ void      open_pty_slave(fs_node_t * node, unsigned int flags) {
 void     close_pty_slave(fs_node_t * node) {
 	pty_t * pty = (pty_t *)node->device;
 
-	hashmap_remove(_pty_index, (void*)pty->name);
+	if (pty->name) {
+		hashmap_remove(_pty_index, (void*)pty->name);
+	}
 
 	return;
 }
@@ -646,7 +648,7 @@ void pty_install(void) {
 	vfs_mount("/dev/tty", _dev_tty);
 }
 
-pty_t * pty_new(struct winsize * size) {
+pty_t * pty_new(struct winsize * size, int index) {
 
 	if (!_pty_index) {
 		pty_install();
@@ -667,13 +669,15 @@ pty_t * pty_new(struct winsize * size) {
 	pty->slave  = pty_slave_create(pty);
 
 	/* tty name */
-	pty->name   = _pty_counter++;
+	pty->name      = index;
 	pty->fill_name = tty_fill_name;
 
 	pty->write_in = pty_write_in;
 	pty->write_out = pty_write_out;
 
-	hashmap_set(_pty_index, (void*)pty->name, pty);
+	if (index) {
+		hashmap_set(_pty_index, (void*)pty->name, pty);
+	}
 
 	if (size) {
 		memcpy(&pty->size, size, sizeof(struct winsize));
@@ -713,7 +717,7 @@ pty_t * pty_new(struct winsize * size) {
 }
 
 int pty_create(void *size, fs_node_t ** fs_master, fs_node_t ** fs_slave) {
-	pty_t * pty = pty_new(size);
+	pty_t * pty = pty_new(size, ++_pty_counter);
 
 	*fs_master = pty->master;
 	*fs_slave  = pty->slave;

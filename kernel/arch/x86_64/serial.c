@@ -140,7 +140,7 @@ static void serial_fill_name(pty_t * pty, char * name) {
 }
 
 static fs_node_t * serial_device_create(int port) {
-	pty_t * pty = pty_new(NULL);
+	pty_t * pty = pty_new(NULL, 0);
 	*pty_for_port(port) = pty;
 	pty->write_out = serial_write_out;
 	pty->fill_name = serial_fill_name;
