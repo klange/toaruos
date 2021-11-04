@@ -58,7 +58,7 @@ int read_scancode(int timeout) {
 	}
 }
 
-int read_key(char * c) {
+int read_key(int * c) {
 	EFI_INPUT_KEY Key;
 	unsigned long int index;
 	uefi_call_wrapper(ST->BootServices->WaitForEvent, 3, 1, &ST->ConIn->WaitForKey, &index);
@@ -106,10 +106,27 @@ static char kbd_us_l2[128] = {
 	'-', 0, 0, 0, '+', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-int read_key(char * c) {
+int read_key(int * c) {
 	static int shift_state = 0;
 
 	int sc = read_scancode(0);
+
+	if (sc == 0xe0) {
+		*c = 0xe0;
+		return 1;
+	}
+
+	if (*c == 0xe0) {
+		*c = 0;
+		switch (sc) {
+			/* Keft left and right */
+			case 0x4B:
+				return shift_state ? 4 : 2;
+			case 0x4D:
+				return shift_state ? 5 : 3;
+		}
+		return 1;
+	}
 
 	switch (sc) {
 		/* Shift down */
@@ -122,10 +139,6 @@ int read_key(char * c) {
 		case 0xB6:
 			shift_state = 0;
 			return 1;
-
-		/* Keft left and right */
-		case 0x4B: return shift_state ? 4 : 2;
-		case 0x4D: return shift_state ? 5 : 3;
 	}
 
 	if (!(sc & 0x80)) {
@@ -146,10 +159,6 @@ int read_scancode(int timeout) {
 	} else {
 		while (!(inportb(0x64) & 1));
 	}
-	int out;
-	while (inportb(0x64) & 1) {
-		out = inportb(0x60);
-	}
-	return out;
+	return inportb(0x60);
 }
 #endif
