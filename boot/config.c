@@ -26,7 +26,7 @@ char * LINK_TEXT = "https://toaruos.org - https://github.com/klange/toaruos";
 #define DEFAULT_GRAPHICAL_CMDLINE "start=live-session "
 #define DEFAULT_SINGLE_CMDLINE "start=terminal\037-F "
 #define DEFAULT_TEXT_CMDLINE "start=--vga vid=text "
-#define DEFAULT_VID_CMDLINE "vid=auto,1440,900 "
+#define DEFAULT_VID_CMDLINE "vid=auto "
 #define MIGRATE_CMDLINE "migrate "
 #define DEFAULT_HEADLESS_CMDLINE "start=--headless "
 

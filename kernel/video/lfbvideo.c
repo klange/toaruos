@@ -350,9 +350,6 @@ static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y)
 extern void arch_framebuffer_initialize();
 
 static void graphics_install_preset(uint16_t w, uint16_t h) {
-	/* Extract framebuffer information from multiboot */
-	arch_framebuffer_initialize();
-
 	/* Make sure memsize is actually big enough */
 	size_t minsize = lfb_resolution_s * lfb_resolution_y * 4;
 	if (lfb_memsize < minsize) lfb_memsize = minsize;
@@ -511,13 +508,27 @@ static int lfb_init(const char * c) {
 	char * argv[10];
 	int argc = tokenize(arg, ",", argv);
 
+	if (!strcmp(argv[0],"text")) {
+		/* VGA text mode? TODO: We should try to detect this,
+		 * or limit it to things that are likely to have it... */
+		vga_text_init();
+		free(arg);
+		return 0;
+	}
+
 	uint16_t x, y;
-	if (argc < 3) {
-		x = PREFERRED_W;
-		y = PREFERRED_H;
-	} else {
+
+	/* Extract framebuffer information from multiboot */
+	arch_framebuffer_initialize();
+	x = lfb_resolution_x;
+	y = lfb_resolution_y;
+
+	if (argc >= 3) {
 		x = atoi(argv[1]);
 		y = atoi(argv[2]);
+	} else if (!lfb_resolution_x) {
+		x = PREFERRED_W;
+		y = PREFERRED_H;
 	}
 
 	int ret_val = 0;
@@ -540,10 +551,6 @@ static int lfb_init(const char * c) {
 	} else if (!strcmp(argv[0],"preset")) {
 		/* Set by bootloader (UEFI) */
 		graphics_install_preset(x,y);
-	} else if (!strcmp(argv[0],"text")) {
-		/* VGA text mode? TODO: We should try to detect this,
-		 * or limit it to things that are likely to have it... */
-		vga_text_init();
 	} else {
 		ret_val = 1;
 	}
