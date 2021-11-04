@@ -37,13 +37,12 @@ char cmdline[1024] = {0};
 /* Names of the available boot modes. */
 struct bootmode boot_mode_names[] = {
 	{1, "normal",   "Normal Boot"},
-#ifdef EFI_PLATFORM
 	{2, "video",    "Configure Video Output"},
-#else
-	{2, "vga",      "VGA Text Mode"},
-#endif
 	{3, "single",   "Single-User Graphical Terminal"},
 	{4, "headless", "Headless"},
+#ifndef EFI_PLATFORM
+	{5, "vga",      "VGA Text Mode"},
+#endif
 };
 
 int base_sel = 0;
@@ -91,7 +90,6 @@ int kmain() {
 		/* Loop over rendering the menu */
 		show_menu();
 
-#ifdef EFI_PLATFORM
 		if (boot_mode == 2) {
 			extern int video_menu(void);
 			video_menu();
@@ -99,7 +97,6 @@ int kmain() {
 			memset(cmdline, 0, 1024);
 			continue;
 		}
-#endif
 
 		/* Build our command line. */
 		strcat(cmdline, DEFAULT_ROOT_CMDLINE);
@@ -113,13 +110,13 @@ int kmain() {
 		if (boot_mode == 1) {
 			strcat(cmdline, DEFAULT_GRAPHICAL_CMDLINE);
 			strcat(cmdline, _video_command_line);
-		} else if (boot_mode == 2) {
-			strcat(cmdline, DEFAULT_TEXT_CMDLINE);
 		} else if (boot_mode == 3) {
 			strcat(cmdline, DEFAULT_SINGLE_CMDLINE);
 			strcat(cmdline, _video_command_line);
 		} else if (boot_mode == 4) {
 			strcat(cmdline, DEFAULT_HEADLESS_CMDLINE);
+		} else if (boot_mode == 5) {
+			strcat(cmdline, DEFAULT_TEXT_CMDLINE);
 		}
 
 		if (_debug) {

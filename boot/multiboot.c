@@ -289,124 +289,6 @@ static void finish_boot(void) {
 	__builtin_unreachable();
 }
 
-void mode_selector(int sel, int ndx, char *str) {
-	set_attr(sel == ndx ? 0x70 : 0x07);
-	print_(str);
-	if (x < 40) {
-		while (x < 39) {
-			print_(" ");
-		}
-		x = 40;
-	} else {
-		print_("\n");
-	}
-}
-
-static char * print_int_into(char * str, unsigned int value) {
-	unsigned int n_width = 1;
-	unsigned int i = 9;
-	while (value > i && i < UINT32_MAX) {
-		n_width += 1;
-		i *= 10;
-		i += 9;
-	}
-
-	char buf[n_width+1];
-	for (int i = 0; i < n_width + 1; i++) {
-		buf[i] = 0;
-	}
-	i = n_width;
-	while (i > 0) {
-		unsigned int n = value / 10;
-		int r = value % 10;
-		buf[i - 1] = r + '0';
-		i--;
-		value = n;
-	}
-	for (char * c = buf; *c; c++) {
-		*str++ = *c;
-	}
-	return str;
-}
-
-int video_menu(void) {
-	clear_();
-
-	int sel = 0;
-	int sel_max = GOP->Mode->MaxMode;
-	int select_this_mode = 0;
-
-	do {
-		move_cursor(0,0);
-		set_attr(0x1f);
-		print_banner("Select Video Mode");
-		set_attr(0x07);
-		print_("\n");
-
-		for (int i = 0; i < GOP->Mode->MaxMode; ++i) {
-			EFI_STATUS status;
-			UINTN size;
-			EFI_GRAPHICS_OUTPUT_MODE_INFORMATION * info;
-
-			status = uefi_call_wrapper(GOP->QueryMode,
-					4, GOP, i, &size, &info);
-
-			if (EFI_ERROR(status) || info->PixelFormat != 1) {
-				mode_selector(sel, i, "[invalid]");
-			} else {
-
-				if (select_this_mode && sel == i) {
-					uefi_call_wrapper(GOP->SetMode, 2, GOP, i);
-					extern int init_graphics();
-					init_graphics();
-					return 0;
-				}
-
-				char tmp[100];
-				char * t = tmp;
-				t = print_int_into(t, info->HorizontalResolution); *t = 'x'; t++;
-				t = print_int_into(t, info->VerticalResolution); *t = '\0';
-				mode_selector(sel, i, tmp);
-			}
-		}
-
-		int s = read_scancode(0);
-		if (s == 0x50) { /* DOWN */
-			if (sel >= 0 && sel < sel_max - 1) {
-				sel = (sel + 2) % sel_max;
-			} else {
-				sel = (sel + 1)  % sel_max;
-			}
-		} else if (s == 0x48) { /* UP */
-			if (sel >= 1) {
-				sel = (sel_max + sel - 2)  % sel_max;
-			} else {
-				sel = (sel_max + sel - 1)  % sel_max;
-			}
-		} else if (s == 0x4B) { /* LEFT */
-			if (sel >= 0) {
-				if ((sel + 1) % 2) {
-					sel = (sel + 1) % sel_max;
-				} else {
-					sel -= 1;
-				}
-			}
-		} else if (s == 0x4D) { /* RIGHT */
-			if (sel >= 0) {
-				if ((sel + 1) % 2) {
-					sel = (sel + 1) % sel_max;
-				} else {
-					sel -= 1;
-				}
-			}
-		} else if (s == 0x1c) {
-			select_this_mode = 1;
-			continue;
-		}
-	} while (1);
-
-}
-
 void boot(void) {
 	UINTN count;
 	EFI_HANDLE * handles;
@@ -647,7 +529,7 @@ extern void bios_text_mode(void);
 
 void boot(void) {
 	/* Did we ask for VGA text mode and are currently in a video mode? */
-	if (boot_mode == 2) {
+	if (boot_mode == 5) {
 		bios_text_mode();
 	}
 
