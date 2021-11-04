@@ -226,8 +226,8 @@ int platform_list_modes(int sel, int select_this_mode) {
 		}
 
 		if (select_this_mode && sel == index) {
-			do_bios_call(3, *x | 0x4000);
-			init_graphics();
+			extern void bios_set_video(int);
+			bios_set_video(*x);
 			return 1;
 		}
 

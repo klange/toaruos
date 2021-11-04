@@ -77,6 +77,14 @@ int bios_text_mode(void) {
 	text_reset();
 }
 
+int last_video_mode = -1;
+void bios_set_video(int mode) {
+	last_video_mode = mode;
+	do_bios_call(2, mode);
+	do_bios_call(3, mode | 0x4000);
+	init_graphics();
+}
+
 int bios_video_mode(void) {
 	int best_match = 0;
 	int match_score = 0;
@@ -107,25 +115,21 @@ int bios_video_mode(void) {
 			MATCH(1920,1080,6);
 			MATCH(1440,900,7);
 		}
-
-		//print_int_(vbe_info_width); print_("x"); print_int_(vbe_info_height); print_("x"); print_int_(vbe_info_bpp); print_("bpp\n");
 	}
 
 	if (best_match) {
-		do_bios_call(2, best_match);
-		do_bios_call(3, best_match | 0x4000);
+		bios_set_video(best_match);
 	} else {
 		vbe_info_width = 0;
 	}
 
-	init_graphics();
 }
 
 void bios_toggle_mode(void) {
 	if (in_graphics_mode) {
 		bios_text_mode();
-	} else {
-		bios_video_mode();
+	} else if (last_video_mode != -1) {
+		bios_set_video(last_video_mode);
 	}
 }
 
