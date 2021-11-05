@@ -318,7 +318,8 @@ struct yutani_msg_clipboard {
  */
 #define YUTANI_ZORDER_MAX     0xFFFF
 #define YUTANI_ZORDER_TOP     0xFFFF
-#define YUTANI_ZORDER_OVERLAY 0xFFFE
+#define YUTANI_ZORDER_MENU    0xFFFE
+#define YUTANI_ZORDER_OVERLAY 0xFFED
 #define YUTANI_ZORDER_BOTTOM  0x0000
 
 /*

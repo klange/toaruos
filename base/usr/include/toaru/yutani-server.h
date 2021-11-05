@@ -203,6 +203,7 @@ typedef struct YutaniGlobals {
 	 */
 	yutani_server_window_t * bottom_z;
 	list_t * mid_zs;
+	list_t * menu_zs;
 	list_t * overlay_zs;
 	yutani_server_window_t * top_z;
 

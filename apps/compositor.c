@@ -213,6 +213,20 @@ void yutani_window_to_device(yutani_server_window_t * window, int32_t x, int32_t
 	*out_y = (int32_t)(n_y + ((double)window->height / 2) + (double)window->y);
 }
 
+static list_t * window_zorder_owner(yutani_globals_t * yg, unsigned short index) {
+	switch (index) {
+		case YUTANI_ZORDER_BOTTOM:
+		case YUTANI_ZORDER_TOP:
+			return NULL;
+		case YUTANI_ZORDER_MENU:
+			return yg->menu_zs;
+		case YUTANI_ZORDER_OVERLAY:
+			return yg->overlay_zs;
+		default:
+			return yg->mid_zs;
+	}
+}
+
 /**
  * Remove a window from the z stack.
  */
@@ -227,17 +241,12 @@ static void unorder_window(yutani_globals_t * yg, yutani_server_window_t * w) {
 		yg->top_z = NULL;
 		return;
 	}
-	if (index == YUTANI_ZORDER_OVERLAY) {
-		node_t * n = list_find(yg->overlay_zs, w);
-		if (!n) return;
-		list_delete(yg->overlay_zs, n);
-		free(n);
-	} else {
-		node_t * n = list_find(yg->mid_zs, w);
-		if (!n) return;
-		list_delete(yg->mid_zs, n);
-		free(n);
-	}
+
+	list_t * zorder_owner = window_zorder_owner(yg, index);
+	node_t * n = list_find(zorder_owner, w);
+	if (!n) return;
+	list_delete(zorder_owner, n);
+	free(n);
 }
 
 /**
@@ -252,12 +261,9 @@ static void reorder_window(yutani_globals_t * yg, yutani_server_window_t * windo
 
 	window->z = new_zed;
 
-	if (new_zed != YUTANI_ZORDER_TOP && new_zed != YUTANI_ZORDER_BOTTOM) {
-		if (new_zed == YUTANI_ZORDER_OVERLAY) {
-			list_insert(yg->overlay_zs, window);
-		} else {
-			list_insert(yg->mid_zs, window);
-		}
+	list_t * zorder_owner = window_zorder_owner(yg, new_zed);
+	if (zorder_owner) {
+		list_insert(zorder_owner, window);
 		return;
 	}
 
@@ -279,20 +285,18 @@ static void reorder_window(yutani_globals_t * yg, yutani_server_window_t * windo
 }
 
 /**
- * Move a window to the top of the basic z stack, if valid.
+ * Move a window to the top of if its z stack.
  */
 static void make_top(yutani_globals_t * yg, yutani_server_window_t * w) {
 	unsigned short index = w->z;
+	list_t * zorder_owner = window_zorder_owner(yg, index);
+	if (!zorder_owner) return;
 
-	if (index == YUTANI_ZORDER_BOTTOM) return;
-	if (index == YUTANI_ZORDER_TOP) return;
-	if (index == YUTANI_ZORDER_OVERLAY) return;
-
-	node_t * n = list_find(yg->mid_zs, w);
+	node_t * n = list_find(zorder_owner, w);
 	if (!n) return; /* wat */
 
-	list_delete(yg->mid_zs, n);
-	list_append(yg->mid_zs, n);
+	list_delete(zorder_owner, n);
+	list_append(zorder_owner, n);
 }
 
 /**
@@ -588,6 +592,10 @@ static yutani_server_window_t * check_top_at(yutani_globals_t * yg, yutani_serve
  */
 static yutani_server_window_t * top_at(yutani_globals_t * yg, uint16_t x, uint16_t y) {
 	if (check_top_at(yg, yg->top_z, x, y)) return yg->top_z;
+	foreachr(node, yg->menu_zs) {
+		yutani_server_window_t * w = node->value;
+		if (check_top_at(yg, w, x, y)) return w;
+	}
 	foreachr(node, yg->overlay_zs) {
 		yutani_server_window_t * w = node->value;
 		if (check_top_at(yg, w, x, y)) return w;
@@ -814,6 +822,12 @@ static void yutani_post_vbox_rects(yutani_globals_t * yg) {
 		DO_WINDOW(w);
 	}
 
+	/* Add menu windows */
+	foreach (node, yg->menu_zs) {
+		yutani_server_window_t * w = node->value;
+		DO_WINDOW(w);
+	}
+
 	/*
 	 * If there were no windows, show the whole desktop
 	 * so we can see, eg., the login screen.
@@ -845,6 +859,10 @@ static void yutani_blit_windows(yutani_globals_t * yg) {
 		if (w) yutani_blit_window(yg, w, w->x, w->y);
 	}
 	foreach (node, yg->overlay_zs) {
+		yutani_server_window_t * w = node->value;
+		if (w) yutani_blit_window(yg, w, w->x, w->y);
+	}
+	foreach (node, yg->menu_zs) {
 		yutani_server_window_t * w = node->value;
 		if (w) yutani_blit_window(yg, w, w->x, w->y);
 	}
@@ -985,6 +1003,10 @@ static void redraw_windows(yutani_globals_t * yg) {
 		if (w && w->anim_mode) mark_window(yg, w);
 	}
 	foreach (node, yg->overlay_zs) {
+		yutani_server_window_t * w = node->value;
+		if (w && w->anim_mode) mark_window(yg, w);
+	}
+	foreach (node, yg->menu_zs) {
 		yutani_server_window_t * w = node->value;
 		if (w && w->anim_mode) mark_window(yg, w);
 	}
@@ -1217,8 +1239,11 @@ static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t 
 	if (w == yg->focused_window) {
 		/* find the top z-ordered window */
 		yg->focused_window = NULL;
-		if (yg->mid_zs->tail && yg->mid_zs->tail->value) {
-			set_focused_window(yg, yg->mid_zs->tail->value);
+		list_t * zorder_owner = window_zorder_owner(yg, w->z);
+		if (zorder_owner && zorder_owner != yg->overlay_zs) {
+			if (zorder_owner->tail && zorder_owner->tail->value) {
+				set_focused_window(yg, zorder_owner->tail->value);
+			}
 		}
 	}
 
@@ -2152,6 +2177,7 @@ int main(int argc, char * argv[]) {
 	yg->key_binds = hashmap_create_int(10);
 	yg->clients_to_windows = hashmap_create_int(10);
 	yg->mid_zs = list_create();
+	yg->menu_zs = list_create();
 	yg->overlay_zs = list_create();
 	yg->windows_to_remove = list_create();
 
@@ -2519,7 +2545,7 @@ int main(int argc, char * argv[]) {
 					foreach (node, yg->mid_zs) {
 						yutani_query_result(yg, p->source, node->value);
 					}
-					/* Exclude overlay windows? */
+					/* Exclude menus, overlay windows, top and bottom. */
 					yutani_query_result(yg, p->source, yg->top_z);
 					yutani_msg_buildx_window_advertise_alloc(response, 0);
 					yutani_msg_buildx_window_advertise(response,0, 0, 0, 0, 0, 0, 0, NULL);
