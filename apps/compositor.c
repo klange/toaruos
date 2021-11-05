@@ -1239,11 +1239,10 @@ static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t 
 	if (w == yg->focused_window) {
 		/* find the top z-ordered window */
 		yg->focused_window = NULL;
-		list_t * zorder_owner = window_zorder_owner(yg, w->z);
-		if (zorder_owner && zorder_owner != yg->overlay_zs) {
-			if (zorder_owner->tail && zorder_owner->tail->value) {
-				set_focused_window(yg, zorder_owner->tail->value);
-			}
+		if (yg->menu_zs->tail && yg->menu_zs->tail->value) {
+			set_focused_window(yg, yg->menu_zs->tail->value);
+		} else if (yg->mid_zs->tail && yg->mid_zs->tail->value) {
+			set_focused_window(yg, yg->mid_zs->tail->value);
 		}
 	}
 
