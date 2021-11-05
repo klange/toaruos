@@ -13,17 +13,18 @@ There are no external runtime dependencies and all required source code, totalli
 
 ## History
 
-ToaruOS has been in development for over ten years, and the goals of the project have changed through out its life time.
-
-When it was initiated in December 2010, the OS was a personal project, and its focus was on the individual learning of its author.
-
-With time, ToaruOS's relatively advanced graphical interface and other features have inspired new hobby OSes, and the goals of the project shifted towards providing a reliable learning resource.
-
-From its initial release through the middle of 2018, ToaruOS's userspace was built on top of the Newlib C standard library implementation as well as various third-party libraries such as Cairo and Freetype.
-
-Since the release of 1.6.x, all third-party runtime dependencies have been removed or replaced, and ToaruOS has been entirely "in-house".
-
-In April 2021, work began on ToaruOS 2.0, which brings a rewritten kernel for x86-64 (and potentially other architectures) and support for SMP. The new "Misaka" kernel was merged upstream at the end of May.
+> I have been working on ToaruOS for over a decade now, and my goals have changed over the years.
+>
+> When I first started the project in December 2010, my aim was to "learn by doing" - studying Unix-like systems by making one from scratch.
+> I had been a contributor to Compiz, one of the first widely-used compositing window managers for X11, a few years prior, and somewhat naturally ToaruOS gained a GUI built on similar concepts early on.
+>
+> For its original 1.0 release in 2015, ToaruOS was not the "completely from scratch" OS it has since become.
+> Newlib provided the libc, and the GUI was built on Cairo, libpng, and Freetype.
+> In the middle of 2018, I started a new project to replace these third-party components, which was eventually completed and merged to become ToaruOS 1.6.
+>
+> Through out the project, ToaruOS has also attracted quite a few beginner OS developers who have tried to use it as a reference.
+> ToaruOS's kernel, however, was a source of personal embarrassment for me, and in April 2021, after a long hiatus, I began work on a new one.
+> The result was Misaka: a new 64-bit, SMP-enabled kernel. Misaka was merged in May and started the 1.99 series of beta releases leading up to ToaruOS 2.0.
 
 ## Features
 
@@ -60,7 +61,7 @@ The following projects are currently in progress:
 
 ### Building With Docker
 
-General users hoping to build ToaruOS from source are recommended to use our prebuilt Docker image, which contains all the necessary tools:
+General users hoping to build ToaruOS from source are recommended to use the prebuilt Docker image, which contains all the necessary tools:
 
     git clone --recursive https://github.com/klange/toaruos
     cd toaruos
@@ -138,7 +139,7 @@ Set up a new VM for an "other" 64-bit guest, supply it with at least 1GiB of RAM
 ![VMware screenshot](https://klange.dev/s/Screenshot%202021-11-02%20072852.png)
 *ToaruOS running in VMware Workstation on a Windows host.*
 
-By default, the bootloader will pass a flag to the VirtualBox device driver to disable "Seamless" support as our implementation has a performance overhead. To enable Seamless mode, use the bootloader menu to check the "VirtualBox Seamless" option before booting. The menu also has options to disable automatic guest display sizing if you experience issues with this feature.
+By default, the bootloader will pass a flag to the VirtualBox device driver to disable "Seamless" support as the implementation has a performance overhead. To enable Seamless mode, use the bootloader menu to check the "VirtualBox Seamless" option before booting. The menu also has options to disable automatic guest display sizing if you experience issues with this feature.
 
 ### QEMU
 
@@ -152,7 +153,7 @@ Replace `-enable-kvm` with `-accel hvm` or `-accel haxm` as appropriate on host 
 
 Note that QEMU command line options are not stable and these flags may produce warnings in newer versions.
 
-The option `-M q35` will replace the PIIX chipset emulation with a newer one, which has the side effect of switching the IDE controller for a SATA one. This can result in faster boot times at the expense of ToaruOS not being able to read its own CD at runtime until we get around to finishing our AHCI driver.
+The option `-M q35` will replace the PIIX chipset emulation with a newer one, which has the side effect of switching the IDE controller for a SATA one. This can result in faster boot times at the expense of ToaruOS not being able to read its own CD at runtime until I get around to finishing my AHCI driver.
 
 ### Other
 
@@ -186,15 +187,34 @@ ToaruOS is regularly mirrored to multiple Git hosting sites.
 
 ### Is ToaruOS self-hosting?
 
-Currently, in the development of ToaruOS 2.0, self-hosting builds have not been tested and some utilities may be missing.
+Individual applications and libraries can be built by installing the `build-essential` metapackage from the repository, which will pull in `gcc` and `binutils`.
+Sources are available in the `/src` directory on the live CD in a similar layout to this repository, and the `auto-dep.krk` utility script is also available.
 
-Previously, with a capable compiler toolchain, ToaruOS 1.x was able to build its own kernel, userspace, libraries, and bootloader, and turn these into a working ISO CD image.
+For building ramdisks, finalized kernels, or CD images, some components are currently unavailable.
+In particular, the [build script for ramdisks](util/createramdisk.py) is still written in Python and depends on its `tarfile` module and `zlib` support.
+Previously, with a capable compiler toolchain, ToaruOS 1.x was able to build its own kernel, userspace, libraries, and bootloader, and turn these into a working ISO CD image through a Python script that performed a similar function to the Makefile.
 
 ToaruOS is not currently capable of building most of its ports, due to a lack of a proper POSIX shell and Make implementation. These are eventual goals of the project.
 
 ### Is ToaruOS a Linux distribution?
 
-ToaruOS is a completely independent project, and all code in this repository - which is the entire codebase of the operating system, including its kernel, bootloaders, libraries, and applications - is original, written by the ToaruOS developers over the course of eight years. The complete source history, going back to when ToaruOS was nothing more than a baremetal "hello world" can be tracked through this git repository.
+No, not all. There is no code from Linux anywhere in ToaruOS, nor were Linux sources used as a reference material.
 
-ToaruOS has taken inspiration from Linux in its choice of binary formats, filesystems, and its approach to kernel modules, but is not derived in any way from Linux code. ToaruOS's userspace is also influenced by the GNU utilities, but does not incorporate any GNU code.
+ToaruOS is a completely independent project, and all code in this repository - which is the entire codebase of the operating system, including its kernel, bootloaders, libraries, and applications - is original, written by myself and a handful of contributors over the course of ten years.
+The complete source history, going back to when ToaruOS was nothing more than a baremetal "hello world" can be tracked through this git repository.
 
+### When you say "complete"...
+
+ToaruOS is complete in the sense that it covers the whole range of functionality for an OS: It is not "just a kernel" or "just a userspace".
+
+ToaruOS is _not_ complete in the sense of being "done".
+
+### Is ToaruOS POSIX-compliant?
+
+While I aim to support POSIX interfaces well enough for software to be ported, strict implementation of the standard is not a major goal of the OS, and full compliance may even be undesirable.
+
+### Are contributions accepted?
+
+ToaruOS is a personal project, not a community project. Contributions in the form of code should be discussed in advance. Ports and other work outside of the repo, however, are a great way to help out.
+
+You can also help by contributing to [Kuroko](https://github.com/kuroko-lang/kuroko) - which is part of why it's kept as a separate repository.
