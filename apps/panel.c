@@ -1811,19 +1811,19 @@ int main (int argc, char ** argv) {
 				free(m);
 				m = yutani_poll_async(yctx);
 			}
-		} else {
-			struct timeval now;
-			gettimeofday(&now, NULL);
-			if (now.tv_sec != last_tick) {
-				last_tick = now.tv_sec;
-				waitpid(-1, NULL, WNOHANG);
-				update_volume_level();
-				update_network_status();
-				update_weather_status();
-				redraw();
-				if (was_tabbing) {
-					redraw_alttab();
-				}
+		}
+
+		struct timeval now;
+		gettimeofday(&now, NULL);
+		if (now.tv_sec != last_tick) {
+			last_tick = now.tv_sec;
+			waitpid(-1, NULL, WNOHANG);
+			update_volume_level();
+			update_network_status();
+			update_weather_status();
+			redraw();
+			if (was_tabbing) {
+				redraw_alttab();
 			}
 		}
 	}
