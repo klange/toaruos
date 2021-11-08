@@ -168,6 +168,17 @@ set gfxpayload=keep
 ![Native photo](https://klange.dev/s/IMG_8387.jpg)
 *ToaruOS running natively from a USB stick on a ThinkPad T410.*
 
+## License
+
+All first-party parts of ToaruOS are made available under the terms of the University of Illinois / NCSA License, which is a BSD-style permissive license.
+Unless otherwise specified, this is the original and only license for all files in this repository - just because a file does not have a copyright header does not mean it isn't under this license.
+ToaruOS is intended as an educational reference, and I encourage the use of my code, but please be sure you follow the requirements of the license.
+You may redistribute code under the NCSA license, as well as make modifications to the code and sublicense it under other terms (such as the GPL, or a proprietary license), but you must always include the copyright notice specified in the license as well as make the full text of the license (it's only a couple paragraphs) available to end-users.
+
+While most of ToaruOS is written entirely by myself, be sure to include other authors where relevant, such as with [Mike's audio subsystem](https://github.com/klange/toaruos/blob/master/kernel/audio/snd.c) or [Dale's string functions](https://github.com/klange/toaruos/blob/master/kernel/misc/string.c).
+
+Some components of ToaruOS, such as [Kuroko](https://github.com/kuroko-lang/kuroko/blob/9f6160092ecece0f2c18b63c066151cbe0ded1bb/LICENSE) or [bim](https://github.com/klange/toaruos/blob/master/apps/bim.c#L3) have different but compatible terms.
+
 ## Community
 
 ### Mirrors
