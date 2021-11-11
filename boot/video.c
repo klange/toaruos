@@ -9,7 +9,7 @@ extern EFI_SYSTEM_TABLE *ST;
 #include <stdint.h>
 #endif
 
-int platform_count_modes(void);
+int platform_count_modes(int *);
 int platform_list_modes(int sel, int select_this_mode);
 extern void init_graphics(void);
 
@@ -62,7 +62,7 @@ int video_menu(void) {
 	clear_();
 
 	int sel = 0;
-	int sel_max = platform_count_modes();
+	int sel_max = platform_count_modes(&sel);
 	int select_this_mode = 0;
 
 	int s = 0;
@@ -109,6 +109,8 @@ int video_menu(void) {
 		} else if (s == 0x1c) {
 			select_this_mode = 1;
 			continue;
+		} else if (s == 0x01) {
+			return 0;
 		} else {
 			goto read_again;
 		}
@@ -147,7 +149,7 @@ int platform_list_modes(int sel, int select_this_mode) {
 	return 0;
 }
 
-int platform_count_modes(void) {
+int platform_count_modes(int * current) {
 	int index = 0;
 	for (int i = 0; i < GOP->Mode->MaxMode; ++i) {
 		EFI_STATUS status;
@@ -245,11 +247,13 @@ int platform_list_modes(int sel, int select_this_mode) {
 	return 0;
 }
 
-int platform_count_modes(void) {
+extern int last_video_mode;
+int platform_count_modes(int * current) {
 	uint32_t vbe_addr = ((vbe_cont_info_mode_off & 0xFFFF0000) >> 12) + (vbe_cont_info_mode_off & 0xFFFF);
 	int count = 0;
 	memcpy(&vbe_info_save, (char*)&vbe_info, sizeof(struct VbeMode));
 	for (uint16_t * x = (uint16_t*)vbe_addr; *x != 0xFFFF;  x++) {
+		if (*x == last_video_mode) *current = count;
 		do_bios_call(2, *x);
 		if (!qualified()) continue;
 		count++;
