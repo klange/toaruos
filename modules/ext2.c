@@ -965,8 +965,8 @@ static int mkdir_ext2(fs_node_t * parent, char * name, mode_t permission) {
 	inode->size = 0; /* empty */
 
 	/* Assign it to root */
-	inode->uid = 0; /* FIXME */;
-	inode->gid = 0; /* FIXME */;
+	inode->uid = this_core->current_process->user;
+	inode->gid = this_core->current_process->user_group;
 
 	/* misc */
 	inode->faddr = 0;
@@ -1060,9 +1060,8 @@ static int create_ext2(fs_node_t * parent, char * name, mode_t permission) {
 	inode->blocks = 0;
 	inode->size = 0; /* empty */
 
-	/* Assign it to root */
-	inode->uid = 0; /* FIXME */;
-	inode->gid = 0; /* FIXME */;
+	inode->uid = this_core->current_process->user;
+	inode->gid = this_core->current_process->user_group;
 
 	/* misc */
 	inode->faddr = 0;
@@ -1472,8 +1471,8 @@ static int symlink_ext2(fs_node_t * parent, char * target, char * name) {
 	inode->size = 0; /* empty */
 
 	/* Assign it to current user */
-	inode->uid = 0; /* FIXME */;
-	inode->gid = 0; /* FIXME */;
+	inode->uid = this_core->current_process->user;
+	inode->gid = this_core->current_process->user_group;
 
 	/* misc */
 	inode->faddr = 0;
