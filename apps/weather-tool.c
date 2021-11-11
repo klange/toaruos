@@ -62,6 +62,18 @@ int main(int argc, char * argv[]) {
 		JSON_IND(JSON_KEY(result,"weather"),0) : NULL;
 
 	FILE * out = fopen(WEATHER_OUT_PATH, "w");
+
+	/**
+	 * The format for a parsed weather payload is a series of line-separated entries:
+	 * - Formatted temperature, with decimal.
+	 * - Integral temperature, eg. for the panel widget.
+	 * - Main weather conditions string, eg. "Clouds"
+	 * - Icon identifier, eg. 02d is "cloudy, daytime".
+	 * - Humidity (integer, percentage)
+	 * - Cloud coverage (integer, percentage)
+	 * - City name (we're using the guessed location, not the one from the weather provider...)
+	 * - Date string of last update
+	 */
 	fprintf(out, "%.2lf\n", JSON_KEY(_main,"temp")->number);
 	fprintf(out, "%d\n", (int)JSON_KEY(_main,"temp")->number);
 	fprintf(out, "%s\n", conditions ? JSON_KEY(conditions,"main")->string : "");
@@ -69,7 +81,7 @@ int main(int argc, char * argv[]) {
 	fprintf(out, "%d\n", (int)JSON_KEY(_main,"humidity")->number);
 	fprintf(out, "%d\n", JSON_KEY(JSON_KEY(result,"clouds"),"all") ? (int)JSON_KEY(JSON_KEY(result,"clouds"),"all")->number : 0);
 	fprintf(out, "%s\n", city);
-	char * format = "%a, %d %b %Y %H:%M:%S";
+	char * format = "%a, %d %b %Y %H:%M:%S\n";
 	struct tm * timeinfo;
 	struct timeval now;
 	char buf[BUFSIZ] = {0};
@@ -77,6 +89,9 @@ int main(int argc, char * argv[]) {
 	timeinfo = localtime((time_t *)&now.tv_sec);
 	strftime(buf,BUFSIZ,format,timeinfo);
 	fprintf(out, buf);
+
+	fprintf(out, "%d\n", (int)JSON_KEY(_main,"pressure")->number);
+
 	fclose(out);
 
 	return 0;

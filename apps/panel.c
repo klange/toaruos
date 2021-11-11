@@ -440,11 +440,13 @@ static struct MenuEntry_Normal * weather_updated_entry;
 static struct MenuEntry_Normal * weather_conditions_entry;
 static struct MenuEntry_Normal * weather_humidity_entry;
 static struct MenuEntry_Normal * weather_clouds_entry;
+static struct MenuEntry_Normal * weather_pressure_entry;
 static char * weather_title_str;
 static char * weather_updated_str;
 static char * weather_conditions_str;
 static char * weather_humidity_str;
 static char * weather_clouds_str;
+static char * weather_pressure_str;
 static char * weather_temp_str;
 static int weather_status_valid = 0;
 static hashmap_t * weather_icons = NULL;
@@ -473,6 +475,7 @@ static void update_weather_status(void) {
 	if (weather_conditions_str) free(weather_conditions_str);
 	if (weather_humidity_str) free(weather_humidity_str);
 	if (weather_clouds_str) free(weather_clouds_str);
+	if (weather_pressure_str) free(weather_pressure_str);
 	if (weather_temp_str) free(weather_temp_str);
 
 	/* read the entire status file */
@@ -501,6 +504,9 @@ static void update_weather_status(void) {
 	char * city = t;
 	t = strstr(t, "\n"); *t = '\0'; t++;
 	char * updated = t;
+	t = strstr(t, "\n"); *t = '\0'; t++;
+	char * pressure = t;
+	t = strstr(t, "\n"); if (t) { *t = '\0'; t++; }
 
 	if (!weather_icons) {
 		weather_icons = hashmap_create(10);
@@ -527,6 +533,8 @@ static void update_weather_status(void) {
 	weather_humidity_str = strdup(tmp);
 	sprintf(tmp, "<b>Clouds:</b> %s%%", clouds);
 	weather_clouds_str = strdup(tmp);
+	sprintf(tmp, "<b>Pressure:</b> %s hPa", pressure);
+	weather_pressure_str = strdup(tmp);
 
 	sprintf(tmp, "%s°", temp_r);
 	weather_temp_str = strdup(tmp);
@@ -649,16 +657,18 @@ static void show_weather_status(void) {
 		menu_insert(weather, menu_create_separator());
 		weather_conditions_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
 		menu_insert(weather, weather_conditions_entry);
-		weather_humidity_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
+		weather_humidity_entry = (struct MenuEntry_Normal *)menu_create_normal("weather-humidity", NULL, "", NULL);
 		menu_insert(weather, weather_humidity_entry);
-		weather_clouds_entry = (struct MenuEntry_Normal *)menu_create_normal(NULL, NULL, "", NULL);
+		weather_clouds_entry = (struct MenuEntry_Normal *)menu_create_normal("weather-clouds", NULL, "", NULL);
 		menu_insert(weather, weather_clouds_entry);
+		weather_pressure_entry = (struct MenuEntry_Normal *)menu_create_normal("weather-pressure", NULL, "", NULL);
+		menu_insert(weather, weather_pressure_entry);
 		menu_insert(weather, menu_create_separator());
 		menu_insert(weather, menu_create_normal("refresh", NULL, "Refresh...", weather_refresh));
 		menu_insert(weather, menu_create_normal("config", NULL, "Configure...", weather_configure));
 		menu_insert(weather, menu_create_separator());
 		menu_insert(weather, menu_create_normal(NULL, NULL, "<small><i>Weather data provided by</i></small>", NULL));
-		menu_insert(weather, menu_create_normal(NULL, NULL, "<color #0000FF>OpenWeatherMap.org</color>", NULL));
+		menu_insert(weather, menu_create_normal(NULL, NULL, "<b>OpenWeather™</b>", NULL));
 	}
 	if (weather_status_valid) {
 		menu_update_title(weather_title_entry, weather_title_str);
@@ -666,6 +676,7 @@ static void show_weather_status(void) {
 		menu_update_title(weather_conditions_entry, weather_conditions_str);
 		menu_update_title(weather_humidity_entry, weather_humidity_str);
 		menu_update_title(weather_clouds_entry, weather_clouds_str);
+		menu_update_title(weather_pressure_entry, weather_pressure_str);
 	}
 	if (!weather->window) {
 		int mwidth, mheight, offset;
@@ -1225,7 +1236,7 @@ static void redraw(void) {
 		uint32_t color = (weather && weather->window) ? HILIGHT_COLOR : ICON_COLOR;
 		tt_set_size(font, 12);
 		int t = tt_string_width(font, weather_temp_str);
-		tt_draw_string(ctx, font, WIDGET_POSITION(widget) + (WIDGET_WIDTH - t) / 2, 5 + Y_PAD + 12, weather_temp_str, color);
+		tt_draw_string(ctx, font, WIDGET_POSITION(widget) + (WIDGET_WIDTH - t) / 2, 6 + Y_PAD + 12, weather_temp_str, color);
 		draw_sprite_alpha_paint(ctx, weather_icon, WIDGET_POSITION(widget+1), ICON_Y_PAD, 1.0, color);
 		widget += 2;
 	}
