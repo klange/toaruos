@@ -544,6 +544,7 @@ static void update_weather_status(void) {
 
 static int netstat_left = 0;
 static int netstat_count = 0;
+static int netstat_prev[32] = {0};
 static char netstat_data[32][1024];
 
 static void ip_ntoa(const uint32_t src_addr, char * out) {
@@ -552,6 +553,34 @@ static void ip_ntoa(const uint32_t src_addr, char * out) {
 		(src_addr & 0xFF0000) >> 16,
 		(src_addr & 0xFF00) >> 8,
 		(src_addr & 0xFF));
+}
+
+static void netif_show_toast(const char * str) {
+	int toastDaemon = open("/dev/pex/toast", O_WRONLY);
+	if (toastDaemon >= 0) {
+		write(toastDaemon, str, strlen(str));
+		close(toastDaemon);
+	}
+}
+
+static void netif_disconnected(const char * if_name) {
+	network_status |= 1;
+	if (netstat_prev[netstat_count] && netstat_prev[netstat_count] != 1) {
+		char toastMsg[1024];
+		sprintf(toastMsg, "{\"icon\":\"/usr/share/icons/48/network-jack-disconnected.png\",\"body\":\"<b>%s</b><br>Network disconnected.\"}", if_name);
+		netif_show_toast(toastMsg);
+	}
+	netstat_prev[netstat_count] = 1;
+}
+
+static void netif_connected(const char * if_name) {
+	network_status |= 2;
+	if (netstat_prev[netstat_count] && netstat_prev[netstat_count] != 2) {
+		char toastMsg[1024];
+		sprintf(toastMsg, "{\"icon\":\"/usr/share/icons/48/network-jack.png\",\"body\":\"<b>%s</b><br>Connection established.\"}", if_name);
+		netif_show_toast(toastMsg);
+	}
+	netstat_prev[netstat_count] = 2;
 }
 
 static void check_network(const char * if_name) {
@@ -563,18 +592,28 @@ static void check_network(const char * if_name) {
 
 	if (netdev < 0) return;
 
+	uint32_t flags;
+	if (!ioctl(netdev, SIOCGIFFLAGS, &flags)) {
+		if (!(flags & IFF_UP)) {
+			snprintf(netstat_data[netstat_count], 1023, "%s: disconnected", if_name);
+			netif_disconnected(if_name);
+			goto _netif_next;
+		}
+	}
+
 	/* Get IPv4 address */
 	uint32_t ip_addr;
 	if (!ioctl(netdev, SIOCGIFADDR, &ip_addr)) {
 		char ip_str[16];
 		ip_ntoa(ntohl(ip_addr), ip_str);
 		snprintf(netstat_data[netstat_count], 1023, "%s: %s", if_name, ip_str);
-		network_status |= 2;
+		netif_connected(if_name);
 	} else {
-		snprintf(netstat_data[netstat_count], 1023, "%s: disconnected", if_name);
-		network_status |= 1;
+		snprintf(netstat_data[netstat_count], 1023, "%s: No address", if_name);
+		netif_disconnected(if_name);
 	}
 
+_netif_next:
 	close(netdev);
 	netstat_count++;
 }
