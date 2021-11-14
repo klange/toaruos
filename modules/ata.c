@@ -144,6 +144,8 @@ static int  cdrom_number = 0;
 static uint32_t ata_pci = 0x00000000;
 static list_t * atapi_waiter;
 
+#define yield_lock(lock) do { while (__sync_lock_test_and_set((lock).latch, 0x01)) { switch_task(0); } (lock).owner = this_core->cpu_id+1; (lock).func = __func__; } while (0)
+
 typedef union {
 	uint8_t command_bytes[12];
 	uint16_t command_words[6];
@@ -700,7 +702,7 @@ static void ata_device_read_sector(struct ata_device * dev, uint64_t lba, uint8_
 
 	if (dev->is_atapi) return;
 
-	spin_lock(ata_lock);
+	yield_lock(ata_lock);
 
 	ata_wait(dev, 0);
 
@@ -740,11 +742,13 @@ static void ata_device_read_sector(struct ata_device * dev, uint64_t lba, uint8_
 		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
 		if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRDY)) break;
 	}
+	spin_lock(atapi_cmd_lock);
 	outportb(bus + ATA_REG_COMMAND, ATA_CMD_READ_DMA_EXT);
 
 	ata_io_wait(dev);
 
 	outportb(dev->bar4, 0x08 | 0x01);
+	sleep_on_unlocking(atapi_waiter, &atapi_cmd_lock);
 
 	while (1) {
 		int status = inportb(dev->bar4 + 0x02);
@@ -771,7 +775,7 @@ static void ata_device_read_sector_atapi(struct ata_device * dev, uint64_t lba, 
 	if (!dev->is_atapi) return;
 
 	uint16_t bus = dev->io_base;
-	spin_lock(ata_lock);
+	yield_lock(ata_lock);
 
 	outportb(dev->io_base + ATA_REG_HDDEVSEL, 0xA0 | dev->slave << 4);
 	ata_io_wait(dev);
@@ -842,14 +846,26 @@ static void ata_device_write_sector(struct ata_device * dev, uint64_t lba, uint8
 	uint16_t bus = dev->io_base;
 	uint8_t slave = dev->slave;
 
-	spin_lock(ata_lock);
+	yield_lock(ata_lock);
+
+	ata_wait(dev, 0);
+	outportb(dev->bar4, 0x00);
+	outportl(dev->bar4 + 0x04, dev->dma_prdt_phys);
+	outportb(dev->bar4 + 0x2, inportb(dev->bar4 + 0x02) | 0x04 | 0x02);
+
+	/* set write */
+	outportb(dev->bar4, 0x00);
+
+	while (1) {
+		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
+		if (!(status & ATA_SR_BSY)) break;
+	}
+
+	memcpy(dev->dma_start, buf, 512);
 
 	outportb(bus + ATA_REG_CONTROL, 0x02);
-
-	ata_wait(dev, 0);
 	outportb(bus + ATA_REG_HDDEVSEL, 0xe0 | slave << 4);
 	ata_wait(dev, 0);
-
 	outportb(bus + ATA_REG_FEATURES, 0x00);
 
 	outportb(bus + ATA_REG_SECCOUNT0, 0);
@@ -862,12 +878,31 @@ static void ata_device_write_sector(struct ata_device * dev, uint64_t lba, uint8
 	outportb(bus + ATA_REG_LBA1, (lba & 0x0000ff00) >>  8);
 	outportb(bus + ATA_REG_LBA2, (lba & 0x00ff0000) >> 16);
 
-	outportb(bus + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO_EXT);
+	while (1) {
+		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
+		if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRDY)) break;
+	}
+	spin_lock(atapi_cmd_lock);
+	outportb(bus + ATA_REG_COMMAND, ATA_CMD_WRITE_DMA_EXT);
+
+	ata_io_wait(dev);
+
+	outportb(dev->bar4, 0x00 | 0x01);
+	sleep_on_unlocking(atapi_waiter, &atapi_cmd_lock);
+
+	#if 0
 	ata_wait(dev, 0);
 	int size = ATA_SECTOR_SIZE / 2;
 	outportsm(bus,buf,size);
+	#endif
+
+	outportb(dev->bar4 + 0x2, inportb(dev->bar4 + 0x02) | 0x04 | 0x02);
+
+#if 0
 	outportb(bus + 0x07, ATA_CMD_CACHE_FLUSH);
 	ata_wait(dev, 0);
+#endif
+
 	spin_unlock(ata_lock);
 }
 
@@ -889,7 +924,9 @@ static void ata_device_write_sector_retry(struct ata_device * dev, uint64_t lba,
 	do {
 		ata_device_write_sector(dev, lba, buf);
 		ata_device_read_sector(dev, lba, read_buf);
-	} while (buffer_compare((uint32_t *)buf, (uint32_t *)read_buf, ATA_SECTOR_SIZE));
+		if (!buffer_compare((uint32_t *)buf, (uint32_t *)read_buf, ATA_SECTOR_SIZE)) break;
+		switch_task(1);
+	} while (1);
 	free(read_buf);
 }
 

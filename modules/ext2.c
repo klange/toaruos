@@ -246,6 +246,30 @@ static int write_inode(ext2_fs_t * this, ext2_inodetable_t *inode, size_t index)
 static fs_node_t * finddir_ext2(fs_node_t *node, char *name);
 static size_t allocate_block(ext2_fs_t * this);
 
+static void yield_lock_acquire(spin_lock_t * lock) {
+	size_t spin_count = 0;
+	while (__sync_lock_test_and_set(lock->latch, 0x01)) {
+		if (spin_count == 10) {
+			unsigned long s, ss;
+			relative_time(0, 10, &s, &ss);
+			sleep_until((process_t *)this_core->current_process, s, ss);
+			switch_task(0);
+			spin_count = 0;
+		} else {
+			switch_task(1);
+			spin_count++;
+		}
+	}
+	lock->owner = this_core->cpu_id + 1;
+	lock->func = "yield_lock_acquire";
+}
+
+static void yield_lock_release(spin_lock_t * lock) {
+	lock->func = NULL;
+	lock->owner = -1;
+	__sync_lock_release(lock->latch);
+}
+
 /**
  * ext2->get_cache_time Increment and return the current cache time
  *
@@ -296,14 +320,14 @@ static int read_block(ext2_fs_t * this, unsigned int block_no, uint8_t * buf) {
 	}
 
 	/* This operation requires the filesystem lock to be obtained */
-	spin_lock(this->lock);
+	yield_lock_acquire(&this->lock);
 
 	/* We can make reads without a cache in place. */
 	if (!DC) {
 		/* In such cases, we read directly from the block device */
 		read_fs(this->block_device, block_no * this->block_size, this->block_size, (uint8_t *)buf);
 		/* We are done, release the lock */
-		spin_unlock(this->lock);
+		yield_lock_release(&this->lock);
 		/* And return SUCCESS */
 		return E_SUCCESS;
 	}
@@ -321,7 +345,7 @@ static int read_block(ext2_fs_t * this, unsigned int block_no, uint8_t * buf) {
 			/* Read the block */
 			memcpy(buf, DC[i].block, this->block_size);
 			/* Release the lock */
-			spin_unlock(this->lock);
+			yield_lock_release(&this->lock);
 			/* Success! */
 			return E_SUCCESS;
 		}
@@ -354,7 +378,7 @@ static int read_block(ext2_fs_t * this, unsigned int block_no, uint8_t * buf) {
 	DC[oldest].dirty = 0;
 
 	/* Release the lock */
-	spin_unlock(this->lock);
+	yield_lock_release(&this->lock);
 
 	/* And return success */
 	return E_SUCCESS;
@@ -375,11 +399,11 @@ static int write_block(ext2_fs_t * this, unsigned int block_no, uint8_t *buf) {
 	}
 
 	/* This operation requires the filesystem lock */
-	spin_lock(this->lock);
+	yield_lock_acquire(&this->lock);
 
 	if (!DC) {
 		write_fs(this->block_device, block_no * this->block_size, this->block_size, buf);
-		spin_unlock(this->lock);
+		yield_lock_release(&this->lock);
 		return E_SUCCESS;
 	}
 
@@ -392,7 +416,7 @@ static int write_block(ext2_fs_t * this, unsigned int block_no, uint8_t *buf) {
 			DC[i].last_use = get_cache_time(this);
 			DC[i].dirty = 1;
 			memcpy(DC[i].block, buf, this->block_size);
-			spin_unlock(this->lock);
+			yield_lock_release(&this->lock);
 			return E_SUCCESS;
 		}
 		if (DC[i].last_use < oldest_age) {
@@ -415,7 +439,7 @@ static int write_block(ext2_fs_t * this, unsigned int block_no, uint8_t *buf) {
 	DC[oldest].dirty = 1;
 
 	/* Release the lock */
-	spin_unlock(this->lock);
+	yield_lock_release(&this->lock);
 
 	/* We're done. */
 	return E_SUCCESS;
@@ -425,7 +449,7 @@ static unsigned int ext2_sync(ext2_fs_t * this) {
 	if (!this->disk_cache) return 0;
 
 	/* This operation requires the filesystem lock */
-	spin_lock(this->lock);
+	yield_lock_acquire(&this->lock);
 
 	/* Flush each cache entry. */
 	for (unsigned int i = 0; i < this->cache_entries; ++i) {
@@ -435,7 +459,7 @@ static unsigned int ext2_sync(ext2_fs_t * this) {
 	}
 
 	/* Release the lock */
-	spin_unlock(this->lock);
+	yield_lock_release(&this->lock);
 
 	return 0;
 }
