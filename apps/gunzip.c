@@ -15,8 +15,20 @@
 
 static int to_stdout = 0;
 static int keep = 0;
+static int progress = 0;
+static off_t total_length = 0;
+static size_t count = 0;
 
 static uint8_t _get(struct inflate_context * ctx) {
+	return fgetc(ctx->input_priv);
+}
+
+static uint8_t _get_progress(struct inflate_context * ctx) {
+	count++;
+	if (!(count & 0x3FF)) {
+		fprintf(stderr, "\r%zu KiB / %zu KiB (%zu%%)", count / 1024, total_length / 1024, 100 * count / total_length);
+		fflush(stderr);
+	}
 	return fgetc(ctx->input_priv);
 }
 
@@ -73,6 +85,15 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
+	char * maybeProgress = getenv("GUNZIP_PROGRESS");
+
+	if (maybeProgress && !strcmp(maybeProgress, "1")) {
+		progress = 1;
+		fseek(f, 0, SEEK_END);
+		total_length = ftell(f);
+		fseek(f, 0, SEEK_SET);
+	}
+
 	struct inflate_context ctx;
 	ctx.input_priv = f;
 	if (to_stdout) {
@@ -83,7 +104,7 @@ int main(int argc, char * argv[]) {
 		ctx.output_priv = fopen(tmp,"w");
 		free(tmp);
 	}
-	ctx.get_input = _get;
+	ctx.get_input = progress ? _get_progress : _get;
 	ctx.write_output = _write;
 	ctx.ring = NULL; /* Use the global one */
 
