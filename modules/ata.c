@@ -2,6 +2,12 @@
  * @brief (P)ATA / IDE disk driver
  * @file modules/ata.c
  *
+ * @warning This is very buggy.
+ *
+ * This is a port of the original ATA driver for toaru32.
+ * It has a number of issues. It should not be considered
+ * stable, or a viable reference.
+ *
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
