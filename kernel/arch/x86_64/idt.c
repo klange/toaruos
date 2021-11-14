@@ -339,6 +339,8 @@ struct regs * isr_handler(struct regs * r) {
 			return r;
 		}
 		case 123: {
+			extern void arch_update_clock(void);
+			arch_update_clock();
 			switch_task(1);
 			return r;
 		}

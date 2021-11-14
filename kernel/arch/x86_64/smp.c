@@ -10,6 +10,7 @@
 #include <kernel/printf.h>
 #include <kernel/misc.h>
 #include <kernel/args.h>
+#include <kernel/time.h>
 #include <kernel/multiboot.h>
 #include <kernel/arch/x86_64/acpi.h>
 #include <kernel/arch/x86_64/mmu.h>
@@ -123,6 +124,20 @@ void ap_main(void) {
 
 	/* Enable our spurious vector register */
 	*((volatile uint32_t*)(lapic_final + 0x0F0)) = 0x127;
+	*((volatile uint32_t*)(lapic_final + 0x320)) = 0x7b;
+	*((volatile uint32_t*)(lapic_final + 0x3e0)) = 1;
+
+	uint64_t before = arch_perf_timer();
+	*((volatile uint32_t*)(lapic_final + 0x380)) = 1000000;
+	while (*((volatile uint32_t*)(lapic_final + 0x390)));
+	uint64_t after = arch_perf_timer();
+
+	uint64_t ms = (after-before)/arch_cpu_mhz();
+	uint64_t target = 10000000000UL / ms;
+
+	*((volatile uint32_t*)(lapic_final + 0x3e0)) = 1;
+	*((volatile uint32_t*)(lapic_final + 0x320)) = 0x7b | 0x20000;
+	*((volatile uint32_t*)(lapic_final + 0x380)) = target;
 
 	/* Set our pml pointers */
 	this_core->current_pml = &init_page_region[0];

@@ -256,19 +256,27 @@ void arch_tick_others(void);
 
 static uint64_t time_slice_basis = 0;
 
-int cmos_time_stuff(struct regs *r) {
+static spin_lock_t clock_lock = { 0 };
+void arch_update_clock(void) {
 	uint64_t clock_ticks = read_tsc() / tsc_mhz;
 	uint64_t timer_ticks, timer_subticks;
+	spin_lock(clock_lock);
 	update_ticks(clock_ticks, &timer_ticks, &timer_subticks);
-	wakeup_sleepers(timer_ticks, timer_subticks);
-	irq_ack(0);
-
 	if (time_slice_basis + SUBSECONDS_PER_SECOND/4 <= clock_ticks) {
 		update_process_usage(clock_ticks - time_slice_basis, tsc_mhz);
 		time_slice_basis = clock_ticks;
 	}
+	spin_unlock(clock_lock);
 
-	arch_tick_others();
+	wakeup_sleepers(timer_ticks, timer_subticks);
+
+}
+
+int cmos_time_stuff(struct regs *r) {
+	arch_update_clock();
+
+	irq_ack(0);
+
 	switch_task(1);
 	asm volatile (
 		".global _ret_from_preempt_source\n"
