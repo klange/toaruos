@@ -16,6 +16,8 @@
 #include <kernel/tokenize.h>
 #include <kernel/module.h>
 
+#include <sys/ioctl.h>
+
 #define debug_print(lvl, str, ...) do { if (this->flags & EXT2_FLAG_LOUD) { printf("ext2: %s: " str "\n", #lvl __VA_OPT__(,) __VA_ARGS__); } } while (0)
 
 #define EXT2_SUPER_MAGIC 0xEF53
@@ -1559,7 +1561,17 @@ static ssize_t readlink_ext2(fs_node_t * node, char * buf, size_t size) {
 	return read_size;
 }
 
+static int ioctl_ext2(fs_node_t * node, unsigned long request, void * argp) {
+	ext2_fs_t * this = (ext2_fs_t *)node->device;
 
+	switch (request) {
+		case IOCTLSYNC:
+			return ext2_sync(this);
+
+		default:
+			return -EINVAL;
+	}
+}
 
 static int node_from_file(ext2_fs_t * this, ext2_inodetable_t *inode, ext2_dir_t *direntry,  fs_node_t *fnode) {
 	if (!fnode) {
@@ -1629,7 +1641,7 @@ static int node_from_file(ext2_fs_t * this, ext2_inodetable_t *inode, ext2_dir_t
 	fnode->chmod   = chmod_ext2;
 	fnode->open    = open_ext2;
 	fnode->close   = close_ext2;
-	fnode->ioctl   = NULL;
+	fnode->ioctl = ioctl_ext2;
 	return 1;
 }
 
