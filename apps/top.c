@@ -100,7 +100,11 @@ static int print_column(struct process * proc, int column_id) {
 		}
 		case FORMATTER_PERCENT: {
 			int value = *(int*)((char *)proc + column->member);
-			return printf("%*d.%01d ", column->width - 2, value / 10, value % 10);
+			if (value >= 1000) {
+				return printf("%*d ", column->width, 100);
+			} else {
+				return printf("%*d.%01d ", column->width - 2, value / 10, value % 10);
+			}
 		}
 		case FORMATTER_STRING: {
 			char * value = *(char**)((char *)proc + column->member);
@@ -123,7 +127,11 @@ static int size_column(struct process * proc, int column_id) {
 		}
 		case FORMATTER_PERCENT: {
 			int value = *(int*)((char *)proc + column->member);
-			return snprintf(garbage, 100, "%d.%01d", value / 10, value % 10);
+			if (value >= 1000) {
+				return 3;
+			} else {
+				return snprintf(garbage, 100, "%d.%01d", value / 10, value % 10);
+			}
 		}
 		case FORMATTER_STRING: {
 			char * value = *(char**)((char *)proc + column->member);
@@ -276,6 +284,8 @@ struct process * process_entry(struct dirent *dent) {
 			cpua += strtoul(tab, &tab, 10);
 			cpua += strtoul(tab, &tab, 10);
 			cpua /= 4;
+			if (cpu > 1000) cpu = 1000;
+			if (cpua > 1000) cpua = 1000;
 		}
 	}
 
