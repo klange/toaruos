@@ -170,15 +170,6 @@ struct ext2_dir {
 
 typedef struct ext2_dir ext2_dir_t;
 
-typedef struct {
-	uint32_t block_no;
-	uint32_t last_use;
-	uint8_t  dirty;
-	uint8_t *block;
-} ext2_disk_cache_entry_t;
-
-typedef int (*ext2_block_io_t) (void *, uint32_t, uint8_t *);
-
 #define EXT2_BGD_BLOCK 2
 
 #define E_SUCCESS   0
@@ -204,12 +195,6 @@ typedef struct {
 	unsigned int              inodes_per_group;    /* Number of inodes in a "group" */
 	unsigned int              block_group_count;   /* Number of blocks groups */
 
-	ext2_disk_cache_entry_t * disk_cache;          /* Dynamically allocated array of cache entries */
-	unsigned int              cache_entries;       /* Size of ->disk_cache */
-	unsigned int              cache_time;          /* "timer" that increments with each cache read/write */
-
-	spin_lock_t               lock;                /* Synchronization lock point */
-
 	uint8_t                   bgd_block_span;
 	uint8_t                   bgd_offset;
 	unsigned int              inode_size;
@@ -219,7 +204,6 @@ typedef struct {
 	int flags;
 } ext2_fs_t;
 
-#define EXT2_FLAG_NOCACHE   0x0001
 #define EXT2_FLAG_READWRITE 0x0002
 #define EXT2_FLAG_LOUD      0x0004
 
@@ -231,7 +215,6 @@ typedef struct {
 #define SB   (this->superblock)
 #define BGD  (this->block_groups)
 #define RN   (this->root_node)
-#define DC   (this->disk_cache)
 
 /*
  * These macros deal with the block group descriptor bitmap
@@ -247,52 +230,6 @@ static void refresh_inode(ext2_fs_t * this, ext2_inodetable_t * inodet,  size_t 
 static int write_inode(ext2_fs_t * this, ext2_inodetable_t *inode, size_t index);
 static fs_node_t * finddir_ext2(fs_node_t *node, char *name);
 static size_t allocate_block(ext2_fs_t * this);
-
-static void yield_lock_acquire(spin_lock_t * lock) {
-	size_t spin_count = 0;
-	while (__sync_lock_test_and_set(lock->latch, 0x01)) {
-		if (spin_count == 10) {
-			unsigned long s, ss;
-			relative_time(0, 10, &s, &ss);
-			sleep_until((process_t *)this_core->current_process, s, ss);
-			switch_task(0);
-			spin_count = 0;
-		} else {
-			switch_task(1);
-			spin_count++;
-		}
-	}
-	lock->owner = this_core->cpu_id + 1;
-	lock->func = "yield_lock_acquire";
-}
-
-static void yield_lock_release(spin_lock_t * lock) {
-	lock->func = NULL;
-	lock->owner = -1;
-	__sync_lock_release(lock->latch);
-}
-
-/**
- * ext2->get_cache_time Increment and return the current cache time
- *
- * @returns Current cache time
- */
-static size_t get_cache_time(ext2_fs_t * this) {
-	return this->cache_time++;
-}
-
-/**
- * ext2->cache_flush_dirty Flush dirty cache entry to the disk.
- *
- * @param ent_no Cache entry to dump
- * @returns Error code or E_SUCCESS
- */
-static int cache_flush_dirty(ext2_fs_t * this, size_t ent_no) {
-	write_fs(this->block_device, (DC[ent_no].block_no) * this->block_size, this->block_size, (uint8_t *)(DC[ent_no].block));
-	DC[ent_no].dirty = 0;
-
-	return E_SUCCESS;
-}
 
 /**
  * ext2->rewrite_superblock Rewrite the superblock.
@@ -321,68 +258,10 @@ static int read_block(ext2_fs_t * this, unsigned int block_no, uint8_t * buf) {
 		return E_BADBLOCK;
 	}
 
-	/* This operation requires the filesystem lock to be obtained */
-	yield_lock_acquire(&this->lock);
+	/* In such cases, we read directly from the block device */
+	read_fs(this->block_device, block_no * this->block_size, this->block_size, (uint8_t *)buf);
 
-	/* We can make reads without a cache in place. */
-	if (!DC) {
-		/* In such cases, we read directly from the block device */
-		read_fs(this->block_device, block_no * this->block_size, this->block_size, (uint8_t *)buf);
-		/* We are done, release the lock */
-		yield_lock_release(&this->lock);
-		/* And return SUCCESS */
-		return E_SUCCESS;
-	}
-
-	/*
-	 * Search the cache for this entry
-	 * We'll look for the oldest entry, too.
-	 */
-	int oldest = -1;
-	unsigned int oldest_age = UINT32_MAX;
-	for (unsigned int i = 0; i < this->cache_entries; ++i) {
-		if (DC[i].block_no == block_no) {
-			/* We found it! Update usage times */
-			DC[i].last_use = get_cache_time(this);
-			/* Read the block */
-			memcpy(buf, DC[i].block, this->block_size);
-			/* Release the lock */
-			yield_lock_release(&this->lock);
-			/* Success! */
-			return E_SUCCESS;
-		}
-		if (DC[i].last_use < oldest_age) {
-			/* We found an older block, remember this. */
-			oldest = i;
-			oldest_age = DC[i].last_use;
-		}
-	}
-
-	/*
-	 * At this point, we did not find this block in the cache.
-	 * We are going to replace the oldest entry with this new one.
-	 */
-
-	/* We'll start by flushing the block if it was dirty. */
-	if (DC[oldest].dirty) {
-		cache_flush_dirty(this, oldest);
-	}
-
-	/* Then we'll read the new one */
-	read_fs(this->block_device, block_no * this->block_size, this->block_size, (uint8_t *)DC[oldest].block);
-
-	/* And copy the results to the output buffer */
-	memcpy(buf, DC[oldest].block, this->block_size);
-
-	/* And update the cache entry to point to the new block */
-	DC[oldest].block_no = block_no;
-	DC[oldest].last_use = get_cache_time(this);
-	DC[oldest].dirty = 0;
-
-	/* Release the lock */
-	yield_lock_release(&this->lock);
-
-	/* And return success */
+	/* And return SUCCESS */
 	return E_SUCCESS;
 }
 
@@ -401,69 +280,10 @@ static int write_block(ext2_fs_t * this, unsigned int block_no, uint8_t *buf) {
 	}
 
 	/* This operation requires the filesystem lock */
-	yield_lock_acquire(&this->lock);
-
-	if (!DC) {
-		write_fs(this->block_device, block_no * this->block_size, this->block_size, buf);
-		yield_lock_release(&this->lock);
-		return E_SUCCESS;
-	}
-
-	/* Find the entry in the cache */
-	int oldest = -1;
-	unsigned int oldest_age = UINT32_MAX;
-	for (unsigned int i = 0; i < this->cache_entries; ++i) {
-		if (DC[i].block_no == block_no) {
-			/* We found it. Update the cache entry */
-			DC[i].last_use = get_cache_time(this);
-			DC[i].dirty = 1;
-			memcpy(DC[i].block, buf, this->block_size);
-			yield_lock_release(&this->lock);
-			return E_SUCCESS;
-		}
-		if (DC[i].last_use < oldest_age) {
-			/* Keep track of the oldest entry */
-			oldest = i;
-			oldest_age = DC[i].last_use;
-		}
-	}
-
-	/* We did not find this element in the cache, so make room. */
-	if (DC[oldest].dirty) {
-		/* Flush the oldest entry */
-		cache_flush_dirty(this, oldest);
-	}
-
-	/* Update the entry */
-	memcpy(DC[oldest].block, buf, this->block_size);
-	DC[oldest].block_no = block_no;
-	DC[oldest].last_use = get_cache_time(this);
-	DC[oldest].dirty = 1;
-
-	/* Release the lock */
-	yield_lock_release(&this->lock);
+	write_fs(this->block_device, block_no * this->block_size, this->block_size, buf);
 
 	/* We're done. */
 	return E_SUCCESS;
-}
-
-static unsigned int ext2_sync(ext2_fs_t * this) {
-	if (!this->disk_cache) return 0;
-
-	/* This operation requires the filesystem lock */
-	yield_lock_acquire(&this->lock);
-
-	/* Flush each cache entry. */
-	for (unsigned int i = 0; i < this->cache_entries; ++i) {
-		if (DC[i].dirty) {
-			cache_flush_dirty(this, i);
-		}
-	}
-
-	/* Release the lock */
-	yield_lock_release(&this->lock);
-
-	return 0;
 }
 
 /**
@@ -1052,8 +872,6 @@ static int mkdir_ext2(fs_node_t * parent, char * name, mode_t permission) {
 		write_block(this, this->bgd_offset + i, (uint8_t *)((uintptr_t)BGD + this->block_size * i));
 	}
 
-	ext2_sync(this);
-
 	return 0;
 }
 
@@ -1114,8 +932,6 @@ static int create_ext2(fs_node_t * parent, char * name, mode_t permission) {
 
 	free(inode);
 
-	ext2_sync(this);
-
 	return 0;
 }
 
@@ -1128,8 +944,6 @@ static int chmod_ext2(fs_node_t * node, mode_t mode) {
 	inode->mode = (inode->mode & 0xFFFFF000) | mode;
 
 	write_inode(this, inode, node->inode);
-
-	ext2_sync(this);
 
 	return 0;
 }
@@ -1290,8 +1104,6 @@ static int unlink_ext2(fs_node_t * node, char * name) {
 
 	inode_write_block(this, inode, node->inode, block_nr, block);
 	free(block);
-
-	ext2_sync(this);
 
 	return 0;
 }
@@ -1537,8 +1349,6 @@ static int symlink_ext2(fs_node_t * parent, char * target, char * name) {
 	}
 	free(inode);
 
-	ext2_sync(this);
-
 	return 0;
 }
 
@@ -1566,7 +1376,7 @@ static int ioctl_ext2(fs_node_t * node, unsigned long request, void * argp) {
 
 	switch (request) {
 		case IOCTLSYNC:
-			return ext2_sync(this);
+			return ioctl_fs(this->block_device, IOCTLSYNC, NULL);
 
 		default:
 			return -EINVAL;
@@ -1739,11 +1549,6 @@ static fs_node_t * mount_ext2(fs_node_t * block_device, int flags) {
 		this->inode_size = 128;
 	}
 	this->block_size = 1024 << SB->log_block_size;
-	this->cache_entries = 10240;
-	if (this->block_size > 2048) {
-		this->cache_entries /= 4;
-	}
-	debug_print(INFO, "bs=%d, cache entries=%d", this->block_size, this->cache_entries);
 	this->pointers_per_block = this->block_size / 4;
 	debug_print(INFO, "Log block size = %d -> %d", SB->log_block_size, this->block_size);
 	BGDS = SB->blocks_count / SB->blocks_per_group;
@@ -1751,26 +1556,6 @@ static fs_node_t * mount_ext2(fs_node_t * block_device, int flags) {
 		BGDS += 1;
 	}
 	this->inodes_per_group = SB->inodes_count / BGDS;
-
-	if (!(this->flags & EXT2_FLAG_NOCACHE)) {
-		debug_print(INFO, "Allocating cache...");
-		DC = malloc(sizeof(ext2_disk_cache_entry_t) * this->cache_entries);
-		this->cache_data = malloc(this->block_size * this->cache_entries);
-		memset(this->cache_data, 0, this->block_size * this->cache_entries);
-		for (uint32_t i = 0; i < this->cache_entries; ++i) {
-			DC[i].block_no = 0;
-			DC[i].dirty = 0;
-			DC[i].last_use = 0;
-			DC[i].block = this->cache_data + i * this->block_size;
-			if (i % 128 == 0) {
-				debug_print(INFO, "Allocated cache block #%d", i+1);
-			}
-		}
-		debug_print(INFO, "Allocated cache.");
-	} else {
-		DC = NULL;
-		debug_print(NOTICE, "ext2 cache is disabled (nocache)");
-	}
 
 	// load the block group descriptors
 	this->bgd_block_span = sizeof(ext2_bgdescriptor_t) * BGDS / this->block_size + 1;
@@ -1839,9 +1624,6 @@ fs_node_t * ext2_fs_mount(const char * device, const char * mount_path) {
 	int flags = 0;
 
 	for (int i = 1; i < argc; ++i) {
-		if (!strcmp(argv[i],"nocache")) {
-			flags |= EXT2_FLAG_NOCACHE;
-		}
 		if (!strcmp(argv[i],"rw")) {
 			flags |= EXT2_FLAG_READWRITE;
 		}
