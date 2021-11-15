@@ -192,7 +192,7 @@ extern int     tcgetattr(int, struct termios *);
 extern pid_t   tcgetsid(int);
 extern int     tcsendbreak(int, int);
 extern int     tcsetattr(int, int, struct termios *);
-extern int     ioctl(int, int, void*);
+extern int     ioctl(int, unsigned long, void*);
 #endif /* ndef _KERNEL_ */
 
 _End_C_Header

@@ -416,7 +416,7 @@ long sys_read(int fd, char * ptr, unsigned long len) {
 	return -EBADF;
 }
 
-long sys_ioctl(int fd, int request, void * argp) {
+long sys_ioctl(int fd, unsigned long request, void * argp) {
 	if (FD_CHECK(fd)) {
 		PTR_VALIDATE(argp);
 		return ioctl_fs(FD_ENTRY(fd), request, argp);

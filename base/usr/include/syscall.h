@@ -105,7 +105,7 @@ DECL_SYSCALL2(sysfunc, int, char **);
 DECL_SYSCALL2(shutdown, int, int);
 DECL_SYSCALL2(sleepabs, unsigned long, unsigned long);
 DECL_SYSCALL2(sleep, unsigned long, unsigned long);
-DECL_SYSCALL3(ioctl, int, int, void *);
+DECL_SYSCALL3(ioctl, int, unsigned long, void *);
 DECL_SYSCALL2(access, char *, int);
 DECL_SYSCALL2(statf, char *, void *);
 DECL_SYSCALL2(chmod, char *, int);
