@@ -709,9 +709,12 @@ static int create_entry(fs_node_t * parent, char * name, uint32_t inode) {
 		debug_print(WARNING, "The last node in the list is a real node, we need to modify it.");
 
 		if (dir_offset + rec_len >= this->block_size) {
-			debug_print(WARNING, "Need to allocate more space, bail!");
-			free(block);
-			return E_NOSPACE;
+			block_nr++;
+			allocate_inode_block(this, pinode, parent->inode, block_nr);
+			memset(block, 0, this->block_size);
+			dir_offset = 0;
+			pinode->size += this->block_size;
+			write_inode(this, pinode, parent->inode);
 		} else {
 			unsigned int sreclen = previous->name_len + sizeof(ext2_dir_t);
 			sreclen += (sreclen % 4) ? (4 - (sreclen % 4)) : 0;
