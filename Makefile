@@ -153,14 +153,14 @@ shell: system
 		-fw_cfg name=opt/org.toaruos.term,string=${TERM}
 
 misaka-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
-	${CC} -g -T kernel/arch/${ARCH}/link.ld ${KERNEL_CFLAGS} -o $@.64 ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o -lgcc
+	${CC} -g -T kernel/arch/${ARCH}/link.ld ${KERNEL_CFLAGS} -o $@.64 ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
 	${OC} --strip-debug -I elf64-x86-64 -O elf32-i386 $@.64 $@
 
 kernel/sys/version.o: ${KERNEL_SOURCES}
 
 kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/gensym.krk
 	-rm -f kernel/symbols.o
-	${CC} -T kernel/arch/${ARCH}/link.ld ${KERNEL_CFLAGS} -o misaka-kernel.64 ${KERNEL_ASMOBJS} ${KERNEL_OBJS} -lgcc
+	${CC} -T kernel/arch/${ARCH}/link.ld ${KERNEL_CFLAGS} -o misaka-kernel.64 ${KERNEL_ASMOBJS} ${KERNEL_OBJS}
 	${NM} misaka-kernel.64 -g | kuroko util/gensym.krk > kernel/symbols.S
 	${CC} -c kernel/symbols.S -o $@
 
