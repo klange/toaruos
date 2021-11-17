@@ -25,6 +25,7 @@
 #include <kernel/list.h>
 #include <kernel/time.h>
 #include <kernel/misc.h>
+#include <kernel/mutex.h>
 
 #include <kernel/arch/x86_64/ports.h>
 #include <kernel/arch/x86_64/irq.h>
@@ -198,70 +199,31 @@ static spin_lock_t atapi_cmd_lock = { 0 };
 /* TODO support other sector sizes */
 #define ATA_SECTOR_SIZE 512
 #define ATA_CACHE_SIZE  4096
+#define SECTORS_PER_CACHE_BLOCK 8
 
 static void ata_device_read_sector(struct ata_device * dev, uint64_t lba, uint8_t * buf);
 static void ata_device_read_sector_atapi(struct ata_device * dev, uint64_t lba, uint8_t * buf);
 static void ata_device_write_sector(struct ata_device * dev, uint64_t lba, uint8_t * buf);
+static void ata_device_write_sector_actual(struct ata_device * dev, uint64_t lba);
 
-struct DataRequest {
+struct CacheEntry {
 	struct ata_device * dev;
 	uint64_t lba;
-	spin_lock_t lock;
-	process_t * recipient;
-	char * buf;
-	uint8_t type;
-	uint8_t resolved;
-	node_t node;
+	uint64_t last_use;
+	uint64_t flags;
 };
 
-spin_lock_t ata_queue_lock;
-list_t * ata_queue = NULL;
-list_t * ata_waiter = NULL;
+#define CACHE_COUNT 4096
 
-void ata_enqueue_request(struct DataRequest * req, struct ata_device * dev, uint64_t lba, uint8_t type, char * buf) {
-	req->dev = dev;
-	req->lba = lba;
-	req->type = type;
-	req->buf = buf;
-	req->recipient = (process_t*)this_core->current_process;
-	req->resolved = 0;
-	req->node.value = req;
-	req->node.next = NULL;
-	req->node.prev = NULL;
-	req->node.owner = NULL;
-	spin_init(req->lock);
+static uint64_t hit_count = 0;
+static uint64_t miss_count = 0;
+static uint64_t eviction_count = 0;
+static uint64_t write_count = 0;
+static sched_mutex_t * ata_mutex = NULL;
 
-	spin_lock(ata_queue_lock);
-	list_append(ata_queue, &req->node);
-	wakeup_queue(ata_waiter);
-
-	spin_unlock(ata_queue_lock);
-	switch_task(0);
-}
-
-struct DataRequest * ata_receive_request(void) {
-	spin_lock(ata_queue_lock);
-	while (!ata_queue->length) {
-		if (sleep_on_unlocking(ata_waiter, &ata_queue_lock)) {
-			if (!ata_queue->length) {
-				return NULL;
-			}
-		}
-		spin_lock(ata_queue_lock);
-	}
-
-	node_t * n = list_dequeue(ata_queue);
-	struct DataRequest* value = n->value;
-	spin_unlock(ata_queue_lock);
-
-	return value;
-}
-
-void ata_respond(struct DataRequest * req) {
-	req->resolved = 1;
-	make_process_ready(req->recipient);
-}
-
+static struct CacheEntry * cache_entries = NULL;
+static char * cache_blocks = NULL;
+static uint64_t counter = 1;
 
 static off_t ata_max_offset(struct ata_device * dev) {
 	uint64_t sectors = dev->identity.sectors_48;
@@ -449,21 +411,21 @@ static void close_ata(fs_node_t * node) {
 	return;
 }
 
-static uint64_t hit_count = 0;
-static uint64_t miss_count = 0;
-static uint64_t eviction_count = 0;
-static uint64_t write_count = 0;
-
 static int ioctl_ata(fs_node_t * node, unsigned long request, void * argp) {
 	struct ata_device * dev = (struct ata_device *)node->device;
 
 	switch (request) {
 		case IOCTLSYNC: {
-			struct DataRequest req;
-			ata_enqueue_request(&req, dev,0,3,NULL);
-			if (!req.resolved) {
-				return -EIO;
+			mutex_acquire(ata_mutex);
+			for (int i = 0; i < CACHE_COUNT; ++i) {
+				if (cache_entries[i].dev == dev && cache_entries[i].flags & 1) {
+					eviction_count++;
+					memcpy(cache_entries[i].dev->dma_start, cache_blocks + i * ATA_CACHE_SIZE, ATA_CACHE_SIZE);
+					ata_device_write_sector_actual(cache_entries[i].dev, cache_entries[i].lba);
+					cache_entries[i].flags = 0;
+				}
 			}
+			mutex_release(ata_mutex);
 			return 0;
 		}
 
@@ -501,7 +463,6 @@ static fs_node_t * atapi_device_create(struct ata_device * device) {
 	fnode->ioctl   = NULL; /* TODO, identify, etc? */
 	return fnode;
 }
-
 
 static fs_node_t * ata_device_create(struct ata_device * device) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
@@ -792,19 +753,6 @@ static int ata_device_detect(struct ata_device * dev) {
 	return 0;
 }
 
-static void ata_device_read_sector(struct ata_device * dev, uint64_t lba, uint8_t * buf) {
-	/* Submit request */
-	struct DataRequest req;
-	ata_enqueue_request(&req, dev, lba * 8, 1, NULL);
-
-	if (!req.resolved) {
-		dprintf("ata: Unresolved request?\n");
-	} else {
-		memcpy(buf, req.buf, ATA_CACHE_SIZE);
-		free(req.buf);
-	}
-}
-
 static void ata_device_read_sector_actual(struct ata_device * dev, uint64_t lba) {
 	uint16_t bus = dev->io_base;
 	uint8_t slave = dev->slave;
@@ -840,7 +788,7 @@ static void ata_device_read_sector_actual(struct ata_device * dev, uint64_t lba)
 	outportb(bus + ATA_REG_LBA1, (lba & 0xff00000000) >> 32);
 	outportb(bus + ATA_REG_LBA2, (lba & 0xff0000000000) >> 40);
 
-	outportb(bus + ATA_REG_SECCOUNT0, 8);
+	outportb(bus + ATA_REG_SECCOUNT0, SECTORS_PER_CACHE_BLOCK);
 	outportb(bus + ATA_REG_LBA0, (lba & 0x000000ff) >>  0);
 	outportb(bus + ATA_REG_LBA1, (lba & 0x0000ff00) >>  8);
 	outportb(bus + ATA_REG_LBA2, (lba & 0x00ff0000) >> 16);
@@ -871,20 +819,6 @@ static void ata_device_read_sector_actual(struct ata_device * dev, uint64_t lba)
 	/* Inform device we are done. */
 	outportb(dev->bar4 + 0x2, inportb(dev->bar4 + 0x02) | 0x04 | 0x02);
 }
-
-static void ata_device_read_sector_atapi(struct ata_device * dev, uint64_t lba, uint8_t * buf) {
-	/* Submit request */
-	struct DataRequest req;
-	ata_enqueue_request(&req,dev,lba,4,NULL);
-
-	if (!req.resolved) {
-		dprintf("ata: Unresolved request?\n");
-	} else {
-		memcpy(buf, req.buf, 2048);
-		free(req.buf);
-	}
-}
-
 
 static void ata_device_read_sector_atapi_actual(struct ata_device * dev, uint64_t lba, uint8_t * buf) {
 
@@ -956,19 +890,6 @@ atapi_timeout:
 	return;
 }
 
-static void ata_device_write_sector(struct ata_device * dev, uint64_t lba, uint8_t * buf) {
-	/* Submit request */
-	char * tmp = malloc(ATA_CACHE_SIZE);
-	memcpy(tmp, buf, ATA_CACHE_SIZE);
-	struct DataRequest req;
-	ata_enqueue_request(&req, dev,lba * 8, 2, tmp);
-
-	if (!req.resolved) {
-		dprintf("ata: Unresolved write request?\n");
-	}
-}
-
-
 static void ata_device_write_sector_actual(struct ata_device * dev, uint64_t lba) {
 	uint16_t bus = dev->io_base;
 	uint8_t slave = dev->slave;
@@ -996,7 +917,7 @@ static void ata_device_write_sector_actual(struct ata_device * dev, uint64_t lba
 	outportb(bus + ATA_REG_LBA1, (lba & 0xff00000000) >> 32);
 	outportb(bus + ATA_REG_LBA2, (lba & 0xff0000000000) >> 40);
 
-	outportb(bus + ATA_REG_SECCOUNT0, 8);
+	outportb(bus + ATA_REG_SECCOUNT0, SECTORS_PER_CACHE_BLOCK);
 	outportb(bus + ATA_REG_LBA0, (lba & 0x000000ff) >>  0);
 	outportb(bus + ATA_REG_LBA1, (lba & 0x0000ff00) >>  8);
 	outportb(bus + ATA_REG_LBA2, (lba & 0x00ff0000) >> 16);
@@ -1027,131 +948,87 @@ static void ata_device_write_sector_actual(struct ata_device * dev, uint64_t lba
 #endif
 }
 
-struct CacheEntry {
-	struct ata_device * dev;
-	uint64_t lba;
-	uint64_t last_use;
-	uint64_t flags;
-};
-
-#define CACHE_COUNT 4096
-
-static void ata_scheduler(void * data) {
-	/* Allocate some cache space */
-	struct CacheEntry * cache_entries = malloc(sizeof(struct CacheEntry) * CACHE_COUNT);
-	memset(cache_entries, 0, sizeof(struct CacheEntry) * CACHE_COUNT);
-	char * cache_blocks  = mmu_map_module(CACHE_COUNT * ATA_CACHE_SIZE);
-	uint64_t counter = 1;
-
-	while (1) {
-		struct DataRequest * req = ata_receive_request();
-
-		if (!req) {
-			dprintf("ata-server: empty queue\n");
-			continue;
+static void ata_device_read_sector(struct ata_device * dev, uint64_t lba, uint8_t * buf) {
+	lba *= SECTORS_PER_CACHE_BLOCK;
+	/* Is it in the cache? */
+	mutex_acquire(ata_mutex);
+	int found = 0;
+	int oldest = 0;
+	uint64_t lu = -1;
+	for (int i = 0; i < CACHE_COUNT; ++i) {
+		if (cache_entries[i].dev == dev && cache_entries[i].lba == lba) {
+			//dprintf("ata: cache hit\n");
+			hit_count++;
+			oldest = i;
+			found = 1;
+			break;
+		} else if (cache_entries[i].dev == NULL) {
+			oldest = i;
+			break;
+		} else if (cache_entries[i].last_use < lu) {
+			oldest = i;
+			lu = cache_entries[oldest].last_use;
 		}
-
-		switch (req->type) {
-			case 1: {
-				/* Is it in the cache? */
-				int found = 0;
-				int oldest = 0;
-				uint64_t lu = -1;
-				for (int i = 0; i < CACHE_COUNT; ++i) {
-					if (cache_entries[i].dev == req->dev && cache_entries[i].lba == req->lba) {
-						//dprintf("ata: cache hit\n");
-						hit_count++;
-						oldest = i;
-						found = 1;
-						break;
-					} else if (cache_entries[i].dev == NULL) {
-						oldest = i;
-						break;
-					} else if (cache_entries[i].last_use < lu) {
-						oldest = i;
-						lu = cache_entries[oldest].last_use;
-					}
-				}
-				if (!found) {
-					miss_count++;
-					if (cache_entries[oldest].dev && cache_entries[oldest].flags & 1) {
-						eviction_count++;
-						memcpy(cache_entries[oldest].dev->dma_start, cache_blocks + oldest * ATA_CACHE_SIZE, ATA_CACHE_SIZE);
-						ata_device_write_sector_actual(cache_entries[oldest].dev, cache_entries[oldest].lba);
-					}
-					ata_device_read_sector_actual(req->dev, req->lba);
-					cache_entries[oldest].dev = req->dev;
-					cache_entries[oldest].lba = req->lba;
-					cache_entries[oldest].flags = 0;
-					memcpy(cache_blocks + oldest * ATA_CACHE_SIZE, req->dev->dma_start, ATA_CACHE_SIZE);
-				}
-				cache_entries[oldest].last_use = counter++;
-				req->buf = malloc(ATA_CACHE_SIZE);
-				memcpy(req->buf, cache_blocks + ATA_CACHE_SIZE * oldest, ATA_CACHE_SIZE);
-				ata_respond(req);
-				break;
-			}
-			case 2: {
-				int found = 0;
-				int oldest = 0;
-				uint64_t lu = -1;
-				for (int i = 0; i < CACHE_COUNT; ++i) {
-					if (cache_entries[i].dev == req->dev && cache_entries[i].lba == req->lba) {
-						//dprintf("ata: cache hit\n");
-						hit_count++;
-						oldest = i;
-						found = 1;
-						break;
-					} else if (cache_entries[i].dev == NULL) {
-						oldest = i;
-						break;
-					} else if (cache_entries[i].last_use < lu) {
-						oldest = i;
-						lu = cache_entries[oldest].last_use;
-					}
-				}
-				if (!found) {
-					miss_count++;
-					if (cache_entries[oldest].dev && cache_entries[oldest].flags & 1) {
-						eviction_count++;
-						memcpy(cache_entries[oldest].dev->dma_start, cache_blocks + oldest * ATA_CACHE_SIZE, ATA_CACHE_SIZE);
-						ata_device_write_sector_actual(cache_entries[oldest].dev, cache_entries[oldest].lba);
-					}
-					cache_entries[oldest].dev = req->dev;
-					cache_entries[oldest].lba = req->lba;
-				}
-				write_count++;
-				cache_entries[oldest].last_use = counter++;
-				memcpy(cache_blocks + oldest * ATA_CACHE_SIZE, req->buf, ATA_CACHE_SIZE);
-				cache_entries[oldest].flags = 1;
-				free(req->buf);
-				ata_respond(req);
-				break;
-			}
-			case 3: {
-				for (int i = 0; i < CACHE_COUNT; ++i) {
-					if (cache_entries[i].dev == req->dev && cache_entries[i].flags & 1) {
-						eviction_count++;
-						memcpy(cache_entries[i].dev->dma_start, cache_blocks + i * ATA_CACHE_SIZE, ATA_CACHE_SIZE);
-						ata_device_write_sector_actual(cache_entries[i].dev, cache_entries[i].lba);
-						cache_entries[i].flags = 0;
-					}
-				}
-				ata_respond(req);
-				break;
-			}
-			case 4: {
-				req->buf = malloc(2048);
-				ata_device_read_sector_atapi_actual(req->dev, req->lba, (uint8_t*)req->buf);
-				ata_respond(req);
-				break;
-			}
-			default:
-				dprintf("ata: invalid request\n");
-				break;
-		}
-
 	}
+	if (!found) {
+		miss_count++;
+		if (cache_entries[oldest].dev && cache_entries[oldest].flags & 1) {
+			eviction_count++;
+			memcpy(cache_entries[oldest].dev->dma_start, cache_blocks + oldest * ATA_CACHE_SIZE, ATA_CACHE_SIZE);
+			ata_device_write_sector_actual(cache_entries[oldest].dev, cache_entries[oldest].lba);
+		}
+		ata_device_read_sector_actual(dev, lba);
+		cache_entries[oldest].dev = dev;
+		cache_entries[oldest].lba = lba;
+		cache_entries[oldest].flags = 0;
+		memcpy(cache_blocks + oldest * ATA_CACHE_SIZE, dev->dma_start, ATA_CACHE_SIZE);
+	}
+	cache_entries[oldest].last_use = counter++;
+	memcpy(buf, cache_blocks + ATA_CACHE_SIZE * oldest, ATA_CACHE_SIZE);
+	mutex_release(ata_mutex);
+}
+
+static void ata_device_write_sector(struct ata_device * dev, uint64_t lba, uint8_t * buf) {
+	lba *= SECTORS_PER_CACHE_BLOCK;
+	mutex_acquire(ata_mutex);
+	int found = 0;
+	int oldest = 0;
+	uint64_t lu = -1;
+	for (int i = 0; i < CACHE_COUNT; ++i) {
+		if (cache_entries[i].dev == dev && cache_entries[i].lba == lba) {
+			//dprintf("ata: cache hit\n");
+			hit_count++;
+			oldest = i;
+			found = 1;
+			break;
+		} else if (cache_entries[i].dev == NULL) {
+			oldest = i;
+			break;
+		} else if (cache_entries[i].last_use < lu) {
+			oldest = i;
+			lu = cache_entries[oldest].last_use;
+		}
+	}
+	if (!found) {
+		miss_count++;
+		if (cache_entries[oldest].dev && cache_entries[oldest].flags & 1) {
+			eviction_count++;
+			memcpy(cache_entries[oldest].dev->dma_start, cache_blocks + oldest * ATA_CACHE_SIZE, ATA_CACHE_SIZE);
+			ata_device_write_sector_actual(cache_entries[oldest].dev, cache_entries[oldest].lba);
+		}
+		cache_entries[oldest].dev = dev;
+		cache_entries[oldest].lba = lba;
+	}
+	write_count++;
+	cache_entries[oldest].last_use = counter++;
+	memcpy(cache_blocks + oldest * ATA_CACHE_SIZE, buf, ATA_CACHE_SIZE);
+	cache_entries[oldest].flags = 1;
+	mutex_release(ata_mutex);
+}
+static void ata_device_read_sector_atapi(struct ata_device * dev, uint64_t lba, uint8_t * buf) {
+	mutex_acquire(ata_mutex);
+	ata_device_read_sector_atapi_actual(dev, lba, buf);
+	mutex_release(ata_mutex);
 }
 
 static int ata_initialize(int argc, char * argv[]) {
@@ -1164,17 +1041,16 @@ static int ata_initialize(int argc, char * argv[]) {
 	irq_install_handler(15, ata_irq_handler, "ide slave");
 
 	atapi_waiter = list_create("atapi waiter", NULL);
-	ata_queue = list_create("ata req queue", NULL);
-	ata_waiter = list_create("ata resonder waiter", NULL);
+
+	cache_entries = malloc(sizeof(struct CacheEntry) * CACHE_COUNT);
+	memset(cache_entries, 0, sizeof(struct CacheEntry) * CACHE_COUNT);
+	cache_blocks  = mmu_map_module(CACHE_COUNT * ATA_CACHE_SIZE);
+	ata_mutex = mutex_init("ata lock");
 
 	ata_device_detect(&ata_primary_master);
 	ata_device_detect(&ata_primary_slave);
 	ata_device_detect(&ata_secondary_master);
 	ata_device_detect(&ata_secondary_slave);
-
-	if (found_something) {
-		spawn_worker_thread(ata_scheduler, "[ata scheduler]", NULL);
-	}
 
 	return 0;
 }
