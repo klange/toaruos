@@ -584,9 +584,10 @@ void menu_prepare(struct MenuList * menu, yutani_t * yctx) {
 	menu->closed = 0;
 
 	/* Create window */
+
 	yutani_window_t * menu_window = yutani_window_create_flags(yctx, width, height,
-		(menu->flags & MENU_FLAG_BUBBLE) ? YUTANI_WINDOW_FLAG_ALT_ANIMATION :
-			YUTANI_WINDOW_FLAG_NO_ANIMATION);
+		((menu->flags & MENU_FLAG_BUBBLE) ? YUTANI_WINDOW_FLAG_ALT_ANIMATION :
+			YUTANI_WINDOW_FLAG_NO_ANIMATION) | YUTANI_WINDOW_FLAG_DISALLOW_DRAG | YUTANI_WINDOW_FLAG_DISALLOW_RESIZE);
 	yutani_set_stack(yctx, menu_window, YUTANI_ZORDER_MENU);
 	if (menu->ctx) {
 		reinit_graphics_yutani(menu->ctx, menu_window);
