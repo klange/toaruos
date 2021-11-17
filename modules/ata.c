@@ -572,7 +572,7 @@ static void ata_device_init(struct ata_device * dev) {
 	}
 
 	dev->is_atapi = 0;
-	dev->dma_prdt  = (void *)kvmalloc_p(sizeof(prdt_t) * 1, &dev->dma_prdt_phys);
+	dev->dma_prdt  = (void *)kvmalloc_p(4096, &dev->dma_prdt_phys);
 	dev->dma_start = (void *)kvmalloc_p(4096, &dev->dma_start_phys);
 	dev->dma_prdt[0].offset = dev->dma_start_phys;
 	dev->dma_prdt[0].bytes = ATA_CACHE_SIZE;
