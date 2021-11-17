@@ -7,6 +7,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2018 K. Lange
  */
+#include <errno.h>
 #include <kernel/types.h>
 #include <kernel/vfs.h>
 #include <kernel/printf.h>
@@ -358,6 +359,10 @@ static ssize_t readlink_tarfs(fs_node_t * node, char * buf, size_t size) {
 
 }
 
+static int create_ret_rofs(fs_node_t *parent, char *name, mode_t permission) {
+	return -EROFS;
+}
+
 static fs_node_t * file_from_ustar(struct tarfs * self, struct ustar * file, unsigned int offset) {
 	fs_node_t * fs = malloc(sizeof(fs_node_t));
 	memset(fs, 0, sizeof(fs_node_t));
@@ -377,6 +382,7 @@ static fs_node_t * file_from_ustar(struct tarfs * self, struct ustar * file, uns
 		fs->flags = FS_DIRECTORY;
 		fs->readdir = readdir_tarfs;
 		fs->finddir = finddir_tarfs;
+		fs->create  = create_ret_rofs;
 	} else if (file->type[0] == '1') {
 		//debug_print(ERROR, "Hardlink detected");
 		/* go through file and find target, reassign inode to point to that */
@@ -479,6 +485,7 @@ static fs_node_t * tar_mount(const char * device, const char * mount_path) {
 	root->mask    = 0555;
 	root->readdir = readdir_tar_root;
 	root->finddir = finddir_tar_root;
+	root->create  = create_ret_rofs;
 	root->flags   = FS_DIRECTORY;
 	root->device  = self;
 
