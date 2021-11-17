@@ -967,10 +967,15 @@ void recalculate_syntax(line_t * line, int line_no) {
 		s->state.i = 0;
 
 		while (1) {
+			struct termios old, new;
+			tcgetattr(global_config.tty_in, &old);
+			new = old; new.c_lflag |= ISIG;
+			tcsetattr(global_config.tty_in, TCSAFLUSH, &new);
 			ptrdiff_t before = krk_currentThread.stackTop - krk_currentThread.stack;
 			krk_push(OBJECT_VAL(env->syntax->krkFunc));
 			krk_push(OBJECT_VAL(s));
 			KrkValue result = krk_callStack(1);
+			tcsetattr(global_config.tty_in, TCSAFLUSH, &old);
 			krk_currentThread.stackTop = krk_currentThread.stack + before;
 			if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
 				render_error("Exception occurred in plugin: %s", AS_INSTANCE(krk_currentThread.currentException)->_class->name->chars);
@@ -3435,6 +3440,11 @@ void SIGCONT_handler(int sig) {
 	update_title();
 	signal(SIGCONT, SIGCONT_handler);
 	signal(SIGTSTP, SIGTSTP_handler);
+}
+
+void SIGINT_handler(int sig) {
+	krk_currentThread.flags |= KRK_THREAD_SIGNALLED;
+	signal(SIGINT,   SIGINT_handler);
 }
 
 void try_to_center() {
@@ -11127,6 +11137,7 @@ void init_terminal(void) {
 	signal(SIGWINCH, SIGWINCH_handler);
 	signal(SIGCONT,  SIGCONT_handler);
 	signal(SIGTSTP,  SIGTSTP_handler);
+	signal(SIGINT,   SIGINT_handler);
 }
 
 struct action_def * find_action(void (*action)()) {

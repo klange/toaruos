@@ -29,9 +29,11 @@ class JavaHighlighter(Highlighter):
     ]
     def atKeywordQualifier(c):
         if isinstance(c,int) and c > 0: c = chr(c)
+        else if isinstance(c,int) and c <= 0: return False
         return self.isalnum(c) or c in '_@'
     def braceKeywordQualifier(c):
         if isinstance(c,int) and c > 0: c = chr(c)
+        else if isinstance(c,int) and c <= 0: return False
         return self.isalnum(c) or c in '{@_'
     def keywordQualifier(c):
         return self.cKeywordQualifier(c)

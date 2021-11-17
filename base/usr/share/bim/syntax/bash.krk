@@ -22,7 +22,7 @@ class BashHighlighter(Highlighter):
     def paintTick(self, outState):
         let last = None
         while self[0] != None:
-            if last != '\\' and self[0] == "'":
+            if self[0] == "'":
                 self.paint(1, self.FLAG_STRING)
                 return self.popState(outState)
             else if last == '\\':

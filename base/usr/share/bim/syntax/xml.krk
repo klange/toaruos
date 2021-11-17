@@ -97,6 +97,8 @@ class HTMLHighlighter(XMLHighlighter):
             if result == 0:
                 self.__init__(css)
                 continue
+            else if result == 1:
+                return 7
             else if result == None:
                 return 6
         if (self[0] == '<' and self[1] == '/' and self[2] == 's'):
