@@ -786,6 +786,20 @@ int wakeup_queue_interrupted(list_t * queue) {
 	return awoken_processes;
 }
 
+int wakeup_queue_one(list_t * queue) {
+	int awoken_processes = 0;
+	spin_lock(wait_lock_tmp);
+	if (queue->length > 0) {
+		node_t * node = list_pop(queue);
+		if (!(((process_t *)node->value)->flags & PROC_FLAG_FINISHED)) {
+			make_process_ready(node->value);
+		}
+		awoken_processes++;
+	}
+	spin_unlock(wait_lock_tmp);
+	return awoken_processes;
+}
+
 /**
  * @brief Wait for a binary semaphore.
  *
