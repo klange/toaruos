@@ -37,9 +37,6 @@
 # define TAG "-alpha"
 #endif
 
-#define BIM_VERSION   "2.99.0" TAG
-#define BIM_COPYRIGHT "Copyright 2012-2021 K. Lange <\033[3mklange@toaruos.org\033[23m>"
-
 #define BLOCK_SIZE 4096
 #define ENTER_KEY     '\r'
 #define LINE_FEED     '\n'
