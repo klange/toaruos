@@ -15,6 +15,7 @@
 #include <kernel/spinlock.h>
 #include <kernel/tokenize.h>
 #include <kernel/module.h>
+#include <kernel/mutex.h>
 
 #include <sys/ioctl.h>
 
@@ -202,6 +203,8 @@ typedef struct {
 	uint8_t *                 cache_data;
 
 	int flags;
+
+	sched_mutex_t *           mutex;
 } ext2_fs_t;
 
 #define EXT2_FLAG_READWRITE 0x0002
@@ -502,6 +505,8 @@ static size_t allocate_block(ext2_fs_t * this) {
 	size_t group        = 0;
 	uint8_t * bg_buffer = malloc(this->block_size);
 
+	mutex_acquire(this->mutex);
+
 	for (unsigned int i = 0; i < BGDS; ++i) {
 		if (BGD[i].free_blocks_count > 0) {
 			read_block(this, BGD[i].block_bitmap, (uint8_t *)bg_buffer);
@@ -515,6 +520,7 @@ static size_t allocate_block(ext2_fs_t * this) {
 	}
 
 	if (!block_no) {
+		mutex_release(this->mutex);
 		debug_print(CRITICAL, "No available blocks, disk is out of space!");
 		free(bg_buffer);
 		return 0;
@@ -535,6 +541,8 @@ static size_t allocate_block(ext2_fs_t * this) {
 
 	memset(bg_buffer, 0x00, this->block_size);
 	write_block(this, block_no, bg_buffer);
+
+	mutex_release(this->mutex);
 
 	free(bg_buffer);
 
@@ -603,6 +611,7 @@ static unsigned int inode_write_block(ext2_fs_t * this, ext2_inodetable_t * inod
 
 	debug_print(WARNING, "clearing and allocating up to required blocks (block=%d, %d)", block, inode->blocks);
 	char * empty = NULL;
+
 	while (block >= inode->blocks / (this->block_size / 512)) {
 		allocate_inode_block(this, inode, inode_no, inode->blocks / (this->block_size / 512));
 		refresh_inode(this, inode, inode_no);
@@ -751,6 +760,8 @@ static unsigned int allocate_inode(ext2_fs_t * this) {
 	uint32_t group       = 0;
 	uint8_t * bg_buffer  = malloc(this->block_size);
 
+	mutex_acquire(this->mutex);
+
 	for (unsigned int i = 0; i < BGDS; ++i) {
 		if (BGD[i].free_inodes_count > 0) {
 			debug_print(NOTICE, "Group %d has %d free inodes.", i, BGD[i].free_inodes_count);
@@ -764,6 +775,7 @@ static unsigned int allocate_inode(ext2_fs_t * this) {
 		}
 	}
 	if (!node_no) {
+		mutex_release(this->mutex);
 		debug_print(ERROR, "Ran out of inodes!");
 		return 0;
 	}
@@ -780,6 +792,8 @@ static unsigned int allocate_inode(ext2_fs_t * this) {
 
 	SB->free_inodes_count--;
 	rewrite_superblock(this);
+
+	mutex_release(this->mutex);
 
 	return node_no;
 }
@@ -1097,16 +1111,31 @@ static int unlink_ext2(fs_node_t * node, char * name) {
 		dir_offset += d_ent->rec_len;
 		total_offset += d_ent->rec_len;
 	}
-	free(inode);
 	if (!direntry) {
+		free(inode);
 		free(block);
 		return -ENOENT;
 	}
 
+	unsigned int new_inode = direntry->inode;
 	direntry->inode = 0;
-
 	inode_write_block(this, inode, node->inode, block_nr, block);
+	free(inode);
 	free(block);
+
+	inode = read_inode(this, new_inode);
+
+	if (inode->links_count == 1) {
+		dprintf("ext2: TODO: unlinking '%s' (inode=%u) which now has no links; should delete\n",
+			name, new_inode);
+	}
+
+	if (inode->links_count > 0) {
+		inode->links_count--;
+		write_inode(this, inode, new_inode);
+	}
+
+	free(inode);
 
 	return 0;
 }
@@ -1538,6 +1567,8 @@ static fs_node_t * mount_ext2(fs_node_t * block_device, int flags) {
 	this->block_size = 1024;
 	/* We need to keep an owned refcount to this device if it was something we opened... */
 	//vfs_lock(this->block_device);
+
+	this->mutex = mutex_init("ext2 fs");
 
 	SB = malloc(this->block_size);
 
