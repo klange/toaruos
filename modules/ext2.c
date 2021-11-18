@@ -479,6 +479,12 @@ static unsigned int get_block_number(ext2_fs_t * this, ext2_inodetable_t * inode
 }
 
 static int write_inode(ext2_fs_t * this, ext2_inodetable_t *inode, size_t index) {
+	if (!index) {
+		dprintf("ext2: Attempt to write inode 0\n");
+		return E_BADBLOCK;
+	}
+	index--;
+
 	size_t group = index / this->inodes_per_group;
 	if (group > BGDS) {
 		return E_BADBLOCK;
@@ -486,8 +492,8 @@ static int write_inode(ext2_fs_t * this, ext2_inodetable_t *inode, size_t index)
 
 	size_t inode_table_block = BGD[group].inode_table;
 	index -= group * this->inodes_per_group;
-	size_t block_offset = ((index - 1) * this->inode_size) / this->block_size;
-	size_t offset_in_block = (index - 1) - block_offset * (this->block_size / this->inode_size);
+	size_t block_offset = (index * this->inode_size) / this->block_size;
+	size_t offset_in_block = index - block_offset * (this->block_size / this->inode_size);
 
 	ext2_inodetable_t *inodet = malloc(this->block_size);
 	/* Read the current table block */
@@ -766,17 +772,38 @@ static unsigned int allocate_inode(ext2_fs_t * this) {
 		if (BGD[i].free_inodes_count > 0) {
 			debug_print(NOTICE, "Group %d has %d free inodes.", i, BGD[i].free_inodes_count);
 			read_block(this, BGD[i].inode_bitmap, (uint8_t *)bg_buffer);
-			while (BLOCKBIT(node_offset)) {
-				node_offset++;
+
+			/* Sorry for the weird loops */
+			while (1) {
+				while (BLOCKBIT(node_offset)) {
+					node_offset++;
+					if (node_offset == this->inodes_per_group) {
+						goto _next_block;
+					}
+				}
+				node_no = node_offset + i * this->inodes_per_group + 1;
+				/* Is this a reserved inode? */
+				if (node_no <= 10) {
+					node_offset++;
+					if (node_offset == this->inodes_per_group) {
+						goto _next_block;
+					}
+					continue;
+				}
+				break;
 			}
-			node_no = node_offset + i * this->inodes_per_group + 1;
+			if (node_offset == this->inodes_per_group) {
+				_next_block:
+				node_offset = 0;
+				continue;
+			}
 			group = i;
 			break;
 		}
 	}
 	if (!node_no) {
 		mutex_release(this->mutex);
-		debug_print(ERROR, "Ran out of inodes!");
+		dprintf("ext2: Out of inodes? node_no = 0\n");
 		return 0;
 	}
 
@@ -1142,14 +1169,20 @@ static int unlink_ext2(fs_node_t * node, char * name) {
 
 
 static void refresh_inode(ext2_fs_t * this, ext2_inodetable_t * inodet,  size_t inode) {
+	if (!inode) {
+		dprintf("ext2: Attempt to read inode 0\n");
+		return;
+	}
+	inode--;
+
 	uint32_t group = inode / this->inodes_per_group;
 	if (group > BGDS) {
 		return;
 	}
 	uint32_t inode_table_block = BGD[group].inode_table;
 	inode -= group * this->inodes_per_group;	// adjust index within group
-	uint32_t block_offset		= ((inode - 1) * this->inode_size) / this->block_size;
-	uint32_t offset_in_block    = (inode - 1) - block_offset * (this->block_size / this->inode_size);
+	uint32_t block_offset		= (inode * this->inode_size) / this->block_size;
+	uint32_t offset_in_block    = inode - block_offset * (this->block_size / this->inode_size);
 
 	uint8_t * buf = malloc(this->block_size);
 
@@ -1606,6 +1639,9 @@ static fs_node_t * mount_ext2(fs_node_t * block_device, int flags) {
 	for (int i = 0; i < this->bgd_block_span; ++i) {
 		read_block(this, this->bgd_offset + i, (uint8_t *)((uintptr_t)BGD + this->block_size * i));
 	}
+
+	dprintf("ext2: %u BGDs, %u inodes, %u inodes per group\n",
+		BGDS, SB->inodes_count, this->inodes_per_group);
 
 #if 1 // DEBUG_BLOCK_DESCRIPTORS
 	char * bg_buffer = malloc(this->block_size * sizeof(char));
