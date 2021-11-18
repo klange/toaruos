@@ -28,6 +28,7 @@ extern int system(const char * path, int argc, const char ** argv, const char **
 extern void snd_install(void);
 extern void net_install(void);
 extern void console_initialize(void);
+extern void modules_install(void);
 
 void generic_startup(void) {
 	args_parse(arch_get_cmdline());
@@ -45,6 +46,7 @@ void generic_startup(void) {
 	snd_install();
 	net_install();
 	tasking_start();
+	modules_install();
 }
 
 int generic_main(void) {

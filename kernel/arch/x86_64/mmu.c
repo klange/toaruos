@@ -905,6 +905,30 @@ void * mmu_map_module(size_t size) {
 	return out;
 }
 
+void mmu_unmap_module(uintptr_t start_address, size_t size) {
+	if ((size & PAGE_LOW_MASK) || (start_address & PAGE_LOW_MASK)) {
+		arch_fatal_prepare();
+		printf("mmu_unmap_module start and size must be multiple of page size %#zx:%#zx.\n", start_address, size);
+		arch_dump_traceback();
+		arch_fatal();
+	}
+
+	spin_lock(module_space_lock);
+	uintptr_t end_address = start_address + size;
+
+	/* Unmap all pages we just allocated */
+	for (uintptr_t i = start_address; i < end_address; i += 0x1000) {
+		union PML * p = mmu_get_page(i, 0);
+		mmu_frame_clear(p->bits.page << 12);
+	}
+
+	/* Reset module base address if it was at the end, to avoid wasting address space */
+	if (end_address == module_base_address) {
+		module_base_address = start_address;
+	}
+	spin_unlock(module_space_lock);
+}
+
 
 int mmu_validate_user_pointer(void * addr, size_t size, int flags) {
 	if (addr == NULL && !(flags & MMU_PTR_NULL)) return 0;

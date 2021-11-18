@@ -20,14 +20,22 @@
 #include <kernel/ksym.h>
 #include <kernel/module.h>
 #include <kernel/hashmap.h>
+#include <kernel/mutex.h>
 
-static hashmap_t * _modules_table = NULL;
+hashmap_t * _modules_table = NULL;
+sched_mutex_t * _modules_mutex = NULL;
+
+void modules_install(void) {
+	_modules_table = hashmap_create(10);
+	_modules_mutex = mutex_init("module loader");
+}
 
 hashmap_t * modules_get_list(void) {
 	return _modules_table;
 }
 
 int elf_module(char ** args) {
+	int error = 0;
 	Elf64_Header header;
 
 	fs_node_t * file = kopen(args[0],0);
@@ -49,13 +57,17 @@ int elf_module(char ** args) {
 
 	if (header.e_ident[EI_CLASS] != ELFCLASS64) {
 		printf("(Wrong Elf class)\n");
+		close_fs(file);
 		return -EINVAL;
 	}
 
 	if (header.e_type != ET_REL) {
 		printf("(Not a relocatable object)\n");
+		close_fs(file);
 		return -EINVAL;
 	}
+
+	mutex_acquire(_modules_mutex);
 
 	/* Just slap the whole thing into memory, why not... */
 	char * module_load_address = mmu_map_module(file->length);
@@ -119,8 +131,8 @@ int elf_module(char ** args) {
 	}
 
 	if (!moduleData) {
-		printf("No module data, bailing.\n");
-		return -EINVAL;
+		error = EINVAL;
+		goto _unmap_module;
 	}
 
 	for (unsigned int i = 0; i < header.e_shnum; ++i) {
@@ -149,14 +161,15 @@ int elf_module(char ** args) {
 					*(uint32_t*)target = symbolTable[ELF64_R_SYM(table[rela].r_info)].st_value + table[rela].r_addend - target;
 					break;
 				default:
-					printf("Unsupported relocation: %ld\n", ELF64_R_TYPE(table[rela].r_info));
-					return -EINVAL;
+					error = EINVAL;
+					goto _unmap_module;
 			}
 		}
 	}
 
-	if (!_modules_table) {
-		_modules_table = hashmap_create(10);
+	if (hashmap_has(_modules_table, moduleData->name)) {
+		error = EEXIST;
+		goto _unmap_module;
 	}
 
 	struct LoadedModule * loadedData = malloc(sizeof(struct LoadedModule));
@@ -168,12 +181,21 @@ int elf_module(char ** args) {
 	close_fs(file);
 
 	hashmap_set(_modules_table, moduleData->name, loadedData);
+	mutex_release(_modules_mutex);
 
 	/* Count arguments */
 	int argc = 0;
 	for (char ** aa = args; *aa; ++aa) ++argc;
 
 	return moduleData->init(argc, args);
+
+_unmap_module:
+	close_fs(file);
+
+	mmu_unmap_module((uintptr_t)module_load_address, (uintptr_t)mmu_map_module(0) - (uintptr_t)module_load_address);
+
+	mutex_release(_modules_mutex);
+	return -error;
 }
 
 int elf_exec(const char * path, fs_node_t * file, int argc, const char *const argv[], const char *const env[], int interp) {
