@@ -961,7 +961,8 @@ static void redraw_altf2(void) {
 #endif
 
 	draw_fill(a2ctx, 0);
-	draw_rounded_rectangle(a2ctx,0,0, ALTF2_WIDTH, ALTF2_HEIGHT, 10, ALTTAB_BACKGROUND);
+	draw_rounded_rectangle(a2ctx,0,0, ALTF2_WIDTH, ALTF2_HEIGHT, 10, premultiply(rgba(120,120,120,150)));
+	draw_rounded_rectangle(a2ctx,1,1, ALTF2_WIDTH-2, ALTF2_HEIGHT-2, 10, ALTTAB_BACKGROUND);
 
 	tt_set_size(font, 20);
 	int t = tt_string_width(font, altf2_buffer);
@@ -973,11 +974,23 @@ static void redraw_altf2(void) {
 
 static void redraw_alttab(void) {
 	if (!actx) return;
-	if (new_focused == -1) return;
+	while (new_focused > -1 && !ads_by_z[new_focused]) {
+		new_focused--;
+	}
+	if (new_focused == -1) {
+		/* Stop tabbing */
+		was_tabbing = 0;
+		free(actx->backbuffer);
+		free(actx);
+		actx = NULL;
+		yutani_close(yctx, alttab);
+		return;
+	}
 
 	/* Draw the background, right now just a dark semi-transparent box */
 	draw_fill(actx, 0);
-	draw_rounded_rectangle(actx,0,0, ALTTAB_WIDTH, ALTTAB_HEIGHT, 10, ALTTAB_BACKGROUND);
+	draw_rounded_rectangle(actx,0,0, ALTTAB_WIDTH, ALTTAB_HEIGHT, 10, premultiply(rgba(120,120,120,150)));
+	draw_rounded_rectangle(actx,1,1, ALTTAB_WIDTH-2, ALTTAB_HEIGHT-2, 10, ALTTAB_BACKGROUND);
 
 	if (ads_by_z[new_focused]) {
 		struct window_ad * ad = ads_by_z[new_focused];
@@ -1183,7 +1196,11 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 				}
 			}
 		} else if (ads_by_z[new_focused] == NULL) {
-			new_focused = 0;
+			if (ads_by_z[0]) {
+				new_focused = 0;
+			} else {
+				new_focused = -1;
+			}
 		}
 
 		was_tabbing = 1;
@@ -1369,6 +1386,8 @@ static void update_window_list(void) {
 	yutani_query_windows(yctx);
 
 	list_t * new_window_list = list_create();
+
+	ads_by_z[0] = NULL;
 
 	int i = 0;
 	while (1) {
