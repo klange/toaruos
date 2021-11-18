@@ -931,6 +931,7 @@ void tt_draw_string_shadow(gfx_context_t * ctx, struct TT_Font * font, char * st
 	draw_fill(_tmp, rgba(0,0,0,0));
 	tt_draw_string(_tmp, font, blur, blur + font_size, string, shadow_color);
 	blur_context_box(_tmp, blur);
+	blur_context_box(_tmp, blur);
 	free(_tmp);
 	draw_sprite(ctx, _tmp_s, left - blur, top - blur);
 	sprite_free(_tmp_s);
