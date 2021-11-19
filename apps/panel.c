@@ -160,7 +160,7 @@ static int center_y(int y) {
 }
 
 static int center_x_a(int x) {
-	return (ALTTAB_WIDTH - x) / 2;
+	return (alttab->width - x) / 2;
 }
 
 static int center_x_a2(int x) {
@@ -961,7 +961,7 @@ static void redraw_altf2(void) {
 #endif
 
 	draw_fill(a2ctx, 0);
-	draw_rounded_rectangle(a2ctx,0,0, ALTF2_WIDTH, ALTF2_HEIGHT, 10, premultiply(rgba(120,120,120,150)));
+	draw_rounded_rectangle(a2ctx,0,0, ALTF2_WIDTH, ALTF2_HEIGHT, 11, premultiply(rgba(120,120,120,150)));
 	draw_rounded_rectangle(a2ctx,1,1, ALTF2_WIDTH-2, ALTF2_HEIGHT-2, 10, ALTTAB_BACKGROUND);
 
 	tt_set_size(font, 20);
@@ -987,13 +987,50 @@ static void redraw_alttab(void) {
 		return;
 	}
 
+	/* How many windows do we have? */
+	unsigned int window_count = 0;
+	while (ads_by_z[window_count]) window_count++;
+
+#define ALTTAB_COLUMNS 5
+
+	/* How many rows should that be? */
+	int rows = (window_count - 1) / ALTTAB_COLUMNS + 1;
+
+	/* How many columns? */
+	int columns = (rows == 1) ? window_count : ALTTAB_COLUMNS;
+
+	/* How much padding on the last row? */
+	int last_row = (window_count % columns) ? ((ALTTAB_WIN_SIZE + 20) * (columns - (window_count % columns))) / 2  : 0;
+
+	/* Is the window the right size? */
+	unsigned int expected_width = columns * (ALTTAB_WIN_SIZE + 20) + 40;
+	unsigned int expected_height = rows * (ALTTAB_WIN_SIZE + 20) + 60;
+
+	if (alttab->width != expected_width || alttab->height != expected_height) {
+		yutani_window_resize(yctx, alttab, expected_width, expected_height);
+		return;
+	}
+
 	/* Draw the background, right now just a dark semi-transparent box */
 	draw_fill(actx, 0);
-	draw_rounded_rectangle(actx,0,0, ALTTAB_WIDTH, ALTTAB_HEIGHT, 10, premultiply(rgba(120,120,120,150)));
-	draw_rounded_rectangle(actx,1,1, ALTTAB_WIDTH-2, ALTTAB_HEIGHT-2, 10, ALTTAB_BACKGROUND);
+	draw_rounded_rectangle(actx,0,0, alttab->width, alttab->height, 11, premultiply(rgba(120,120,120,150)));
+	draw_rounded_rectangle(actx,1,1, alttab->width-2, alttab->height-2, 10, ALTTAB_BACKGROUND);
 
-	if (ads_by_z[new_focused]) {
-		struct window_ad * ad = ads_by_z[new_focused];
+	for (unsigned int i = 0; i < window_count; ++i) {
+		if (!ads_by_z[i]) continue;
+		struct window_ad * ad = ads_by_z[i];
+
+		/* Figure out grid alignment for this element */
+		int pos_x = ((window_count - i - 1) % ALTTAB_COLUMNS) * (ALTTAB_WIN_SIZE + 20) + 20;
+		int pos_y = ((window_count - i - 1) / ALTTAB_COLUMNS) * (ALTTAB_WIN_SIZE + 20) + 20;
+
+		if ((window_count - i - 1) / ALTTAB_COLUMNS == rows - 1) {
+			pos_x += last_row;
+		}
+
+		if (i == (unsigned int)new_focused) {
+			draw_rounded_rectangle(actx, pos_x, pos_y, ALTTAB_WIN_SIZE + 20, ALTTAB_WIN_SIZE + 20, 7, premultiply(rgba(170,170,170,150)));
+		}
 
 		/* try very hard to get a window texture */
 		char key[1024];
@@ -1007,6 +1044,7 @@ static void redraw_alttab(void) {
 			tmp.height = ad->height;
 			tmp.bitmap = buf;
 
+			int ox = 0;
 			int oy = 0;
 			int sw, sh;
 			if (tmp.width > tmp.height) {
@@ -1016,24 +1054,33 @@ static void redraw_alttab(void) {
 			} else {
 				sh = ALTTAB_WIN_SIZE;
 				sw = tmp.width * ALTTAB_WIN_SIZE / tmp.height;
+				ox = (ALTTAB_WIN_SIZE - sw) / 2;
 			}
-			draw_sprite_scaled(actx, &tmp, center_x_a(sw), ALTTAB_OFFSET + oy, sw, sh);
+			draw_sprite_scaled(actx, &tmp,
+				pos_x + ox + 10,
+				pos_y + oy + 10,
+				sw, sh);
 
 			shm_release(key);
 
 			sprite_t * icon = icon_get_48(ad->icon);
-			draw_sprite(actx, icon, center_x_a(-ALTTAB_WIN_SIZE) - 50, ALTTAB_OFFSET + ALTTAB_WIN_SIZE - 50);
+			draw_sprite(actx, icon, pos_x + 10 + ALTTAB_WIN_SIZE - 50, pos_y + 10 + ALTTAB_WIN_SIZE - 50);
 		} else {
 			sprite_t * icon = icon_get_48(ad->icon);
-			draw_sprite(actx, icon, center_x_a(48), ALTTAB_OFFSET + (ALTTAB_WIN_SIZE - 48) / 2);
+			draw_sprite(actx, icon, pos_x + 10 + (ALTTAB_WIN_SIZE - 48) / 2, pos_y + 10 + (ALTTAB_WIN_SIZE - 48) / 2);
 		}
 
+	}
+
+	{
+		struct window_ad * ad = ads_by_z[new_focused];
 		tt_set_size(font, 16);
 		int t = tt_string_width(font, ad->name);
-		tt_draw_string(actx, font, center_x_a(t), 12 + ALTTAB_OFFSET + 140 + 16, ad->name, rgb(255,255,255));
+		tt_draw_string(actx, font, center_x_a(t), rows * (ALTTAB_WIN_SIZE + 20) + 40, ad->name, rgb(255,255,255));
 	}
 
 	flip(actx);
+	yutani_window_move(yctx, alttab, center_x(alttab->width), center_y(alttab->height));
 	yutani_flip(yctx, alttab);
 }
 
@@ -1179,9 +1226,6 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 				YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS | YUTANI_WINDOW_FLAG_NO_ANIMATION);
 
 			yutani_set_stack(yctx, alttab, YUTANI_ZORDER_OVERLAY);
-
-			/* Center window */
-			yutani_window_move(yctx, alttab, center_x(ALTTAB_WIDTH), center_y(ALTTAB_HEIGHT));
 
 			/* Initialize graphics context against the window */
 			actx = init_graphics_yutani_double_buffer(alttab);
@@ -1871,7 +1915,14 @@ int main (int argc, char ** argv) {
 					case YUTANI_MSG_RESIZE_OFFER:
 						{
 							struct yutani_msg_window_resize * wr = (void*)m->data;
-							resize_finish(wr->width, wr->height);
+							if (wr->wid == panel->wid) {
+								resize_finish(wr->width, wr->height);
+							} else if (alttab && wr->wid == alttab->wid) {
+								yutani_window_resize_accept(yctx, alttab, wr->width, wr->height);
+								reinit_graphics_yutani(actx, alttab);
+								redraw_alttab();
+								yutani_window_resize_done(yctx, alttab);
+							}
 						}
 						break;
 					default:
