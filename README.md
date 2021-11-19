@@ -63,8 +63,9 @@ The following projects are currently in progress:
 
 General users hoping to build ToaruOS from source are recommended to use the prebuilt Docker image, which contains all the necessary tools:
 
-    git clone --recursive https://github.com/klange/toaruos
+    git clone https://github.com/klange/toaruos
     cd toaruos
+    git submodule update --init kuroko
     docker pull toaruos/build-tools:1.99.x
     docker run -v `pwd`:/root/misaka -w /root/misaka -e LANG=C.UTF-8 -t toaruos/build-tools:1.99.x util/build-in-docker.sh
 
