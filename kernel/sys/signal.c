@@ -222,14 +222,13 @@ int send_signal(pid_t process, int signal, int force_root) {
 	sig->handler = (uintptr_t)receiver->signals[signal];
 	sig->signum  = signal;
 	memset(&sig->registers_before, 0x00, sizeof(struct regs));
+	list_insert(receiver->signal_queue, sig);
 
 	process_awaken_signal(receiver);
 
 	if (!process_is_ready(receiver) || receiver == this_core->current_process) {
 		make_process_ready(receiver);
 	}
-
-	list_insert(receiver->signal_queue, sig);
 
 	if (receiver == this_core->current_process) {
 		/* Forces us to be rescheduled and enter signal handler */
