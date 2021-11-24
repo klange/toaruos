@@ -435,13 +435,21 @@ void handle_input_s(char * c) {
 }
 
 unsigned short * textmemptr = NULL;
-unsigned short * mirrorcopy = NULL;
+unsigned short * basecopy = NULL;
+unsigned short * flipcopy = NULL;
 void placech(unsigned char c, int x, int y, int attr) {
 	unsigned int where = y * term_width + x;
 	unsigned int att = (c | (attr << 8));
-	if (mirrorcopy[where] != att) {
-		mirrorcopy[where] = att;
-		textmemptr[where] = att;
+	basecopy[where] = att;
+}
+
+static void maybe_write_screen(void) {
+	/* This says "maybe_" but we always draw whatever
+	 * needs drawing... */
+	for (int i = 0; i < term_width * term_height; ++i) {
+		if (basecopy[i] != flipcopy[i]) {
+			textmemptr[i] = flipcopy[i] = basecopy[i];
+		}
 	}
 }
 
@@ -978,8 +986,10 @@ void reinit(void) {
 		memset(term_buffer_b, 0x0, sizeof(term_cell_t) * term_width * term_height);
 
 		term_buffer = term_buffer_a;
-		mirrorcopy = malloc(sizeof(unsigned short) * term_width * term_height);
-		memset(mirrorcopy, 0, sizeof(unsigned short) * term_width * term_height);
+		basecopy = malloc(sizeof(unsigned short) * term_width * term_height);
+		memset(basecopy, 0, sizeof(unsigned short) * term_width * term_height);
+		flipcopy = malloc(sizeof(unsigned short) * term_width * term_height);
+		memset(flipcopy, 0, sizeof(unsigned short) * term_width * term_height);
 	}
 
 	ansi_state = ansi_init(ansi_state, term_width, term_height, &term_callbacks);
@@ -1331,6 +1341,7 @@ int main(int argc, char ** argv) {
 					handle_mouse_abs(&packet);
 				}
 			}
+			maybe_write_screen();
 		}
 
 	}
