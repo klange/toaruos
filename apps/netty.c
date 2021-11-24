@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <pty.h>
+#include <pthread.h>
 #include <sys/wait.h>
 #include <sys/fswait.h>
 #include <sys/socket.h>
@@ -22,8 +23,28 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
+int fd_master, fd_slave, fd_serial;
+volatile int _stop = 0;
+
+void * handle_in(void * unused) {
+	while (!_stop) {
+		int index = fswait2(1,&fd_serial,200);
+		char buf[1];
+		int r;
+		switch (index) {
+			case 0: /* fd_serial */
+				r = read(fd_serial, buf, 1);
+				if (r > 0) {
+					write(fd_master, buf, r);
+				}
+				break;
+		}
+	}
+
+	return NULL;
+}
+
 int main(int argc, char * argv[]) {
-	int fd_master, fd_slave, fd_serial;
 	char * user = NULL;
 
 	if (getuid() != 0) {
@@ -80,8 +101,9 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
-
 	fd_serial = sock; //open(file, O_RDWR);
+	pthread_t input_buffer_thread;
+	pthread_create(&input_buffer_thread, NULL, handle_in, NULL);
 
 	pid_t child = fork();
 
@@ -104,18 +126,12 @@ int main(int argc, char * argv[]) {
 		exit(1);
 	} else {
 
-		int fds[2] = {fd_serial, fd_master};
-
 		while (1) {
-			int index = fswait2(2,fds,200);
+			int index = fswait2(1,&fd_master,200);
 			char buf[1024];
 			int r;
 			switch (index) {
-				case 0: /* fd_serial */
-					r = read(fd_serial, buf, 1);
-					write(fd_master, buf, 1);
-					break;
-				case 1: /* fd_master */
+				case 0: /* fd_master */
 					r = read(fd_master, buf, 1024);
 					write(fd_serial, buf, r);
 					break;
@@ -124,6 +140,7 @@ int main(int argc, char * argv[]) {
 						int result = waitpid(child, NULL, WNOHANG);
 						if (result > 0) {
 							/* Child login shell has returned (session ended) */
+							_stop = 1;
 							return 0;
 						}
 					}
