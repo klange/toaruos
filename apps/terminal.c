@@ -1371,6 +1371,17 @@ static void term_clear(int i) {
 		for (int x = 0; x < csr_x; ++x) {
 			term_set_cell(x, csr_y, ' ');
 		}
+	} else if (i == 3) {
+		/* Clear scrollback */
+		if (scrollback_list) {
+			while (scrollback_list->length) {
+				node_t * n = list_dequeue(scrollback_list);
+				free(n->value);
+				free(n);
+			}
+			scrollback_offset = 0;
+		}
+
 	}
 	flush_unused_images();
 }
