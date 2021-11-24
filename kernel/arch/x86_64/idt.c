@@ -248,7 +248,7 @@ static void dump_traceback(uintptr_t ip, uintptr_t bp) {
 		} else {
 			dprintf("\a (unknown)\n");
 		}
-		if (!validate_pointer(bp, sizeof(uintptr_t) * 2)) {
+		if (!validate_pointer(bp, sizeof(uintptr_t)) || !validate_pointer(bp + sizeof(uintptr_t), sizeof(uintptr_t))) {
 			break;
 		}
 		ip = *(uintptr_t*)(bp + sizeof(uintptr_t));
