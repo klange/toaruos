@@ -842,7 +842,17 @@ static void redraw_cell_image(uint16_t x, uint16_t y, term_cell_t * cell, int in
 	r_y = max(r_y, decor_top_height+menu_bar_height + y * char_height + char_height);
 }
 
-static void maybe_flip_display(void) {
+static void maybe_flip_display(int force) {
+	static uint64_t last_refresh;
+	uint64_t ticks = get_ticks();
+	if (!force) {
+		if (ticks < last_refresh + 33330L) {
+			return;
+		}
+	}
+
+	last_refresh = ticks;
+
 	for (unsigned int y = 0; y < term_height; ++y) {
 		for (unsigned int x = 0; x < term_width; ++x) {
 			term_cell_t * cell_m = &term_mirror[y * term_width + x];
@@ -2449,12 +2459,13 @@ int main(int argc, char ** argv) {
 
 		/* PTY read buffer */
 		unsigned char buf[4096];
+		int next_wait = 200;
 
 		while (!exit_application) {
 
 			/* Wait for something to happen. */
 			int res[] = {0,0};
-			fswait3(2,fds,200,res);
+			fswait3(2,fds,next_wait,res);
 
 			/* Check if the child application has closed. */
 			check_for_exit();
@@ -2466,12 +2477,15 @@ int main(int argc, char ** argv) {
 				for (ssize_t i = 0; i < r; ++i) {
 					ansi_put(ansi_state, buf[i]);
 				}
+				next_wait = 10;
+			} else {
+				next_wait = 200;
 			}
 			if (res[0]) {
 				/* Handle Yutani events. */
 				handle_incoming();
 			}
-			maybe_flip_display();
+			maybe_flip_display(!(res[0] || res[1]));
 		}
 	}
 
