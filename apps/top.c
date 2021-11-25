@@ -151,7 +151,12 @@ void print_header(void) {
 		printf("%*s ", ColumnDescriptions[*c].width, ColumnDescriptions[*c].title);
 		if (*c == sort_column) printf("\033[30m");
 	}
-	printf("CMD\033[K\033[0m\n");
+	if (sort_column == COLUMN_NONE) {
+		printf("\033[1;97mCMD\033[30m");
+	} else {
+		printf("CMD");
+	}
+	printf("\033[K\033[0m\n");
 }
 
 /**
@@ -347,6 +352,10 @@ static int sort_processes(const void * a, const void * b) {
 
 	struct columns * column = &ColumnDescriptions[sort_column];
 
+	if (sort_column == COLUMN_NONE) {
+		return strcmp(left->command_line, right->command_line);
+	}
+
 	switch (column->formatter) {
 		case FORMATTER_DECIMAL:
 		case FORMATTER_PERCENT: {
@@ -494,13 +503,10 @@ static void print_meter(const char * title, const char * label, int width, int c
  * @brief Switch sorting to the next column.
  */
 static void next_sort_order(void) {
-	for (int *c = columns; *c; ++c) {
-		if (*c == sort_column) {
-			if (*(c+1) == COLUMN_NONE) {
-				sort_column = *columns;
-			} else {
-				sort_column = *(c+1);
-			}
+	size_t column_count = sizeof(columns)/sizeof(*columns);
+	for (size_t i = 0; i < column_count; ++i) {
+		if (columns[i] == sort_column) {
+			sort_column = columns[(i + 1) % column_count];
 			return;
 		}
 	}
