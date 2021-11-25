@@ -151,6 +151,9 @@ static int32_t r_y = -1;
 
 static uint32_t window_width  = 640;
 static uint32_t window_height = 480;
+static bool     window_position_set = 0;
+static int32_t  window_left   = 0;
+static int32_t  window_top    = 0;
 #define TERMINAL_TITLE_SIZE 512
 static char   terminal_title[TERMINAL_TITLE_SIZE];
 static size_t terminal_title_length = 0;
@@ -2230,6 +2233,51 @@ static void render_decors_callback(struct menu_bar * self) {
 	render_decors();
 }
 
+/**
+ * Geometry argument follows this format:
+ *    [@]WxH[+X,Y]
+ *
+ * If @ is present, W and H are in characters.
+ * If + is present, X and Y are the left and top offset.
+ */
+static void parse_geometry(char ** argv, char * str) {
+
+	int in_chars = 0;
+	if (*str == '@') {
+		in_chars = 1;
+		str++;
+	}
+
+	/* Split on 'x', which is required. */
+	char * c = strstr(str, "x");
+	if (!c) return; /* Ignore invalid arg */
+	*c = '\0';
+	c++;
+
+	/* Find optional + that starts position */
+	char * plus = strstr(c, "+");
+	if (plus) {
+		*plus = '\0';
+		plus++;
+	}
+
+	/* Parse size */
+	window_width = atoi(str) * (in_chars ? char_width : 1);
+	window_height = atoi(c) * (in_chars ? char_height : 1);
+
+	if (plus) {
+		/* If there was a plus, let's look for a comma */
+		char * comma = strstr(plus, ",");
+		if (!comma) return; /* Skip invalid position */
+		*comma = '\0';
+		comma++;
+
+		window_position_set = 1;
+		window_left = atoi(plus);
+		window_top  = atoi(comma);
+	}
+}
+
 int main(int argc, char ** argv) {
 
 	window_width  = char_width * 80;
@@ -2243,13 +2291,12 @@ int main(int argc, char ** argv) {
 		{"grid",       no_argument,       0, 'x'},
 		{"no-frame",   no_argument,       0, 'n'},
 		{"geometry",   required_argument, 0, 'g'},
-		{"no-ft",      no_argument,       0, 'f'},
 		{0,0,0,0}
 	};
 
 	/* Read some arguments */
 	int index, c;
-	while ((c = getopt_long(argc, argv, "bhxnfFls:g:", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "bhxnFls:g:", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
@@ -2278,15 +2325,7 @@ int main(int argc, char ** argv) {
 				font_scaling = atof(optarg);
 				break;
 			case 'g':
-				{
-					char * c = strstr(optarg, "x");
-					if (c) {
-						*c = '\0';
-						c++;
-						window_width  = atoi(optarg);
-						window_height = atoi(c);
-					}
-				}
+				parse_geometry(argv,optarg);
 				break;
 			case '?':
 				break;
@@ -2401,8 +2440,13 @@ int main(int argc, char ** argv) {
 	/* Clear to black */
 	draw_fill(ctx, rgba(0,0,0,0));
 
-	/* Move window to screen center (XXX maybe remove this and do better window placement elsewhere */
-	yutani_window_move(yctx, window, yctx->display_width / 2 - window->width / 2, yctx->display_height / 2 - window->height / 2);
+	if (window_position_set) {
+		/* Move to requested position */
+		yutani_window_move(yctx, window, window_left, window_top);
+	} else {
+		/* Move window to screen center */
+		yutani_window_move(yctx, window, yctx->display_width / 2 - window->width / 2, yctx->display_height / 2 - window->height / 2);
+	}
 
 	/* Open a PTY */
 	openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
