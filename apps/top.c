@@ -101,7 +101,7 @@ static int print_column(struct process * proc, int column_id) {
 		case FORMATTER_PERCENT: {
 			int value = *(int*)((char *)proc + column->member);
 			if (value >= 1000) {
-				return printf("%*d ", column->width, 100);
+				return printf("%*d ", column->width, value / 10);
 			} else {
 				return printf("%*d.%01d ", column->width - 2, value / 10, value % 10);
 			}
@@ -289,8 +289,6 @@ struct process * process_entry(struct dirent *dent) {
 			cpua += strtoul(tab, &tab, 10);
 			cpua += strtoul(tab, &tab, 10);
 			cpua /= 4;
-			if (cpu > 1000) cpu = 1000;
-			if (cpua > 1000) cpua = 1000;
 		}
 	}
 
