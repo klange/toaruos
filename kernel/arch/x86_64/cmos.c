@@ -7,6 +7,11 @@
  * calibrates the TSC to use as a general timing source. IRQ 0
  * handler is also in here because it updates the wall clock time
  * and triggers timeout-based wakeups.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2021 K. Lange
  */
 #include <kernel/printf.h>
 #include <kernel/string.h>
@@ -15,10 +20,11 @@
 #include <kernel/arch/x86_64/irq.h>
 #include <sys/time.h>
 
-uint64_t arch_boot_time = 0;
-uint64_t tsc_basis_time = 0;
+uint64_t arch_boot_time = 0; /**< Time (in seconds) according to the CMOS right before we examine the TSC */
+uint64_t tsc_basis_time = 0; /**< Accumulated time (in microseconds) on the TSC, when we timed it; eg. how long did boot take */
+uint64_t tsc_mhz = 3500;     /**< MHz rating we determined for the TSC. Usually also the core speed? */
 
-unsigned long tsc_mhz = 3500; /* XXX */
+/* Crusty old CMOS code follows. */
 
 #define from_bcd(val)  ((val / 16) * 10 + (val & 0xf))
 #define CMOS_ADDRESS   0x70
@@ -33,6 +39,11 @@ enum {
 	CMOS_YEAR = 9
 };
 
+/**
+ * @brief Read the contents of the RTC CMOS
+ *
+ * @param values (out) Where to stick the values read.
+ */
 static void cmos_dump(uint16_t * values) {
 	for (uint16_t index = 0; index < 128; ++index) {
 		outportb(CMOS_ADDRESS, index);
@@ -40,13 +51,22 @@ static void cmos_dump(uint16_t * values) {
 	}
 }
 
+/**
+ * @brief Check if the CMOS is currently being updated.
+ */
 static int is_update_in_progress(void) {
 	outportb(CMOS_ADDRESS, 0x0a);
 	return inportb(CMOS_DATA) & 0x80;
 }
 
-static uint32_t secs_of_years(int years) {
-	uint32_t days = 0;
+/**
+ * @brief Poorly convert years to Unix timestamps.
+ *
+ * @param years Years since 2000
+ * @returns Seconds since the Unix epoch, maybe...
+ */
+static uint64_t secs_of_years(int years) {
+	uint64_t days = 0;
 	years += 2000;
 	while (years > 1969) {
 		days += 365;
@@ -64,10 +84,19 @@ static uint32_t secs_of_years(int years) {
 	return days * 86400;
 }
 
-static uint32_t secs_of_month(int months, int year) {
+/**
+ * @brief How long was a month in a given year?
+ *
+ * Tries to do leap year stuff for February.
+ *
+ * @param months 1~12 calendar month
+ * @param year   Years since 2000
+ * @return Number of seconds in that month.
+ */
+static uint64_t secs_of_month(int months, int year) {
 	year += 2000;
 
-	uint32_t days = 0;
+	uint64_t days = 0;
 	switch(months) {
 		case 11:
 			days += 30; /* fallthrough */
@@ -100,7 +129,15 @@ static uint32_t secs_of_month(int months, int year) {
 	return days * 86400;
 }
 
-uint32_t read_cmos(void) {
+/**
+ * @brief Convert the CMOS time to a Unix timestamp.
+ *
+ * Reads BCD data from the RTC CMOS and does some dumb
+ * math to convert the display time to a Unix timestamp.
+ *
+ * @return Current Unix time
+ */
+uint64_t read_cmos(void) {
 	uint16_t values[128];
 	uint16_t old_values[128];
 
@@ -119,7 +156,7 @@ uint32_t read_cmos(void) {
 		(old_values[CMOS_YEAR] != values[CMOS_YEAR]));
 
 	/* Math Time */
-	uint32_t time =
+	uint64_t time =
 		secs_of_years(from_bcd(values[CMOS_YEAR]) - 1) +
 		secs_of_month(from_bcd(values[CMOS_MONTH]) - 1,
 		from_bcd(values[CMOS_YEAR])) +
@@ -131,20 +168,55 @@ uint32_t read_cmos(void) {
 	return time;
 }
 
+/**
+ * @brief Helper to read timestamp counter
+ */
 static inline uint64_t read_tsc(void) {
 	uint32_t lo, hi;
 	asm volatile ( "rdtsc" : "=a"(lo), "=d"(hi) );
 	return ((uint64_t)hi << 32UL) | (uint64_t)lo;
 }
 
+/**
+ * @brief Exported interface to read timestamp counter.
+ *
+ * Used by various things in the kernel to get a quick performance
+ * timer value. This is always scaled by @c arch_cpu_mhz when it
+ * needs to be converted to something user-friendly.
+ */
 uint64_t arch_perf_timer(void) {
 	return read_tsc();
 }
 
+/**
+ * @brief What to scale performance counter times by.
+ *
+ * I've called this "arch_cpu_mhz" but I don't know if that's
+ * always going to be true, so this may need to be renamed at
+ * some point...
+ */
 size_t arch_cpu_mhz(void) {
 	return tsc_mhz;
 }
 
+/**
+ * @brief Initializes boot time, system time, TSC rate, etc.
+ *
+ * We determine TSC rate with a one-shot PIT, which seems
+ * to work fine... the PIT is the only thing with both reasonable
+ * precision and actual known wall-clock configuration.
+ *
+ * In Bochs, this has a tendency to be 1) completely wrong (usually
+ * about half the time that actual execution will run at, in my
+ * experiences) and 2) loud, as despite the attempt to turn off
+ * the speaker it still seems to beep it (the second channel of the
+ * PIT controls the beeper).
+ *
+ * In QEMU, VirtualBox, VMware, and on all real hardware I've tested,
+ * including everything from a ThinkPad T410 to a Surface Pro 6, this
+ * has been surprisingly accurate and good enough to use the TSC as
+ * our only wall clock source.
+ */
 void arch_clock_initialize(void) {
 	dprintf("tsc: Calibrating system timestamp counter.\n");
 	arch_boot_time = read_cmos();
@@ -211,12 +283,27 @@ void arch_clock_initialize(void) {
 }
 
 #define SUBSECONDS_PER_SECOND 1000000
+
+/**
+ * @brief Subdivide ticks into seconds in subticks.
+ */
 static void update_ticks(uint64_t ticks, uint64_t *timer_ticks, uint64_t *timer_subticks) {
 	*timer_subticks = ticks - tsc_basis_time;
 	*timer_ticks = *timer_subticks / SUBSECONDS_PER_SECOND;
 	*timer_subticks = *timer_subticks % SUBSECONDS_PER_SECOND;
 }
 
+/**
+ * @brief Exposed interface for wall clock time.
+ *
+ * Note that while the kernel version of this takes a *z option that is
+ * supposed to have timezone information, we don't actually use  it,
+ * and I'm pretty sure it's NULL everywhere?
+ *
+ * We calculate wall time using the TSC, the calculate TSC tick rate,
+ * and the boot time retrieved from the CMOS, subdivide the result
+ * into seconds and "subseconds" (microseconds), and store that.
+ */
 int gettimeofday(struct timeval * t, void *z) {
 	uint64_t tsc = read_tsc();
 	uint64_t timer_ticks, timer_subticks;
@@ -226,13 +313,29 @@ int gettimeofday(struct timeval * t, void *z) {
 	return 0;
 }
 
+/**
+ * @brief Dumb convenience function for things that just want a Unix timestamp.
+ *
+ * @return Wall clock time as a Unix timestamp (seconds since the epoch).
+ */
 uint64_t now(void) {
 	struct timeval t;
 	gettimeofday(&t, NULL);
 	return t.tv_sec;
 }
 
-
+/**
+ * @brief Calculate a time in the future.
+ *
+ * Takes the current raw TSC time and adds @p seconds seconds and @p subseconds microseconds to it.
+ * Stores the result seconds and microseconds in @p out_seconds and @p out_subseconds. If
+ * @p seconds and @p subseconds are both zero, this is effectively equivalent to @c update_ticks.
+ *
+ * This is an exposed interface used throughout the kernel, usually to calculate
+ * timeouts and yielding delays.
+ *
+ * This uses raw TSC time, which is not adjusted for either boot time or wall clock time.
+ */
 void relative_time(unsigned long seconds, unsigned long subseconds, unsigned long * out_seconds, unsigned long * out_subseconds) {
 	if (!arch_boot_time) {
 		*out_seconds = 0;
@@ -252,36 +355,41 @@ void relative_time(unsigned long seconds, unsigned long subseconds, unsigned lon
 	}
 }
 
-void arch_tick_others(void);
+static uint64_t time_slice_basis = 0; /**< When the last clock update happened */
+static spin_lock_t clock_lock = { 0 }; /**< Allow only one core to do this */
 
-static uint64_t time_slice_basis = 0;
-
-static spin_lock_t clock_lock = { 0 };
+/**
+ * @brief Update the global timer tick values.
+ *
+ * Updates process CPU usage times and wakes up any timed sleepers
+ * based on the current TSC time.
+ */
 void arch_update_clock(void) {
-	uint64_t clock_ticks = read_tsc() / tsc_mhz;
-	uint64_t timer_ticks, timer_subticks;
 	spin_lock(clock_lock);
+
+	/* Obtain TSC timestamp, in microseconds */
+	uint64_t clock_ticks = read_tsc() / tsc_mhz;
+
+	/* Convert it to seconds and subseconds */
+	uint64_t timer_ticks, timer_subticks;
 	update_ticks(clock_ticks, &timer_ticks, &timer_subticks);
+
+	/**
+	 * Update per-process quarter-second usage statistics
+	 *
+	 * XXX I think this was a bad idea and it should be removed.
+	 *     We store four quarter-second usage values in a sliding
+	 *     array and update them for every process, so that we can
+	 *     query CPU% without having to sample, but that's a lot
+	 *     more work in the kernel than we need...
+	 */
 	if (time_slice_basis + SUBSECONDS_PER_SECOND/4 <= clock_ticks) {
 		update_process_usage(clock_ticks - time_slice_basis, tsc_mhz);
 		time_slice_basis = clock_ticks;
 	}
 	spin_unlock(clock_lock);
 
+	/* Wake up any processes that have expired timeouts */
 	wakeup_sleepers(timer_ticks, timer_subticks);
-
-}
-
-int cmos_time_stuff(struct regs *r) {
-	arch_update_clock();
-
-	irq_ack(0);
-
-	switch_task(1);
-	asm volatile (
-		".global _ret_from_preempt_source\n"
-		"_ret_from_preempt_source:"
-	);
-	return 1;
 }
 
