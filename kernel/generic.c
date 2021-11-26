@@ -8,14 +8,20 @@
  * to be initialized. @c generic_main should be called after
  * the platform has set up its own device drivers, loaded any
  * early filesystems, and is ready to yield control to init.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2021 K. Lange
  */
 #include <kernel/generic.h>
 #include <kernel/args.h>
 #include <kernel/process.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
+#include <kernel/misc.h>
 
-extern const char * arch_get_cmdline(void);
+extern int system(const char * path, int argc, const char ** argv, const char ** envin);
 extern void tarfs_register_init(void);
 extern void tmpfs_register_init(void);
 extern void tasking_start(void);
@@ -24,7 +30,6 @@ extern void zero_initialize(void);
 extern void procfs_initialize(void);
 extern void shm_install(void);
 extern void random_initialize(void);
-extern int system(const char * path, int argc, const char ** argv, const char ** envin);
 extern void snd_install(void);
 extern void net_install(void);
 extern void console_initialize(void);
@@ -80,7 +85,7 @@ int generic_main(void) {
 	while (argv[argc]) argc++;
 	system(argv[0], argc, argv, NULL);
 
-	printf("Failed to execute %s.\n", boot_app);
+	dprintf("generic: Failed to execute %s.\n", boot_app);
 	switch_task(0);
 	return 0;
 }
