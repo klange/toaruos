@@ -1,3 +1,11 @@
+/**
+ * @brief Marked up text label renderer.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2021 K. Lange
+ */
 #include <toaru/markup.h>
 #include <toaru/list.h>
 #include <toaru/graphics.h>

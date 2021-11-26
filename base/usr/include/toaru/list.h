@@ -1,7 +1,3 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * 
- * General-purpose list implementations.
- */
 #pragma once
 
 #include <_cheader.h>

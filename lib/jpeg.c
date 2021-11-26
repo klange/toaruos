@@ -1,9 +1,10 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief libtoaru_jpeg: Decode simple JPEGs.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2018 K. Lange
- *
- * libtoaru_jpeg: Decode simple JPEGs.
  *
  * Adapted from Raul Aguaviva's Python "micro JPEG visualizer":
  *

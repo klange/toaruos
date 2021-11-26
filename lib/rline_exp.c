@@ -1,6 +1,13 @@
+/**
+ * @brief Dummy library to provide rline to Python, but
+ *        our Python port is currently on hold.
+ *
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * @copyright 2018-2021 K. Lange
+ */
 #include <string.h>
 #include <toaru/rline.h>
-/* dummy lib */
 
 void * rline_exp_for_python(void * _stdin, void * _stdout, char * prompt) {
 

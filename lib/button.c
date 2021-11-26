@@ -1,9 +1,12 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief Button "widget"
+ *
+ * Really just a function to render a button...
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2018 K. Lange
- *
- * ttk button widget
  */
 #include <toaru/graphics.h>
 #include <toaru/button.h>

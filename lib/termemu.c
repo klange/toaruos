@@ -1,22 +1,11 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief Terrible little ANSI escape parser.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014-2018 K. Lange
- *
- * Portable library for terminal emulation.
  */
-
-#ifdef _KERNEL_
-# include <kernel/system.h>
-# include <kernel/types.h>
-# include <kernel/logging.h>
-static void _spin_lock(volatile int * foo) { return; }
-static void _spin_unlock(volatile int * foo) { return; }
-# define rgba(r,g,b,a) (((uint32_t)a * 0x1000000) + ((uint32_t)r * 0x10000) + ((uint32_t)g * 0x100) + ((uint32_t)b * 0x1))
-# define rgb(r,g,b) rgba(r,g,b,0xFF)
-# define atof(i) (0.0f)
-#include <toaru/termemu.h>
-#else
 #include <stdlib.h>
 
 #include <math.h>
@@ -27,9 +16,6 @@ static void _spin_unlock(volatile int * foo) { return; }
 #include <toaru/termemu.h>
 
 #include <toaru/spinlock.h>
-#define _spin_lock spin_lock
-#define _spin_unlock spin_unlock
-#endif
 
 #define MAX_ARGS 1024
 
@@ -597,9 +583,9 @@ static void _ansi_put(term_state_t * s, char c) {
 }
 
 void ansi_put(term_state_t * s, char c) {
-	_spin_lock(&s->lock);
+	spin_lock(&s->lock);
 	_ansi_put(s, c);
-	_spin_unlock(&s->lock);
+	spin_unlock(&s->lock);
 }
 
 term_state_t * ansi_init(term_state_t * s, int w, int y, term_callbacks_t * callbacks_in) {

@@ -1,6 +1,3 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * Kernel linker script for x86
- */
 OUTPUT_FORMAT("binary")
 /*ENTRY(start) */
 phys = 0x7c00;

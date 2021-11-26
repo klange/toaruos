@@ -1,13 +1,15 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2012-2018 K. Lange
- *
- * terminal-palette.h - Terminal color palette
+/**
+ * @file apps/terminal-palette.h
+ * @brief Terminal color palette
  *
  * Provides the color table for both the basic 16 colors (here,
  * chosen from the Tango design documents), as well as the other
  * colors making up the basic 256 color palette derived from xterm.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2012-2018 K. Lange
  */
 
 #define PALETTE_COLORS 256

@@ -1,14 +1,15 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2012-2018 K. Lange
- *
- * General-purpose keyboard conversion library.
+/**
+ * @brief General-purpose keyboard conversion library.
  *
  * This provides similar functionality to xkb:
  *   - It provides mappings for keyboards from locales
  *   - It translates incoming key presses to key names
  *   - It translates incoming keys to escape sequences
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2012-2018 K. Lange
  */
 
 #include <stdio.h>

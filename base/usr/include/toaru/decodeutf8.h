@@ -1,13 +1,16 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2018 K. Lange
+/**
+ * @brief Decode UTF8 to codepoints.
  *
  * This is a simple implementation of a UTF-8 decoder with an
  * equivalent API to the older third-party (and much cooler...)
  * version that ToaruOS used to use. Keep feeding it bytes and
  * will eventually set *codep to a codepoint. Should also be able
  * to detect bad UTF-8.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
  */
 #include <stdint.h>
 

@@ -1,5 +1,3 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- */
 #pragma once
 
 #include <_cheader.h>

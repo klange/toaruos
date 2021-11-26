@@ -1,9 +1,10 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief libtoaru_inflate: Methods for decompressing DEFLATE and gzip payloads.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2020 K. Lange
- *
- * libtoaru_inflate: Methods for decompressing DEFLATE and gzip payloads.
  */
 #include <stdint.h>
 #include <stddef.h>

@@ -1,11 +1,16 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief Line editor
+ *
+ * Interactive line input editor with syntax highlighting for
+ * a handful of languages. Based on an old version of Bim.
+ * Used by the shell and Kuroko.
+ *
+ * This library is generally usable on Linux and even Windows.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2018 K. Lange
- *
- * Experimental rline replacement with syntax highlighting, based
- * on bim's highlighting and line editing.
- *
+ * Copyright (C) 2018-2021 K. Lange
  */
 #define _XOPEN_SOURCE
 #define _DEFAULT_SOURCE

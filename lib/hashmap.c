@@ -1,9 +1,11 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief Generic hashmap implementation.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2018 K. Lange
  */
-
 #include <toaru/list.h>
 #include <toaru/hashmap.h>
 
