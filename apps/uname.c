@@ -1,9 +1,5 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2018 K. Lange
- *
- * uname - Print kernel version information
+/**
+ * @brief uname - Print kernel version information
  *
  * Supports all the usual options (a,s,n,r,v,m,o)
  *
@@ -11,6 +7,11 @@
  * the coreutils implementation, so I don't see that being
  * a problem. If you want to build this uname for Linux or
  * something... you'll have to change that.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
  */
 #include <stdio.h>
 #include <stdlib.h>

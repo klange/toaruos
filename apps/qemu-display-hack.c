@@ -1,17 +1,18 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2018 K. Lange
+/**
+ * @brief qemu-display-hack - Manage display size under QEMU
  *
- * qemu-display-hack - Manage display size under QEMU
+ * XXX Does this still work? Does the TTY interface interfere
+ *     with the operation of the communication pipe?
  *
  * Communicates with a harness on the host running QEMU to
  * automatically update the display resolution when the
  * QEMU window size changes, similar to how VirtualBox's
  * display size changing works.
  *
- * This is automatically run at startup if the harness is
- * detected by the 90_qemu_hack.sh startup script.
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
  */
 #include <stdlib.h>
 #include <stdio.h>

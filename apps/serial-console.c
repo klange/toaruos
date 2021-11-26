@@ -1,12 +1,13 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief serial console
+ *
+ * Old tool for poking serial ports. Probably doesn't work right
+ * anymore since serial ports are now behind PTYs.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2014 K. Lange
- *
- * serial console
- *
- * Runs a dumb console on a serial port or something similar.
- *
  */
 #include <stdio.h>
 #include <stdint.h>

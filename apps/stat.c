@@ -1,11 +1,13 @@
-/* vim: ts=4 sw=4 noexpandtab
+/**
+ * @brief Display file status.
+ *
+ * The format for this is terrible and we're missing a bunch
+ * of data we provide in our statbuf...
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2018 K. Lange
- *
- * stat
- *
- * Display file status.
  */
 #include <stdio.h>
 #include <stdint.h>

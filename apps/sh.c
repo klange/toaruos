@@ -1,9 +1,5 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2018 K. Lange
- *
- * E-Shell
+/**
+ * @brief E-Shell
  *
  * This is "experimental shell" - a vaguely-unix-like command
  * interface. It has a very rudimentary parser that understands
@@ -11,8 +7,12 @@
  * handful of built-in commands, including ones that implement
  * some more useful shell syntax such as loops and conditionals.
  * There is support for tab completion of filenames and commands.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2013-2018 K. Lange
  */
-
 #define _XOPEN_SOURCE 500
 #define _POSIX_C_SOURCE 200112L
 #include <stdio.h>

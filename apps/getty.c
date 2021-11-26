@@ -1,12 +1,16 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2018 K. Lange
- *
- * getty - Manage a TTY.
+/**
+ * @brief getty - Manage a TTY.
  *
  * Wraps a serial port (or other dumb connection) with a pty
  * and manages a login for it.
+ *
+ * This is not really what 'getty' should do - see @ref login-loop.c
+ * for something more akin to the "getty" on other platforms.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
  */
 #include <stdio.h>
 #include <stdlib.h>

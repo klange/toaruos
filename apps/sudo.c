@@ -1,10 +1,16 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief sudo - Run processes as the root user, after authenticating.
+ *
+ * Our sudo supports cached authentication, so you don't need to keep
+ * entering your password.
+ *
+ * Probably terribly insecure, but our main password auth function is
+ * a plain text comparison, so *shrug*.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014 K. Lange
- *
- * sudo
- *
  */
 
 #include <stdio.h>

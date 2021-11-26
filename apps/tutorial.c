@@ -1,10 +1,11 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief A recreation of the original wizard.py, explaining
+ *        the functionality of ToaruOS and how to use the WM.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2019 K. Lange
- *
- * tutorial - A recreation of the original wizard.py, explaining
- *            the functionality of ToaruOS and how to use the WM.
+ * Copyright (C) 2019-2021 K. Lange
  */
 #include <time.h>
 

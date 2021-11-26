@@ -1,9 +1,10 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief Graphical wallpaper picker.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2019 K. Lange
- *
- * wallpaper-picker - select wallpapers from available options
  */
 #include <signal.h>
 #include <dirent.h>

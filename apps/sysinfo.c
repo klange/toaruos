@@ -1,11 +1,31 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief Display system information.
+ *
+ * Similar to tools like 'screenfetch', this displays information
+ * about ToaruOS, the current machine state, and the user's
+ * configuration options, alongside a terminal-safe rendition
+ * of the OS's logo.
+ *
+ * This is a bit overcomplicated as we used to show an elaborate
+ * logo from a BMP/PNG, but our current logo can be nicely
+ * represented with block characters so that's kind moot; maybe
+ * this should be simplified...
+ *
+ * Uses a few other utilities:
+ *   hostname
+ *   uname -sr
+ *   uptime -p
+ *   msk count
+ *   sh -v
+ *   yutani-query resolution
+ *   font-tool -n
+ *   cpu-name.krk
+ *   free -ut
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2015-2018 K. Lange
- *
- * sysinfo - visually based on screenfetch
- *
- * Displays system information in a visually-pleasing format.
+ * Copyright (C) 2015-2021 K. Lange
  */
 #include <stdio.h>
 #include <stdlib.h>

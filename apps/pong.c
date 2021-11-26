@@ -1,9 +1,5 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2015 K. Lange
- *
- * pong - Window Manager Pong
+/**
+ * @brief pong - Window Manager Pong
  *
  * Play pong where the paddles and ball are all windows.
  * Use the WM bindings to drag the left paddle to play.
@@ -16,6 +12,10 @@
  * position, and window moves for the ball and other paddle keep
  * things in the right place visually.
  *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2015 K. Lange
  */
 #include <stdlib.h>
 #include <stdio.h>

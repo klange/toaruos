@@ -1,5 +1,16 @@
 /**
  * @brief Draw filled polygons from line segments.
+ *
+ * This is an older version of the polygon rasterizer that turned
+ * into the TrueType gylph rasterizer. Still makes for a neat
+ * little graphical demo. Should probably be updated to use
+ * the glyph rasterization code instead of its own oudated
+ * copy though...
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2021 K. Lange
  */
 
 #include <stdio.h>

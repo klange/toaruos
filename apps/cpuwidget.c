@@ -1,4 +1,10 @@
-/*
+/**
+ * @brief System monitor tool
+ *
+ * Displays CPU usage, memory usage, and network usage, with nice
+ * curvy anti-aliased graphs that scroll smoothly.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2021 K. Lange

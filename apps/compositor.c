@@ -1,9 +1,5 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2018 K. Lange
- *
- * Yutani - The ToaruOS Compositor.
+/**
+ * @brief Yutani - The ToaruOS Window Compositor.
  *
  * Yutani is a canvas-based window compositor and manager.
  * It employs shared memory to provide clients access to
@@ -13,6 +9,11 @@
  * to client events, etc., as well as to communicate requests from
  * the client to the server, such as creation of new windows,
  * movement, resizing, and display updates.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2013-2018 K. Lange
  */
 #include <stdio.h>
 #include <stdint.h>

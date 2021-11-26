@@ -1,12 +1,13 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief Exceute "extended system function" syscalls.
+ *
+ * Most of these are deprecated, and the ones that are useful
+ * to call manually are all behind other utilities.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013 K. Lange
- *
- * sysfunc
- *
- * Executes an "extended system function" which
- * is basically just a super-syscall.
  */
 #include <stdlib.h>
 #include <stdio.h>

@@ -1,4 +1,11 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief Implementation of the 'beep' utility.
+ *
+ * I've tried to get the functionality here as close to the common
+ * utility available on Linux systems so that "beep music" can be
+ * played back.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014-2018 K. Lange

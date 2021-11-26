@@ -1,14 +1,15 @@
-/* vim: ts=4 sw=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2018 K. Lange
- *
- * tar - extract archives
+/**
+ * @brief tar - extract archives
  *
  * This is a very minimal and incomplete implementation of tar.
  * It supports on ustar-formatted archives, and its arguments
- * must by the - forms. As of writing, creating archives is not
- * supported. No compression formats are supported, either.
+ * must be the - forms. As of writing, creating archives is not
+ * supported. Decompression is supported by piping through gunzip.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018-2020 K. Lange
  */
 #include <stdio.h>
 #include <string.h>

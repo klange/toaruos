@@ -1,14 +1,14 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief julia - Julia Fractal Generator
+ *
+ * Displays Julia fractals in a window. Use the keyboard
+ * to navigate, switch palettes, and change parameters.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2018 K. Lange
- *
- * julia - Julia Fractal Generator
- *
- * This is the updated windowed version of the
- * julia fractal generator demo.
+ * Copyright (C) 2013-2021 K. Lange
  */
-
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>

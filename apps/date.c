@@ -1,8 +1,4 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2018 K. Lange
- *
+/**
  * date - Print the current date and time.
  *
  * TODO: The traditional POSIX version of this tool is supposed
@@ -12,6 +8,11 @@
  *
  *       At the very least, improving this to print the "correct"
  *       default format would be good.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
  */
 #include <stdio.h>
 #include <time.h>

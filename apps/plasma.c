@@ -1,10 +1,12 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief Threaded graphical demo that draws animated plasma.
+ *
+ * Good for burning CPU.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2018 K. Lange
- *
- * plasma - Draw animated plasma in a window
- *
  */
 #include <stdlib.h>
 #include <assert.h>

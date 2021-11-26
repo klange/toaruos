@@ -1,12 +1,12 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2014-2017 K. Lange
- *
- * gsudo - graphical implementation of sudo
+/**
+ * @brief gsudo - graphical implementation of sudo
  *
  * probably even less secure than the original
  *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2014-2017 K. Lange
  */
 
 #include <stdio.h>

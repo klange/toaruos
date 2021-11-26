@@ -1,9 +1,10 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief gunzip - decompress gzip-compressed payloads
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2020 K. Lange
- *
- * gunzip - decompress gzip-compressed payloads
  */
 #include <stdio.h>
 #include <stdint.h>

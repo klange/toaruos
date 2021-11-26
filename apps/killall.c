@@ -1,11 +1,12 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief killall - Send signals to processes matching name
+ *
+ * Find processes by name and send them signals.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2018 K. Lange
- *
- * killall - Send signals to processes matching name
- *
- * Find processes by name and send them signals.
  */
 #include <fcntl.h>
 #include <stdint.h>

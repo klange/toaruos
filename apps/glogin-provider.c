@@ -1,12 +1,12 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief Graphical login display.
+ *
+ * Called by @ref glogin to show a graphical login prompt.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2015 K. Lange
- */
-/*
- * glogin
- *
- * Graphical Login screen
  */
 #include <stdlib.h>
 #include <assert.h>

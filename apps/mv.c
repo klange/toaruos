@@ -1,11 +1,15 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief Move files
+ *
+ * Poor implementation, mostly just 'cp' and 'rm'.
+ *
+ * Ideally, should figure out if it can use 'rename'... and also
+ * we should implement 'rename'...
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2018 K. Lange
- *
- * DUMMY mv implementation that calls cp + rm
- *
- * TODO: Actually implement the plumbing for mv!
  */
 #include <stdio.h>
 #include <stdlib.h>

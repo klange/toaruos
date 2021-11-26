@@ -1,13 +1,14 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2014 K. Lange
- *
- * which - Figure out which binary will be used
+/**
+ * @brief which - Figure out which binary will be used
  *
  * Searches through $PATH to find a matching binary, just like
  * how execp* family does it. (Except does our execp actually
  * bother checking permissions? Look into this...)
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2013-2014 K. Lange
  */
 #include <stdio.h>
 #include <stdlib.h>

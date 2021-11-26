@@ -1,4 +1,12 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief Set and display tty config bits.
+ *
+ * Surprisingly complete.
+ *
+ * We used to use Minix's stty, so I may have adopted some conventions from it
+ * that aren't in other stty's, but I don't even remember any more.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2018 K. Lange

@@ -1,13 +1,14 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief chmod - change file permissions
+ *
+ * This implementation is likely non-compliant, though it does
+ * attempt to look similar to the standard POSIX syntax,
+ * supporting both octal mode setings and +/-rwx flavors.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2018 K. Lange
- *
- * chmod - change file permissions
- *
- * Note: This implementation is likely non-compliant, though it does
- *       attempt to look similar to the standard POSIX syntax,
- *       supporting both octal mode setings and +/-rwx flavors.
  */
 #include <unistd.h>
 #include <stdio.h>

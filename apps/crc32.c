@@ -1,9 +1,10 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * crc32 - Simple CRC32 calculator for verifying file integrity.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2018 K. Lange
- *
- * crc32 - Simple CRC32 calculator for verifying file integrity.
  */
 #include <stdio.h>
 #include <errno.h>

@@ -1,11 +1,16 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief Virtual terminal emulator, for VGA text mode.
+ *
+ * Basicall the same as @ref terminal.c but outputs to the VGA
+ * text mode buffer instead of managing a graphical window.
+ *
+ * Supports >16 colors by using a dumb closest-match approach.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2014-2018 K. Lange
- *
- * Terminal Emulator - VGA
+ * Copyright (C) 2013-2021 K. Lange
  */
-
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>

@@ -1,9 +1,5 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2018 K. Lange
- *
- * imgviewer - Display bitmaps in a graphical window.
+/**
+ * @brief imgviewer - Display bitmaps in a graphical window.
  *
  * This is probably the 4th time I've (re)written a version of
  * this application... This uses the libtoaru_graphics sprite
@@ -11,6 +7,10 @@
  * that ends up supporting - which at the time of writing is
  * just bitmaps of various types.
  *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
  */
 
 #include <stdio.h>

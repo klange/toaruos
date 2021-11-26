@@ -1,3 +1,11 @@
+/**
+ * @brief Test tool for examining a bug that was crashing the audio subsystem.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2021 K. Lange
+ */
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>

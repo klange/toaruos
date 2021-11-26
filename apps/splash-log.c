@@ -1,9 +1,27 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief Console log manager.
+ *
+ * Presents a PEX endpoint for startup processes to write log
+ * messages to and will only send them to the console if the
+ * debug flag is set or 2 seconds have elapsed since we started.
+ *
+ * This also makes message writes a bit more asynchonrous, which
+ * is useful because the framebuffer console output can be quite
+ * slow and we don't want to slow down start up processes...
+ *
+ * The downside to that is that splash-log may have to play catch-up
+ * and could still be spewing messages to the console after startup
+ * has finished...
+ *
+ * This used to do a lot more work, as it managed both graphical
+ * output of messages and output to the VGA terminal, but that has
+ * all moved back into the kernel's 'fbterm', so now we're just
+ * a message buffer.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2018-2021 K. Lange
- *
- * splash-log - Display startup messages before UI has started.
  */
 #include <stdlib.h>
 #include <stdio.h>

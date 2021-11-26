@@ -1,11 +1,13 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief Sort input lines.
+ *
+ * XXX for reasons unknown this is using its own insertion-sort
+ *     instead of our much nicer quicksort?
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2018 K. Lange
- *
- * sort - Sort standard in or files.
- *
- * Currently implemented with a naive insertion sort.
  */
 #include <stdio.h>
 #include <stdlib.h>

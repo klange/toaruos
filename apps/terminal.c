@@ -1,20 +1,17 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief Virtual terminal emulator.
+ *
+ * Provides a graphical character cell terminal with support for
+ * antialiased text, basic Unicode, bitmap fallbacks, nearly
+ * complete ANSI escape sequence support, 256- and 24-bit color,
+ * scrollback, selection, alternate screens, and various scroll
+ * methods.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2020 K. Lange
- *
- * Terminal Emulator
- *
- * Graphical terminal emulator.
- *
- * Provides a number of features:
- *  - Windowed and full screen modes
- *  - Antialiased fonts
- *  - Built-in fallback bitmap font
- *  - ANSI escape support
- *  - 256 colors
+ * Copyright (C) 2013-2021 K. Lange
  */
-
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>

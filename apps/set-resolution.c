@@ -1,14 +1,10 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief set-resolution - Change the display resolution.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2018 K. Lange
- *
- * set-resolution - Change the display resolution.
- *
- * Simple tool to interface with the IO_VID_SET ioctl.
- *
- * TODO: This is probably something we should request from the
- *       compositor rather than a separate application...
  */
 #include <stdio.h>
 #include <unistd.h>

@@ -1,12 +1,13 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2018 K. Lange
- *
- * echo - Print arguments to stdout.
+/**
+ * @brief echo - Print arguments to stdout.
  *
  * Prints arguments to stdout, possibly interpreting escape
  * sequences in the arguments.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2013-2018 K. Lange
  */
 #include <ctype.h>
 #include <stdio.h>

@@ -1,14 +1,16 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/**
+ * @brief Print a list of running processes.
+ *
+ * The listed processes are limited to ones owned by the current
+ * user and are listed in PID order. Various options allow for
+ * threads to be shown separately, extra information to be
+ * included in the output, etc.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2018 K. Lange
- *
- * ps
- *
- * print a list of running processes
+ * Copyright (C) 2013-2021 K. Lange
  */
-
-
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdint.h>

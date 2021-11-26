@@ -1,12 +1,13 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2014-2018 K. Lange
- *
- * fgrep - dump grep
+/**
+ * @brief fgrep - dump grep
  *
  * Locates strings in files and prints the lines containing them,
  * with extra color identification if stdout is a tty.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2014-2018 K. Lange
  */
 #include <stdio.h>
 #include <fcntl.h>

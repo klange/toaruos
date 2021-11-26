@@ -6,9 +6,10 @@
  * which are displayed in pop-up "toasts" in the upper-right
  * corner of the screen without stealing focus.
  *
- * @copyright 2021 K. Lange
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2021 K. Lange
  */
 #include <stdio.h>
 #include <unistd.h>

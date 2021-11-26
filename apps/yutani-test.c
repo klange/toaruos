@@ -1,13 +1,13 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2015-2018 K. Lange
- *
- * yutani-test - Yutani Test Tool
+/**
+ * @brief yutani-test - Yutani Test Tool
  *
  * Kinda like xev: Pops up a window and displays events in a
  * human-readable format.
  *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2015-2018 K. Lange
  */
 #include <stdlib.h>
 #include <assert.h>

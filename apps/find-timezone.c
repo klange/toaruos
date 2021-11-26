@@ -1,3 +1,13 @@
+/**
+ * @brief Query a remote API to get timezone information based geoip lookup.
+ *
+ * We ask @see ip-api.com for geo-ip data, which includes a timezone offset.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2021 K. Lange
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>

@@ -1,12 +1,16 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2015-2018 K. Lange
- *
- * play - Play back PCM samples
+/**
+ * @brief play - Play back PCM samples
  *
  * This needs very specifically-formatted PCM data to function
  * properly - 16-bit, signed, stereo, little endian, and 48KHz.
+ *
+ * TODO This should be fixed up to play back WAV files properly.
+ *      We have a sample rate convert in the out-of-repo playmp3
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2015-2018 K. Lange
  */
 
 #include <stdio.h>

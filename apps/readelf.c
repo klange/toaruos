@@ -3,6 +3,17 @@
  * @brief Display information about a 64-bit Elf binary or object.
  *
  * Implementation of a `readelf` utility.
+ *
+ * I've tried to get the output here as close to the binutils format
+ * as possible, so it should be compatible with tools that try to
+ * parse that. Most of the same arguments should also be supported.
+ *
+ * This is a rewrite of an earlier version.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2020-2021 K. Lange
  */
 #include <stdio.h>
 #include <string.h>

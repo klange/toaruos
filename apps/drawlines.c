@@ -1,18 +1,15 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2018 K. Lange
- *
- * drawlines - Draw random lines into a GUI window
+/**
+ * @brief drawlines - Draw random lines into a GUI window
  *
  * The original compositor demo application, this dates all the
  * way back to the original pre-Yutani compositor. Opens a very
  * basic window (no decorations) and randomly fills it with
- * colorful lines in a separate thread from the listener.
+ * colorful lines.
  *
- * There's no good reason for this to use threads - it should use
- * `fswait2` to apply timeouts - but it demonstrates threading
- * so we'll leave it that way for now.
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2013-2021 K. Lange
  */
 #include <stdlib.h>
 #include <assert.h>

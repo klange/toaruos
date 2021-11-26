@@ -1,9 +1,5 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2018 K. Lange
- *
- * init - First process.
+/**
+ * @brief init - First process.
  *
  * `init` calls startup scripts and then waits for them to complete.
  * It also waits for orphaned proceses so they can be collected.
@@ -28,6 +24,11 @@
  * exit so that the rest of the startup process can continue.
  *
  * When the last startup script finishes, `init` will reboot the system.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018 K. Lange
  */
 
 #include <dirent.h>
