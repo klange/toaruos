@@ -1,11 +1,16 @@
 /**
- * @file  kernel/video/i965.c
+ * @file  modules/i965.c
  * @brief Bitbanged modeset driver for a ThinkPad T410's Intel graphics.
  *
  * This is NOT a viable driver for Intel graphics devices. It assumes Vesa
  * has already properly set up the display pipeline with the needed timings
  * for the panel on one particular model of Lenovo ThinkPad and then sets
  * a handful of registers to get the framebuffer into the right resolution.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2021 K. Lange
  */
 #include <errno.h>
 #include <kernel/printf.h>

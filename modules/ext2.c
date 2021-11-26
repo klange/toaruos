@@ -1,10 +1,13 @@
 /**
- * @file kernel/vfs/ext2.c
+ * @file modules/ext2.c
  * @brief Implementation of the Ext2 filesystem.
  *
- * @copyright 2014-2021 K. Lange <klange@toaruos.org>
+ * @warning There are many known bugs in this implementation.
+ *
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2014-2021 K. Lange <klange@toaruos.org>
  */
 #include <errno.h>
 #include <kernel/types.h>

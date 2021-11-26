@@ -4,8 +4,6 @@
  *
  * Supports absolute mouse cursor and resolution setting.
  *
- * FIXME The vmware display size adjustment is currently disabled.
- *
  * Mouse:
  *   Toggle off / on with ioctl 1 and 2 respectively to /dev/vmmouse.
  *   Supports mouse buttons, unlike the one in VirtualBox.
