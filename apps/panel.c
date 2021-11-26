@@ -143,6 +143,8 @@ struct MenuList * weather;
 struct MenuList * volume_menu;
 static yutani_wid_t _window_menu_wid = 0;
 
+static char * ellipsify(char * input, int font_size, struct TT_Font * font, int max_width, int * out_width);
+
 static int _close_enough(struct yutani_msg_window_mouse_event * me) {
 	if (me->command == YUTANI_MOUSE_EVENT_RAISE && sqrt(pow(me->new_x - me->old_x, 2) + pow(me->new_y - me->old_y, 2)) < 10) {
 		return 1;
@@ -1024,7 +1026,7 @@ static void redraw_alttab(void) {
 		int pos_x = ((window_count - i - 1) % ALTTAB_COLUMNS) * (ALTTAB_WIN_SIZE + 20) + 20;
 		int pos_y = ((window_count - i - 1) / ALTTAB_COLUMNS) * (ALTTAB_WIN_SIZE + 20) + 20;
 
-		if ((window_count - i - 1) / ALTTAB_COLUMNS == rows - 1) {
+		if ((window_count - i - 1) / ALTTAB_COLUMNS == (unsigned int)rows - 1) {
 			pos_x += last_row;
 		}
 
@@ -1074,9 +1076,11 @@ static void redraw_alttab(void) {
 
 	{
 		struct window_ad * ad = ads_by_z[new_focused];
+		int t;
+		char * title = ellipsify(ad->name, 16, font, alttab->width - 20, &t);
 		tt_set_size(font, 16);
-		int t = tt_string_width(font, ad->name);
-		tt_draw_string(actx, font, center_x_a(t), rows * (ALTTAB_WIN_SIZE + 20) + 40, ad->name, rgb(255,255,255));
+		tt_draw_string(actx, font, center_x_a(t), rows * (ALTTAB_WIN_SIZE + 20) + 44, title, rgb(255,255,255));
+		free(title);
 	}
 
 	flip(actx);
