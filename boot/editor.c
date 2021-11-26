@@ -1,3 +1,16 @@
+/**
+ * @brief Command line editor.
+ *
+ * Very rudimentary command line editor so options can be
+ * tweaked. Has a couple of nice features like being
+ * able to move the cursor. Not intended to be all that
+ * robust, and needs to work in EFI and BIOS.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2021 K. Lange
+ */
 #include <stdint.h>
 #include "options.h"
 #include "text.h"

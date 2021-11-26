@@ -1,3 +1,18 @@
+/**
+ * @brief Shared bootloader configuration.
+ *
+ * Sets up menus that present the boot options for both the EFI
+ * and BIOS loaders. If you want to tweak ToaruOS's bootloader
+ * to boot some other Multiboot1-compliant OS, start here.
+ *
+ * This is also the place to add new default startup configs,
+ * add toggles for command line options, and so on.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018-2021 K. Lange
+ */
 #include <stdint.h>
 #include <stddef.h>
 

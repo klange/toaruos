@@ -1,3 +1,18 @@
+/**
+ * @brief Abstractions for text output.
+ *
+ * Tries to provide a common interface to text output for
+ * EFI framebuffer, BIOS VESA framebuffer, and BIOS VGA text mode.
+ *
+ * I don't know why I haven't added a full printf to this.
+ *
+ * A lot of this could be rewritten...
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018-2021 K. Lange
+ */
 #include "text.h"
 #include "util.h"
 int txt_debug = 0;

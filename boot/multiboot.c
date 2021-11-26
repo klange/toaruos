@@ -1,3 +1,15 @@
+/**
+ * @brief Main bootloader logic.
+ *
+ * Does all the heavy lifting after configuration options have
+ * been selected by the user. Loads the kernel and ramdisk,
+ * sets up multiboot structures, and jumps to the kernel.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018-2021 K. Lange
+ */
 #include <stdint.h>
 #include <stddef.h>
 #include "multiboot.h"

@@ -1,3 +1,18 @@
+/**
+ * @brief Detects if we were booted with QEMU and processes fwcfg.
+ *
+ * Determines if we're running in QEMU and looks for "fw_cfg" values
+ * that can override the boot mode.
+ *
+ * TODO This should be perfectly capable of passing a full command
+ *      line through the fw_cfg interface, but right now we just look
+ *      at some bootmode strings...
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018-2021 K. Lange
+ */
 #include <stdint.h>
 #include "util.h"
 #include "menu.h"

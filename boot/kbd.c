@@ -1,3 +1,20 @@
+/**
+ * @brief Keyboard reading functions.
+ *
+ * Abstracts away the differences between our EFI and BIOS
+ * environments to provide consistent scancode feedback for
+ * the menus and command line editor.
+ *
+ * For EFI, we use the WaitForKey and ReadKeyStroke interfaces.
+ *
+ * For BIOS, we have a bad PS/2 driver, which should be fine if
+ * you're booting with BIOS?
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2021 K. Lange
+ */
 #include "kbd.h"
 #include "util.h"
 #include "text.h"

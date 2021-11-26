@@ -1,3 +1,13 @@
+/**
+ * @brief Utility functions.
+ *
+ * Kind of a barebones libc.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018-2021 K. Lange
+ */
 #include "util.h"
 
 int strcmp(const char * l, const char * r) {
@@ -36,13 +46,5 @@ char * strcat(char *dest, const char *src) {
 	}
 	*end = '\0';
 	return dest;
-}
-
-void copy_sectors(unsigned long lba, unsigned char * buf, int sectors) {
-	memcpy(buf, (char*)(lba * 2048 + DATA_LOAD_BASE), sectors * 2048);
-}
-
-void copy_sector(unsigned long lba, unsigned char * buf) {
-	memcpy(buf, (char*)(lba * 2048 + DATA_LOAD_BASE), 2048);
 }
 

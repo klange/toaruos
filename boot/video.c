@@ -1,3 +1,15 @@
+/**
+ * @brief Video mode management.
+ *
+ * Tries to abstract away differences between VESA mode setting
+ * on BIOS and GOP mode setting on UEFI. Also provides the
+ * video mode selection menu.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018-2021 K. Lange
+ */
 #include "text.h"
 #include "util.h"
 #include "kbd.h"

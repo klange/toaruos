@@ -1,3 +1,13 @@
+/**
+ * @brief Present configuration menus.
+ *
+ * Handles display and user interaction for the config menu.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2018-2021 K. Lange
+ */
 #include "options.h"
 #include "text.h"
 #include "util.h"
