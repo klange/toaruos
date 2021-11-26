@@ -1,6 +1,11 @@
 /**
  * @file  kernel/arch/x86_64/user.c
  * @brief Various assembly snippets for jumping to usermode and back.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2021 K. Lange
  */
 #include <stdint.h>
 #include <kernel/process.h>
@@ -9,6 +14,18 @@
 #include <kernel/arch/x86_64/mmu.h>
 #include <kernel/arch/x86_64/ports.h>
 
+/**
+ * @brief Enter userspace.
+ *
+ * Called by process startup.
+ * Does not return.
+ *
+ * @param entrypoint Address to "return" to in userspace.
+ * @param argc       Number of arguments to provide to the new process.
+ * @param argv       Argument array to pass to the new process; make sure this is user-accessible!
+ * @param envp       Environment strings array
+ * @param stack      Userspace stack address.
+ */
 void arch_enter_user(uintptr_t entrypoint, int argc, char * argv[], char * envp[], uintptr_t stack) {
 	struct regs ret;
 	ret.cs = 0x18 | 0x03;
@@ -29,6 +46,19 @@ void arch_enter_user(uintptr_t entrypoint, int argc, char * argv[], char * envp[
 	    "D"(argc), "S"(argv), "d"(envp));
 }
 
+/**
+ * @brief Enter a userspace signal handler.
+ *
+ * Similar to @c arch_enter_user but also setups up magic return addresses.
+ *
+ * Since signal handlers do to take complicated argument arrays, this only
+ * supplies a @p signum argument.
+ *
+ * Does not return.
+ *
+ * @param entrypoint Userspace address of the signal handler, set by the process.
+ * @param signum     Signal number that caused this entry.
+ */
 void arch_enter_signal_handler(uintptr_t entrypoint, int signum) {
 	struct regs ret;
 	ret.cs = 0x18 | 0x03;
@@ -51,6 +81,15 @@ void arch_enter_signal_handler(uintptr_t entrypoint, int signum) {
 	__builtin_unreachable();
 }
 
+/**
+ * @brief Return from fork or clone.
+ *
+ * This is what we inject as the stored rip for a new thread,
+ * so that it immediately returns from the system call.
+ *
+ * This is never called as a function, its address is stored
+ * in the thread context of a new @c process_t.
+ */
 __attribute__((naked))
 void arch_resume_user(void) {
 	asm volatile (
@@ -76,14 +115,27 @@ void arch_resume_user(void) {
 	__builtin_unreachable();
 }
 
+/**
+ * @brief Save FPU registers for this thread.
+ */
 void arch_restore_floating(process_t * proc) {
 	asm volatile ("fxrstor (%0)" :: "r"(&proc->thread.fp_regs));
 }
 
+/**
+ * @brief Restore FPU registers for this thread.
+ */
 void arch_save_floating(process_t * proc) {
 	asm volatile ("fxsave (%0)" :: "r"(&proc->thread.fp_regs));
 }
 
+/**
+ * @brief Called in a loop by kernel idle tasks.
+ *
+ * Turns on and waits for interrupts.
+ * There is room for improvement here with other power states,
+ * but HLT is "good enough" for us.
+ */
 void arch_pause(void) {
 	asm volatile (
 		"sti\n"
@@ -94,6 +146,17 @@ void arch_pause(void) {
 
 extern void lapic_send_ipi(int i, uint32_t val);
 
+/**
+ * @brief Prepare for a fatal event by stopping all other cores.
+ *
+ * Sends an IPI to all other CPUs to tell them to immediately stop.
+ * This causes an NMI (isr2), which disables interrupts and loops
+ * on a hlt instruction.
+ *
+ * Ensures that we can then print tracebacks and do other complicated
+ * things without having to mess with locks, and without other
+ * processors causing further damage in the case of a fatal error.
+ */
 void arch_fatal_prepare(void) {
 	for (int i = 0; i < processor_count; ++i) {
 		if (i == this_core->cpu_id) continue;
@@ -101,6 +164,10 @@ void arch_fatal_prepare(void) {
 	}
 }
 
+/**
+ * @brief Halt all processors, including this one.
+ * @see arch_fatal_prepare
+ */
 void arch_fatal(void) {
 	arch_fatal_prepare();
 	while (1) {
@@ -111,6 +178,15 @@ void arch_fatal(void) {
 	}
 }
 
+/**
+ * @brief Reboot the computer.
+ *
+ * This tries to do a "keyboard reset". We clear out the IDT
+ * so that we can maybe triple fault, and then we try to use
+ * the keyboard reset vector... if that doesn't work,
+ * then returning from this and letting anything else happen
+ * almost certainly will.
+ */
 long arch_reboot(void) {
 	/* load a null page as an IDT */
 	uintptr_t frame = mmu_allocate_a_frame();
@@ -128,6 +204,7 @@ long arch_reboot(void) {
 	return 0;
 }
 
+/* Syscall parameter accessors */
 void arch_syscall_return(struct regs * r, long retval) { r->rax = retval; }
 long arch_syscall_number(struct regs * r) { return (unsigned long)r->rax; }
 long arch_syscall_arg0(struct regs * r) { return r->rbx; }
