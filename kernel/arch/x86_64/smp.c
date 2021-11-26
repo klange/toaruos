@@ -3,6 +3,11 @@
  * @brief Multi-processor Support for x86-64.
  *
  * Locates and bootstraps APs using ACPI MADT tables.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2021 K. Lange
  */
 #include <stdint.h>
 #include <kernel/string.h>
@@ -86,74 +91,41 @@ extern void pat_initialize(void);
 extern process_t * spawn_kidle(int);
 extern union PML init_page_region[];
 
-uintptr_t _ap_stack_base = 0;
-static volatile int _ap_startup_flag = 0;
-void load_processor_info(void);
-
-/* For timing delays on IPIs */
+/**
+ * @brief Read the timestamp counter.
+ *
+ * This is duplicated in a couple of places as it's a quick
+ * inline wrapper for 'rdtsc'.
+ */
 static inline uint64_t read_tsc(void) {
 	uint32_t lo, hi;
 	asm volatile ( "rdtsc" : "=a"(lo), "=d"(hi) );
 	return ((uint64_t)hi << 32) | (uint64_t)lo;
 }
 
+/**
+ * @brief Pause by looping on TSC.
+ *
+ * Used for AP startup.
+ */
 static void short_delay(unsigned long amount) {
 	uint64_t clock = read_tsc();
 	while (read_tsc() < clock + amount * arch_cpu_mhz());
 }
 
-static volatile int _ap_current = 0;
-uintptr_t lapic_final = 0;
+static volatile int _ap_current = 0;       /**< The AP we're currently starting up; shared between @c ap_main and @c smp_initialize */
+static volatile int _ap_startup_flag = 0;  /**< Simple lock, shared between @c ap_main and @c smp_initialize */
+uintptr_t _ap_stack_base = 0;              /**< Stack address for this AP to use on startup; used by @c __ap_boostrap */
+uintptr_t lapic_final = 0;                 /**< MMIO region to use for APIC access. */
 
 #define cpuid(in,a,b,c,d) do { asm volatile ("cpuid" : "=a"(a),"=b"(b),"=c"(c),"=d"(d) : "a"(in)); } while(0)
 
-/* C entrypoint for APs */
-void ap_main(void) {
-	arch_set_core_base((uintptr_t)&processor_local_data[_ap_current]);
-
-	uint32_t ebx, _unused;
-	cpuid(0x1,_unused,ebx,_unused,_unused);
-	if (this_core->lapic_id != (int)(ebx >> 24)) {
-		printf("smp: lapic id does not match\n");
-	}
-
-	/* Load the IDT */
-	idt_ap_install();
-	fpu_initialize();
-	pat_initialize();
-
-	/* Enable our spurious vector register */
-	*((volatile uint32_t*)(lapic_final + 0x0F0)) = 0x127;
-	*((volatile uint32_t*)(lapic_final + 0x320)) = 0x7b;
-	*((volatile uint32_t*)(lapic_final + 0x3e0)) = 1;
-
-	uint64_t before = arch_perf_timer();
-	*((volatile uint32_t*)(lapic_final + 0x380)) = 1000000;
-	while (*((volatile uint32_t*)(lapic_final + 0x390)));
-	uint64_t after = arch_perf_timer();
-
-	uint64_t ms = (after-before)/arch_cpu_mhz();
-	uint64_t target = 10000000000UL / ms;
-
-	*((volatile uint32_t*)(lapic_final + 0x3e0)) = 1;
-	*((volatile uint32_t*)(lapic_final + 0x320)) = 0x7b | 0x20000;
-	*((volatile uint32_t*)(lapic_final + 0x380)) = target;
-
-	/* Set our pml pointers */
-	this_core->current_pml = &init_page_region[0];
-
-	/* Spawn our kidle, make it our current process. */
-	this_core->kernel_idle_task = spawn_kidle(0);
-	this_core->current_process = this_core->kernel_idle_task;
-
-	load_processor_info();
-
-	/* Inform BSP it can continue. */
-	_ap_startup_flag = 1;
-
-	switch_next();
-}
-
+/**
+ * @brief Obtains processor name strings from cpuid
+ *
+ * We store the processor names for each core (they might be different...)
+ * so we can display them nicely in /proc/cpuinfo
+ */
 void load_processor_info(void) {
 	unsigned long a, b, unused;
 	cpuid(0,unused,b,unused,unused);
@@ -185,22 +157,109 @@ void load_processor_info(void) {
 	}
 }
 
+/**
+ * @brief C entrypoint for APs, called by the bootstrap.
+ *
+ * After an AP has entered long mode, it jumps here, where
+ * we do the rest of the core setup.
+ */
+void ap_main(void) {
+
+	/* Set the GS base to point to our 'this_core' struct. */
+	arch_set_core_base((uintptr_t)&processor_local_data[_ap_current]);
+
+	/* Safety check...
+	 * Make sure we're actually the core we think we are...
+	 */
+	uint32_t ebx, _unused;
+	cpuid(0x1,_unused,ebx,_unused,_unused);
+	if (this_core->lapic_id != (int)(ebx >> 24)) {
+		printf("smp: lapic id does not match\n");
+	}
+
+	/* lidt, initialize local FPU, set up page attributes */
+	idt_ap_install();
+	fpu_initialize();
+	pat_initialize();
+
+	/* Enable our spurious vector register */
+	*((volatile uint32_t*)(lapic_final + 0x0F0)) = 0x127;
+	*((volatile uint32_t*)(lapic_final + 0x320)) = 0x7b;
+	*((volatile uint32_t*)(lapic_final + 0x3e0)) = 1;
+
+	/* Time our APIC timer against the TSC */
+	uint64_t before = arch_perf_timer();
+	*((volatile uint32_t*)(lapic_final + 0x380)) = 1000000;
+	while (*((volatile uint32_t*)(lapic_final + 0x390)));
+	uint64_t after = arch_perf_timer();
+
+	uint64_t ms = (after-before)/arch_cpu_mhz();
+	uint64_t target = 10000000000UL / ms;
+
+	/* Enable our APIC timer to send periodic wakeup signals */
+	*((volatile uint32_t*)(lapic_final + 0x3e0)) = 1;
+	*((volatile uint32_t*)(lapic_final + 0x320)) = 0x7b | 0x20000;
+	*((volatile uint32_t*)(lapic_final + 0x380)) = target;
+
+	/* Set our pml pointers */
+	this_core->current_pml = &init_page_region[0];
+
+	/* Spawn our kidle, make it our current process. */
+	this_core->kernel_idle_task = spawn_kidle(0);
+	this_core->current_process = this_core->kernel_idle_task;
+
+	/* Collect CPU name strings. */
+	load_processor_info();
+
+	/* Inform BSP it can continue. */
+	_ap_startup_flag = 1;
+
+	/* Enter scheduler */
+	switch_next();
+}
+
+/**
+ * @brief MMIO write for LAPIC
+ * @param addr Register address to access
+ * @param value DWORD to write
+ */
 void lapic_write(size_t addr, uint32_t value) {
 	*((volatile uint32_t*)(lapic_final + addr)) = value;
 	asm volatile ("":::"memory");
 }
 
+/**
+ * @brief MMIO read for LAPIC
+ * @param addr Register address to access
+ * @return DWORD
+ */
 uint32_t lapic_read(size_t addr) {
 	return *((volatile uint32_t*)(lapic_final + addr));
 }
 
+/**
+ * @brief Send an inter-processor interrupt.
+ *
+ * Sends an IPI and waits for the LAPIC to signal the IPI was sent.
+ *
+ * @param int The interrupt to send.
+ * @param val Flags to control how the IPI should be delivered
+ */
 void lapic_send_ipi(int i, uint32_t val) {
 	lapic_write(0x310, i << 24);
 	lapic_write(0x300, val);
 	do { asm volatile ("pause" : : : "memory"); } while (lapic_read(0x300) & (1 << 12));
 }
 
-
+/**
+ * @brief Quick dumb hex parser.
+ *
+ * Just to support acpi= command line flag for overriding
+ * the scan address for ACPI tables...
+ *
+ * @param c String of hexadecimal characters, optionally prefixed with '0x'
+ * @return Unsigned integer interpretation of @p c
+ */
 uintptr_t xtoi(const char * c) {
 	uintptr_t out = 0;
 	if (c[0] == '0' && c[1] == 'x') {
@@ -222,6 +281,13 @@ uintptr_t xtoi(const char * c) {
 	return out;
 }
 
+/**
+ * @brief Called on main startup to initialize other cores.
+ *
+ * We always do this ourselves. We support a few different
+ * bootloader conventions, and most of them don't support
+ * starting up APs for us.
+ */
 void smp_initialize(void) {
 	/* Locate ACPI tables */
 	uintptr_t scan = 0xE0000;
@@ -231,22 +297,35 @@ void smp_initialize(void) {
 	extern struct multiboot * mboot_struct;
 	extern int mboot_is_2;
 	if (mboot_is_2) {
+		/* A multiboot2 loader should give us a "firmware table" address
+		 * that should allow us to find the RSDP. */
 		extern void * mboot2_find_tag(void * fromStruct, uint32_t type);
+
+		/* First try for an RSDPv1 */
 		scan = (uintptr_t)mboot2_find_tag(mboot_struct, 14);
+
+		/* If we didn't get one of those, try for an RSDPv2 */
 		if (!scan) scan = (uintptr_t)mboot2_find_tag(mboot_struct, 15);
+		/* If we didn't get one of _those_, we should really be bailing here... */
 
-		/* tag header */
+		/* Account for the tag header. */
 		scan += 8;
-
 		scan_top = scan + 0x100000;
 	} else if (mboot_struct->config_table) {
+		/*
+		 * @warning This is specific to ToaruOS's native loader.
+		 * We steal the config_table entry in our EFI loader to pass the RSDP,
+		 * just like a multiboot2 loader would...
+		 */
 		scan = mboot_struct->config_table;
 		scan_top = scan + 0x100000;
 	} else if (args_present("acpi")) {
+		/* If all else fails, you can provide the address yourself on the command line */
 		scan = xtoi(args_value("acpi"));
 		scan_top = scan + 0x100000;
 	}
 
+	/* Look for it the RSDP */
 	for (; scan < scan_top; scan += 16) {
 		char * _scan = mmu_map_from_physical(scan);
 		if (_scan[0] == 'R' &&
@@ -261,28 +340,35 @@ void smp_initialize(void) {
 		}
 	}
 
+	/* I don't know why we do this here... */
 	load_processor_info();
 
+	/* Did we still not find our table? */
 	if (!good) {
-		printf("smp: No RSD PTR found\n");
+		dprintf("smp: No RSD PTR found\n");
 		return;
 	}
 
+	/* Map the ACPI RSDP */
 	struct rsdp_descriptor * rsdp = (struct rsdp_descriptor *)mmu_map_from_physical(scan);
+
+	/* Validate the checksum */
 	uint8_t check = 0;
 	uint8_t * tmp;
 	for (tmp = (uint8_t *)rsdp; (uintptr_t)tmp < (uintptr_t)rsdp + sizeof(struct rsdp_descriptor); tmp++) {
 		check += *tmp;
 	}
+
+	/* Did the checksum fail? */
 	if (check != 0 && !args_present("noacpichecksum")) {
-		printf("smp: Bad checksum on RSDP (add 'noacpichecksum' to ignore this)\n");
+		dprintf("smp: Bad checksum on RSDP (add 'noacpichecksum' to ignore this)\n");
 		return; /* bad checksum */
 	}
 
-	/* Load information for the current CPU. */
-
+	/* Was SMP disabled by a commandline flag? */
 	if (args_present("nosmp")) return;
 
+	/* Map the RSDT from the address given by the RSDP */
 	struct rsdt * rsdt = mmu_map_from_physical(rsdp->rsdt_address);
 
 	int cores = 0;
@@ -358,6 +444,18 @@ _toomany:
 	dprintf("smp: enabled with %d cores\n", cores);
 }
 
+/**
+ * @brief Send a soft IPI to all other cores.
+ *
+ * This is called by the scheduler when a process enters the ready queue,
+ * to give other CPUs a chance to pick it up before their timer interrupt
+ * fires. This is a soft interrupt: It should be ignored by the receiving
+ * cores if they are busy with other things - we only want it to wake up
+ * the HLT in the kernel idle task.
+ *
+ * TODO We could make this more fine-grained and deliver only to processors
+ *      we think are ready, or to specific processors to aid in affinity?
+ */
 void arch_wakeup_others(void) {
 	if (!lapic_final || processor_count < 2) return;
 	/* Send broadcast IPI to others; this is a soft interrupt
@@ -366,11 +464,14 @@ void arch_wakeup_others(void) {
 	lapic_send_ipi(0, 0x7E | (3 << 18));
 }
 
-void arch_tick_others(void) {
-	if (!lapic_final || processor_count < 2) return;
-	lapic_send_ipi(0, 0x7b | (3 << 18));
-}
-
+/**
+ * @brief Trigger a TLB shootdown on other cores.
+ *
+ * XXX This is really dumb; we just send an IPI to everyone else
+ *     and they reload CR3...
+ *
+ * @param vaddr Should have the address to flush, but not actually used.
+ */
 void arch_tlb_shootdown(uintptr_t vaddr) {
 	if (!lapic_final || processor_count < 2) return;
 
