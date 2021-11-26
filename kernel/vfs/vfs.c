@@ -4,6 +4,11 @@
  *
  * Provides the high-level generic operations for the VFS.
  *
+ * @warning Here be dragons
+ *
+ * This VFS implementation comes from toaru32. It has a lot of weird
+ * quirks and doesn't quite work like a typical Unix VFS would.
+ *
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md

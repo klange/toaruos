@@ -1,3 +1,12 @@
+/**
+ * @file  kernel/net/arp.c
+ * @brief Address resolution
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2021 K. Lange
+ */
 #include <errno.h>
 #include <kernel/types.h>
 #include <kernel/string.h>

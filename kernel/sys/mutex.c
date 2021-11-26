@@ -1,9 +1,10 @@
 /**
  * Mutex that sleeps... and can be owned across sleeping...
  *
- * @copyright 2014-2021 K. Lange <klange@toaruos.org>
+ * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2021 K. Lange <klange@toaruos.org>
  */
 #include <kernel/types.h>
 #include <kernel/printf.h>

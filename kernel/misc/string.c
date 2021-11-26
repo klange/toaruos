@@ -1,8 +1,12 @@
 /**
  * @file  kernel/misc/string.c
  * @brief Generic string functions and C standard library implementations for the kernel.
- * @author Copyright (C) 2015-2021 K. Lange
- * @author Copyright (C) 2015      Dale Weiler
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2015-2021 K. Lange
+ * Copyright (C) 2015      Dale Weiler
  */
 #include <kernel/types.h>
 #include <kernel/string.h>

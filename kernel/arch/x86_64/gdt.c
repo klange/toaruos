@@ -1,7 +1,11 @@
 /**
  * @file kernel/arch/x86_64/gdt.c
- * @author K. Lange
  * @brief x86-64 GDT
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2021 K. Lange
  */
 
 #include <kernel/printf.h>

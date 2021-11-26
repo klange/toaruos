@@ -1,3 +1,12 @@
+/**
+ * @file kernel/sys/syscall.c
+ * @brief System call handlers.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2011-2021 K. Lange
+ */
 #include <stdint.h>
 #include <errno.h>
 #include <sys/sysfunc.h>

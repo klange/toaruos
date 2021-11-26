@@ -6,6 +6,11 @@
  * loads static binaries; for dynamic binaries, the requested interpreter
  * is loaded, which should generally be /lib/ld.so, which should itself
  * be a static binary. This loader is platform-generic.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2021 K. Lange
  */
 #include <errno.h>
 #include <kernel/types.h>

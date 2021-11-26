@@ -1,3 +1,12 @@
+/**
+ * @file kernel/arch/x86_64/irq.S
+ * @brief x86-64 interrupt entry points
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2021 K. Lange
+ */
 .section .text
 .align 8
 

@@ -1,11 +1,15 @@
 /**
  * @file  kernel/misc/fbterm.c
  * @brief Crude framebuffer terminal for 32bpp framebuffer devices.
- * @author K. Lange
  *
  * Provides a simple graphical text renderer for early startup, with
  * support for simple escape sequences, on top of a framebuffer set up
  * with the `lfbvideo` module.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2021 K. Lange
  */
 #include <kernel/printf.h>
 #include <kernel/string.h>

@@ -5,6 +5,11 @@
  * Essentially some wrappers around a hashmap; allows different
  * boot methods to provide symbol tables for use with linking
  * kernel modules.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2021 K. Lange
  */
 #include <kernel/types.h>
 #include <kernel/hashmap.h>

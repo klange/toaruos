@@ -14,11 +14,12 @@
  * kernel state in a manner similar to setjmp/longjmp, as well as saving the
  * outer context in the case of a nested task switch.
  *
- * @copyright This file is part of ToaruOS and is released under the terms
- *            of the NCSA / University of Illinois License - see LICENSE.md
- * @author    2011-2021 K. Lange
- * @author    2012 Markus Schober
- * @author    2015 Dale Weiler
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2011-2021 K. Lange
+ * Copyright (C) 2012 Markus Schober
+ * Copyright (C) 2015 Dale Weiler
  */
 #include <errno.h>
 #include <kernel/assert.h>
