@@ -24,7 +24,6 @@
 #include <kernel/net/netif.h>
 #include <kernel/net/eth.h>
 #include <kernel/module.h>
-#include <kernel/procfs.h>
 #include <errno.h>
 
 #include <kernel/arch/x86_64/irq.h>
@@ -379,50 +378,6 @@ static ssize_t write_e1000(fs_node_t *node, off_t offset, size_t size, uint8_t *
 	return size;
 }
 
-static ssize_t e1000_debug_func(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
-	char * buf = malloc(4096);
-	char * out = buf;
-
-	for (int i = 0; i < device_count; ++i) {
-		struct e1000_nic * e1000_debug_nic = devices[i];
-		uint32_t creg = read_command(e1000_debug_nic, E1000_REG_CTRL);
-		uint32_t sreg = read_command(e1000_debug_nic, E1000_REG_STATUS);
-		int rx_head = read_command(e1000_debug_nic, E1000_REG_RXDESCHEAD);
-		int rx_tail = read_command(e1000_debug_nic, E1000_REG_RXDESCTAIL);
-		int tx_head = read_command(e1000_debug_nic, E1000_REG_TXDESCHEAD);
-		int tx_tail = read_command(e1000_debug_nic, E1000_REG_TXDESCTAIL);
-		out += snprintf(out, 4095,
-			"Device %d\n"
-			"Ctrl reg:\t%#x\n"
-			"Status reg:\t%#x\n"
-			"rx head/tail:\t%d %d\n"
-			"tx head/tail:\t%d %d\n",
-			i,
-			creg,
-			sreg,
-			rx_head, rx_tail,
-			tx_head, tx_tail
-			);
-	}
-
-	size_t _bsize = strlen(buf);
-	if ((size_t)offset > _bsize) {
-		free(buf);
-		return 0;
-	}
-	if (size > _bsize - (size_t)offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	free(buf);
-	return size;
-}
-
-static struct procfs_entry e1000_debug = {
-	0,
-	"e1000",
-	e1000_debug_func,
-};
-
 static void ints_off(struct e1000_nic * nic) {
 	write_command(nic, E1000_REG_IMC, 0xFFFFFFFF);
 	write_command(nic, E1000_REG_ICR, 0xFFFFFFFF);
@@ -580,8 +535,6 @@ static int e1000_install(int argc, char * argv[]) {
 		/* TODO: Clean up? Remove ourselves? */
 		return -ENODEV;
 	}
-
-	procfs_install(&e1000_debug);
 
 	return 0;
 }
