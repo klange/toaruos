@@ -38,7 +38,6 @@
 #include <toaru/yutani-internal.h>
 #include <toaru/graphics.h>
 #include <toaru/hashmap.h>
-#include <toaru/spinlock.h>
 #include <toaru/icon_cache.h>
 #include <toaru/menu.h>
 #include <toaru/text.h>
@@ -99,8 +98,6 @@ static gfx_context_t * a2ctx = NULL;
 static yutani_window_t * alt_f2 = NULL;
 
 static list_t * window_list = NULL;
-static volatile int lock = 0;
-static volatile int drawlock = 0;
 
 static size_t bg_size;
 static char * bg_blob;
@@ -122,7 +119,6 @@ static int date_widget_width = 92;
 
 static int network_status = 0;
 
-static sprite_t * sprite_panel;
 static sprite_t * sprite_logout;
 
 static sprite_t * sprite_volume_mute;
@@ -911,37 +907,6 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 static char altf2_buffer[1024] = {0};
 static unsigned int altf2_collected = 0;
 
-#if 0
-static list_t * altf2_apps = NULL;
-
-struct altf2_app {
-	char * name;
-	sprite_t * icon;
-};
-
-static sprite_t * find_icon(char * name) {
-	struct {
-		char * name;
-		char * icon;
-	} special[] = {
-		{"about", "star"},
-		{"help-browser", "help"},
-		{"terminal", "utilities-terminal"},
-		{NULL,NULL},
-	};
-
-	int i = 0;
-	while (special[i].name) {
-		if (!strcmp(special[i].name, name)) {
-			return icon_get_48(special[i].icon);
-		}
-		i++;
-	}
-
-	return icon_get_48(name);
-}
-#endif
-
 static void close_altf2(void) {
 	free(a2ctx->backbuffer);
 	free(a2ctx);
@@ -954,14 +919,6 @@ static void close_altf2(void) {
 }
 
 static void redraw_altf2(void) {
-
-#if 0
-	if (!altf2_apps) {
-		/* initialize */
-
-	}
-#endif
-
 	draw_fill(a2ctx, 0);
 	draw_rounded_rectangle(a2ctx,0,0, ALTF2_WIDTH, ALTF2_HEIGHT, 11, premultiply(rgba(120,120,120,150)));
 	draw_rounded_rectangle(a2ctx,1,1, ALTF2_WIDTH-2, ALTF2_HEIGHT-2, 10, ALTTAB_BACKGROUND);
@@ -1281,8 +1238,6 @@ static char * ellipsify(char * input, int font_size, struct TT_Font * font, int 
 }
 
 static void redraw(void) {
-	spin_lock(&drawlock);
-
 	struct timeval now;
 	struct tm * timeinfo;
 
@@ -1371,7 +1326,6 @@ static void redraw(void) {
 
 	/* Now draw the window list */
 	int i = 0, j = 0;
-	spin_lock(&lock);
 	if (window_list) {
 		foreach(node, window_list) {
 			struct window_ad * ad = node->value;
@@ -1418,7 +1372,6 @@ static void redraw(void) {
 			i += w;
 		}
 	}
-	spin_unlock(&lock);
 
 	/* Draw the logout button; XXX This should probably have some sort of focus hilight */
 	draw_sprite_alpha_paint(ctx, sprite_logout, width - LOGOUT_WIDTH, 1 + ICON_Y_PAD, 1.0, (logout_menu->window ? HILIGHT_COLOR : ICON_COLOR)); /* Logout button */
@@ -1426,8 +1379,6 @@ static void redraw(void) {
 	/* Flip */
 	flip(ctx);
 	yutani_flip(yctx, panel);
-
-	spin_unlock(&drawlock);
 }
 
 static void update_window_list(void) {
@@ -1503,8 +1454,6 @@ static void update_window_list(void) {
 	}
 
 	/* Then free up the old list and replace it with the new list */
-	spin_lock(&lock);
-
 	if (new_window_list->length) {
 		int tmp = LEFT_BOUND;
 		tmp -= APP_OFFSET;
@@ -1532,7 +1481,6 @@ static void update_window_list(void) {
 		free(window_list);
 	}
 	window_list = new_window_list;
-	spin_unlock(&lock);
 
 	/* And redraw the panel */
 	redraw();
@@ -1559,7 +1507,6 @@ static void resize_finish(int xwidth, int xheight) {
 	memcpy(bg_blob, ctx->backbuffer, bg_size);
 
 	update_window_list();
-	redraw();
 }
 
 static void bind_keys(void) {
@@ -1633,11 +1580,6 @@ static struct MenuEntryVTable clock_vtable = {
 
 struct MenuEntry * menu_create_clock(void) {
 	struct MenuEntry * out = menu_create_separator(); /* Steal some defaults */
-
-	if (!watchface) {
-		watchface = malloc(sizeof(sprite_t));
-		load_sprite(watchface, "/usr/share/icons/watchface.png");
-	}
 
 	out->_type = -1; /* Special */
 	out->height = 140;
@@ -1765,6 +1707,71 @@ struct MenuEntry * menu_create_calendar(void) {
 	return out;
 }
 
+static void widget_init_logout(void) {
+	sprite_logout = malloc(sizeof(sprite_t));
+	load_sprite(sprite_logout, "/usr/share/icons/panel-shutdown.png");
+	logout_menu = menu_create();
+	logout_menu->flags |= MENU_FLAG_BUBBLE_RIGHT;
+	menu_insert(logout_menu, menu_create_normal("exit", "log-out", "Log Out", launch_application_menu));
+}
+
+static void widget_init_volume(void) {
+	struct stat stat_tmp;
+	if (!stat("/dev/dsp",&stat_tmp)) {
+		widgets_volume_enabled = 1;
+		widgets_width += WIDGET_WIDTH;
+		sprite_volume_mute = malloc(sizeof(sprite_t));
+		sprite_volume_low  = malloc(sizeof(sprite_t));
+		sprite_volume_med  = malloc(sizeof(sprite_t));
+		sprite_volume_high = malloc(sizeof(sprite_t));
+		load_sprite(sprite_volume_mute, "/usr/share/icons/24/volume-mute.png");
+		load_sprite(sprite_volume_low,  "/usr/share/icons/24/volume-low.png");
+		load_sprite(sprite_volume_med,  "/usr/share/icons/24/volume-medium.png");
+		load_sprite(sprite_volume_high, "/usr/share/icons/24/volume-full.png");
+	}
+}
+
+static void widget_init_network(void) {
+	widgets_network_enabled = 1;
+	widgets_width += WIDGET_WIDTH;
+	sprite_net_active = malloc(sizeof(sprite_t));
+	load_sprite(sprite_net_active, "/usr/share/icons/24/net-active.png");
+	sprite_net_disabled = malloc(sizeof(sprite_t));
+	load_sprite(sprite_net_disabled, "/usr/share/icons/24/net-disconnected.png");
+}
+
+static void widget_init_weather(void) {
+	weather_refresh(NULL);
+}
+
+static void widget_init_appmenu(void) {
+	appmenu = menu_set_get_root(menu_set_from_description("/etc/panel.menu", launch_application_menu));
+	appmenu->flags = MENU_FLAG_BUBBLE_CENTER;
+}
+
+static void widget_init_clock(void) {
+	watchface = malloc(sizeof(sprite_t));
+	load_sprite(watchface, "/usr/share/icons/watchface.png");
+	clockmenu = menu_create();
+	clockmenu->flags |= MENU_FLAG_BUBBLE_RIGHT;
+	menu_insert(clockmenu, menu_create_clock());
+}
+
+static void widget_init_date(void) {
+	calmenu = menu_create();
+	calmenu->flags |= MENU_FLAG_BUBBLE_CENTER;
+	menu_insert(calmenu, menu_create_calendar());
+}
+
+static void widget_init_windowlist(void) {
+	window_menu = menu_create();
+	window_menu->flags |= MENU_FLAG_BUBBLE_LEFT;
+	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Maximize", _window_menu_start_maximize));
+	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Move", _window_menu_start_move));
+	menu_insert(window_menu, menu_create_separator());
+	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Close", _window_menu_close));
+}
+
 int main (int argc, char ** argv) {
 	if (argc < 2 || strcmp(argv[1],"--really")) {
 		fprintf(stderr,
@@ -1780,6 +1787,7 @@ int main (int argc, char ** argv) {
 	/* Connect to window server */
 	yctx = yutani_init();
 
+	/* Shared fonts */
 	font           = tt_font_from_shm("sans-serif");
 	font_bold      = tt_font_from_shm("sans-serif.bold");
 	font_mono      = tt_font_from_shm("monospace");
@@ -1799,43 +1807,6 @@ int main (int argc, char ** argv) {
 	/* Initialize graphics context against the window */
 	ctx = init_graphics_yutani_double_buffer(panel);
 
-	/* Clear it out (the compositor should initialize it cleared anyway */
-	draw_fill(ctx, rgba(0,0,0,0));
-	flip(ctx);
-	yutani_flip(yctx, panel);
-
-	/* Load textures for the background and logout button */
-	sprite_panel  = malloc(sizeof(sprite_t));
-	sprite_logout = malloc(sizeof(sprite_t));
-
-	load_sprite(sprite_logout, "/usr/share/icons/panel-shutdown.png");
-
-	struct stat stat_tmp;
-	if (!stat("/dev/dsp",&stat_tmp)) {
-		widgets_volume_enabled = 1;
-		widgets_width += WIDGET_WIDTH;
-		sprite_volume_mute = malloc(sizeof(sprite_t));
-		sprite_volume_low  = malloc(sizeof(sprite_t));
-		sprite_volume_med  = malloc(sizeof(sprite_t));
-		sprite_volume_high = malloc(sizeof(sprite_t));
-		load_sprite(sprite_volume_mute, "/usr/share/icons/24/volume-mute.png");
-		load_sprite(sprite_volume_low,  "/usr/share/icons/24/volume-low.png");
-		load_sprite(sprite_volume_med,  "/usr/share/icons/24/volume-medium.png");
-		load_sprite(sprite_volume_high, "/usr/share/icons/24/volume-full.png");
-		/* XXX store current volume */
-	}
-
-	{
-		widgets_network_enabled = 1;
-		widgets_width += WIDGET_WIDTH;
-		sprite_net_active = malloc(sizeof(sprite_t));
-		load_sprite(sprite_net_active, "/usr/share/icons/24/net-active.png");
-		sprite_net_disabled = malloc(sizeof(sprite_t));
-		load_sprite(sprite_net_disabled, "/usr/share/icons/24/net-disconnected.png");
-	}
-
-	weather_refresh(NULL);
-
 	/* Draw the background */
 	redraw_panel_background(ctx, panel->width, panel->height);
 
@@ -1848,27 +1819,15 @@ int main (int argc, char ** argv) {
 	signal(SIGINT, sig_int);
 	signal(SIGUSR2, sig_usr2);
 
-	appmenu = menu_set_get_root(menu_set_from_description("/etc/panel.menu", launch_application_menu));
-	appmenu->flags = MENU_FLAG_BUBBLE_CENTER;
-
-	clockmenu = menu_create();
-	clockmenu->flags |= MENU_FLAG_BUBBLE_RIGHT;
-	menu_insert(clockmenu, menu_create_clock());
-
-	calmenu = menu_create();
-	calmenu->flags |= MENU_FLAG_BUBBLE_CENTER;
-	menu_insert(calmenu, menu_create_calendar());
-
-	window_menu = menu_create();
-	window_menu->flags |= MENU_FLAG_BUBBLE_LEFT;
-	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Maximize", _window_menu_start_maximize));
-	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Move", _window_menu_start_move));
-	menu_insert(window_menu, menu_create_separator());
-	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Close", _window_menu_close));
-
-	logout_menu = menu_create();
-	logout_menu->flags |= MENU_FLAG_BUBBLE_RIGHT;
-	menu_insert(logout_menu, menu_create_normal("exit", "log-out", "Log Out", launch_application_menu));
+	/* Logout widget */
+	widget_init_logout();
+	widget_init_volume();
+	widget_init_network();
+	widget_init_weather();
+	widget_init_appmenu();
+	widget_init_clock();
+	widget_init_date();
+	widget_init_windowlist();
 
 	/* Subscribe to window updates */
 	yutani_subscribe_windows(yctx);
@@ -1942,6 +1901,7 @@ int main (int argc, char ** argv) {
 		if (now.tv_sec != last_tick) {
 			last_tick = now.tv_sec;
 			waitpid(-1, NULL, WNOHANG);
+			/* Update periodic widgets */
 			update_volume_level();
 			update_network_status();
 			update_weather_status();
