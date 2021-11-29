@@ -407,6 +407,7 @@ struct MenuList * menu_create(void) {
 	p->parent = NULL;
 	p->closed = 1;
 	p->flags = 0;
+	p->tail_offset = 0;
 	return p;
 }
 
@@ -535,7 +536,11 @@ static void _menu_redraw(yutani_window_t * menu_window, yutani_t * yctx, struct 
 
 		/* Figure out where to draw the tail */
 		int tail_left = 0;
-		if (menu->flags & MENU_FLAG_BUBBLE_LEFT) {
+		/* Do we have a set tail? */
+		#define TAIL_BOUND 8
+		if (menu->flags & MENU_FLAG_TAIL_POSITION) {
+			tail_left = (menu->tail_offset < TAIL_BOUND) ? TAIL_BOUND : (menu->tail_offset > ctx->width - TAIL_BOUND) ? (ctx->width - TAIL_BOUND) : menu->tail_offset;
+		} else if (menu->flags & MENU_FLAG_BUBBLE_LEFT) {
 			tail_left = 16;
 		} else if (menu->flags & MENU_FLAG_BUBBLE_RIGHT) {
 			tail_left = ctx->width - 16;

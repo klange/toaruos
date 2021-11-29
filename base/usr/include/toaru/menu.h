@@ -70,6 +70,7 @@ struct MenuList {
 	struct menu_bar * _bar;
 	int closed;
 	int flags;
+	int tail_offset;
 };
 
 struct MenuSet {
@@ -107,6 +108,7 @@ extern void menu_update_icon(struct MenuEntry * self, char * newIcon);
 #define MENU_FLAG_BUBBLE_LEFT   (1 << 1)
 #define MENU_FLAG_BUBBLE_RIGHT  (1 << 2)
 #define MENU_FLAG_BUBBLE (MENU_FLAG_BUBBLE_LEFT | MENU_FLAG_BUBBLE_RIGHT | MENU_FLAG_BUBBLE_CENTER)
+#define MENU_FLAG_TAIL_POSITION (1 << 3)
 
 #define MENU_BAR_HEIGHT 24
 

@@ -46,14 +46,10 @@ static void _window_menu_close(struct MenuEntry * self) {
 	yutani_special_request_wid(yctx, _window_menu_wid, YUTANI_SPECIAL_REQUEST_PLEASE_CLOSE);
 }
 
-static void window_show_menu(yutani_wid_t wid, int y, int x) {
+static void window_show_menu(yutani_wid_t wid, int x) {
 	if (window_menu->window) return;
 	_window_menu_wid = wid;
-	menu_prepare(window_menu, yctx);
-	if (window_menu->window) {
-		yutani_window_move(yctx, window_menu->window, y, x);
-		yutani_flip(yctx, window_menu->window);
-	}
+	panel_menu_show_at(window_menu, x);
 }
 
 static int widget_draw_windowlist(struct PanelWidget * this, gfx_context_t * ctx) {
@@ -132,7 +128,7 @@ static int widget_rightclick_windowlist(struct PanelWidget * this, struct yutani
 	foreach(node, window_list) {
 		struct window_ad * ad = node->value;
 		if (evt->new_x >= ad->left && evt->new_x < ad->left + TOTAL_CELL_WIDTH) {
-			window_show_menu(ad->wid, evt->new_x, DROPDOWN_OFFSET);
+			window_show_menu(ad->wid, evt->new_x);
 		}
 	}
 	return 0;

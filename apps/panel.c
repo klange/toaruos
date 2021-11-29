@@ -769,23 +769,25 @@ static void update_periodic_widgets(void) {
 	redraw();
 }
 
-int panel_menu_show(struct PanelWidget * this, struct MenuList * menu) {
+int panel_menu_show_at(struct MenuList * menu, int x) {
 	int mwidth, mheight, offset;
 
 	/* Calculate the expected size of the menu window. */
 	menu_calculate_dimensions(menu, &mheight, &mwidth);
 
-	/* Are we too far left? */
-	if (this->left + this->width - (this->width + mwidth) / 2 < X_PAD) {
-		offset = this->left;
+	if (x - mwidth / 2 < X_PAD) {
+		offset = X_PAD;
 		menu->flags = (menu->flags & ~MENU_FLAG_BUBBLE) | MENU_FLAG_BUBBLE_LEFT;
-	} else if (this->left + this->width - (this->width + mwidth) / 2 + mwidth > width - X_PAD) {
-		offset = this->left + this->width - mwidth;
+	} else if (x + mwidth / 2 > width - X_PAD) {
+		offset = width - X_PAD - mwidth;
 		menu->flags = (menu->flags & ~MENU_FLAG_BUBBLE) | MENU_FLAG_BUBBLE_RIGHT;
 	} else {
-		offset = this->left + this->width - (this->width + mwidth) / 2;
+		offset = x - mwidth / 2;
 		menu->flags = (menu->flags & ~MENU_FLAG_BUBBLE) | MENU_FLAG_BUBBLE_CENTER;
 	}
+
+	menu->flags |= MENU_FLAG_TAIL_POSITION;
+	menu->tail_offset = x - offset;
 
 	/* Prepare the menu, which creates the window. */
 	menu_prepare(menu, yctx);
@@ -798,6 +800,10 @@ int panel_menu_show(struct PanelWidget * this, struct MenuList * menu) {
 	}
 
 	return 1;
+}
+
+int panel_menu_show(struct PanelWidget * this, struct MenuList * menu) {
+	return panel_menu_show_at(menu, this->left + this->width / 2);
 }
 
 int main (int argc, char ** argv) {

@@ -81,6 +81,6 @@ extern int active_window;
 extern void redraw(void);
 extern char * ellipsify(char * input, int font_size, struct TT_Font * font, int max_width, int * out_width);
 extern int panel_menu_show(struct PanelWidget * this, struct MenuList * menu);
-extern int panel_menu_show_centered(struct PanelWidget * this, struct MenuList * menu);
+extern int panel_menu_show_at(struct MenuList * menu, int x);
 
 _End_C_Header
