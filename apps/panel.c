@@ -84,6 +84,8 @@ int active_window = -1;
 static int was_tabbing = 0;
 static int new_focused = -1;
 
+static void widgets_layout(void);
+
 /**
  * Clip text and add ellipsis to fit a specified display width.
  */
@@ -650,6 +652,7 @@ static void resize_finish(int xwidth, int xheight) {
 	bg_blob = realloc(bg_blob, bg_size);
 	memcpy(bg_blob, ctx->backbuffer, bg_size);
 
+	widgets_layout();
 	update_window_list();
 }
 
