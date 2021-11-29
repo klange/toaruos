@@ -166,25 +166,7 @@ static int widget_click_weather(struct PanelWidget * this, struct yutani_msg_win
 		menu_update_title(weather_pressure_entry, weather_pressure_str);
 	}
 	if (!weather->window) {
-		int mwidth, mheight, offset;
-		menu_calculate_dimensions(weather, &mheight, &mwidth);
-		if (this->left + mwidth > width - X_PAD) {
-			if (this->left + mwidth / 2 > width - X_PAD) {
-				offset = this->left + this->width - mwidth / 2;
-				weather->flags = (weather->flags & ~MENU_FLAG_BUBBLE) | MENU_FLAG_BUBBLE_RIGHT;
-			} else {
-				offset = this->left + this->width / 2 - mwidth / 2;
-				weather->flags = (weather->flags & ~MENU_FLAG_BUBBLE) | MENU_FLAG_BUBBLE_CENTER;
-			}
-		} else {
-			offset = this->left;
-			weather->flags = (weather->flags & ~MENU_FLAG_BUBBLE) | MENU_FLAG_BUBBLE_LEFT;
-		}
-		menu_prepare(weather, yctx);
-		if (weather->window) {
-			yutani_window_move(yctx, weather->window, offset, DROPDOWN_OFFSET);
-			yutani_flip(yctx, weather->window);
-		}
+		panel_menu_show(this,weather);
 	}
 	return 1;
 }

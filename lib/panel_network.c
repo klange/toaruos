@@ -132,15 +132,7 @@ static int widget_click_network(struct PanelWidget * this, struct yutani_msg_win
 		}
 	}
 	if (!netstat->window) {
-		menu_prepare(netstat, yctx);
-		if (netstat->window) {
-			if (this->left + netstat->window->width > (unsigned int)width) {
-				yutani_window_move(yctx, netstat->window, width - netstat->window->width, DROPDOWN_OFFSET);
-			} else {
-				yutani_window_move(yctx, netstat->window, this->left, DROPDOWN_OFFSET);
-			}
-			yutani_flip(yctx, netstat->window);
-		}
+		panel_menu_show(this,netstat);
 	}
 
 	return 1;

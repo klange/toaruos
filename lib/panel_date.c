@@ -171,11 +171,7 @@ static int widget_draw_date(struct PanelWidget * this, gfx_context_t * ctx) {
 
 static int widget_click_date(struct PanelWidget * this, struct yutani_msg_window_mouse_event * evt) {
 	if (!calmenu->window) {
-		menu_prepare(calmenu, yctx);
-		if (calmenu->window) {
-			yutani_window_move(yctx, calmenu->window, this->left + this->width - (this->width + calmenu->window->width) / 2, DROPDOWN_OFFSET);
-			yutani_flip(yctx, calmenu->window);
-		}
+		panel_menu_show_centered(this,calmenu);
 		return 1;
 	}
 	return 0;

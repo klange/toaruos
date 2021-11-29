@@ -171,15 +171,7 @@ static int widget_click_volume(struct PanelWidget * this, struct yutani_msg_wind
 	/* TODO We could also show a nice slider... if we had one... */
 
 	if (!volume_menu->window) {
-		menu_prepare(volume_menu, yctx);
-		if (volume_menu->window) {
-			if (this->left + volume_menu->window->width > (unsigned int)width) {
-				yutani_window_move(yctx, volume_menu->window, width - volume_menu->window->width, DROPDOWN_OFFSET);
-			} else {
-				yutani_window_move(yctx, volume_menu->window, this->left, DROPDOWN_OFFSET);
-			}
-			yutani_flip(yctx,volume_menu->window);
-		}
+		panel_menu_show(this, volume_menu);
 	}
 
 	return 1;
