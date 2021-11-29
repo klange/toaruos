@@ -747,12 +747,13 @@ static void widgets_layout(void) {
 	}
 
 	/* Now lay out the widgets */
-	int x = X_PAD;
+	int x = 16;
+	int available = width - 32;
 	foreach(node, widgets_enabled) {
 		struct PanelWidget * widget = node->value;
 		widget->left = x;
 		if (widget->fill) {
-			widget->width = (width - total_width - X_PAD * 2) / flexible_widgets;
+			widget->width = (available - total_width) / flexible_widgets;
 		}
 		x += widget->width;
 	}
@@ -774,42 +775,11 @@ int panel_menu_show(struct PanelWidget * this, struct MenuList * menu) {
 	/* Calculate the expected size of the menu window. */
 	menu_calculate_dimensions(menu, &mheight, &mwidth);
 
-	/* Are we too big to left-align? */
-	if (this->left + mwidth > width - X_PAD) {
-		/* Are we too big to center? */
-		if (this->left + this->width - (this->width + mwidth) / 2 + mwidth > width - X_PAD) {
-			offset = this->left + this->width - mwidth;
-			menu->flags = (menu->flags & ~MENU_FLAG_BUBBLE) | MENU_FLAG_BUBBLE_RIGHT;
-		} else {
-			offset = this->left + this->width - (this->width + mwidth) / 2;
-			menu->flags = (menu->flags & ~MENU_FLAG_BUBBLE) | MENU_FLAG_BUBBLE_CENTER;
-		}
-	} else {
+	/* Are we too far left? */
+	if (this->left + this->width - (this->width + mwidth) / 2 < X_PAD) {
 		offset = this->left;
 		menu->flags = (menu->flags & ~MENU_FLAG_BUBBLE) | MENU_FLAG_BUBBLE_LEFT;
-	}
-
-	/* Prepare the menu, which creates the window. */
-	menu_prepare(menu, yctx);
-
-	/* If we succeeded, move it to the final offset and display it */
-	if (menu->window) {
-		yutani_window_move(yctx, menu->window, offset, DROPDOWN_OFFSET);
-		yutani_flip(yctx,menu->window);
-		return 0;
-	}
-
-	return 1;
-}
-
-int panel_menu_show_centered(struct PanelWidget * this, struct MenuList * menu) {
-	int mwidth, mheight, offset;
-
-	/* Calculate the expected size of the menu window. */
-	menu_calculate_dimensions(menu, &mheight, &mwidth);
-
-	/* Are we too big to center? */
-	if (this->left + this->width - (this->width + mwidth) / 2 + mwidth > width - X_PAD) {
+	} else if (this->left + this->width - (this->width + mwidth) / 2 + mwidth > width - X_PAD) {
 		offset = this->left + this->width - mwidth;
 		menu->flags = (menu->flags & ~MENU_FLAG_BUBBLE) | MENU_FLAG_BUBBLE_RIGHT;
 	} else {

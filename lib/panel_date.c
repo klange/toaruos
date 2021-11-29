@@ -171,7 +171,7 @@ static int widget_draw_date(struct PanelWidget * this, gfx_context_t * ctx) {
 
 static int widget_click_date(struct PanelWidget * this, struct yutani_msg_window_mouse_event * evt) {
 	if (!calmenu->window) {
-		panel_menu_show_centered(this,calmenu);
+		panel_menu_show(this,calmenu);
 		return 1;
 	}
 	return 0;

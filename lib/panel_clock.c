@@ -75,7 +75,7 @@ static int widget_draw_clock(struct PanelWidget * this, gfx_context_t * ctx) {
 
 static int widget_click_clock(struct PanelWidget * this, struct yutani_msg_window_mouse_event * evt) {
 	if (!clockmenu->window) {
-		panel_menu_show_centered(this,clockmenu);
+		panel_menu_show(this,clockmenu);
 		return 1;
 	}
 	return 0;
