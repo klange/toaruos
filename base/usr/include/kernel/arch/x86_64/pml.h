@@ -12,7 +12,8 @@ union PML {
         uint64_t _available1:1;
         uint64_t size:1;
         uint64_t global:1;
-        uint64_t _available2:3;
+        uint64_t cow_pending:1;
+        uint64_t _available2:2;
         uint64_t page:28;
         uint64_t reserved:12;
         uint64_t _available3:11;

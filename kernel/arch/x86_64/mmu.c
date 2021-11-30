@@ -10,6 +10,7 @@
  * Copyright (C) 2021 K. Lange
  */
 #include <stdint.h>
+#include <kernel/assert.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
 #include <kernel/process.h>
@@ -27,6 +28,7 @@ static volatile uint32_t *frames;
 static size_t nframes;
 static size_t total_memory = 0;
 static size_t unavailable_memory = 0;
+static uint8_t * mem_refcounts = NULL;
 
 #define PAGE_SHIFT     12
 #define PAGE_SIZE      0x1000UL
@@ -356,6 +358,97 @@ _noentry:
 	return NULL;
 }
 
+int refcount_inc(uintptr_t frame) {
+	if (frame >= nframes) {
+		arch_fatal_prepare();
+		dprintf("%zu (inc, bad frame)\n", frame);
+		arch_dump_traceback();
+		arch_fatal();
+	}
+	if (mem_refcounts[frame] == 255) return 1;
+	mem_refcounts[frame]++;
+	return 0;
+}
+
+uint8_t refcount_dec(uintptr_t frame) {
+	if (frame >= nframes) {
+		arch_fatal_prepare();
+		dprintf("%zu (dec, bad frame)\n", frame);
+		arch_dump_traceback();
+		arch_fatal();
+	}
+	if (mem_refcounts[frame] == 0) {
+		arch_fatal_prepare();
+		dprintf("%zu (dec, frame has no references)\n", frame);
+		arch_dump_traceback();
+		arch_fatal();
+	}
+	mem_refcounts[frame]--;
+	return mem_refcounts[frame];
+}
+
+int copy_page_maybe(union PML * pt_in, union PML * pt_out, size_t l, uintptr_t address) {
+	/* Can we cow the current page? */
+	spin_lock(frame_alloc_lock);
+
+	/* Is the page writable? */
+	if (pt_in[l].bits.writable) {
+		/* Then we need to initialize the refcounts */
+		if (mem_refcounts[pt_in[l].bits.page] != 0) {
+			arch_fatal_prepare();
+			dprintf("%#zx (page=%u) refcount = %u\n",
+				address, pt_in[l].bits.page, mem_refcounts[pt_in[l].bits.page]);
+			arch_dump_traceback();
+			arch_fatal();
+			return 1;
+		}
+		mem_refcounts[pt_in[l].bits.page] = 2;
+		pt_in[l].bits.writable = 0;
+		pt_in[l].bits.cow_pending = 1;
+		pt_out[l].raw = pt_in[l].raw;
+		asm ("" ::: "memory");
+		mmu_invalidate(address);
+		spin_unlock(frame_alloc_lock);
+		return 0;
+	}
+
+	/* Can we make a new reference? */
+	if (refcount_inc(pt_in[l].bits.page)) {
+		/* There are too many references to fit in our refcount table, so just make a new page. */
+		char * page_in = mmu_map_from_physical((uintptr_t)pt_in[l].bits.page << PAGE_SHIFT);
+		uintptr_t newPage = mmu_first_frame() << PAGE_SHIFT;
+		char * page_out = mmu_map_from_physical(newPage);
+		memcpy(page_out,page_in,PAGE_SIZE);
+		pt_out[l].raw = 0;
+		pt_out[l].bits.present = 1;
+		pt_out[l].bits.user = 1;
+		pt_out[l].bits.page = newPage >> PAGE_SHIFT;
+		pt_out[l].bits.writable = 1;
+		pt_out[l].bits.cow_pending = 0;
+		asm ("" ::: "memory");
+	} else {
+		pt_out[l].raw = pt_in[l].raw;
+	}
+
+	spin_unlock(frame_alloc_lock);
+	return 0;
+}
+
+int free_page_maybe(union PML * pt_in, size_t l, uintptr_t address) {
+	if (pt_in[l].bits.writable) {
+		assert(mem_refcounts[pt_in[l].bits.page] == 0);
+		mmu_frame_clear((uintptr_t)pt_in[l].bits.page << PAGE_SHIFT);
+		return 0;
+	}
+
+	/* No more references */
+	if (refcount_dec(pt_in[l].bits.page) == 0) {
+		mmu_frame_clear((uintptr_t)pt_in[l].bits.page << PAGE_SHIFT);
+	}
+
+	return 0;
+}
+
 /**
  * @brief Create a new address space with the same contents of an existing one.
  *
@@ -426,27 +519,12 @@ union PML * mmu_clone(union PML * from) {
 								if (address >= USER_DEVICE_MAP && address <= USER_SHM_HIGH) continue;
 								if (pt_in[l].bits.present) {
 									if (pt_in[l].bits.user) {
-										char * page_in = mmu_map_from_physical((uintptr_t)pt_in[l].bits.page << PAGE_SHIFT);
-										spin_lock(frame_alloc_lock);
-										uintptr_t newPage = mmu_first_frame() << PAGE_SHIFT;
-										mmu_frame_set(newPage);
-										spin_unlock(frame_alloc_lock);
-										char * page_out = mmu_map_from_physical(newPage);
-										memcpy(page_out,page_in,PAGE_SIZE);
-										pt_out[l].bits.page = newPage >> PAGE_SHIFT;
-										pt_out[l].bits.present = 1;
-										pt_out[l].bits.user = 1;
-										pt_out[l].bits.writable = pt_in[l].bits.writable;
-										pt_out[l].bits.writethrough = pt_out[l].bits.writethrough;
-										pt_out[l].bits.accessed = pt_out[l].bits.accessed;
-										pt_out[l].bits.size = pt_out[l].bits.size;
-										pt_out[l].bits.global = pt_out[l].bits.global;
-										pt_out[l].bits.nx = pt_out[l].bits.nx;
+										copy_page_maybe(pt_in, pt_out, l, address);
 									} else {
 										/* If it's not a user page, just copy directly */
 										pt_out[l].raw = pt_in[l].raw;
 									}
-								}
+								} /* Else, mmap'd files? */
 							}
 						}
 					}
@@ -628,7 +706,7 @@ void mmu_free(union PML * from) {
 								if (pt_in[l].bits.present) {
 									/* Free only user pages */
 									if (pt_in[l].bits.user) {
-										mmu_frame_clear((uintptr_t)pt_in[l].bits.page << PAGE_SHIFT);
+										free_page_maybe(pt_in,l,address);
 									}
 								}
 							}
@@ -704,6 +782,12 @@ extern char end[];
  */
 void mmu_init(size_t memsize, uintptr_t firstFreePage) {
 	this_core->current_pml = (union PML *)&init_page_region[0];
+
+	asm volatile (
+		"movq %%cr0, %%rax\n"
+		"orq  $0x10000, %%rax\n"
+		"movq %%rax, %%cr0\n"
+		: : : "rax");
 
 	/* Map the high base PDP */
 	init_page_region[0][511].raw = (uintptr_t)&high_base_pml | KERNEL_PML_ACCESS;
@@ -796,6 +880,11 @@ void mmu_init(size_t memsize, uintptr_t firstFreePage) {
 	}
 
 	heapStart = (char*)KERNEL_HEAP_START + bytesOfFrames;
+
+	/* Then, uh, make a bunch of space for page counts? */
+	size_t size_of_refcounts = (nframes & PAGE_LOW_MASK) ? (nframes + PAGE_SIZE - (nframes & PAGE_LOW_MASK)) : nframes;
+	mem_refcounts = sbrk(size_of_refcounts);
+	memset(mem_refcounts, 0, size_of_refcounts);
 }
 
 /**
@@ -935,6 +1024,46 @@ void mmu_unmap_module(uintptr_t start_address, size_t size) {
 }
 
 
+int mmu_copy_on_write(uintptr_t address) {
+	union PML * page = mmu_get_page(address,0);
+
+	/* Was this address pending a cow? */
+	if (!page->bits.cow_pending) {
+		dprintf("mem: %#zx was not expecting cow action?\n", address);
+		return 1;
+	}
+
+	spin_lock(frame_alloc_lock);
+	/* XXX Is this the last reference to this page... */
+	uint8_t refs = refcount_dec(page->bits.page);
+	if (refs == 0) {
+		page->bits.writable = 1;
+		page->bits.cow_pending = 0;
+		asm ("" ::: "memory");
+		mmu_invalidate(address);
+		spin_unlock(frame_alloc_lock);
+		return 0;
+	}
+
+	uintptr_t faulting_frame = page->bits.page;
+	uintptr_t fresh_frame = mmu_first_frame();
+	mmu_frame_set(fresh_frame << PAGE_SHIFT);
+
+	char * page_in  = mmu_map_from_physical(faulting_frame << PAGE_SHIFT);
+	char * page_out = mmu_map_from_physical(fresh_frame << PAGE_SHIFT);
+	memcpy(page_out, page_in, 4096);
+
+	page->bits.page = fresh_frame;
+	page->bits.writable = 1;
+	page->bits.cow_pending = 0;
+	spin_unlock(frame_alloc_lock);
+
+	asm ("" ::: "memory");
+
+	mmu_invalidate(address);
+	return 0;
+}
+
 int mmu_validate_user_pointer(void * addr, size_t size, int flags) {
 	if (addr == NULL && !(flags & MMU_PTR_NULL)) return 0;
 	if (size >     0x800000000000) return 0;
@@ -952,9 +1081,12 @@ int mmu_validate_user_pointer(void * addr, size_t size, int flags) {
 		if (!page_entry) return 0;
 		if (!page_entry->bits.present) return 0;
 		if (!page_entry->bits.user) return 0;
-		if (!page_entry->bits.writable && (flags & MMU_PTR_WRITE)) return 0;
+		if (!page_entry->bits.writable && (flags & MMU_PTR_WRITE)) {
+			if (mmu_copy_on_write((uintptr_t)(page << 12))) return 0;
+		}
 	}
 
 	return 1;
 }
+
 

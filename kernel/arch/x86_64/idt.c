@@ -498,11 +498,6 @@ static void _page_fault(struct regs * r) {
 	uintptr_t faulting_address;
 	asm volatile("mov %%cr2, %0" : "=r"(faulting_address));
 
-	/* Was this a kernel page fault? Those are always a panic. */
-	if (!this_core->current_process || r->cs == 0x08) {
-		panic("Page fault in kernel", r, faulting_address);
-	}
-
 	/* FFFFB00Fh is the magic thread exit address.
 	 * XXX: This seems like it could be a perfectly valid address,
 	 *      should we move it to 0x8FFFFB00F, similar to what was
@@ -519,8 +514,30 @@ static void _page_fault(struct regs * r) {
 		return;
 	}
 
+	if ((r->err_code & 3) == 3) {
+		/* This is probably a COW page? */
+		if (faulting_address > 0x800000000000 || faulting_address < 0x30000000) {
+			panic("Invalid address? Bad write from kernel?", r, faulting_address);
+		}
+		if (r->cs == 0x08) {
+			dprintf("mem: trying to write cow page from kernel\n");
+		}
+
+		extern void mmu_copy_on_write(uintptr_t address);
+		mmu_copy_on_write(faulting_address);
+		return;
+	}
+
+	/* Was this a kernel page fault? Those are always a panic. */
+	if (!this_core->current_process || r->cs == 0x08) {
+		panic("Page fault in kernel", r, faulting_address);
+	}
+
+	/* Page was present but not writable */
+
 	/* Quietly map more stack if it was a viable stack address. */
 	if (faulting_address < 0x800000000000 && faulting_address > 0x700000000000) {
+		//dprintf("Map more stack %#zx\n", faulting_address);
 		map_more_stack(faulting_address & 0xFFFFffffFFFFf000);
 		return;
 	}
