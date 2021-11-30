@@ -829,7 +829,7 @@ int main(int argc, char * argv[]) {
 	}
 
 	/* Initialize hashmaps for symbols, GLOB_DATs, and objects */
-	dumb_symbol_table = hashmap_create(10);
+	dumb_symbol_table = hashmap_create(100);
 	glob_dat = hashmap_create(10);
 	objects_map = hashmap_create(10);
 	tls_map = hashmap_create(10);
