@@ -62,6 +62,13 @@ static uint8_t * mem_refcounts = NULL;
 #define INDEX_FROM_BIT(b)  ((b) >> 5)
 #define OFFSET_FROM_BIT(b) ((b) & 0x1F)
 
+/**
+ * @brief Mark a physical page frame as in use.
+ *
+ * Sets the bitmap allocator bit for a frame.
+ *
+ * @param frame_addr Address of the frame (not index!)
+ */
 void mmu_frame_set(uintptr_t frame_addr) {
 	/* If the frame is within bounds... */
 	if (frame_addr < nframes * PAGE_SIZE) {
@@ -75,6 +82,13 @@ void mmu_frame_set(uintptr_t frame_addr) {
 
 static uintptr_t lowest_available = 0;
 
+/**
+ * @brief Mark a physical page frame as available.
+ *
+ * Clears the bitmap allocator bit for a frame.
+ *
+ * @param frame_addr Address of the frame (not index!)
+ */
 void mmu_frame_clear(uintptr_t frame_addr) {
 	/* If the frame is within bounds... */
 	if (frame_addr < nframes * PAGE_SIZE) {
@@ -87,8 +101,14 @@ void mmu_frame_clear(uintptr_t frame_addr) {
 	}
 }
 
+/**
+ * @brief Determine if a physical page is available for use.
+ *
+ * @param frame_addr Address of the frame (not index!)
+ * @returns 0 if available, 1 otherwise.
+ */
 int mmu_frame_test(uintptr_t frame_addr) {
-	if (!(frame_addr < nframes * PAGE_SIZE)) return 0;
+	if (!(frame_addr < nframes * PAGE_SIZE)) return 1;
 	uint64_t frame  = frame_addr >> PAGE_SHIFT;
 	uint64_t index  = INDEX_FROM_BIT(frame);
 	uint32_t offset = OFFSET_FROM_BIT(frame);
@@ -358,6 +378,17 @@ _noentry:
 	return NULL;
 }
 
+/**
+ * @brief Increment the reference count for a physical page of memory.
+ *
+ * We allow up to 255 references to a page, so that we can track individual
+ * page reference counts in a big @c uint8_t array. If there are already
+ * that many references (that's a lot of forks!) we give up and do a regular
+ * copy of the page and the new copy is writable.
+ *
+ * @param frame Physical page index
+ * @returns 1 if there are already too many references to this page, 0 otherwise.
+ */
 int refcount_inc(uintptr_t frame) {
 	if (frame >= nframes) {
 		arch_fatal_prepare();
@@ -370,6 +401,14 @@ int refcount_inc(uintptr_t frame) {
 	return 0;
 }
 
+/**
+ * @brief Decrement the reference count for a physical page of memory.
+ *
+ * Panics if @p frame is invalid or has a zero reference count.
+ *
+ * @param frame Physical page index
+ * @returns the resulting reference count.
+ */
 uint8_t refcount_dec(uintptr_t frame) {
 	if (frame >= nframes) {
 		arch_fatal_prepare();
@@ -387,6 +426,22 @@ uint8_t refcount_dec(uintptr_t frame) {
 	return mem_refcounts[frame];
 }
 
+/**
+ * @brief Handle user pages in mmu_clone
+ *
+ * Copies and updates reference counts for pages across forks.
+ * If a page was writable in the source directory, it will be marked
+ * read-only and have reference counts initialized for COW.
+ *
+ * If a page was already read-only, its reference count will
+ * be incremented for the new directory.
+ *
+ * @param pt_in Existing page table.
+ * @param pt_out New directory's page table.
+ * @param l Index into both page tables for this page.
+ * @param address Virtual address being referenced.
+ * @returns 0, generally
+ */
 int copy_page_maybe(union PML * pt_in, union PML * pt_out, size_t l, uintptr_t address) {
 	/* Can we cow the current page? */
 	spin_lock(frame_alloc_lock);
@@ -434,6 +489,22 @@ int copy_page_maybe(union PML * pt_in, union PML * pt_out, size_t l, uintptr_t a
 	return 0;
 }
 
+/**
+ * @brief When freeing a directory, handle individual user pages.
+ *
+ * If @p pt_in references a writable user page, we know we can
+ * free it immediately as it is the only reference to that page.
+ *
+ * Otherwise, we need to decrement the reference counts for read-only
+ * pages, as they are shared COW entries. Only if this was the last
+ * reference (refcount drops to 0) can we then proceed to free the
+ * underlying page.
+ *
+ * @param pt_in Start of page table
+ * @param l Offset into page table for this page
+ * @param address Virtual address being freed (was used for debugging)
+ * @returns 0, generally
+ */
 int free_page_maybe(union PML * pt_in, size_t l, uintptr_t address) {
 	if (pt_in[l].bits.writable) {
 		assert(mem_refcounts[pt_in[l].bits.page] == 0);
@@ -783,6 +854,14 @@ extern char end[];
 void mmu_init(size_t memsize, uintptr_t firstFreePage) {
 	this_core->current_pml = (union PML *)&init_page_region[0];
 
+	/**
+	 * Enable WP bit, which will cause kernel writes to
+	 * non-writable pages to trigger page faults. We use
+	 * this to perform COW mappings for user processes if
+	 * they passed an unmapped region to a system call, though
+	 * this should be handled by @see mmu_validate_user_pointer
+	 * before we get to that point...
+	 */
 	asm volatile (
 		"movq %%cr0, %%rax\n"
 		"orq  $0x10000, %%rax\n"
@@ -981,6 +1060,9 @@ static uintptr_t module_base_address = MODULE_BASE_START;
  * yet load the kernel in the -2GiB region... it might also be worthwhile
  * to implement some ASLR here, especially given that we're loading
  * relocatable ELF object files and can stick them anywhere.
+ *
+ * @param size How much space to allocate, will be rounded up to page size.
+ * @returns Start of the allocated address space.
  */
 void * mmu_map_module(size_t size) {
 	if (size & PAGE_LOW_MASK) {
@@ -999,6 +1081,14 @@ void * mmu_map_module(size_t size) {
 	return out;
 }
 
+/**
+ * @brief Free pages allocated for kernel modules.
+ *
+ * This rather blindly unmaps pages.
+ *
+ * @param start_address Start of mapping to unmap.
+ * @param size Size of mapping to unmap.
+ */
 void mmu_unmap_module(uintptr_t start_address, size_t size) {
 	if ((size & PAGE_LOW_MASK) || (start_address & PAGE_LOW_MASK)) {
 		arch_fatal_prepare();
@@ -1023,20 +1113,33 @@ void mmu_unmap_module(uintptr_t start_address, size_t size) {
 	spin_unlock(module_space_lock);
 }
 
-
+/**
+ * @brief Swap a COW page for a writable copy.
+ *
+ * Examines @p address to determine if it is a pending
+ * COW page that has been marked read-only. If it is,
+ * it will be exchanged for a writable page. If it is
+ * the last read-only reference to a page, it will be
+ * marked writable without introducing a new backing page.
+ *
+ * @param address Virtual address that triggered the fault.
+ * @returns 0 if this was a valid and completed COW operation, 1 otherwise.
+ */
 int mmu_copy_on_write(uintptr_t address) {
 	union PML * page = mmu_get_page(address,0);
 
 	/* Was this address pending a cow? */
 	if (!page->bits.cow_pending) {
-		dprintf("mem: %#zx was not expecting cow action?\n", address);
+		/* No, go back and trigger and a SIGSEGV */
 		return 1;
 	}
 
 	spin_lock(frame_alloc_lock);
-	/* XXX Is this the last reference to this page... */
+
+	/* Is this the last reference to this page? */
 	uint8_t refs = refcount_dec(page->bits.page);
 	if (refs == 0) {
+		/* Then we can just mark it writable. */
 		page->bits.writable = 1;
 		page->bits.cow_pending = 0;
 		asm ("" ::: "memory");
@@ -1045,14 +1148,17 @@ int mmu_copy_on_write(uintptr_t address) {
 		return 0;
 	}
 
+	/* Allocate a new writable page */
 	uintptr_t faulting_frame = page->bits.page;
 	uintptr_t fresh_frame = mmu_first_frame();
 	mmu_frame_set(fresh_frame << PAGE_SHIFT);
 
+	/* Copy the read-only page into the new writable page */
 	char * page_in  = mmu_map_from_physical(faulting_frame << PAGE_SHIFT);
 	char * page_out = mmu_map_from_physical(fresh_frame << PAGE_SHIFT);
 	memcpy(page_out, page_in, 4096);
 
+	/* And swap out the page table entry. */
 	page->bits.page = fresh_frame;
 	page->bits.writable = 1;
 	page->bits.cow_pending = 0;
@@ -1064,6 +1170,20 @@ int mmu_copy_on_write(uintptr_t address) {
 	return 0;
 }
 
+/**
+ * @brief Check if the current user process can access address space.
+ *
+ * Thoroughly examines page table entries to determine if a user process
+ * can access the memory at @p addr through @p size bytes.
+ *
+ * @p flags can be set to @c MMU_PTR_NULL if @c NULL address should trigger
+ * a failure, @c MMU_PTR_WRITE if the process must have write access.
+ *
+ * @param addr Address to start checking from.
+ * @param size Size after @p addr to check.
+ * @param flags Control what constitutes a failure.
+ * @returns 0 on failure, 1 if process has access.
+ */
 int mmu_validate_user_pointer(void * addr, size_t size, int flags) {
 	if (addr == NULL && !(flags & MMU_PTR_NULL)) return 0;
 	if (size >     0x800000000000) return 0;

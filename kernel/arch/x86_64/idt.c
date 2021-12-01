@@ -516,13 +516,6 @@ static void _page_fault(struct regs * r) {
 
 	if ((r->err_code & 3) == 3) {
 		/* This is probably a COW page? */
-		if (faulting_address > 0x800000000000 || faulting_address < 0x30000000) {
-			panic("Invalid address? Bad write from kernel?", r, faulting_address);
-		}
-		if (r->cs == 0x08) {
-			dprintf("mem: trying to write cow page from kernel\n");
-		}
-
 		extern void mmu_copy_on_write(uintptr_t address);
 		mmu_copy_on_write(faulting_address);
 		return;
@@ -537,7 +530,6 @@ static void _page_fault(struct regs * r) {
 
 	/* Quietly map more stack if it was a viable stack address. */
 	if (faulting_address < 0x800000000000 && faulting_address > 0x700000000000) {
-		//dprintf("Map more stack %#zx\n", faulting_address);
 		map_more_stack(faulting_address & 0xFFFFffffFFFFf000);
 		return;
 	}
