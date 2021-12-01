@@ -127,11 +127,12 @@ ssize_t read_pipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 				collected++;
 			}
 		}
-		spin_unlock(pipe->lock_read);
 		wakeup_queue(pipe->wait_queue_writers);
 		/* Deschedule and switch */
 		if (collected == 0) {
-			sleep_on(pipe->wait_queue_readers);
+			sleep_on_unlocking(pipe->wait_queue_readers, &pipe->lock_read);
+		} else {
+			spin_unlock(pipe->lock_read);
 		}
 	}
 
@@ -149,7 +150,7 @@ ssize_t write_pipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) 
 
 	size_t written = 0;
 	while (written < size) {
-		spin_lock(pipe->lock_write);
+		spin_lock(pipe->lock_read);
 		/* These pipes enforce atomic writes, poorly. */
 		if (pipe_available(pipe) > size) {
 			while (pipe_available(pipe) > 0 && written < size) {
@@ -158,11 +159,12 @@ ssize_t write_pipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) 
 				written++;
 			}
 		}
-		spin_unlock(pipe->lock_write);
 		wakeup_queue(pipe->wait_queue_readers);
 		pipe_alert_waiters(pipe);
 		if (written < size) {
-			sleep_on(pipe->wait_queue_writers);
+			sleep_on_unlocking(pipe->wait_queue_writers, &pipe->lock_read);
+		} else {
+			spin_unlock(pipe->lock_read);
 		}
 	}
 
@@ -282,7 +284,6 @@ fs_node_t * make_pipe(size_t size) {
 	pipe->dead      = 0;
 
 	spin_init(pipe->lock_read);
-	spin_init(pipe->lock_write);
 	spin_init(pipe->alert_lock);
 	spin_init(pipe->wait_lock);
 	spin_init(pipe->ptr_lock);
