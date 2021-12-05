@@ -110,8 +110,11 @@ static void redraw(char * username, char * password, int fails, char * argv[]) {
 	for (unsigned int i = 0; i < strlen(password) && i < 512/4; ++i) {
 		strcat(password_circles, "●");
 	}
+
+	gfx_context_t * clipped = init_graphics_subregion(myctx, 32, 122, prompt->width - 74, 22);
 	tt_set_size(tt_font_thin, FONT_SIZE_PASSWD);
-	tt_draw_string(myctx, tt_font_thin, 33, 118 + FONT_SIZE_PASSWD, password_circles, FONT_COLOR);
+	tt_draw_string(clipped, tt_font_thin, 1, FONT_SIZE_PASSWD - 5, password_circles, FONT_COLOR);
+	free(clipped);
 
 	draw_fill(ctx, rgba(0,0,0,200));
 	draw_sprite(ctx, prompt, (ctx->width - prompt->width) / 2, (ctx->height - prompt->height) / 2);
@@ -229,7 +232,7 @@ int main(int argc, char ** argv) {
 
 	window = yutani_window_create(yctx, width, height);
 	yutani_window_move(yctx, window, 0, 0);
-	yutani_window_advertise(yctx, window, "gsudo");
+	yutani_window_advertise_icon(yctx, window, "gsudo", "lock");
 	tt_font_thin = tt_font_from_shm("sans-serif");
 
 	ctx = init_graphics_yutani_double_buffer(window);
