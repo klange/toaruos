@@ -129,7 +129,6 @@ void draw_text_box(gfx_context_t * ctx, struct text_box * tb) {
 	int x = tb->parent->x + tb->x;
 	int y = tb->parent->y + tb->y;
 
-	int text_offset = 15;
 	if (tb->is_focused) {
 		draw_rounded_rectangle(ctx, 1 + x, 1 + y, tb->width - 2, tb->height - 2, 4, rgb(8,193,236));
 		draw_rounded_rectangle(ctx, 2 + x, 2 + y, tb->width - 4, tb->height - 4, 4, rgb(244,244,244));
@@ -153,12 +152,16 @@ void draw_text_box(gfx_context_t * ctx, struct text_box * tb) {
 	}
 
 	tt_set_size(tt_font_thin, 13);
-	tt_draw_string(ctx, tt_font_thin, x + TEXTBOX_INTERIOR_LEFT, y + text_offset + 1, text, color);
+
+	gfx_context_t * clipped = init_graphics_subregion(ctx, x + 2, y + 2, tb->width - 4, tb->height - 4);
+	tt_draw_string(clipped, tt_font_thin, 2, 13, text, color);
 
 	if (tb->is_focused) {
 		int width = tt_string_width(tt_font_thin, text);
-		draw_line(ctx, x + TEXTBOX_INTERIOR_LEFT + width, x + TEXTBOX_INTERIOR_LEFT + width, y + 2, y + text_offset + 1, tb->text_color);
+		draw_line(clipped, width + 2, width + 2, 0, tb->height - 4, tb->text_color);
 	}
+
+	free(clipped);
 
 }
 
