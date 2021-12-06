@@ -89,54 +89,22 @@ static int user_color(char * user) {
 	return 0;
 }
 
+static int color_pairs[] = {
+	15, 0, 4, 2, 9, 1, 5, 3, 11, 10, 6, 14, 12, 13, 8, 7
+};
+
 static struct color_pair irc_color_to_pair(int fg, int bg) {
 	int _fg = 0;
 	int _bg = 0;
 	if (fg == -1) {
 		_fg = -1;
 	} else {
-		fg = fg % 16;
-		switch (fg) {
-			case 0: _fg = 15; break;
-			case 1: _fg = 0; break;
-			case 2: _fg = 4; break;
-			case 3: _fg = 2; break;
-			case 4: _fg = 9; break;
-			case 5: _fg = 1; break;
-			case 6: _fg = 5; break;
-			case 7: _fg = 3; break;
-			case 8: _fg = 11; break;
-			case 9: _fg = 10; break;
-			case 10: _fg = 6; break;
-			case 11: _fg = 14; break;
-			case 12: _fg = 12; break;
-			case 13: _fg = 13; break;
-			case 14: _fg = 8; break;
-			case 15: _fg = 7; break;
-		}
+		_fg = color_pairs[fg % 16];
 	}
 	if (bg == -1) {
 		_bg = -1;
 	} else {
-		bg = bg % 16;
-		switch (bg) {
-			case 0: _bg = 15; break;
-			case 1: _bg = 0; break;
-			case 2: _bg = 4; break;
-			case 3: _bg = 2; break;
-			case 4: _bg = 9; break;
-			case 5: _bg = 1; break;
-			case 6: _bg = 5; break;
-			case 7: _bg = 3; break;
-			case 8: _bg = 11; break;
-			case 9: _bg = 10; break;
-			case 10: _bg = 6; break;
-			case 11: _bg = 14; break;
-			case 12: _bg = 12; break;
-			case 13: _bg = 13; break;
-			case 14: _bg = 8; break;
-			case 15: _bg = 7; break;
-		}
+		_bg = color_pairs[bg % 16];
 	}
 	return (struct color_pair){_fg, _bg};
 }
@@ -391,9 +359,18 @@ next:
 static void redraw_buffer(char * buf) {
 	struct winsize w;
 	ioctl(0, TIOCGWINSZ, &w);
-	fprintf(stdout,"\033[%d;1H [%s] ", w.ws_row, channel ? channel : "(status)");
-	fprintf(stdout,"%s\033[K", buf);
-	fprintf(stdout,"\033[?25h");
+
+	char tmp[1024];
+	size_t left = snprintf(tmp,1024," [%s] ", channel ? channel : "(status)");
+	size_t avail = w.ws_col - left - 1;
+	size_t buflen = strlen(buf);
+	char * from = buf;
+
+	if (buflen >= avail) {
+		from = buf + (buflen - avail);
+	}
+
+	fprintf(stdout,"\033[%d;1H%s%s\033[K\033[?25h", w.ws_row, tmp, from);
 	fflush(stdout);
 }
 
