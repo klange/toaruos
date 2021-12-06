@@ -84,8 +84,8 @@ int main(int argc, char * argv[]) {
 	prog_lines[i] = "hostname";
 	sprintf(data_lines[i++], C_A "%s" C_O "@" C_A, user);
 
-	/* no command */
-	sprintf(data_lines[i++], C_A "OS: " C_O "ToaruOS");
+	prog_lines[i] = ". /etc/os-release; echo ${PRETTY_NAME}";
+	sprintf(data_lines[i++], C_A "OS: " C_O);
 
 	prog_lines[i] = "uname -sr";
 	sprintf(data_lines[i++], C_A "Kernel: " C_O);
