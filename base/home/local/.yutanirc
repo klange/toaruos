@@ -1,10 +1,18 @@
 #!/bin/sh
 
-if stat -Lq /usr/share/fonts/DejaVuSansMono.ttf then export FREETYPE_PROPERTIES="truetype:interpreter-version=35"
+# Start wallpaper
 cd ~/Desktop
 file-browser --wallpaper &
-toastd --really # Daemonizes
 cd ~
+
+# Start toast daemon
+toastd --really # Daemonizes
+
+# If we haven't shown the tutorial yet, show it.
 if not stat -q ~/.tutorial-shown then show-tutorial.sh
+
+# Login toast notifications
 show-toasts.krk &
+
+# Replace us with the panel
 exec panel --really
