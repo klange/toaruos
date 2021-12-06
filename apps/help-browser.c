@@ -144,16 +144,13 @@ static int parser_open(struct markup_state * self, void * user, struct markup_ta
 	} else if (!strcmp(tag->name, "h1")) {
 		list_insert(state, (void*)(uintptr_t)current_state);
 		current_state |= (1 << 2);
+	} else if (!strcmp(tag->name, "mono")) {
+		list_insert(state, (void*)(uintptr_t)current_state);
+		current_state |= (1 << 3);
 	} else if (!strcmp(tag->name, "br")) {
 		write_buffer();
 		cursor_x = BASE_X;
 		cursor_y += current_line_height();
-	} else if (!strcmp(tag->name, "mono")) {
-		write_buffer();
-		cursor_x = BASE_X;
-		cursor_y += current_line_height();
-		list_insert(state, (void*)(uintptr_t)current_state);
-		current_state |= (1 << 3);
 	}
 	markup_free_tag(tag);
 	return 0;
@@ -169,9 +166,6 @@ static int parser_close(struct markup_state * self, void * user, char * tag_name
 		current_state = (int)(uintptr_t)nstate->value;
 		free(nstate);
 	} else if (!strcmp(tag_name, "mono")) {
-		write_buffer();
-		cursor_x = BASE_X;
-		cursor_y += current_line_height();
 		node_t * nstate = list_pop(state);
 		current_state = (int)(uintptr_t)nstate->value;
 		free(nstate);
