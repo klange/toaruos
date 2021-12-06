@@ -1,0 +1,5 @@
+<h1>Calculator</h1>
+
+A simple calculator powered by Kuroko.<br />
+Use the keyboard or the provided buttons to enter calculations as Kuroko expressions.<br />
+Single-line statements such as imports are also supported. For more math functionality, <mono>import math</mono>.
