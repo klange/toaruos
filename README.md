@@ -8,7 +8,7 @@ The OS includes a kernel, bootloader, dynamic shared object linker, C standard l
 
 There are no external runtime dependencies and all required source code, totalling roughly 100k lines of (primarily) C, is included in this repository, save for [Kuroko](https://github.com/kuroko-lang/kuroko), which lives separately.
 
-![Screenshot](https://klange.dev/s/Screenshot%20from%202021-10-29%2010-44-22.png)
+![Screenshot](https://klange.dev/s/Screenshot%20from%202021-12-06%2011-38-12.png)
 *Demonstration of ToaruOS's UI and some applications.*
 
 ## History
@@ -134,11 +134,11 @@ The best end-user experience with ToaruOS will be had in either of these virtual
 
 Set up a new VM for an "other" 64-bit guest, supply it with at least 1GiB of RAM, attach the CD image, remove or ignore any hard disks, and select an Intel Gigabit NIC. Two or more CPUs are recommended, as well.
 
-![VirtualBox screenshot](https://klange.dev/s/Screenshot%20from%202021-11-02%2009-44-42.png)
-*ToaruOS running in VirtualBox on a Linux host.*
+![VirtualBox screenshot](https://klange.dev/s/Screenshot%20from%202021-12-06%2011-39-27.png)
+*ToaruOS running in VirtualBox.*
 
-![VMware screenshot](https://klange.dev/s/Screenshot%202021-11-02%20072852.png)
-*ToaruOS running in VMware Workstation on a Windows host.*
+![VMware screenshot](https://klange.dev/s/Screenshot%20from%202021-12-06%2011-41-17.png)
+*ToaruOS running in VMware Workstation Player.*
 
 By default, the bootloader will pass a flag to the VirtualBox device driver to disable "Seamless" support as the implementation has a performance overhead. To enable Seamless mode, use the bootloader menu to check the "VirtualBox Seamless" option before booting. The menu also has options to disable automatic guest display sizing if you experience issues with this feature.
 
