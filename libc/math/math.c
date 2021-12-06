@@ -469,3 +469,18 @@ double tanh(double x) {
 	return (exp(2.0*x) - 1.0) / (exp(2.0*x) + 1.0);
 }
 
+int fpclassify(double x) {
+	union {
+		double asFloat;
+		uint64_t asInt;
+	} bits = {x};
+	uint64_t exponent = (bits.asInt >> 52) & 0x7FF;
+	uint64_t mantissa = (bits.asInt & 0xFffffFFFFffffULL);
+
+	if (exponent == 0x7FF) {
+		return mantissa ? FP_NAN : FP_INFINITE;
+	} else if (exponent == 0) {
+		return mantissa ? FP_SUBNORMAL : FP_ZERO;
+	}
+	return FP_NORMAL;
+}

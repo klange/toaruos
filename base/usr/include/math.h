@@ -46,4 +46,26 @@ extern double modf(double x, double *iptr);
 
 extern double hypot(double x, double y);
 
+extern double trunc(double x);
+extern double acosh(double x);
+extern double asinh(double x);
+extern double atanh(double x);
+extern double erf(double x);
+extern double erfc(double x);
+extern double gamma(double x);
+extern double lgamma(double x);
+extern double copysign(double x, double y);
+extern double remainder(double x, double y);
+
+enum {
+    FP_NAN, FP_INFINITE, FP_ZERO, FP_SUBNORMAL, FP_NORMAL
+};
+
+extern int fpclassify(double x);
+
+#define isfinite(x) ((fpclassify(x) != FP_NAN && fpclassify(x) != FP_INFINITE))
+#define isnormal(x) (fpclassify(x) == FP_NORMAL)
+#define isnan(x)    (fpclassify(x) == FP_NAN)
+#define isinf(x)    (fpclassify(x) == FP_INFINITE)
+
 _End_C_Header

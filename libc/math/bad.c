@@ -49,3 +49,28 @@ double expm1(double x) {
 	BAD;
 	return exp(x) - 1.0;
 }
+
+double trunc(double x) {
+	BAD;
+	return (double)(long)x;
+}
+
+double acosh(double x) { BAD; return 0.0; }
+double asinh(double x) { BAD; return 0.0; }
+double atanh(double x) { BAD; return 0.0; }
+double erf(double x)   { BAD; return 0.0; }
+double erfc(double x)  { BAD; return 0.0; }
+double gamma(double x) { BAD; return 0.0; }
+double lgamma(double x){ BAD; return 0.0; }
+double remainder(double x, double y) { BAD; return 0.0; }
+
+double copysign(double x, double y) {
+	if (y < 0) {
+		if (x < 0) return x;
+		return -x;
+	} else {
+		if (x < 0) return -x;
+		return x;
+	}
+}
+
