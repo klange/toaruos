@@ -14,6 +14,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <time.h>
 
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -52,30 +53,44 @@ static int stat_file(char * file) {
 
 	if (quiet) return 0;
 
-	printf("0x%x bytes\n", (unsigned int)_stat.st_size);
-
-	if (S_ISDIR(_stat.st_mode)) {
-		printf("Is a directory.\n");
-	} else if (S_ISFIFO(_stat.st_mode)) {
-		printf("Is a pipe.\n");
-	} else if (S_ISLNK(_stat.st_mode)) {
-		printf("Is a symlink.\n");
-	} else if (_stat.st_mode & 0111) {
-		printf("Is executable.\n");
-	}
+	const char * file_type = "regular file";
+	if (S_ISDIR(_stat.st_mode))        file_type = "directory";
+	else if (S_ISFIFO(_stat.st_mode))  file_type = "fifo";
+	else if (S_ISLNK(_stat.st_mode))   file_type = "symbolic link";
+	else if (S_ISBLK(_stat.st_mode))   file_type = "block device";
+	else if (S_ISCHR(_stat.st_mode))   file_type = "character device";
 
 	struct stat * f = &_stat;
 
-	printf("st_dev   0x%x %d\n", (unsigned int)f->st_dev   , (unsigned int)sizeof(f->st_dev  ));
-	printf("st_ino   0x%x %d\n", (unsigned int)f->st_ino   , (unsigned int)sizeof(f->st_ino  ));
-	printf("st_mode  0x%x %d\n", (unsigned int)f->st_mode  , (unsigned int)sizeof(f->st_mode  ));
-	printf("st_nlink 0x%x %d\n", (unsigned int)f->st_nlink , (unsigned int)sizeof(f->st_nlink ));
-	printf("st_uid   0x%x %d\n", (unsigned int)f->st_uid   , (unsigned int)sizeof(f->st_uid   ));
-	printf("st_gid   0x%x %d\n", (unsigned int)f->st_gid   , (unsigned int)sizeof(f->st_gid   ));
-	printf("st_rdev  0x%x %d\n", (unsigned int)f->st_rdev  , (unsigned int)sizeof(f->st_rdev  ));
-	printf("st_size  0x%x %d\n", (unsigned int)f->st_size  , (unsigned int)sizeof(f->st_size  ));
+	printf("  File: %s\n", file);
+	/* TODO: st_blocks is not being set, skip it */
+	printf("  Size: %-10lu %s\n", f->st_size, file_type);
+	printf("Device: %-10u Inode: %-10u  Links: %u\n", f->st_dev, f->st_ino, f->st_nlink);
+	printf("Access: ");
+	/* Copied from apps/ls.c */
+	if (S_ISLNK(f->st_mode))       { printf("l"); }
+	else if (S_ISCHR(f->st_mode))  { printf("c"); }
+	else if (S_ISBLK(f->st_mode))  { printf("b"); }
+	else if (S_ISDIR(f->st_mode))  { printf("d"); }
+	else { printf("-"); }
+	printf( (f->st_mode & S_IRUSR) ? "r" : "-");
+	printf( (f->st_mode & S_IWUSR) ? "w" : "-");
+	printf( (f->st_mode & S_ISUID) ? "s" : ((f->st_mode & S_IXUSR) ? "x" : "-"));
+	printf( (f->st_mode & S_IRGRP) ? "r" : "-");
+	printf( (f->st_mode & S_IWGRP) ? "w" : "-");
+	printf( (f->st_mode & S_IXGRP) ? "x" : "-");
+	printf( (f->st_mode & S_IROTH) ? "r" : "-");
+	printf( (f->st_mode & S_IWOTH) ? "w" : "-");
+	printf( (f->st_mode & S_IXOTH) ? "x" : "-");
+	printf(" Uid: %-8u Gid: %-8u\n", f->st_uid, f->st_gid);
 
-	printf("0x%x\n", (unsigned int)((uint32_t *)f)[0]);
+	char time_buf[80];
+	strftime(time_buf, 80, "%c", localtime((time_t*)&f->st_atime));
+	printf("Access: %s\n", time_buf);
+	strftime(time_buf, 80, "%c", localtime((time_t*)&f->st_mtime));
+	printf("Modify: %s\n", time_buf);
+	strftime(time_buf, 80, "%c", localtime((time_t*)&f->st_ctime));
+	printf("Change: %s\n", time_buf);
 
 	return 0;
 
