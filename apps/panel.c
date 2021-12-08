@@ -435,17 +435,6 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 		return;
 	}
 
-	/* TODO Alt-F1 = Show the application menu */
-	#if 0
-	if ((ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
-		(ke->event.keycode == KEY_F1) &&
-		(ke->event.action == KEY_ACTION_DOWN)) {
-		/* show menu */
-
-		show_app_menu();
-	}
-	#endif
-
 	/* Alt-F2 = Show the command entry window */
 	if ((ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
 		(ke->event.keycode == KEY_F2) &&
@@ -459,19 +448,11 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 		}
 	}
 
-	/* Alt-F3 = Show the context menu for the currently active window */
-	#if 0
-	if ((ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
-		(ke->event.keycode == KEY_F3) &&
-		(ke->event.action == KEY_ACTION_DOWN)) {
-		foreach(node, window_list) {
-			struct window_ad * ad = node->value;
-			if (ad->flags & 1) {
-				window_show_menu(ad->wid, ad->left, DROPDOWN_OFFSET);
-			}
-		}
+	/* Maybe a plugin wants to handle this key bind */
+	foreach(widget_node, widgets_enabled) {
+		struct PanelWidget * widget = widget_node->value;
+		widget->onkey(widget, ke);
 	}
-	#endif
 
 	/* Releasing Alt when the Alt-Tab switcher is visible */
 	if ((was_tabbing) && (ke->event.keycode == 0 || ke->event.keycode == KEY_LEFT_ALT) &&
@@ -668,14 +649,8 @@ static void bind_keys(void) {
 	/* Ctrl-F11 = toggle panel visibility */
 	yutani_key_bind(yctx, KEY_F11, KEY_MOD_LEFT_CTRL, YUTANI_BIND_STEAL);
 
-	/* Alt+F1 = show menu */
-	yutani_key_bind(yctx, KEY_F1, KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
-
 	/* Alt+F2 = show app runner */
 	yutani_key_bind(yctx, KEY_F2, KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
-
-	/* Alt+F3 = window context menu */
-	yutani_key_bind(yctx, KEY_F3, KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
 
 	/* This lets us receive all just-modifier key releases */
 	yutani_key_bind(yctx, KEY_LEFT_ALT, 0, YUTANI_BIND_PASSTHROUGH);
@@ -720,6 +695,10 @@ static int widget_update_generic(struct PanelWidget * this) {
 	return 0;
 }
 
+static int widget_onkey_generic(struct PanelWidget * this, struct yutani_msg_key_event * evt) {
+	return 0;
+}
+
 struct PanelWidget * widget_new(void) {
 	struct PanelWidget * out = calloc(1, sizeof(struct PanelWidget));
 	out->draw = widget_draw_generic;
@@ -728,6 +707,7 @@ struct PanelWidget * widget_new(void) {
 	out->leave = widget_leave_generic;
 	out->enter = widget_enter_generic;
 	out->update = widget_update_generic;
+	out->onkey = widget_onkey_generic;
 	out->move = mouse_event_ignore; /* move_generic */
 	out->highlighted = 0;
 	out->fill = 0;

@@ -31,6 +31,7 @@ struct PanelWidget {
 	int (*move)(struct PanelWidget *, struct yutani_msg_window_mouse_event *);
 	int (*draw)(struct PanelWidget *, gfx_context_t * ctx);
 	int (*update)(struct PanelWidget *);
+	int (*onkey)(struct PanelWidget *, struct yutani_msg_key_event *);
 };
 
 extern yutani_t * yctx;

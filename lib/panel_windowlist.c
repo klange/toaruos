@@ -193,6 +193,19 @@ static int widget_leave_windowlist(struct PanelWidget * this, struct yutani_msg_
 	return 1;
 }
 
+static int widget_onkey_windowlist(struct PanelWidget * this, struct yutani_msg_key_event * ke) {
+	if ((ke->event.modifiers & KEY_MOD_LEFT_ALT) &&
+		(ke->event.keycode == KEY_F3) &&
+		(ke->event.action == KEY_ACTION_DOWN)) {
+		foreach(node, window_list) {
+			struct window_ad * ad = node->value;
+			if (ad->flags & 1) {
+				window_show_menu(ad->wid, ad->left + title_width / 2);
+			}
+		}
+	}
+	return 0;
+}
 
 struct PanelWidget * widget_init_windowlist(void) {
 	window_menu = menu_create();
@@ -202,6 +215,9 @@ struct PanelWidget * widget_init_windowlist(void) {
 	menu_insert(window_menu, menu_create_separator());
 	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Close", _window_menu_close));
 
+	/* Alt+F3 = window context menu */
+	yutani_key_bind(yctx, KEY_F3, KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
+
 	struct PanelWidget * widget = widget_new();
 	widget->fill = 1;
 	widget->draw = widget_draw_windowlist;
@@ -209,6 +225,7 @@ struct PanelWidget * widget_init_windowlist(void) {
 	widget->right_click = widget_rightclick_windowlist;
 	widget->move = widget_move_windowlist;
 	widget->leave = widget_leave_windowlist;
+	widget->onkey = widget_onkey_windowlist;
 	list_insert(widgets_enabled, widget);
 	return widget;
 }
