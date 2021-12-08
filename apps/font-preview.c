@@ -117,6 +117,9 @@ int main(int argc, char * argv[]) {
 
 	if (argc > 2) {
 		preview_string = argv[2];
+	} else {
+		char * maybe = tt_get_name_string(tt_font, 19);
+		if (maybe) preview_string = maybe;
 	}
 
 	struct decor_bounds bounds;
