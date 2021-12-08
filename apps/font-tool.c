@@ -20,17 +20,21 @@ static void usage(char * argv[]) {
 			"the system monospace font will be used.\n"
 			"\n"
 			" -n --name       \033[3mPrint the stored name of the font.\033[0m\n"
+			" -s --strings    \033[3mPrint all supported entries in the names table.\033[0m\n"
 			" -h --help       \033[3mShow this help message.\033[0m\n"
 			"\n",
 			argv[0]);
 }
 
-#define SHOW_NAME (1 << 0)
+#define SHOW_NAME    (1 << 0)
+#define SHOW_STRINGS (1 << 1)
+extern char * tt_get_name_string(struct TT_Font * font, int identifier);
 
 int main(int argc, char * argv[]) {
 	static struct option long_opts[] = {
 		{"name", no_argument, 0, 'n'},
 		{"help", no_argument, 0, 'h'},
+		{"strings", no_argument, 0, 's'},
 		{0,0,0,0}
 	};
 
@@ -38,7 +42,7 @@ int main(int argc, char * argv[]) {
 
 	/* Read some arguments */
 	int index, c;
-	while ((c = getopt_long(argc, argv, "nh", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "nhs", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
@@ -52,6 +56,8 @@ int main(int argc, char * argv[]) {
 			case 'n':
 				flags |= SHOW_NAME;
 				break;
+			case 's':
+				flags |= SHOW_STRINGS;
 			default:
 				break;
 		}
@@ -74,8 +80,43 @@ int main(int argc, char * argv[]) {
 	}
 
 	if (flags & SHOW_NAME) {
-		extern char * tt_get_name_string(struct TT_Font * font, int identifier);
 		fprintf(stdout, "%s\n", tt_get_name_string(my_font, 4));
+	}
+
+	if (flags & SHOW_STRINGS) {
+		struct IDName {
+			int identifier;
+			const char * description;
+		} names[] = {
+			{0, "Copyright"},
+			{1, "Font family"},
+			{2, "Font style"},
+			{3, "Subfamily identification"},
+			{4, "Full name"},
+			{5, "Version"},
+			{6, "PostScript name"},
+			{7, "Trademark notice"},
+			{8, "Manufacturer"},
+			{9, "Designer"},
+			{10, "Description"},
+			{11, "Vendor URL"},
+			{12, "Designer URL"},
+			{13, "License description"},
+			{14, "License URL"},
+			/* 15 is reserved */
+			{16, "Preferred family"},
+			{17, "Preferred subfamily"},
+			{18, "macOS name"},
+			{19, "Sample text"},
+			/* Other stuff */
+		};
+
+		for (size_t i = 0; i < sizeof(names)/sizeof(*names); ++i) {
+			char * value = tt_get_name_string(my_font, names[i].identifier);
+			if (value) {
+				fprintf(stdout, "%s: %s\n", names[i].description, value);
+			}
+		}
 	}
 
 	return 0;
