@@ -419,7 +419,7 @@ static int usage(char * argv[]) {
 		"  -l --program-headers Display the program headers\n"
 		"  -S --section-headers Display the section headers\n"
 		"  -e --headers         Equivalent to -h -l -S\n"
-		"  -s --syms            Display symbol able\n"
+		"  -s --syms            Display symbol table\n"
 		"  -d --dynamic         Display dynamic section\n"
 		"  -r --relocs          Display relocations\n"
 		"  -H --help            Show this help text\n"
