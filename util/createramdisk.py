@@ -43,7 +43,7 @@ def file_filter(tarinfo):
         tarinfo.uid = users.get('local')
         tarinfo.gid = tarinfo.uid
         # Skip object files
-        if tarinfo.name.endswith('.so') or tarinfo.name.endswith('.o'):
+        if tarinfo.name.endswith('.so') or tarinfo.name.endswith('.o') or tarinfo.name.endswith('.sys'):
             return None
 
     return tarinfo
@@ -57,8 +57,8 @@ with tarfile.open('ramdisk.igz','w:gz') as ramdisk:
     ramdisk.add('linker',arcname='/src/linker',filter=file_filter)
     ramdisk.add('lib',arcname='/src/lib',filter=file_filter)
     ramdisk.add('libc',arcname='/src/libc',filter=file_filter)
-    #ramdisk.add('boot',arcname='/src/boot',filter=file_filter)
-    #ramdisk.add('modules',arcname='/src/modules',filter=file_filter)
+    ramdisk.add('boot',arcname='/src/boot',filter=file_filter)
+    ramdisk.add('modules',arcname='/src/modules',filter=file_filter)
     if os.path.exists('tags'):
         ramdisk.add('tags',arcname='/src/tags',filter=file_filter)
     ramdisk.add('util/auto-dep.krk',arcname='/bin/auto-dep.krk',filter=file_filter)
