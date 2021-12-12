@@ -996,7 +996,7 @@ void * sbrk(size_t bytes) {
 		arch_fatal();
 	}
 
-	if (bytes > 0xF00000) {
+	if (bytes > 0x1F00000) {
 		arch_fatal_prepare();
 		printf("sbrk: Size must be within a reasonable bound, was %#zx\n", bytes);
 		arch_dump_traceback();
