@@ -223,11 +223,7 @@ static void load_page(int page) {
 			circle(70, 250, 60);
 			body_text[i++] = "Many third-party software packages have been ported to ToaruOS";
 			body_text[i++] = "and are available from our package repositories. You can use the";
-			body_text[i++] = "Package Manager to install GCC, Python, Bochs, Quake, and more.";
-			body_text[i++] = "";
-			body_text[i++] = "(Beta users: Not all packages may be available yet. I'm still working";
-			body_text[i++] = "on rebuilding the Python port with a newer release, and haven't gotten";
-			body_text[i++] = "around to rebuilding the Bochs package yet.)";
+			body_text[i++] = "Package Manager to install GCC, Doom, Quake, and more.";
 			body_text[i++] = NULL;
 			break;
 		case 6:
