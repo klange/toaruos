@@ -768,7 +768,7 @@ static void term_mirror_copy(uint16_t x, uint16_t y, term_cell_t * from) {
 		cell->c = ' ';
 		cell->fg = TERM_DEFAULT_FG;
 		cell->bg = TERM_DEFAULT_BG;
-		cell->flags = TERM_DEFAULT_FLAGS;
+		cell->flags = from->flags;
 	} else {
 		*cell = *from;
 	}
@@ -781,7 +781,7 @@ static void term_mirror_copy_inverted(uint16_t x, uint16_t y, term_cell_t * from
 		cell->c = ' ';
 		cell->fg = TERM_DEFAULT_BG;
 		cell->bg = TERM_DEFAULT_FG;
-		cell->flags = TERM_DEFAULT_FLAGS;
+		cell->flags = from->flags;
 	} else if (from->flags & ANSI_EXT_IMG) {
 		cell->c = ' ';
 		cell->fg = from->fg;
