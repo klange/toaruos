@@ -94,7 +94,7 @@ static void init_default(void) {
 		sprintf(version_str, "ToaruOS %s", u.release);
 	}
 
-	copyright_str[0] = "© 2011-2021 K. Lange, et al.";
+	copyright_str[0] = "© 2011-2022 K. Lange, et al.";
 	copyright_str[1] = "-";
 	copyright_str[2] = "ToaruOS is free software released under the";
 	copyright_str[3] = "NCSA/University of Illinois license.";
