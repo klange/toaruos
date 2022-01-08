@@ -1772,6 +1772,15 @@ static void reinit(void) {
 	/* Resize the terminal buffer */
 	term_width  = window_width  / char_width;
 	term_height = window_height / char_height;
+
+	if (term_width == old_width && term_height == old_height) {
+		memset(term_display, 0xFF, sizeof(term_cell_t) * term_width * term_height);
+		draw_fill(ctx, rgba(0,0,0, TERM_DEFAULT_OPAC));
+		render_decors();
+		maybe_flip_display(1);
+		return;
+	}
+
 	if (term_buffer) {
 		term_cell_t * new_a = copy_terminal(old_width, old_height, term_buffer_a);
 		term_cell_t * new_b = copy_terminal(old_width, old_height, term_buffer_b);
@@ -1806,11 +1815,6 @@ static void reinit(void) {
 	ansi_state = ansi_init(ansi_state, term_width, term_height, &term_callbacks);
 	ansi_state->mouse_on = old_mouse_state;
 
-	/* Redraw the window */
-	draw_fill(ctx, rgba(0,0,0, TERM_DEFAULT_OPAC));
-	render_decors();
-	term_redraw_all();
-
 	/* Send window size change ioctl */
 	struct winsize w;
 	w.ws_row = term_height;
@@ -1818,6 +1822,11 @@ static void reinit(void) {
 	w.ws_xpixel = term_width * char_width;
 	w.ws_ypixel = term_height * char_height;
 	ioctl(fd_master, TIOCSWINSZ, &w);
+
+	/* Redraw the window */
+	draw_fill(ctx, rgba(0,0,0, TERM_DEFAULT_OPAC));
+	render_decors();
+	term_redraw_all();
 }
 
 static void update_bounds(void) {
@@ -1885,6 +1894,7 @@ static void resize_finish(int width, int height) {
 
 	/* Reinitialize the terminal buffer and ANSI library */
 	reinit();
+	maybe_flip_display(1);
 
 	/* We are done resizing. */
 	yutani_window_resize_done(yctx, window);
@@ -1929,6 +1939,8 @@ static void * handle_incoming(void) {
 					if (win == window) {
 						win->focused = wf->focused;
 						render_decors();
+						draw_cursor();
+						maybe_flip_display(1);
 					}
 				}
 				break;
@@ -2512,6 +2524,8 @@ int main(int argc, char ** argv) {
 			check_for_exit();
 			maybe_flip_cursor();
 
+			int force_flip = (!res[1] && (next_wait == 10));
+
 			if (res[1]) {
 				/* Read from PTY */
 				ssize_t r = read(fd_master, buf, 4096);
@@ -2526,7 +2540,7 @@ int main(int argc, char ** argv) {
 				/* Handle Yutani events. */
 				handle_incoming();
 			}
-			maybe_flip_display(!(res[0] || res[1]));
+			maybe_flip_display(force_flip);
 		}
 	}
 
