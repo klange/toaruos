@@ -762,7 +762,7 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 			}
 		}
 		if (matrix_is_translation(m)) {
-			draw_sprite_alpha(yg->backend_ctx, &_win_sprite, window->x, window->y, opacity);
+			draw_sprite_alpha(yg->backend_ctx, &_win_sprite, m[0][2], m[1][2], opacity);
 		} else {
 			draw_sprite_transform(yg->backend_ctx, &_win_sprite, m, opacity);
 		}
