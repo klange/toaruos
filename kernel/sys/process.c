@@ -723,7 +723,10 @@ volatile process_t * next_ready_process(void) {
 
 	spin_unlock(process_queue_lock);
 
-	__sync_or_and_fetch(&next->flags, PROC_FLAG_RUNNING);
+	if (!(next->flags & PROC_FLAG_FINISHED)) {
+		__sync_or_and_fetch(&next->flags, PROC_FLAG_RUNNING);
+	}
+
 	next->owner = this_core->cpu_id;
 
 	return next;
