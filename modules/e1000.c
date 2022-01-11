@@ -400,14 +400,14 @@ static void e1000_init(struct e1000_nic * nic) {
 	for (int i = 0; i < E1000_NUM_RX_DESC; ++i) {
 		nic->rx[i].addr = mmu_allocate_a_frame() << 12;
 		nic->rx_virt[i] = mmu_map_mmio_region(nic->rx[i].addr, 4096);
-		mmu_frame_map_address(mmu_get_page((uintptr_t)nic->rx_virt[i],0),MMU_FLAG_WRITABLE|MMU_FLAG_WC,nic->rx[i].addr);
+		mmu_frame_map_address(mmu_get_page((uintptr_t)nic->rx_virt[i],0),MMU_FLAG_KERNEL|MMU_FLAG_WRITABLE|MMU_FLAG_WC,nic->rx[i].addr);
 		nic->rx[i].status = 0;
 	}
 
 	for (int i = 0; i < E1000_NUM_TX_DESC; ++i) {
 		nic->tx[i].addr = mmu_allocate_a_frame() << 12;
 		nic->tx_virt[i] = mmu_map_mmio_region(nic->tx[i].addr, 4096);
-		mmu_frame_allocate(mmu_get_page((uintptr_t)nic->tx_virt[i],0),MMU_FLAG_WRITABLE|MMU_FLAG_WC);
+		mmu_frame_allocate(mmu_get_page((uintptr_t)nic->tx_virt[i],0),MMU_FLAG_KERNEL|MMU_FLAG_WRITABLE|MMU_FLAG_WC);
 		memset(nic->tx_virt[i], 0, 4096);
 		nic->tx[i].status = 0;
 		nic->tx[i].cmd = (1 << 0);
