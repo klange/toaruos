@@ -718,10 +718,9 @@ static void debug_shell_run(void * data, char * name) {
 	fs_node_t * tty = kopen("/dev/ttyS0", 0);
 
 	int fd = process_append_fd((process_t *)current_process, tty);
-	current_process->fds->modes[fd] = 03; /* rw */
-	process_move_fd((process_t *)current_process, fd, 0);
-	process_move_fd((process_t *)current_process, fd, 1);
-	process_move_fd((process_t *)current_process, fd, 2);
+	fd = process_append_fd((process_t *)current_process, tty);
+	fd = process_append_fd((process_t *)current_process, tty);
+	current_process->fds->modes[1] = 03; /* rw */
 
 	debug_shell_actual(tty, name);
 }
