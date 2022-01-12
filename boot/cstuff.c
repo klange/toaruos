@@ -124,7 +124,7 @@ int kmain() {
 			"Enable the legacy ATA driver, which does not support",
 			"ATAPI or use DMA. May be necessary in some virtual machines.");
 
-	BOOT_OPTION(_normal_ata,  1, "DMA ATA driver",
+	BOOT_OPTION(_normal_ata,  0, "DMA ATA driver",
 			"Enable the normal, DMA-capable ATA driver. This is the default.",
 			NULL);
 
