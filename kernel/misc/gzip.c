@@ -98,7 +98,7 @@ static uint32_t read_bits(unsigned int count) {
 /**
  * Build a Huffman table from an array of lengths.
  */
-static void build_huffman(uint8_t * lengths, size_t size, struct huff * out) {
+static void build_huffman(const uint8_t * lengths, size_t size, struct huff * out) {
 
 	uint16_t offsets[16];
 	unsigned int count = 0;
@@ -161,7 +161,7 @@ static void build_fixed(void) {
 /**
  * Decode a symbol from the source using a Huffman table.
  */
-static int decode(struct huff * huff) {
+static int decode(const struct huff * huff) {
 	int count = 0, cur = 0;
 	for (int i = 1; cur >= 0; i++) {
 		cur = (cur << 1) | read_bit(); /* Shift */
@@ -201,7 +201,7 @@ static void peek(unsigned int offset) {
 /**
  * Decompress a block of Huffman-encoded data.
  */
-static int inflate(struct huff * huff_len, struct huff * huff_dist) {
+static int inflate(const struct huff * huff_len, const struct huff * huff_dist) {
 
 	/* These are the extra bits for lengths from the tables in section 3.2.5
 	 *           Extra               Extra               Extra
