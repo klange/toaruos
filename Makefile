@@ -265,8 +265,9 @@ base/bin/%.krk: apps/%.krk
 # Ramdisk
 fatbase/ramdisk.igz: ${RAMDISK_FILES} $(shell find base) Makefile util/createramdisk.py | dirs
 	python3 util/createramdisk.py
-	gzip -c fatbase/ramdisk.img > fatbase/ramdisk.igz
-	rm fatbase/ramdisk.img
+	#gzip -c fatbase/ramdisk.img > fatbase/ramdisk.igz
+	#rm fatbase/ramdisk.img
+	mv fatbase/ramdisk.img fatbase/ramdisk.igz
 
 # CD image
 

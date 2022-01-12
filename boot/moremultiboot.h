@@ -522,7 +522,11 @@ done:
 				int i = dir_entry->extent_start_LSB;
 				int sectors = dir_entry->extent_length_LSB / 2048 + 1;
 				size_t off = 0;
+#if 0
 #define RAMDISK_OFFSET 0x5000000
+#else
+#define RAMDISK_OFFSET ramdisk_off
+#endif
 #define SECTORS 512
 				while (sectors >= SECTORS) {
 					print_(".");
@@ -538,13 +542,19 @@ done:
 					off += 2048 * sectors;
 				}
 
+				#if 0
 				inputPtr = (uint8_t*)RAMDISK_OFFSET;
 				outputPtr = (uint8_t*)ramdisk_off;
 				print_("\nDecompressing ramdisk... ");
 				if (gzip_decompress()) {
 					print_("Failed?\n");
 				}
+				print_("Done!\n");
 				ramdisk_len = (uint32_t)outputPtr - ramdisk_off;
+				#else
+				ramdisk_len = dir_entry->extent_length_LSB;
+				outputPtr = ramdisk_off + ramdisk_len;
+				#endif
 
 				modules_mboot[multiboot_header.mods_count-1].mod_start = ramdisk_off;
 				modules_mboot[multiboot_header.mods_count-1].mod_end = ramdisk_off + ramdisk_len;
