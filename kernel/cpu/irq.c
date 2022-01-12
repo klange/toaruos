@@ -116,6 +116,10 @@ void irq_uninstall_handler(size_t irq) {
 }
 
 static void irq_remap(void) {
+
+	uint8_t pic1 = inportb(PIC1_DATA);
+	uint8_t pic2 = inportb(PIC2_DATA);
+
 	/* Cascade initialization */
 	outportb(PIC1_COMMAND, ICW1_INIT|ICW1_ICW4); PIC_WAIT();
 	outportb(PIC2_COMMAND, ICW1_INIT|ICW1_ICW4); PIC_WAIT();
@@ -131,6 +135,9 @@ static void irq_remap(void) {
 	/* Request 8086 mode on each PIC */
 	outportb(PIC1_DATA, 0x01); PIC_WAIT();
 	outportb(PIC2_DATA, 0x01); PIC_WAIT();
+
+	outportb(PIC1_DATA, pic1);
+	outportb(PIC2_DATA, pic2);
 }
 
 static void irq_setup_gates(void) {
