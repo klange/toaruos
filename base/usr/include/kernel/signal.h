@@ -2,7 +2,14 @@
 
 #include <stdint.h>
 #include <sys/types.h>
+
+#if defined(__x86_64__)
 #include <kernel/arch/x86_64/regs.h>
+#elif defined(__aarch64__)
+#include <kernel/arch/aarch64/regs.h>
+#else
+#error "no regs"
+#endif
 
 typedef struct {
 	int signum;

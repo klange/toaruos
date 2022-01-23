@@ -24,7 +24,7 @@ unsigned short * memsetw(unsigned short * dest, unsigned short val, int count) {
 	return dest;
 }
 
-#if 0
+#if 1
 void * memcpy(void * restrict dest, const void * restrict src, size_t n) {
 	char * d = dest;
 	const char * s = src;

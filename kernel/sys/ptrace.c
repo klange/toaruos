@@ -20,9 +20,15 @@
 #include <kernel/syscall.h>
 #include <kernel/ptrace.h>
 #include <kernel/args.h>
+#include <kernel/mmu.h>
 
+#if defined(__x86_64__)
 #include <kernel/arch/x86_64/regs.h>
-#include <kernel/arch/x86_64/mmu.h>
+#elif defined(__aarch64__)
+#include <kernel/arch/aarch64/regs.h>
+#else
+#error "no regs"
+#endif
 
 static void _ptrace_trace(process_t * tracer, process_t * tracee) {
 	spin_lock(tracer->wait_lock);
@@ -111,7 +117,7 @@ long ptrace_peek(pid_t pid, void * addr, void * data) {
 	union PML * page_entry = mmu_get_page_other(tracee->thread.page_directory->directory, (uintptr_t)addr);
 
 	if (!page_entry) return -EFAULT;
-	if (!page_entry->bits.present || !page_entry->bits.user) return -EFAULT;
+	if (!mmu_page_is_user_readable(page_entry)) return -EFAULT;
 
 	uintptr_t mapped_address = mmu_map_to_physical(tracee->thread.page_directory->directory, (uintptr_t)addr);
 
@@ -133,7 +139,7 @@ long ptrace_poke(pid_t pid, void * addr, void * data) {
 	union PML * page_entry = mmu_get_page_other(tracee->thread.page_directory->directory, (uintptr_t)addr);
 
 	if (!page_entry) return -EFAULT;
-	if (!page_entry->bits.present || !page_entry->bits.user || !page_entry->bits.writable) return -EFAULT;
+	if (!mmu_page_is_user_writable(page_entry)) return -EFAULT;
 
 	uintptr_t mapped_address = mmu_map_to_physical(tracee->thread.page_directory->directory, (uintptr_t)addr);
 
@@ -161,7 +167,9 @@ long ptrace_singlestep(pid_t pid, int sig) {
 	struct regs * target = tracee->interrupt_registers ? tracee->interrupt_registers : tracee->syscall_registers;
 
 	/* arch_set_singlestep? */
+	#if defined(__x86_64__)
 	target->rflags |= (1 << 8);
+	#endif
 
 	__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_SUSPENDED));
 	tracee->status = (sig << 8);

@@ -43,7 +43,7 @@
  * Defines for often-used integral values
  * related to our binning and paging strategy.
  */
-#ifdef __x86_64__
+#if defined(__x86_64__) || defined(__aarch64__)
 #define NUM_BINS 10U								/* Number of bins, total, under 64-bit. */
 #define SMALLEST_BIN_LOG 3U							/* Logarithm base two of the smallest bin: log_2(sizeof(int64)). */
 #else
@@ -117,10 +117,12 @@ void * __attribute__ ((malloc)) valloc(uintptr_t size) {
 
 void free(void * ptr) {
 	spin_lock(mem_lock);
+#ifndef __aarch64__
 	if (ptr < (void*)0xffffff0000000000) {
 		printf("Invalid free detected (%p)\n", ptr);
 		while (1) {};
 	}
+#endif
 	klfree(ptr);
 	spin_unlock(mem_lock);
 }

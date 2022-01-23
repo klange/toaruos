@@ -284,6 +284,24 @@ static ssize_t cpuinfo_func(fs_node_t *node, off_t offset, size_t size, uint8_t 
 				processor_local_data[i].lapic_id
 				);
 	}
+#elif defined(__aarch64__)
+
+	uint64_t midr;
+	asm volatile ("mrs %0, MIDR_EL1" : "=r"(midr));
+
+	_bsize += snprintf(buf + _bsize, 1000,
+		"Implementer: %#x\n"
+		"Variant: %#x\n"
+		"Architecture: %#x\n"
+		"PartNum: %#x\n"
+		"Revision: %#x\n"
+		"\n",
+		(unsigned int)(midr >> 24) & 0xFF,
+		(unsigned int)(midr >> 20) & 0xF,
+		(unsigned int)(midr >> 16) & 0xF,
+		(unsigned int)(midr >> 4)  & 0xFFFF,
+		(unsigned int)(midr >> 0)  & 0xF
+		);
 #endif
 
 	if ((size_t)offset > _bsize) return 0;
@@ -588,6 +606,7 @@ static ssize_t irq_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buf
 	free(buf);
 	return size;
 }
+#endif
 
 /**
  * Basically the same as the kdebug `pci` command.
@@ -647,7 +666,6 @@ static ssize_t pci_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buf
 	free(b.buffer);
 	return size;
 }
-#endif
 
 static ssize_t idle_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	char * buf = malloc(4096);
@@ -721,10 +739,10 @@ static struct procfs_entry std_entries[] = {
 	{-10,"loader",   loader_func},
 	{-11,"idle",     idle_func},
 	{-12,"kallsyms", kallsyms_func},
+	{-13,"pci",      pci_func},
 #ifdef __x86_64__
-	{-13,"irq",      irq_func},
-	{-14,"pat",      pat_func},
-	{-15,"pci",      pci_func},
+	{-14,"irq",      irq_func},
+	{-15,"pat",      pat_func},
 #endif
 };
 

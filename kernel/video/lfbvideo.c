@@ -206,8 +206,17 @@ static void qemu_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra)
 	uintptr_t * output = extra;
 	if ((v == 0x1234 && d == 0x1111) ||
 	    (v == 0x10de && d == 0x0a20))  {
+		#ifndef __x86_64__
+		/* we have to configure this thing ourselves */
+		uintptr_t t = 0x10000008;
+		uintptr_t m = 0x11000000;
+		pci_write_field(device, PCI_BAR0, 4, t); /* video memory? */
+		pci_write_field(device, PCI_BAR2, 4, m); /* MMIO? */
+		pci_write_field(device, PCI_COMMAND, 2, 4|2|1);
+		#else
 		uintptr_t t = pci_read_field(device, PCI_BAR0, 4);
 		uintptr_t m = pci_read_field(device, PCI_BAR2, 4);
+		#endif
 
 		if (m == 0) {
 			/* Shoot. */
@@ -248,7 +257,7 @@ static void qemu_set_resolution(uint16_t x, uint16_t y) {
 	qemu_mmio_out(QEMU_MMIO_FBWIDTH,  x);
 	qemu_mmio_out(QEMU_MMIO_FBHEIGHT, y);
 	qemu_mmio_out(QEMU_MMIO_BPP, PREFERRED_B);
-	qemu_mmio_out(QEMU_MMIO_VIRTX, x * (PREFERRED_B  / 8));
+	qemu_mmio_out(QEMU_MMIO_VIRTX, x);
 	qemu_mmio_out(QEMU_MMIO_VIRTY, y);
 	qemu_mmio_out(QEMU_MMIO_ENABLED,  0x41); /* 01h: enabled, 40h: lfb */
 
@@ -258,7 +267,7 @@ static void qemu_set_resolution(uint16_t x, uint16_t y) {
 	lfb_resolution_x = qemu_mmio_in(QEMU_MMIO_FBWIDTH);
 	lfb_resolution_y = qemu_mmio_in(QEMU_MMIO_FBHEIGHT);
 	lfb_resolution_b = qemu_mmio_in(QEMU_MMIO_BPP);
-	lfb_resolution_s = lfb_resolution_x * 4;
+	lfb_resolution_s = qemu_mmio_in(QEMU_MMIO_VIRTX) * (lfb_resolution_b / 8);
 }
 
 static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y);

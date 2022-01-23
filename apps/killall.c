@@ -148,7 +148,7 @@ int main (int argc, char * argv[]) {
 
 	int signum = SIGTERM;
 
-	char c;
+	int c;
 	while ((c = getopt(argc, argv, "s:?")) != -1) {
 		switch (c) {
 			case 's':

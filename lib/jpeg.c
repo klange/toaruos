@@ -39,7 +39,7 @@
 
 #include <toaru/graphics.h>
 
-#ifndef NO_SSE
+#if !defined(NO_SSE) && defined(__x86_64__)
 #include <xmmintrin.h>
 #include <emmintrin.h>
 #endif
@@ -233,7 +233,7 @@ static float cosines[8][8] = {
 static float premul[8][8][8][8]= {{{{0}}}};
 
 static void add_idc(struct idct * self, int n, int m, int coeff) {
-#ifdef NO_SSE
+#if defined(NO_SSE) || !defined(__x86_64__)
 	for (int y = 0; y < 8; ++y) {
 		for (int x = 0; x < 8; ++x) {
 			self->base[xy_to_lin(x, y)] += premul[n][m][y][x] * coeff;

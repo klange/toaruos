@@ -19,4 +19,7 @@ for line in lines:
         let key, value = line.split(': ')
         cpus[current][key] = value
 
-print(cpus[0]['Model name'])
+if cpus and 'Model name' in cpus[0]:
+    print(cpus[0]['Model name'])
+else if cpus and 'PartNum' in cpus[0]:
+    print('(ARM64)', cpus[0]['PartNum'])

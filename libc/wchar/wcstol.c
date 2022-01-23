@@ -7,11 +7,11 @@
 static int is_valid(int base, wchar_t c) {
 	if (c < '0') return 0;
 	if (base <= 10) {
-		return c < ('0' + base);
+		return c < ('0' + (wchar_t)base);
 	}
 
-	if (c >= 'a' && c < 'a' + (base - 10)) return 1;
-	if (c >= 'A' && c < 'A' + (base - 10)) return 1;
+	if (c >= 'a' && c < 'a' + ((wchar_t)base - 10)) return 1;
+	if (c >= 'A' && c < 'A' + ((wchar_t)base - 10)) return 1;
 	if (c >= '0' && c <= '9') return 1;
 	return 0;
 }

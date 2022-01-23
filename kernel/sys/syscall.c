@@ -84,8 +84,8 @@ long sys_sysfunc(long fn, char ** args) {
 			 *        Misaka switched everything to raw printfs, and then also
 			 *        removed most of them for cleanliness... first task would
 			 *        be to reintroduce kernel fprintf() to printf to fs_nodes. */
-			if (this_core->current_process->user != 0) return -EACCES;
-			printf("loghere: not implemented\n");
+			//if (this_core->current_process->user != 0) return -EACCES;
+			printf("\033[32m%s\033[0m", (char*)args);
 			return -EINVAL;
 
 		case TOARU_SYS_FUNC_KDEBUG:
@@ -98,6 +98,7 @@ long sys_sysfunc(long fn, char ** args) {
 		case TOARU_SYS_FUNC_INSMOD:
 			/* Linux has init_module as a system call? */
 			if (this_core->current_process->user != 0) return -EACCES;
+			return -EINVAL;
 			PTR_VALIDATE(args);
 			if (!args) return -EFAULT;
 			PTR_VALIDATE(args[0]);
@@ -191,6 +192,12 @@ long sys_exit(long exitcode) {
 }
 
 long sys_write(int fd, char * ptr, unsigned long len) {
+#if 0
+	/* Enable this to force stderr output to always be printed by the kernel. */
+	if (fd == 2) {
+		printf_output(len,ptr);
+	}
+#endif
 	if (FD_CHECK(fd)) {
 		PTRCHECK(ptr,len,MMU_PTR_NULL);
 		fs_node_t * node = FD_ENTRY(fd);
@@ -853,6 +860,7 @@ long sys_fork(void) {
 }
 
 long sys_clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
+	printf("sys_clone() from pid=%d\n", this_core->current_process->id);
 	if (!new_stack || !PTR_INRANGE(new_stack)) return -EINVAL;
 	if (!thread_func || !PTR_INRANGE(thread_func)) return -EINVAL;
 	return (int)clone(new_stack, thread_func, arg);

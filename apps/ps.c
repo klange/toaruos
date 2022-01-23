@@ -253,7 +253,7 @@ void show_usage(int argc, char * argv[]) {
 int main (int argc, char * argv[]) {
 
 	/* Parse arguments */
-	char c;
+	int c;
 	while ((c = getopt(argc, argv, "AT?")) != -1) {
 		switch (c) {
 			case 'A':

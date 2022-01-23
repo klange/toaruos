@@ -33,6 +33,8 @@
 #include <kernel/time.h>
 #include <kernel/args.h>
 #include <kernel/module.h>
+
+#ifdef __x86_64__
 #include <kernel/arch/x86_64/ports.h>
 
 #define VMWARE_MAGIC  0x564D5868 /* hXMV */
@@ -520,3 +522,4 @@ struct Module metadata = {
 	.fini = fini,
 };
 
+#endif

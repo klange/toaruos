@@ -43,8 +43,14 @@ void * __tls_get_addr(void* input) {
 void __make_tls(void) {
 	char * tlsSpace = valloc(4096);
 	memset(tlsSpace, 0x0, 4096);
+#if defined(__x86_64__)
+	/* self-pointer at end */
 	char ** tlsSelf  = (char **)(tlsSpace + 4096 - sizeof(char *));
+#elif defined(__aarch64__)
+	/* self-pointer start? */
+	char ** tlsSelf = (char **)(tlsSpace);
 	*tlsSelf = (char*)tlsSelf;
+#endif
 	sysfunc(TOARU_SYS_FUNC_SETGSBASE, (char*[]){(char*)tlsSelf});
 }
 
@@ -56,7 +62,7 @@ void * __thread_start(void * thread) {
 }
 
 int pthread_create(pthread_t * thread, pthread_attr_t * attr, void *(*start_routine)(void *), void * arg) {
-	char * stack = malloc(PTHREAD_STACK_SIZE);
+	char * stack = valloc(PTHREAD_STACK_SIZE);
 	uintptr_t stack_top = (uintptr_t)stack + PTHREAD_STACK_SIZE;
 
 	thread->stack = stack;

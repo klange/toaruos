@@ -57,7 +57,7 @@ static void divine_size(int * width, int * height) {
 	char buf[1024] = {0};
 	size_t i = 0;
 	while (1) {
-		char c = getc_timeout(stdin, 200);
+		int c = getc_timeout(stdin, 200);
 		if (c == 'R') break;
 		if (c == -1) goto _done;
 		if (c == '\033') continue;

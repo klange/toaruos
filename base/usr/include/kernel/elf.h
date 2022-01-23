@@ -263,6 +263,10 @@ typedef struct Elf64_Rela {
 #define R_X86_64_IRELATIVE        37 /**< @brief @p word64 indirect (B + A) */
 
 
+#define R_AARCH64_COPY          1024
+#define R_AARCH64_GLOB_DAT      1025
+
+
 /**
  * Program header types
  */

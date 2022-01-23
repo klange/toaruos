@@ -30,6 +30,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/sysfunc.h>
+#include <syscall.h>
 
 #include <kernel/elf.h>
 
@@ -78,7 +79,7 @@ static hashmap_t * dumb_symbol_table;
 static hashmap_t * glob_dat;
 static hashmap_t * objects_map;
 static hashmap_t * tls_map;
-static size_t current_tls_offset = 0;
+static size_t current_tls_offset = 16;
 
 /* Used for dlerror */
 static char * last_error = NULL;
@@ -385,19 +386,33 @@ static int object_postload(elf_t * object) {
 }
 
 /* Whether symbol addresses is needed for a relocation type */
-static int need_symbol_for_type(unsigned char type) {
+static int need_symbol_for_type(unsigned int type) {
+#ifdef __x86_64__
 	switch(type) {
-		case 1:
-		case 2:
-		case 5:
-		case 6:
-		case 7:
-		case 14:
+		case R_X86_64_64:
+		case R_X86_64_PC32:
+		case R_X86_64_COPY:
+		case R_X86_64_GLOB_DAT:
+		case R_X86_64_JUMP_SLOT:
+		case R_X86_64_8:
 		case R_X86_64_TPOFF64:
 			return 1;
 		default:
 			return 0;
 	}
+#else
+	switch(type) {
+		case 1024:
+		case 1025:
+		case 1026:
+		case 1030:
+		case 257:
+			return 1;
+		default:
+			return 0;
+	}
+
+#endif
 }
 
 /* Apply ELF relocations */
@@ -411,10 +426,15 @@ static int object_relocate(elf_t * object) {
 			char * symname = (char *)((uintptr_t)object->dyn_string_table + table->st_name);
 
 			/* If we haven't added this symbol to our symbol table, do so now. */
-			if (!hashmap_has(dumb_symbol_table, symname)) {
-				if (table->st_shndx) {
+			if (table->st_shndx) {
+				if (!hashmap_has(dumb_symbol_table, symname)) {
 					hashmap_set(dumb_symbol_table, symname, (void*)(table->st_value + object->base));
+					table->st_value = table->st_value + object->base;
+				} else {
+					table->st_value = hashmap_get(dumb_symbol_table, symname);
 				}
+			} else {
+				table->st_value = table->st_value + object->base;
 			}
 
 			table++;
@@ -441,12 +461,11 @@ static int object_relocate(elf_t * object) {
 
 				/* If we need symbol for this, get it. */
 				char * symname = NULL;
-				uintptr_t x = sym->st_value + object->base;
+				uintptr_t x = sym->st_value;
 				if (need_symbol_for_type(type) || (type == 5)) {
 					symname = (char *)((uintptr_t)object->dyn_string_table + sym->st_name);
 					if (symname && hashmap_has(dumb_symbol_table, symname)) {
 						x = (uintptr_t)hashmap_get(dumb_symbol_table, symname);
-						sym->st_value = x;
 					} else {
 						/* This isn't fatal, but do log a message if debugging is enabled. */
 						TRACE_LD("Symbol not found: %s", symname);
@@ -456,6 +475,7 @@ static int object_relocate(elf_t * object) {
 
 				/* Relocations, symbol lookups, etc. */
 				switch (type) {
+#if defined(__x86_64__)
 					case R_X86_64_GLOB_DAT: /* 6 */
 						if (symname && hashmap_has(glob_dat, symname)) {
 							x = (uintptr_t)hashmap_get(glob_dat, symname);
@@ -490,6 +510,49 @@ static int object_relocate(elf_t * object) {
 						}
 						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
 						break;
+#elif defined(__aarch64__)
+					case 1024: /* COPY */
+						memcpy((void *)(table->r_offset + object->base), (void *)x, sym->st_size);
+						break;
+					case 1025: /* GLOB_DAT */
+						if (symname && hashmap_has(glob_dat, symname)) {
+							x = (uintptr_t)hashmap_get(glob_dat, symname);
+						} /* fallthrough */
+					case 1026: /* JUMP_SLOT */
+						memcpy((void*)(table->r_offset + object->base), &x, sizeof(uintptr_t));
+						break;
+					case 1027: /* RELATIVE */
+						x = object->base;
+						x += table->r_addend;
+						memcpy((void*)(table->r_offset + object->base), &x, sizeof(uintptr_t));
+						break;
+					case 257: /* ABS64 */
+						x += table->r_addend;
+						memcpy((void*)(table->r_offset + object->base), &x, sizeof(uintptr_t));
+						break;
+					case 1030: /* TLS_TPREL64 TPREL(S+A) */
+						x += *((ssize_t *)(table->r_offset + object->base)); /* A */
+						if (!hashmap_has(tls_map, symname)) {
+							if (!sym->st_size) {
+								fprintf(stderr, "Haven't placed %s in static TLS yet but don't know its size?\n", symname);
+							}
+							#if 0
+							current_tls_offset += sym->st_size; /* TODO alignment restrictions */
+							hashmap_set(tls_map, symname, (void*)(current_tls_offset));
+							x -= current_tls_offset;
+							#else
+							x += current_tls_offset;
+							hashmap_set(tls_map, symname, (void*)(current_tls_offset));
+							current_tls_offset += sym->st_size; /* TODO alignment restrictions */
+							#endif
+						} else {
+							x += (size_t)hashmap_get(tls_map, symname);
+						}
+						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
+						break;
+#else
+# error "unsupported"
+#endif
 #if 0
 					case 6: /* GLOB_DAT */
 						if (symname && hashmap_has(glob_dat, symname)) {
@@ -531,7 +594,14 @@ static int object_relocate(elf_t * object) {
 						break;
 #endif
 					default:
+						{
+							char msg[200];
+							snprintf(msg, 200, "Unimplemented relocation (%d) requested, bailing.\n", type);
+							sysfunc(TOARU_SYS_FUNC_LOGHERE, (char**)msg);
+							exit(1);
+						}
 						TRACE_LD("Unknown relocation type: %d", type);
+						break;
 				}
 
 				table++;
@@ -555,7 +625,13 @@ static void object_find_copy_relocations(elf_t * object) {
 			Elf64_Rel * table = (Elf64_Rel *)(shdr.sh_addr + object->base);
 			while ((uintptr_t)table - ((uintptr_t)shdr.sh_addr + object->base) < shdr.sh_size) {
 				unsigned int type = ELF64_R_TYPE(table->r_info);
+#if defined(__x86_64__)
 				if (type == R_X86_64_COPY) {
+#elif defined(__aarch64__)
+				if (type == R_AARCH64_COPY) {
+#else
+# error "Unsupported"
+#endif
 					unsigned int  symbol = ELF64_R_SYM(table->r_info);
 					Elf64_Sym * sym = &object->dyn_symbol_table[symbol];
 					char * symname = (char *)((uintptr_t)object->dyn_string_table + sym->st_name);
@@ -568,7 +644,13 @@ static void object_find_copy_relocations(elf_t * object) {
 			Elf64_Rela * table = (Elf64_Rela *)(shdr.sh_addr + object->base);
 			while ((uintptr_t)table - ((uintptr_t)shdr.sh_addr + object->base) < shdr.sh_size) {
 				unsigned int type = ELF64_R_TYPE(table->r_info);
+#if defined(__x86_64__)
 				if (type == R_X86_64_COPY) {
+#elif defined(__aarch64__)
+				if (type == R_AARCH64_COPY) {
+#else
+# error "Unsupported"
+#endif
 					unsigned int  symbol = ELF64_R_SYM(table->r_info);
 					Elf64_Sym * sym = &object->dyn_symbol_table[symbol];
 					char * symname = (char *)((uintptr_t)object->dyn_string_table + sym->st_name);
@@ -592,7 +674,7 @@ static void * object_find_symbol(elf_t * object, const char * symbol_name) {
 	size_t i = 0;
 	while (i < object->dyn_symbol_table_size) {
 		if (!strcmp(symbol_name, (char *)((uintptr_t)object->dyn_string_table + table->st_name))) {
-			return (void *)(table->st_value + object->base);
+			return (void *)(table->st_value);
 		}
 		table++;
 		i++;
@@ -624,7 +706,7 @@ static void * do_actual_load(const char * filename, elf_t * lib, int flags) {
 	 * This is where we should really be loading things into COW
 	 * but we don't have the functionality available.
 	 */
-	uintptr_t load_addr = (uintptr_t)malloc(lib_size);
+	uintptr_t load_addr = (uintptr_t)valloc(lib_size);
 	object_load(lib, load_addr);
 
 	/* Perform cleanup steps */

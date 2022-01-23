@@ -33,6 +33,7 @@ SECTIONS
 
 	.init_array : {
 		PROVIDE_HIDDEN (__init_array_start = .);
+		*(.init_array);
 		PROVIDE_HIDDEN (__init_array_end = .);
 	}
 

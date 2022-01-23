@@ -40,7 +40,13 @@
 #include <sys/signal_defs.h>
 
 /* FIXME: This only needs the size of the regs struct... */
+#if defined(__x86_64__)
 #include <kernel/arch/x86_64/regs.h>
+#elif defined(__aarch64__)
+#include <kernel/arch/aarch64/regs.h>
+#else
+#error "no regs"
+#endif
 
 tree_t * process_tree;  /* Stores the parent-child process relationships; the root of this graph is 'init'. */
 list_t * process_list;  /* Stores all existing processes. Mostly used for sanity checking or for places where iterating over all processes is useful. */
@@ -141,6 +147,8 @@ void switch_next(void) {
 
 	/* Mark the process as running and started. */
 	__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_STARTED);
+
+	asm volatile ("" ::: "memory");
 
 	/* Jump to next */
 	arch_restore_context(&this_core->current_process->thread);
@@ -1303,7 +1311,7 @@ void task_exit(int retval) {
 }
 
 #define PUSH(stack, type, item) stack -= sizeof(type); \
-							*((type *) stack) = item
+							*((volatile type *) stack) = item
 
 pid_t fork(void) {
 	uintptr_t sp, bp;
@@ -1322,11 +1330,24 @@ pid_t fork(void) {
 
 	arch_syscall_return(&r, 0);
 	PUSH(sp, struct regs, r);
+
 	new_proc->syscall_registers = (void*)sp;
 	new_proc->thread.context.sp = sp;
 	new_proc->thread.context.bp = bp;
 	new_proc->thread.context.tls_base = parent->thread.context.tls_base;
 	new_proc->thread.context.ip = (uintptr_t)&arch_resume_user;
+	arch_save_context(&parent->thread);
+	memcpy(new_proc->thread.context.saved, parent->thread.context.saved, sizeof(parent->thread.context.saved));
+
+	#if 0
+	printf("fork(): resuming with register context\n");
+	extern void aarch64_regs(struct regs *);
+	aarch64_regs(&r);
+	printf("fork(): and arch context:\n");
+	extern void aarch64_context(process_t * proc);
+	aarch64_context(new_proc);
+	#endif
+
 	if (parent->flags & PROC_FLAG_IS_TASKLET) new_proc->flags |= PROC_FLAG_IS_TASKLET;
 	make_process_ready(new_proc);
 	return new_proc->id;
@@ -1355,13 +1376,24 @@ pid_t clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 	}
 
 	/* different calling convention */
+	#if defined(__x86_64__)
 	r.rdi = arg;
+	#elif defined(__aarch64__)
+	r.x0 = arg;
+	#endif
 	PUSH(new_stack, uintptr_t, (uintptr_t)0xFFFFB00F);
 	PUSH(sp, struct regs, r);
 	new_proc->syscall_registers = (void*)sp;
+	#if defined(__x86_64__)
 	new_proc->syscall_registers->rsp = new_stack;
 	new_proc->syscall_registers->rbp = new_stack;
 	new_proc->syscall_registers->rip = thread_func;
+	#elif defined(__aarch64__)
+	new_proc->syscall_registers->user_sp = new_stack;
+	new_proc->syscall_registers->x29 = new_stack;
+	//new_proc->syscall_registers->x30 = thread_func;
+	new_proc->thread.context.saved[14] = thread_func;
+	#endif
 	new_proc->thread.context.sp = sp;
 	new_proc->thread.context.bp = bp;
 	new_proc->thread.context.tls_base = this_core->current_process->thread.context.tls_base;

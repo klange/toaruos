@@ -89,7 +89,7 @@ confreader_t * confreader_load(const char * file) {
 	char tmp2[1024];
 
 	while (!feof(f)) {
-		char c = fgetc(f);
+		int c = fgetc(f);
 		tmp[0] = '\0';
 		tmp2[0] = '\0';
 		if (c == ';') {
