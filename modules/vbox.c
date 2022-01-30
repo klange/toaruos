@@ -25,10 +25,10 @@
 #include <kernel/mouse.h>
 #include <kernel/args.h>
 #include <kernel/module.h>
+#include <kernel/mmu.h>
 
 #include <kernel/arch/x86_64/regs.h>
 #include <kernel/arch/x86_64/ports.h>
-#include <kernel/arch/x86_64/mmu.h>
 #include <kernel/arch/x86_64/irq.h>
 
 #define VBOX_VENDOR_ID 0x80EE

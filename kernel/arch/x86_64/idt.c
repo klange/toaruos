@@ -23,12 +23,12 @@
 #include <kernel/hashmap.h>
 #include <kernel/module.h>
 #include <kernel/ksym.h>
+#include <kernel/mmu.h>
 
 #include <sys/time.h>
 #include <sys/utsname.h>
 #include <sys/ptrace.h>
 
-#include <kernel/arch/x86_64/mmu.h>
 #include <kernel/arch/x86_64/ports.h>
 #include <kernel/arch/x86_64/pml.h>
 #include <kernel/arch/x86_64/regs.h>

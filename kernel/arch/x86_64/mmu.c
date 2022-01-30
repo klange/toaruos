@@ -16,8 +16,8 @@
 #include <kernel/process.h>
 #include <kernel/spinlock.h>
 #include <kernel/misc.h>
+#include <kernel/mmu.h>
 #include <kernel/arch/x86_64/pml.h>
-#include <kernel/arch/x86_64/mmu.h>
 
 extern void arch_tlb_shootdown(uintptr_t);
 

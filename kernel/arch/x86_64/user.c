@@ -10,8 +10,8 @@
 #include <stdint.h>
 #include <kernel/process.h>
 #include <kernel/string.h>
+#include <kernel/mmu.h>
 #include <kernel/arch/x86_64/regs.h>
-#include <kernel/arch/x86_64/mmu.h>
 #include <kernel/arch/x86_64/ports.h>
 
 /**

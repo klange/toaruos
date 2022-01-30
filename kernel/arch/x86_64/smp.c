@@ -17,8 +17,8 @@
 #include <kernel/args.h>
 #include <kernel/time.h>
 #include <kernel/multiboot.h>
+#include <kernel/mmu.h>
 #include <kernel/arch/x86_64/acpi.h>
-#include <kernel/arch/x86_64/mmu.h>
 
 __attribute__((used))
 __attribute__((naked))
