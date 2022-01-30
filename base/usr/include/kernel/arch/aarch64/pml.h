@@ -35,5 +35,5 @@ union PML {
 	uint64_t raw;
 };
 
-#define mmu_page_is_user_readable(p) (0)
-#define mmu_page_is_user_writable(p) (0)
+#define mmu_page_is_user_readable(p) (p->bits.ap & 1)
+#define mmu_page_is_user_writable(p) ((p->bits.ap & 1) && !(p->bits.ap & 2))
