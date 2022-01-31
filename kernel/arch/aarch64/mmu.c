@@ -671,12 +671,12 @@ static uintptr_t k2p(void * x) {
 	return ((uintptr_t)x - MODULE_BASE_START) + QEMU_VIRT_KERNEL_BASE;
 }
 
-void mmu_init(uintptr_t memsize, uintptr_t firstFreePage) {
+void mmu_init(uintptr_t memsize, size_t physsize, uintptr_t firstFreePage, uintptr_t endOfRamDisk) {
 	this_core->current_pml = (union PML *)&init_page_region;
 
 	/* On this machine, there's 1GiB of unavailable memory. */
 	unavailable_memory = 1048576;
-	total_memory = 4194304;
+	total_memory = memsize / 1024;
 
 	/* MAIR setup? */
 	uint64_t mair;
@@ -727,9 +727,12 @@ void mmu_init(uintptr_t memsize, uintptr_t firstFreePage) {
 
 	/* Set up some space to map us */
 
+	/* How many 2MiB spans do we need to cover to endOfRamDisk? */
+	size_t twoms  = (endOfRamDisk + (LARGE_PAGE_SIZE - 1)) / LARGE_PAGE_SIZE;
+
 	/* init_page_region[511] -> high_base_pml[510] -> kbase_pmls[0] -> kbase_pmls[1+n] */
 	high_base_pml[510].raw = k2p(&kbase_pmls[0]) | PTE_VALID | PTE_TABLE | PTE_AF;
-	for (size_t j = 0; j < 64; ++j) {
+	for (size_t j = 0; j < twoms; ++j) {
 		kbase_pmls[0][j].raw = k2p(&kbase_pmls[1+j]) | PTE_VALID | PTE_TABLE | PTE_AF;
 		for (int i = 0; i < 512; ++i) {
 			kbase_pmls[1+j][i].raw = (uintptr_t)(QEMU_VIRT_KERNEL_BASE + LARGE_PAGE_SIZE * j + PAGE_SIZE * i) |
@@ -750,7 +753,7 @@ void mmu_init(uintptr_t memsize, uintptr_t firstFreePage) {
 
 	/* Physical frame allocator. We're gonna do this the same as the one we have x86-64, because
 	 * I can't be bothered to think of anything better right now... */
-	nframes = (memsize) >> 12;
+	nframes = (physsize) >> 12;
 	size_t bytesOfFrames = INDEX_FROM_BIT(nframes * 8);
 	bytesOfFrames = (bytesOfFrames + PAGE_LOW_MASK) & PAGE_SIZE_MASK;
 
@@ -775,7 +778,7 @@ void mmu_init(uintptr_t memsize, uintptr_t firstFreePage) {
 	}
 
 	/* Set kernel space as in use */
-	for (uintptr_t i = 0; i < 64 * LARGE_PAGE_SIZE; i += PAGE_SIZE) {
+	for (uintptr_t i = 0; i < twoms * LARGE_PAGE_SIZE; i += PAGE_SIZE) {
 		mmu_frame_set(QEMU_VIRT_KERNEL_BASE + i);
 	}
 

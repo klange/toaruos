@@ -872,7 +872,6 @@ long sys_fork(void) {
 }
 
 long sys_clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
-	printf("sys_clone() from pid=%d\n", this_core->current_process->id);
 	if (!new_stack || !PTR_INRANGE(new_stack)) return -EINVAL;
 	if (!thread_func || !PTR_INRANGE(thread_func)) return -EINVAL;
 	return (int)clone(new_stack, thread_func, arg);

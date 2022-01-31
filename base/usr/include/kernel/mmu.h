@@ -34,7 +34,6 @@ union PML * mmu_get_page(uintptr_t virtAddr, int flags);
 void mmu_set_directory(union PML * new_pml);
 void mmu_free(union PML * from);
 union PML * mmu_clone(union PML * from);
-void mmu_init(size_t memsize, uintptr_t firstFreePage);
 void mmu_invalidate(uintptr_t addr);
 uintptr_t mmu_allocate_a_frame(void);
 uintptr_t mmu_allocate_n_frames(int n);

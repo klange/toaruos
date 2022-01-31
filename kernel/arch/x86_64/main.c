@@ -45,6 +45,7 @@ extern void ps2hid_install(void);
 extern void serial_initialize(void);
 extern void fbterm_initialize(void);
 extern void pci_remap(void);
+extern void mmu_init(size_t memsize, uintptr_t firstFreePage);
 
 struct multiboot * mboot_struct = NULL;
 int mboot_is_2 = 0;

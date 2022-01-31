@@ -20,11 +20,13 @@
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
 #include <kernel/generic.h>
+#include <kernel/pipe.h>
 
 #include <kernel/arch/aarch64/regs.h>
 
 extern void framebuffer_initialize(void);
 extern void fbterm_initialize(void);
+extern void mmu_init(size_t memsize, size_t phys, uintptr_t firstFreePage, uintptr_t endOfInitrd);
 
 static uint32_t swizzle(uint32_t from) {
 	uint8_t a = from >> 24;
@@ -735,12 +737,17 @@ static void exception_handlers(void) {
 	asm volatile("msr VBAR_EL1, %0" :: "r"(&_exception_vector));
 }
 
+static void update_clock(void);
 void aarch64_sync_enter(struct regs * r) {
 	uint64_t esr, far, elr, spsr;
 	asm volatile ("mrs %0, ESR_EL1" : "=r"(esr));
 	asm volatile ("mrs %0, FAR_EL1" : "=r"(far));
 	asm volatile ("mrs %0, ELR_EL1" : "=r"(elr));
 	asm volatile ("mrs %0, SPSR_EL1" : "=r"(spsr));
+
+	if (this_core->current_process) {
+		this_core->current_process->time_switch = arch_perf_timer();
+	}
 
 	if (elr == 0xFFFFB00F && far == 0xFFFFB00F) {
 		task_exit(0);
@@ -760,6 +767,8 @@ void aarch64_sync_enter(struct regs * r) {
 		printf(" x5: %#zx\n", r->x5);
 		#endif
 
+		update_clock();
+
 		extern void syscall_handler(struct regs *);
 		syscall_handler(r);
 
@@ -777,6 +786,7 @@ void aarch64_sync_enter(struct regs * r) {
 
 	if (far == 0x1de7ec7edbadc0de) {
 		/* KVM is mad at us */
+		printf("kvm: blip (esr=%#zx, elr=%#zx; pid=%d [%s])\n", esr, elr, this_core->current_process->id, this_core->current_process->name);
 		return;
 	}
 
@@ -820,12 +830,19 @@ static void fpu_enable(void) {
 }
 
 static void timer_start(void) {
+	volatile uint32_t * clock_addr = mmu_map_from_physical(0x09010000);
+
+	clock_addr[4] = 0;
+	clock_addr[7] = 1;
+	
+	#if 0
 	asm volatile ("msr CNTKCTL_EL1, %0" ::
 		"r"(
 			(1 << 17) /* lower rate */
 			| (23 << 4) /* uh lowest bit? */
 			| (1 << 1) /* enable event stream */
 		));
+	#endif
 }
 
 static uint64_t time_slice_basis = 0; /**< When the last clock update happened */
@@ -862,6 +879,19 @@ void arch_pause(void) {
 	switch_next();
 }
 
+static fs_node_t * mouse_pipe;
+static fs_node_t * keyboard_pipe;
+
+static void fake_input(void) {
+	mouse_pipe = make_pipe(128);
+	mouse_pipe->flags = FS_CHARDEVICE;
+	vfs_mount("/dev/mouse", mouse_pipe);
+
+	keyboard_pipe = make_pipe(128);
+	keyboard_pipe->flags = FS_CHARDEVICE;
+	vfs_mount("/dev/kbd", keyboard_pipe);
+}
+
 void arch_clear_icache(uintptr_t start, uintptr_t end) {
 	for (uintptr_t x = start; x < end; x += 64) {
 		if (!mmu_validate_user_pointer((void*)x, 64, MMU_PTR_WRITE)) continue;
@@ -871,6 +901,33 @@ void arch_clear_icache(uintptr_t start, uintptr_t end) {
 		if (!mmu_validate_user_pointer((void*)x, 64, MMU_PTR_WRITE)) continue;
 		asm volatile ("ic ivau, %0" :: "r"(x));
 	}
+}
+
+/**
+ * Figure out 1) how much actual memory we have and 2) what the last
+ * address of physical memory is.
+ */
+static void dtb_memory_size(size_t * memsize, size_t * physsize) {
+	uint32_t * memory = find_node_prefix("memory");
+	if (!memory) {
+		printf("dtb: Could not find memory node.\n");
+		arch_fatal();
+	}
+
+	uint32_t * regs = node_find_property(memory, "reg");
+	if (!regs) {
+		printf("dtb: memory node has no regs\n");
+		arch_fatal();
+	}
+
+	/* Eventually, same with fw-cfg, we'll need to actually figure out
+	 * the size of the 'reg' cells, but at least right now it's been
+	 * 2 address, 2 size. */
+	uint64_t mem_addr = (uint64_t)swizzle(regs[3]) | ((uint64_t)swizzle(regs[2]) << 32UL);
+	uint64_t mem_size = (uint64_t)swizzle(regs[5]) | ((uint64_t)swizzle(regs[4]) << 32UL);
+
+	*memsize = mem_size;
+	*physsize = mem_addr + mem_size;
 }
 
 
@@ -912,7 +969,13 @@ int kmain(void) {
 
 	/* TODO get initial memory map data?
 	 *    Eh, we can probably just probe the existing tables... maybe... */
-	mmu_init(8UL * 1024 * 1024 * 1024 /* Should be maximum valid physical address */, 0x40100000 /* Should be end of DTB */);
+	extern char end[];
+	size_t memsize, physsize;
+	dtb_memory_size(&memsize, &physsize);
+	mmu_init(
+		memsize, physsize,
+		0x40100000 /* Should be end of DTB, but we're really just guessing */,
+		(uintptr_t)&end + ramdisk_size - 0xffffffff80000000UL);
 
 	/* Find the cmdline */
 	dtb_locate_cmdline();
@@ -935,6 +998,7 @@ int kmain(void) {
 	timer_start();
 
 	/* TODO Install drivers that may need to sleep here */
+	fake_input();
 
 	generic_main();
 
