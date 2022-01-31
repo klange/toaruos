@@ -431,16 +431,22 @@ static int object_relocate(elf_t * object) {
 		while (i < object->dyn_symbol_table_size) {
 			char * symname = (char *)((uintptr_t)object->dyn_string_table + table->st_name);
 
+			int is_tls = (table->st_info & 0xF) == 6;
+
 			/* If we haven't added this symbol to our symbol table, do so now. */
 			if (table->st_shndx) {
 				if (!hashmap_has(dumb_symbol_table, symname)) {
-					hashmap_set(dumb_symbol_table, symname, (void*)(table->st_value + object->base));
-					table->st_value = table->st_value + object->base;
+					hashmap_set(dumb_symbol_table, symname, (void*)(table->st_value + (is_tls ? 0 : object->base)));
+					table->st_value = table->st_value + (is_tls ? 0 : object->base);
 				} else {
 					table->st_value = (uintptr_t)hashmap_get(dumb_symbol_table, symname);
 				}
 			} else {
-				table->st_value = table->st_value + object->base;
+				if (hashmap_has(dumb_symbol_table, symname)) {
+					table->st_value = (uintptr_t)hashmap_get(dumb_symbol_table, symname);
+				} else {
+					table->st_value = table->st_value + (is_tls ? 0 : object->base);
+				}
 			}
 
 			table++;
@@ -552,7 +558,9 @@ static int object_relocate(elf_t * object) {
 							current_tls_offset += sym->st_size; /* TODO alignment restrictions */
 							#endif
 						} else {
-							x += (size_t)hashmap_get(tls_map, symname);
+							size_t val = (size_t)hashmap_get(tls_map, symname);
+							TRACE_LD("add %#zx to %zx\n", val, x);
+							x += val;
 						}
 						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
 						break;
@@ -789,12 +797,10 @@ static elf_t * preload(hashmap_t * libs, list_t * load_libs, char * lib_name) {
 	/* Mark this library available */
 	hashmap_set(libs, lib_name, lib);
 
-	TRACE_LD("Loading %s at 0x%x", lib_name, end_addr);
-
 	/* Adjust dumb allocator */
-	while (end_addr & 0xFFF) {
-		end_addr++;
-	}
+	end_addr = (end_addr + 0xFFF) & ~(0xFFFUL);
+
+	TRACE_LD("Loading %s at 0x%x", lib_name, end_addr);
 
 	/* Load PHDRs */
 	end_addr = object_load(lib, end_addr);
