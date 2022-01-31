@@ -414,8 +414,8 @@ long arch_syscall_arg1(struct regs * r)   { return r->x2; }
 long arch_syscall_arg2(struct regs * r)   { return r->x3; }
 long arch_syscall_arg3(struct regs * r)   { return r->x4; }
 long arch_syscall_arg4(struct regs * r)   { return r->x5; }
-long arch_stack_pointer(struct regs * r)  { printf("%s() called\n", __func__); return 0; /* TODO */ }
-long arch_user_ip(struct regs * r)        { printf("%s() called\n", __func__); return 0; /* TODO */ }
+long arch_stack_pointer(struct regs * r)  { return r->user_sp; }
+long arch_user_ip(struct regs * r)        { return r->x30; /* TODO this is wrong, this needs to come from ELR but we don't have that */ }
 
 /* No port i/o on arm, but these are still littered around some
  * drivers we need to remove... */

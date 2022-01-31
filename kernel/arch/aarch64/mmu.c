@@ -488,12 +488,63 @@ uintptr_t mmu_allocate_n_frames(int n) {
 
 size_t mmu_count_user(union PML * from) {
 	/* We walk 'from' and count user pages */
-	return 0;
+	size_t out = 0;
+
+	for (size_t i = 0; i < 256; ++i) {
+		if (from[i].bits.present) {
+			union PML * pdp_in = mmu_map_from_physical((uintptr_t)from[i].bits.page << PAGE_SHIFT);
+			for (size_t j = 0; j < 512; ++j) {
+				if (pdp_in[j].bits.present) {
+					union PML * pd_in = mmu_map_from_physical((uintptr_t)pdp_in[j].bits.page << PAGE_SHIFT);
+					for (size_t k = 0; k < 512; ++k) {
+						if (pd_in[k].bits.present) {
+							union PML * pt_in = mmu_map_from_physical((uintptr_t)pd_in[k].bits.page << PAGE_SHIFT);
+							for (size_t l = 0; l < 512; ++l) {
+								/* Calculate final address to skip SHM */
+								uintptr_t address = ((i << (9 * 3 + 12)) | (j << (9*2 + 12)) | (k << (9 + 12)) | (l << PAGE_SHIFT));
+								if (address >= USER_DEVICE_MAP && address <= USER_SHM_HIGH) continue;
+								if (pt_in[l].bits.present) {
+									if (pt_in[l].bits.ap & 1) {
+										out++;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return out;
 }
 
 size_t mmu_count_shm(union PML * from) {
 	/* We walk 'from' and count shm region stuff */
-	return 0;
+	size_t out = 0;
+
+	if (from[0].bits.present) {
+		union PML * pdp_in = mmu_map_from_physical((uintptr_t)from[0].bits.page << PAGE_SHIFT);
+		/* [0,8,0,0] through [0,15,511,511] map to our current SHM mapping region;
+		 * if you change the bounds of that region, be sure to update this! */
+		for (size_t j = 8; j < 16; ++j) {
+			if (pdp_in[j].bits.present) {
+				union PML * pd_in = mmu_map_from_physical((uintptr_t)pdp_in[j].bits.page << PAGE_SHIFT);
+				for (size_t k = 0; k < 512; ++k) {
+					if (pd_in[k].bits.present) {
+						union PML * pt_in = mmu_map_from_physical((uintptr_t)pd_in[k].bits.page << PAGE_SHIFT);
+						for (size_t l = 0; l < 512; ++l) {
+							if (pt_in[l].bits.present) {
+								if (pt_in[l].bits.ap & 1) {
+									out++;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return out;
 }
 
 size_t mmu_total_memory(void) {
