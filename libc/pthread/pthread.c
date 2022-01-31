@@ -43,14 +43,9 @@ void * __tls_get_addr(void* input) {
 void __make_tls(void) {
 	char * tlsSpace = valloc(4096);
 	memset(tlsSpace, 0x0, 4096);
-#if defined(__x86_64__)
-	/* self-pointer at end */
-	char ** tlsSelf  = (char **)(tlsSpace + 4096 - sizeof(char *));
-#elif defined(__aarch64__)
 	/* self-pointer start? */
 	char ** tlsSelf = (char **)(tlsSpace);
 	*tlsSelf = (char*)tlsSelf;
-#endif
 	sysfunc(TOARU_SYS_FUNC_SETGSBASE, (char*[]){(char*)tlsSelf});
 }
 

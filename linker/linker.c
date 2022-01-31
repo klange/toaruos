@@ -509,16 +509,16 @@ static int object_relocate(elf_t * object) {
 						memcpy((void *)(table->r_offset + object->base), (void *)x, sym->st_size);
 						break;
 					case R_X86_64_TPOFF64:
-						x = *((ssize_t *)(table->r_offset + object->base));
+						x += *((ssize_t *)(table->r_offset + object->base));
 						if (!hashmap_has(tls_map, symname)) {
 							if (!sym->st_size) {
 								fprintf(stderr, "Haven't placed %s in static TLS yet but don't know its size?\n", symname);
 							}
-							current_tls_offset += sym->st_size; /* TODO alignment restrictions */
+							x += current_tls_offset;
 							hashmap_set(tls_map, symname, (void*)(current_tls_offset));
-							x -= current_tls_offset;
+							current_tls_offset += sym->st_size; /* TODO alignment restrictions */
 						} else {
-							x -= (size_t)hashmap_get(tls_map, symname);
+							x += (size_t)hashmap_get(tls_map, symname);
 						}
 						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
 						break;
@@ -548,15 +548,9 @@ static int object_relocate(elf_t * object) {
 							if (!sym->st_size) {
 								fprintf(stderr, "Haven't placed %s in static TLS yet but don't know its size?\n", symname);
 							}
-							#if 0
-							current_tls_offset += sym->st_size; /* TODO alignment restrictions */
-							hashmap_set(tls_map, symname, (void*)(current_tls_offset));
-							x -= current_tls_offset;
-							#else
 							x += current_tls_offset;
 							hashmap_set(tls_map, symname, (void*)(current_tls_offset));
 							current_tls_offset += sym->st_size; /* TODO alignment restrictions */
-							#endif
 						} else {
 							size_t val = (size_t)hashmap_get(tls_map, symname);
 							TRACE_LD("add %#zx to %zx\n", val, x);
