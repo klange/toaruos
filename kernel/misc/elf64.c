@@ -282,6 +282,11 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 				*(char*)(phdr.p_vaddr + i) = 0;
 			}
 
+			#ifdef __aarch64__
+			extern void arch_clear_icache(uintptr_t,uintptr_t);
+			arch_clear_icache(phdr.p_vaddr, phdr.p_vaddr + phdr.p_memsz);
+			#endif
+
 			if (phdr.p_vaddr + phdr.p_memsz > heapBase) {
 				heapBase = phdr.p_vaddr + phdr.p_memsz;
 			}

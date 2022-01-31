@@ -516,10 +516,54 @@ size_t mmu_used_memory(void) {
 
 void mmu_free(union PML * from) {
 	/* walk and free pages */
+	if (!from) {
+		printf("can't clear NULL directory\n");
+		return;
+	}
+
+	spin_lock(frame_alloc_lock);
+	for (size_t i = 0; i < 256; ++i) {
+		if (from[i].bits.present) {
+			union PML * pdp_in = mmu_map_from_physical((uintptr_t)from[i].bits.page << PAGE_SHIFT);
+			for (size_t j = 0; j < 512; ++j) {
+				if (pdp_in[j].bits.present) {
+					union PML * pd_in = mmu_map_from_physical((uintptr_t)pdp_in[j].bits.page << PAGE_SHIFT);
+					for (size_t k = 0; k < 512; ++k) {
+						if (pd_in[k].bits.present) {
+							union PML * pt_in = mmu_map_from_physical((uintptr_t)pd_in[k].bits.page << PAGE_SHIFT);
+							for (size_t l = 0; l < 512; ++l) {
+								uintptr_t address = ((i << (9 * 3 + 12)) | (j << (9*2 + 12)) | (k << (9 + 12)) | (l << PAGE_SHIFT));
+								/* Do not free shared mappings; SHM subsystem does that for SHM, devices don't need it. */
+								if (address >= USER_DEVICE_MAP && address <= USER_SHM_HIGH) continue;
+								if (pt_in[l].bits.present) {
+									/* Free only user pages */
+									if (pt_in[l].bits.ap & 1) {
+										mmu_frame_clear((uintptr_t)pt_in[l].bits.page << PAGE_SHIFT);
+										pt_in[l].raw = 0;
+										//free_page_maybe(pt_in,l,address);
+									}
+								}
+							}
+							mmu_frame_clear((uintptr_t)pd_in[k].bits.page << PAGE_SHIFT);
+							pd_in[k].raw = 0;
+						}
+					}
+					mmu_frame_clear((uintptr_t)pdp_in[j].bits.page << PAGE_SHIFT);
+					pdp_in[j].raw = 0;
+				}
+			}
+			mmu_frame_clear((uintptr_t)from[i].bits.page << PAGE_SHIFT);
+			from[i].raw = 0;
+		}
+	}
+
+	mmu_frame_clear((((uintptr_t)from) & PHYS_MASK));
+	asm volatile ("dsb ishst\ntlbi vmalle1is\ndsb ish\nisb" ::: "memory");
+	spin_unlock(frame_alloc_lock);
 }
 
 union PML * mmu_get_kernel_directory(void) {
-	return (union PML*)&init_page_region;
+	return mmu_map_from_physical((uintptr_t)&init_page_region);
 }
 
 void mmu_set_directory(union PML * new_pml) {
@@ -586,6 +630,7 @@ void mmu_unmap_module(uintptr_t start_address, size_t size) {
 }
 
 int mmu_copy_on_write(uintptr_t address) {
+	
 	return 1;
 }
 

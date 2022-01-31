@@ -95,6 +95,15 @@ long sys_sysfunc(long fn, char ** args) {
 			printf("kdebug: not implemented\n");
 			return -EINVAL;
 
+		case 42:
+			#ifdef __aarch64__
+			PTR_VALIDATE(&args[0]);
+			PTR_VALIDATE(&args[1]);
+			extern void arch_clear_icache(uintptr_t,uintptr_t);
+			arch_clear_icache((uintptr_t)args[0], (uintptr_t)args[1]);
+			#endif
+			return 0;
+
 		case TOARU_SYS_FUNC_INSMOD:
 			/* Linux has init_module as a system call? */
 			if (this_core->current_process->user != 0) return -EACCES;

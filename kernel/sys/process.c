@@ -1378,10 +1378,11 @@ pid_t clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 	/* different calling convention */
 	#if defined(__x86_64__)
 	r.rdi = arg;
+	PUSH(new_stack, uintptr_t, (uintptr_t)0xFFFFB00F);
 	#elif defined(__aarch64__)
 	r.x0 = arg;
+	r.x30 = 0xFFFFB00F;
 	#endif
-	PUSH(new_stack, uintptr_t, (uintptr_t)0xFFFFB00F);
 	PUSH(sp, struct regs, r);
 	new_proc->syscall_registers = (void*)sp;
 	#if defined(__x86_64__)
@@ -1391,8 +1392,7 @@ pid_t clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 	#elif defined(__aarch64__)
 	new_proc->syscall_registers->user_sp = new_stack;
 	new_proc->syscall_registers->x29 = new_stack;
-	//new_proc->syscall_registers->x30 = thread_func;
-	new_proc->thread.context.saved[14] = thread_func;
+	new_proc->thread.context.saved[10] = thread_func;
 	#endif
 	new_proc->thread.context.sp = sp;
 	new_proc->thread.context.bp = bp;

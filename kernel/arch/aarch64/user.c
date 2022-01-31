@@ -742,6 +742,11 @@ void aarch64_sync_enter(struct regs * r) {
 	asm volatile ("mrs %0, ELR_EL1" : "=r"(elr));
 	asm volatile ("mrs %0, SPSR_EL1" : "=r"(spsr));
 
+	if (elr == 0xFFFFB00F && far == 0xFFFFB00F) {
+		task_exit(0);
+		__builtin_unreachable();
+	}
+
 	if ((esr >> 26) == 0x15) {
 		#if 0
 		printf("%s: syscall(%ld) puts sp at %#zx with base of %#zx\n", this_core->current_process->name, r->x0, (uintptr_t)r,
@@ -857,6 +862,16 @@ void arch_pause(void) {
 	switch_next();
 }
 
+void arch_clear_icache(uintptr_t start, uintptr_t end) {
+	for (uintptr_t x = start; x < end; x += 64) {
+		if (!mmu_validate_user_pointer((void*)x, 64, MMU_PTR_WRITE)) continue;
+		asm volatile ("dc cvau, %0" :: "r"(x));
+	}
+	for (uintptr_t x = start; x < end; x += 64) {
+		if (!mmu_validate_user_pointer((void*)x, 64, MMU_PTR_WRITE)) continue;
+		asm volatile ("ic ivau, %0" :: "r"(x));
+	}
+}
 
 
 /**
