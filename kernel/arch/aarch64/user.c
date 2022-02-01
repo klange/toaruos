@@ -730,9 +730,17 @@ static void dtb_locate_cmdline(void) {
 	}
 }
 
+static volatile uint32_t * gic_regs;
+static volatile uint32_t * gicc_regs;
 
 static void exception_handlers(void) {
 	extern char _exception_vector[];
+
+	const uintptr_t gic_base = (uintptr_t)mmu_map_from_physical(0x08000000); /* TODO get this from dtb */
+	gic_regs = (volatile uint32_t*)gic_base;
+
+	const uintptr_t gicc_base = (uintptr_t)mmu_map_from_physical(0x08010000);
+	gicc_regs = (volatile uint32_t*)gicc_base;
 
 	asm volatile("msr VBAR_EL1, %0" :: "r"(&_exception_vector));
 }
@@ -804,6 +812,38 @@ void aarch64_sync_enter(struct regs * r) {
 	task_exit(1);
 }
 
+#define TIMER_IRQ 27
+static void set_tick(void) {
+	asm volatile (
+		"mrs x0, CNTFRQ_EL0\n"
+		"mov x1, 100\n"
+		"udiv x0, x0, x1\n"
+		"msr CNTV_TVAL_EL0, x0\n"
+		:::"x0","x1");
+}
+
+void aarch64_irq_enter(struct regs * r) {
+	uint32_t pending = gic_regs[160];
+
+	if (this_core->current_process) {
+		this_core->current_process->time_switch = arch_perf_timer();
+	}
+
+	if (pending & (1 << TIMER_IRQ)) {
+		update_clock();
+		set_tick();
+		gic_regs[160] &= (1 << TIMER_IRQ);
+		switch_task(1);
+		return;
+	} else if (!pending) {
+		return;
+	}
+
+	printf("Unexpected interrupt = %#x\n", pending);
+
+	while (1);
+}
+
 void aarch64_fault_enter(struct regs * r) {
 	uint64_t esr, far, elr, spsr;
 	asm volatile ("mrs %0, ESR_EL1" : "=r"(esr));
@@ -811,7 +851,8 @@ void aarch64_fault_enter(struct regs * r) {
 	asm volatile ("mrs %0, ELR_EL1" : "=r"(elr));
 	asm volatile ("mrs %0, SPSR_EL1" : "=r"(spsr));
 
-	//printf("In process %d (%s)\n", this_core->current_process->id, this_core->current_process->name);
+	printf("EL1-EL1 fault handler\n");
+	printf("In process %d (%s)\n", this_core->current_process->id, this_core->current_process->name);
 	printf("ESR: %#zx FAR: %#zx ELR: %#zx SPSR: %#zx\n", esr, far, elr, spsr);
 	aarch64_regs(r);
 
@@ -830,19 +871,28 @@ static void fpu_enable(void) {
 }
 
 static void timer_start(void) {
-	volatile uint32_t * clock_addr = mmu_map_from_physical(0x09010000);
+	/* mask irqs */
+	asm volatile ("msr DAIFSet, #0b1111");
 
-	clock_addr[4] = 0;
-	clock_addr[7] = 1;
-	
-	#if 0
-	asm volatile ("msr CNTKCTL_EL1, %0" ::
-		"r"(
-			(1 << 17) /* lower rate */
-			| (23 << 4) /* uh lowest bit? */
-			| (1 << 1) /* enable event stream */
-		));
-	#endif
+	/* Enable one of the timers. */
+	set_tick();
+	asm volatile (
+		"mov x0, 1\n"
+		"msr CNTV_CTL_EL0, x0\n"
+		:::"x0");
+
+	/* enable */
+	gic_regs[0] = 1;
+	gicc_regs[0] = 1;
+
+	/* priority mask */
+	gicc_regs[1] = 0xff;
+
+	/* enable interrupts */
+	gic_regs[64] = (1 << TIMER_IRQ);
+
+	/* clear this one */
+	gic_regs[160] = (1 << TIMER_IRQ);
 }
 
 static uint64_t time_slice_basis = 0; /**< When the last clock update happened */
@@ -867,9 +917,11 @@ void arch_pause(void) {
 	 *       Though that would also require us to be turn it off
 	 *       in the first place... get around to this when we have
 	 *       literally anything set up in the GIC */
-	asm volatile ("wfe");
+	asm volatile ("wfi");
 
+	//this_core->current_process->time_switch = arch_perf_timer();
 	update_clock();
+	set_tick();
 
 	asm volatile (
 		".globl _ret_from_preempt_source\n"

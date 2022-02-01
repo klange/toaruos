@@ -318,7 +318,6 @@ union PML * mmu_get_page(uintptr_t virtAddr, int flags) {
 		/* zero it */
 		memset(mmu_map_from_physical(newPage), 0, PAGE_SIZE);
 		root[pml4_entry].raw = (newPage) | PTE_VALID | PTE_TABLE | PTE_AF;
-		asm volatile ("dsb ishst\ntlbi vmalle1is\ndsb ish\nisb" ::: "memory");
 	}
 
 	union PML * pdp = mmu_map_from_physical((uintptr_t)root[pml4_entry].bits.page << PAGE_SHIFT);
@@ -332,7 +331,6 @@ union PML * mmu_get_page(uintptr_t virtAddr, int flags) {
 		/* zero it */
 		memset(mmu_map_from_physical(newPage), 0, PAGE_SIZE);
 		pdp[pdp_entry].raw = (newPage) | PTE_VALID | PTE_TABLE | PTE_AF;
-		asm volatile ("dsb ishst\ntlbi vmalle1is\ndsb ish\nisb" ::: "memory");
 	}
 
 	if (!pdp[pdp_entry].bits.table_page) {
@@ -351,7 +349,6 @@ union PML * mmu_get_page(uintptr_t virtAddr, int flags) {
 		/* zero it */
 		memset(mmu_map_from_physical(newPage), 0, PAGE_SIZE);
 		pd[pd_entry].raw = (newPage) | PTE_VALID | PTE_TABLE | PTE_AF;
-		asm volatile ("dsb ishst\ntlbi vmalle1is\ndsb ish\nisb" ::: "memory");
 	}
 
 	if (!pd[pd_entry].bits.table_page) {
