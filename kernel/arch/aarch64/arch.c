@@ -244,7 +244,8 @@ void arch_framebuffer_initialize(void) {
 
 const char * arch_get_cmdline(void) {
 	/* this should be available from dtb directly as a string */
-	return "start=live-session";
+	extern char * _arch_args;
+	return _arch_args ? _arch_args : "";
 }
 
 const char * arch_get_loader(void) {
@@ -253,7 +254,9 @@ const char * arch_get_loader(void) {
 
 /* These should probably assembly. */
 void arch_enter_tasklet(void) {
-	/* Pop two arguments, jump to the second one. */
-	printf("%s() called\n", __func__);
+	asm volatile (
+		"ldp x0, x1, [sp], #16\n"
+		"br x1\n" ::: "memory");
+	__builtin_unreachable();
 }
 

@@ -664,9 +664,25 @@ void * sbrk(size_t bytes) {
 	return out;
 }
 
+static uintptr_t mmio_base_address = MMIO_BASE_START;
 void * mmu_map_mmio_region(uintptr_t physical_address, size_t size) {
-	printf("attempt to map mmio\n");
-	return NULL;
+	if (size & PAGE_LOW_MASK) {
+		arch_fatal_prepare();
+		printf("mmu_map_mmio_region: MMIO region size must be multiple of 4096 bytes, was %#zx.\n", size);
+		arch_dump_traceback();
+		arch_fatal();
+	}
+
+	spin_lock(mmio_space_lock);
+	void * out = (void*)mmio_base_address;
+	for (size_t i = 0; i < size; i += PAGE_SIZE) {
+		union PML * p = mmu_get_page(mmio_base_address + i, MMU_GET_MAKE);
+		mmu_frame_map_address(p, MMU_FLAG_KERNEL | MMU_FLAG_WRITABLE | MMU_FLAG_NOCACHE | MMU_FLAG_WRITETHROUGH, physical_address + i);
+	}
+	mmio_base_address += size;
+	spin_unlock(mmio_space_lock);
+
+	return out;
 }
 
 void * mmu_map_module(size_t size) {

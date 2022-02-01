@@ -19,16 +19,16 @@
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
 #include <kernel/generic.h>
-#include <kernel/pipe.h>
+#include <kernel/video.h>
 
 #include <kernel/arch/aarch64/regs.h>
 #include <kernel/arch/aarch64/dtb.h>
 
-extern void framebuffer_initialize(void);
 extern void fbterm_initialize(void);
 extern void mmu_init(size_t memsize, size_t phys, uintptr_t firstFreePage, uintptr_t endOfInitrd);
 extern void aarch64_regs(struct regs *r);
 extern void fwcfg_load_initrd(uintptr_t * ramdisk_phys_base, size_t * ramdisk_size);
+extern void virtio_input(void);
 
 /* ARM says the system clock tick rate is generally in
  * the range of 1-50MHz. Since we throw around integer
@@ -176,11 +176,13 @@ static void list_dir(const char * dir) {
 	close_fs(root);
 }
 
+char * _arch_args = NULL;
 static void dtb_locate_cmdline(void) {
 	uint32_t * chosen = find_node("chosen");
 	if (chosen) {
 		uint32_t * prop = node_find_property(chosen, "bootargs");
 		if (prop) {
+			_arch_args = (char*)&prop[2];
 			args_parse((char*)&prop[2]);
 		}
 	}
@@ -363,19 +365,6 @@ void arch_pause(void) {
 	switch_next();
 }
 
-static fs_node_t * mouse_pipe;
-static fs_node_t * keyboard_pipe;
-
-static void fake_input(void) {
-	mouse_pipe = make_pipe(128);
-	mouse_pipe->flags = FS_CHARDEVICE;
-	vfs_mount("/dev/mouse", mouse_pipe);
-
-	keyboard_pipe = make_pipe(128);
-	keyboard_pipe->flags = FS_CHARDEVICE;
-	vfs_mount("/dev/kbd", keyboard_pipe);
-}
-
 void arch_clear_icache(uintptr_t start, uintptr_t end) {
 	for (uintptr_t x = start; x < end; x += 64) {
 		if (!mmu_validate_user_pointer((void*)x, 64, MMU_PTR_WRITE)) continue;
@@ -454,8 +443,8 @@ int kmain(void) {
 	/* TODO Start preemption source here */
 	timer_start();
 
-	/* TODO Install drivers that may need to sleep here */
-	fake_input();
+	/* Install drivers that may need to sleep here */
+	virtio_input();
 
 	generic_main();
 

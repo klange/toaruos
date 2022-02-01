@@ -33,6 +33,8 @@ struct device_class {
 	{0x0780, "Communication controller"},
 	{0x0805, "SD Host controller"},
 	{0x0880, "System peripheral"},
+	{0x0900, "Keyboard"},
+	{0x0980, "Input Device"},
 	{0x0c00, "FireWire controller"},
 	{0x0c03, "USB controller"},
 	{0x0c05, "SMBus controller"},
@@ -52,6 +54,7 @@ struct {
 	{0x1274, "Ensoniq"},
 	{0x15ad, "VMWare"},
 	{0x1912, "Renesas Electronics Corp."}, /* Formerly "Renesas Technology Corp." */
+	{0x1af4, "Red Hat, Inc."}, /* virtio */
 	{0x1b36, "Red Hat, Inc."},
 	{0x8086, "Intel Corporation"},
 	{0x80EE, "VirtualBox"},
@@ -85,6 +88,8 @@ struct {
 	{0x1912, 0x0015, "uPD720202 USB 3.0 Host Controller"},
 
 	/* Red Hat */
+	{0x1af4, 0x1000, "virtio-net"},
+	{0x1af4, 0x1052, "virtio-input"},
 	{0x1b36, 0x000d, "QEMU XHCI Host Controller"},
 
 	/* Intel */

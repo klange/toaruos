@@ -31,9 +31,8 @@ EMU_ARGS += -cpu $(EMU_CPU)
 EMU_RAGS += -no-reboot
 EMU_ARGS += -serial mon:stdio
 EMU_ARGS += -device bochs-display
-EMU_ARGS += -device nec-usb-xhci # Controller
-EMU_ARGS += -device usb-tablet   # Mouse with absolute positioning
-EMU_ARGS += -device usb-kbd      # Keyboard
+EMU_ARGS += -device virtio-tablet-pci    # Mouse with absolute positioning
+EMU_ARGS += -device virtio-keyboard-pci  # Keyboard
 EMU_ARGS += -d guest_errors
 
 EMU_RAMDISK = -fw_cfg name=opt/org.toaruos.initrd,file=ramdisk.igz
