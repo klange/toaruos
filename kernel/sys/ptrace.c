@@ -105,6 +105,9 @@ long ptrace_getregs(pid_t pid, void * data) {
 
 	/* Copy registers */
 	memcpy(data, tracee->interrupt_registers ? tracee->interrupt_registers : tracee->syscall_registers, sizeof(struct regs));
+#ifdef __aarch64__
+	memcpy((char*)data + sizeof(struct regs), &tracee->thread.context.saved[10], sizeof(uintptr_t));
+#endif
 
 	return 0;
 }
@@ -164,11 +167,12 @@ long ptrace_singlestep(pid_t pid, int sig) {
 	process_t * tracee = process_from_pid(pid);
 	if (!tracee || (tracee->tracer != this_core->current_process->id) || !(tracee->flags & PROC_FLAG_SUSPENDED)) return -ESRCH;
 
-	struct regs * target = tracee->interrupt_registers ? tracee->interrupt_registers : tracee->syscall_registers;
-
 	/* arch_set_singlestep? */
 	#if defined(__x86_64__)
+	struct regs * target = tracee->interrupt_registers ? tracee->interrupt_registers : tracee->syscall_registers;
 	target->rflags |= (1 << 8);
+	#elif defined(__aarch64__)
+	tracee->thread.context.saved[11] |= (1 << 21);
 	#endif
 
 	__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_SUSPENDED));

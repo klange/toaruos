@@ -31,6 +31,15 @@ sync_common:
     mrs x18, TPIDR_EL1
     .extern aarch64_sync_enter
     bl aarch64_sync_enter
+
+    mrs x0, SPSR_EL1
+    and w0, w0, #0x200000
+    cbz w0, _sync_cont
+    mrs x0, MDSCR_EL1
+    orr x0, x0, #1
+    msr MDSCR_EL1, x0
+    _sync_cont:
+
     ldp x30, x0, [sp], #16
     msr SP_EL0, x0
     ldp x28, x29, [sp], #16
@@ -113,6 +122,13 @@ irq_common:
     mrs x18, TPIDR_EL1
     .extern aarch64_irq_enter
     bl aarch64_irq_enter
+    mrs x0, SPSR_EL1
+    and w0, w0, #0x200000
+    cbz w0, _irq_cont
+    mrs x0, MDSCR_EL1
+    orr x0, x0, #1
+    msr MDSCR_EL1, x0
+    _irq_cont:
     ldp x30, x0, [sp], #16
     msr SP_EL0, x0
     ldp x28, x29, [sp], #16

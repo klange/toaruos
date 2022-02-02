@@ -21,6 +21,10 @@
 #include <kernel/generic.h>
 #include <kernel/video.h>
 #include <kernel/signal.h>
+#include <kernel/misc.h>
+#include <kernel/ptrace.h>
+
+#include <sys/ptrace.h>
 
 #include <kernel/arch/aarch64/regs.h>
 #include <kernel/arch/aarch64/dtb.h>
@@ -263,6 +267,20 @@ void aarch64_sync_enter(struct regs * r) {
 		this_core->current_process->time_switch = arch_perf_timer();
 	}
 
+	if ((esr >> 26) == 0x32) {
+		/* Single step trap */
+		uint64_t val;
+		asm volatile("mrs %0, MDSCR_EL1" : "=r"(val));
+		val &= ~(1 << 0);
+		asm volatile("msr MDSCR_EL1, %0" :: "r"(val));
+
+		if (this_core->current_process->flags & PROC_FLAG_TRACE_SIGNALS) {
+			ptrace_signal(SIGTRAP, PTRACE_EVENT_SINGLESTEP);
+		}
+
+		return;
+	}
+
 	/* Magic thread exit */
 	if (elr == 0xFFFFB00F && far == 0xFFFFB00F) {
 		task_exit(0);
@@ -315,17 +333,10 @@ void aarch64_irq_enter(struct regs * r) {
 		set_tick();
 		gic_regs[160] &= (1 << TIMER_IRQ);
 		switch_task(1);
-		return; /* We returned from being scheduled out, resume to EL0 */
-	} else if (!pending) {
-		/* Thus far, it seems like this happens when the timer irq arrives
-		 * during EL1 when we're in wfi in the idle thread. Just return
-		 * to EL0 and let the program continue. */
-		return;
+	} else if (pending) {
+		printf("Unexpected interrupt = %#x\n", pending);
+		arch_fatal();
 	}
-
-	printf("Unexpected interrupt = %#x\n", pending);
-
-	while (1);
 }
 
 /**
