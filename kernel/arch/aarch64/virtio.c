@@ -175,6 +175,8 @@ static void virtio_tablet_thread(void * data) {
 	int button_left = 0;
 	int button_right = 0;
 	int button_middle = 0;
+	int button_scroll_down = 0;
+	int button_scroll_up = 0;
 
 	queue->available.index = queue_size-1;
 
@@ -213,6 +215,10 @@ static void virtio_tablet_thread(void * data) {
 					button_right = evt.value;
 				} else if (evt.code == 0x112) {
 					button_middle = evt.value;
+				} else if (evt.code == 0x150) {
+					button_scroll_down = 1;
+				} else if (evt.code == 0x151) {
+					button_scroll_up = 1;
 				}
 
 			} else if (evt.type == 0) {
@@ -221,7 +227,15 @@ static void virtio_tablet_thread(void * data) {
 				packet.magic = MOUSE_MAGIC;
 				packet.x_difference = x;
 				packet.y_difference = y;
-				packet.buttons = (button_left ? LEFT_CLICK : 0) | (button_right ? RIGHT_CLICK : 0) | (button_middle ? MIDDLE_CLICK : 0);
+				packet.buttons =
+					(button_left ? LEFT_CLICK : 0) |
+					(button_right ? RIGHT_CLICK : 0) |
+					(button_middle ? MIDDLE_CLICK : 0) |
+					(button_scroll_down ? MOUSE_SCROLL_DOWN : 0) |
+					(button_scroll_up ? MOUSE_SCROLL_UP : 0);
+
+				button_scroll_down = 0;
+				button_scroll_up = 0;
 
 				mouse_device_packet_t bitbucket;
 				while (pipe_size(vmmouse_pipe) > (int)(DISCARD_POINT * sizeof(packet))) {
@@ -235,6 +249,18 @@ static void virtio_tablet_thread(void * data) {
 		}
 	}
 }
+
+static const uint8_t ext_key_map[256] = {
+	[0x63] = 0x37, /* print screen */
+	[0x66] = 0x47, /* home */
+	[0x67] = 0x48, /* UP */
+	[0x68] = 0x49, /* page up */
+	[0x6c] = 0x50, /* DOWN */
+	[0x69] = 0x4B, /* LEFT */
+	[0x6a] = 0x4D, /* RIGHT */
+	[0x6b] = 0x4F, /* end */
+	[0x6d] = 0x51, /* page down */
+};
 
 static void virtio_keyboard_thread(void * data) {
 	uint32_t device = (uintptr_t)data;
@@ -328,29 +354,16 @@ static void virtio_keyboard_thread(void * data) {
 						read_fs(keyboard_pipe, 0, 1, (uint8_t *)&bitbucket);
 					}
 					write_fs(keyboard_pipe, 0, 1, (uint8_t *)&scancode);
-				} else {
-					switch (evt.code) {
-						case 0x67: /* UP */
-						case 0x6c: /* DOWN */
-						case 0x69: /* LEFT */
-						case 0x6a: /* RIGHT */
-							{
-								uint8_t data[] = {0xE0, 0};
-								data[1] = (evt.code == 0x67 ? 0x48 :
-									(evt.code == 0x6c ? 0x50 :
-										(evt.code == 0x69 ? 0x4b : 0x4d)));
-								if (evt.value == 0) data[1] |= 0x80;
-								uint8_t bitbucket;
-								while (pipe_size(keyboard_pipe) > (int)(DISCARD_POINT)) {
-									read_fs(keyboard_pipe, 0, 1, (uint8_t *)&bitbucket);
-								}
-								write_fs(keyboard_pipe, 0, 2, (uint8_t *)data);
-							}
-							break;
-
-						default:
-							printf("drop key %d\n", evt.code);
+				} else if (ext_key_map[evt.code]) {
+					uint8_t data[] = {0xE0, 0};
+					data[1] = ext_key_map[evt.code] | ((evt.value == 0) ? 0x80 : 0);
+					uint8_t bitbucket;
+					while (pipe_size(keyboard_pipe) > (int)(DISCARD_POINT)) {
+						read_fs(keyboard_pipe, 0, 1, (uint8_t *)&bitbucket);
 					}
+					write_fs(keyboard_pipe, 0, 2, (uint8_t *)data);
+				} else {
+					dprintf("virtio: unmapped keycode %d\n", evt.code);
 				}
 			}
 			asm volatile ("isb" ::: "memory");
