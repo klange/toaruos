@@ -58,9 +58,21 @@ void arch_enter_user(uintptr_t entrypoint, int argc, char * argv[], char * envp[
  * @param signum     Signal number that caused this entry.
  */
 void arch_enter_signal_handler(uintptr_t entrypoint, int signum) {
-	/* TODO */
-	printf("%s() called\n", __func__);
-	while (1);
+	asm volatile(
+		"msr ELR_EL1, %0\n" /* entrypoint */
+		"msr SP_EL0, %1\n" /* stack */
+		"msr SPSR_EL1, %2\n" /* spsr from context */
+		::
+		"r"(entrypoint),
+		"r"((this_core->current_process->syscall_registers->user_sp - 128) & 0xFFFFFFFFFFFFFFF0),
+		"r"(this_core->current_process->thread.context.saved[11]));
+
+	register uint64_t x0 __asm__("x0") = signum;
+	register uint64_t x30 __asm__("x30") = 0x8DEADBEEF;
+
+	asm volatile(
+		"eret" :: "r"(x0), "r"(x30));
+
 	__builtin_unreachable();
 }
 

@@ -20,6 +20,7 @@
 #include <kernel/mmu.h>
 #include <kernel/generic.h>
 #include <kernel/video.h>
+#include <kernel/signal.h>
 
 #include <kernel/arch/aarch64/regs.h>
 #include <kernel/arch/aarch64/dtb.h>
@@ -268,6 +269,12 @@ void aarch64_sync_enter(struct regs * r) {
 		__builtin_unreachable();
 	}
 
+	/* Magic signal return */
+	if (elr == 0x8DEADBEEF && far == 0x8DEADBEEF) {
+		return_from_signal_handler();
+		return;
+	}
+
 	/* System call */
 	if ((esr >> 26) == 0x15) {
 		extern void syscall_handler(struct regs *);
@@ -289,9 +296,7 @@ void aarch64_sync_enter(struct regs * r) {
 	asm volatile ("mrs %0, TPIDR_EL0" : "=r"(tpidr_el0));
 	printf("  TPIDR_EL0=%#zx\n", tpidr_el0);
 
-	/* TODO handle page faults, deliver kill signals */
-	while (1);
-	task_exit(1);
+	send_signal(this_core->current_process->id, SIGSEGV, 1);
 }
 
 void aarch64_irq_enter(struct regs * r) {
