@@ -20,6 +20,7 @@
 
 extern process_t * spawn_kidle(int);
 extern void timer_start(void);
+extern void aarch64_processor_data(void);
 
 static uint32_t cpu_on = 0;
 static int method = 0;
@@ -64,6 +65,8 @@ void ap_start(uint64_t core_id) {
 
 	extern void fpu_enable(void);
 	fpu_enable();
+
+	aarch64_processor_data();
 
 	this_core->current_pml = mmu_get_kernel_directory();
 	this_core->kernel_idle_task = spawn_kidle(0);

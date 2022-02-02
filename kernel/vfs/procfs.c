@@ -285,24 +285,23 @@ static ssize_t cpuinfo_func(fs_node_t *node, off_t offset, size_t size, uint8_t 
 				);
 	}
 #elif defined(__aarch64__)
-
-	/* TODO store MIDR per-cpu, so we can show different cores. */
-	uint64_t midr;
-	asm volatile ("mrs %0, MIDR_EL1" : "=r"(midr));
-
-	_bsize += snprintf(buf + _bsize, 1000,
-		"Implementer: %#x\n"
-		"Variant: %#x\n"
-		"Architecture: %#x\n"
-		"PartNum: %#x\n"
-		"Revision: %#x\n"
-		"\n",
-		(unsigned int)(midr >> 24) & 0xFF,
-		(unsigned int)(midr >> 20) & 0xF,
-		(unsigned int)(midr >> 16) & 0xF,
-		(unsigned int)(midr >> 4)  & 0xFFF,
-		(unsigned int)(midr >> 0)  & 0xF
-		);
+	for (int i = 0; i < processor_count; ++i) {
+		_bsize += snprintf(buf + _bsize, 1000,
+			"Processor: %d\n"
+			"Implementer: %#x\n"
+			"Variant: %#x\n"
+			"Architecture: %#x\n"
+			"PartNum: %#x\n"
+			"Revision: %#x\n"
+			"\n",
+			processor_local_data[i].cpu_id,
+			(unsigned int)(processor_local_data[i].midr >> 24) & 0xFF,
+			(unsigned int)(processor_local_data[i].midr >> 20) & 0xF,
+			(unsigned int)(processor_local_data[i].midr >> 16) & 0xF,
+			(unsigned int)(processor_local_data[i].midr >> 4)  & 0xFFF,
+			(unsigned int)(processor_local_data[i].midr >> 0)  & 0xF
+			);
+	}
 #endif
 
 	if ((size_t)offset > _bsize) return 0;

@@ -205,6 +205,7 @@ struct ProcessorLocal {
 
 #ifdef __aarch64__
 	uintptr_t sp_el1;
+	uint64_t  midr;
 #endif
 };
 

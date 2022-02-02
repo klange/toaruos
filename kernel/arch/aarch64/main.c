@@ -428,6 +428,10 @@ void arch_clear_icache(uintptr_t start, uintptr_t end) {
 	}
 }
 
+void aarch64_processor_data(void) {
+	asm volatile ("mrs %0, MIDR_EL1" : "=r"(this_core->midr));
+}
+
 
 /**
  * Main kernel C entrypoint for qemu's -machine virt
@@ -489,6 +493,9 @@ int kmain(void) {
 
 	/* Ramdisk */
 	ramdisk_mount(ramdisk_phys_base, ramdisk_size);
+
+	/* Load MIDR */
+	aarch64_processor_data();
 
 	/* Start other cores here */
 	aarch64_smp_start();
