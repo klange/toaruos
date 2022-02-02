@@ -286,6 +286,7 @@ static ssize_t cpuinfo_func(fs_node_t *node, off_t offset, size_t size, uint8_t 
 	}
 #elif defined(__aarch64__)
 
+	/* TODO store MIDR per-cpu, so we can show different cores. */
 	uint64_t midr;
 	asm volatile ("mrs %0, MIDR_EL1" : "=r"(midr));
 
@@ -299,7 +300,7 @@ static ssize_t cpuinfo_func(fs_node_t *node, off_t offset, size_t size, uint8_t 
 		(unsigned int)(midr >> 24) & 0xFF,
 		(unsigned int)(midr >> 20) & 0xF,
 		(unsigned int)(midr >> 16) & 0xF,
-		(unsigned int)(midr >> 4)  & 0xFFFF,
+		(unsigned int)(midr >> 4)  & 0xFFF,
 		(unsigned int)(midr >> 0)  & 0xF
 		);
 #endif
