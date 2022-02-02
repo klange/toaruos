@@ -21,7 +21,9 @@ static volatile uint32_t *frames;
 static size_t nframes;
 static size_t total_memory = 0;
 static size_t unavailable_memory = 0;
-static uint8_t * mem_refcounts = NULL;
+
+/* TODO Used for CoW later. */
+//static uint8_t * mem_refcounts = NULL;
 
 #define PAGE_SHIFT     12
 #define PAGE_SIZE      0x1000UL

@@ -59,7 +59,7 @@ _Begin_C_Header
 				: "a" (__res), "b" ((long)(p1)), "c"((long)(p2)), "d"((long)(p3)), "S"((long)(p4)), "D"((long)(p5))); \
 		return __res; \
 	}
-#else
+#elif defined(__aarch64__)
 
 #define DEFN_SYSCALL0(fn, num) \
 	long syscall_##fn() { \
@@ -144,6 +144,9 @@ _Begin_C_Header
 		); \
 		return __res; \
 	}
+
+#else
+# error "Invalid target, no system call linkage."
 #endif
 
 

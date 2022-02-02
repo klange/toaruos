@@ -15,6 +15,7 @@ int system(const char * command) {
 	if (!pid) {
 		execvp(args[0], args);
 		exit(1);
+		__builtin_unreachable(); /* With -ffreestanding, gcc doesn't realize exit() doesn't return. */
 	} else {
 		int status;
 		waitpid(pid, &status, 0);

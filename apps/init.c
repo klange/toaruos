@@ -90,7 +90,6 @@ int start_options(char * args[]) {
 }
 
 int main(int argc, char * argv[]) {
-	fprintf(stderr, "Hello world, this is /bin/init.\n");
 	/* Initialize stdin/out/err */
 	set_console();
 

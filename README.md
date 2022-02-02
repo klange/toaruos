@@ -1,6 +1,6 @@
 # ToaruOS
 
-ToaruOS is a "complete" operating system for x86-64 PCs with plans for ports to other platforms.
+ToaruOS is a "complete" operating system for x86-64 PCs and experimental support for ARMv8.
 
 While many independent, hobby, and research OSes aim to experiment with new designs, ToaruOS is intended as an educational resource, providing a representative microcosm of functionality found in major desktop operating systems.
 
