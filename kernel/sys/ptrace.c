@@ -86,14 +86,38 @@ long ptrace_signal(int signal, int reason) {
 	return signum;
 }
 
+static void signal_and_continue(pid_t pid, process_t * tracee, int sig) {
+	/* Unsuspend */
+	__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_SUSPENDED));
+
+	/* Does the process have a pending signal? */
+	if ((tracee->status >> 8) & 0xFF && !(tracee->status >> 16)) {
+		tracee->status = (sig << 8);
+		make_process_ready(tracee);
+	} else if (sig) {
+		send_signal(pid, sig,1);
+	} else {
+		make_process_ready(tracee);
+	}
+}
+
 long ptrace_continue(pid_t pid, int sig) {
 	process_t * tracee = process_from_pid(pid);
 	if (!tracee || (tracee->tracer != this_core->current_process->id) || !(tracee->flags & PROC_FLAG_SUSPENDED)) return -ESRCH;
 
-	/* Unsuspend */
-	__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_SUSPENDED));
-	tracee->status = (sig << 8);
-	make_process_ready(tracee);
+	signal_and_continue(pid,tracee,sig);
+
+	return 0;
+}
+
+long ptrace_detach(pid_t pid, int sig) {
+	process_t * tracee = process_from_pid(pid);
+	if (!tracee || (tracee->tracer != this_core->current_process->id) || !(tracee->flags & PROC_FLAG_SUSPENDED)) return -ESRCH;
+
+	/* Mark us not the tracer. */
+	tracee->tracer = 0;
+
+	signal_and_continue(pid,tracee,sig);
 
 	return 0;
 }
@@ -200,6 +224,8 @@ long ptrace_handle(long request, pid_t pid, void * addr, void * data) {
 			return ptrace_signals_only(pid);
 		case PTRACE_SINGLESTEP:
 			return ptrace_singlestep(pid,(uintptr_t)data);
+		case PTRACE_DETACH:
+			return ptrace_detach(pid,(uintptr_t)data);
 		default:
 			return -EINVAL;
 	}

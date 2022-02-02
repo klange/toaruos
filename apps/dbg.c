@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <signal.h>
+#include <ctype.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <sys/signal.h>
@@ -422,6 +423,32 @@ static void attempt_backtrace(pid_t pid, struct regs * regs) {
 	}
 }
 
+static int imatch(const char * a, const char * b) {
+	do {
+		if (!*a && !*b) return 1;
+		if (tolower(*a) != tolower(*b)) return 0;
+		a++;
+		b++;
+	} while (1);
+}
+
+static int signal_from_string(const char * str) {
+	if (isdigit(*str)) {
+		return strtoul(str,NULL,0);
+	} else if (str[0] == 'S' && str[1] == 'I' && str[2] == 'G') {
+		for (int i = 0; i < 256; ++i) {
+			if (signal_names[i] && imatch(signal_names[i], str)) return i;
+		}
+		return -1;
+	} else {
+		for (int i = 0; i < 256; ++i) {
+			if (signal_names[i] && imatch(signal_names[i]+3, str)) return i;
+		}
+		return -1;
+	}
+
+	return -1;
+}
 
 static void show_commandline(pid_t pid, int status, struct regs * regs) {
 
@@ -490,6 +517,18 @@ static void show_commandline(pid_t pid, int status, struct regs * regs) {
 		} else if (!strcmp(buf, "continue") || !strcmp(buf,"c")) {
 			int signum = WSTOPSIG(status);
 			if (signum == SIGINT) signum = 0;
+			ptrace(PTRACE_CONT, pid, NULL, (void*)(uintptr_t)signum);
+			return;
+		} else if (!strcmp(buf, "signal")) {
+			if (!arg) {
+				fprintf(stderr, "'signal' needs an argument\n");
+				continue;
+			}
+			int signum = signal_from_string(arg);
+			if (signum == -1) {
+				fprintf(stderr, "'%s' is not a recognized signal\n", arg);
+				continue;
+			}
 			ptrace(PTRACE_CONT, pid, NULL, (void*)(uintptr_t)signum);
 			return;
 		} else if (!strcmp(buf, "step") || !strcmp(buf,"s")) {
@@ -566,6 +605,16 @@ static void show_commandline(pid_t pid, int status, struct regs * regs) {
 				}
 			}
 			printf("\n");
+		} else if (!strcmp(buf, "help")) {
+			printf("commands:\n"
+				"  show (regs, libs)\n"
+				"  backtrace\n"
+				"  continue\n"
+				"  signal signum\n"
+				"  step\n"
+				"  poke addr byte\n"
+				"  print fmt addr\n");
+			continue;
 		} else {
 			fprintf(stderr, "dbg: unrecognized command '%s'\n", buf);
 			continue;
@@ -575,7 +624,7 @@ static void show_commandline(pid_t pid, int status, struct regs * regs) {
 _exitDebugger:
 	if (binary_is_child) {
 		fprintf(stderr, "Terminating child process '%d'.\n", pid);
-		ptrace(PTRACE_CONT, pid, NULL, (void*)(uintptr_t)SIGKILL);
+		ptrace(PTRACE_DETACH, pid, NULL, (void*)(uintptr_t)SIGKILL);
 	}
 	exit(0);
 }
