@@ -1,7 +1,6 @@
-
 /**
  * @file  kernel/arch/aarch64/mmu.c
- * @brief Stubs
+ * @brief Nearly identical to the x86-64 implementation.
  *
  * @copyright
  * This file is part of ToaruOS and is released under the terms

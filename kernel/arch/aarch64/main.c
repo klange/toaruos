@@ -30,6 +30,9 @@ extern void aarch64_regs(struct regs *r);
 extern void fwcfg_load_initrd(uintptr_t * ramdisk_phys_base, size_t * ramdisk_size);
 extern void virtio_input(void);
 
+static volatile uint32_t * gic_regs;
+static volatile uint32_t * gicc_regs;
+
 /* ARM says the system clock tick rate is generally in
  * the range of 1-50MHz. Since we throw around integer
  * MHz ratings that's not great, so let's give it a few
@@ -39,29 +42,57 @@ uint64_t arch_boot_time = 0; /**< No idea where we're going to source this from,
 uint64_t basis_time = 0;
 #define SUBSECONDS_PER_SECOND 1000000
 
+/**
+ * TODO can this be marked 'inline'?
+ *
+ * Read the system timer timestamp.
+ */
 uint64_t arch_perf_timer(void) {
 	uint64_t val;
 	asm volatile ("mrs %0,CNTPCT_EL0" : "=r"(val));
 	return val * 100;
 }
 
+/**
+ * @warning This function is incorrectly named.
+ * @brief Get the frequency of the perf timer.
+ *
+ * This is not the CPU frequency. We do present it as such for x86-64,
+ * and I think for our TSC timing that is generally true, but not here.
+ */
 size_t arch_cpu_mhz(void) {
 	return sys_timer_freq;
 }
 
+/**
+ * @brief Figure out the rate of the system timer and get boot time from RTC.
+ *
+ * We use the system timer as our performance tracker, as it operates at few
+ * megahertz at worst which is good enough for us. We do want slightly bigger
+ * numbers to make our integer divisions more accurate...
+ */
 static void arch_clock_initialize() {
+
+	/* QEMU RTC */
 	void * clock_addr = mmu_map_from_physical(0x09010000);
+
+	/* Get frequency of system timer */
 	uint64_t val;
 	asm volatile ("mrs %0,CNTFRQ_EL0" : "=r"(val));
 	sys_timer_freq = val / 10000;
+
+	/* Get boot time from RTC */
 	arch_boot_time = *(volatile uint32_t*)clock_addr;
+
+	/* Get the "basis time" - the perf timestamp we got the wallclock time at */
 	basis_time = arch_perf_timer() / sys_timer_freq;
 
+	/* Report the reference clock speed */
 	dprintf("timer: Using %ld MHz as arch_perf_timer frequency.\n", arch_cpu_mhz());
 }
 
 static void update_ticks(uint64_t ticks, uint64_t *timer_ticks, uint64_t *timer_subticks) {
-	*timer_subticks = ticks - basis_time; /* should be basis time from when we read RTC */
+	*timer_subticks = ticks - basis_time;
 	*timer_ticks = *timer_subticks / SUBSECONDS_PER_SECOND;
 	*timer_subticks = *timer_subticks % SUBSECONDS_PER_SECOND;
 }
@@ -100,152 +131,6 @@ void relative_time(unsigned long seconds, unsigned long subseconds, unsigned lon
 	}
 }
 
-void arch_dump_traceback(void) {
-	
-}
-
-
-static volatile unsigned int * _log_device_addr = 0;
-static size_t _early_log_write(size_t size, uint8_t * buffer) {
-	for (unsigned int i = 0; i < size; ++i) {
-		*_log_device_addr = buffer[i];
-	}
-	return size;
-}
-
-static void early_log_initialize(void) {
-	_log_device_addr = mmu_map_from_physical(0x09000000);
-	printf_output = &_early_log_write;
-}
-
-void arch_set_core_base(uintptr_t base) {
-	asm volatile ("msr TPIDR_EL1,%0" : : "r"(base));
-	asm volatile ("mrs x18, TPIDR_EL1");
-}
-
-void arch_set_tls_base(uintptr_t tlsbase) {
-	asm volatile ("msr TPIDR_EL0,%0" : : "r"(tlsbase));
-}
-
-void arch_set_kernel_stack(uintptr_t stack) {
-	this_core->sp_el1 = stack;
-}
-
-void arch_wakeup_others(void) {
-	/* wakeup */
-}
-
-static void scan_hit_list(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * extra) {
-	printf("%02x:%02x.%d (%04x, %04x:%04x)\n",
-			(int)pci_extract_bus(device),
-			(int)pci_extract_slot(device),
-			(int)pci_extract_func(device),
-			(int)pci_find_type(device),
-			vendorid,
-			deviceid);
-
-	printf(" BAR0: 0x%08x", pci_read_field(device, PCI_BAR0, 4));
-	printf(" BAR1: 0x%08x", pci_read_field(device, PCI_BAR1, 4));
-	printf(" BAR2: 0x%08x", pci_read_field(device, PCI_BAR2, 4));
-	printf(" BAR3: 0x%08x", pci_read_field(device, PCI_BAR3, 4));
-	printf(" BAR4: 0x%08x", pci_read_field(device, PCI_BAR4, 4));
-	printf(" BAR5: 0x%08x\n", pci_read_field(device, PCI_BAR5, 4));
-
-	printf(" IRQ Line: %d", pci_read_field(device, 0x3C, 1));
-	printf(" IRQ Pin: %d", pci_read_field(device, 0x3D, 1));
-	printf(" Interrupt: %d", pci_get_interrupt(device));
-	printf(" Status: 0x%04x\n", pci_read_field(device, PCI_STATUS, 2));
-}
-
-static void list_dir(const char * dir) {
-	fs_node_t * root = kopen(dir,0);
-	if (root) {
-		uint64_t index = 0;
-		dprintf("listing %s: ", dir);
-		while (1) {
-			struct dirent * d = readdir_fs(root, index);
-			if (!d) break;
-
-			dprintf("\a  %s", d->d_name);
-
-			free(d);
-			index++;
-		}
-		dprintf("\a\n");
-	}
-	close_fs(root);
-}
-
-char * _arch_args = NULL;
-static void dtb_locate_cmdline(void) {
-	uint32_t * chosen = find_node("chosen");
-	if (chosen) {
-		uint32_t * prop = node_find_property(chosen, "bootargs");
-		if (prop) {
-			_arch_args = (char*)&prop[2];
-			args_parse((char*)&prop[2]);
-		}
-	}
-}
-
-static volatile uint32_t * gic_regs;
-static volatile uint32_t * gicc_regs;
-
-static void exception_handlers(void) {
-	extern char _exception_vector[];
-
-	const uintptr_t gic_base = (uintptr_t)mmu_map_from_physical(0x08000000); /* TODO get this from dtb */
-	gic_regs = (volatile uint32_t*)gic_base;
-
-	const uintptr_t gicc_base = (uintptr_t)mmu_map_from_physical(0x08010000);
-	gicc_regs = (volatile uint32_t*)gicc_base;
-
-	asm volatile("msr VBAR_EL1, %0" :: "r"(&_exception_vector));
-}
-
-static void update_clock(void);
-void aarch64_sync_enter(struct regs * r) {
-	uint64_t esr, far, elr, spsr;
-	asm volatile ("mrs %0, ESR_EL1" : "=r"(esr));
-	asm volatile ("mrs %0, FAR_EL1" : "=r"(far));
-	asm volatile ("mrs %0, ELR_EL1" : "=r"(elr));
-	asm volatile ("mrs %0, SPSR_EL1" : "=r"(spsr));
-
-	if (this_core->current_process) {
-		this_core->current_process->time_switch = arch_perf_timer();
-	}
-
-	/* Magic thread exit */
-	if (elr == 0xFFFFB00F && far == 0xFFFFB00F) {
-		task_exit(0);
-		__builtin_unreachable();
-	}
-
-	/* System call */
-	if ((esr >> 26) == 0x15) {
-		extern void syscall_handler(struct regs *);
-		syscall_handler(r);
-		return;
-	}
-
-	/* KVM is mad at us; usually means our code is broken or we neglected a cache. */
-	if (far == 0x1de7ec7edbadc0de) {
-		printf("kvm: blip (esr=%#zx, elr=%#zx; pid=%d [%s])\n", esr, elr, this_core->current_process->id, this_core->current_process->name);
-		return;
-	}
-
-	/* Unexpected fault, eg. page fault. */
-	printf("In process %d (%s)\n", this_core->current_process->id, this_core->current_process->name);
-	printf("ESR: %#zx FAR: %#zx ELR: %#zx SPSR: %#zx\n", esr, far, elr, spsr);
-	aarch64_regs(r);
-	uint64_t tpidr_el0;
-	asm volatile ("mrs %0, TPIDR_EL0" : "=r"(tpidr_el0));
-	printf("  TPIDR_EL0=%#zx\n", tpidr_el0);
-
-	while (1);
-	task_exit(1);
-}
-
 #define TIMER_IRQ 27
 static void set_tick(void) {
 	asm volatile (
@@ -254,54 +139,6 @@ static void set_tick(void) {
 		"udiv x0, x0, x1\n"
 		"msr CNTV_TVAL_EL0, x0\n"
 		:::"x0","x1");
-}
-
-void aarch64_irq_enter(struct regs * r) {
-	uint32_t pending = gic_regs[160];
-
-	if (this_core->current_process) {
-		this_core->current_process->time_switch = arch_perf_timer();
-	}
-
-	if (pending & (1 << TIMER_IRQ)) {
-		update_clock();
-		set_tick();
-		gic_regs[160] &= (1 << TIMER_IRQ);
-		switch_task(1);
-		return;
-	} else if (!pending) {
-		return;
-	}
-
-	printf("Unexpected interrupt = %#x\n", pending);
-
-	while (1);
-}
-
-void aarch64_fault_enter(struct regs * r) {
-	uint64_t esr, far, elr, spsr;
-	asm volatile ("mrs %0, ESR_EL1" : "=r"(esr));
-	asm volatile ("mrs %0, FAR_EL1" : "=r"(far));
-	asm volatile ("mrs %0, ELR_EL1" : "=r"(elr));
-	asm volatile ("mrs %0, SPSR_EL1" : "=r"(spsr));
-
-	printf("EL1-EL1 fault handler\n");
-	printf("In process %d (%s)\n", this_core->current_process->id, this_core->current_process->name);
-	printf("ESR: %#zx FAR: %#zx ELR: %#zx SPSR: %#zx\n", esr, far, elr, spsr);
-	aarch64_regs(r);
-
-	uint64_t tpidr_el0;
-	asm volatile ("mrs %0, TPIDR_EL0" : "=r"(tpidr_el0));
-	printf("  TPIDR_EL0=%#zx\n", tpidr_el0);
-
-	while (1);
-}
-
-static void fpu_enable(void) {
-	uint64_t cpacr_el1;
-	asm volatile ("mrs %0, CPACR_EL1" : "=r"(cpacr_el1));
-	cpacr_el1 |= (3 << 20) | (3 << 16);
-	asm volatile ("msr CPACR_EL1, %0" :: "r"(cpacr_el1));
 }
 
 static void timer_start(void) {
@@ -343,28 +180,223 @@ static void update_clock(void) {
 	wakeup_sleepers(timer_ticks, timer_subticks);
 }
 
+void arch_dump_traceback(void) {
+	/* TODO */
+}
+
+
+static volatile unsigned int * _log_device_addr = 0;
+static size_t _early_log_write(size_t size, uint8_t * buffer) {
+	for (unsigned int i = 0; i < size; ++i) {
+		*_log_device_addr = buffer[i];
+	}
+	return size;
+}
+
+static void early_log_initialize(void) {
+	/* QEMU UART */
+	_log_device_addr = mmu_map_from_physical(0x09000000);
+	printf_output = &_early_log_write;
+}
+
+void arch_set_core_base(uintptr_t base) {
+	/* It doesn't actually seem that this register has
+	 * any real meaning, it's just available for us
+	 * to load with our thread pointer. It's possible
+	 * that the 'mrs' for it is just as fast as regular
+	 * register reference? */
+	asm volatile ("msr TPIDR_EL1,%0" : : "r"(base));
+
+	/* this_cpu pointer, which we can tell gcc is reserved
+	 * by our ABI and then bind as a 'register' variable. */
+	asm volatile ("mrs x18, TPIDR_EL1");
+}
+
+void arch_set_tls_base(uintptr_t tlsbase) {
+	asm volatile ("msr TPIDR_EL0,%0" : : "r"(tlsbase));
+}
+
+void arch_set_kernel_stack(uintptr_t stack) {
+	/* This is currently unused... it seems we're handling
+	 * things correctly and getting the right stack already,
+	 * but XXX should look into this later. */
+	this_core->sp_el1 = stack;
+}
+
+void arch_wakeup_others(void) {
+	/* wakeup */
+}
+
+char * _arch_args = NULL;
+static void dtb_locate_cmdline(void) {
+	uint32_t * chosen = find_node("chosen");
+	if (chosen) {
+		uint32_t * prop = node_find_property(chosen, "bootargs");
+		if (prop) {
+			_arch_args = (char*)&prop[2];
+			args_parse((char*)&prop[2]);
+		}
+	}
+}
+
+static void exception_handlers(void) {
+	extern char _exception_vector[];
+
+	const uintptr_t gic_base = (uintptr_t)mmu_map_from_physical(0x08000000); /* TODO get this from dtb */
+	gic_regs = (volatile uint32_t*)gic_base;
+
+	const uintptr_t gicc_base = (uintptr_t)mmu_map_from_physical(0x08010000);
+	gicc_regs = (volatile uint32_t*)gicc_base;
+
+	asm volatile("msr VBAR_EL1, %0" :: "r"(&_exception_vector));
+}
+
+void aarch64_sync_enter(struct regs * r) {
+	uint64_t esr, far, elr, spsr;
+	asm volatile ("mrs %0, ESR_EL1" : "=r"(esr));
+	asm volatile ("mrs %0, FAR_EL1" : "=r"(far));
+	asm volatile ("mrs %0, ELR_EL1" : "=r"(elr));
+	asm volatile ("mrs %0, SPSR_EL1" : "=r"(spsr));
+
+	if (this_core->current_process) {
+		this_core->current_process->time_switch = arch_perf_timer();
+	}
+
+	/* Magic thread exit */
+	if (elr == 0xFFFFB00F && far == 0xFFFFB00F) {
+		task_exit(0);
+		__builtin_unreachable();
+	}
+
+	/* System call */
+	if ((esr >> 26) == 0x15) {
+		extern void syscall_handler(struct regs *);
+		syscall_handler(r);
+		return;
+	}
+
+	/* KVM is mad at us; usually means our code is broken or we neglected a cache. */
+	if (far == 0x1de7ec7edbadc0de) {
+		printf("kvm: blip (esr=%#zx, elr=%#zx; pid=%d [%s])\n", esr, elr, this_core->current_process->id, this_core->current_process->name);
+		return;
+	}
+
+	/* Unexpected fault, eg. page fault. */
+	printf("In process %d (%s)\n", this_core->current_process->id, this_core->current_process->name);
+	printf("ESR: %#zx FAR: %#zx ELR: %#zx SPSR: %#zx\n", esr, far, elr, spsr);
+	aarch64_regs(r);
+	uint64_t tpidr_el0;
+	asm volatile ("mrs %0, TPIDR_EL0" : "=r"(tpidr_el0));
+	printf("  TPIDR_EL0=%#zx\n", tpidr_el0);
+
+	/* TODO handle page faults, deliver kill signals */
+	while (1);
+	task_exit(1);
+}
+
+void aarch64_irq_enter(struct regs * r) {
+	uint32_t pending = gic_regs[160];
+
+	if (this_core->current_process) {
+		this_core->current_process->time_switch = arch_perf_timer();
+	}
+
+	/**
+	 * TODO port the interrupt management system from x86.
+	 */
+	if (pending & (1 << TIMER_IRQ)) {
+		/* Timer interrupt fired in EL0. Update the global clock and reschedule */
+		update_clock();
+		set_tick();
+		gic_regs[160] &= (1 << TIMER_IRQ);
+		switch_task(1);
+		return; /* We returned from being scheduled out, resume to EL0 */
+	} else if (!pending) {
+		/* Thus far, it seems like this happens when the timer irq arrives
+		 * during EL1 when we're in wfi in the idle thread. Just return
+		 * to EL0 and let the program continue. */
+		return;
+	}
+
+	printf("Unexpected interrupt = %#x\n", pending);
+
+	while (1);
+}
+
+/**
+ * @brief Kernel fault handler.
+ */
+void aarch64_fault_enter(struct regs * r) {
+	uint64_t esr, far, elr, spsr;
+	asm volatile ("mrs %0, ESR_EL1" : "=r"(esr));
+	asm volatile ("mrs %0, FAR_EL1" : "=r"(far));
+	asm volatile ("mrs %0, ELR_EL1" : "=r"(elr));
+	asm volatile ("mrs %0, SPSR_EL1" : "=r"(spsr));
+
+	printf("EL1-EL1 fault handler\n");
+	printf("In process %d (%s)\n", this_core->current_process->id, this_core->current_process->name);
+	printf("ESR: %#zx FAR: %#zx ELR: %#zx SPSR: %#zx\n", esr, far, elr, spsr);
+	aarch64_regs(r);
+
+	uint64_t tpidr_el0;
+	asm volatile ("mrs %0, TPIDR_EL0" : "=r"(tpidr_el0));
+	printf("  TPIDR_EL0=%#zx\n", tpidr_el0);
+
+	while (1);
+}
+
+/**
+ * @brief Enable FPU and NEON (SIMD)
+ *
+ * This enables the FPU in EL0. I'm not sure if we can enable it
+ * there but not in EL1... that would be nice to avoid accidentally
+ * introducing FPU code in the kernel that would corrupt our FPU state.
+ */
+static void fpu_enable(void) {
+	uint64_t cpacr_el1;
+	asm volatile ("mrs %0, CPACR_EL1" : "=r"(cpacr_el1));
+	cpacr_el1 |= (3 << 20) | (3 << 16);
+	asm volatile ("msr CPACR_EL1, %0" :: "r"(cpacr_el1));
+}
+
 /**
  * @brief Called in a loop by kernel idle tasks.
  */
 void arch_pause(void) {
-	/* TODO: This needs to make sure interrupt delivery is enabled.
-	 *       Though that would also require us to be turn it off
-	 *       in the first place... get around to this when we have
-	 *       literally anything set up in the GIC */
+
+	/* XXX This actually works even if we're masking interrupts, but
+	 * the interrupt function won't be called, so we'll need to change
+	 * it once we start getting actual hardware interrupts. */
 	asm volatile ("wfi");
 
-	//this_core->current_process->time_switch = arch_perf_timer();
+	/* Update the clock and reset the timer */
 	update_clock();
 	set_tick();
 
+	/* This shouldn't happen now, but this symbol needs to be present
+	 * somewhere or we'll fail to link. Keeping it as the asm stub
+	 * for future use... */
 	asm volatile (
 		".globl _ret_from_preempt_source\n"
 		"_ret_from_preempt_source:"
 	);
 
+	/* Force reschedule */
 	switch_next();
 }
 
+/**
+ * @brief Force a cache clear across an address range.
+ *
+ * GCC has a __clear_cache() function that is supposed to do this
+ * but I haven't figured out what bits I need to set in what system
+ * register to allow that to be callable from EL0, so we actually expose
+ * it as a new sysfunc system call for now. We'll be generous and quietly
+ * skip regions that are not accessible to the calling process.
+ *
+ * This is critical for the dynamic linker to reset the icache for
+ * regions that have been loaded from new libraries.
+ */
 void arch_clear_icache(uintptr_t start, uintptr_t end) {
 	for (uintptr_t x = start; x < end; x += 64) {
 		if (!mmu_validate_user_pointer((void*)x, 64, MMU_PTR_WRITE)) continue;
@@ -407,17 +439,17 @@ int kmain(void) {
 	/* Set up exception handlers early... */
 	exception_handlers();
 
-	/* TODO load boot data from DTB?
-	 *      We want to know memory information... */
+	/* Load ramdisk over fw-cfg. */
 	uintptr_t ramdisk_phys_base = 0;
 	size_t ramdisk_size = 0;
 	fwcfg_load_initrd(&ramdisk_phys_base, &ramdisk_size);
 
-	/* TODO get initial memory map data?
-	 *    Eh, we can probably just probe the existing tables... maybe... */
+	/* Probe DTB for memory layout. */
 	extern char end[];
 	size_t memsize, physsize;
 	dtb_memory_size(&memsize, &physsize);
+
+	/* Initialize the MMU based on the memory we got from dtb */
 	mmu_init(
 		memsize, physsize,
 		0x40100000 /* Should be end of DTB, but we're really just guessing */,
@@ -440,7 +472,7 @@ int kmain(void) {
 	/* Ramdisk */
 	ramdisk_mount(ramdisk_phys_base, ramdisk_size);
 
-	/* TODO Start preemption source here */
+	/* Set up the system virtual timer to produce interrupts for userspace scheduling */
 	timer_start();
 
 	/* Install drivers that may need to sleep here */
