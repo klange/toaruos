@@ -109,6 +109,33 @@ static uint32_t * find_subnode(uint32_t * node, char * strings, const char * nam
 	}
 }
 
+static uint32_t * skip_node(uint32_t * node, void (*callback)(uint32_t * child)) {
+	while (swizzle(*node) == 4) node++;
+	if (swizzle(*node) == 9) return NULL;
+	if (swizzle(*node) != 1) return NULL;
+	node++;
+	while ((*node & 0xFF000000) && (*node & 0xFF0000) && (*node & 0xFF00) && (*node & 0xFF)) node++;
+	node++;
+	while (1) {
+		while (swizzle(*node) == 4) node++;
+		if (swizzle(*node) == 2) return node+1;
+		if (swizzle(*node) == 3) {
+			uint32_t len = swizzle(node[1]);
+			node += 3;
+			node += (len + 3) / 4;
+		} else if (swizzle(*node) == 1) {
+			if (callback) callback(node+1);
+			node = skip_node(node, NULL);
+			if (!node) return NULL;
+		}
+	}
+}
+
+void dtb_callback_direct_children(uint32_t * node, void (*callback)(uint32_t * child)) {
+	skip_node(node-1, callback);
+}
+
+
 static uint32_t * find_node_int(const char * name, int (*cmp)(const char*,const char*)) {
 	uintptr_t addr = (uintptr_t)mmu_map_from_physical(0x40000000);
 	struct fdt_header * fdt = (struct fdt_header*)addr;
@@ -124,7 +151,7 @@ static int base_cmp(const char *a, const char *b) {
 	return !strcmp(a,b);
 }
 
-uint32_t * find_node(const char * name) {
+uint32_t * dtb_find_node(const char * name) {
 	return find_node_int(name,base_cmp);
 }
 
@@ -132,7 +159,7 @@ static int prefix_cmp(const char *a, const char *b) {
 	return !memcmp(a,b,strlen(b));
 }
 
-uint32_t * find_node_prefix(const char * name) {
+uint32_t * dtb_find_node_prefix(const char * name) {
 	return find_node_int(name,prefix_cmp);
 }
 
@@ -159,7 +186,7 @@ static uint32_t * node_find_property_int(uint32_t * node, char * strings, const 
 	}
 }
 
-uint32_t * node_find_property(uint32_t * node, const char * property) {
+uint32_t * dtb_node_find_property(uint32_t * node, const char * property) {
 	uintptr_t addr = (uintptr_t)mmu_map_from_physical(0x40000000);
 	struct fdt_header * fdt = (struct fdt_header*)addr;
 	char * dtb_strings = (char *)(addr + swizzle(fdt->off_dt_strings));
@@ -173,13 +200,13 @@ uint32_t * node_find_property(uint32_t * node, const char * property) {
  * address of physical memory is.
  */
 void dtb_memory_size(size_t * memsize, size_t * physsize) {
-	uint32_t * memory = find_node_prefix("memory");
+	uint32_t * memory = dtb_find_node_prefix("memory");
 	if (!memory) {
 		printf("dtb: Could not find memory node.\n");
 		arch_fatal();
 	}
 
-	uint32_t * regs = node_find_property(memory, "reg");
+	uint32_t * regs = dtb_node_find_property(memory, "reg");
 	if (!regs) {
 		printf("dtb: memory node has no regs\n");
 		arch_fatal();

@@ -100,6 +100,7 @@ struct virtio_input_event {
 };
 
 static void virtio_tablet_thread(void * data) {
+	while (this_core->cpu_id != 0) switch_task(1);
 	uint32_t device = (uintptr_t)data;
 	uintptr_t t = 0x12000000;
 	pci_write_field(device, PCI_BAR4, 4, t|8);
@@ -263,6 +264,7 @@ static const uint8_t ext_key_map[256] = {
 };
 
 static void virtio_keyboard_thread(void * data) {
+	while (this_core->cpu_id != 0) switch_task(1);
 	uint32_t device = (uintptr_t)data;
 	uintptr_t t = 0x12000000;
 	pci_write_field(device, PCI_BAR4, 4, t|8);

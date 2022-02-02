@@ -34,6 +34,7 @@ extern void mmu_init(size_t memsize, size_t phys, uintptr_t firstFreePage, uintp
 extern void aarch64_regs(struct regs *r);
 extern void fwcfg_load_initrd(uintptr_t * ramdisk_phys_base, size_t * ramdisk_size);
 extern void virtio_input(void);
+extern void aarch64_smp_start(void);
 
 static volatile uint32_t * gic_regs;
 static volatile uint32_t * gicc_regs;
@@ -146,7 +147,7 @@ static void set_tick(void) {
 		:::"x0","x1");
 }
 
-static void timer_start(void) {
+void timer_start(void) {
 	/* mask irqs */
 	asm volatile ("msr DAIFSet, #0b1111");
 
@@ -171,16 +172,19 @@ static void timer_start(void) {
 	gic_regs[160] = (1 << TIMER_IRQ);
 }
 
-static uint64_t time_slice_basis = 0; /**< When the last clock update happened */
+static volatile uint64_t time_slice_basis = 0; /**< When the last clock update happened */
+static spin_lock_t ticker_lock;
 static void update_clock(void) {
 	uint64_t clock_ticks = arch_perf_timer() / sys_timer_freq;
 	uint64_t timer_ticks, timer_subticks;
 	update_ticks(clock_ticks, &timer_ticks, &timer_subticks);
 
+	spin_lock(ticker_lock);
 	if (time_slice_basis + SUBSECONDS_PER_SECOND/4 <= clock_ticks) {
 		update_process_usage(clock_ticks - time_slice_basis, sys_timer_freq);
 		time_slice_basis = clock_ticks;
 	}
+	spin_unlock(ticker_lock);
 
 	wakeup_sleepers(timer_ticks, timer_subticks);
 }
@@ -234,9 +238,9 @@ void arch_wakeup_others(void) {
 
 char * _arch_args = NULL;
 static void dtb_locate_cmdline(void) {
-	uint32_t * chosen = find_node("chosen");
+	uint32_t * chosen = dtb_find_node("chosen");
 	if (chosen) {
-		uint32_t * prop = node_find_property(chosen, "bootargs");
+		uint32_t * prop = dtb_node_find_property(chosen, "bootargs");
 		if (prop) {
 			_arch_args = (char*)&prop[2];
 			args_parse((char*)&prop[2]);
@@ -349,7 +353,7 @@ void aarch64_fault_enter(struct regs * r) {
 	asm volatile ("mrs %0, ELR_EL1" : "=r"(elr));
 	asm volatile ("mrs %0, SPSR_EL1" : "=r"(spsr));
 
-	printf("EL1-EL1 fault handler\n");
+	printf("EL1-EL1 fault handler, core %d\n", this_core->cpu_id);
 	printf("In process %d (%s)\n", this_core->current_process->id, this_core->current_process->name);
 	printf("ESR: %#zx FAR: %#zx ELR: %#zx SPSR: %#zx\n", esr, far, elr, spsr);
 	aarch64_regs(r);
@@ -368,7 +372,7 @@ void aarch64_fault_enter(struct regs * r) {
  * there but not in EL1... that would be nice to avoid accidentally
  * introducing FPU code in the kernel that would corrupt our FPU state.
  */
-static void fpu_enable(void) {
+void fpu_enable(void) {
 	uint64_t cpacr_el1;
 	asm volatile ("mrs %0, CPACR_EL1" : "=r"(cpacr_el1));
 	cpacr_el1 |= (3 << 20) | (3 << 16);
@@ -474,7 +478,7 @@ int kmain(void) {
 	/* Find the cmdline */
 	dtb_locate_cmdline();
 
-	/* TODO Set up all the other arch-specific stuff here */
+	/* Set up all the other arch-specific stuff here */
 	fpu_enable();
 
 	generic_startup();
@@ -483,10 +487,11 @@ int kmain(void) {
 	framebuffer_initialize();
 	fbterm_initialize();
 
-	/* TODO Start other cores here */
-
 	/* Ramdisk */
 	ramdisk_mount(ramdisk_phys_base, ramdisk_size);
+
+	/* Start other cores here */
+	aarch64_smp_start();
 
 	/* Set up the system virtual timer to produce interrupts for userspace scheduling */
 	timer_start();

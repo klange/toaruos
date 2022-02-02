@@ -21,7 +21,7 @@ QEMU = ~/Projects/third-party/qemu-git/build/qemu-system-aarch64
 
 EMU_MACH = virt-2.12
 EMU_CPU  = cortex-a72
-SMP ?= 1
+SMP ?= 4
 RAM ?= 4G
 
 EMU_ARGS  = -M $(EMU_MACH)

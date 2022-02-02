@@ -612,7 +612,7 @@ void mmu_free(union PML * from) {
 }
 
 union PML * mmu_get_kernel_directory(void) {
-	return mmu_map_from_physical((uintptr_t)&init_page_region);
+	return mmu_map_from_physical((uintptr_t)&init_page_region - MODULE_BASE_START + QEMU_VIRT_KERNEL_BASE);
 }
 
 void mmu_set_directory(union PML * new_pml) {

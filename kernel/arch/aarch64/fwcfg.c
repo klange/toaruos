@@ -57,11 +57,11 @@ void fwcfg_load_initrd(uintptr_t * ramdisk_phys_base, size_t * ramdisk_size) {
 	uintptr_t ramdisk_map_start = ((uintptr_t)&end - 0xffffffff80000000UL) + 0x80000000;
 
 	/* See if we can find a qemu fw_cfg interface, we can use that for a ramdisk */
-	uint32_t * fw_cfg = find_node_prefix("fw-cfg");
+	uint32_t * fw_cfg = dtb_find_node_prefix("fw-cfg");
 	if (fw_cfg) {
 		dprintf("fw-cfg: found interface\n");
 		/* best guess until we bother parsing these */
-		uint32_t * regs = node_find_property(fw_cfg, "reg");
+		uint32_t * regs = dtb_node_find_property(fw_cfg, "reg");
 		if (regs) {
 			volatile uint8_t * fw_cfg_addr = (volatile uint8_t*)(uintptr_t)(mmu_map_from_physical(swizzle(regs[3])));
 			volatile uint64_t * fw_cfg_data = (volatile uint64_t *)fw_cfg_addr;
