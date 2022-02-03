@@ -92,6 +92,10 @@ void smp_bootstrap(void) {
 		/* Set up TTBR0 with our temporary directory */
 		"ldr x0, aarch64_ttbr0\n"
 		"msr TTBR0_EL1, x0\n"
+		"dsb ishst\n"
+		"tlbi vmalle1is\n"
+		"dsb ish\n"
+		"isb\n"
 		/* Load VBAR from first core */
 		"ldr x0, aarch64_vbar\n"
 		"msr VBAR_EL1, x0\n"
@@ -105,9 +109,6 @@ void smp_bootstrap(void) {
 		"ldr x0, aarch64_sctlr\n"
 		"ldr x1, aarch64_jmp_target\n"
 		"msr SCTLR_EL1, x0\n"
-		"dsb ishst\n"
-		"tlbi vmalle1is\n"
-		"dsb ish\n"
 		"isb\n"
 		/* Restore core ID as argument */
 		"mov x0, x3\n"
@@ -187,6 +188,13 @@ void aarch64_smp_start(void) {
 
 	aarch64_ttbr0 = mmu_map_to_physical(NULL, (uintptr_t)&startup_ttbr0[0]);
 	aarch64_ttbr1 = mmu_map_to_physical(NULL, (uintptr_t)mmu_get_kernel_directory());
+
+	asm volatile (
+		"dsb ishst\n"
+		"tlbi vmalle1is\n"
+		"dsb ish\n"
+		"isb\n"
+	);
 
 	dtb_callback_direct_children(cpus, start_cpu);
 }
