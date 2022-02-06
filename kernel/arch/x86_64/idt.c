@@ -516,9 +516,8 @@ static void _page_fault(struct regs * r) {
 
 	if ((r->err_code & 3) == 3) {
 		/* This is probably a COW page? */
-		extern void mmu_copy_on_write(uintptr_t address);
-		mmu_copy_on_write(faulting_address);
-		return;
+		extern int mmu_copy_on_write(uintptr_t address);
+		if (!mmu_copy_on_write(faulting_address)) return;
 	}
 
 	/* Was this a kernel page fault? Those are always a panic. */
