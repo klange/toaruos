@@ -5,7 +5,7 @@ ARCH_KERNEL_CFLAGS = -z max-page-size=0x1000 -nostdlib -mgeneral-regs-only -mno-
 TARGET=aarch64-unknown-toaru
 
 all: system
-system: misaka-kernel ramdisk.igz bootstub
+system: misaka-kernel ramdisk.igz bootstub | $(BUILD_KRK)
 
 misaka-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o kernel/arch/aarch64/link.ld
 	${CC} -g -T kernel/arch/${ARCH}/link.ld ${KERNEL_CFLAGS} -o $@ ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o

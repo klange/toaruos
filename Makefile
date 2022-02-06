@@ -91,6 +91,11 @@ $(BASE)/lib/kuroko/%.krk: kuroko/modules/%.krk | dirs
 	mkdir -p $(dir $@)
 	cp $< $@
 
+BUILD_KRK=$(TOOLCHAIN)/local/bin/kuroko
+$(TOOLCHAIN)/local/bin/kuroko: kuroko/src/*.c
+	mkdir -p $(TOOLCHAIN)/local/bin
+	cc -Ikuroko/src -DNO_RLINE -DSTATIC_ONLY -DKRK_DISABLE_THREADS -o "${TOOLCHAIN}/local/bin/kuroko" kuroko/src/*.c
+
 $(BASE)/lib/libkuroko.so: $(KRK_SRC) | $(LC)
 	$(CC) -O2 -shared -fPIC -Ikuroko/src -o $@ $(filter-out kuroko/src/kuroko.c,$(KRK_SRC))
 
