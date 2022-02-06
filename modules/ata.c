@@ -1,6 +1,7 @@
 /**
  * @brief (P)ATA / IDE disk driver
  * @file modules/ata.c
+ * @package x86_64
  *
  * @warning This is very buggy.
  *

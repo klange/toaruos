@@ -1,6 +1,7 @@
 /**
  * @file modules/piix4.c
  * @brief Intel PIIX4 ISA Bridge Driver
+ * @package x86_64
  *
  * @copyright
  * This file is part of ToaruOS and is released under the terms

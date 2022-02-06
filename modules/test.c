@@ -1,6 +1,8 @@
 /**
  * @file modules/test.c
  * @brief Test module.
+ * @package x86_64
+ * @package aarch64
  *
  * Load with various arguments to do things like crash the
  * kernel or print tracebacks.

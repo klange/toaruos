@@ -1,6 +1,7 @@
 /**
  * @file kernel/audio/hda.c
  * @brief Driver for the Intel High Definition Audio.
+ * @package x86_64
  *
  * @warning This is a stub driver.
  *

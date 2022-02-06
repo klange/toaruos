@@ -1,6 +1,7 @@
 /**
  * @file kernel/net/e1000.c
  * @brief Intel Gigabit Ethernet device driver
+ * @package x86_64
  *
  * @copyright
  * This file is part of ToaruOS and is released under the terms

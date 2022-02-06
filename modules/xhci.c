@@ -1,6 +1,7 @@
 /**
  * @brief xHCI Host Controller Driver
  * @file modules/xhci.c
+ * @package x86_64
  *
  * @warning This is a stub driver.
  *

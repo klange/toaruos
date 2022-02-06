@@ -1,6 +1,7 @@
 /**
  * @file  kernel/arch/x86_64/vmware.c
  * @brief VMware/QEMU mouse and VMWare backdoor driver.
+ * @package x86_64
  *
  * Supports absolute mouse cursor and resolution setting.
  *
@@ -34,7 +35,6 @@
 #include <kernel/args.h>
 #include <kernel/module.h>
 
-#ifdef __x86_64__
 #include <kernel/arch/x86_64/ports.h>
 
 #define VMWARE_MAGIC  0x564D5868 /* hXMV */
@@ -522,4 +522,3 @@ struct Module metadata = {
 	.fini = fini,
 };
 
-#endif

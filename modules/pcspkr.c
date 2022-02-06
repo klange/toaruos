@@ -1,6 +1,7 @@
 /**
  * @file modules/pcspkr.c
  * @brief PC beeper device interface
+ * @package x86_64
  *
  * Use with @ref apps/beep.c to play music.
  *

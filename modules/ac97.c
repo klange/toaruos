@@ -1,6 +1,7 @@
 /**
  * @file kernel/audio/ac97.c
  * @brief Driver for the Intel AC'97.
+ * @package x86_64
  *
  * Simple PCM interface for the AC'97 codec when used with the
  * ICH hardware interface. There are other hardware interfaces

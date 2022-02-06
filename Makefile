@@ -40,7 +40,8 @@ KERNEL_SOURCES += $(wildcard kernel/arch/${ARCH}/*.S)
 # Kernel modules are one file = one module; if you want to build more complicated
 # modules, you could potentially use `ld -r` to turn multiple source objects into
 # a single relocatable object file.
-MODULES = $(patsubst modules/%.c,$(BASE)/mod/%.ko,$(wildcard modules/*.c))
+ARCH_ENABLED_MODS = $(shell util/valid-modules.sh $(ARCH))
+MODULES = $(patsubst modules/%.c,$(BASE)/mod/%.ko,$(foreach mod,$(ARCH_ENABLED_MODS),modules/$(mod).c))
 
 EMU = qemu-system-${ARCH}
 

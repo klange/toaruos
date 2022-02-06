@@ -1,6 +1,7 @@
 /**
  * @file kernel/audio/es1371.c
  * @brief Driver for the Ensoniq ES1371.
+ * @package x86_64
  *
  * @ref http://www.vogons.org/download/file.php?id=13036&sid=30df81e15e2521deb842a79f451b1161
  *

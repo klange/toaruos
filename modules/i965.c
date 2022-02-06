@@ -1,6 +1,7 @@
 /**
  * @file  modules/i965.c
  * @brief Bitbanged modeset driver for a ThinkPad T410's Intel graphics.
+ * @package x86_64
  *
  * This is NOT a viable driver for Intel graphics devices. It assumes Vesa
  * has already properly set up the display pipeline with the needed timings

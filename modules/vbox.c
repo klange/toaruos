@@ -1,6 +1,7 @@
 /**
  * @file  kernel/arch/x86_64/vbox.c
  * @brief VirtualBox Guest Additions driver
+ * @package x86_64
  *
  * Implements the following features:
  * - Absolute mouse cursor positioning

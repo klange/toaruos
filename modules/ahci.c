@@ -1,6 +1,7 @@
 /**
  * @brief AHCI Block Device Driver
  * @file modules/ahci.c
+ * @package x86_64
  *
  * @warning This is a stub driver.
  *
