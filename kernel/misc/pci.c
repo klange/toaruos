@@ -31,6 +31,8 @@ static uintptr_t pcie_addr(uint32_t device, int field) {
 	return (pci_extract_bus(device) << 20) | (pci_extract_slot(device) << 15) | (pci_extract_func(device) << 12) | (field);
 }
 
+uintptr_t pcie_ecam_phys = 0x3f000000;
+
 /**
  * @brief Write to a PCI device configuration space field.
  */
@@ -42,13 +44,13 @@ void pci_write_field(uint32_t device, int field, int size, uint32_t value) {
 
 	/* ECAM space */
 	if (size == 4) {
-		*(volatile uint32_t*)mmu_map_from_physical(0x3f000000 + pcie_addr(device,field)) = value;
+		*(volatile uint32_t*)mmu_map_from_physical(pcie_ecam_phys + pcie_addr(device,field)) = value;
 		return;
 	} else if (size == 2) {
-		*(volatile uint16_t*)mmu_map_from_physical(0x3f000000 + pcie_addr(device,field)) = value;
+		*(volatile uint16_t*)mmu_map_from_physical(pcie_ecam_phys + pcie_addr(device,field)) = value;
 		return;
 	} else if (size == 1) {
-		*(volatile uint8_t*)mmu_map_from_physical(0x3f000000 + pcie_addr(device,field)) = value;
+		*(volatile uint8_t*)mmu_map_from_physical(pcie_ecam_phys + pcie_addr(device,field)) = value;
 		return;
 	}
 
@@ -77,11 +79,11 @@ uint32_t pci_read_field(uint32_t device, int field, int size) {
 #else
 	uintptr_t field_addr = pcie_addr(device,field);
 	if (size == 4) {
-		return *(volatile uint32_t*)mmu_map_from_physical(0x3f000000 + field_addr);
+		return *(volatile uint32_t*)mmu_map_from_physical(pcie_ecam_phys + field_addr);
 	} else if (size == 2) {
-		return *(volatile uint16_t*)mmu_map_from_physical(0x3f000000 + field_addr);
+		return *(volatile uint16_t*)mmu_map_from_physical(pcie_ecam_phys + field_addr);
 	} else if (size == 1) {
-		return *(volatile uint8_t*)mmu_map_from_physical(0x3f000000 + field_addr);
+		return *(volatile uint8_t*)mmu_map_from_physical(pcie_ecam_phys + field_addr);
 	}
 #endif
 	return 0xFFFF;

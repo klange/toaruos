@@ -184,7 +184,9 @@ void aarch64_smp_start(void) {
 	asm volatile ("mrs %0, VBAR_EL1"  : "=r"(aarch64_vbar));
 
 	startup_ttbr0[0][0].raw = mmu_map_to_physical(NULL, (uintptr_t)&startup_ttbr0[1]) | (0x3) | (1 << 10);
-	startup_ttbr0[1][2].raw = 0x80000000 | (1 << 2) | 1 | (1 << 10);
+	for (long i = 0; i < 512; ++i) {
+		startup_ttbr0[1][i].raw = (i << 30) | (1 << 2) | 1 | (1 << 10);
+	}
 
 	aarch64_ttbr0 = mmu_map_to_physical(NULL, (uintptr_t)&startup_ttbr0[0]);
 	aarch64_ttbr1 = mmu_map_to_physical(NULL, (uintptr_t)mmu_get_kernel_directory());

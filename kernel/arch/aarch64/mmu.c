@@ -20,6 +20,9 @@ static volatile uint32_t *frames;
 static size_t nframes;
 static size_t total_memory = 0;
 static size_t unavailable_memory = 0;
+static uint64_t ram_starts_at = 0;
+
+uintptr_t aarch64_kernel_phys_base = 0;
 
 /* TODO Used for CoW later. */
 //static uint8_t * mem_refcounts = NULL;
@@ -45,8 +48,6 @@ static size_t unavailable_memory = 0;
 
 #define INDEX_FROM_BIT(b)  ((b) >> 5)
 #define OFFSET_FROM_BIT(b) ((b) & 0x1F)
-
-#define QEMU_VIRT_KERNEL_BASE 0x80000000UL
 
 #define _pagemap __attribute__((aligned(PAGE_SIZE))) = {0}
 union PML init_page_region[512] _pagemap;
@@ -87,6 +88,8 @@ union PML kbase_pmls[65][512] _pagemap;
 
 
 void mmu_frame_set(uintptr_t frame_addr) {
+	if (frame_addr < ram_starts_at) return;
+	frame_addr -= ram_starts_at;
 	if (frame_addr < nframes * PAGE_SIZE) {
 		uint64_t frame  = frame_addr >> 12;
 		uint64_t index  = INDEX_FROM_BIT(frame);
@@ -99,6 +102,8 @@ void mmu_frame_set(uintptr_t frame_addr) {
 static uintptr_t lowest_available = 0;
 
 void mmu_frame_clear(uintptr_t frame_addr) {
+	if (frame_addr < ram_starts_at) return;
+	frame_addr -= ram_starts_at;
 	if (frame_addr < nframes * PAGE_SIZE) {
 		uint64_t frame  = frame_addr >> PAGE_SHIFT;
 		uint64_t index  = INDEX_FROM_BIT(frame);
@@ -110,6 +115,8 @@ void mmu_frame_clear(uintptr_t frame_addr) {
 }
 
 int mmu_frame_test(uintptr_t frame_addr) {
+	if (frame_addr < ram_starts_at) return 1;
+	frame_addr -= ram_starts_at;
 	if (!(frame_addr < nframes * PAGE_SIZE)) return 1;
 	uint64_t frame  = frame_addr >> PAGE_SHIFT;
 	uint64_t index  = INDEX_FROM_BIT(frame);
@@ -132,7 +139,7 @@ uintptr_t mmu_first_n_frames(int n) {
 			}
 		}
 		if (!bad) {
-			return i / PAGE_SIZE;
+			return (i + ram_starts_at) / PAGE_SIZE;
 		}
 	}
 
@@ -152,7 +159,7 @@ uintptr_t mmu_first_frame(void) {
 				if (!(frames[i] & testFrame)) {
 					uintptr_t out = (i << 5) + j;
 					lowest_available = out + 1;
-					return out;
+					return out + (ram_starts_at >> 12);
 				}
 			}
 		}
@@ -266,7 +273,7 @@ union PML * mmu_get_page_other(union PML * root, uintptr_t virtAddr) {
 uintptr_t mmu_map_to_physical(union PML * root, uintptr_t virtAddr) {
 	if (!root) {
 		if (virtAddr >= MODULE_BASE_START) {
-			return (virtAddr - MODULE_BASE_START) + QEMU_VIRT_KERNEL_BASE;
+			return (virtAddr - MODULE_BASE_START) + aarch64_kernel_phys_base;
 		} else if (virtAddr >= HIGH_MAP_REGION) {
 			return (virtAddr - HIGH_MAP_REGION);
 		}
@@ -612,7 +619,7 @@ void mmu_free(union PML * from) {
 }
 
 union PML * mmu_get_kernel_directory(void) {
-	return mmu_map_from_physical((uintptr_t)&init_page_region - MODULE_BASE_START + QEMU_VIRT_KERNEL_BASE);
+	return mmu_map_from_physical((uintptr_t)&init_page_region - MODULE_BASE_START + aarch64_kernel_phys_base);
 }
 
 void mmu_set_directory(union PML * new_pml) {
@@ -733,50 +740,23 @@ int mmu_validate_user_pointer(void * addr, size_t size, int flags) {
 }
 
 static uintptr_t k2p(void * x) {
-	return ((uintptr_t)x - MODULE_BASE_START) + QEMU_VIRT_KERNEL_BASE;
+	return ((uintptr_t)x - MODULE_BASE_START) + aarch64_kernel_phys_base;
 }
 
-void mmu_init(uintptr_t memsize, size_t physsize, uintptr_t firstFreePage, uintptr_t endOfRamDisk) {
+void mmu_init(uintptr_t memaddr, size_t memsize, uintptr_t firstFreePage, uintptr_t endOfRamDisk) {
 	this_core->current_pml = (union PML *)&init_page_region;
 
-	/* On this machine, there's 1GiB of unavailable memory. */
-	unavailable_memory = 1048576;
+	/* Convert from bytes to kibibytes */
 	total_memory = memsize / 1024;
 
-	/* MAIR setup? */
-	uint64_t mair;
-	asm volatile ("mrs %0,MAIR_EL1" : "=r"(mair));
-	dprintf("Current MAIR:\n"
-		"  Attr0: 0x%02zx Attr1: 0x%02zx\n"
-		"  Attr2: 0x%02zx Attr3: 0x%02zx\n"
-		"  Attr4: 0x%02zx Attr5: 0x%02zx\n"
-		"  Attr6: 0x%02zx Attr7: 0x%02zx\n",
-		((mair >>  0) & 0xFF),
-		((mair >>  8) & 0xFF),
-		((mair >> 16) & 0xFF),
-		((mair >> 24) & 0xFF),
-		((mair >> 32) & 0xFF),
-		((mair >> 40) & 0xFF),
-		((mair >> 48) & 0xFF),
-		((mair >> 52) & 0xFF));
+	/* We don't currently support gaps in this setup. */
+	unavailable_memory = 0;
 
-	//mair &= (0xFFffFFffFF000000);
-	mair  = (0x000000000044ff00);
+	/* MAIR setup? */
+	uint64_t mair = (0x000000000044ff00);
 	asm volatile ("msr MAIR_EL1,%0" :: "r"(mair));
 	asm volatile ("mrs %0,MAIR_EL1" : "=r"(mair));
-	dprintf("Loaded MAIR:\n"
-		"  Attr0: 0x%02zx Attr1: 0x%02zx\n"
-		"  Attr2: 0x%02zx Attr3: 0x%02zx\n"
-		"  Attr4: 0x%02zx Attr5: 0x%02zx\n"
-		"  Attr6: 0x%02zx Attr7: 0x%02zx\n",
-		((mair >>  0) & 0xFF),
-		((mair >>  8) & 0xFF),
-		((mair >> 16) & 0xFF),
-		((mair >> 24) & 0xFF),
-		((mair >> 32) & 0xFF),
-		((mair >> 40) & 0xFF),
-		((mair >> 48) & 0xFF),
-		((mair >> 52) & 0xFF));
+	dprintf("mmu: MAIR_EL1=0x%016lx\n", mair);
 
 	asm volatile ("" ::: "memory");
 
@@ -800,7 +780,7 @@ void mmu_init(uintptr_t memsize, size_t physsize, uintptr_t firstFreePage, uintp
 	for (size_t j = 0; j < twoms; ++j) {
 		kbase_pmls[0][j].raw = k2p(&kbase_pmls[1+j]) | PTE_VALID | PTE_TABLE | PTE_AF;
 		for (int i = 0; i < 512; ++i) {
-			kbase_pmls[1+j][i].raw = (uintptr_t)(QEMU_VIRT_KERNEL_BASE + LARGE_PAGE_SIZE * j + PAGE_SIZE * i) |
+			kbase_pmls[1+j][i].raw = (uintptr_t)(aarch64_kernel_phys_base + LARGE_PAGE_SIZE * j + PAGE_SIZE * i) |
 				PTE_VALID | PTE_AF | PTE_SH_A | PTE_TABLE | (1 << 2);
 		}
 	}
@@ -818,7 +798,8 @@ void mmu_init(uintptr_t memsize, size_t physsize, uintptr_t firstFreePage, uintp
 
 	/* Physical frame allocator. We're gonna do this the same as the one we have x86-64, because
 	 * I can't be bothered to think of anything better right now... */
-	nframes = (physsize) >> 12;
+	ram_starts_at = memaddr;
+	nframes = (memsize) >> 12;
 	size_t bytesOfFrames = INDEX_FROM_BIT(nframes * 8);
 	bytesOfFrames = (bytesOfFrames + PAGE_LOW_MASK) & PAGE_SIZE_MASK;
 
@@ -837,18 +818,18 @@ void mmu_init(uintptr_t memsize, size_t physsize, uintptr_t firstFreePage, uintp
 	frames = (void*)((uintptr_t)KERNEL_HEAP_START);
 	memset((void*)frames, 0x00, bytesOfFrames);
 
-	/* Set frames as in use... this also marks all of the lower gigabyte, conveniently... */
-	for (uintptr_t i = 0; i < firstFreePage + bytesOfFrames; i+= PAGE_SIZE) {
+	/* Set frames as in use... */
+	for (uintptr_t i = memaddr; i < firstFreePage + bytesOfFrames; i+= PAGE_SIZE) {
 		mmu_frame_set(i);
 	}
 
 	/* Set kernel space as in use */
 	for (uintptr_t i = 0; i < twoms * LARGE_PAGE_SIZE; i += PAGE_SIZE) {
-		mmu_frame_set(QEMU_VIRT_KERNEL_BASE + i);
+		mmu_frame_set(aarch64_kernel_phys_base + i);
 	}
 
 	heapStart = (char*)KERNEL_HEAP_START + bytesOfFrames;
 
-	lowest_available = (firstFreePage + bytesOfFrames);
+	lowest_available = (firstFreePage + bytesOfFrames) - memaddr;
 
 }

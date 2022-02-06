@@ -54,7 +54,7 @@ void fwcfg_load_initrd(uintptr_t * ramdisk_phys_base, size_t * ramdisk_size) {
 	size_t uz_pages = 0;
 
 	extern char end[];
-	uintptr_t ramdisk_map_start = ((uintptr_t)&end - 0xffffffff80000000UL) + 0x80000000;
+	uintptr_t ramdisk_map_start = mmu_map_to_physical(NULL, (uintptr_t)&end);
 
 	/* See if we can find a qemu fw_cfg interface, we can use that for a ramdisk */
 	uint32_t * fw_cfg = dtb_find_node_prefix("fw-cfg");

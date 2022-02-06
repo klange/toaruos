@@ -442,8 +442,16 @@ void aarch64_processor_data(void) {
  * at -2GiB, and there's some other mappings so that
  * a bit of RAM is 1:1.
  */
-int kmain(void) {
+int kmain(uintptr_t dtb_base, uintptr_t phys_base) {
 	early_log_initialize();
+
+	console_set_output(_early_log_write);
+
+	extern uintptr_t aarch64_kernel_phys_base;
+	aarch64_kernel_phys_base = phys_base;
+
+	extern uintptr_t aarch64_dtb_phys;
+	aarch64_dtb_phys = dtb_base;
 
 	dprintf("%s %d.%d.%d-%s %s %s\n",
 		__kernel_name,
@@ -453,6 +461,9 @@ int kmain(void) {
 		__kernel_version_suffix,
 		__kernel_version_codename,
 		__kernel_arch);
+
+	dprintf("boot: dtb @ %#zx kernel @ %#zx\n",
+		dtb_base, phys_base);
 
 	/* Initialize TPIDR_EL1 */
 	arch_set_core_base((uintptr_t)&processor_local_data[0]);
@@ -470,12 +481,12 @@ int kmain(void) {
 
 	/* Probe DTB for memory layout. */
 	extern char end[];
-	size_t memsize, physsize;
-	dtb_memory_size(&memsize, &physsize);
+	size_t memaddr, memsize;
+	dtb_memory_size(&memaddr, &memsize);
 
 	/* Initialize the MMU based on the memory we got from dtb */
 	mmu_init(
-		memsize, physsize,
+		memaddr, memsize,
 		0x40100000 /* Should be end of DTB, but we're really just guessing */,
 		(uintptr_t)&end + ramdisk_size - 0xffffffff80000000UL);
 

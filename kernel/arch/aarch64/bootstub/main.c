@@ -18,6 +18,9 @@
 #include <kernel/printf.h>
 #include <kernel/elf.h>
 
+#define QEMU_DTB_BASE     0x40000000UL
+#define KERNEL_PHYS_BASE  0x41000000UL
+
 static uint32_t swizzle(uint32_t from) {
 	uint8_t a = from >> 24;
 	uint8_t b = from >> 16;
@@ -153,7 +156,7 @@ static uint32_t * find_subnode(uint32_t * node, char * strings, const char * nam
 }
 
 static uint32_t * find_node_int(const char * name, int (*cmp)(const char*,const char*)) {
-	uintptr_t addr = 0x40000000;
+	uintptr_t addr = QEMU_DTB_BASE;
 	struct fdt_header * fdt = (struct fdt_header*)addr;
 	char * dtb_strings = (char *)(addr + swizzle(fdt->off_dt_strings));
 	uint32_t * dtb_struct = (uint32_t *)(addr + swizzle(fdt->off_dt_struct));
@@ -202,7 +205,7 @@ static uint32_t * node_find_property_int(uint32_t * node, char * strings, const 
 }
 
 static uint32_t * node_find_property(uint32_t * node, const char * property) {
-	uintptr_t addr = 0x40000000;
+	uintptr_t addr = QEMU_DTB_BASE;
 	struct fdt_header * fdt = (struct fdt_header*)addr;
 	char * dtb_strings = (char *)(addr + swizzle(fdt->off_dt_strings));
 	uint32_t * out = NULL;
@@ -228,6 +231,7 @@ static struct BaseTables {
 	uintptr_t l0_base[512];
 	uintptr_t l1_high_gbs[512];
 	uintptr_t l1_low_gbs[512];
+	uintptr_t l2_kernel[512];
 } _baseTables __attribute__((aligned(4096)));
 
 #define PTE_VALID      (1UL << 0)
@@ -267,7 +271,7 @@ static void bootstub_mmu_init(void) {
 	_baseTables.l0_base[511] = (uintptr_t)&_baseTables.l1_high_gbs | PTE_VALID | PTE_TABLE | PTE_AF;
 
 	/* Mapping for us */
-	_baseTables.l1_low_gbs[1] = 0x40000000 | PTE_VALID | PTE_AF | PTE_SH_A | (1 << 2);
+	_baseTables.l1_low_gbs[1] = QEMU_DTB_BASE | PTE_VALID | PTE_AF | PTE_SH_A | (1 << 2);
 
 	/* -512GB is a map of 64GB of memory */
 	for (size_t i = 0; i < 64; ++i) {
@@ -275,7 +279,12 @@ static void bootstub_mmu_init(void) {
 	}
 
 	/* -2GiB, map kernel here */
-	_baseTables.l1_high_gbs[510] = 0x80000000 | PTE_VALID | PTE_AF | PTE_SH_A | (1 << 2);
+	_baseTables.l1_high_gbs[510] = (uintptr_t)&_baseTables.l2_kernel | PTE_VALID | PTE_TABLE | PTE_AF;
+
+	for (size_t i = 0; i < 512; ++i) {
+		_baseTables.l2_kernel[i] = (KERNEL_PHYS_BASE + (i << 21)) | PTE_VALID | PTE_AF | PTE_SH_A | (1 << 2);
+	}
+
 
 	uint64_t sctlr = 0
 		| (1UL << 0)  /* mmu enabled */
@@ -428,8 +437,8 @@ static void bootstub_start_kernel(Elf64_Header * header) {
 	printf("bootstub: Jump to kernel entry point at %zx\n",
 		header->e_entry);
 
-	void (*entry)(void) = (void(*)(void))header->e_entry;
-	entry();
+	void (*entry)(uintptr_t,uintptr_t) = (void(*)(uintptr_t,uintptr_t))header->e_entry;
+	entry(QEMU_DTB_BASE, KERNEL_PHYS_BASE);
 }
 
 int kmain(void) {

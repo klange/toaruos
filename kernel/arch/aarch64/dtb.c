@@ -15,6 +15,8 @@
 
 #include <kernel/arch/aarch64/dtb.h>
 
+uintptr_t aarch64_dtb_phys = 0;
+
 static uint32_t swizzle(uint32_t from) {
 	uint8_t a = from >> 24;
 	uint8_t b = from >> 16;
@@ -137,7 +139,8 @@ void dtb_callback_direct_children(uint32_t * node, void (*callback)(uint32_t * c
 
 
 static uint32_t * find_node_int(const char * name, int (*cmp)(const char*,const char*)) {
-	uintptr_t addr = (uintptr_t)mmu_map_from_physical(0x40000000);
+	uintptr_t addr = (uintptr_t)mmu_map_from_physical(aarch64_dtb_phys);
+	dprintf("dtb: find '%s' from %#zx\n", name, addr);
 	struct fdt_header * fdt = (struct fdt_header*)addr;
 	char * dtb_strings = (char *)(addr + swizzle(fdt->off_dt_strings));
 	uint32_t * dtb_struct = (uint32_t *)(addr + swizzle(fdt->off_dt_struct));
@@ -187,7 +190,7 @@ static uint32_t * node_find_property_int(uint32_t * node, char * strings, const 
 }
 
 uint32_t * dtb_node_find_property(uint32_t * node, const char * property) {
-	uintptr_t addr = (uintptr_t)mmu_map_from_physical(0x40000000);
+	uintptr_t addr = (uintptr_t)mmu_map_from_physical(aarch64_dtb_phys);
 	struct fdt_header * fdt = (struct fdt_header*)addr;
 	char * dtb_strings = (char *)(addr + swizzle(fdt->off_dt_strings));
 	uint32_t * out = NULL;
@@ -199,7 +202,7 @@ uint32_t * dtb_node_find_property(uint32_t * node, const char * property) {
  * Figure out 1) how much actual memory we have and 2) what the last
  * address of physical memory is.
  */
-void dtb_memory_size(size_t * memsize, size_t * physsize) {
+void dtb_memory_size(size_t * memaddr, size_t * physsize) {
 	uint32_t * memory = dtb_find_node_prefix("memory");
 	if (!memory) {
 		printf("dtb: Could not find memory node.\n");
@@ -218,7 +221,7 @@ void dtb_memory_size(size_t * memsize, size_t * physsize) {
 	uint64_t mem_addr = (uint64_t)swizzle(regs[3]) | ((uint64_t)swizzle(regs[2]) << 32UL);
 	uint64_t mem_size = (uint64_t)swizzle(regs[5]) | ((uint64_t)swizzle(regs[4]) << 32UL);
 
-	*memsize = mem_size;
-	*physsize = mem_addr + mem_size;
+	*memaddr = mem_addr;
+	*physsize = mem_size;
 }
 
