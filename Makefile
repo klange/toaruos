@@ -3,7 +3,7 @@ TOOLCHAIN=util
 BASE=base
 export PATH := $(shell $(TOOLCHAIN)/activate.sh)
 
-ARCH ?= x86_64
+ARCH ?= $(shell $(TOOLCHAIN)/arch.sh)
 
 include build/${ARCH}.mk
 

@@ -32,3 +32,4 @@
 /image.iso
 /boot/mbr.sys
 /bootstub
+/.arch
