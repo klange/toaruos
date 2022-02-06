@@ -14,6 +14,7 @@ CXX= ${TARGET}-g++
 AR = ${TARGET}-ar
 AS = ${TARGET}-as
 OC = ${TARGET}-objcopy
+STRIP= ${TARGET}-strip
 
 # CFLAGS for kernel objects and modules
 KERNEL_CFLAGS  = -ffreestanding -O2 -std=gnu11 -g -static
@@ -144,7 +145,7 @@ $(BASE)/lib/crt%.o: libc/arch/${ARCH}/crt%.S
 
 $(BASE)/usr/lib/%: $(TOOLCHAIN)/local/${TARGET}/lib/% | dirs
 	cp -a $< $@
-	-strip $@
+	-$(STRIP) $@
 
 $(BASE)/lib/libm.so: util/libm.c
 	$(CC) -shared -nostdlib -fPIC -o $@ $<
