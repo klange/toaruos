@@ -23,6 +23,7 @@
 #include <kernel/signal.h>
 #include <kernel/misc.h>
 #include <kernel/ptrace.h>
+#include <kernel/ksym.h>
 
 #include <sys/ptrace.h>
 
@@ -432,6 +433,16 @@ void aarch64_processor_data(void) {
 	asm volatile ("mrs %0, MIDR_EL1" : "=r"(this_core->midr));
 }
 
+static void symbols_install(void) {
+	ksym_install();
+	kernel_symbol_t * k = (kernel_symbol_t *)&kernel_symbols_start;
+	while ((uintptr_t)k < (uintptr_t)&kernel_symbols_end) {
+		ksym_bind(k->name, (void*)k->addr);
+		k = (kernel_symbol_t *)((uintptr_t)k + sizeof *k + strlen(k->name) + 1);
+	}
+}
+
+
 
 /**
  * Main kernel C entrypoint for qemu's -machine virt
@@ -495,6 +506,8 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base) {
 
 	/* Set up all the other arch-specific stuff here */
 	fpu_enable();
+
+	symbols_install();
 
 	generic_startup();
 
