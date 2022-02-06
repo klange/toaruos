@@ -1,7 +1,10 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ARCH=x86_64
 TARGET=x86_64-pc-toaru
 PREFIX="$DIR/local"
 SYSROOT="$DIR/../base"
+
+# --disable-multilib
 
 cd $DIR
 mkdir -p $PREFIX/bin
@@ -17,18 +20,20 @@ cd $DIR/build/gcc
 ../../gcc/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --enable-languages=c,c++ --enable-shared
 make -j8 all-gcc
 make install-gcc
-make -j8 all-target-libgcc # This will fail, but we don't care, we need some other targets in here to build libc
-make install-target-libgcc
+make -j8 $TARGET/libgcc/{libgcc.a,crtbegin.o,crtend.o,crtbeginS.o,crtendS.o}
+cp $TARGET/libgcc/{libgcc.a,crtbegin.o,crtend.o,crtbeginS.o,crtendS.o} ../../local/lib/gcc/$TARGET/10.3.0/
 
 cd $DIR/../
-make base/lib/libc.so
+make ARCH=$ARCH base/lib/libc.so
 
 cd $DIR/build/gcc
 make -j8 all-target-libgcc
 make install-target-libgcc
 
 cd $DIR/../
-make base/lib/libm.so
+rm base/lib/libc.so
+make ARCH=$ARCH base/lib/libc.so
+make ARCH=$ARCH base/lib/libm.so
 
 #cd $DIR/build/gcc
 #make -j8 all-target-libstdc++-v3
