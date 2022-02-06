@@ -1,5 +1,5 @@
 on: [push, workflow_dispatch]
-name: Build Image
+name: x86-64 CD Image
 jobs:
   build-image:
     runs-on: ubuntu-20.04
