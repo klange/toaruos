@@ -1,0 +1,29 @@
+on: [push, workflow_dispatch]
+name: QEMU AArch64 virt
+jobs:
+  build-image:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Clone Repository
+        uses: actions/checkout@v2
+        with:
+            fetch-depth: 0
+      - name: Clone Kuroko
+        uses: actions/checkout@v2
+        with:
+          repository: kuroko-lang/kuroko
+          path: kuroko
+      - name: Checkout Kuroko
+        run: git submodule update --init kuroko
+      - name: Pull Builder Image
+        run: docker pull toaruos/build-tools:aarch64
+      - name: Run Builder
+        run: docker run -v ${GITHUB_WORKSPACE}:/root/misaka -w /root/misaka -e LANG=C.UTF-8 -t toaruos/build-tools:aarch64 util/build-in-docker-aarch64.sh
+      - name: Upload Branch Image
+        uses: actions/upload-artifact@v2
+        with:
+          name: build
+          path: |
+            misaka-kernel
+            ramdisk.igz
+            bootstub
