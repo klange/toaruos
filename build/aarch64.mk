@@ -17,7 +17,7 @@ BOOTSTUB_OBJS += kernel/misc/kprintf.o kernel/misc/string.o
 bootstub: ${BOOTSTUB_OBJS} kernel/arch/aarch64/bootstub/link.ld
 	${CC} -g -T kernel/arch/aarch64/bootstub/link.ld ${KERNEL_CFLAGS} -o $@ ${BOOTSTUB_OBJS} -lgcc
 
-QEMU = ~/Projects/third-party/qemu-git/build/qemu-system-aarch64
+QEMU = qemu-system-aarch64
 
 EMU_MACH = virt-2.12
 EMU_CPU  = cortex-a72
@@ -39,6 +39,11 @@ EMU_RAMDISK = -fw_cfg name=opt/org.toaruos.initrd,file=ramdisk.igz
 EMU_KERNEL  = -fw_cfg name=opt/org.toaruos.kernel,file=misaka-kernel
 
 run: system
+	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session vid=auto" ${EMU_RAMDISK} ${EMU_KERNEL}
+
+hvf: EMU_MACH = virt-2.12,highmem=off
+hvf: EMU_CPU = host -accel hvf
+hvf: system
 	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session vid=auto" ${EMU_RAMDISK} ${EMU_KERNEL}
 
 debug: system
