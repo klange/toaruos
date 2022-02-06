@@ -44,3 +44,8 @@ run: system
 debug: system
 	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session vid=auto" ${EMU_RAMDISK} ${EMU_KERNEL} -d int 2>&1
 
+BUILD_KRK=$(TOOLCHAIN)/local/bin/kuroko
+$(TOOLCHAIN)/local/bin/kuroko: kuroko/src/*.c
+	mkdir -p $(TOOLCHAIN)/local/bin
+	cc -Ikuroko/src -DNO_RLINE -DSTATIC_ONLY -DKRK_DISABLE_THREADS -o "${TOOLCHAIN}/local/bin/kuroko" kuroko/src/*.c
+
