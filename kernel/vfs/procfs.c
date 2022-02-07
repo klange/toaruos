@@ -502,6 +502,7 @@ static ssize_t mounts_func(fs_node_t *node, off_t offset, size_t size, uint8_t *
 
 static ssize_t modules_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	list_t * hash_keys = hashmap_keys(modules_get_list());
+	if (!hash_keys || !hash_keys->length) return 0;
 	char * buf = malloc(hash_keys->length * 512);
 	unsigned int soffset = 0;
 	foreach(_key, hash_keys) {
@@ -531,6 +532,7 @@ extern hashmap_t * fs_types; /* from kernel/fs/vfs.c */
 
 static ssize_t filesystems_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	list_t * hash_keys = hashmap_keys(fs_types);
+	if (!hash_keys || !hash_keys->length) return 0;
 	char * buf = malloc(hash_keys->length * 512);
 	unsigned int soffset = 0;
 	foreach(_key, hash_keys) {
