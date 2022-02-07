@@ -37,9 +37,11 @@ void arch_enter_user(uintptr_t entrypoint, int argc, char * argv[], char * envp[
 	register uint64_t x0 __asm__("x0") = argc;
 	register uint64_t x1 __asm__("x1") = (uintptr_t)argv;
 	register uint64_t x2 __asm__("x2") = (uintptr_t)envp;
+	register uint64_t x4 __asm__("x4") = (uintptr_t)this_core->sp_el1;
 
 	asm volatile(
-		"eret" :: "r"(x0), "r"(x1), "r"(x2));
+		"mov sp, x4\n"
+		"eret" :: "r"(x0), "r"(x1), "r"(x2), "r"(x4));
 
 	__builtin_unreachable();
 }
