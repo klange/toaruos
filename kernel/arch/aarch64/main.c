@@ -190,11 +190,6 @@ static void update_clock(void) {
 	wakeup_sleepers(timer_ticks, timer_subticks);
 }
 
-void arch_dump_traceback(void) {
-	/* TODO */
-}
-
-
 static volatile unsigned int * _log_device_addr = 0;
 static size_t _early_log_write(size_t size, uint8_t * buffer) {
 	for (unsigned int i = 0; i < size; ++i) {
@@ -362,6 +357,9 @@ void aarch64_fault_enter(struct regs * r) {
 	uint64_t tpidr_el0;
 	asm volatile ("mrs %0, TPIDR_EL0" : "=r"(tpidr_el0));
 	printf("  TPIDR_EL0=%#zx\n", tpidr_el0);
+
+	extern void aarch64_safe_dump_traceback(uintptr_t elr, struct regs * r);
+	aarch64_safe_dump_traceback(elr, r);
 
 	while (1);
 }

@@ -1,6 +1,6 @@
 /**
- * @file  kernel/arch/aarch64/main.c
- * @brief Kernel C entry point and initialization for QEMU aarch64 'virt' machine.
+ * @file  kernel/arch/aarch64/arch.c
+ * @brief Global functions with arch-specific implementations.
  *
  * @copyright
  * This file is part of ToaruOS and is released under the terms
