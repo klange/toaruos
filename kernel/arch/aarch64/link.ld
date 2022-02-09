@@ -38,7 +38,7 @@ SECTIONS
 
 	/* Some built-in stack space... */
 	. = ALIGN(0x1000);
-	. = . + 0x1000;
+	. = . + 0x4000;
 	__bootstrap_stack_top = .;
 
 	end = .;
