@@ -55,9 +55,6 @@ void ap_start(uint64_t core_id) {
 
 	dprintf("smp: core %zu is online\n", core_id);
 
-	_smp_mutex = 1;
-	asm volatile ("isb" ::: "memory");
-
 	extern void arch_set_core_base(uintptr_t base);
 	arch_set_core_base((uintptr_t)&processor_local_data[core_id]);
 
@@ -74,6 +71,9 @@ void ap_start(uint64_t core_id) {
 	asm volatile ("isb");
 
 	timer_start();
+
+	_smp_mutex = 1;
+	asm volatile ("isb" ::: "memory");
 
 	switch_next();
 }
