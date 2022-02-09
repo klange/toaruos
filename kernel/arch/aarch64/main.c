@@ -152,25 +152,31 @@ void timer_start(void) {
 	/* mask irqs */
 	asm volatile ("msr DAIFSet, #0b1111");
 
-	/* Enable one of the timers. */
+	/* Enable the local timer */
 	set_tick();
+
 	asm volatile (
 		"mov x0, 1\n"
 		"msr CNTV_CTL_EL0, x0\n"
 		:::"x0");
 
-	/* enable */
+	/* This is global, we only need to do this once... */
 	gic_regs[0] = 1;
+
+	/* This is specific to this CPU */
 	gicc_regs[0] = 1;
+	gicc_regs[1] = 0x1ff;
 
-	/* priority mask */
-	gicc_regs[1] = 0xff;
+	/* Timer interrupts are private peripherals, so each CPU gets one */
+	gic_regs[64] = 0xFFFFffff; //(1 << TIMER_IRQ);
+	gic_regs[160] = 0xFFFFffff; //(1 << TIMER_IRQ);
 
-	/* enable interrupts */
-	gic_regs[64] = (1 << TIMER_IRQ);
+	/* These are shared? */
+	gic_regs[65]  = 0xFFFFFFFF;
 
-	/* clear this one */
-	gic_regs[160] = (1 << TIMER_IRQ);
+	for (int i = 520; i <= 521; ++i) {
+		gic_regs[i] |= 0x07070707;
+	}
 }
 
 static volatile uint64_t time_slice_basis = 0; /**< When the last clock update happened */
@@ -307,36 +313,82 @@ void aarch64_sync_enter(struct regs * r) {
 	}
 
 	/* Unexpected fault, eg. page fault. */
-	printf("In process %d (%s)\n", this_core->current_process->id, this_core->current_process->name);
-	printf("ESR: %#zx FAR: %#zx ELR: %#zx SPSR: %#zx\n", esr, far, elr, spsr);
+	dprintf("In process %d (%s)\n", this_core->current_process->id, this_core->current_process->name);
+	dprintf("ESR: %#zx FAR: %#zx ELR: %#zx SPSR: %#zx\n", esr, far, elr, spsr);
 	aarch64_regs(r);
 	uint64_t tpidr_el0;
 	asm volatile ("mrs %0, TPIDR_EL0" : "=r"(tpidr_el0));
-	printf("  TPIDR_EL0=%#zx\n", tpidr_el0);
+	dprintf("  TPIDR_EL0=%#zx\n", tpidr_el0);
 
 	send_signal(this_core->current_process->id, SIGSEGV, 1);
 }
 
-void aarch64_irq_enter(struct regs * r) {
-	uint32_t pending = gic_regs[160];
+char _ret_from_preempt_source[1];
 
+struct irq_callback {
+	void (*callback)(process_t * this, int irq, void *data);
+	process_t * owner;
+	void * data;
+};
+
+extern struct irq_callback irq_callbacks[];
+
+
+#define EOI(x) do { gicc_regs[4] = (x); } while (0)
+static void aarch64_interrupt_dispatch(int from_wfi) {
+	uint32_t iar = gicc_regs[3];
+	uint32_t irq = iar & 0x3FF;
+	//uint32_t cpu = (iar >> 10) & 0x7;
+
+	switch (irq) {
+		case TIMER_IRQ:
+			update_clock();
+			set_tick();
+			EOI(iar);
+			if (from_wfi) {
+				switch_next();
+			} else {
+				switch_task(1);
+			}
+			return;
+
+		case 32:
+		case 33:
+		case 34:
+		case 35:
+		case 36:
+		case 37:
+		case 38:
+		case 39:
+		case 40:
+		case 41:
+		case 42:
+		{
+			struct irq_callback * cb = &irq_callbacks[irq-32];
+			if (cb->owner) {
+				cb->callback(cb->owner, irq-32, cb->data);
+			}
+			EOI(iar);
+			return;
+		}
+
+		case 1022:
+		case 1023:
+			return;
+
+		default:
+			dprintf("gic: Unhandled interrupt: %d\n", irq);
+			EOI(iar);
+			return;
+	}
+}
+
+void aarch64_irq_enter(struct regs * r) {
 	if (this_core->current_process) {
 		this_core->current_process->time_switch = arch_perf_timer();
 	}
 
-	/**
-	 * TODO port the interrupt management system from x86.
-	 */
-	if (pending & (1 << TIMER_IRQ)) {
-		/* Timer interrupt fired in EL0. Update the global clock and reschedule */
-		update_clock();
-		set_tick();
-		gic_regs[160] &= (1 << TIMER_IRQ);
-		switch_task(1);
-	} else if (pending) {
-		printf("Unexpected interrupt = %#x\n", pending);
-		arch_fatal();
-	}
+	aarch64_interrupt_dispatch(0);
 }
 
 /**
@@ -349,14 +401,14 @@ void aarch64_fault_enter(struct regs * r) {
 	asm volatile ("mrs %0, ELR_EL1" : "=r"(elr));
 	asm volatile ("mrs %0, SPSR_EL1" : "=r"(spsr));
 
-	printf("EL1-EL1 fault handler, core %d\n", this_core->cpu_id);
-	printf("In process %d (%s)\n", this_core->current_process->id, this_core->current_process->name);
-	printf("ESR: %#zx FAR: %#zx ELR: %#zx SPSR: %#zx\n", esr, far, elr, spsr);
+	dprintf("EL1-EL1 fault handler, core %d\n", this_core->cpu_id);
+	dprintf("In process %d (%s)\n", this_core->current_process->id, this_core->current_process->name);
+	dprintf("ESR: %#zx FAR: %#zx ELR: %#zx SPSR: %#zx\n", esr, far, elr, spsr);
 	aarch64_regs(r);
 
 	uint64_t tpidr_el0;
 	asm volatile ("mrs %0, TPIDR_EL0" : "=r"(tpidr_el0));
-	printf("  TPIDR_EL0=%#zx\n", tpidr_el0);
+	dprintf("  TPIDR_EL0=%#zx\n", tpidr_el0);
 
 	extern void aarch64_safe_dump_traceback(uintptr_t elr, struct regs * r);
 	aarch64_safe_dump_traceback(elr, r);
@@ -387,21 +439,7 @@ void arch_pause(void) {
 	 * the interrupt function won't be called, so we'll need to change
 	 * it once we start getting actual hardware interrupts. */
 	asm volatile ("wfi");
-
-	/* Update the clock and reset the timer */
-	update_clock();
-	set_tick();
-
-	/* This shouldn't happen now, but this symbol needs to be present
-	 * somewhere or we'll fail to link. Keeping it as the asm stub
-	 * for future use... */
-	asm volatile (
-		".globl _ret_from_preempt_source\n"
-		"_ret_from_preempt_source:"
-	);
-
-	/* Force reschedule */
-	switch_next();
+	aarch64_interrupt_dispatch(1);
 }
 
 /**

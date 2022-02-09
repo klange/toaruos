@@ -18,6 +18,17 @@
 #include <kernel/mouse.h>
 #include <kernel/time.h>
 
+#include <kernel/arch/aarch64/dtb.h>
+
+static uint32_t swizzle(uint32_t from) {
+	uint8_t a = from >> 24;
+	uint8_t b = from >> 16;
+	uint8_t c = from >> 8;
+	uint8_t d = from;
+	return (d << 24) | (c << 16) | (b << 8) | (a);
+}
+
+
 static fs_node_t * mouse_pipe;
 static fs_node_t * vmmouse_pipe;
 static fs_node_t * keyboard_pipe;
@@ -99,17 +110,111 @@ struct virtio_input_event {
 	uint32_t value;
 };
 
+struct irq_callback {
+	void (*callback)(process_t * this, int irq, void *data);
+	process_t * owner;
+	void * data;
+};
+
+struct irq_callback irq_callbacks[256];
+
+static void tablet_responder(process_t * this, int irq, void * data) {
+	uint8_t cause = *(volatile uint8_t *)data;
+	if (cause == 1) {
+		make_process_ready(this);
+	}
+}
+
+static void keyboard_responder(process_t * this, int irq, void * data) {
+	uint8_t cause = *(volatile uint8_t *)data;
+	if (cause == 1) {
+		make_process_ready(this);
+	}
+}
+
+static void map_interrupt(const char * name, uint32_t device, int * int_out, void (*callback)(process_t*,int,void*), void * isr_addr) {
+	uint32_t phys_hi = (pci_extract_bus(device) << 16) | (pci_extract_slot(device) << 11);
+	uint32_t pin = pci_read_field(device, PCI_INTERRUPT_PIN, 1);
+	dprintf("%s: device %#x, slot = %d (0x%04x), irq pin = %d\n", name, device, pci_extract_slot(device),
+		phys_hi, pin);
+
+	uint32_t * pcie_dtb = dtb_find_node_prefix("pcie@");
+	if (!pcie_dtb) {
+		dprintf("%s: can't find dtb entry\n", name);
+		return;
+	}
+
+	uint32_t * intMask = dtb_node_find_property(pcie_dtb, "interrupt-map-mask");
+	if (!intMask) {
+		dprintf("%s: can't find property 'interrupt-map-mask'\n", name);
+		return;
+	}
+
+	uint32_t * intMap = dtb_node_find_property(pcie_dtb, "interrupt-map");
+
+	if (!intMap) {
+		dprintf("%s: can't find property 'interrupt-map'\n", name);
+		return;
+	}
+
+	for (int i = 0; i < swizzle(intMap[0])/4; i += 10) {
+		if (swizzle(intMap[i+2]) == (swizzle(intMask[2]) & phys_hi)) {
+			if (swizzle(intMap[i+5]) == (swizzle(intMask[5]) & pin)) {
+				dprintf("%s: %#x %#x %#x %#x\n", name,
+					swizzle(intMap[i+2]), swizzle(intMap[i+3]), swizzle(intMap[i+4]), swizzle(intMap[i+5]));
+				dprintf("%s: Matching device and pin, Interrupt maps to %d\n", name, swizzle(intMap[i+10]));
+				*int_out = swizzle(intMap[i+10]);
+				irq_callbacks[*int_out].callback = callback;
+				irq_callbacks[*int_out].owner = this_core->current_process;
+				irq_callbacks[*int_out].data = isr_addr;
+				return;
+			}
+		}
+	}
+
+}
+
 static void virtio_tablet_thread(void * data) {
 	while (this_core->cpu_id != 0) switch_task(1);
+
 	uint32_t device = (uintptr_t)data;
 	uintptr_t t = 0x12000000;
 	pci_write_field(device, PCI_BAR4, 4, t|8);
 	pci_write_field(device, PCI_COMMAND, 2, 4|2|1);
+
+	uint8_t caps = pci_read_field(device, 0x34, 1) & 0xFC;
+	dprintf("virtio: capabilities at 0x%02x\n", caps);
+
+	if (caps) {
+		uint8_t next = caps;
+		do {
+			uint8_t cap_id = pci_read_field(device, next, 1);
+			dprintf("@%d cap %d\n", next, cap_id);
+			if (cap_id == 9) {
+				/* vendor cap */
+				uint8_t len  = pci_read_field(device, next+2, 1);
+				uint8_t type = pci_read_field(device, next+3, 1);
+				uint8_t bar  = pci_read_field(device, next+4, 1);
+				uint32_t off = pci_read_field(device, next+8, 4);
+
+				dprintf("len=%d type=%d bar=%d off=%#x\n",
+					len, type, bar, off);
+
+			}
+			next = pci_read_field(device, next+1, 1);
+		} while (next);
+	}
+
 	struct virtio_device_cfg * cfg = (void*)((char*)mmu_map_mmio_region(t + 0x2000, 0x1000));
 	cfg->select = 1; /* ask for name */
 	cfg->subsel = 0;
 	asm volatile ("isb" ::: "memory");
 	dprintf("virtio: found '%s'\n", cfg->data.str);
+
+	volatile char * irq_region = (char*)mmu_map_mmio_region(t + 0x1000, 0x1000);
+	int irq;
+	map_interrupt("virtio-tablet", device, &irq, tablet_responder, irq_region);
+	dprintf("virtio-tablet: irq is %d\n", irq);
 
 	/* figure out range values */
 	cfg->select = 0x12;
@@ -184,9 +289,6 @@ static void virtio_tablet_thread(void * data) {
 	while (1) {
 		/* Inform the device we have room */
 		while (queue->used.index == index) {
-			unsigned long s, ss;
-			relative_time(0, 100, &s, &ss);
-			sleep_until((process_t *)this_core->current_process, s, ss);
 			switch_task(0);
 		}
 
@@ -265,8 +367,9 @@ static const uint8_t ext_key_map[256] = {
 
 static void virtio_keyboard_thread(void * data) {
 	while (this_core->cpu_id != 0) switch_task(1);
+
 	uint32_t device = (uintptr_t)data;
-	uintptr_t t = 0x12000000;
+	uintptr_t t = 0x12100000;
 	pci_write_field(device, PCI_BAR4, 4, t|8);
 	pci_write_field(device, PCI_COMMAND, 2, 4|2|1);
 	struct virtio_device_cfg * cfg = (void*)((char*)mmu_map_mmio_region(t + 0x2000, 0x1000));
@@ -274,6 +377,11 @@ static void virtio_keyboard_thread(void * data) {
 	cfg->subsel = 0;
 	asm volatile ("isb" ::: "memory");
 	dprintf("virtio: found '%s'\n", cfg->data.str);
+
+	volatile char * irq_region = (char*)mmu_map_mmio_region(t + 0x1000, 0x1000);
+	int irq;
+	map_interrupt("virtio-keyboard", device, &irq, keyboard_responder, irq_region);
+	dprintf("virtio-keyboard: irq is %d\n", irq);
 
 	cfg->select = 0;
 	cfg->subsel = 0;
@@ -327,9 +435,6 @@ static void virtio_keyboard_thread(void * data) {
 	while (1) {
 		/* Inform the device we have room */
 		while (queue->used.index == index) {
-			unsigned long s, ss;
-			relative_time(0, 100, &s, &ss);
-			sleep_until((process_t *)this_core->current_process, s, ss);
 			switch_task(0);
 		}
 
@@ -394,11 +499,11 @@ void virtio_input(void) {
 	vmmouse_pipe->flags = FS_CHARDEVICE;
 	vfs_mount("/dev/vmmouse", vmmouse_pipe);
 
-	pci_scan(virtio_input_maybe, -1, NULL);
-
 	keyboard_pipe = make_pipe(128);
 	keyboard_pipe->flags = FS_CHARDEVICE;
 	vfs_mount("/dev/kbd", keyboard_pipe);
+
+	pci_scan(virtio_input_maybe, -1, NULL);
 }
 
 
