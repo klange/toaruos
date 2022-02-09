@@ -134,7 +134,7 @@ uintptr_t mmu_first_n_frames(int n) {
 	for (uint64_t i = 0; i < nframes * PAGE_SIZE; i += PAGE_SIZE) {
 		int bad = 0;
 		for (int j = 0; j < n; ++j) {
-			if (mmu_frame_test(i + PAGE_SIZE * j)) {
+			if (mmu_frame_test(i + ram_starts_at + PAGE_SIZE * j)) {
 				bad = j + 1;
 			}
 		}
