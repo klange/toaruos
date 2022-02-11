@@ -564,6 +564,10 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base) {
 	/* Install drivers that may need to sleep here */
 	virtio_input();
 
+	/* Set up serial input */
+	extern void pl011_start(void);
+	pl011_start();
+
 	generic_main();
 
 	return 0;

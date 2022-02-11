@@ -38,6 +38,7 @@ typedef struct pty {
 
 	void (*fill_name)(struct pty *, char *);
 
+	void * _private;
 } pty_t;
 
 void tty_output_process_slave(pty_t * pty, uint8_t c);
