@@ -15,32 +15,6 @@
 
 #include <kernel/arch/aarch64/dtb.h>
 
-static uint32_t swizzle(uint32_t from) {
-	uint8_t a = from >> 24;
-	uint8_t b = from >> 16;
-	uint8_t c = from >> 8;
-	uint8_t d = from;
-	return (d << 24) | (c << 16) | (b << 8) | (a);
-}
-
-static uint64_t swizzle64(uint64_t from) {
-	uint8_t a = from >> 56;
-	uint8_t b = from >> 48;
-	uint8_t c = from >> 40;
-	uint8_t d = from >> 32;
-	uint8_t e = from >> 24;
-	uint8_t f = from >> 16;
-	uint8_t g = from >> 8;
-	uint8_t h = from;
-	return ((uint64_t)h << 56) | ((uint64_t)g << 48) | ((uint64_t)f << 40) | ((uint64_t)e << 32) | (d << 24) | (c << 16) | (b << 8) | (a);
-}
-
-static uint16_t swizzle16(uint16_t from) {
-	uint8_t a = from >> 8;
-	uint8_t b = from;
-	return (b << 8) | (a);
-}
-
 static struct fwcfg_dma {
 	volatile uint32_t control;
 	volatile uint32_t length;

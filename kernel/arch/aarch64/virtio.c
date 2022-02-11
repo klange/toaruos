@@ -20,15 +20,6 @@
 
 #include <kernel/arch/aarch64/dtb.h>
 
-static uint32_t swizzle(uint32_t from) {
-	uint8_t a = from >> 24;
-	uint8_t b = from >> 16;
-	uint8_t c = from >> 8;
-	uint8_t d = from;
-	return (d << 24) | (c << 16) | (b << 8) | (a);
-}
-
-
 static fs_node_t * mouse_pipe;
 static fs_node_t * vmmouse_pipe;
 static fs_node_t * keyboard_pipe;
@@ -132,7 +123,7 @@ static void keyboard_responder(process_t * this, int irq, void * data) {
 	}
 }
 
-static void map_interrupt(const char * name, uint32_t device, int * int_out, void (*callback)(process_t*,int,void*), void * isr_addr) {
+void map_interrupt(const char * name, uint32_t device, int * int_out, void (*callback)(process_t*,int,void*), void * isr_addr) {
 	uint32_t phys_hi = (pci_extract_bus(device) << 16) | (pci_extract_slot(device) << 11);
 	uint32_t pin = pci_read_field(device, PCI_INTERRUPT_PIN, 1);
 	dprintf("%s: device %#x, slot = %d (0x%04x), irq pin = %d\n", name, device, pci_extract_slot(device),

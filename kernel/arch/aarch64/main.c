@@ -174,9 +174,8 @@ void timer_start(void) {
 	/* These are shared? */
 	gic_regs[65]  = 0xFFFFFFFF;
 
-	for (int i = 520; i <= 521; ++i) {
-		gic_regs[i] |= 0x07070707;
-	}
+	gic_regs[520] = 0x07070707;
+	gic_regs[521] = 0x07070707;
 }
 
 static volatile uint64_t time_slice_basis = 0; /**< When the last clock update happened */
@@ -333,7 +332,6 @@ struct irq_callback {
 
 extern struct irq_callback irq_callbacks[];
 
-
 #define EOI(x) do { gicc_regs[4] = (x); } while (0)
 static void aarch64_interrupt_dispatch(int from_wfi) {
 	uint32_t iar = gicc_regs[3];
@@ -367,6 +365,8 @@ static void aarch64_interrupt_dispatch(int from_wfi) {
 			struct irq_callback * cb = &irq_callbacks[irq-32];
 			if (cb->owner) {
 				cb->callback(cb->owner, irq-32, cb->data);
+			} else {
+				dprintf("irq: unhandled irq %d\n", irq);
 			}
 			EOI(iar);
 			return;
@@ -477,8 +477,6 @@ static void symbols_install(void) {
 		k = (kernel_symbol_t *)((uintptr_t)k + sizeof *k + strlen(k->name) + 1);
 	}
 }
-
-
 
 /**
  * Main kernel C entrypoint for qemu's -machine virt

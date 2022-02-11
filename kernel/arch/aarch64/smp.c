@@ -27,15 +27,6 @@ static int method = 0;
 
 static volatile uint32_t _smp_mutex = 0;
 
-/* These really need to go in a util... */
-static uint32_t swizzle(uint32_t from) {
-	uint8_t a = from >> 24;
-	uint8_t b = from >> 16;
-	uint8_t c = from >> 8;
-	uint8_t d = from;
-	return (d << 24) | (c << 16) | (b << 8) | (a);
-}
-
 volatile uintptr_t * aarch64_jmp_target = 0;
 volatile uint64_t  aarch64_sctlr      = 0;
 volatile uint64_t  aarch64_tcr        = 0;
