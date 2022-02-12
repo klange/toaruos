@@ -101,7 +101,7 @@ struct virtio_input_event {
 	uint32_t value;
 };
 
-static int tablet_responder(process_t * this, int irq, void * data) {
+int virtio_tablet_responder(process_t * this, int irq, void * data) {
 	uint8_t cause = *(volatile uint8_t *)data;
 	if (cause == 1) {
 		make_process_ready(this);
@@ -110,7 +110,7 @@ static int tablet_responder(process_t * this, int irq, void * data) {
 	return 0;
 }
 
-static int keyboard_responder(process_t * this, int irq, void * data) {
+int virtio_keyboard_responder(process_t * this, int irq, void * data) {
 	uint8_t cause = *(volatile uint8_t *)data;
 	if (cause == 1) {
 		make_process_ready(this);
@@ -158,7 +158,7 @@ static void virtio_tablet_thread(void * data) {
 
 	void * irq_region = mmu_map_mmio_region(t + 0x1000, 0x1000);
 	int irq;
-	gic_map_pci_interrupt("virtio-tablet", device, &irq, tablet_responder, irq_region);
+	gic_map_pci_interrupt("virtio-tablet", device, &irq, virtio_tablet_responder, irq_region);
 	dprintf("virtio-tablet: irq is %d\n", irq);
 
 	/* figure out range values */
@@ -325,7 +325,7 @@ static void virtio_keyboard_thread(void * data) {
 
 	void * irq_region = mmu_map_mmio_region(t + 0x1000, 0x1000);
 	int irq;
-	gic_map_pci_interrupt("virtio-keyboard", device, &irq, keyboard_responder, irq_region);
+	gic_map_pci_interrupt("virtio-keyboard", device, &irq, virtio_keyboard_responder, irq_region);
 	dprintf("virtio-keyboard: irq is %d\n", irq);
 
 	cfg->select = 0;
