@@ -95,7 +95,7 @@ void mmu_frame_set(uintptr_t frame_addr) {
 		uint64_t index  = INDEX_FROM_BIT(frame);
 		uint32_t offset = OFFSET_FROM_BIT(frame);
 		frames[index]  |= ((uint32_t)1 << offset);
-		asm ("" ::: "memory");
+		asm ("isb" ::: "memory");
 	}
 }
 
@@ -109,7 +109,7 @@ void mmu_frame_clear(uintptr_t frame_addr) {
 		uint64_t index  = INDEX_FROM_BIT(frame);
 		uint32_t offset = OFFSET_FROM_BIT(frame);
 		frames[index]  &= ~((uint32_t)1 << offset);
-		asm ("" ::: "memory");
+		asm ("isb" ::: "memory");
 		if (frame < lowest_available) lowest_available = frame;
 	}
 }
@@ -317,29 +317,29 @@ union PML * mmu_get_page(uintptr_t virtAddr, int flags) {
 	union PML * root = this_core->current_pml;
 
 	/* Get the PML4 entry for this address */
+	spin_lock(frame_alloc_lock);
 	if (!root[pml4_entry].bits.present) {
 		if (!(flags & MMU_GET_MAKE)) goto _noentry;
-		spin_lock(frame_alloc_lock);
 		uintptr_t newPage = mmu_first_frame() << PAGE_SHIFT;
 		mmu_frame_set(newPage);
-		spin_unlock(frame_alloc_lock);
 		/* zero it */
 		memset(mmu_map_from_physical(newPage), 0, PAGE_SIZE);
 		root[pml4_entry].raw = (newPage) | PTE_VALID | PTE_TABLE | PTE_AF;
 	}
+	spin_unlock(frame_alloc_lock);
 
 	union PML * pdp = mmu_map_from_physical((uintptr_t)root[pml4_entry].bits.page << PAGE_SHIFT);
 
+	spin_lock(frame_alloc_lock);
 	if (!pdp[pdp_entry].bits.present) {
 		if (!(flags & MMU_GET_MAKE)) goto _noentry;
-		spin_lock(frame_alloc_lock);
 		uintptr_t newPage = mmu_first_frame() << PAGE_SHIFT;
 		mmu_frame_set(newPage);
-		spin_unlock(frame_alloc_lock);
 		/* zero it */
 		memset(mmu_map_from_physical(newPage), 0, PAGE_SIZE);
 		pdp[pdp_entry].raw = (newPage) | PTE_VALID | PTE_TABLE | PTE_AF;
 	}
+	spin_unlock(frame_alloc_lock);
 
 	if (!pdp[pdp_entry].bits.table_page) {
 		printf("Warning: Tried to get page for a 1GiB block! %d\n", pdp_entry);
@@ -348,16 +348,16 @@ union PML * mmu_get_page(uintptr_t virtAddr, int flags) {
 
 	union PML * pd = mmu_map_from_physical((uintptr_t)pdp[pdp_entry].bits.page << PAGE_SHIFT);
 
+	spin_lock(frame_alloc_lock);
 	if (!pd[pd_entry].bits.present) {
 		if (!(flags & MMU_GET_MAKE)) goto _noentry;
-		spin_lock(frame_alloc_lock);
 		uintptr_t newPage = mmu_first_frame() << PAGE_SHIFT;
 		mmu_frame_set(newPage);
-		spin_unlock(frame_alloc_lock);
 		/* zero it */
 		memset(mmu_map_from_physical(newPage), 0, PAGE_SIZE);
 		pd[pd_entry].raw = (newPage) | PTE_VALID | PTE_TABLE | PTE_AF;
 	}
+	spin_unlock(frame_alloc_lock);
 
 	if (!pd[pd_entry].bits.table_page) {
 		printf("Warning: Tried to get page for a 2MiB block!\n");
@@ -368,6 +368,7 @@ union PML * mmu_get_page(uintptr_t virtAddr, int flags) {
 	return (union PML *)&pt[pt_entry];
 
 _noentry:
+	spin_unlock(frame_alloc_lock);
 	printf("no entry for requested page\n");
 	return NULL;
 }
@@ -625,12 +626,17 @@ union PML * mmu_get_kernel_directory(void) {
 void mmu_set_directory(union PML * new_pml) {
 	/* Set the EL0 and EL1 directy things?
 	 *   There are two of these... */
-	if (!new_pml) new_pml = mmu_map_from_physical((uintptr_t)&init_page_region[0]);
+	if (!new_pml) new_pml = mmu_get_kernel_directory();
 	this_core->current_pml = new_pml;
+	uintptr_t pml_phys = mmu_map_to_physical(new_pml, (uintptr_t)new_pml);
 
-	asm volatile ("msr TTBR0_EL1,%0" : : "r"(mmu_map_to_physical(new_pml, (uintptr_t)new_pml)));
-	asm volatile ("msr TTBR1_EL1,%0" : : "r"(mmu_map_to_physical(new_pml, (uintptr_t)new_pml)));
-	asm volatile ("dsb ishst\ntlbi vmalle1is\ndsb ish\nisb" ::: "memory");
+	asm volatile (
+		"msr TTBR0_EL1,%0\n"
+		"msr TTBR1_EL1,%0\n"
+		"dsb ishst\n"
+		"tlbi vmalle1is\n"
+		"dsb ish\n"
+		"isb\n" :: "r"(pml_phys) : "memory");
 }
 
 void mmu_invalidate(uintptr_t addr) {
