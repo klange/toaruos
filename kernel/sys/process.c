@@ -656,9 +656,9 @@ void process_delete(process_t * proc) {
  * queue before it is placed in the ready queue.
  */
 void make_process_ready(volatile process_t * proc) {
+	int sleep_lock_is_mine = sleep_lock.owner == (this_core->cpu_id + 1);
+	if (!sleep_lock_is_mine) spin_lock(sleep_lock);
 	if (proc->sleep_node.owner != NULL) {
-		int sleep_lock_is_mine = sleep_lock.owner == (this_core->cpu_id + 1);
-		if (!sleep_lock_is_mine) spin_lock(sleep_lock);
 		if (proc->sleep_node.owner == sleep_queue) {
 			/* The sleep queue is slightly special... */
 			if (proc->timed_sleep_node) {
@@ -671,8 +671,8 @@ void make_process_ready(volatile process_t * proc) {
 			__sync_or_and_fetch(&proc->flags, PROC_FLAG_SLEEP_INT);
 			list_delete((list_t*)proc->sleep_node.owner, (node_t*)&proc->sleep_node);
 		}
-		if (!sleep_lock_is_mine) spin_unlock(sleep_lock);
 	}
+	if (!sleep_lock_is_mine) spin_unlock(sleep_lock);
 
 	spin_lock(process_queue_lock);
 	if (proc->sched_node.owner) {
