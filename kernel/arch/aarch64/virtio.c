@@ -156,7 +156,7 @@ static void virtio_tablet_thread(void * data) {
 	asm volatile ("isb" ::: "memory");
 	dprintf("virtio: found '%s'\n", cfg->data.str);
 
-	volatile char * irq_region = (char*)mmu_map_mmio_region(t + 0x1000, 0x1000);
+	void * irq_region = mmu_map_mmio_region(t + 0x1000, 0x1000);
 	int irq;
 	gic_map_pci_interrupt("virtio-tablet", device, &irq, tablet_responder, irq_region);
 	dprintf("virtio-tablet: irq is %d\n", irq);
@@ -323,7 +323,7 @@ static void virtio_keyboard_thread(void * data) {
 	asm volatile ("isb" ::: "memory");
 	dprintf("virtio: found '%s'\n", cfg->data.str);
 
-	volatile char * irq_region = (char*)mmu_map_mmio_region(t + 0x1000, 0x1000);
+	void * irq_region = mmu_map_mmio_region(t + 0x1000, 0x1000);
 	int irq;
 	gic_map_pci_interrupt("virtio-keyboard", device, &irq, keyboard_responder, irq_region);
 	dprintf("virtio-keyboard: irq is %d\n", irq);
