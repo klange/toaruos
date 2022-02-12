@@ -15,23 +15,19 @@
 #include <kernel/mmu.h>
 
 #include <kernel/arch/aarch64/dtb.h>
+#include <kernel/arch/aarch64/gic.h>
 
-/* TODO interrupt handler installers */
-struct irq_callback {
-	void (*callback)(process_t * this, int irq, void *data);
-	process_t * owner;
-	void * data;
-};
-
-extern struct irq_callback irq_callbacks[];
-
-static void pl011_irq(process_t * this, int irq, void * data) {
+static int pl011_irq(process_t * this, int irq, void * data) {
 	volatile uint32_t * uart_mapped = (volatile uint32_t *)data;
 	uint32_t mis = uart_mapped[16];
-	if (mis & (1 << 4)) {
-		make_process_ready(this);
+	if (mis) {
+		if (mis & (1 << 4)) {
+			make_process_ready(this);
+		}
+		uart_mapped[17] = mis;
+		return 1;
 	}
-	uart_mapped[17] = mis;
+	return 0;
 }
 
 static void pl011_fill_name(pty_t * pty, char * name) {
@@ -54,9 +50,7 @@ static void pl011_thread(void * arg) {
 	vfs_mount("/dev/ttyS0", pty->slave);
 
 	/* Set up interrupt callback */
-	irq_callbacks[1].callback = pl011_irq;
-	irq_callbacks[1].owner = (process_t*)this_core->current_process;
-	irq_callbacks[1].data = (void *)uart_mapped;
+	gic_assign_interrupt(1, pl011_irq, (void*)uart_mapped);
 
 	/* Enable interrupts */
 	uart_mapped[12] = 0;

@@ -29,6 +29,7 @@
 
 #include <kernel/arch/aarch64/regs.h>
 #include <kernel/arch/aarch64/dtb.h>
+#include <kernel/arch/aarch64/gic.h>
 
 extern void fbterm_initialize(void);
 extern void mmu_init(size_t memsize, size_t phys, uintptr_t firstFreePage, uintptr_t endOfInitrd);
@@ -324,14 +325,6 @@ void aarch64_sync_enter(struct regs * r) {
 
 char _ret_from_preempt_source[1];
 
-struct irq_callback {
-	void (*callback)(process_t * this, int irq, void *data);
-	process_t * owner;
-	void * data;
-};
-
-extern struct irq_callback irq_callbacks[];
-
 #define EOI(x) do { gicc_regs[4] = (x); } while (0)
 static void aarch64_interrupt_dispatch(int from_wfi) {
 	uint32_t iar = gicc_regs[3];
@@ -362,9 +355,14 @@ static void aarch64_interrupt_dispatch(int from_wfi) {
 		case 41:
 		case 42:
 		{
-			struct irq_callback * cb = &irq_callbacks[irq-32];
-			if (cb->owner) {
-				cb->callback(cb->owner, irq-32, cb->data);
+			struct irq_callback * cb = irq_callbacks[irq-32];
+			if (cb) {
+				while (cb) {
+					int res = cb->callback(cb->owner, irq-32, cb->data);
+					if (res) break;
+					cb = cb->next;
+				}
+				/* Maybe warn? We have a lot of spurious irqs, though */
 			} else {
 				dprintf("irq: unhandled irq %d\n", irq);
 			}

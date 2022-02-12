@@ -18,7 +18,7 @@
 #include <kernel/mouse.h>
 #include <kernel/time.h>
 
-#include <kernel/arch/aarch64/dtb.h>
+#include <kernel/arch/aarch64/gic.h>
 
 static fs_node_t * mouse_pipe;
 static fs_node_t * vmmouse_pipe;
@@ -101,68 +101,22 @@ struct virtio_input_event {
 	uint32_t value;
 };
 
-struct irq_callback {
-	void (*callback)(process_t * this, int irq, void *data);
-	process_t * owner;
-	void * data;
-};
-
-struct irq_callback irq_callbacks[256];
-
-static void tablet_responder(process_t * this, int irq, void * data) {
+static int tablet_responder(process_t * this, int irq, void * data) {
 	uint8_t cause = *(volatile uint8_t *)data;
 	if (cause == 1) {
 		make_process_ready(this);
+		return 1;
 	}
+	return 0;
 }
 
-static void keyboard_responder(process_t * this, int irq, void * data) {
+static int keyboard_responder(process_t * this, int irq, void * data) {
 	uint8_t cause = *(volatile uint8_t *)data;
 	if (cause == 1) {
 		make_process_ready(this);
+		return 1;
 	}
-}
-
-void map_interrupt(const char * name, uint32_t device, int * int_out, void (*callback)(process_t*,int,void*), void * isr_addr) {
-	uint32_t phys_hi = (pci_extract_bus(device) << 16) | (pci_extract_slot(device) << 11);
-	uint32_t pin = pci_read_field(device, PCI_INTERRUPT_PIN, 1);
-	dprintf("%s: device %#x, slot = %d (0x%04x), irq pin = %d\n", name, device, pci_extract_slot(device),
-		phys_hi, pin);
-
-	uint32_t * pcie_dtb = dtb_find_node_prefix("pcie@");
-	if (!pcie_dtb) {
-		dprintf("%s: can't find dtb entry\n", name);
-		return;
-	}
-
-	uint32_t * intMask = dtb_node_find_property(pcie_dtb, "interrupt-map-mask");
-	if (!intMask) {
-		dprintf("%s: can't find property 'interrupt-map-mask'\n", name);
-		return;
-	}
-
-	uint32_t * intMap = dtb_node_find_property(pcie_dtb, "interrupt-map");
-
-	if (!intMap) {
-		dprintf("%s: can't find property 'interrupt-map'\n", name);
-		return;
-	}
-
-	for (int i = 0; i < swizzle(intMap[0])/4; i += 10) {
-		if (swizzle(intMap[i+2]) == (swizzle(intMask[2]) & phys_hi)) {
-			if (swizzle(intMap[i+5]) == (swizzle(intMask[5]) & pin)) {
-				dprintf("%s: %#x %#x %#x %#x\n", name,
-					swizzle(intMap[i+2]), swizzle(intMap[i+3]), swizzle(intMap[i+4]), swizzle(intMap[i+5]));
-				dprintf("%s: Matching device and pin, Interrupt maps to %d\n", name, swizzle(intMap[i+10]));
-				*int_out = swizzle(intMap[i+10]);
-				irq_callbacks[*int_out].callback = callback;
-				irq_callbacks[*int_out].owner = this_core->current_process;
-				irq_callbacks[*int_out].data = isr_addr;
-				return;
-			}
-		}
-	}
-
+	return 0;
 }
 
 static void virtio_tablet_thread(void * data) {
@@ -204,7 +158,7 @@ static void virtio_tablet_thread(void * data) {
 
 	volatile char * irq_region = (char*)mmu_map_mmio_region(t + 0x1000, 0x1000);
 	int irq;
-	map_interrupt("virtio-tablet", device, &irq, tablet_responder, irq_region);
+	gic_map_pci_interrupt("virtio-tablet", device, &irq, tablet_responder, irq_region);
 	dprintf("virtio-tablet: irq is %d\n", irq);
 
 	/* figure out range values */
@@ -371,7 +325,7 @@ static void virtio_keyboard_thread(void * data) {
 
 	volatile char * irq_region = (char*)mmu_map_mmio_region(t + 0x1000, 0x1000);
 	int irq;
-	map_interrupt("virtio-keyboard", device, &irq, keyboard_responder, irq_region);
+	gic_map_pci_interrupt("virtio-keyboard", device, &irq, keyboard_responder, irq_region);
 	dprintf("virtio-keyboard: irq is %d\n", irq);
 
 	cfg->select = 0;
