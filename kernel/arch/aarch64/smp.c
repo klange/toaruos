@@ -37,13 +37,6 @@ volatile uintptr_t aarch64_ttbr1      = 0;
 volatile uintptr_t aarch64_stack      = 0;
 
 void ap_start(uint64_t core_id) {
-	asm volatile ("msr TTBR1_EL1, %0" :: "r"(aarch64_ttbr1));
-	asm volatile (
-		"dsb ishst\n"
-		"tlbi vmalle1is\n"
-		"dsb ish\n"
-		"isb\n" ::: "memory");
-
 	dprintf("smp: core %zu is online\n", core_id);
 
 	extern void arch_set_core_base(uintptr_t base);
