@@ -86,7 +86,6 @@ union PML kbase_pmls[65][512] _pagemap;
 #define  PTE_ATTR_B    (1UL << 3)
 #define  PTE_ATTR_C    (1UL << 2)
 
-
 void mmu_frame_set(uintptr_t frame_addr) {
 	if (frame_addr < ram_starts_at) return;
 	frame_addr -= ram_starts_at;
@@ -94,7 +93,7 @@ void mmu_frame_set(uintptr_t frame_addr) {
 		uint64_t frame  = frame_addr >> 12;
 		uint64_t index  = INDEX_FROM_BIT(frame);
 		uint32_t offset = OFFSET_FROM_BIT(frame);
-		frames[index]  |= ((uint32_t)1 << offset);
+		__sync_or_and_fetch(&frames[index], ((uint32_t)1 << offset));
 		asm ("isb" ::: "memory");
 	}
 }
@@ -108,7 +107,7 @@ void mmu_frame_clear(uintptr_t frame_addr) {
 		uint64_t frame  = frame_addr >> PAGE_SHIFT;
 		uint64_t index  = INDEX_FROM_BIT(frame);
 		uint32_t offset = OFFSET_FROM_BIT(frame);
-		frames[index]  &= ~((uint32_t)1 << offset);
+		__sync_and_and_fetch(&frames[index], ~((uint32_t)1 << offset));
 		asm ("isb" ::: "memory");
 		if (frame < lowest_available) lowest_available = frame;
 	}
@@ -614,7 +613,8 @@ void mmu_free(union PML * from) {
 		}
 	}
 
-	mmu_frame_clear((((uintptr_t)from) & PHYS_MASK));
+	uintptr_t physAddr = (((uintptr_t)from) & PHYS_MASK);
+	mmu_frame_clear(physAddr);
 	asm volatile ("dsb ishst\ntlbi vmalle1is\ndsb ish\nisb" ::: "memory");
 	spin_unlock(frame_alloc_lock);
 }
@@ -750,7 +750,7 @@ static uintptr_t k2p(void * x) {
 }
 
 void mmu_init(uintptr_t memaddr, size_t memsize, uintptr_t firstFreePage, uintptr_t endOfRamDisk) {
-	this_core->current_pml = (union PML *)&init_page_region;
+	this_core->current_pml = (union PML*)mmu_get_kernel_directory();
 
 	/* Convert from bytes to kibibytes */
 	total_memory = memsize / 1024;
