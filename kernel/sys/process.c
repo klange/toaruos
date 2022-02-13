@@ -763,9 +763,11 @@ int wakeup_queue(list_t * queue) {
 	spin_lock(wait_lock_tmp);
 	while (queue->length > 0) {
 		node_t * node = list_pop(queue);
+		spin_unlock(wait_lock_tmp);
 		if (!(((process_t *)node->value)->flags & PROC_FLAG_FINISHED)) {
 			make_process_ready(node->value);
 		}
+		spin_lock(wait_lock_tmp);
 		awoken_processes++;
 	}
 	spin_unlock(wait_lock_tmp);
@@ -787,11 +789,13 @@ int wakeup_queue_interrupted(list_t * queue) {
 	spin_lock(wait_lock_tmp);
 	while (queue->length > 0) {
 		node_t * node = list_pop(queue);
+		spin_unlock(wait_lock_tmp);
 		if (!(((process_t *)node->value)->flags & PROC_FLAG_FINISHED)) {
 			process_t * proc = node->value;
 			__sync_or_and_fetch(&proc->flags, PROC_FLAG_SLEEP_INT);
 			make_process_ready(proc);
 		}
+		spin_lock(wait_lock_tmp);
 		awoken_processes++;
 	}
 	spin_unlock(wait_lock_tmp);
@@ -803,9 +807,11 @@ int wakeup_queue_one(list_t * queue) {
 	spin_lock(wait_lock_tmp);
 	if (queue->length > 0) {
 		node_t * node = list_pop(queue);
+		spin_unlock(wait_lock_tmp);
 		if (!(((process_t *)node->value)->flags & PROC_FLAG_FINISHED)) {
 			make_process_ready(node->value);
 		}
+		spin_lock(wait_lock_tmp);
 		awoken_processes++;
 	}
 	spin_unlock(wait_lock_tmp);
@@ -875,9 +881,7 @@ void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
 				process->sleep_node.owner = NULL;
 				process->timed_sleep_node = NULL;
 				if (!process_is_ready(process)) {
-					spin_lock(wait_lock_tmp);
 					make_process_ready(process);
-					spin_unlock(wait_lock_tmp);
 				}
 			}
 			free(proc);
@@ -1166,9 +1170,7 @@ int process_awaken_from_fswait(process_t * process, int index) {
 	}
 	process->timeout_node = NULL;
 
-	spin_lock(wait_lock_tmp);
 	make_process_ready(process);
-	spin_unlock(wait_lock_tmp);
 	spin_unlock(process->sched_lock);
 	return 0;
 }
