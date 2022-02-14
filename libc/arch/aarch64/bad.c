@@ -6,6 +6,10 @@ double sqrt(double x) {
 	return x;
 }
 
+double tan(double theta) {
+	return sin(theta) / cos(theta);
+}
+
 double atan2(double y, double x) {
 	return 0.0;
 }
