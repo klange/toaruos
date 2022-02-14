@@ -699,9 +699,23 @@ void * mmu_map_mmio_region(uintptr_t physical_address, size_t size) {
 	return out;
 }
 
+static uintptr_t module_base_address = MODULE_BASE_START;
+
 void * mmu_map_module(size_t size) {
-	printf("attempt to map module\n");
-	return NULL;
+	if (size & PAGE_LOW_MASK) {
+		size += (PAGE_LOW_MASK + 1) - (size & PAGE_LOW_MASK);
+	}
+
+	spin_lock(module_space_lock);
+	void * out = (void*)module_base_address;
+	for (size_t i = 0; i < size; i += PAGE_SIZE) {
+		union PML * p = mmu_get_page(module_base_address + i, MMU_GET_MAKE);
+		mmu_frame_allocate(p, MMU_FLAG_KERNEL | MMU_FLAG_WRITABLE);
+	}
+	module_base_address += size;
+	spin_unlock(module_space_lock);
+
+	return out;
 }
 
 void mmu_unmap_module(uintptr_t start_address, size_t size) {
@@ -837,5 +851,5 @@ void mmu_init(uintptr_t memaddr, size_t memsize, uintptr_t firstFreePage, uintpt
 	heapStart = (char*)KERNEL_HEAP_START + bytesOfFrames;
 
 	lowest_available = (firstFreePage + bytesOfFrames) - memaddr;
-
+	module_base_address = endOfRamDisk + MODULE_BASE_START;
 }
