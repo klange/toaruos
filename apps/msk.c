@@ -174,6 +174,11 @@ static int update_stores(int argc, char * argv[]) {
 		return usage(argc,argv);
 	}
 
+	const char * manifest_prefix = "";
+#ifdef __aarch64__
+	manifest_prefix = "aarch64.";
+#endif
+
 	needs_lock();
 
 	read_config();
@@ -207,7 +212,7 @@ static int update_stores(int argc, char * argv[]) {
 			}
 		} else {
 			char cmd[512];
-			sprintf(cmd, "fetch -vo /tmp/.msk_remote_%s %s/manifest", remote_name, remote_path);
+			sprintf(cmd, "fetch -vo /tmp/.msk_remote_%s %s/%smanifest", remote_name, remote_path, manifest_prefix);
 			fprintf(stderr, "Downloading remote manifest '%s'...\n", remote_name);
 			if (system(cmd)) {
 				fprintf(stderr, "Skipping unavailable remote manifest '%s' (%s).\n", remote_name, remote_path);

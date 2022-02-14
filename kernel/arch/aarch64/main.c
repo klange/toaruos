@@ -633,18 +633,22 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 	/* Start other cores here */
 	if (!rpi_tag ){
 		aarch64_smp_start();
-	} else {
-		extern void rpi_smp_init(void);
-		rpi_smp_init();
-	}
 
-	if (!rpi_tag) {
 		/* Install drivers that may need to sleep here */
 		virtio_input();
 
 		/* Set up serial input */
 		extern void pl011_start(void);
 		pl011_start();
+
+		extern int ac97_install(int argc, char * argv[]);
+		ac97_install(0,NULL);
+
+		extern int e1000_install(int argc, char * argv[]);
+		e1000_install(0,NULL);
+	} else {
+		extern void rpi_smp_init(void);
+		rpi_smp_init();
 	}
 
 	generic_main();
