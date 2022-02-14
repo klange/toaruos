@@ -115,10 +115,6 @@ long sys_sysfunc(long fn, char ** args) {
 		case TOARU_SYS_FUNC_INSMOD:
 			/* Linux has init_module as a system call? */
 			if (this_core->current_process->user != 0) return -EACCES;
-			#if defined(__aarch64__)
-			/* TODO: Most modules are not right for this and we are missing relocations */
-			return -EINVAL;
-			#endif
 			PTR_VALIDATE(args);
 			if (!args) return -EFAULT;
 			PTR_VALIDATE(args[0]);

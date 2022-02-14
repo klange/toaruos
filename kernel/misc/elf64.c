@@ -99,6 +99,11 @@ int elf_module(char ** args) {
 			memset((void*)sectionHeader->sh_addr, 0, sectionHeader->sh_size);
 		} else {
 			sectionHeader->sh_addr = (uintptr_t)(module_load_address + sectionHeader->sh_offset);
+			if (sectionHeader->sh_addralign &&
+				(sectionHeader->sh_addr & (sectionHeader->sh_addralign -1))) {
+				dprintf("mod: probably not aligned correctly: %#zx %ld\n",
+					sectionHeader->sh_addr, sectionHeader->sh_addralign);
+			}
 		}
 	}
 
@@ -125,8 +130,12 @@ int elf_module(char ** args) {
 			if (symTable[sym].st_shndx > 0 && symTable[sym].st_shndx < SHN_LOPROC) {
 				Elf64_Shdr * sh_hdr = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * symTable[sym].st_shndx);
 				symTable[sym].st_value = symTable[sym].st_value + sh_hdr->sh_addr;
+				dprintf("mod: bind local symbol '%s' to %#zx\n",
+					symTable[sym].st_name ? (symNames + symTable[sym].st_name) : "(unnamed)", symTable[sym].st_value);
 			} else if (symTable[sym].st_shndx == SHN_UNDEF) {
 				symTable[sym].st_value = (uintptr_t)ksym_lookup(symNames + symTable[sym].st_name);
+				dprintf("mod: bind kernel symbol '%s' to %#zx\n",
+					symTable[sym].st_name ? (symNames + symTable[sym].st_name) : "(unnamed)", symTable[sym].st_value);
 			}
 
 			if (symTable[sym].st_name && !strcmp(symNames + symTable[sym].st_name, "metadata")) {
@@ -156,6 +165,7 @@ int elf_module(char ** args) {
 		for (unsigned int rela = 0; rela < sectionHeader->sh_size / sizeof(Elf64_Rela); ++rela) {
 			uintptr_t target = table[rela].r_offset + targetSection->sh_addr;
 			switch (ELF64_R_TYPE(table[rela].r_info)) {
+#if defined(__x86_64__)
 				case R_X86_64_64:
 					*(uint64_t*)target = symbolTable[ELF64_R_SYM(table[rela].r_info)].st_value + table[rela].r_addend;
 					break;
@@ -165,12 +175,15 @@ int elf_module(char ** args) {
 				case R_X86_64_PC32:
 					*(uint32_t*)target = symbolTable[ELF64_R_SYM(table[rela].r_info)].st_value + table[rela].r_addend - target;
 					break;
+#endif
 				default:
+					dprintf("mod: unsupported relocation %ld found\n", ELF64_R_TYPE(table[rela].r_info));
 					error = EINVAL;
-					goto _unmap_module;
 			}
 		}
 	}
+
+	if (error) goto _unmap_module;
 
 	if (hashmap_has(_modules_table, moduleData->name)) {
 		error = EEXIST;
