@@ -46,9 +46,9 @@ void * malloc(size_t x) {
 	while (1);
 }
 
+#define MB(j) mbox[i++] = j
 int rpi_fb_init(void) {
 	int i = 0;
-#define MB(j) mbox[i++] = j
 
 	MB(35 * 4);
 	MB(MBOX_REQUEST);
@@ -120,6 +120,55 @@ int rpi_fb_init(void) {
 	}
 
 	return 1;
+}
+
+void rpi_cpu_freq(void) {
+	int max_rate = 0;
+	{
+		int i = 0;
+		MB(13 * 4);
+		MB(MBOX_REQUEST);
+
+		MB(0x30004);
+		MB(8);
+		MB(0);
+		MB(3); /* arm core */
+		int max_hz = i;
+		MB(0);
+
+		MB(0x30047);
+		MB(8);
+		MB(0);
+		MB(3); /* arm core */
+		int cur_hz = i;
+		MB(0);
+
+		MB(0);
+
+		mbox_call(8);
+
+		printf("bootstub: max clock rate is %u Hz, current is %u Hz\n", mbox[max_hz], mbox[cur_hz]);
+		max_rate = mbox[max_hz];
+	}
+
+	if (max_rate) {
+		int i = 0;
+		MB(9 * 4);
+		MB(MBOX_REQUEST);
+
+		MB(0x38002);
+		MB(12);
+		MB(0);
+		MB(3);
+		int rate = i;
+		MB(max_rate);
+		MB(0); /* do not skip turbo setting */
+
+		MB(0);
+
+		mbox_call(8);
+		printf("bootstub: clock rate set to %u Hz\n", mbox[rate]);
+	}
 }
 
 extern char _kernel_start[];
@@ -350,6 +399,8 @@ void kmain(uint32_t dtb_address, uint32_t base_addr) {
 		(size_t)((uintptr_t)&_kernel_end - (uintptr_t)&_kernel_start),
 		(uintptr_t)&_ramdisk_start,
 		(size_t)((uintptr_t)&_ramdisk_end - (uintptr_t)&_ramdisk_start));
+
+	rpi_cpu_freq();
 
 	bootstub_exit_el2();
 
