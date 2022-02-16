@@ -1,22 +1,7 @@
-/**
- * @file  kernel/misc/fbterm.c
- * @brief Crude framebuffer terminal for 32bpp framebuffer devices.
- *
- * Provides a simple graphical text renderer for early startup, with
- * support for simple escape sequences, on top of a framebuffer set up
- * with the `lfbvideo` module.
- *
- * @copyright
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2021 K. Lange
- */
-#include <kernel/printf.h>
+#include <stdint.h>
 #include <kernel/string.h>
-#include <kernel/args.h>
-#include <kernel/mmu.h>
+#include <kernel/printf.h>
 
-/* Whether to scroll or wrap when cursor reaches the bottom. */
 static int fbterm_scroll = 0;
 static void (*write_char)(int, int, int, uint32_t) = NULL;
 static int (*get_width)(void) = NULL;
@@ -38,7 +23,7 @@ extern uint32_t lfb_resolution_s;
 extern size_t lfb_memsize;
 
 /* Bitmap font details */
-#include "../../apps/terminal-font.h"
+#include "../../../../apps/terminal-font.h"
 #define char_height LARGE_FONT_CELL_HEIGHT
 #define char_width  LARGE_FONT_CELL_WIDTH
 
@@ -54,7 +39,6 @@ extern uint32_t lfb_resolution_s;
 static inline void set_point(int x, int y, uint32_t value) {
 	if (lfb_resolution_b == 32) {
 		((uint32_t*)lfb_vid_memory)[y * (lfb_resolution_s/4) + x] = value;
-		asm volatile ("dc cvac, %0\n" :: "r"((uintptr_t)&((uint32_t*)lfb_vid_memory)[y * (lfb_resolution_s/4) + x]) : "memory");
 	} else if (lfb_resolution_b == 24) {
 		lfb_vid_memory[y * lfb_resolution_s + x * 3 + 0] = (value >> 0) & 0xFF;
 		lfb_vid_memory[y * lfb_resolution_s + x * 3 + 1] = (value >> 8) & 0xFF;
@@ -147,27 +131,6 @@ static void fbterm_init_framebuffer(void) {
 	get_height = fb_get_height;
 	scroll_terminal = fb_scroll_terminal;
 	fbterm_draw_logo();
-}
-
-static void ega_write_char(int x, int y, int ch, uint32_t color) {
-	unsigned short att = 7 << 8;
-	unsigned short *where = (unsigned short*)(mmu_map_from_physical(0xB8000)) + (y * 80 + x);
-	*where = (ch & 0xFF) | att;
-}
-
-static int ega_get_width(void) { return 80; }
-static int ega_get_height(void) { return 25; }
-
-static void ega_scroll_terminal(void) {
-	memmove(mmu_map_from_physical(0xB8000), (char*)mmu_map_from_physical(0xB8000) + sizeof(unsigned short) * 80, sizeof(unsigned short) * (80 * 24));
-	memset((char*)mmu_map_from_physical(0xB8000) + sizeof(unsigned short) * (80 * 24), 0x00, 80 * sizeof(unsigned short));
-}
-
-static void fbterm_init_ega(void) {
-	write_char = ega_write_char;
-	get_width = ega_get_width;
-	get_height = ega_get_height;
-	scroll_terminal = ega_scroll_terminal;
 }
 
 static void cursor_update(void) {
@@ -296,29 +259,17 @@ size_t fbterm_write(size_t size, uint8_t *buffer) {
 	for (unsigned int i = 0; i < size; ++i) {
 		process_char(buffer[i]);
 	}
-
 	if (previous_writer) previous_writer(size,buffer);
 	return size;
 }
 
 void fbterm_initialize(void) {
-	if (lfb_resolution_x) {
-		if (args_present("fbterm-scroll")) {
-			fbterm_scroll = 1;
-		}
-		fbterm_init_framebuffer();
-	} else {
-#ifdef __x86_64__
-		fbterm_scroll = 1;
-		fbterm_init_ega();
-#else
+	if (!lfb_resolution_x) {
 		return;
-#endif
 	}
-
+	fbterm_init_framebuffer();
 	previous_writer = printf_output;
 	printf_output = fbterm_write;
-	console_set_output(fbterm_write);
-
-	dprintf("fbterm: Generic framebuffer text output enabled.\n");
+	printf("fbterm: Generic framebuffer text output enabled.\n");
 }
+

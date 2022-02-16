@@ -5,7 +5,7 @@ ARCH_KERNEL_CFLAGS = -z max-page-size=0x1000 -nostdlib -mgeneral-regs-only -mno-
 TARGET=aarch64-unknown-toaru
 
 all: system
-system: misaka-kernel ramdisk.igz bootstub | $(BUILD_KRK)
+system: misaka-kernel ramdisk.igz bootstub kernel8.img | $(BUILD_KRK)
 
 misaka-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o kernel/arch/aarch64/link.ld
 	${CC} -g -T kernel/arch/${ARCH}/link.ld ${KERNEL_CFLAGS} -o $@ ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
@@ -15,7 +15,17 @@ BOOTSTUB_OBJS += $(patsubst %.S,%.o,$(wildcard kernel/arch/aarch64/bootstub/*.S)
 BOOTSTUB_OBJS += kernel/misc/kprintf.o kernel/misc/string.o
 
 bootstub: ${BOOTSTUB_OBJS} kernel/arch/aarch64/bootstub/link.ld
-	${CC} -g -T kernel/arch/aarch64/bootstub/link.ld ${KERNEL_CFLAGS} -o $@ ${BOOTSTUB_OBJS} -lgcc
+	${CC} -g -T kernel/arch/aarch64/bootstub/link.ld ${KERNEL_CFLAGS} -o $@ ${BOOTSTUB_OBJS}
+
+
+RPI400_OBJS  = $(patsubst %.c,%.o,$(wildcard kernel/arch/aarch64/rpi400/*.c))
+RPI400_OBJS += $(patsubst %.S,%.o,$(wildcard kernel/arch/aarch64/rpi400/*.S))
+RPI400_OBJS += kernel/misc/kprintf.o kernel/misc/string.o
+
+kernel/arch/aarch64/rpi400/start.o: misaka-kernel ramdisk.igz
+kernel8.img: ${RPI400_OBJS} kernel/arch/aarch64/rpi400/link.ld
+	${CC} -g -T kernel/arch/aarch64/rpi400/link.ld ${KERNEL_CFLAGS} -o $@.elf ${RPI400_OBJS}
+	${OC} $@.elf -O binary $@
 
 QEMU = qemu-system-aarch64
 

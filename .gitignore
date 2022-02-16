@@ -33,3 +33,5 @@
 /boot/mbr.sys
 /bootstub
 /.arch
+/kernel8.img
+/kernel8.img.elf

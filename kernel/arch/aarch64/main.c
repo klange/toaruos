@@ -24,6 +24,7 @@
 #include <kernel/misc.h>
 #include <kernel/ptrace.h>
 #include <kernel/ksym.h>
+#include <kernel/gzip.h>
 
 #include <sys/ptrace.h>
 
@@ -82,7 +83,7 @@ size_t arch_cpu_mhz(void) {
 static void arch_clock_initialize() {
 
 	/* QEMU RTC */
-	void * clock_addr = mmu_map_from_physical(0x09010000);
+	//void * clock_addr = mmu_map_from_physical(0x09010000);
 
 	/* Get frequency of system timer */
 	uint64_t val;
@@ -90,7 +91,8 @@ static void arch_clock_initialize() {
 	sys_timer_freq = val / 10000;
 
 	/* Get boot time from RTC */
-	arch_boot_time = *(volatile uint32_t*)clock_addr;
+	//arch_boot_time = *(volatile uint32_t*)clock_addr;
+	arch_boot_time = 1644908027UL;
 
 	/* Get the "basis time" - the perf timestamp we got the wallclock time at */
 	basis_time = arch_perf_timer() / sys_timer_freq;
@@ -143,9 +145,11 @@ void relative_time(unsigned long seconds, unsigned long subseconds, unsigned lon
 static void set_tick(void) {
 	asm volatile (
 		"mrs x0, CNTFRQ_EL0\n"
-		"mov x1, 100\n"
+		"mov x1, 100\n" // without this, one second
 		"udiv x0, x0, x1\n"
 		"msr CNTV_TVAL_EL0, x0\n"
+		"mov x0, 1\n"
+		"msr CNTV_CTL_EL0, x0\n"
 		:::"x0","x1");
 }
 
@@ -155,11 +159,6 @@ void timer_start(void) {
 
 	/* Enable the local timer */
 	set_tick();
-
-	asm volatile (
-		"mov x0, 1\n"
-		"msr CNTV_CTL_EL0, x0\n"
-		:::"x0");
 
 	/* This is global, we only need to do this once... */
 	gic_regs[0] = 1;
@@ -253,13 +252,20 @@ static void dtb_locate_cmdline(void) {
 static void exception_handlers(void) {
 	extern char _exception_vector[];
 
-	const uintptr_t gic_base = (uintptr_t)mmu_map_from_physical(0x08000000); /* TODO get this from dtb */
-	gic_regs = (volatile uint32_t*)gic_base;
-
-	const uintptr_t gicc_base = (uintptr_t)mmu_map_from_physical(0x08010000);
-	gicc_regs = (volatile uint32_t*)gicc_base;
-
 	asm volatile("msr VBAR_EL1, %0" :: "r"(&_exception_vector));
+}
+
+#if 0
+#define GICD_BASE 0x08000000
+#define GICC_BASE 0x08010000
+#else
+#define GICD_BASE 0xff841000
+#define GICC_BASE 0xff842000
+#endif
+
+static void gic_map_regs(void) {
+	gic_regs = (volatile uint32_t*)mmu_map_mmio_region(GICD_BASE, 0x1000);
+	gicc_regs = (volatile uint32_t*)mmu_map_mmio_region(GICC_BASE, 0x2000);
 }
 
 void aarch64_sync_enter(struct regs * r) {
@@ -268,6 +274,20 @@ void aarch64_sync_enter(struct regs * r) {
 	asm volatile ("mrs %0, FAR_EL1" : "=r"(far));
 	asm volatile ("mrs %0, ELR_EL1" : "=r"(elr));
 	asm volatile ("mrs %0, SPSR_EL1" : "=r"(spsr));
+
+	#if 0
+	dprintf("EL0-EL1 sync: %d (%s) ESR: %#zx FAR: %#zx ELR: %#zx SPSR: %#zx\n",
+		this_core ? (this_core->current_process ? this_core->current_process->id : -1) : -1,
+		this_core ? (this_core->current_process ? this_core->current_process->name : "?") : "?",
+		esr, far, elr, spsr);
+	#endif
+
+	if (esr == 0x2000000) {
+		dprintf("Unknown exception: ESR: %#zx FAR: %#zx ELR: %#zx SPSR: %#zx\n", esr, far, elr, spsr);
+		dprintf("Instruction at ELR: 0x%08x\n", *(uint32_t*)elr);
+
+		while (1);
+	}
 
 	if (this_core->current_process) {
 		this_core->current_process->time_switch = arch_perf_timer();
@@ -301,6 +321,8 @@ void aarch64_sync_enter(struct regs * r) {
 
 	/* System call */
 	if ((esr >> 26) == 0x15) {
+		//dprintf("pid %d syscall %zd elr=%#zx\n",
+		//	this_core->current_process->id, r->x0, elr);
 		extern void syscall_handler(struct regs *);
 		syscall_handler(r);
 		return;
@@ -320,16 +342,20 @@ void aarch64_sync_enter(struct regs * r) {
 	asm volatile ("mrs %0, TPIDR_EL0" : "=r"(tpidr_el0));
 	dprintf("  TPIDR_EL0=%#zx\n", tpidr_el0);
 
+	while (1);
+
 	send_signal(this_core->current_process->id, SIGSEGV, 1);
 }
 
 char _ret_from_preempt_source[1];
 
-#define EOI(x) do { gicc_regs[4] = (x); } while (0)
+#define EOI(x) do { \
+	gicc_regs[4] = (x); \
+} while (0)
 static void aarch64_interrupt_dispatch(int from_wfi) {
 	uint32_t iar = gicc_regs[3];
 	uint32_t irq = iar & 0x3FF;
-	//uint32_t cpu = (iar >> 10) & 0x7;
+	uint32_t cpu = (iar >> 10) & 0x7;
 
 	switch (irq) {
 		case TIMER_IRQ:
@@ -400,7 +426,9 @@ void aarch64_fault_enter(struct regs * r) {
 	asm volatile ("mrs %0, SPSR_EL1" : "=r"(spsr));
 
 	dprintf("EL1-EL1 fault handler, core %d\n", this_core->cpu_id);
-	dprintf("In process %d (%s)\n", this_core->current_process->id, this_core->current_process->name);
+	if (this_core && this_core->current_process) {
+		dprintf("In process %d (%s)\n", this_core->current_process->id, this_core->current_process->name);
+	}
 	dprintf("ESR: %#zx FAR: %#zx ELR: %#zx SPSR: %#zx\n", esr, far, elr, spsr);
 	aarch64_regs(r);
 
@@ -411,6 +439,11 @@ void aarch64_fault_enter(struct regs * r) {
 	extern void aarch64_safe_dump_traceback(uintptr_t elr, struct regs * r);
 	aarch64_safe_dump_traceback(elr, r);
 
+	while (1);
+}
+
+void aarch64_sp0_fault_enter(struct regs * r) {
+	dprintf("EL1-EL1 sp0 entry?\n");
 	while (1);
 }
 
@@ -437,6 +470,7 @@ void arch_pause(void) {
 	 * the interrupt function won't be called, so we'll need to change
 	 * it once we start getting actual hardware interrupts. */
 	asm volatile ("wfi");
+
 	aarch64_interrupt_dispatch(1);
 }
 
@@ -476,6 +510,17 @@ static void symbols_install(void) {
 	}
 }
 
+struct rpitag {
+	uint32_t phys_addr;
+	uint32_t x;
+	uint32_t y;
+	uint32_t s;
+	uint32_t b;
+	uint32_t size;
+	uint32_t ramdisk_start;
+	uint32_t ramdisk_end;
+};
+
 /**
  * Main kernel C entrypoint for qemu's -machine virt
  *
@@ -485,16 +530,36 @@ static void symbols_install(void) {
  * at -2GiB, and there's some other mappings so that
  * a bit of RAM is 1:1.
  */
-int kmain(uintptr_t dtb_base, uintptr_t phys_base) {
-	early_log_initialize();
-
-	console_set_output(_early_log_write);
+int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 
 	extern uintptr_t aarch64_kernel_phys_base;
 	aarch64_kernel_phys_base = phys_base;
 
 	extern uintptr_t aarch64_dtb_phys;
 	aarch64_dtb_phys = dtb_base;
+
+	if (rpi_tag) {
+		extern uint8_t * lfb_vid_memory;
+		extern uint16_t lfb_resolution_x;
+		extern uint16_t lfb_resolution_y;
+		extern uint16_t lfb_resolution_b;
+		extern uint32_t lfb_resolution_s;
+		extern size_t lfb_memsize;
+
+		struct rpitag * tag = (struct rpitag*)rpi_tag;
+
+		lfb_vid_memory = mmu_map_from_physical(tag->phys_addr);
+		lfb_resolution_x = tag->x;
+		lfb_resolution_y = tag->y;
+		lfb_resolution_s = tag->s;
+		lfb_resolution_b = tag->b;
+		lfb_memsize = tag->size;
+
+		fbterm_initialize();
+	} else {
+		early_log_initialize();
+		console_set_output(_early_log_write);
+	}
 
 	dprintf("%s %d.%d.%d-%s %s %s\n",
 		__kernel_name,
@@ -520,21 +585,61 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base) {
 	/* Load ramdisk over fw-cfg. */
 	uintptr_t ramdisk_phys_base = 0;
 	size_t ramdisk_size = 0;
-	fwcfg_load_initrd(&ramdisk_phys_base, &ramdisk_size);
+	if (rpi_tag) {
+		struct rpitag * tag = (struct rpitag*)rpi_tag;
+		extern char end[];
+		dprintf("rpi: compressed ramdisk is at %#x \n", tag->ramdisk_start);
+		dprintf("rpi: end of ramdisk is at %#x \n", tag->ramdisk_end);
+		dprintf("rpi: uncompress ramdisk to %#zx \n", (uintptr_t)&end);
+		uint32_t size;
+		memcpy(&size, (void*)(uintptr_t)(tag->ramdisk_end - sizeof(uint32_t)), sizeof(uint32_t));
+		dprintf("rpi: size of uncompressed ramdisk is %#x\n", size);
 
-	/* Probe DTB for memory layout. */
-	extern char end[];
-	size_t memaddr, memsize;
-	dtb_memory_size(&memaddr, &memsize);
+		gzip_inputPtr  = (uint8_t*)(uintptr_t)tag->ramdisk_start;
+		gzip_outputPtr = (uint8_t*)&end;
 
-	/* Initialize the MMU based on the memory we got from dtb */
-	mmu_init(
-		memaddr, memsize,
-		0x40100000 /* Should be end of DTB, but we're really just guessing */,
-		(uintptr_t)&end + ramdisk_size - 0xffffffff80000000UL);
+		if (gzip_decompress()) {
+			dprintf("rpi: gzip failure, not mounting ramdisk\n");
+			while (1);
+		}
 
-	/* Find the cmdline */
-	dtb_locate_cmdline();
+		dprintf("rpi: ramdisk decompressed\n");
+
+		for (size_t i = 0; i < size; i += 64) {
+			asm volatile ("dc cvac, %0\n" :: "r"((uintptr_t)&end + i) : "memory");
+		}
+
+		ramdisk_phys_base = mmu_map_to_physical(NULL, (uintptr_t)&end);
+		ramdisk_size = size;
+
+		dprintf("rpi: ramdisk_phys_base set to %#zx\n", ramdisk_phys_base);
+
+		mmu_init(0, 512 * 1024 * 1024,
+			0x80000,
+			(uintptr_t)&end + ramdisk_size - 0xffffffff80000000UL);
+
+		dprintf("rpi: mmu reinitialized\n");
+
+		_arch_args = "vid=preset start=live-session root=/dev/ram0";
+
+	} else {
+		fwcfg_load_initrd(&ramdisk_phys_base, &ramdisk_size);
+		/* Probe DTB for memory layout. */
+		extern char end[];
+		size_t memaddr, memsize;
+		dtb_memory_size(&memaddr, &memsize);
+
+		/* Initialize the MMU based on the memory we got from dtb */
+		mmu_init(
+			memaddr, memsize,
+			0x40100000 /* Should be end of DTB, but we're really just guessing */,
+			(uintptr_t)&end + ramdisk_size - 0xffffffff80000000UL);
+
+		/* Find the cmdline */
+		dtb_locate_cmdline();
+	}
+
+	gic_map_regs();
 
 	/* Set up all the other arch-specific stuff here */
 	fpu_enable();
@@ -545,7 +650,10 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base) {
 
 	/* Initialize the framebuffer and fbterm here */
 	framebuffer_initialize();
-	fbterm_initialize();
+
+	if (!rpi_tag) {
+		fbterm_initialize();
+	}
 
 	/* Ramdisk */
 	ramdisk_mount(ramdisk_phys_base, ramdisk_size);
@@ -554,17 +662,20 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base) {
 	aarch64_processor_data();
 
 	/* Start other cores here */
-	aarch64_smp_start();
+	//aarch64_smp_start();
+	processor_count = 1;
 
 	/* Set up the system virtual timer to produce interrupts for userspace scheduling */
 	timer_start();
 
+	#if 0
 	/* Install drivers that may need to sleep here */
 	virtio_input();
 
 	/* Set up serial input */
 	extern void pl011_start(void);
 	pl011_start();
+	#endif
 
 	generic_main();
 

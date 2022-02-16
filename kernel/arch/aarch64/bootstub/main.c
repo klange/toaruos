@@ -437,8 +437,8 @@ static void bootstub_start_kernel(Elf64_Header * header) {
 	printf("bootstub: Jump to kernel entry point at %zx\n",
 		header->e_entry);
 
-	void (*entry)(uintptr_t,uintptr_t) = (void(*)(uintptr_t,uintptr_t))header->e_entry;
-	entry(QEMU_DTB_BASE, KERNEL_PHYS_BASE);
+	void (*entry)(uintptr_t,uintptr_t,uintptr_t) = (void(*)(uintptr_t,uintptr_t,uintptr_t))header->e_entry;
+	entry(QEMU_DTB_BASE, KERNEL_PHYS_BASE, 0);
 }
 
 int kmain(void) {
