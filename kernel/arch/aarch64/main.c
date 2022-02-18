@@ -255,17 +255,14 @@ static void exception_handlers(void) {
 	asm volatile("msr VBAR_EL1, %0" :: "r"(&_exception_vector));
 }
 
-#if 0
-#define GICD_BASE 0x08000000
-#define GICC_BASE 0x08010000
-#else
-#define GICD_BASE 0xff841000
-#define GICC_BASE 0xff842000
-#endif
-
-static void gic_map_regs(void) {
-	gic_regs = (volatile uint32_t*)mmu_map_mmio_region(GICD_BASE, 0x1000);
-	gicc_regs = (volatile uint32_t*)mmu_map_mmio_region(GICC_BASE, 0x2000);
+static void gic_map_regs(uintptr_t rpi_tag) {
+	if (rpi_tag) {
+		gic_regs = (volatile uint32_t*)mmu_map_mmio_region(0xff841000, 0x1000);
+		gicc_regs = (volatile uint32_t*)mmu_map_mmio_region(0xff842000, 0x2000);
+	} else {
+		gic_regs = (volatile uint32_t*)mmu_map_mmio_region(0x08000000, 0x1000);
+		gicc_regs = (volatile uint32_t*)mmu_map_mmio_region(0x08010000, 0x2000);
+	}
 }
 
 void aarch64_sync_enter(struct regs * r) {
@@ -620,9 +617,17 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 
 		dprintf("rpi: mmu reinitialized\n");
 
-		_arch_args = "vid=preset start=live-session root=/dev/ram0";
+		/**
+		 * TODO there's a mailbox command for this, can we try that?
+		 *      I'm not sure why I've been unable to get it out of a 'chosen' tag...
+		 */
+		_arch_args = "vid=preset start=live-session migrate root=/dev/ram0";
 
 	} else {
+		/*
+		 * TODO virt shim should load the ramdisk for us, so we can use the same code
+		 *      as we have for the RPi above and not have to use fwcfg to load it...
+		 */
 		fwcfg_load_initrd(&ramdisk_phys_base, &ramdisk_size);
 		/* Probe DTB for memory layout. */
 		extern char end[];
@@ -639,7 +644,7 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 		dtb_locate_cmdline();
 	}
 
-	gic_map_regs();
+	gic_map_regs(rpi_tag);
 
 	/* Set up all the other arch-specific stuff here */
 	fpu_enable();
@@ -661,21 +666,25 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 	/* Load MIDR */
 	aarch64_processor_data();
 
-	/* Start other cores here */
-	//aarch64_smp_start();
-	processor_count = 1;
-
 	/* Set up the system virtual timer to produce interrupts for userspace scheduling */
 	timer_start();
 
-	#if 0
-	/* Install drivers that may need to sleep here */
-	virtio_input();
+	/* Start other cores here */
+	if (!rpi_tag ){
+		aarch64_smp_start();
+	} else {
+		extern void rpi_smp_init(void);
+		rpi_smp_init();
+	}
 
-	/* Set up serial input */
-	extern void pl011_start(void);
-	pl011_start();
-	#endif
+	if (!rpi_tag) {
+		/* Install drivers that may need to sleep here */
+		virtio_input();
+
+		/* Set up serial input */
+		extern void pl011_start(void);
+		pl011_start();
+	}
 
 	generic_main();
 

@@ -12,6 +12,7 @@
 #include <kernel/string.h>
 #include <kernel/printf.h>
 #include <kernel/mmu.h>
+#include <kernel/time.h>
 
 #include <sys/ptrace.h>
 
@@ -27,7 +28,7 @@ static int method = 0;
 
 static volatile uint32_t _smp_mutex = 0;
 
-volatile uintptr_t * aarch64_jmp_target = 0;
+volatile uintptr_t aarch64_jmp_target = 0;
 volatile uint64_t  aarch64_sctlr      = 0;
 volatile uint64_t  aarch64_tcr        = 0;
 volatile uint64_t  aarch64_mair       = 0;
@@ -37,6 +38,7 @@ volatile uintptr_t aarch64_ttbr1      = 0;
 volatile uintptr_t aarch64_stack      = 0;
 
 void ap_start(uint64_t core_id) {
+
 	dprintf("smp: core %zu is online\n", core_id);
 
 	extern void arch_set_core_base(uintptr_t base);
@@ -61,7 +63,6 @@ void ap_start(uint64_t core_id) {
 
 	switch_next();
 }
-
 
 void smp_bootstrap(void) {
 	asm volatile (
@@ -98,6 +99,7 @@ void smp_bootstrap(void) {
 		"mov x0, x3\n"
 		/* Jump to C entrypoint */
 		"br x1\n");
+	__builtin_unreachable();
 }
 
 static void start_cpu(uint32_t * node) {
@@ -108,7 +110,7 @@ static void start_cpu(uint32_t * node) {
 
 	if (method == 0x637668) {
 		_smp_mutex = 0;
-		aarch64_stack = (uintptr_t)sbrk(4096);
+		aarch64_stack = (uintptr_t)sbrk(4096) + 4096;
 		uint64_t x0 = cpu_on;
 		uint64_t x1 = num;
 		uint64_t x2 = mmu_map_to_physical(NULL, (uintptr_t)&smp_bootstrap);
@@ -161,7 +163,7 @@ void aarch64_smp_start(void) {
 		return;
 	}
 
-	aarch64_jmp_target = (void*)(uintptr_t)ap_start;
+	aarch64_jmp_target = (uintptr_t)ap_start;
 	asm volatile ("mrs %0, MAIR_EL1"  : "=r"(aarch64_mair));
 	asm volatile ("mrs %0, TCR_EL1"   : "=r"(aarch64_tcr));
 	asm volatile ("mrs %0, SCTLR_EL1" : "=r"(aarch64_sctlr));
@@ -183,4 +185,77 @@ void aarch64_smp_start(void) {
 	);
 
 	dtb_callback_direct_children(cpus, start_cpu);
+}
+
+
+void rpi_smp_exit_el2(void) {
+	asm volatile (
+		"ldr x0, =0x1004\n"
+		"mrs x1, SCTLR_EL2\n"
+		"orr x1, x1, x0\n"
+		"msr SCTLR_EL2, x1\n"
+		"ldr x0, =0x30d01804\n"
+		"msr SCTLR_EL1, x0\n"
+		"ldr x0, =0x80000000\n"
+		"msr HCR_EL2, x0\n"
+		"ldr x0, =0x3c5\n"
+		"msr SPSR_EL2, x0\n"
+		"adr x0, smp_bootstrap\n"
+		"msr ELR_EL2, x0\n"
+		"mov x0, x6\n"
+		"eret\n"
+		::: "x0", "x1");
+	__builtin_unreachable();
+}
+
+void rpi_smp_init(void) {
+	aarch64_jmp_target = (uintptr_t)ap_start;
+	asm volatile ("mrs %0, MAIR_EL1"  : "=r"(aarch64_mair));
+	asm volatile ("mrs %0, TCR_EL1"   : "=r"(aarch64_tcr));
+	asm volatile ("mrs %0, SCTLR_EL1" : "=r"(aarch64_sctlr));
+	asm volatile ("mrs %0, VBAR_EL1"  : "=r"(aarch64_vbar));
+	startup_ttbr0[0][0].raw = mmu_map_to_physical(NULL, (uintptr_t)&startup_ttbr0[1]) | (0x3) | (1 << 10);
+	for (long i = 0; i < 512; ++i) {
+		startup_ttbr0[1][i].raw = (i << 30) | (2 << 2) | 1 | (1 << 10);
+	}
+	aarch64_ttbr0 = mmu_map_to_physical(NULL, (uintptr_t)&startup_ttbr0[0]);
+	aarch64_ttbr1 = mmu_map_to_physical(NULL, (uintptr_t)mmu_get_kernel_directory());
+	asm volatile (
+		"dsb ishst\n"
+		"tlbi vmalle1is\n"
+		"dsb ish\n"
+		"isb\n"
+	);
+
+	asm volatile ("dc cvac, %0\n" :: "r"(&aarch64_jmp_target));
+	asm volatile ("dc cvac, %0\n" :: "r"(&aarch64_mair));
+	asm volatile ("dc cvac, %0\n" :: "r"(&aarch64_tcr));
+	asm volatile ("dc cvac, %0\n" :: "r"(&aarch64_sctlr));
+	asm volatile ("dc cvac, %0\n" :: "r"(&aarch64_vbar));
+	asm volatile ("dc cvac, %0\n" :: "r"(&aarch64_ttbr0));
+	asm volatile ("dc cvac, %0\n" :: "r"(&aarch64_ttbr1));
+	asm volatile ("dc cvac, %0\n" :: "r"(&startup_ttbr0[0]));
+	asm volatile ("dc cvac, %0\n" :: "r"(&startup_ttbr0[1]));
+
+	uintptr_t spinners[] = {0xd8, 0xe0, 0xe8, 0xf0};
+	uintptr_t low_mem = (uintptr_t)mmu_map_mmio_region(0, 0x1000);
+	union PML * p = mmu_get_page(low_mem, 0);
+	p->bits.page = 0;
+	asm volatile ("dsb ishst\ntlbi vmalle1is\ndsb ish\nisb" ::: "memory");
+
+	dprintf("smp: zero page mapped at %#zx, page is %#zx\n",
+		low_mem, mmu_map_to_physical(mmu_get_kernel_directory(), low_mem));
+
+	for (int i = 1; i < 4; ++i) {
+		_smp_mutex = 0;
+		aarch64_stack = (uintptr_t)sbrk(4096) + 4096;
+		asm volatile ("dc cvac, %0\n" :: "r"(&aarch64_stack));
+		uintptr_t target = mmu_map_to_physical(NULL, (uintptr_t)&rpi_smp_exit_el2);
+		*(volatile uintptr_t*)(low_mem + spinners[i]) = target;
+		asm volatile ("dmb sy\nisb\ndc cvac, %0\nisb\nsev" :: "r"(low_mem) : "memory");
+
+		while (_smp_mutex == 0);
+
+		processor_count = i + 1;
+	}
 }
