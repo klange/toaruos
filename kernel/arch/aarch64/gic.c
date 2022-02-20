@@ -13,6 +13,7 @@
 #include <kernel/pci.h>
 #include <kernel/process.h>
 #include <kernel/spinlock.h>
+#include <kernel/mmu.h>
 
 #include <kernel/arch/aarch64/dtb.h>
 #include <kernel/arch/aarch64/gic.h>
@@ -20,6 +21,27 @@
 struct irq_callback * irq_callbacks[256] = {0};
 
 static spin_lock_t irq_acquire;
+
+volatile uint32_t * gic_regs = NULL;
+volatile uint32_t * gicc_regs = NULL;
+
+void gic_map_regs(uintptr_t rpi_tag) {
+	if (rpi_tag) {
+		gic_regs = (volatile uint32_t*)mmu_map_mmio_region(0xff841000, 0x1000);
+		gicc_regs = (volatile uint32_t*)mmu_map_mmio_region(0xff842000, 0x2000);
+	} else {
+		gic_regs = (volatile uint32_t*)mmu_map_mmio_region(0x08000000, 0x1000);
+		gicc_regs = (volatile uint32_t*)mmu_map_mmio_region(0x08010000, 0x2000);
+	}
+}
+
+void gic_send_sgi(uint8_t intid, int target) {
+	uint64_t tlf = ((target == -1) ? 1UL : 0UL) << 24;
+	uint64_t sii = intid & 0xF;
+	uint64_t ctl = ((target == -1) ? 0UL : (1UL << target)) << 16;
+
+	gic_regs[0x3c0] = (tlf|sii|ctl);
+}
 
 void gic_assign_interrupt(int irq, int (*callback)(process_t*,int,void*), void * data) {
 	spin_lock(irq_acquire);

@@ -39,9 +39,6 @@ extern void fwcfg_load_initrd(uintptr_t * ramdisk_phys_base, size_t * ramdisk_si
 extern void virtio_input(void);
 extern void aarch64_smp_start(void);
 
-static volatile uint32_t * gic_regs;
-static volatile uint32_t * gicc_regs;
-
 /* ARM says the system clock tick rate is generally in
  * the range of 1-50MHz. Since we throw around integer
  * MHz ratings that's not great, so let's give it a few
@@ -233,10 +230,6 @@ void arch_set_kernel_stack(uintptr_t stack) {
 	this_core->sp_el1 = stack;
 }
 
-void arch_wakeup_others(void) {
-	/* wakeup */
-}
-
 char * _arch_args = NULL;
 static void dtb_locate_cmdline(void) {
 	uint32_t * chosen = dtb_find_node("chosen");
@@ -255,16 +248,6 @@ static void exception_handlers(void) {
 	asm volatile("msr VBAR_EL1, %0" :: "r"(&_exception_vector));
 }
 
-static void gic_map_regs(uintptr_t rpi_tag) {
-	if (rpi_tag) {
-		gic_regs = (volatile uint32_t*)mmu_map_mmio_region(0xff841000, 0x1000);
-		gicc_regs = (volatile uint32_t*)mmu_map_mmio_region(0xff842000, 0x2000);
-	} else {
-		gic_regs = (volatile uint32_t*)mmu_map_mmio_region(0x08000000, 0x1000);
-		gicc_regs = (volatile uint32_t*)mmu_map_mmio_region(0x08010000, 0x2000);
-	}
-}
-
 void aarch64_sync_enter(struct regs * r) {
 	uint64_t esr, far, elr, spsr;
 	asm volatile ("mrs %0, ESR_EL1" : "=r"(esr));
@@ -280,10 +263,11 @@ void aarch64_sync_enter(struct regs * r) {
 	#endif
 
 	if (esr == 0x2000000) {
+		arch_fatal_prepare();
 		dprintf("Unknown exception: ESR: %#zx FAR: %#zx ELR: %#zx SPSR: %#zx\n", esr, far, elr, spsr);
 		dprintf("Instruction at ELR: 0x%08x\n", *(uint32_t*)elr);
-
-		while (1);
+		arch_dump_traceback();
+		arch_fatal();
 	}
 
 	if (this_core->current_process) {
@@ -344,6 +328,12 @@ void aarch64_sync_enter(struct regs * r) {
 	send_signal(this_core->current_process->id, SIGSEGV, 1);
 }
 
+static void spin(void) {
+	while (1) {
+		asm volatile ("wfi");
+	}
+}
+
 char _ret_from_preempt_source[1];
 
 #define EOI(x) do { \
@@ -366,6 +356,16 @@ static void aarch64_interrupt_dispatch(int from_wfi) {
 			}
 			return;
 
+		case 1:
+			EOI(iar);
+			break;
+
+		/* Arbitrarily chosen SGI for panic signal from another core */
+		case 2:
+			spin();
+			break;
+
+		/* This should probably be part of the default case... */
 		case 32:
 		case 33:
 		case 34:
@@ -422,6 +422,8 @@ void aarch64_fault_enter(struct regs * r) {
 	asm volatile ("mrs %0, ELR_EL1" : "=r"(elr));
 	asm volatile ("mrs %0, SPSR_EL1" : "=r"(spsr));
 
+	arch_fatal_prepare();
+
 	dprintf("EL1-EL1 fault handler, core %d\n", this_core->cpu_id);
 	if (this_core && this_core->current_process) {
 		dprintf("In process %d (%s)\n", this_core->current_process->id, this_core->current_process->name);
@@ -436,12 +438,13 @@ void aarch64_fault_enter(struct regs * r) {
 	extern void aarch64_safe_dump_traceback(uintptr_t elr, struct regs * r);
 	aarch64_safe_dump_traceback(elr, r);
 
-	while (1);
+	arch_fatal();
 }
 
 void aarch64_sp0_fault_enter(struct regs * r) {
+	arch_fatal_prepare();
 	dprintf("EL1-EL1 sp0 entry?\n");
-	while (1);
+	arch_fatal();
 }
 
 /**

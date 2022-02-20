@@ -13,6 +13,7 @@
 #include <kernel/printf.h>
 
 #include <kernel/arch/aarch64/regs.h>
+#include <kernel/arch/aarch64/gic.h>
 
 /**
  * @brief Enter userspace.
@@ -162,7 +163,9 @@ void arch_save_floating(process_t * proc) {
  * @brief Prepare for a fatal event by stopping all other cores.
  */
 void arch_fatal_prepare(void) {
-	/* TODO Stop other cores */
+	if (processor_count > 1) {
+		gic_send_sgi(2,-1);
+	}
 }
 
 /**
@@ -171,10 +174,21 @@ void arch_fatal_prepare(void) {
  */
 void arch_fatal(void) {
 	arch_fatal_prepare();
-	printf("-- fatal panic\n");
-	/* TODO */
-	while (1) {}
+	while (1) {
+		asm volatile ("wfi");
+	}
 }
+
+void arch_wakeup_others(void) {
+	#if 1
+	for (int i = 0; i < processor_count; i++) {
+		if (i == this_core->cpu_id) continue;
+		if (!processor_local_data[i].current_process || (processor_local_data[i].current_process != processor_local_data[i].kernel_idle_task)) continue;
+		gic_send_sgi(1,i);
+	}
+	#endif
+}
+
 
 /**
  * @brief Reboot the computer.
