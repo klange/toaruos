@@ -633,6 +633,7 @@ void mmu_set_directory(union PML * new_pml) {
 	asm volatile (
 		"msr TTBR0_EL1,%0\n"
 		"msr TTBR1_EL1,%0\n"
+		"isb sy\n"
 		"dsb ishst\n"
 		"tlbi vmalle1is\n"
 		"dsb ish\n"
