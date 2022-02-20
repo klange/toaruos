@@ -116,7 +116,12 @@ void arch_restore_floating(process_t * proc) {
 		"ldr q29, [%0, #(29 * 16)]\n"
 		"ldr q30, [%0, #(30 * 16)]\n"
 		"ldr q31, [%0, #(31 * 16)]\n"
-		::"r"(&proc->thread.fp_regs));
+		"msr fpcr, %1\n"
+		"msr fpsr, %2\n"
+		::"r"(&proc->thread.fp_regs),
+		"r"(proc->thread.context.saved[12]),
+		"r"(proc->thread.context.saved[13])
+		);
 }
 
 /**
@@ -124,39 +129,45 @@ void arch_restore_floating(process_t * proc) {
  */
 void arch_save_floating(process_t * proc) {
 	asm volatile (
-		"str q0 , [%0, #(0 * 16)]\n"
-		"str q1 , [%0, #(1 * 16)]\n"
-		"str q2 , [%0, #(2 * 16)]\n"
-		"str q3 , [%0, #(3 * 16)]\n"
-		"str q4 , [%0, #(4 * 16)]\n"
-		"str q5 , [%0, #(5 * 16)]\n"
-		"str q6 , [%0, #(6 * 16)]\n"
-		"str q7 , [%0, #(7 * 16)]\n"
-		"str q8 , [%0, #(8 * 16)]\n"
-		"str q9 , [%0, #(9 * 16)]\n"
-		"str q10, [%0, #(10 * 16)]\n"
-		"str q11, [%0, #(11 * 16)]\n"
-		"str q12, [%0, #(12 * 16)]\n"
-		"str q13, [%0, #(13 * 16)]\n"
-		"str q14, [%0, #(14 * 16)]\n"
-		"str q15, [%0, #(15 * 16)]\n"
-		"str q16, [%0, #(16 * 16)]\n"
-		"str q17, [%0, #(17 * 16)]\n"
-		"str q18, [%0, #(18 * 16)]\n"
-		"str q19, [%0, #(19 * 16)]\n"
-		"str q20, [%0, #(20 * 16)]\n"
-		"str q21, [%0, #(21 * 16)]\n"
-		"str q22, [%0, #(22 * 16)]\n"
-		"str q23, [%0, #(23 * 16)]\n"
-		"str q24, [%0, #(24 * 16)]\n"
-		"str q25, [%0, #(25 * 16)]\n"
-		"str q26, [%0, #(26 * 16)]\n"
-		"str q27, [%0, #(27 * 16)]\n"
-		"str q28, [%0, #(28 * 16)]\n"
-		"str q29, [%0, #(29 * 16)]\n"
-		"str q30, [%0, #(30 * 16)]\n"
-		"str q31, [%0, #(31 * 16)]\n"
-		::"r"(&proc->thread.fp_regs):"memory");
+		"str q0 , [%2, #(0 * 16)]\n"
+		"str q1 , [%2, #(1 * 16)]\n"
+		"str q2 , [%2, #(2 * 16)]\n"
+		"str q3 , [%2, #(3 * 16)]\n"
+		"str q4 , [%2, #(4 * 16)]\n"
+		"str q5 , [%2, #(5 * 16)]\n"
+		"str q6 , [%2, #(6 * 16)]\n"
+		"str q7 , [%2, #(7 * 16)]\n"
+		"str q8 , [%2, #(8 * 16)]\n"
+		"str q9 , [%2, #(9 * 16)]\n"
+		"str q10, [%2, #(10 * 16)]\n"
+		"str q11, [%2, #(11 * 16)]\n"
+		"str q12, [%2, #(12 * 16)]\n"
+		"str q13, [%2, #(13 * 16)]\n"
+		"str q14, [%2, #(14 * 16)]\n"
+		"str q15, [%2, #(15 * 16)]\n"
+		"str q16, [%2, #(16 * 16)]\n"
+		"str q17, [%2, #(17 * 16)]\n"
+		"str q18, [%2, #(18 * 16)]\n"
+		"str q19, [%2, #(19 * 16)]\n"
+		"str q20, [%2, #(20 * 16)]\n"
+		"str q21, [%2, #(21 * 16)]\n"
+		"str q22, [%2, #(22 * 16)]\n"
+		"str q23, [%2, #(23 * 16)]\n"
+		"str q24, [%2, #(24 * 16)]\n"
+		"str q25, [%2, #(25 * 16)]\n"
+		"str q26, [%2, #(26 * 16)]\n"
+		"str q27, [%2, #(27 * 16)]\n"
+		"str q28, [%2, #(28 * 16)]\n"
+		"str q29, [%2, #(29 * 16)]\n"
+		"str q30, [%2, #(30 * 16)]\n"
+		"str q31, [%2, #(31 * 16)]\n"
+		"mrs %0, fpcr\n"
+		"mrs %1, fpsr\n"
+		:
+		"=r"(proc->thread.context.saved[12]),
+		"=r"(proc->thread.context.saved[13])
+		:"r"(&proc->thread.fp_regs)
+		:"memory");
 }
 
 /**
@@ -231,6 +242,7 @@ void aarch64_context(process_t * proc) {
 	printf(" X25=0x%016zx     X26=%016zx\n", proc->thread.context.saved[6], proc->thread.context.saved[7]);
 	printf(" X27=0x%016zx     X28=%016zx\n", proc->thread.context.saved[8], proc->thread.context.saved[9]);
 	printf(" ELR=0x%016zx    SPSR=%016zx\n", proc->thread.context.saved[10], proc->thread.context.saved[11]);
+	printf("fpcr=0x%016zx    fpsr=%016zx\n", proc->thread.context.saved[12], proc->thread.context.saved[13]);
 }
 
 /* Syscall parameter accessors */
