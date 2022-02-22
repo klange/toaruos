@@ -467,6 +467,8 @@ void fpu_enable(void) {
  */
 void arch_pause(void) {
 
+	set_tick();
+
 	/* XXX This actually works even if we're masking interrupts, but
 	 * the interrupt function won't be called, so we'll need to change
 	 * it once we start getting actual hardware interrupts. */
