@@ -358,6 +358,7 @@ void aarch64_interrupt_dispatch(int from_wfi) {
 
 		case 1:
 			EOI(iar);
+			if (from_wfi) switch_next();
 			break;
 
 		/* Arbitrarily chosen SGI for panic signal from another core */
