@@ -332,7 +332,9 @@ static void _kidle(void) {
 static void _kburn(void) {
 	while (1) {
 		arch_pause();
+#ifndef __aarch64__
 		switch_next();
+#endif
 	}
 }
 
