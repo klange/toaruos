@@ -62,7 +62,7 @@ KRK_MODS += $(patsubst kuroko/modules/%,$(BASE)/lib/kuroko/%,$(wildcard kuroko/m
 KRK_MODS_X = $(patsubst lib/kuroko/%.c,$(BASE)/lib/kuroko/%.so,$(wildcard lib/kuroko/*.c))
 KRK_MODS_Y = $(patsubst lib/kuroko/%.c,.make/%.kmak,$(wildcard lib/kuroko/*.c))
 
-CFLAGS= -O2 -std=gnu11 -I. -Iapps -fplan9-extensions -Wall -Wextra -Wno-unused-parameter
+CFLAGS= -O2 -std=gnu11 -I. -Iapps -fplan9-extensions -Wall -Wextra -Wno-unused-parameter ${ARCH_USER_CFLAGS}
 
 LIBC_OBJS  = $(patsubst %.c,%.o,$(wildcard libc/*.c))
 LIBC_OBJS += $(patsubst %.c,%.o,$(wildcard libc/*/*.c))
@@ -84,10 +84,10 @@ ramdisk.igz: $(wildcard $(BASE)/* $(BASE)/*/* $(BASE)/*/*/* $(BASE)/*/*/*/* $(BA
 
 KRK_SRC = $(sort $(wildcard kuroko/src/*.c))
 $(BASE)/bin/kuroko: $(KRK_SRC) $(CRTS)  lib/rline.c | $(LC)
-	$(CC) -O2 -g -o $@ -Wl,--export-dynamic -Ikuroko/src $(KRK_SRC) lib/rline.c
+	$(CC) $(CFLAGS) -o $@ -Wl,--export-dynamic -Ikuroko/src $(KRK_SRC) lib/rline.c
 
 $(BASE)/lib/kuroko/%.so: kuroko/src/modules/module_%.c| dirs $(LC)
-	$(CC) -O2 -shared -fPIC -Ikuroko/src -o $@ $<
+	$(CC) $(CFLAGS) -shared -fPIC -Ikuroko/src -o $@ $<
 
 $(BASE)/lib/kuroko/%.krk: kuroko/modules/%.krk | dirs
 	mkdir -p $(dir $@)

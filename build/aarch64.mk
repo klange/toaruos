@@ -1,6 +1,7 @@
 ARCH=aarch64
 
 ARCH_KERNEL_CFLAGS = -z max-page-size=0x1000 -nostdlib -mgeneral-regs-only -mno-outline-atomics -ffixed-x18
+ARCH_USER_CFLAGS = -Wno-psabi
 
 TARGET=aarch64-unknown-toaru
 

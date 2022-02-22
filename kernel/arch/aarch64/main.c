@@ -342,7 +342,8 @@ char _ret_from_preempt_source[1];
 void aarch64_interrupt_dispatch(int from_wfi) {
 	uint32_t iar = gicc_regs[3];
 	uint32_t irq = iar & 0x3FF;
-	uint32_t cpu = (iar >> 10) & 0x7;
+	/* Currently we aren't using the CPU value and I'm not sure we have any use for it, we know who we are? */
+	//uint32_t cpu = (iar >> 10) & 0x7;
 
 	switch (irq) {
 		case TIMER_IRQ:
