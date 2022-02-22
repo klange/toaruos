@@ -339,7 +339,7 @@ char _ret_from_preempt_source[1];
 #define EOI(x) do { \
 	gicc_regs[4] = (x); \
 } while (0)
-static void aarch64_interrupt_dispatch(int from_wfi) {
+void aarch64_interrupt_dispatch(int from_wfi) {
 	uint32_t iar = gicc_regs[3];
 	uint32_t irq = iar & 0x3FF;
 	uint32_t cpu = (iar >> 10) & 0x7;
