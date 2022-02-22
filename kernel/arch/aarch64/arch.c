@@ -11,6 +11,7 @@
 #include <kernel/process.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
+#include <kernel/spinlock.h>
 
 #include <kernel/arch/aarch64/regs.h>
 #include <kernel/arch/aarch64/gic.h>
@@ -300,3 +301,55 @@ void arch_enter_tasklet(void) {
 	__builtin_unreachable();
 }
 
+static spin_lock_t deadlock_lock = { 0 };
+void _spin_panic(const char * lock_name, spin_lock_t * target) {
+	arch_fatal_prepare();
+	while (__sync_lock_test_and_set(deadlock_lock.latch, 0x01));
+	dprintf("core %d took over five seconds waiting to acquire %s (owner=%d in %s)\n",
+		this_core->cpu_id, lock_name, target->owner - 1, target->func);
+	//arch_dump_traceback();
+	__sync_lock_release(deadlock_lock.latch);
+	arch_fatal();
+}
+
+void arch_spin_lock_acquire(const char * name, spin_lock_t * target, const char * func) {
+	uint64_t expire = arch_perf_timer() + 5000000UL * arch_cpu_mhz();
+
+	/* "loss of an exclusive monitor" is one of the things that causes an "event",
+	 * so we spin on wfe to try to load-acquire the latch */
+	asm volatile (
+		"sevl\n" /* And to avoid multiple jumps, we put the wfe first, so sevl will slide past the first one */
+		"1:\n"
+		"    wfe\n"
+	);
+
+	/* Yes, we can splice these assembly snippets with the clock check, this works fine.
+	 * If we've been trying to load the latch for five seconds, panic. */
+	if (arch_perf_timer() > expire) {
+		_spin_panic(name, target);
+	}
+
+	asm volatile (
+		"2:\n"
+		"   ldaxr w2, [ %1 ]\n"     /* Acquire exclusive monitor and load latch value */
+		"   cbnz  w2, 1b\n"         /* If the latch value isn't 0, someone else owns the lock, go back to wfe and wait for them to release it */
+		"   stxr  w2, %0, [ %1 ]\n" /* Store our core number as the latch value. */
+		"   cbnz  w2, 2b\n"         /* If we failed to exclusively store, try to load again */
+		::"r"(this_core->cpu_id+1),"r"(target->latch) : "x2","cc","memory");
+
+	/* Set these for compatibility because there's at least one place we check them;
+	 * TODO: just use the latch value since we're setting it to the same thing anyway? */
+	target->owner = this_core->cpu_id + 1;
+
+	/* This is purely for debugging */
+	target->func  = func;
+}
+
+void arch_spin_lock_release(spin_lock_t * target) {
+	/* Clear owner debug data */
+	target->owner = 0;
+	target->func  = NULL;
+
+	/* Release the exclusive monitor and clear the latch value */
+	__atomic_store_n(target->latch, 0, __ATOMIC_RELEASE);
+}
