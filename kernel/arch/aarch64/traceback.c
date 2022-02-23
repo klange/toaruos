@@ -102,7 +102,7 @@ void aarch64_safe_dump_traceback(uintptr_t elr, struct regs * r) {
 /* We need to pull the frame address from the caller or this isn't going work, but
  * gcc is going to warn that that is unsafe... */
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wno-frame-address"
+#pragma GCC diagnostic ignored "-Wframe-address"
 
 /**
  * @brief Display a traceback from the current call context.

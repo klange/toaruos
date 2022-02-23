@@ -163,7 +163,7 @@ static void e1000_handle(struct e1000_nic * nic, uint32_t status) {
 }
 
 static void cache_invalidate(void *addr) {
-	uintptr_t a = addr;
+	uintptr_t a = (uintptr_t)addr;
 	for (uintptr_t x = 0; x < 4096; x += 64) {
 		asm volatile ("dc ivac, %0\n" :: "r"(a + x) : "memory");
 	}
@@ -171,7 +171,7 @@ static void cache_invalidate(void *addr) {
 }
 
 static void cache_clean(void *addr) {
-	uintptr_t a = addr;
+	uintptr_t a = (uintptr_t)addr;
 	asm volatile ("dmb ish" ::: "memory");
 	for (uintptr_t x = 0; x < 4096; x += 64) {
 		asm volatile ("dc cvac, %0" :: "r"(a + x) : "memory");
@@ -303,6 +303,7 @@ static void send_packet(struct e1000_nic * device, uint8_t* payload, size_t payl
 	//dprintf("tail goes from %d to %d while head was %d\n", tx_tail, device->tx_index, tx_head);
 	write_command(device, E1000_REG_TXDESCTAIL, device->tx_index);
 	int st = read_command(device, E1000_REG_STATUS);
+	(void)st;
 	//dprintf("%s: read status %#x\n", device->eth.if_name, st);
 
 	#if 0
@@ -450,8 +451,8 @@ void e1000_init(struct e1000_nic * nic) {
 	nic->tx_phys = mmu_allocate_n_frames(2) << 12;
 	nic->tx = mmu_map_mmio_region(nic->tx_phys, 8192);
 
-	memset(nic->rx, 0, sizeof(struct e1000_rx_desc) * E1000_NUM_RX_DESC);
-	memset(nic->tx, 0, sizeof(struct e1000_tx_desc) * E1000_NUM_TX_DESC);
+	memset((void*)nic->rx, 0, sizeof(struct e1000_rx_desc) * E1000_NUM_RX_DESC);
+	memset((void*)nic->tx, 0, sizeof(struct e1000_tx_desc) * E1000_NUM_TX_DESC);
 
 	/* Allocate buffers */
 	for (int i = 0; i < E1000_NUM_RX_DESC; ++i) {
@@ -603,7 +604,7 @@ static void find_e1000(uint32_t device, uint16_t vendorid, uint16_t deviceid, vo
 		char worker_name[34];
 		snprintf(worker_name, 33, "[%s]", nic->eth.if_name);
 
-		spawn_worker_thread(e1000_init, worker_name, nic);
+		spawn_worker_thread((void (*)(void *))e1000_init, worker_name, nic);
 
 		*(int*)found = 1;
 	}
