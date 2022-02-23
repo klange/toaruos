@@ -13,6 +13,7 @@
 #include <kernel/mmu.h>
 #include <kernel/misc.h>
 #include <kernel/args.h>
+#include <kernel/vfs.h>
 
 #include <kernel/arch/aarch64/dtb.h>
 
@@ -209,5 +210,32 @@ void dtb_locate_cmdline(char ** args_out) {
 			args_parse((char*)&prop[2]);
 		}
 	}
+}
+
+static ssize_t read_dtb(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+	if ((size_t)offset > node->length) {
+		return 0;
+	}
+	if ((size_t)offset + size > node->length) {
+		size_t i = node->length - offset;
+		size = i;
+	}
+	memcpy(buffer, (void *)((uintptr_t)mmu_map_from_physical(aarch64_dtb_phys) + (uintptr_t)offset), size);
+	return size;
+}
+
+void dtb_device(void) {
+	fs_node_t * fnode = malloc(sizeof(fs_node_t));
+	memset(fnode, 0x00, sizeof(fs_node_t));
+	snprintf(fnode->name, 10, "dtb");
+	fnode->inode = 0;
+	fnode->device = fnode;
+	fnode->uid = 0;
+	fnode->gid = 0;
+	fnode->mask    = 0770;
+	fnode->length  = 1048576;
+	fnode->flags   = FS_BLOCKDEVICE;
+	fnode->read    = read_dtb;
+	vfs_mount("/dev/dtb", fnode);
 }
 

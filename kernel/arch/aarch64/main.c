@@ -610,6 +610,8 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 	/* Ramdisk */
 	ramdisk_mount(ramdisk_phys_base, ramdisk_size);
 
+	dtb_device();
+
 	/* Load MIDR */
 	aarch64_processor_data();
 
