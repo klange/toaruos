@@ -1,7 +1,23 @@
+/**
+ * @file  kernel/arch/aarch64/rpi400/main.c
+ * @brief Boot stub for Raspberry Pi 400.
+ *
+ * This gets built into kernel8.img, which embeds the actual kernel and
+ * a compress ramdisk. The bootstub is responsible for acquiring the
+ * initial framebuffer, setting the cores to max speed, setting up the
+ * MMU, and loading the actual kernel at -2GiB.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2022 K. Lange
+ */
 #include <stdint.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/elf.h>
+
+#include <kernel/arch/aarch64/rpi.h>
 
 #define MMIO_BASE 0xFE000000UL
 #define MBOX_BASE    (MMIO_BASE + 0xB880)
@@ -301,16 +317,7 @@ static void bootstub_load_kernel(Elf64_Header * header) {
 	}
 }
 
-struct {
-	uint32_t phys_addr;
-	uint32_t x;
-	uint32_t y;
-	uint32_t s;
-	uint32_t b;
-	uint32_t size;
-	uint32_t ramdisk_start;
-	uint32_t ramdisk_end;
-} tag_data = {0};
+struct rpitag tag_data = {0};
 
 static void bootstub_start_kernel(uintptr_t dtb, Elf64_Header * header) {
 	printf("bootstub: Jump to kernel entry point at %zx\n",

@@ -12,6 +12,7 @@
 #include <kernel/string.h>
 #include <kernel/mmu.h>
 #include <kernel/misc.h>
+#include <kernel/args.h>
 
 #include <kernel/arch/aarch64/dtb.h>
 
@@ -197,5 +198,16 @@ void dtb_memory_size(size_t * memaddr, size_t * physsize) {
 
 	*memaddr = mem_addr;
 	*physsize = mem_size;
+}
+
+void dtb_locate_cmdline(char ** args_out) {
+	uint32_t * chosen = dtb_find_node("chosen");
+	if (chosen) {
+		uint32_t * prop = dtb_node_find_property(chosen, "bootargs");
+		if (prop) {
+			*args_out = (char*)&prop[2];
+			args_parse((char*)&prop[2]);
+		}
+	}
 }
 

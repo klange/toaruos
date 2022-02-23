@@ -45,3 +45,4 @@ uint32_t * dtb_find_node_prefix(const char * name);
 uint32_t * dtb_node_find_property(uint32_t * node, const char * property);
 void dtb_memory_size(size_t * memsize, size_t * physsize);
 void dtb_callback_direct_children(uint32_t * node, void (*callback)(uint32_t * child));
+void dtb_locate_cmdline(char ** args_out);

@@ -24,13 +24,13 @@
 #include <kernel/misc.h>
 #include <kernel/ptrace.h>
 #include <kernel/ksym.h>
-#include <kernel/gzip.h>
 
 #include <sys/ptrace.h>
 
 #include <kernel/arch/aarch64/regs.h>
 #include <kernel/arch/aarch64/dtb.h>
 #include <kernel/arch/aarch64/gic.h>
+#include <kernel/arch/aarch64/rpi.h>
 
 extern void fbterm_initialize(void);
 extern void mmu_init(size_t memsize, size_t phys, uintptr_t firstFreePage, uintptr_t endOfInitrd);
@@ -38,6 +38,9 @@ extern void aarch64_regs(struct regs *r);
 extern void fwcfg_load_initrd(uintptr_t * ramdisk_phys_base, size_t * ramdisk_size);
 extern void virtio_input(void);
 extern void aarch64_smp_start(void);
+
+extern char end[];
+extern char * _arch_args;
 
 /* ARM says the system clock tick rate is generally in
  * the range of 1-50MHz. Since we throw around integer
@@ -228,18 +231,6 @@ void arch_set_kernel_stack(uintptr_t stack) {
 	 * things correctly and getting the right stack already,
 	 * but XXX should look into this later. */
 	this_core->sp_el1 = stack;
-}
-
-char * _arch_args = NULL;
-static void dtb_locate_cmdline(void) {
-	uint32_t * chosen = dtb_find_node("chosen");
-	if (chosen) {
-		uint32_t * prop = dtb_node_find_property(chosen, "bootargs");
-		if (prop) {
-			_arch_args = (char*)&prop[2];
-			args_parse((char*)&prop[2]);
-		}
-	}
 }
 
 static void exception_handlers(void) {
@@ -514,17 +505,6 @@ static void symbols_install(void) {
 	}
 }
 
-struct rpitag {
-	uint32_t phys_addr;
-	uint32_t x;
-	uint32_t y;
-	uint32_t s;
-	uint32_t b;
-	uint32_t size;
-	uint32_t ramdisk_start;
-	uint32_t ramdisk_end;
-};
-
 /**
  * Main kernel C entrypoint for qemu's -machine virt
  *
@@ -590,45 +570,19 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 	uintptr_t ramdisk_phys_base = 0;
 	size_t ramdisk_size = 0;
 	if (rpi_tag) {
+		/* XXX Should this whole set of things be a "platform_init()" thing, where we
+		 *     figure out the platform and just do the stuff? */
 		struct rpitag * tag = (struct rpitag*)rpi_tag;
-		extern char end[];
-		dprintf("rpi: compressed ramdisk is at %#x \n", tag->ramdisk_start);
-		dprintf("rpi: end of ramdisk is at %#x \n", tag->ramdisk_end);
-		dprintf("rpi: uncompress ramdisk to %#zx \n", (uintptr_t)&end);
-		uint32_t size;
-		memcpy(&size, (void*)(uintptr_t)(tag->ramdisk_end - sizeof(uint32_t)), sizeof(uint32_t));
-		dprintf("rpi: size of uncompressed ramdisk is %#x\n", size);
+		rpi_load_ramdisk(tag, &ramdisk_phys_base, &ramdisk_size);
 
-		gzip_inputPtr  = (uint8_t*)(uintptr_t)tag->ramdisk_start;
-		gzip_outputPtr = (uint8_t*)&end;
-
-		if (gzip_decompress()) {
-			dprintf("rpi: gzip failure, not mounting ramdisk\n");
-			while (1);
-		}
-
-		dprintf("rpi: ramdisk decompressed\n");
-
-		for (size_t i = 0; i < size; i += 64) {
-			asm volatile ("dc cvac, %0\n" :: "r"((uintptr_t)&end + i) : "memory");
-		}
-
-		ramdisk_phys_base = mmu_map_to_physical(NULL, (uintptr_t)&end);
-		ramdisk_size = size;
-
-		dprintf("rpi: ramdisk_phys_base set to %#zx\n", ramdisk_phys_base);
-
+		/* TODO figure out memory size - mailbox commands */
 		mmu_init(0, 512 * 1024 * 1024,
 			0x80000,
 			(uintptr_t)&end + ramdisk_size - 0xffffffff80000000UL);
 
 		dprintf("rpi: mmu reinitialized\n");
 
-		/**
-		 * TODO there's a mailbox command for this, can we try that?
-		 *      I'm not sure why I've been unable to get it out of a 'chosen' tag...
-		 */
-		_arch_args = "vid=preset start=live-session migrate root=/dev/ram0";
+		rpi_set_cmdline(&_arch_args);
 
 	} else {
 		/*
@@ -636,8 +590,8 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 		 *      as we have for the RPi above and not have to use fwcfg to load it...
 		 */
 		fwcfg_load_initrd(&ramdisk_phys_base, &ramdisk_size);
+
 		/* Probe DTB for memory layout. */
-		extern char end[];
 		size_t memaddr, memsize;
 		dtb_memory_size(&memaddr, &memsize);
 
@@ -648,7 +602,7 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 			(uintptr_t)&end + ramdisk_size - 0xffffffff80000000UL);
 
 		/* Find the cmdline */
-		dtb_locate_cmdline();
+		dtb_locate_cmdline(&_arch_args);
 	}
 
 	gic_map_regs(rpi_tag);

@@ -283,6 +283,7 @@ void arch_framebuffer_initialize(void) {
 	 * on a preferred video mode; maybe dtb has that? */
 }
 
+char * _arch_args = NULL;
 const char * arch_get_cmdline(void) {
 	/* this should be available from dtb directly as a string */
 	extern char * _arch_args;
