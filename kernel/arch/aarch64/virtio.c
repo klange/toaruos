@@ -437,7 +437,7 @@ static void virtio_input_maybe(uint32_t device, uint16_t v, uint16_t d, void * e
 
 }
 
-void virtio_input(void) {
+void null_input(void) {
 	mouse_pipe = make_pipe(128);
 	mouse_pipe->flags = FS_CHARDEVICE;
 	vfs_mount("/dev/mouse", mouse_pipe);
@@ -450,6 +450,10 @@ void virtio_input(void) {
 	keyboard_pipe->flags = FS_CHARDEVICE;
 	vfs_mount("/dev/kbd", keyboard_pipe);
 
+}
+
+void virtio_input(void) {
+	null_input(); /* setup pipes */
 	pci_scan(virtio_input_maybe, -1, NULL);
 }
 

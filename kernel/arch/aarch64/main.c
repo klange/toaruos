@@ -173,9 +173,12 @@ void timer_start(void) {
 
 	/* These are shared? */
 	gic_regs[65]  = 0xFFFFFFFF;
+	gic_regs[66]  = 0xFFFFFFFF;
+	gic_regs[67]  = 0xFFFFFFFF;
 
 	gic_regs[520] = 0x07070707;
 	gic_regs[521] = 0x07070707;
+	gic_regs[543] = 0x07070707;
 }
 
 static volatile uint64_t time_slice_basis = 0; /**< When the last clock update happened */
@@ -314,8 +317,6 @@ void aarch64_sync_enter(struct regs * r) {
 	asm volatile ("mrs %0, TPIDR_EL0" : "=r"(tpidr_el0));
 	dprintf("  TPIDR_EL0=%#zx\n", tpidr_el0);
 
-	while (1);
-
 	send_signal(this_core->current_process->id, SIGSEGV, 1);
 }
 
@@ -358,41 +359,28 @@ void aarch64_interrupt_dispatch(int from_wfi) {
 			spin();
 			break;
 
-		/* This should probably be part of the default case... */
-		case 32:
-		case 33:
-		case 34:
-		case 35:
-		case 36:
-		case 37:
-		case 38:
-		case 39:
-		case 40:
-		case 41:
-		case 42:
-		{
-			struct irq_callback * cb = irq_callbacks[irq-32];
-			if (cb) {
-				while (cb) {
-					int res = cb->callback(cb->owner, irq-32, cb->data);
-					if (res) break;
-					cb = cb->next;
-				}
-				/* Maybe warn? We have a lot of spurious irqs, though */
-			} else {
-				dprintf("irq: unhandled irq %d\n", irq);
-			}
-			EOI(iar);
-			return;
-		}
-
 		case 1022:
 		case 1023:
 			return;
 
 		default:
-			dprintf("gic: Unhandled interrupt: %d\n", irq);
-			EOI(iar);
+			if (irq >= 32 && irq < 1022) {
+				struct irq_callback * cb = irq_callbacks[irq-32];
+				if (cb) {
+					while (cb) {
+						int res = cb->callback(cb->owner, irq-32, cb->data);
+						if (res) break;
+						cb = cb->next;
+					}
+					/* Maybe warn? We have a lot of spurious irqs, though */
+				} else {
+					dprintf("irq: unhandled irq %d\n", irq);
+				}
+				EOI(iar);
+			} else {
+				dprintf("gic: Unhandled interrupt: %d\n", irq);
+				EOI(iar);
+			}
 			return;
 	}
 }
@@ -458,8 +446,6 @@ void fpu_enable(void) {
  * @brief Called in a loop by kernel idle tasks.
  */
 void arch_pause(void) {
-
-	set_tick();
 
 	/* XXX This actually works even if we're masking interrupts, but
 	 * the interrupt function won't be called, so we'll need to change
@@ -647,8 +633,15 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 		extern int e1000_install(int argc, char * argv[]);
 		e1000_install(0,NULL);
 	} else {
+
 		extern void rpi_smp_init(void);
 		rpi_smp_init();
+
+		extern void null_input(void);
+		null_input();
+
+		extern void miniuart_start(void);
+		miniuart_start();
 	}
 
 	generic_main();
