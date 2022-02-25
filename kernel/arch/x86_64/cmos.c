@@ -13,6 +13,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2021 K. Lange
  */
+#include <errno.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/process.h>
@@ -323,6 +324,27 @@ uint64_t now(void) {
 	gettimeofday(&t, NULL);
 	return t.tv_sec;
 }
+
+static spin_lock_t _time_set_lock;
+
+/**
+ * Set the system clock time
+ *
+ * TODO: A lot of this time stuff needs to be made more generic,
+ *       it's shared pretty directly with aarch64...
+ */
+int settimeofday(struct timeval * t, void *z) {
+	if (!t) return -EINVAL;
+	if (t->tv_sec < 0 || t->tv_usec < 0 || t->tv_usec > 1000000) return -EINVAL;
+
+	spin_lock(_time_set_lock);
+	uint64_t clock_time = now();
+	arch_boot_time += t->tv_sec - clock_time;
+	spin_unlock(_time_set_lock);
+
+	return 0;
+}
+
 
 /**
  * @brief Calculate a time in the future.

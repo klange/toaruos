@@ -16,5 +16,6 @@ struct timezone {
 };
 
 extern int gettimeofday(struct timeval *p, void *z);
+extern int settimeofday(struct timeval *p, void *z);
 
 _End_C_Header

@@ -557,6 +557,14 @@ long sys_gettimeofday(struct timeval * tv, void * tz) {
 	return gettimeofday(tv, tz);
 }
 
+long sys_settimeofday(struct timeval * tv, void * tz) {
+	extern int settimeofday(struct timeval * t, void *z);
+	if (this_core->current_process->user != USER_ROOT_UID) return -EPERM;
+	PTR_VALIDATE(tv);
+	PTR_VALIDATE(tz);
+	return settimeofday(tv,tz);
+}
+
 long sys_getuid(void) {
 	return (long)this_core->current_process->real_user;
 }
@@ -1146,6 +1154,7 @@ static long (*syscalls[])() = {
 	[SYS_SETGROUPS]    = sys_setgroups,
 	[SYS_TIMES]        = sys_times,
 	[SYS_PTRACE]       = ptrace_handle,
+	[SYS_SETTIMEOFDAY] = sys_settimeofday,
 
 	[SYS_SOCKET]       = net_socket,
 	[SYS_SETSOCKOPT]   = net_setsockopt,

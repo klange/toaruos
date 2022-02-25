@@ -24,6 +24,7 @@
 #include <kernel/misc.h>
 #include <kernel/ptrace.h>
 #include <kernel/ksym.h>
+#include <errno.h>
 
 #include <sys/ptrace.h>
 
@@ -120,6 +121,20 @@ uint64_t now(void) {
 	struct timeval t;
 	gettimeofday(&t, NULL);
 	return t.tv_sec;
+}
+
+static spin_lock_t _time_set_lock;
+
+int settimeofday(struct timeval * t, void *z) {
+	if (!t) return -EINVAL;
+	if (t->tv_sec < 0 || t->tv_usec < 0 || t->tv_usec > 1000000) return -EINVAL;
+
+	spin_lock(_time_set_lock);
+	uint64_t clock_time = now();
+	arch_boot_time += t->tv_sec - clock_time;
+	spin_unlock(_time_set_lock);
+
+	return 0;
 }
 
 void relative_time(unsigned long seconds, unsigned long subseconds, unsigned long * out_seconds, unsigned long * out_subseconds) {

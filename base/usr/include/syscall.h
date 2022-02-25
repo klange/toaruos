@@ -221,6 +221,7 @@ DECL_SYSCALL2(getgroups, int, int*);
 DECL_SYSCALL2(setgroups, int, const int*);
 DECL_SYSCALL1(times, struct tms*);
 DECL_SYSCALL4(ptrace, int, int, void*, void*);
+DECL_SYSCALL2(settimeofday, void *, void *);
 
 _End_C_Header
 
