@@ -9,7 +9,7 @@ OUTDIR=`dirname $1`
 
 # Calculate required space
 SPACE_REQ=$(du -sb "$DIR/../fatbase" | cut -f 1)
-let "SIZE = ($SPACE_REQ / 1000000)"
+let "SIZE = ($SPACE_REQ / 950000)"
 
 # Minimum size
 if [ $SIZE -lt 14 ]; then
