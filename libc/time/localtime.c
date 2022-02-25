@@ -52,14 +52,6 @@ static long days_in_month(int month, int year) {
 	return 0;
 }
 
-static long secs_of_month(int months, int year) {
-	long days = 0;
-	for (int i = 1; i < months; ++i) {
-		days += days_in_month(months, year);
-	}
-	return days * SEC_DAY;
-}
-
 static struct tm * fill_time(const time_t * timep, struct tm * _timevalue, const char * tzName, int tzOffset) {
 
 	time_t timeVal = *timep + tzOffset;
@@ -200,11 +192,18 @@ static unsigned int secs_of_years(int years) {
 	return days * 86400;
 }
 
+static long secs_of_month(int months, int year) {
+	long days = 0;
+	for (int i = 1; i < months; ++i) {
+		days += days_in_month(i, year);
+	}
+	return days * SEC_DAY;
+}
 
 time_t mktime(struct tm *tm) {
 	return
-	  secs_of_years(tm->tm_year + 1900) +
-	  secs_of_month(tm->tm_mon, tm->tm_year + 1900) +
+	  secs_of_years(tm->tm_year + 1899) +
+	  secs_of_month(tm->tm_mon + 1, tm->tm_year + 1900) +
 	  (tm->tm_mday - 1) * 86400 +
 	  (tm->tm_hour) * 3600 +
 	  (tm->tm_min) * 60 +
