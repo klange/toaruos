@@ -308,6 +308,10 @@ typedef struct YutaniGlobals {
 
 	int reload_renderer;
 	uint8_t active_modifiers;
+
+	uint64_t resize_release_time;
+	int32_t resizing_init_w;
+	int32_t resizing_init_h;
 } yutani_globals_t;
 
 struct key_bind {
