@@ -59,6 +59,7 @@ static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t 
 static void notify_subscribers(yutani_globals_t * yg);
 static void mouse_stop_drag(yutani_globals_t * yg);
 static void window_move(yutani_globals_t * yg, yutani_server_window_t * window, int x, int y);
+static yutani_server_window_t * top_at(yutani_globals_t * yg, uint16_t x, uint16_t y);
 
 /**
  * Print usage information.
@@ -586,7 +587,15 @@ static void draw_cursor(yutani_globals_t * yg, int x, int y, int cursor) {
 		}
 	}
 
-	draw_sprite(yg->backend_ctx, sprite, x / MOUSE_SCALE - MOUSE_OFFSET_X, y / MOUSE_SCALE - MOUSE_OFFSET_Y);
+	yutani_server_window_t * cursor_window = yg->resizing_window ? yg->resizing_window :
+		top_at(yg, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE);
+	int16_t rotation = cursor_window ? cursor_window->rotation : 0;
+
+	if (rotation) {
+		draw_sprite_rotate(yg->backend_ctx, sprite, x / MOUSE_SCALE - MOUSE_OFFSET_X, y / MOUSE_SCALE - MOUSE_OFFSET_Y, (double)rotation * M_PI / 180.0, 1.0);
+	} else {
+		draw_sprite(yg->backend_ctx, sprite, x / MOUSE_SCALE - MOUSE_OFFSET_X, y / MOUSE_SCALE - MOUSE_OFFSET_Y);
+	}
 }
 
 /**
