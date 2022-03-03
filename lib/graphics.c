@@ -984,7 +984,7 @@ void draw_sprite_rotate(gfx_context_t * ctx, const sprite_t * sprite, int32_t x,
 	gfx_matrix_identity(m);
 	gfx_matrix_translate(m, x + sprite->width / 2, y + sprite->height / 2);
 	gfx_matrix_rotate(m, rotation);
-	gfx_matrix_translate(m, sprite->width / 2, sprite->height / 2);
+	gfx_matrix_translate(m, -sprite->width / 2, -sprite->height / 2);
 	draw_sprite_transform(ctx,sprite,m,alpha);
 }
 
