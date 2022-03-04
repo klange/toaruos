@@ -13,7 +13,6 @@
 
 typedef struct {
 	int signum;
-	uintptr_t handler;
 } signal_t;
 
 extern void fix_signal_stacks(void);

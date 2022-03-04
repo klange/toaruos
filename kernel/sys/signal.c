@@ -87,9 +87,10 @@ static void maybe_restart_system_call(struct regs * r) {
 }
 
 int handle_signal(process_t * proc, signal_t * sig, struct regs *r) {
-	uintptr_t handler = sig->handler;
 	uintptr_t signum  = sig->signum;
 	free(sig);
+
+	uintptr_t handler = proc->signals[signum];
 
 	/* Are we being traced? */
 	if (this_core->current_process->flags & PROC_FLAG_TRACE_SIGNALS) {
@@ -133,6 +134,8 @@ int handle_signal(process_t * proc, signal_t * sig, struct regs *r) {
 
 	/* If the handler value is 1 we treat it as IGN. */
 	if (handler == 1) goto _ignore_signal;
+
+	proc->signals[signum] = 0;
 
 	arch_enter_signal_handler(handler, signum, r);
 	return 1; /* Should not be reachable */
@@ -193,7 +196,6 @@ int send_signal(pid_t process, int signal, int force_root) {
 
 	/* Append signal to list */
 	signal_t * sig = malloc(sizeof(signal_t));
-	sig->handler = (uintptr_t)receiver->signals[signal];
 	sig->signum  = signal;
 
 	spin_lock(sig_lock);
