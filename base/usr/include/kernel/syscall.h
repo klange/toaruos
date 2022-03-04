@@ -30,3 +30,5 @@ extern long arch_stack_pointer(struct regs * r);
 extern long arch_user_ip(struct regs * r);
 
 extern void arch_syscall_return(struct regs * r, long retval);
+
+extern void syscall_handler(struct regs * r);

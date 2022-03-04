@@ -149,6 +149,9 @@ typedef struct process {
 	pid_t tracer;
 	spin_lock_t wait_lock;
 	list_t * tracees;
+
+	/* Syscall restarting */
+	long interrupted_system_call;
 } process_t;
 
 typedef struct {

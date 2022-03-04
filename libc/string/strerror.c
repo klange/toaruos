@@ -1,7 +1,8 @@
 #include <string.h>
 #include <errno.h>
+#include <stdio.h>
 
-static char * _error_strings[256] = {
+static char * _error_strings[] = {
 	[EPERM] = "Operation not permitted",
 	[ENOENT] = "No such file or directory",
 	[ESRCH] = "No such process",
@@ -117,10 +118,15 @@ static char * _error_strings[256] = {
 	[ENOTRECOVERABLE] = "State not recoverable",
 	[EOWNERDEAD] = "Previous owner died",
 	[ESTRPIPE] = "Streams pipe error",
+	[ERESTARTSYS] = "Restartable system call was interrupted",
 };
 
+static char _error_string[100];
 char * strerror(int errnum) {
-	if (errnum > 255) return "???";
-	if (!_error_strings[errnum]) return "???";
-	return _error_strings[errnum];
+	char * str = (errnum >= 0 && (size_t)errnum < sizeof(_error_strings) / sizeof(*_error_strings)) ? _error_strings[errnum] : NULL;
+	if (!str) {
+		snprintf(_error_string, 100, "%d", errnum);
+		return _error_string;
+	}
+	return str;
 }

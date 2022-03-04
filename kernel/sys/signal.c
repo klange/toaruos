@@ -28,51 +28,65 @@
 #include <kernel/signal.h>
 #include <kernel/spinlock.h>
 #include <kernel/ptrace.h>
+#include <kernel/syscall.h>
 
 static spin_lock_t sig_lock;
-static spin_lock_t sig_lock_b;
 
-char isdeadly[] = {
+#define SIG_DISP_Ign  0
+#define SIG_DISP_Term 1
+#define SIG_DISP_Core 2
+#define SIG_DISP_Stop 3
+#define SIG_DISP_Cont 4
+
+static char sig_defaults[] = {
 	0, /* 0? */
-	[SIGHUP     ] = 1,
-	[SIGINT     ] = 1,
-	[SIGQUIT    ] = 2,
-	[SIGILL     ] = 2,
-	[SIGTRAP    ] = 2,
-	[SIGABRT    ] = 2,
-	[SIGEMT     ] = 2,
-	[SIGFPE     ] = 2,
-	[SIGKILL    ] = 1,
-	[SIGBUS     ] = 2,
-	[SIGSEGV    ] = 2,
-	[SIGSYS     ] = 2,
-	[SIGPIPE    ] = 1,
-	[SIGALRM    ] = 1,
-	[SIGTERM    ] = 1,
-	[SIGUSR1    ] = 1,
-	[SIGUSR2    ] = 1,
-	[SIGCHLD    ] = 0,
-	[SIGPWR     ] = 0,
-	[SIGWINCH   ] = 0,
-	[SIGURG     ] = 0,
-	[SIGPOLL    ] = 0,
-	[SIGSTOP    ] = 3,
-	[SIGTSTP    ] = 3,
-	[SIGCONT    ] = 4,
-	[SIGTTIN    ] = 3,
-	[SIGTTOUT   ] = 3,
-	[SIGVTALRM  ] = 1,
-	[SIGPROF    ] = 1,
-	[SIGXCPU    ] = 2,
-	[SIGXFSZ    ] = 2,
-	[SIGWAITING ] = 0,
-	[SIGDIAF    ] = 1,
-	[SIGHATE    ] = 0,
-	[SIGWINEVENT] = 0,
-	[SIGCAT     ] = 0,
+	[SIGHUP     ] = SIG_DISP_Term,
+	[SIGINT     ] = SIG_DISP_Term,
+	[SIGQUIT    ] = SIG_DISP_Core,
+	[SIGILL     ] = SIG_DISP_Core,
+	[SIGTRAP    ] = SIG_DISP_Core,
+	[SIGABRT    ] = SIG_DISP_Core,
+	[SIGEMT     ] = SIG_DISP_Core,
+	[SIGFPE     ] = SIG_DISP_Core,
+	[SIGKILL    ] = SIG_DISP_Term,
+	[SIGBUS     ] = SIG_DISP_Core,
+	[SIGSEGV    ] = SIG_DISP_Core,
+	[SIGSYS     ] = SIG_DISP_Core,
+	[SIGPIPE    ] = SIG_DISP_Term,
+	[SIGALRM    ] = SIG_DISP_Term,
+	[SIGTERM    ] = SIG_DISP_Term,
+	[SIGUSR1    ] = SIG_DISP_Term,
+	[SIGUSR2    ] = SIG_DISP_Term,
+	[SIGCHLD    ] = SIG_DISP_Ign,
+	[SIGPWR     ] = SIG_DISP_Ign,
+	[SIGWINCH   ] = SIG_DISP_Ign,
+	[SIGURG     ] = SIG_DISP_Ign,
+	[SIGPOLL    ] = SIG_DISP_Ign,
+	[SIGSTOP    ] = SIG_DISP_Stop,
+	[SIGTSTP    ] = SIG_DISP_Stop,
+	[SIGCONT    ] = SIG_DISP_Cont,
+	[SIGTTIN    ] = SIG_DISP_Stop,
+	[SIGTTOUT   ] = SIG_DISP_Stop,
+	[SIGVTALRM  ] = SIG_DISP_Term,
+	[SIGPROF    ] = SIG_DISP_Term,
+	[SIGXCPU    ] = SIG_DISP_Core,
+	[SIGXFSZ    ] = SIG_DISP_Core,
+	[SIGWAITING ] = SIG_DISP_Ign,
+	[SIGDIAF    ] = SIG_DISP_Term,
+	[SIGHATE    ] = SIG_DISP_Ign,
+	[SIGWINEVENT] = SIG_DISP_Ign,
+	[SIGCAT     ] = SIG_DISP_Ign,
 };
 
-void handle_signal(process_t * proc, signal_t * sig, struct regs *r) {
+static void maybe_restart_system_call(struct regs * r) {
+	if (this_core->current_process->interrupted_system_call && arch_syscall_number(r) == -ERESTARTSYS) {
+		arch_syscall_return(r, this_core->current_process->interrupted_system_call);
+		this_core->current_process->interrupted_system_call = 0;
+		syscall_handler(r);
+	}
+}
+
+int handle_signal(process_t * proc, signal_t * sig, struct regs *r) {
 	uintptr_t handler = sig->handler;
 	uintptr_t signum  = sig->signum;
 	free(sig);
@@ -83,20 +97,19 @@ void handle_signal(process_t * proc, signal_t * sig, struct regs *r) {
 	}
 
 	if (proc->flags & PROC_FLAG_FINISHED) {
-		return;
+		return 1;
 	}
 
 	if (signum == 0 || signum >= NUMSIGNALS) {
-		/* Ignore */
-		return;
+		goto _ignore_signal;
 	}
 
 	if (!handler) {
-		char dowhat = isdeadly[signum];
-		if (dowhat == 1 || dowhat == 2) {
+		char dowhat = sig_defaults[signum];
+		if (dowhat == SIG_DISP_Term || dowhat == SIG_DISP_Core) {
 			task_exit(((128 + signum) << 8) | signum);
 			__builtin_unreachable();
-		} else if (dowhat == 3) {
+		} else if (dowhat == SIG_DISP_Stop) {
 			__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_SUSPENDED);
 			this_core->current_process->status = 0x7F;
 
@@ -106,21 +119,30 @@ void handle_signal(process_t * proc, signal_t * sig, struct regs *r) {
 				wakeup_queue(parent->wait_queue);
 			}
 
-			switch_task(0);
-		} else if (dowhat == 4) {
-			switch_task(1);
-			return;
+			do {
+				switch_task(0);
+			} while (!this_core->current_process->signal_queue->length);
+
+			return 0; /* Return and handle another */
+		} else if (dowhat == SIG_DISP_Cont) {
+			/* Continue doesn't actually do anything different at this stage. */
+			goto _ignore_signal;
 		}
-		/* XXX dowhat == 2: should dump core */
-		/* XXX dowhat == 3: stop */
-		return;
+		goto _ignore_signal;
 	}
 
-	if (handler == 1) /* Ignore */ {
-		return;
-	}
+	/* If the handler value is 1 we treat it as IGN. */
+	if (handler == 1) goto _ignore_signal;
 
 	arch_enter_signal_handler(handler, signum, r);
+	return 1; /* Should not be reachable */
+
+_ignore_signal:
+	/* we still need to check if we need to restart something */
+
+	maybe_restart_system_call(r);
+
+	return !this_core->current_process->signal_queue->length;
 }
 
 int send_signal(pid_t process, int signal, int force_root) {
@@ -152,12 +174,15 @@ int send_signal(pid_t process, int signal, int force_root) {
 		return -EINVAL;
 	}
 
-	if (!receiver->signals[signal] && !isdeadly[signal]) {
-		/* If we're blocking a signal and it's not going to kill us, don't deliver it */
+	if (!receiver->signals[signal] && !sig_defaults[signal]) {
+		/* If there is no handler for a signal and its default disposition is IGNORE,
+		 * we don't even bother sending it, to avoid having to interrupt + restart system calls. */
 		return 0;
 	}
 
-	if (isdeadly[signal] == 4) {
+	if (sig_defaults[signal] == SIG_DISP_Cont) {
+		/* XXX: I'm not sure this check is necessary? And the SUSPEND flag flip probably
+		 *      should be on the receiving end. */
 		if (!(receiver->flags & PROC_FLAG_SUSPENDED)) {
 			return -EINVAL;
 		} else {
@@ -170,12 +195,19 @@ int send_signal(pid_t process, int signal, int force_root) {
 	signal_t * sig = malloc(sizeof(signal_t));
 	sig->handler = (uintptr_t)receiver->signals[signal];
 	sig->signum  = signal;
-	memset(&sig->registers_before, 0x00, sizeof(struct regs));
-	list_insert(receiver->signal_queue, sig);
 
+	spin_lock(sig_lock);
+	list_insert(receiver->signal_queue, sig);
+	spin_unlock(sig_lock);
+
+	/* Informs any blocking events that the process has been interrupted
+	 * by a signal, which should trigger those blocking events to complete
+	 * and potentially return -EINTR or -ERESTARTSYS */
 	process_awaken_signal(receiver);
 
-	if (!process_is_ready(receiver) || receiver == this_core->current_process) {
+	/* Schedule processes awoken by signals to be run. Unless they're us, we'll
+	 * jump to the signal handler as part of returning from this call. */
+	if (receiver != this_core->current_process && !process_is_ready(receiver)) {
 		make_process_ready(receiver);
 	}
 
@@ -211,17 +243,27 @@ int group_send_signal(pid_t group, int signal, int force_root) {
 }
 
 void process_check_signals(struct regs * r) {
+	spin_lock(sig_lock);
 	if (this_core->current_process &&
 		!(this_core->current_process->flags & PROC_FLAG_FINISHED) &&
 		this_core->current_process->signal_queue &&
 		this_core->current_process->signal_queue->length > 0) {
+		while (1) {
+			node_t * node = list_dequeue(this_core->current_process->signal_queue);
+			spin_unlock(sig_lock);
 
-		node_t * node = list_dequeue(this_core->current_process->signal_queue);
-		signal_t * sig = node->value;
+			signal_t * sig = node->value;
+			free(node);
 
-		free(node);
+			if (handle_signal((process_t*)this_core->current_process,sig,r)) return;
 
-		handle_signal((process_t*)this_core->current_process,sig,r);
+			spin_lock(sig_lock);
+		}
 	}
+	spin_unlock(sig_lock);
 }
 
+void return_from_signal_handler(struct regs *r) {
+	arch_return_from_signal_handler(r);
+	maybe_restart_system_call(r);
+}

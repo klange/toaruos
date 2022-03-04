@@ -1185,9 +1185,15 @@ void syscall_handler(struct regs * r) {
 		ptrace_signal(SIGTRAP, PTRACE_EVENT_SYSCALL_ENTER);
 	}
 
-	arch_syscall_return(r, func(
+	long result = func(
 		arch_syscall_arg0(r), arch_syscall_arg1(r), arch_syscall_arg2(r),
-		arch_syscall_arg3(r), arch_syscall_arg4(r)));
+		arch_syscall_arg3(r), arch_syscall_arg4(r));
+
+	if (result == -ERESTARTSYS) {
+		this_core->current_process->interrupted_system_call = arch_syscall_number(r);
+	}
+
+	arch_syscall_return(r, result);
 
 	if (this_core->current_process->flags & PROC_FLAG_TRACE_SYSCALLS) {
 		ptrace_signal(SIGTRAP, PTRACE_EVENT_SYSCALL_EXIT);

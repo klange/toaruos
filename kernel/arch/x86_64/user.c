@@ -8,9 +8,11 @@
  * Copyright (C) 2021 K. Lange
  */
 #include <stdint.h>
+#include <errno.h>
 #include <kernel/process.h>
 #include <kernel/string.h>
 #include <kernel/mmu.h>
+#include <kernel/syscall.h>
 #include <kernel/arch/x86_64/regs.h>
 #include <kernel/arch/x86_64/ports.h>
 
@@ -72,6 +74,8 @@ void arch_return_from_signal_handler(struct regs *r) {
 		POP(r->rsp, uint64_t, this_core->current_process->thread.fp_regs[63-i]);
 	}
 
+	POP(r->rsp, long, this_core->current_process->interrupted_system_call);
+
 	struct regs out;
 	POP(r->rsp, struct regs, out);
 
@@ -110,6 +114,9 @@ void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r)
 	ret.rsp = (r->rsp - 128) & 0xFFFFFFFFFFFFFFF0; /* ensure considerable alignment */
 
 	PUSH(ret.rsp, struct regs, *r);
+
+	PUSH(ret.rsp, long, this_core->current_process->interrupted_system_call);
+	this_core->current_process->interrupted_system_call = 0;
 
 	for (int i = 0; i < 64; ++i) {
 		PUSH(ret.rsp, uint64_t, this_core->current_process->thread.fp_regs[i]);

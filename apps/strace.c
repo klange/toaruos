@@ -194,7 +194,7 @@ char syscall_mask[] = {
 };
 
 #define M(e) [e] = #e
-const char * errno_names[256] = {
+const char * errno_names[] = {
 	M(EPERM),
 	M(ENOENT),
 	M(ESRCH),
@@ -310,7 +310,7 @@ const char * errno_names[256] = {
 	M(ENOTRECOVERABLE),
 	M(EOWNERDEAD),
 	M(ESTRPIPE),
-	0
+	M(ERESTARTSYS),
 };
 
 
@@ -529,8 +529,12 @@ static void buffer_arg(pid_t pid, uintptr_t buffer, ssize_t count) {
 }
 
 static void print_error(int err) {
-	if (err > 255) return;
-	fprintf(logfile, " %s (%s)", errno_names[err], strerror(err));
+	const char * name = (err >= 0 && (size_t)err < (sizeof(errno_names) / sizeof(*errno_names))) ? errno_names[err] : NULL;
+	if (name) {
+		fprintf(logfile, " %s (%s)", name, strerror(err));
+	} else {
+		fprintf(logfile, " %d (%s)", err, strerror(err));
+	}
 }
 
 static void maybe_errno(struct regs * r) {

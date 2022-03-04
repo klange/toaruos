@@ -78,6 +78,7 @@ void arch_return_from_signal_handler(struct regs *r) {
 		POP(sp, uint64_t, this_core->current_process->thread.fp_regs[63-i]);
 	}
 
+	POP(sp, long, this_core->current_process->interrupted_system_call);
 	POP(sp, struct regs, *r);
 	POP(sp, uint64_t, elr);
 	asm volatile ("msr ELR_EL1, %0" : "=r"(elr));
@@ -105,6 +106,8 @@ void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r)
 
 	PUSH(sp, uint64_t, elr);
 	PUSH(sp, struct regs, *r);
+	PUSH(sp, long, this_core->current_process->interrupted_system_call);
+	this_core->current_process->interrupted_system_call = 0;
 
 	for (int i = 0; i < 64; ++i) {
 		PUSH(sp, uint64_t, this_core->current_process->thread.fp_regs[i]);

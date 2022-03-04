@@ -133,6 +133,8 @@ _Begin_C_Header
 #define ESTRPIPE 143          /* Streams pipe error */
 #define EWOULDBLOCK EAGAIN    /* Operation would block */
 
+#define ERESTARTSYS 512
+
 #ifndef _KERNEL_
 extern int errno;
 #define __sets_errno(...) long ret = __VA_ARGS__; if (ret < 0) { errno = -ret; ret = -1; } return ret

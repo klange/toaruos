@@ -24,6 +24,7 @@
 #include <kernel/module.h>
 #include <kernel/ksym.h>
 #include <kernel/mmu.h>
+#include <kernel/syscall.h>
 
 #include <sys/time.h>
 #include <sys/utsname.h>
@@ -510,7 +511,7 @@ static void _page_fault(struct regs * r) {
 
 	/* 8DEADBEEFh is the magic ret-from-sig address. */
 	if (faulting_address == 0x8DEADBEEF) {
-		arch_return_from_signal_handler(r);
+		return_from_signal_handler(r);
 		return;
 	}
 
@@ -549,7 +550,6 @@ static void _page_fault(struct regs * r) {
  */
 static struct regs * _syscall_entrypoint(struct regs * r) {
 	/* syscall_handler will modify r to set return value. */
-	extern void syscall_handler(struct regs *);
 	syscall_handler(r);
 
 	/*

@@ -130,7 +130,10 @@ ssize_t read_pipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 		wakeup_queue(pipe->wait_queue_writers);
 		/* Deschedule and switch */
 		if (collected == 0) {
-			sleep_on_unlocking(pipe->wait_queue_readers, &pipe->lock_read);
+			if (sleep_on_unlocking(pipe->wait_queue_readers, &pipe->lock_read)) {
+				if (!collected) return -EINTR;
+				break;
+			}
 		} else {
 			spin_unlock(pipe->lock_read);
 		}
@@ -162,7 +165,10 @@ ssize_t write_pipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) 
 		wakeup_queue(pipe->wait_queue_readers);
 		pipe_alert_waiters(pipe);
 		if (written < size) {
-			sleep_on_unlocking(pipe->wait_queue_writers, &pipe->lock_read);
+			if (sleep_on_unlocking(pipe->wait_queue_writers, &pipe->lock_read)) {
+				if (!written) return -EINTR;
+				break;
+			}
 		} else {
 			spin_unlock(pipe->lock_read);
 		}

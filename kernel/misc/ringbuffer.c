@@ -12,6 +12,7 @@
  */
 #include <stdint.h>
 #include <stddef.h>
+#include <errno.h>
 #include <kernel/types.h>
 #include <kernel/ringbuffer.h>
 #include <kernel/process.h>
@@ -96,8 +97,12 @@ size_t ring_buffer_read(ring_buffer_t * ring_buffer, size_t size, uint8_t * buff
 		}
 		wakeup_queue(ring_buffer->wait_queue_writers);
 		if (collected == 0) {
-			if (sleep_on_unlocking(ring_buffer->wait_queue_readers, &ring_buffer->lock) && ring_buffer->internal_stop) {
-				ring_buffer->internal_stop = 0;
+			if (sleep_on_unlocking(ring_buffer->wait_queue_readers, &ring_buffer->lock)) {
+				if (ring_buffer->internal_stop) {
+					ring_buffer->internal_stop = 0;
+				} else {
+					if (!collected) return -ERESTARTSYS;
+				}
 				break;
 			}
 		} else {
@@ -126,8 +131,12 @@ size_t ring_buffer_write(ring_buffer_t * ring_buffer, size_t size, uint8_t * buf
 				spin_unlock(ring_buffer->lock);
 				break;
 			}
-			if (sleep_on_unlocking(ring_buffer->wait_queue_writers, &ring_buffer->lock) && ring_buffer->internal_stop) {
-				ring_buffer->internal_stop = 0;
+			if (sleep_on_unlocking(ring_buffer->wait_queue_writers, &ring_buffer->lock)) {
+				if (ring_buffer->internal_stop) {
+					ring_buffer->internal_stop = 0;
+				} else {
+					if (!written) return -ERESTARTSYS;
+				}
 				break;
 			}
 		} else {
