@@ -94,8 +94,6 @@ void arch_return_from_signal_handler(struct regs *r) {
 	/* Interrupt context registers */
 	POP(sp, struct regs, *r);
 
-	dprintf("exit signal handler in SP=%#zx out SP=%#zx r=%#zx\n", sp, r->user_sp, (uintptr_t)r);
-
 	asm volatile ("msr SP_EL0, %0" :: "r"(r->user_sp));
 }
 
@@ -115,8 +113,6 @@ void arch_return_from_signal_handler(struct regs *r) {
 void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r) {
 
 	uintptr_t sp = (r->user_sp - 128) & 0xFFFFFFFFFFFFFFF0;
-
-	dprintf("enter signal handler old SP=%#zx new SP=%#zx r=%#zx\n", r->user_sp, sp, (uintptr_t)r);
 
 	/* Save essential registers */
 	PUSH(sp, struct regs, *r);
