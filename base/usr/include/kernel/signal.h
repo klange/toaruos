@@ -20,8 +20,6 @@ typedef struct {
 extern void fix_signal_stacks(void);
 extern int send_signal(pid_t process, int signal, int force_root);
 extern int group_send_signal(pid_t group, int signal, int force_root);
-extern void handle_signal(process_t * proc, signal_t * sig);
-
-__attribute__((noreturn))
-extern void return_from_signal_handler(void);
+extern void handle_signal(process_t * proc, signal_t * sig, struct regs *r);
+extern void process_check_signals(struct regs*);
 

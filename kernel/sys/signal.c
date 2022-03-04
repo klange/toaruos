@@ -72,7 +72,7 @@ char isdeadly[] = {
 	[SIGCAT     ] = 0,
 };
 
-void handle_signal(process_t * proc, signal_t * sig) {
+void handle_signal(process_t * proc, signal_t * sig, struct regs *r) {
 	uintptr_t handler = sig->handler;
 	uintptr_t signum  = sig->signum;
 	free(sig);
@@ -120,58 +120,7 @@ void handle_signal(process_t * proc, signal_t * sig) {
 		return;
 	}
 
-	arch_enter_signal_handler(handler, signum);
-}
-
-list_t * rets_from_sig;
-
-void return_from_signal_handler(void) {
-	if (__builtin_expect(!rets_from_sig, 0)) {
-		rets_from_sig = list_create("global return-from-signal queue",NULL);
-	}
-
-	spin_lock(sig_lock);
-	list_insert(rets_from_sig, (process_t *)this_core->current_process);
-	spin_unlock(sig_lock);
-
-	switch_next();
-}
-
-void fix_signal_stacks(void) {
-	uint8_t redo_me = 0;
-	if (rets_from_sig) {
-		spin_lock(sig_lock_b);
-		while (rets_from_sig->head) {
-			spin_lock(sig_lock);
-			node_t * n = list_dequeue(rets_from_sig);
-			spin_unlock(sig_lock);
-			if (!n) {
-				continue;
-			}
-			process_t * p = n->value;
-			free(n);
-			if (p == this_core->current_process) {
-				redo_me = 1;
-				continue;
-			}
-			memcpy(&p->thread, &p->signal_state, sizeof(thread_t));
-			if (!p->signal_kstack) {
-				printf("Cannot restore signal stack for pid=%d - unset?\n", p->id);
-			} else {
-				memcpy((char *)(p->image.stack - KERNEL_STACK_SIZE + 0x1000), p->signal_kstack + 0x1000, KERNEL_STACK_SIZE - 0x1000);
-				free(p->signal_kstack);
-				p->signal_kstack = NULL;
-			}
-			make_process_ready(p);
-		}
-		spin_unlock(sig_lock_b);
-	}
-	if (redo_me) {
-		spin_lock(sig_lock);
-		list_insert(rets_from_sig, (process_t *)this_core->current_process);
-		spin_unlock(sig_lock);
-		switch_next();
-	}
+	arch_enter_signal_handler(handler, signum, r);
 }
 
 int send_signal(pid_t process, int signal, int force_root) {
@@ -230,15 +179,6 @@ int send_signal(pid_t process, int signal, int force_root) {
 		make_process_ready(receiver);
 	}
 
-	if (receiver == this_core->current_process) {
-		/* Forces us to be rescheduled and enter signal handler */
-		if (receiver->signal_kstack) {
-			switch_next();
-		} else {
-			switch_task(0);
-		}
-	}
-
 	return 0;
 }
 
@@ -268,5 +208,20 @@ int group_send_signal(pid_t group, int signal, int force_root) {
 	}
 
 	return !!killed_something;
+}
+
+void process_check_signals(struct regs * r) {
+	if (this_core->current_process &&
+		!(this_core->current_process->flags & PROC_FLAG_FINISHED) &&
+		this_core->current_process->signal_queue &&
+		this_core->current_process->signal_queue->length > 0) {
+
+		node_t * node = list_dequeue(this_core->current_process->signal_queue);
+		signal_t * sig = node->value;
+
+		free(node);
+
+		handle_signal((process_t*)this_core->current_process,sig,r);
+	}
 }
 

@@ -12,6 +12,7 @@
 #include <kernel/string.h>
 #include <kernel/printf.h>
 #include <kernel/spinlock.h>
+#include <kernel/mmu.h>
 
 #include <kernel/arch/aarch64/regs.h>
 #include <kernel/arch/aarch64/gic.h>
@@ -48,6 +49,40 @@ void arch_enter_user(uintptr_t entrypoint, int argc, char * argv[], char * envp[
 	__builtin_unreachable();
 }
 
+static void _kill_it(uintptr_t addr, const char * action, const char * desc, size_t size) {
+	dprintf("core %d (pid=%d %s): invalid stack for signal %s (%#zx '%s' %zu)\n",
+		this_core->cpu_id, this_core->current_process->id, this_core->current_process->name, action, addr, desc, size);
+	task_exit(((128 + SIGSEGV) << 8) | SIGSEGV);
+}
+
+#define PUSH(stack, type, item) do { \
+	stack -= sizeof(type); \
+	if (!mmu_validate_user_pointer((void*)(uintptr_t)stack,sizeof(type),MMU_PTR_WRITE)) \
+		_kill_it((uintptr_t)stack,"entry",#item,sizeof(type)); \
+	*((volatile type *) stack) = item; \
+} while (0)
+
+#define POP(stack, type, item) do { \
+	if (!mmu_validate_user_pointer((void*)(uintptr_t)stack,sizeof(type),0)) \
+		_kill_it((uintptr_t)stack,"return",#item,sizeof(type)); \
+	item = *((volatile type *) stack); \
+	stack += sizeof(type); \
+} while (0)
+
+void arch_return_from_signal_handler(struct regs *r) {
+	uintptr_t elr;
+	uintptr_t sp = r->user_sp;
+	POP(sp, uintptr_t, this_core->current_process->thread.context.saved[13]);
+	POP(sp, uintptr_t, this_core->current_process->thread.context.saved[12]);
+	for (int i = 0; i < 64; ++i) {
+		POP(sp, uint64_t, this_core->current_process->thread.fp_regs[63-i]);
+	}
+
+	POP(sp, struct regs, *r);
+	POP(sp, uint64_t, elr);
+	asm volatile ("msr ELR_EL1, %0" : "=r"(elr));
+}
+
 /**
  * @brief Enter a userspace signal handler.
  *
@@ -61,14 +96,30 @@ void arch_enter_user(uintptr_t entrypoint, int argc, char * argv[], char * envp[
  * @param entrypoint Userspace address of the signal handler, set by the process.
  * @param signum     Signal number that caused this entry.
  */
-void arch_enter_signal_handler(uintptr_t entrypoint, int signum) {
+void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r) {
+
+	uintptr_t elr;
+	uintptr_t sp = (r->user_sp - 128) & 0xFFFFFFFFFFFFFFF0;
+
+	asm volatile ("mrs %0, ELR_EL1" : "=r"(elr));
+
+	PUSH(sp, uint64_t, elr);
+	PUSH(sp, struct regs, *r);
+
+	for (int i = 0; i < 64; ++i) {
+		PUSH(sp, uint64_t, this_core->current_process->thread.fp_regs[i]);
+	}
+
+	PUSH(sp, uintptr_t, this_core->current_process->thread.context.saved[12]);
+	PUSH(sp, uintptr_t, this_core->current_process->thread.context.saved[13]);
+
 	asm volatile(
 		"msr ELR_EL1, %0\n" /* entrypoint */
 		"msr SP_EL0, %1\n" /* stack */
 		"msr SPSR_EL1, %2\n" /* spsr from context */
 		::
 		"r"(entrypoint),
-		"r"((this_core->current_process->syscall_registers->user_sp - 128) & 0xFFFFFFFFFFFFFFF0),
+		"r"(sp),
 		"r"(this_core->current_process->thread.context.saved[11]));
 
 	register uint64_t x0 __asm__("x0") = signum;

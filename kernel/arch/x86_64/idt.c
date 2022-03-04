@@ -510,7 +510,7 @@ static void _page_fault(struct regs * r) {
 
 	/* 8DEADBEEFh is the magic ret-from-sig address. */
 	if (faulting_address == 0x8DEADBEEF) {
-		return_from_signal_handler();
+		arch_return_from_signal_handler(r);
 		return;
 	}
 
@@ -613,13 +613,7 @@ static void _handle_irq(struct regs * r, int irq) {
 #define EXC(i,n) case i: _exception(r, n); break;
 #define IRQ(i) case i: _handle_irq(r,i-32); break;
 
-struct regs * isr_handler(struct regs * r) {
-	this_core->interrupt_registers = r;
-
-	if (r->cs != 0x08 && this_core->current_process) {
-		this_core->current_process->time_switch = arch_perf_timer();
-	}
-
+struct regs * isr_handler_inner(struct regs * r) {
 	switch (r->int_no) {
 		EXC(0,"divide-by-zero");
 		case 1: return _debug_int(r);
@@ -690,3 +684,20 @@ struct regs * isr_handler(struct regs * r) {
 	return r;
 }
 
+struct regs * isr_handler(struct regs * r) {
+	int from_userspace = r->cs != 0x08;
+	this_core->interrupt_registers = r;
+
+	if (from_userspace && this_core->current_process) {
+		this_core->current_process->time_switch = arch_perf_timer();
+	}
+
+	struct regs * out = isr_handler_inner(r);
+
+	if (from_userspace && this_core->current_process) {
+		process_check_signals(out);
+	}
+
+	return out;
+
+}

@@ -46,6 +46,48 @@ void arch_enter_user(uintptr_t entrypoint, int argc, char * argv[], char * envp[
 	    "D"(argc), "S"(argv), "d"(envp));
 }
 
+static void _kill_it(void) {
+	dprintf("core %d (pid=%d %s): invalid stack for signal return\n",
+		this_core->cpu_id, this_core->current_process->id, this_core->current_process->name);
+	task_exit(((128 + SIGSEGV) << 8) | SIGSEGV);
+}
+
+#define PUSH(stack, type, item) do { \
+	stack -= sizeof(type); \
+	if (!mmu_validate_user_pointer((void*)(uintptr_t)stack,sizeof(type),MMU_PTR_WRITE)) \
+		_kill_it(); \
+	*((volatile type *) stack) = item; \
+} while (0)
+
+#define POP(stack, type, item) do { \
+	if (!mmu_validate_user_pointer((void*)(uintptr_t)stack,sizeof(type),0)) \
+		_kill_it(); \
+	item = *((volatile type *) stack); \
+	stack += sizeof(type); \
+} while (0)
+
+void arch_return_from_signal_handler(struct regs *r) {
+
+	for (int i = 0; i < 64; ++i) {
+		POP(r->rsp, uint64_t, this_core->current_process->thread.fp_regs[63-i]);
+	}
+
+	struct regs out;
+	POP(r->rsp, struct regs, out);
+
+#define R(n) r-> n = out. n
+
+	R(r15); R(r14); R(r13); R(r12);
+	R(r11); R(r10); R(r9); R(r8);
+	R(rbp); R(rdi); R(rsi); R(rdx); R(rcx); R(rbx); R(rax);
+
+	R(rip);
+	R(rsp);
+
+	r->rflags = (out.rflags & 0xcd5) | (1 << 21) | (1 << 9) | ((r->rflags & (1 << 8)) ? (1 << 8) : 0);
+}
+
+
 /**
  * @brief Enter a userspace signal handler.
  *
@@ -59,14 +101,21 @@ void arch_enter_user(uintptr_t entrypoint, int argc, char * argv[], char * envp[
  * @param entrypoint Userspace address of the signal handler, set by the process.
  * @param signum     Signal number that caused this entry.
  */
-void arch_enter_signal_handler(uintptr_t entrypoint, int signum) {
+void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r) {
 	struct regs ret;
 	ret.cs = 0x18 | 0x03;
 	ret.ss = 0x20 | 0x03;
 	ret.rip = entrypoint;
 	ret.rflags = (1 << 21) | (1 << 9);
-	ret.rsp = (this_core->current_process->syscall_registers->rsp - 128 - 8) & 0xFFFFFFFFFFFFFFF0; /* ensure considerable alignment */
-	*(uintptr_t*)ret.rsp = 0x00000008DEADBEEF; /* arbitrarily chosen stack return sentinel IP */
+	ret.rsp = (r->rsp - 128) & 0xFFFFFFFFFFFFFFF0; /* ensure considerable alignment */
+
+	PUSH(ret.rsp, struct regs, *r);
+
+	for (int i = 0; i < 64; ++i) {
+		PUSH(ret.rsp, uint64_t, this_core->current_process->thread.fp_regs[i]);
+	}
+
+	PUSH(ret.rsp, uintptr_t, 0x00000008DEADBEEF);
 
 	asm volatile(
 		"pushq %0\n"

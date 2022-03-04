@@ -294,7 +294,7 @@ void aarch64_sync_enter(struct regs * r) {
 			ptrace_signal(SIGTRAP, PTRACE_EVENT_SINGLESTEP);
 		}
 
-		return;
+		goto _resume_user;
 	}
 
 	/* Magic thread exit */
@@ -305,8 +305,8 @@ void aarch64_sync_enter(struct regs * r) {
 
 	/* Magic signal return */
 	if (elr == 0x8DEADBEEF && far == 0x8DEADBEEF) {
-		return_from_signal_handler();
-		return;
+		arch_return_from_signal_handler(r);
+		goto _resume_user;
 	}
 
 	/* System call */
@@ -315,13 +315,13 @@ void aarch64_sync_enter(struct regs * r) {
 		//	this_core->current_process->id, r->x0, elr);
 		extern void syscall_handler(struct regs *);
 		syscall_handler(r);
-		return;
+		goto _resume_user;
 	}
 
 	/* KVM is mad at us; usually means our code is broken or we neglected a cache. */
 	if (far == 0x1de7ec7edbadc0de) {
 		printf("kvm: blip (esr=%#zx, elr=%#zx; pid=%d [%s])\n", esr, elr, this_core->current_process->id, this_core->current_process->name);
-		return;
+		goto _resume_user;
 	}
 
 	/* Unexpected fault, eg. page fault. */
@@ -333,6 +333,9 @@ void aarch64_sync_enter(struct regs * r) {
 	dprintf("  TPIDR_EL0=%#zx\n", tpidr_el0);
 
 	send_signal(this_core->current_process->id, SIGSEGV, 1);
+
+_resume_user:
+	process_check_signals(r);
 }
 
 static void spin(void) {
@@ -406,6 +409,8 @@ void aarch64_irq_enter(struct regs * r) {
 	}
 
 	aarch64_interrupt_dispatch(0);
+
+	process_check_signals(r);
 }
 
 /**

@@ -133,18 +133,6 @@ void switch_next(void) {
 		__builtin_unreachable();
 	}
 
-	if (this_core->current_process->flags & PROC_FLAG_STARTED) {
-		/* If this process has a signal pending, we save its current context - including
-		 * the entire kernel stack - before resuming switch_task. */
-		if (!this_core->current_process->signal_kstack) {
-			if (this_core->current_process->signal_queue->length > 0) {
-				this_core->current_process->signal_kstack = malloc(KERNEL_STACK_SIZE);
-				memcpy(this_core->current_process->signal_kstack, (void*)(this_core->current_process->image.stack - KERNEL_STACK_SIZE), KERNEL_STACK_SIZE);
-				memcpy((thread_t*)&this_core->current_process->signal_state, (thread_t*)&this_core->current_process->thread, sizeof(thread_t));
-			}
-		}
-	}
-
 	/* Mark the process as running and started. */
 	__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_STARTED);
 
@@ -196,17 +184,6 @@ void switch_task(uint8_t reschedule) {
 	 * from a task switch and have been awoken if we were sleeping. */
 	if (arch_save_context(&this_core->current_process->thread) == 1) {
 		arch_restore_floating((process_t*)this_core->current_process);
-
-		fix_signal_stacks();
-		if (!(this_core->current_process->flags & PROC_FLAG_FINISHED)) {
-			if (this_core->current_process->signal_queue->length > 0) {
-				node_t * node = list_dequeue(this_core->current_process->signal_queue);
-				signal_t * sig = node->value;
-				free(node);
-				handle_signal((process_t*)this_core->current_process,sig);
-			}
-		}
-
 		return;
 	}
 
@@ -430,7 +407,6 @@ process_t * spawn_init(void) {
 	init->wait_queue    = list_create("process wait queue (init)", init);
 	init->shm_mappings  = list_create("process shm mapping (init)", init);
 	init->signal_queue  = list_create("process signal queue (init)", init);
-	init->signal_kstack = NULL; /* Initialized later */
 
 	init->sched_node.prev = NULL;
 	init->sched_node.next = NULL;
@@ -538,10 +514,6 @@ process_t * spawn_process(volatile process_t * parent, int flags) {
 extern void tree_remove_reparent_root(tree_t * tree, tree_node_t * node);
 
 void process_reap(process_t * proc) {
-	if (proc->signal_kstack) {
-		free(proc->signal_kstack);
-	}
-
 	if (proc->tracees) {
 		while (proc->tracees->length) {
 			free(list_pop(proc->tracees));
