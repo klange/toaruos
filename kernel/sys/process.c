@@ -1164,7 +1164,9 @@ int process_alert_node_locked(process_t * process, void * value) {
 	must_have_lock(sleep_lock);
 
 	if (!is_valid_process(process)) {
-		printf("invalid process\n");
+		dprintf("core %d (pid=%d %s) attempted to alert invalid process %#zx\n",
+			this_core->cpu_id, this_core->current_process->id, this_core->current_process->name,
+			(uintptr_t)process);
 		return 0;
 	}
 
