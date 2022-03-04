@@ -70,18 +70,33 @@ static void _kill_it(uintptr_t addr, const char * action, const char * desc, siz
 } while (0)
 
 void arch_return_from_signal_handler(struct regs *r) {
-	uintptr_t elr;
+	uintptr_t spsr;
 	uintptr_t sp = r->user_sp;
+
+	/* Restore floating point */
 	POP(sp, uintptr_t, this_core->current_process->thread.context.saved[13]);
 	POP(sp, uintptr_t, this_core->current_process->thread.context.saved[12]);
 	for (int i = 0; i < 64; ++i) {
 		POP(sp, uint64_t, this_core->current_process->thread.fp_regs[63-i]);
 	}
+	arch_restore_floating((process_t*)this_core->current_process);
 
+	/* Interrupt system call status */
 	POP(sp, long, this_core->current_process->interrupted_system_call);
+
+	/* Process state */
+	POP(sp, uintptr_t, spsr);
+	this_core->current_process->thread.context.saved[11] = (spsr & 0xf0000000);
+	asm volatile ("msr SPSR_EL1, %0" :: "r"(this_core->current_process->thread.context.saved[11]));
+	POP(sp, uintptr_t, this_core->current_process->thread.context.saved[10]);
+	asm volatile ("msr ELR_EL1, %0" :: "r"(this_core->current_process->thread.context.saved[10]));
+
+	/* Interrupt context registers */
 	POP(sp, struct regs, *r);
-	POP(sp, uint64_t, elr);
-	asm volatile ("msr ELR_EL1, %0" : "=r"(elr));
+
+	dprintf("exit signal handler in SP=%#zx out SP=%#zx r=%#zx\n", sp, r->user_sp, (uintptr_t)r);
+
+	asm volatile ("msr SP_EL0, %0" :: "r"(r->user_sp));
 }
 
 /**
@@ -99,20 +114,27 @@ void arch_return_from_signal_handler(struct regs *r) {
  */
 void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r) {
 
-	uintptr_t elr;
 	uintptr_t sp = (r->user_sp - 128) & 0xFFFFFFFFFFFFFFF0;
 
-	asm volatile ("mrs %0, ELR_EL1" : "=r"(elr));
+	dprintf("enter signal handler old SP=%#zx new SP=%#zx r=%#zx\n", r->user_sp, sp, (uintptr_t)r);
 
-	PUSH(sp, uint64_t, elr);
+	/* Save essential registers */
 	PUSH(sp, struct regs, *r);
+
+	/* Save context that wasn't pushed above... */
+	asm volatile ("mrs %0, ELR_EL1" : "=r"(this_core->current_process->thread.context.saved[10]));
+	PUSH(sp, uintptr_t, this_core->current_process->thread.context.saved[10]);
+	asm volatile ("mrs %0, SPSR_EL1" : "=r"(this_core->current_process->thread.context.saved[11]));
+	PUSH(sp, uintptr_t, this_core->current_process->thread.context.saved[11]);
+
 	PUSH(sp, long, this_core->current_process->interrupted_system_call);
 	this_core->current_process->interrupted_system_call = 0;
 
+	/* Save floating point */
+	arch_save_floating((process_t*)this_core->current_process);
 	for (int i = 0; i < 64; ++i) {
 		PUSH(sp, uint64_t, this_core->current_process->thread.fp_regs[i]);
 	}
-
 	PUSH(sp, uintptr_t, this_core->current_process->thread.context.saved[12]);
 	PUSH(sp, uintptr_t, this_core->current_process->thread.context.saved[13]);
 
@@ -123,13 +145,15 @@ void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r)
 		::
 		"r"(entrypoint),
 		"r"(sp),
-		"r"(this_core->current_process->thread.context.saved[11]));
+		"r"(0));
 
 	register uint64_t x0 __asm__("x0") = signum;
 	register uint64_t x30 __asm__("x30") = 0x8DEADBEEF;
+	register uint64_t x4 __asm__("x4") = (uintptr_t)this_core->sp_el1;
 
 	asm volatile(
-		"eret" :: "r"(x0), "r"(x30));
+		"mov sp, x4\n"
+		"eret\nnop\nnop" :: "r"(x0), "r"(x30), "r"(x4));
 
 	__builtin_unreachable();
 }

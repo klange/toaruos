@@ -74,6 +74,8 @@ void arch_return_from_signal_handler(struct regs *r) {
 		POP(r->rsp, uint64_t, this_core->current_process->thread.fp_regs[63-i]);
 	}
 
+	arch_restore_floating((process_t*)this_core->current_process);
+
 	POP(r->rsp, long, this_core->current_process->interrupted_system_call);
 
 	struct regs out;
@@ -118,6 +120,7 @@ void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r)
 	PUSH(ret.rsp, long, this_core->current_process->interrupted_system_call);
 	this_core->current_process->interrupted_system_call = 0;
 
+	arch_save_floating((process_t*)this_core->current_process);
 	for (int i = 0; i < 64; ++i) {
 		PUSH(ret.rsp, uint64_t, this_core->current_process->thread.fp_regs[i]);
 	}
