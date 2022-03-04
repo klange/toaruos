@@ -131,7 +131,7 @@ static int release_chunk (shm_chunk_t * chunk) {
 
 			/* First, free the frames used by this chunk */
 			for (uint32_t i = 0; i < chunk->num_frames; i++) {
-				mmu_frame_clear(chunk->frames[i] << 12);
+				mmu_frame_release(chunk->frames[i] << 12);
 			}
 
 			/* Then, get rid of the damn thing */

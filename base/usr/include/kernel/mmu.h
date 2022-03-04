@@ -23,6 +23,7 @@
 
 void mmu_frame_set(uintptr_t frame_addr);
 void mmu_frame_clear(uintptr_t frame_addr);
+void mmu_frame_release(uintptr_t frame_addr);
 int mmu_frame_test(uintptr_t frame_addr);
 uintptr_t mmu_first_n_frames(int n);
 uintptr_t mmu_first_frame(void);

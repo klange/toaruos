@@ -131,7 +131,7 @@ static void tmpfs_file_free(struct tmpfs_file * t) {
 	}
 	spin_lock(t->lock);
 	for (size_t i = 0; i < t->block_count; ++i) {
-		mmu_frame_clear((uintptr_t)t->blocks[i] * 0x1000);
+		mmu_frame_release((uintptr_t)t->blocks[i] * 0x1000);
 		tmpfs_total_blocks--;
 	}
 	spin_unlock(t->lock);
@@ -277,7 +277,7 @@ static int truncate_tmpfs(fs_node_t * node) {
 	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
 	spin_lock(t->lock);
 	for (size_t i = 0; i < t->block_count; ++i) {
-		mmu_frame_clear((uintptr_t)t->blocks[i] * 0x1000);
+		mmu_frame_release((uintptr_t)t->blocks[i] * 0x1000);
 		tmpfs_total_blocks--;
 		t->blocks[i] = 0;
 	}

@@ -82,7 +82,7 @@ static int ioctl_ramdisk(fs_node_t * node, unsigned long request, void * argp) {
 						node->length -= node->length % 0x1000;
 					}
 					for (uintptr_t i = node->inode; i < (node->inode + node->length); i += 0x1000) {
-						mmu_frame_clear(i);
+						mmu_frame_release(i);
 					}
 				}
 				/* Mark the file length as 0 */

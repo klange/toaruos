@@ -121,6 +121,12 @@ static spin_lock_t kheap_lock = { 0 };
 static spin_lock_t mmio_space_lock = { 0 };
 static spin_lock_t module_space_lock = { 0 };
 
+void mmu_frame_release(uintptr_t frame_addr) {
+	spin_lock(frame_alloc_lock);
+	mmu_frame_clear(frame_addr);
+	spin_unlock(frame_alloc_lock);
+}
+
 /**
  * @brief Find the first range of @p n contiguous frames.
  *
