@@ -57,15 +57,18 @@ static ssize_t write_unixpipe(fs_node_t * node, off_t offset, size_t size, uint8
 static void close_read_pipe(fs_node_t * node) {
 	struct unix_pipe * self = node->device;
 
+	spin_lock(self->buffer->lock);
 	self->read_closed = 1;
 	if (!self->write_closed) {
 		ring_buffer_interrupt(self->buffer);
 	}
+	spin_unlock(self->buffer->lock);
 }
 
 static void close_write_pipe(fs_node_t * node) {
 	struct unix_pipe * self = node->device;
 
+	spin_lock(self->buffer->lock);
 	self->write_closed = 1;
 	if (!self->read_closed) {
 		ring_buffer_interrupt(self->buffer);
@@ -73,6 +76,7 @@ static void close_write_pipe(fs_node_t * node) {
 			ring_buffer_alert_waiters(self->buffer);
 		}
 	}
+	spin_unlock(self->buffer->lock);
 }
 
 static int check_pipe(fs_node_t * node) {
