@@ -210,7 +210,7 @@ ToaruOS is not currently capable of building most of its ports, due to a lack of
 
 ### Is ToaruOS a Linux distribution?
 
-No, not all. There is no code from Linux anywhere in ToaruOS, nor were Linux sources used as a reference material.
+No, not at all. There is no code from Linux anywhere in ToaruOS, nor were Linux sources used as a reference material.
 
 ToaruOS is a completely independent project, and all code in this repository - which is the entire codebase of the operating system, including its kernel, bootloaders, libraries, and applications - is original, written by myself and a handful of contributors over the course of ten years.
 The complete source history, going back to when ToaruOS was nothing more than a baremetal "hello world" can be tracked through this git repository.
