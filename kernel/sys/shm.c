@@ -171,7 +171,7 @@ static void * map_in (shm_chunk_t * chunk, volatile process_t * volatile proc) {
 	mapping->num_vaddrs = chunk->num_frames;
 	mapping->vaddrs = malloc(sizeof(uintptr_t) * mapping->num_vaddrs);
 
-	uintptr_t last_address = 0x200000000;
+	uintptr_t last_address = USER_SHM_LOW;
 	foreach(node, proc->shm_mappings) {
 		shm_mapping_t * m = node->value;
 		if (m->vaddrs[0] > last_address) {

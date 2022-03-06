@@ -103,7 +103,7 @@ static int ioctl_vid(fs_node_t * node, unsigned long request, void * argp) {
 				uintptr_t lfb_user_offset;
 				if (*(uintptr_t*)argp == 0) {
 					/* Pick an address and map it */
-					lfb_user_offset = 0x100000000; /* at 4GiB seems good */
+					lfb_user_offset = USER_DEVICE_MAP;
 				} else {
 					validate((void*)(*(uintptr_t*)argp));
 					lfb_user_offset = *(uintptr_t*)argp;
@@ -490,7 +490,7 @@ static int ioctl_vga(fs_node_t * node, unsigned long request, void * argp) {
 			{
 				uintptr_t vga_user_offset;
 				if (*(uintptr_t*)argp == 0) {
-					vga_user_offset = 0x100000000;
+					vga_user_offset = USER_DEVICE_MAP;
 				} else {
 					validate((void*)(*(uintptr_t*)argp));
 					vga_user_offset = *(uintptr_t*)argp;

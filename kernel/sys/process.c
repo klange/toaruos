@@ -401,7 +401,7 @@ process_t * spawn_init(void) {
 	mmu_frame_allocate(
 		mmu_get_page(init->image.stack - KERNEL_STACK_SIZE, 0),
 		MMU_FLAG_KERNEL);
-	init->image.shm_heap = 0x200000000; /* That's 8GiB? That should work fine... */
+	init->image.shm_heap = USER_SHM_LOW;
 
 	init->flags         = PROC_FLAG_STARTED | PROC_FLAG_RUNNING;
 	init->wait_queue    = list_create("process wait queue (init)", init);
@@ -465,7 +465,7 @@ process_t * spawn_process(volatile process_t * parent, int flags) {
 	mmu_frame_allocate(
 		mmu_get_page(proc->image.stack - KERNEL_STACK_SIZE, 0),
 		MMU_FLAG_KERNEL);
-	proc->image.shm_heap    = 0x200000000; /* FIXME this should be a macro def */
+	proc->image.shm_heap    = USER_SHM_LOW;
 
 	if (flags & PROC_REUSE_FDS) {
 		spin_lock(parent->fds->lock);
