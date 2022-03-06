@@ -104,6 +104,14 @@ long sys_sysfunc(long fn, char ** args) {
 			#endif
 			return 0;
 
+		case 43: {
+			extern void mmu_unmap_user(uintptr_t addr, size_t size);
+			PTR_VALIDATE(&args[0]);
+			PTR_VALIDATE(&args[1]);
+			mmu_unmap_user((uintptr_t)args[0], (size_t)args[1]);
+			return 0;
+		}
+
 		case TOARU_SYS_FUNC_INSMOD:
 			/* Linux has init_module as a system call? */
 			if (this_core->current_process->user != 0) return -EACCES;

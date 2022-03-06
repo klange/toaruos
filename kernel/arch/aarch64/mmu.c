@@ -643,6 +643,24 @@ void mmu_set_directory(union PML * new_pml) {
 void mmu_invalidate(uintptr_t addr) {
 }
 
+void mmu_unmap_user(uintptr_t addr, size_t size) {
+	for (uintptr_t a = addr; a < addr + size; a += PAGE_SIZE) {
+		if (a >= USER_DEVICE_MAP && a <= USER_SHM_HIGH) continue;
+		union PML * page = mmu_get_page(a, 0);
+		spin_lock(frame_alloc_lock);
+		if (page && page->bits.present) {
+			if (page->bits.ap & 1) {
+				mmu_frame_clear((uintptr_t)page->bits.page << PAGE_SHIFT);
+				page->bits.present = 0;
+				page->bits.ap = 0;
+			}
+		}
+		mmu_invalidate(a);
+		spin_unlock(frame_alloc_lock);
+	}
+}
+
+
 static char * heapStart = NULL;
 extern char end[];
 

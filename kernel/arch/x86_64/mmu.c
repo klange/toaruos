@@ -836,6 +836,27 @@ void mmu_invalidate(uintptr_t addr) {
 	arch_tlb_shootdown(addr);
 }
 
+void mmu_unmap_user(uintptr_t addr, size_t size) {
+	for (uintptr_t a = addr; a < addr + size; a += PAGE_SIZE) {
+		if (a >= USER_DEVICE_MAP && a <= USER_SHM_HIGH) continue;
+		spin_lock(frame_alloc_lock);
+		union PML * page = mmu_get_page(a, 0);
+		if (page && page->bits.present && page->bits.user) {
+			if (page->bits.writable) {
+				assert(mem_refcounts[page->bits.page] == 0);
+				mmu_frame_clear((uintptr_t)page->bits.page << PAGE_SHIFT);
+			} else if (refcount_dec(page->bits.page) == 0) {
+				mmu_frame_clear((uintptr_t)page->bits.page << PAGE_SHIFT);
+			}
+			page->bits.present = 0;
+			page->bits.writable = 0;
+		}
+		mmu_invalidate(a);
+		spin_unlock(frame_alloc_lock);
+	}
+}
+
+
 static char * heapStart = NULL;
 extern char end[];
 
