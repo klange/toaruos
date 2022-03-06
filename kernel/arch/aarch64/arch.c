@@ -388,7 +388,9 @@ void _spin_panic(const char * lock_name, spin_lock_t * target) {
 }
 
 void arch_spin_lock_acquire(const char * name, spin_lock_t * target, const char * func) {
+	#if 0
 	uint64_t expire = arch_perf_timer() + 5000000UL * arch_cpu_mhz();
+	#endif
 
 	/* "loss of an exclusive monitor" is one of the things that causes an "event",
 	 * so we spin on wfe to try to load-acquire the latch */
@@ -396,6 +398,7 @@ void arch_spin_lock_acquire(const char * name, spin_lock_t * target, const char 
 		"sevl\n" /* And to avoid multiple jumps, we put the wfe first, so sevl will slide past the first one */
 		"1:\n"
 		"    wfe\n"
+#if 0
 	);
 
 	/* Yes, we can splice these assembly snippets with the clock check, this works fine.
@@ -405,6 +408,7 @@ void arch_spin_lock_acquire(const char * name, spin_lock_t * target, const char 
 	}
 
 	asm volatile (
+#endif
 		"2:\n"
 		"   ldaxr w2, [ %1 ]\n"     /* Acquire exclusive monitor and load latch value */
 		"   cbnz  w2, 1b\n"         /* If the latch value isn't 0, someone else owns the lock, go back to wfe and wait for them to release it */
