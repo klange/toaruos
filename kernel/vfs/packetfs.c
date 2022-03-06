@@ -70,13 +70,15 @@ typedef struct server_write_header {
 	uint8_t data[];
 } header_t;
 
-static void receive_packet(pex_ex_t * exchange, fs_node_t * socket, packet_t ** out) {
-	int r;
+static ssize_t receive_packet(pex_ex_t * exchange, fs_node_t * socket, packet_t ** out) {
+	ssize_t r;
 	do {
 		r = read_fs(socket, 0, sizeof(struct packet *), (uint8_t*)out);
 	} while (r == 0);
+	if (r < 0) return r;
 	assert(r == sizeof(struct packet*));
 	assert((uintptr_t)*out >= 0xFFFFff0000000000UL && (uintptr_t)*out < 0xffffff1fc0000000UL);
+	return r;
 }
 
 static void send_to_server(pex_ex_t * p, pex_client_t * c, size_t size, void * data) {
@@ -132,8 +134,9 @@ static ssize_t read_server(fs_node_t * node, off_t offset, size_t size, uint8_t 
 
 	packet_t * packet = NULL;
 
-	receive_packet(p, p->server_pipe, &packet);
+	ssize_t response_size = receive_packet(p, p->server_pipe, &packet);
 
+	if (response_size < 0) return response_size;
 	if (!packet) return -1;
 
 	debug_print(INFO, "Server recevied packet of size %zu, was waiting for at most %lu", packet->size, size);
@@ -201,8 +204,9 @@ static ssize_t read_client(fs_node_t * node, off_t offset, size_t size, uint8_t 
 
 	packet_t * packet = NULL;
 
-	receive_packet(c->parent, c->pipe, &packet);
+	ssize_t response_size = receive_packet(c->parent, c->pipe, &packet);
 
+	if (response_size < 0) return response_size;
 	if (!packet) return -EIO;
 
 	if (packet->size > size) {

@@ -131,7 +131,7 @@ ssize_t read_pipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 		/* Deschedule and switch */
 		if (collected == 0) {
 			if (sleep_on_unlocking(pipe->wait_queue_readers, &pipe->lock_read)) {
-				if (!collected) return -EINTR;
+				if (!collected) return -ERESTARTSYS;
 				break;
 			}
 		} else {
@@ -166,7 +166,7 @@ ssize_t write_pipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) 
 		pipe_alert_waiters(pipe);
 		if (written < size) {
 			if (sleep_on_unlocking(pipe->wait_queue_writers, &pipe->lock_read)) {
-				if (!written) return -EINTR;
+				if (!written) return -ERESTARTSYS;
 				break;
 			}
 		} else {
