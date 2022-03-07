@@ -448,6 +448,10 @@ void tab_complete_func(rline_context_t * c) {
 		complete_mode = COMPLETE_CUSTOM;
 	}
 
+	if (cursor_adj >= 1 && !strcmp(argv[command_adj], "ifconfig")) {
+		complete_mode = COMPLETE_CUSTOM;
+	}
+
 	if (cursor_adj >= 1 && !strcmp(argv[command_adj], "unset")) {
 		complete_mode = COMPLETE_VARIABLE;
 	}
@@ -546,6 +550,7 @@ void tab_complete_func(rline_context_t * c) {
 		char ** completions = none;
 		char * toggle_abs_mouse_completions[] = {"relative","absolute",NULL};
 		char * msk_commands[] = {"update","install","list","count","--version",NULL};
+		char * ifconfig_commands[] = {"inet","netmask","gateway",NULL};
 
 		if (!strcmp(argv[command_adj],"toggle-abs-mouse")) {
 			completions = toggle_abs_mouse_completions;
@@ -575,6 +580,32 @@ void tab_complete_func(rline_context_t * c) {
 					completions[i] = NULL;
 					list_free(packages);
 				}
+			}
+		} else if (!strcmp(argv[command_adj], "ifconfig")) {
+			if (cursor_adj == 1) {
+				/* interface names */
+				DIR * d = opendir("/dev/net");
+				if (d) {
+					free_matches = 1;
+					list_t * interfaces = list_create();
+
+					struct dirent * ent;
+					while ((ent = readdir(d))) {
+						if (ent->d_name[0] == '.') continue;
+						list_insert(interfaces, strdup(ent->d_name));
+					}
+					closedir(d);
+
+					completions = malloc(sizeof(char*) * (interfaces->length + 1));
+					size_t i = 0;
+					foreach(node, interfaces) {
+						completions[i++] = node->value;
+					}
+					completions[i] = NULL;
+					list_free(interfaces);
+				}
+			} else if (cursor_adj > 1) {
+				completions = ifconfig_commands;
 			}
 		}
 
