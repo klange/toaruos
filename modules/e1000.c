@@ -308,6 +308,8 @@ static void init_tx(struct e1000_nic * device) {
 	write_command(device, E1000_REG_TCTRL, tctl);
 }
 
+#define privileged() do { if (this_core->current_process->user != USER_ROOT_UID) { return -EPERM; } } while (0)
+
 static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 	struct e1000_nic * nic = node->device;
 
@@ -322,6 +324,7 @@ static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 			memcpy(argp, &nic->eth.ipv4_addr, sizeof(nic->eth.ipv4_addr));
 			return 0;
 		case SIOCSIFADDR:
+			privileged();
 			memcpy(&nic->eth.ipv4_addr, argp, sizeof(nic->eth.ipv4_addr));
 			return 0;
 		case SIOCGIFNETMASK:
@@ -329,6 +332,7 @@ static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 			memcpy(argp, &nic->eth.ipv4_subnet, sizeof(nic->eth.ipv4_subnet));
 			return 0;
 		case SIOCSIFNETMASK:
+			privileged();
 			memcpy(&nic->eth.ipv4_subnet, argp, sizeof(nic->eth.ipv4_subnet));
 			return 0;
 		case SIOCGIFGATEWAY:
@@ -336,6 +340,7 @@ static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 			memcpy(argp, &nic->eth.ipv4_gateway, sizeof(nic->eth.ipv4_gateway));
 			return 0;
 		case SIOCSIFGATEWAY:
+			privileged();
 			memcpy(&nic->eth.ipv4_gateway, argp, sizeof(nic->eth.ipv4_gateway));
 			net_arp_ask(nic->eth.ipv4_gateway, node);
 			return 0;
@@ -343,6 +348,7 @@ static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 		case SIOCGIFADDR6:
 			return -ENOENT;
 		case SIOCSIFADDR6:
+			privileged();
 			memcpy(&nic->eth.ipv6_addr, argp, sizeof(nic->eth.ipv6_addr));
 			return 0;
 
@@ -490,7 +496,7 @@ static void e1000_init(struct e1000_nic * nic) {
 	nic->eth.device_node = calloc(sizeof(fs_node_t),1);
 	snprintf(nic->eth.device_node->name, 100, "%s", nic->eth.if_name);
 	nic->eth.device_node->flags = FS_BLOCKDEVICE; /* NETDEVICE? */
-	nic->eth.device_node->mask  = 0666; /* temporary; shouldn't be doing this with these device files */
+	nic->eth.device_node->mask  = 0644; /* temporary; shouldn't be doing this with these device files */
 	nic->eth.device_node->ioctl = ioctl_e1000;
 	nic->eth.device_node->write = write_e1000;
 	nic->eth.device_node->device = nic;

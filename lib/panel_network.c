@@ -64,7 +64,7 @@ static void check_network(const char * if_name) {
 
 	char if_path[512];
 	snprintf(if_path, 511, "/dev/net/%s", if_name);
-	int netdev = open(if_path, O_RDWR);
+	int netdev = open(if_path, O_RDONLY);
 
 	if (netdev < 0) return;
 
