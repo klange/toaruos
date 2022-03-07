@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <syscall.h>
 #include <syscall_nums.h>
 #include <sys/ioctl.h>
@@ -6,7 +7,7 @@
 DEFN_SYSCALL3(ioctl, SYS_IOCTL, int, unsigned long, void *);
 
 int ioctl(int fd, unsigned long request, void * argp) {
-	return syscall_ioctl(fd, request, argp);
+	__sets_errno(syscall_ioctl(fd, request, argp));
 }
 
 /* termios */
