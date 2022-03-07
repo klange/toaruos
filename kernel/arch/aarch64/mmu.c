@@ -379,7 +379,15 @@ static int copy_page_maybe(union PML * pt_in, union PML * pt_out, size_t l, uint
 	mmu_frame_set(newPage);
 	char * page_out = mmu_map_from_physical(newPage);
 	memcpy(page_out,page_in,PAGE_SIZE);
-	asm volatile ("" ::: "memory");
+	asm volatile ("dmb sy\nisb" ::: "memory");
+
+	for (uintptr_t x = (uintptr_t)page_out; x < (uintptr_t)page_out + PAGE_SIZE; x += 64) {
+		asm volatile ("dc cvau, %0" :: "r"(x));
+	}
+	for (uintptr_t x = (uintptr_t)page_out; x < (uintptr_t)page_out + PAGE_SIZE; x += 64) {
+		asm volatile ("ic ivau, %0" :: "r"(x));
+	}
+
 	pt_out[l].raw = 0;
 	pt_out[l].bits.table_page = 1;
 	pt_out[l].bits.present = 1;
