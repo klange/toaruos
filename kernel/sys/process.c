@@ -1356,10 +1356,10 @@ pid_t clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 	/* different calling convention */
 	#if defined(__x86_64__)
 	r.rdi = arg;
-	PUSH(new_stack, uintptr_t, (uintptr_t)0xFFFFB00F);
+	PUSH(new_stack, uintptr_t, (uintptr_t)0);
 	#elif defined(__aarch64__)
 	r.x0 = arg;
-	r.x30 = 0xFFFFB00F;
+	r.x30 = 0;
 	#endif
 	PUSH(sp, struct regs, r);
 	new_proc->syscall_registers = (void*)sp;

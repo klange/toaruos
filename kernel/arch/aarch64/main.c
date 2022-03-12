@@ -297,12 +297,6 @@ void aarch64_sync_enter(struct regs * r) {
 		goto _resume_user;
 	}
 
-	/* Magic thread exit */
-	if (elr == 0xFFFFB00F && far == 0xFFFFB00F) {
-		task_exit(0);
-		__builtin_unreachable();
-	}
-
 	/* Magic signal return */
 	if (elr == 0x8DEADBEEF && far == 0x8DEADBEEF) {
 		return_from_signal_handler(r);

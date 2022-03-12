@@ -499,16 +499,6 @@ static void _page_fault(struct regs * r) {
 	uintptr_t faulting_address;
 	asm volatile("mov %%cr2, %0" : "=r"(faulting_address));
 
-	/* FFFFB00Fh is the magic thread exit address.
-	 * XXX: This seems like it could be a perfectly valid address,
-	 *      should we move it to 0x8FFFFB00F, similar to what was
-	 *      done with the ret-from-sig address?
-	 */
-	if (faulting_address == 0xFFFFB00F) {
-		task_exit(0);
-		return;
-	}
-
 	/* 8DEADBEEFh is the magic ret-from-sig address. */
 	if (faulting_address == 0x8DEADBEEF) {
 		return_from_signal_handler(r);

@@ -49,11 +49,17 @@ void __make_tls(void) {
 	sysfunc(TOARU_SYS_FUNC_SETGSBASE, (char*[]){(char*)tlsSelf});
 }
 
+void pthread_exit(void * value) {
+	syscall_exit(0);
+	__builtin_unreachable();
+}
+
 void * __thread_start(void * thread) {
 	__make_tls();
 	struct pthread * me = ((pthread_t *)thread)->ret_val;
 	((pthread_t *)thread)->ret_val = 0;
-	return me->entry(me->arg);
+	pthread_exit(me->entry(me->arg));
+	return NULL;
 }
 
 int pthread_create(pthread_t * thread, pthread_attr_t * attr, void *(*start_routine)(void *), void * arg) {
@@ -71,18 +77,6 @@ int pthread_create(pthread_t * thread, pthread_attr_t * attr, void *(*start_rout
 
 int pthread_kill(pthread_t thread, int sig) {
 	__sets_errno(kill(thread.id, sig));
-}
-
-void pthread_exit(void * value) {
-	/* Perform nice cleanup */
-#if 0
-	/* XXX: LOCK */
-	free(stack);
-	/* XXX: Return value!? */
-#endif
-	uintptr_t magic_exit_target = 0xFFFFB00F;
-	void (*magic_exit_func)(void) = (void *)magic_exit_target;
-	magic_exit_func();
 }
 
 void pthread_cleanup_push(void (*routine)(void *), void *arg) {
