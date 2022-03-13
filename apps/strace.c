@@ -824,6 +824,10 @@ static void finish_syscall(pid_t pid, int syscall, struct regs * r) {
 		case SYS_SBRK:
 			fprintf(logfile, ") = %#zx\n", syscall_result(r));
 			break;
+		case SYS_EXECVE:
+			if (r == NULL) fprintf(logfile, ") = 0\n");
+			else maybe_errno(r);
+			break;
 		/* Most things return -errno, or positive valid result */
 		default:
 			maybe_errno(r);
@@ -1017,11 +1021,13 @@ int main(int argc, char * argv[]) {
 					int event = (status >> 16) & 0xFF;
 					switch (event) {
 						case PTRACE_EVENT_SYSCALL_ENTER:
+							if (previous_syscall == SYS_EXECVE) finish_syscall(p,SYS_EXECVE,NULL);
 							previous_syscall = syscall_num(&regs);
 							handle_syscall(p, &regs);
 							break;
 						case PTRACE_EVENT_SYSCALL_EXIT:
 							finish_syscall(p, previous_syscall, &regs);
+							previous_syscall = -1;
 							break;
 						default:
 							fprintf(logfile, "Unknown event.\n");
