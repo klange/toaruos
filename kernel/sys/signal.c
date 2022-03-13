@@ -5,18 +5,23 @@
  * Provides signal entry and delivery; also handles suspending
  * and resuming jobs (SIGTSTP, SIGCONT).
  *
- * Signal delivery in ToaruOS is a bit odd; we save a lot of the
- * kernel context from before the signal, including the entire
- * kernel stack, so that we can resume userspace in a new context;
- * essentially we build a whole new kernel thread for the signal
- * handler to run in, and then restore the original when the signal
- * handler exits. Signal handler exits are generally handled by
- * a page fault at a magic known address.
+ * As of Misaka 2.1, signal delivery has been largely rewritten:
+ * - Signals can only be delivered a times when we would be
+ *   normally returning to userspace. This matches behavior in
+ *   a number of other kernels.
+ * - Signals should cause kernel sleeps to return with an error
+ *   state, ending any blocking system calls and allowing them
+ *   to either gracefully return or bubble up -ERESTARTSYS to
+ *   be restarted.
+ * - Userspace signal handlers now push context on the userspace
+ *   stack. This is arch-specific behavior.
+ * - Signal handler returns work the same as previously, injecting
+ *   a special "magic" return address that should fault.
  *
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2012-2021 K. Lange
+ * Copyright (C) 2012-2022 K. Lange
  */
 #include <errno.h>
 #include <stdint.h>
@@ -78,6 +83,14 @@ static char sig_defaults[] = {
 	[SIGCAT     ] = SIG_DISP_Ign,
 };
 
+/**
+ * @brief If a system call returned -ERESTARTSYS, restart it.
+ *
+ * Called by both @c handle_signal and @c return_from_signal_handler depending
+ * on how the signal was handled.
+ *
+ * @param r Registers after restoration from signal return.
+ */
 static void maybe_restart_system_call(struct regs * r) {
 	if (this_core->current_process->interrupted_system_call && arch_syscall_number(r) == -ERESTARTSYS) {
 		arch_syscall_return(r, this_core->current_process->interrupted_system_call);
@@ -86,6 +99,26 @@ static void maybe_restart_system_call(struct regs * r) {
 	}
 }
 
+/**
+ * @brief Examine the pending signal and perform an appropriate action.
+ *
+ * This is called by @c process_check_signals below. It should not be called
+ * directly by other parts of the kernel. Previously, it was called through
+ * process switching...
+ *
+ * When a signal handler is called, this does not return. The userspace
+ * process is resumed in the signal handler context, and any future calls
+ * into the kernel are "from scratch".
+ *
+ * @param proc should be the current active process, which should generally
+ *             always be this_core->current_process.
+ * @param sig  is the signal node from the pending queue. Currently, this
+ *             just contains the signal number and nothing else. It used to
+ *             also contain the handler to call, but that led to TOCTOU bugs.
+ * @param r    Userspace registers at time of signal entry. This gets passed
+ *             forward to @c arch_enter_signal_handler
+ * @returns 0 if another signal needs to be handled, 1 otherwise.
+ */
 int handle_signal(process_t * proc, signal_t * sig, struct regs *r) {
 	uintptr_t signum  = sig->signum;
 	free(sig);
@@ -148,6 +181,20 @@ _ignore_signal:
 	return !this_core->current_process->signal_queue->length;
 }
 
+/**
+ * @brief Deliver a signal to another process.
+ *
+ * Called by both system calls like @c kill as well as by some things
+ * that want to trigger SIGSEGV, SIGPIPE, and so on.
+ *
+ * @param process    PID to deliver to. Must be a single PID, not a group specifier.
+ * @param signal     Signal number to deliver.
+ * @param force_root If the current process isn't root, it can't send signals to
+ *                   processes owned by other users, which means we can't send soft
+ *                   signals as part operations like SIGPIPE or SIGCHLD. Kernel callers
+ *                   can use this parameter to skip this check.
+ * @returns General status, should be suitable for sys_kill return value.
+ */
 int send_signal(pid_t process, int signal, int force_root) {
 	process_t * receiver = process_from_pid(process);
 
@@ -216,6 +263,16 @@ int send_signal(pid_t process, int signal, int force_root) {
 	return 0;
 }
 
+/**
+ * @brief Send a signal to multiple processes.
+ *
+ * Similar to @c send_signal but for when a negative PID needs to be used.
+ *
+ * @param group The group process ID. Positive PID, not negative.
+ * @param signal Signal number to deliver.
+ * @param force_root See explanation in @c send_signal
+ * @returns 1 if something was signalled, 0 if there were no valid recipients.
+ */
 int group_send_signal(pid_t group, int signal, int force_root) {
 
 	int kill_self = 0;
@@ -244,6 +301,14 @@ int group_send_signal(pid_t group, int signal, int force_root) {
 	return !!killed_something;
 }
 
+/**
+ * @brief Examine the signal delivery queue of the current process, and handle signals.
+ *
+ * Should be called before a userspace return would happen. If a signal handler is to be
+ * run in userspace, then process_check_signals will not return, similar to exec.
+ *
+ * @param r Userspace registers before signal entry.
+ */
 void process_check_signals(struct regs * r) {
 	spin_lock(sig_lock);
 	if (this_core->current_process &&
@@ -265,6 +330,17 @@ void process_check_signals(struct regs * r) {
 	spin_unlock(sig_lock);
 }
 
+/**
+ * @brief Restore pre-signal context and possibly restart system calls.
+ *
+ * To be called by the platform's fault handler when it determines that
+ * a signal handler return has been triggered. Calls platform code to restore
+ * the previous userspace context (before the signal) from the userspace stack
+ * and restarts an interrupted system call if there was one.
+ *
+ * @param r Registers at fault, passed to platform code for restoration and
+ *          then to @c maybe_restart_system_call to handle system call restarts.
+ */
 void return_from_signal_handler(struct regs *r) {
 	arch_return_from_signal_handler(r);
 	maybe_restart_system_call(r);
