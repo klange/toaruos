@@ -155,6 +155,7 @@ static ssize_t proc_status_func(fs_node_t *node, off_t offset, size_t size, uint
 			"TotalTime:\t %ld ms\n"
 			"SysTime:\t %ld ms\n"
 			"CpuPermille:\t %d %d %d %d\n"
+			"UserBrk:\t%#zx\n"
 			,
 			name,
 			state,
@@ -177,7 +178,8 @@ static ssize_t proc_status_func(fs_node_t *node, off_t offset, size_t size, uint
 			proc->owner,
 			proc->time_total / arch_cpu_mhz(),
 			proc->time_sys / arch_cpu_mhz(),
-			proc->usage[0], proc->usage[1], proc->usage[2], proc->usage[3]
+			proc->usage[0], proc->usage[1], proc->usage[2], proc->usage[3],
+			proc->image.heap
 			);
 
 	size_t _bsize = strlen(buf);
