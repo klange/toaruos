@@ -649,12 +649,15 @@ size_t mmu_count_user(union PML * from) {
 
 	for (size_t i = 0; i < 256; ++i) {
 		if (from[i].bits.present) {
+			out++;
 			union PML * pdp_in = mmu_map_from_physical((uintptr_t)from[i].bits.page << PAGE_SHIFT);
 			for (size_t j = 0; j < 512; ++j) {
 				if (pdp_in[j].bits.present) {
+					out++;
 					union PML * pd_in = mmu_map_from_physical((uintptr_t)pdp_in[j].bits.page << PAGE_SHIFT);
 					for (size_t k = 0; k < 512; ++k) {
 						if (pd_in[k].bits.present) {
+							out++;
 							union PML * pt_in = mmu_map_from_physical((uintptr_t)pd_in[k].bits.page << PAGE_SHIFT);
 							for (size_t l = 0; l < 512; ++l) {
 								/* Calculate final address to skip SHM */
@@ -836,22 +839,87 @@ void mmu_invalidate(uintptr_t addr) {
 	arch_tlb_shootdown(addr);
 }
 
+int mmu_get_page_deep(uintptr_t virtAddr, union PML ** pml4_out, union PML ** pdp_out, union PML ** pd_out, union PML ** pt_out) {
+	/* This is all the same as x86, thankfully? */
+	uintptr_t realBits = virtAddr & CANONICAL_MASK;
+	uintptr_t pageAddr = realBits >> PAGE_SHIFT;
+	unsigned int pml4_entry = (pageAddr >> 27) & ENTRY_MASK;
+	unsigned int pdp_entry  = (pageAddr >> 18) & ENTRY_MASK;
+	unsigned int pd_entry   = (pageAddr >> 9)  & ENTRY_MASK;
+	unsigned int pt_entry   = (pageAddr) & ENTRY_MASK;
+
+	/* Zero all the outputs */
+	*pdp_out  = NULL;
+	*pd_out   = NULL;
+	*pt_out   = NULL;
+
+	spin_lock(frame_alloc_lock);
+	union PML * root = this_core->current_pml;
+	*pml4_out = (union PML *)&root[pml4_entry];
+	if (!root[pml4_entry].bits.present) goto _noentry;
+	union PML * pdp = mmu_map_from_physical((uintptr_t)root[pml4_entry].bits.page << PAGE_SHIFT);
+	*pdp_out = (union PML *)&pdp[pdp_entry];
+	if (!pdp[pdp_entry].bits.present) goto _noentry;
+	union PML * pd = mmu_map_from_physical((uintptr_t)pdp[pdp_entry].bits.page << PAGE_SHIFT);
+	*pd_out = (union PML *)&pd[pd_entry];
+	if (!pd[pd_entry].bits.present) goto _noentry;
+	union PML * pt = mmu_map_from_physical((uintptr_t)pd[pd_entry].bits.page << PAGE_SHIFT);
+	*pt_out = (union PML *)&pt[pt_entry];
+
+	spin_unlock(frame_alloc_lock);
+	return 0;
+
+_noentry:
+	spin_unlock(frame_alloc_lock);
+	return 1;
+}
+
+static int maybe_release_directory(union PML * parent, union PML * child) {
+	/* child points to one entry, to get the base, we can page align it */
+	union PML * table = (union PML *)((uintptr_t)child & PAGE_SIZE_MASK);
+
+	/* Is everything in the table free? */
+	for (int i = 0; i < 512; ++i) {
+		if (table[i].bits.present) return 0;
+	}
+
+	uintptr_t old_page = (parent->bits.page << PAGE_SHIFT);
+
+	/* Then we can mark 'parent' as freed, clear the whole thing. */
+	parent->raw = 0;
+	mmu_frame_clear(old_page);
+
+	return 1;
+}
+
 void mmu_unmap_user(uintptr_t addr, size_t size) {
 	for (uintptr_t a = addr; a < addr + size; a += PAGE_SIZE) {
+		union PML * pml4, * pdp, * pd, * pt;
+
 		if (a >= USER_DEVICE_MAP && a <= USER_SHM_HIGH) continue;
+		if (mmu_get_page_deep(a, &pml4, &pdp, &pd, &pt)) continue;
+
 		spin_lock(frame_alloc_lock);
-		union PML * page = mmu_get_page(a, 0);
-		if (page && page->bits.present && page->bits.user) {
-			if (page->bits.writable) {
-				assert(mem_refcounts[page->bits.page] == 0);
-				mmu_frame_clear((uintptr_t)page->bits.page << PAGE_SHIFT);
-			} else if (refcount_dec(page->bits.page) == 0) {
-				mmu_frame_clear((uintptr_t)page->bits.page << PAGE_SHIFT);
+
+		if (pt && pt->bits.present && pt->bits.user) {
+			if (pt->bits.writable) {
+				assert(mem_refcounts[pt->bits.page] == 0);
+				mmu_frame_clear((uintptr_t)pt->bits.page << PAGE_SHIFT);
+			} else if (refcount_dec(pt->bits.page) == 0) {
+				mmu_frame_clear((uintptr_t)pt->bits.page << PAGE_SHIFT);
 			}
-			page->bits.present = 0;
-			page->bits.writable = 0;
+			pt->bits.present = 0;
+			pt->bits.writable = 0;
+
+			if (maybe_release_directory(pd, pt)) {
+				if (maybe_release_directory(pdp, pd)) {
+					maybe_release_directory(pml4, pdp);
+				}
+			}
+
+			mmu_invalidate(a);
 		}
-		mmu_invalidate(a);
+
 		spin_unlock(frame_alloc_lock);
 	}
 }
