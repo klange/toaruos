@@ -522,6 +522,10 @@ static int object_relocate(elf_t * object) {
 						}
 						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
 						break;
+					case R_X86_64_DTPMOD64:
+						break;
+					case R_X86_64_DTPOFF64:
+						break;
 #elif defined(__aarch64__)
 					case 1024: /* COPY */
 						memcpy((void *)(table->r_offset + object->base), (void *)x, sym->st_size);
