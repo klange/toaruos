@@ -539,10 +539,19 @@ static long sock_udp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	char * packet = net_sock_get(sock);
 	if (!packet) return -EINTR;
 	struct ipv4_packet * data = (struct ipv4_packet*)(packet + sizeof(size_t));
+	struct udp_packet * udp_packet = (struct udp_packet*)&data->payload;
 
 	printf("udp: got response, size is %u - sizeof(ipv4) - sizeof(udp) = %lu\n",
 		ntohs(data->length), ntohs(data->length) - sizeof(struct ipv4_packet) - sizeof(struct udp_packet));
-	memcpy(msg->msg_iov[0].iov_base, data->payload + 8, ntohs(data->length) - sizeof(struct ipv4_packet) - sizeof(struct udp_packet));
+	memcpy(msg->msg_iov[0].iov_base, udp_packet->payload, ntohs(data->length) - sizeof(struct ipv4_packet) - sizeof(struct udp_packet));
+
+	if (msg->msg_namelen == sizeof(struct sockaddr_in)) {
+		if (msg->msg_name) {
+			((struct sockaddr_in*)msg->msg_name)->sin_family = AF_INET;
+			((struct sockaddr_in*)msg->msg_name)->sin_port = udp_packet->source_port;
+			((struct sockaddr_in*)msg->msg_name)->sin_addr.s_addr = data->source;
+		}
+	}
 
 	printf("udp: data copied to iov 0, return length?\n");
 
