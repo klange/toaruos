@@ -63,45 +63,49 @@ static void serial_send(int device, char out) {
 	outportb(device, out);
 }
 
-static list_t * sem_serial_ac = NULL;
-static list_t * sem_serial_bd = NULL;
 static process_t * serial_ac_handler = NULL;
 static process_t * serial_bd_handler = NULL;
 
 static void process_serial(void * argp) {
-	int portBase = (argp == sem_serial_ac) ? SERIAL_PORT_A : SERIAL_PORT_B;
-	char ch;
-	pty_t * pty;
+	int portBase = (uintptr_t)argp;
+	int _did_something;
 	while (1) {
-		sleep_on((list_t*)argp);
-		int next = 0;
-		int port = 0;
-		if (inportb(portBase+1) & 0x01) {
-			port = portBase;
-		} else {
-			port = portBase - 0x100;
+		unsigned long s, ss;
+		relative_time(1, 0, &s, &ss);
+		sleep_until((process_t *)this_core->current_process, s, ss);
+		switch_task(0);
+		_did_something = 1;
+		while (_did_something) {
+			_did_something = 0;
+			int port_a_status = inportb(portBase + 5);
+			int port_c_status = inportb(portBase - 0x10 + 5);
+
+			if (port_a_status != 0xFF && (port_a_status & 1)) {
+				char ch = inportb(portBase);
+				pty_t * pty = *pty_for_port(portBase);
+				tty_input_process(pty, ch);
+				_did_something = 1;
+			}
+
+			if (port_c_status != 0xFF && (port_c_status & 1)) {
+				char ch = inportb(portBase - 0x10);
+				pty_t * pty = *pty_for_port(portBase - 0x10);
+				tty_input_process(pty, ch);
+				_did_something = 1;
+			}
 		}
-		do {
-			ch = serial_recv(port);
-			pty = *pty_for_port(port);
-			tty_input_process(pty, ch);
-			next = serial_rcvd(port);
-			/* TODO: Can we handle more than one character here
-			 *       before yielding? Would that be helpful? */
-			if (next) switch_task(1);
-		} while (next);
 	}
 }
 
 int serial_handler_ac(struct regs *r) {
 	irq_ack(SERIAL_IRQ_AC);
-	wakeup_queue(sem_serial_ac);
+	make_process_ready(serial_ac_handler);
 	return 1;
 }
 
 int serial_handler_bd(struct regs *r) {
 	irq_ack(SERIAL_IRQ_BD);
-	wakeup_queue(sem_serial_bd);
+	make_process_ready(serial_bd_handler);
 	return 1;
 }
 
@@ -166,11 +170,8 @@ static fs_node_t * serial_device_create(int port) {
 }
 
 void serial_initialize(void) {
-	sem_serial_ac = list_create("serial ac semaphore",NULL);
-	sem_serial_bd = list_create("serial bd semaphore",NULL);
-
-	serial_ac_handler = spawn_worker_thread(process_serial, "[serial ac]", sem_serial_ac);
-	serial_bd_handler = spawn_worker_thread(process_serial, "[serial bd]", sem_serial_bd);
+	serial_ac_handler = spawn_worker_thread(process_serial, "[serial ac]", (void*)(uintptr_t)SERIAL_PORT_A);
+	serial_bd_handler = spawn_worker_thread(process_serial, "[serial bd]", (void*)(uintptr_t)SERIAL_PORT_B);
 
 	fs_node_t * ttyS0 = serial_device_create(SERIAL_PORT_A); vfs_mount(DEV_PATH TTY_A, ttyS0);
 	fs_node_t * ttyS1 = serial_device_create(SERIAL_PORT_B); vfs_mount(DEV_PATH TTY_B, ttyS1);
