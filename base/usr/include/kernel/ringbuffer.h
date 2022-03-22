@@ -16,6 +16,7 @@ typedef struct {
 	int internal_stop;
 	list_t * alert_waiters;
 	int discard;
+	int soft_stop;
 } ring_buffer_t;
 
 size_t ring_buffer_unread(ring_buffer_t * ring_buffer);
@@ -29,4 +30,5 @@ void ring_buffer_destroy(ring_buffer_t * ring_buffer);
 void ring_buffer_interrupt(ring_buffer_t * ring_buffer);
 void ring_buffer_alert_waiters(ring_buffer_t * ring_buffer);
 void ring_buffer_select_wait(ring_buffer_t * ring_buffer, void * process);
+void ring_buffer_eof(ring_buffer_t * ring_buffer);
 

@@ -224,7 +224,7 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 			if (pty->canon_buflen) {
 				dump_input_buffer(pty);
 			} else {
-				ring_buffer_interrupt(pty->in);
+				ring_buffer_eof(pty->in);
 			}
 			return;
 		}

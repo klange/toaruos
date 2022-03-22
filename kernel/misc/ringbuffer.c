@@ -97,7 +97,8 @@ size_t ring_buffer_read(ring_buffer_t * ring_buffer, size_t size, uint8_t * buff
 		}
 		wakeup_queue(ring_buffer->wait_queue_writers);
 		if (collected == 0) {
-			if (ring_buffer->internal_stop) {
+			if (ring_buffer->internal_stop || ring_buffer->soft_stop) {
+				ring_buffer->soft_stop = 0;
 				spin_unlock(ring_buffer->lock);
 				return 0;
 			}
@@ -164,6 +165,7 @@ ring_buffer_t * ring_buffer_create(size_t size) {
 
 	out->internal_stop = 0;
 	out->discard = 0;
+	out->soft_stop = 0;
 
 	out->wait_queue_readers = list_create("ringbuffer readers",out);
 	out->wait_queue_writers = list_create("ringbuffer writers",out);
@@ -196,6 +198,12 @@ void ring_buffer_destroy(ring_buffer_t * ring_buffer) {
 
 void ring_buffer_interrupt(ring_buffer_t * ring_buffer) {
 	ring_buffer->internal_stop = 1;
+	wakeup_queue(ring_buffer->wait_queue_readers);
+	wakeup_queue(ring_buffer->wait_queue_writers);
+}
+
+void ring_buffer_eof(ring_buffer_t * ring_buffer) {
+	ring_buffer->soft_stop = 1;
 	wakeup_queue(ring_buffer->wait_queue_readers);
 	wakeup_queue(ring_buffer->wait_queue_writers);
 }
