@@ -22,23 +22,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-#include <syscall.h>
-
 #define BYTES_TO_SEND 56
-
-struct IPV4_Header {
-	uint8_t  version_ihl;
-	uint8_t  dscp_ecn;
-	uint16_t length;
-	uint16_t ident;
-	uint16_t flags_fragment;
-	uint8_t  ttl;
-	uint8_t  protocol;
-	uint16_t checksum;
-	uint32_t source;
-	uint32_t destination;
-	uint8_t  payload[];
-};
 
 struct ICMP_Header {
 	uint8_t type, code;
@@ -128,22 +112,22 @@ int main(int argc, char * argv[]) {
 
 		if (ret > 0) {
 			char data[4096];
-			ssize_t len = recv(sock, data, 4096, 0);
+			struct sockaddr_in source;
+			socklen_t source_size = sizeof(struct sockaddr_in);
+			ssize_t len = recvfrom(sock, data, 4096, 0, (struct sockaddr*)&source, &source_size);
 			clock_t rcvd_at = times(NULL);
 			if (len > 0) {
 				/* Is it actually a PING response ? */
 
-				struct IPV4_Header * ipv4 = (void*)data;
-				struct ICMP_Header * icmp = (void*)ipv4->payload;
+				struct ICMP_Header * icmp = (void*)data;
 
 				if (icmp->type == 0) {
 					/* How much data, minus the header? */
-					size_t len = ntohs(ipv4->length) - sizeof(struct IPV4_Header);
 					/* Get the address */
-					char * from = inet_ntoa(*(struct in_addr*)&ipv4->source);
+					char * from = inet_ntoa(source.sin_addr);
 					int time_taken = (rcvd_at - sent_at);
 					printf("%zd bytes from %s: icmp_seq=%d ttl=%d time=%d",
-						len, from, ntohs(icmp->sequence_number), ipv4->ttl,
+						len, from, ntohs(icmp->sequence_number), (unsigned char)source.sin_zero[0], /* we hide the ttl in here */
 						time_taken / 1000);
 					if (time_taken < 1000) {
 						printf(".%03d", time_taken % 1000);
@@ -160,7 +144,7 @@ int main(int argc, char * argv[]) {
 		}
 
 		if (!break_from_loop) {
-			syscall_sleep(1,0);
+			sleep(1);
 		}
 	}
 
