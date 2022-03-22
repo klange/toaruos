@@ -252,6 +252,10 @@ do_bios_call.1:
 	cmp %bx, %ax
 	je do_bios_call.set_mode
 
+	mov $0x04, %ax
+	cmp %bx, %ax
+	je do_bios_call.test_key
+
 	/* Else: Bad call, jump to loop. */
 	jmp do_bios_call.done
 
@@ -275,6 +279,14 @@ do_bios_call.set_mode:
 	movl 36(%esp), %ebx
 	mov $0x4F02, %ax
 	int $0x10
+	jmp do_bios_call.done
+
+do_bios_call.test_key:
+	movl 36(%esp), %ebx
+	xor %ax, %ax
+	mov %bl, %ah
+	int $0x16
+	movl %eax, 20(%esp)
 	jmp do_bios_call.done
 
 do_bios_call.done:

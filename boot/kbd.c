@@ -166,16 +166,22 @@ int read_key(int * c) {
 	return 1;
 }
 
+extern int do_bios_call(unsigned int function, unsigned int arg1);
+
+int kbd_status(void) {
+	int result = do_bios_call(4,0x11);
+	return (result & 0xFF) == 0;
+}
+
 int read_scancode(int timeout) {
 	if (timeout) {
 		int start_s = read_cmos_seconds();
-		while (!(inportb(0x64) & 1)) {
+		while (kbd_status()) {
 			int now_s = read_cmos_seconds();
 			if (now_s != start_s) return -1;
 		}
-	} else {
-		while (!(inportb(0x64) & 1));
 	}
-	return inportb(0x60);
+	int result = do_bios_call(4,0);
+	return result >> 8;
 }
 #endif
