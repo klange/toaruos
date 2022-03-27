@@ -18,5 +18,8 @@ int rand(void) {
 }
 
 void srand(unsigned int seed) {
-	w ^= seed;
+	x = 123456789  ^ (seed << 16) ^ (seed >> 16);
+	y = 362436069;
+	z = 521288629;
+	w = 88675123;
 }
