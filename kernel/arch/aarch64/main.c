@@ -645,9 +645,6 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 
 		extern int ac97_install(int argc, char * argv[]);
 		ac97_install(0,NULL);
-
-		extern int e1000_install(int argc, char * argv[]);
-		e1000_install(0,NULL);
 	} else {
 
 		extern void rpi_smp_init(void);
