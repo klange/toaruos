@@ -39,6 +39,22 @@ hashmap_t * modules_get_list(void) {
 	return _modules_table;
 }
 
+/**
+ * Encode immediate for ADR(p) instruction
+ */
+static uint32_t aarch64_imm_adr(uint32_t val) {
+	uint32_t low  = (val & 0x3) << 29;
+	uint32_t high = ((val >> 2) & 0x7ffff) << 5;
+	return low | high;
+}
+
+/**
+ * Encode immediate for 12-bit instructions
+ */
+static uint32_t aarch64_imm_12(uint32_t val) {
+	return (val & 0xFFF) << 10;
+}
+
 int elf_module(char ** args) {
 	int error = 0;
 	Elf64_Header header;
@@ -162,18 +178,41 @@ int elf_module(char ** args) {
 		Elf64_Shdr * symbolSection = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * sectionHeader->sh_link);
 		Elf64_Sym * symbolTable = (Elf64_Sym *)symbolSection->sh_addr;
 
+#define S (symbolTable[ELF64_R_SYM(table[rela].r_info)].st_value)
+#define A (table[rela].r_addend)
+#define T32 (*(uint32_t*)target)
+#define T64 (*(uint64_t*)target)
+#define P  (target)
+
 		for (unsigned int rela = 0; rela < sectionHeader->sh_size / sizeof(Elf64_Rela); ++rela) {
 			uintptr_t target = table[rela].r_offset + targetSection->sh_addr;
 			switch (ELF64_R_TYPE(table[rela].r_info)) {
 #if defined(__x86_64__)
 				case R_X86_64_64:
-					*(uint64_t*)target = symbolTable[ELF64_R_SYM(table[rela].r_info)].st_value + table[rela].r_addend;
+					T64 = S + A;
 					break;
 				case R_X86_64_32:
-					*(uint32_t*)target = symbolTable[ELF64_R_SYM(table[rela].r_info)].st_value + table[rela].r_addend;
+					T32 = S + A;
 					break;
 				case R_X86_64_PC32:
-					*(uint32_t*)target = symbolTable[ELF64_R_SYM(table[rela].r_info)].st_value + table[rela].r_addend - target;
+					T32 = S + A - P;
+					break;
+#elif defined(__aarch64__)
+				case 275: { /* R_AARCH64_ADR_PREL_PG_HI21 */
+					T32 = T32 | aarch64_imm_adr( ((S + A) >> 12) - (P >> 12) );
+					break;
+				}
+				case 286: /* R_AARCH64_LDST64_ABS_LO12_NC */
+					T32 = T32 | aarch64_imm_12( ((S + A) >> 3) & 0x1FF );
+					break;
+				case 283: /* R_AARCH64_CALL26 */
+					T32 = T32 | (((S + A - P) >> 2) & 0x3ffffff);
+					break;
+				case 257: /* ABS64 */
+					T64 = S + A;
+					break;
+				case 258: /* ABS32 */
+					T32 = S + A;
 					break;
 #endif
 				default:
@@ -182,6 +221,12 @@ int elf_module(char ** args) {
 			}
 		}
 	}
+
+#undef S
+#undef A
+#undef T32
+#undef T64
+#undef P
 
 	if (error) goto _unmap_module;
 
