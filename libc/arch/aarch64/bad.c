@@ -10,7 +10,32 @@ double tan(double theta) {
 	return sin(theta) / cos(theta);
 }
 
+/**
+ * Polynomial approximation of arctangent
+ *
+ * @see https://www.dsprelated.com/showarticle/1052.php
+ */
+static inline double _atan(double z) {;
+	double n1 = 0.97239411;
+	double n2 = -0.19194795;
+	return (n1 + n2 * z * z) * z;
+}
 double atan2(double y, double x) {
+	if (x != 0.0) {
+		if (fabs(x) > fabs(y)) {
+			double z = y / x;
+			if (x > 0.0) return _atan(z);
+			else if (y >= 0.0) return _atan(z) + M_PI;
+			else return _atan(z) - M_PI;
+		} else {
+			double z = x / y;
+			if (y > 0.0) return -_atan(z) + M_PI/2.0;
+			else return -_atan(z) - M_PI/2.0;
+		}
+	} else {
+		if (y > 0.0) return M_PI/2.0;
+		else if (y < 0.0) return -M_PI/2.0;
+	}
 	return 0.0;
 }
 
