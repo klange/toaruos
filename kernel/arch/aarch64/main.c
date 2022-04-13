@@ -642,9 +642,6 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 		/* Set up serial input */
 		extern void pl011_start(void);
 		pl011_start();
-
-		extern int ac97_install(int argc, char * argv[]);
-		ac97_install(0,NULL);
 	} else {
 
 		extern void rpi_smp_init(void);

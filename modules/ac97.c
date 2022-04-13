@@ -2,6 +2,7 @@
  * @file kernel/audio/ac97.c
  * @brief Driver for the Intel AC'97.
  * @package x86_64
+ * @package aarch64
  *
  * Simple PCM interface for the AC'97 codec when used with the
  * ICH hardware interface. There are other hardware interfaces
@@ -31,9 +32,13 @@
 #include <kernel/module.h>
 #include <kernel/mod/snd.h>
 
+#if defined(__x86_64__)
 #include <kernel/arch/x86_64/ports.h>
 #include <kernel/arch/x86_64/regs.h>
 #include <kernel/arch/x86_64/irq.h>
+#elif defined(__aarch64__)
+#include <kernel/arch/aarch64/gic.h>
+#endif
 
 /* Utility macros */
 #define N_ELEMENTS(arr) (sizeof(arr) / sizeof((arr)[0]))
@@ -102,9 +107,44 @@ typedef struct {
 	uint16_t * bufs[AC97_BDL_LEN];  /* Virtual addresses for buffers in BDL */
 	uint32_t bdl_p;
 	uint32_t mask;
+	volatile char *  _iobase;
+	spin_lock_t lock;
 } ac97_device_t;
 
 static ac97_device_t _device;
+
+#if defined(__aarch64__)
+static uint8_t inportb(size_t port) {
+	volatile uint8_t * _port = (volatile uint8_t*)(_device._iobase + port);
+	return *_port;
+}
+
+static uint16_t inports(size_t port) {
+	volatile uint16_t * _port = (volatile uint16_t*)(_device._iobase + port);
+	return *_port;
+}
+
+static uint32_t inportl(size_t port) {
+	volatile uint32_t * _port = (volatile uint32_t*)(_device._iobase + port);
+	return *_port;
+}
+
+static void outportb(size_t port, uint8_t val) {
+	volatile uint8_t * _port = (volatile uint8_t*)(_device._iobase + port);
+	*_port = val;
+}
+
+static void outports(size_t port, uint16_t val) {
+	volatile uint16_t * _port = (volatile uint16_t*)(_device._iobase + port);
+	*_port = val;
+}
+
+static void outportl(size_t port, uint32_t val) {
+	volatile uint32_t * _port = (volatile uint32_t*)(_device._iobase + port);
+	*_port = val;
+}
+#endif
+
 
 #define AC97_KNOB_PCM_OUT (SND_KNOB_VENDOR + 0)
 
@@ -151,23 +191,34 @@ static void find_ac97(uint32_t device, uint16_t vendorid, uint16_t deviceid, voi
 }
 
 #define DIVISION 0x1000
+#if defined(__x86_64__)
 static int ac97_irq_handler(struct regs * regs) {
+#elif defined(__aarch64__)
+int ac97_irq_handler(process_t * this, int irq, void * data) {
+#endif
+	spin_lock(_device.lock);
 	uint16_t sr = inports(_device.nabmbar + AC97_PO_SR);
 	if (sr & AC97_X_SR_BCIS) {
+		outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_BCIS);
+		spin_unlock(_device.lock);
 		uint16_t current_buffer = inportb(_device.nabmbar + AC97_PO_CIV);
 		uint16_t last_valid = ((current_buffer+2) & (AC97_BDL_LEN-1));
 		snd_request_buf(&_snd, 0x1000, (uint8_t *)_device.bufs[last_valid]);
 		outportb(_device.nabmbar + AC97_PO_LVI, last_valid);
 		snd_request_buf(&_snd, 0x1000, (uint8_t *)_device.bufs[last_valid]+0x1000);
-		outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_BCIS);
 	} else if (sr & AC97_X_SR_LVBCI) {
 		outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_LVBCI);
+		spin_unlock(_device.lock);
 	} else if (sr & AC97_X_SR_FIFOE) {
 		outports(_device.nabmbar + AC97_PO_SR, AC97_X_SR_FIFOE);
+		spin_unlock(_device.lock);
 	} else {
+		spin_unlock(_device.lock);
 		return 0;
 	}
+#ifdef __x86_64__
 	irq_ack(_device.irq);
+#endif
 	return 1;
 }
 
@@ -250,11 +301,29 @@ static int ac97_install(int argc, char * argv[]) {
 	if (!_device.pci_device) {
 		return -ENODEV;
 	}
+
+
+#if defined(__aarch64__)
+	pci_write_field(_device.pci_device, PCI_COMMAND, 2, 0x5);
+	pci_write_field(_device.pci_device, AC97_NABMBAR, 2, 0x1001);
+	pci_write_field(_device.pci_device, PCI_BAR0, 4, 0x2001);
+	_device._iobase = (volatile char *)mmu_map_mmio_region(0x3eff0000, 0x3000);
+	asm volatile ("isb" ::: "memory");
+#endif
+
 	_device.nabmbar = pci_read_field(_device.pci_device, AC97_NABMBAR, 2) & ((uint32_t) -1) << 1;
 	_device.nambar = pci_read_field(_device.pci_device, PCI_BAR0, 4) & ((uint32_t) -1) << 1;
+
+	#if defined(__x86_64__)
 	_device.irq = pci_get_interrupt(_device.pci_device);
 	//printf("device wants irq %zd\n", _device.irq);
 	irq_install_handler(_device.irq, ac97_irq_handler, "ac97");
+	#elif defined(__aarch64__)
+	int irq;
+	gic_map_pci_interrupt("ac97",_device.pci_device,&irq,ac97_irq_handler,&_device);
+	_device.irq = irq;
+	#endif
+
 	/* Enable all matter of interrupts */
 	outportb(_device.nabmbar + AC97_PO_CR, AC97_X_CR_FEIE | AC97_X_CR_IOCE);
 
