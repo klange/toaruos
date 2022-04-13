@@ -146,12 +146,10 @@ int elf_module(char ** args) {
 			if (symTable[sym].st_shndx > 0 && symTable[sym].st_shndx < SHN_LOPROC) {
 				Elf64_Shdr * sh_hdr = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * symTable[sym].st_shndx);
 				symTable[sym].st_value = symTable[sym].st_value + sh_hdr->sh_addr;
-				dprintf("mod: bind local symbol '%s' to %#zx\n",
-					symTable[sym].st_name ? (symNames + symTable[sym].st_name) : "(unnamed)", symTable[sym].st_value);
+				// dprintf("mod: bind local symbol '%s' to %#zx\n", symTable[sym].st_name ? (symNames + symTable[sym].st_name) : "(unnamed)", symTable[sym].st_value);
 			} else if (symTable[sym].st_shndx == SHN_UNDEF) {
 				symTable[sym].st_value = (uintptr_t)ksym_lookup(symNames + symTable[sym].st_name);
-				dprintf("mod: bind kernel symbol '%s' to %#zx\n",
-					symTable[sym].st_name ? (symNames + symTable[sym].st_name) : "(unnamed)", symTable[sym].st_value);
+				// dprintf("mod: bind kernel symbol '%s' to %#zx\n", symTable[sym].st_name ? (symNames + symTable[sym].st_name) : "(unnamed)", symTable[sym].st_value);
 			}
 
 			if (symTable[sym].st_name && !strcmp(symNames + symTable[sym].st_name, "metadata")) {
