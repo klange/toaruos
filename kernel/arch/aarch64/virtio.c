@@ -399,7 +399,7 @@ static void virtio_keyboard_thread(void * data) {
 			asm volatile ("isb\ndsb sy" :: "r"(buffers) : "memory");
 			if (evt.type == 1) {
 				/* need to back-convert which is a pain in the ass */
-				if (evt.code < 0x40) {
+				if (evt.code < 0x49) {
 					uint8_t scancode = evt.code;
 					if (evt.value == 0) {
 						scancode |= 0x80;
