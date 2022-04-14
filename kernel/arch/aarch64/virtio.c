@@ -309,6 +309,7 @@ static const uint8_t ext_key_map[256] = {
 	[0x6a] = 0x4D, /* RIGHT */
 	[0x6b] = 0x4F, /* end */
 	[0x6d] = 0x51, /* page down */
+	[0x7d] = 0x5b, /* left super */
 };
 
 static void virtio_keyboard_thread(void * data) {
