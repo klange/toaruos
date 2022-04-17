@@ -24,10 +24,13 @@ if cpus and 'Model name' in cpus[0]:
 else if cpus and 'PartNum' in cpus[0]:
     # ARM
     let manuf = {
+        0x00: 'Masked',
         0x41: 'ARM',
         0x61: 'Apple',
     }
     let parts = {
+        0x000: 'by hypervisor',
+
         0xD02: 'Cortex-A34',
         0xD03: 'Cortex-A53',
         0xD04: 'Cortex-A35',
