@@ -58,7 +58,7 @@ static struct tm * fill_time(const time_t * timep, struct tm * _timevalue, const
 	_timevalue->_tm_zone_name = tzName;
 	_timevalue->_tm_zone_offset = tzOffset;
 
-	long seconds = 0;
+	long seconds = timeVal < 0 ? -2208988800L : 0;
 	long year_sec = 0;
 
 	int startYear = timeVal < 0 ? 1900 : 1970;
