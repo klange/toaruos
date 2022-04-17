@@ -81,10 +81,7 @@ size_t arch_cpu_mhz(void) {
  * megahertz at worst which is good enough for us. We do want slightly bigger
  * numbers to make our integer divisions more accurate...
  */
-static void arch_clock_initialize() {
-
-	/* QEMU RTC */
-	//void * clock_addr = mmu_map_from_physical(0x09010000);
+static void arch_clock_initialize(uintptr_t rpi_tag) {
 
 	/* Get frequency of system timer */
 	uint64_t val;
@@ -92,8 +89,13 @@ static void arch_clock_initialize() {
 	sys_timer_freq = val / 10000;
 
 	/* Get boot time from RTC */
-	//arch_boot_time = *(volatile uint32_t*)clock_addr;
-	arch_boot_time = 1644908027UL;
+	if (rpi_tag) {
+		arch_boot_time = 1644908027UL;
+	} else {
+		/* QEMU RTC */
+		void * clock_addr = mmu_map_from_physical(0x09010000);
+		arch_boot_time = *(volatile uint32_t*)clock_addr;
+	}
 
 	/* Get the "basis time" - the perf timestamp we got the wallclock time at */
 	basis_time = arch_perf_timer() / sys_timer_freq;
@@ -561,7 +563,7 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 	arch_set_core_base((uintptr_t)&processor_local_data[0]);
 
 	/* Set up the system timer and get an RTC time. */
-	arch_clock_initialize();
+	arch_clock_initialize(rpi_tag);
 
 	/* Set up exception handlers early... */
 	exception_handlers();
@@ -624,6 +626,7 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 	/* Ramdisk */
 	ramdisk_mount(ramdisk_phys_base, ramdisk_size);
 
+	extern void dtb_device(void);
 	dtb_device();
 
 	/* Load MIDR */
