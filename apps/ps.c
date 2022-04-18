@@ -156,7 +156,7 @@ struct process * process_entry(struct dirent *dent) {
 	if ((len = sprintf(garbage, "%d", out->shm)) > widths[4]) widths[4] = len;
 	if ((len = sprintf(garbage, "%d.%01d", out->mem / 10, out->mem % 10)) > widths[5]) widths[5] = len;
 	if ((len = sprintf(garbage, "%d.%01d", out->cpu / 10, out->cpu % 10)) > widths[6]) widths[6] = len;
-	if ((len = sprintf(garbage, "%02lu:%02lu:%02lu",
+	if ((len = sprintf(garbage, "%lu:%02lu.%02lu",
 		(out->time / (1000000UL * 60 * 60)),
 		(out->time / (1000000UL * 60)) % 60,
 		(out->time / (1000000UL)) % 60)) > widths[7]) widths[7] = len;
@@ -242,7 +242,7 @@ void print_entry(struct process * out) {
 	}
 	if (show_time) {
 		char tmp[30];
-		sprintf(tmp, "%02lu:%02lu:%02lu",
+		sprintf(tmp, "%lu:%02lu.%02lu",
 		(out->time / (1000000UL * 60 * 60)),
 		(out->time / (1000000UL * 60)) % 60,
 		(out->time / (1000000UL)) % 60);
