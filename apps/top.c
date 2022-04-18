@@ -4,7 +4,7 @@
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2021 K. Lange
+ * Copyright (C) 2021-2022 K. Lange
  */
 #include <fcntl.h>
 #include <stdint.h>
@@ -510,6 +510,9 @@ static void next_sort_order(void) {
 	}
 }
 
+/**
+ * @brief Switch sorting to the previous column.
+ */
 static void prev_sort_order(void) {
 	size_t column_count = sizeof(columns)/sizeof(*columns);
 	for (size_t i = 0; i < column_count; ++i) {
