@@ -152,8 +152,8 @@ static ssize_t proc_status_func(fs_node_t *node, off_t offset, size_t size, uint
 			"RssShmem:\t %ld kB\n"
 			"MemPermille:\t %ld\n"
 			"LastCore:\t %d\n"
-			"TotalTime:\t %ld ms\n"
-			"SysTime:\t %ld ms\n"
+			"TotalTime:\t %ld us\n"
+			"SysTime:\t %ld us\n"
 			"CpuPermille:\t %d %d %d %d\n"
 			"UserBrk:\t%#zx\n"
 			,
