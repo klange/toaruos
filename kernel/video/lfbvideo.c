@@ -152,11 +152,9 @@ static fs_node_t * lfb_video_device_create(void /* TODO */) {
 	return fnode;
 }
 
-static ssize_t framebuffer_func(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
-	char * buf = malloc(4096);
-
+static void framebuffer_func(fs_node_t * node) {
 	if (lfb_driver_name) {
-		snprintf(buf, 4095,
+		procfs_printf(node,
 			"Driver:\t%s\n"
 			"XRes:\t%d\n"
 			"YRes:\t%d\n"
@@ -170,19 +168,8 @@ static ssize_t framebuffer_func(fs_node_t * node, off_t offset, size_t size, uin
 			lfb_resolution_s,
 			lfb_vid_memory);
 	} else {
-		snprintf(buf, 20, "Driver:\tnone\n");
+		procfs_printf(node, "Driver:\tnone\n");
 	}
-
-	size_t _bsize = strlen(buf);
-	if ((size_t)offset > _bsize) {
-		free(buf);
-		return 0;
-	}
-	if (size > _bsize - (size_t)offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	free(buf);
-	return size;
 }
 
 static struct procfs_entry framebuffer_entry = {

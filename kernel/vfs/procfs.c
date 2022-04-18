@@ -37,78 +37,118 @@
 #define PROCFS_STANDARD_ENTRIES (sizeof(std_entries) / sizeof(struct procfs_entry))
 #define PROCFS_PROCDIR_ENTRIES  (sizeof(procdir_entries) / sizeof(struct procfs_entry))
 
-static fs_node_t * procfs_generic_create(const char * name, read_type_t read_func) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
-	fnode->inode = 0;
-	strcpy(fnode->name, name);
-	fnode->uid = 0;
-	fnode->gid = 0;
-	fnode->mask    = 0444;
-	fnode->flags   = FS_FILE;
-	fnode->read    = read_func;
-	fnode->write   = NULL;
-	fnode->open    = NULL;
-	fnode->close   = NULL;
-	fnode->readdir = NULL;
-	fnode->finddir = NULL;
-	fnode->ctime   = now();
-	fnode->mtime   = now();
-	fnode->atime   = now();
-	return fnode;
+typedef struct procfs_entry_node {
+	fs_node_t fnode;
+	char * buf;
+	size_t avail;
+	size_t used;
+	procfs_populate_t func;
+} procfs_entry_t;
+
+static ssize_t procfs_entry_read(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
+	procfs_entry_t * entry = (void*)node;
+	if ((size_t)offset > entry->used) return 0;
+	if (size > entry->used - offset) size = entry->used - offset;
+	memcpy(buffer, (uint8_t*)entry->buf + offset, size);
+	return size;
 }
 
-static ssize_t proc_cmdline_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	char buf[1024];
+
+/**
+ * Dynamic reallocating printf thingy
+ */
+
+static int procfs_cb(void * user, char c) {
+	procfs_entry_t * entry = user;
+
+	if (entry->used >= entry->avail) {
+		entry->avail += 64;
+		entry->buf = realloc(entry->buf, entry->avail);
+	}
+
+	entry->buf[entry->used] = c;
+	entry->used++;
+	return 0;
+}
+
+int procfs_printf(fs_node_t * node, const char * fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	int out = xvasprintf(procfs_cb, node, fmt, args);
+	va_end(args);
+	return out;
+}
+
+
+static void procfs_entry_open(fs_node_t * node, unsigned int flags) {
+	procfs_entry_t * entry = (void*)node;
+	entry->func(node);
+}
+
+static void procfs_entry_close(fs_node_t * node) {
+	procfs_entry_t * entry = (void*)node;
+	if (entry->avail) free(entry->buf);
+	entry->buf = NULL;
+	entry->avail = 0;
+}
+
+static fs_node_t * procfs_generic_create(const char * name, procfs_populate_t read_func) {
+	procfs_entry_t * entry = malloc(sizeof(procfs_entry_t));
+	memset(entry, 0x00, sizeof(procfs_entry_t));
+	entry->fnode.inode = 0;
+	strcpy(entry->fnode.name, name);
+
+	entry->buf = NULL;
+	entry->avail = 0;
+	entry->used = 0;
+	entry->func = read_func;
+
+	entry->fnode.uid = 0;
+	entry->fnode.gid = 0;
+	entry->fnode.mask    = 0444;
+	entry->fnode.flags   = FS_FILE;
+	entry->fnode.read    = procfs_entry_read;
+	entry->fnode.write   = NULL;
+	entry->fnode.open    = procfs_entry_open;
+	entry->fnode.close   = procfs_entry_close;
+	entry->fnode.readdir = NULL;
+	entry->fnode.finddir = NULL;
+	entry->fnode.ctime   = now();
+	entry->fnode.mtime   = now();
+	entry->fnode.atime   = now();
+	return &entry->fnode;
+}
+
+static void proc_cmdline_func(fs_node_t *node) {
 	process_t * proc = process_from_pid(node->inode);
 
 	if (!proc) {
 		/* wat */
-		return 0;
+		return;
 	}
 
 	if (!proc->cmdline) {
-		snprintf(buf, 100, "%s", proc->name);
-
-		size_t _bsize = strlen(buf);
-		if ((size_t)offset > _bsize) return 0;
-		if (size > _bsize - offset) size = _bsize - offset;
-
-		memcpy(buffer, buf + offset, size);
-		return size;
+		procfs_printf(node, "%s", proc->name);
+		return;
 	}
 
-
-	buf[0] = '\0';
-
-	char *  _buf = buf;
 	char ** args = proc->cmdline;
 	while (*args) {
-		strcpy(_buf, *args);
-		_buf += strlen(_buf);
+		procfs_printf(node, "%s", *args);
 		if (*(args+1)) {
-			strcpy(_buf, "\036");
-			_buf += strlen(_buf);
+			procfs_printf(node, "\036");
 		}
 		args++;
 	}
-
-	size_t _bsize = strlen(buf);
-	if ((size_t)offset > _bsize) return 0;
-	if (size > _bsize - offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	return size;
 }
 
-static ssize_t proc_status_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	char buf[2048];
+static void proc_status_func(fs_node_t *node) {
 	process_t * proc = process_from_pid(node->inode);
 	process_t * parent = process_get_parent(proc);
 
 	if (!proc) {
 		/* wat */
-		return 0;
+		return;
 	}
 
 	char state = (proc->flags & PROC_FLAG_FINISHED) ? 'Z' :
@@ -130,7 +170,7 @@ static ssize_t proc_status_func(fs_node_t *node, off_t offset, size_t size, uint
 	long shm_usage = mmu_count_shm(proc->thread.page_directory->directory) * 4;
 	long mem_permille = 1000 * (mem_usage + shm_usage) / mmu_total_memory();
 
-	snprintf(buf, 2000,
+	procfs_printf(node,
 			"Name:\t%s\n"  /* name */
 			"State:\t%c\n"
 			"Tgid:\t%d\n"  /* group ? group : pid */
@@ -181,13 +221,6 @@ static ssize_t proc_status_func(fs_node_t *node, off_t offset, size_t size, uint
 			proc->usage[0], proc->usage[1], proc->usage[2], proc->usage[3],
 			proc->image.heap
 			);
-
-	size_t _bsize = strlen(buf);
-	if ((size_t)offset > _bsize) return 0;
-	if (size > _bsize - offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	return size;
 }
 
 static struct procfs_entry procdir_entries[] = {
@@ -262,13 +295,10 @@ static fs_node_t * procfs_procdir_create(process_t * process) {
 	return fnode;
 }
 
-static ssize_t cpuinfo_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	char buf[4096];
-	size_t _bsize = 0;
-
+static void cpuinfo_func(fs_node_t *node) {
 #ifdef __x86_64__
 	for (int i = 0; i < processor_count; ++i) {
-		_bsize += snprintf(buf + _bsize, 1000,
+		procfs_printf(node,
 				"Processor: %d\n"
 				"Manufacturer: %s\n"
 				"MHz: %zd\n"
@@ -288,7 +318,7 @@ static ssize_t cpuinfo_func(fs_node_t *node, off_t offset, size_t size, uint8_t 
 	}
 #elif defined(__aarch64__)
 	for (int i = 0; i < processor_count; ++i) {
-		_bsize += snprintf(buf + _bsize, 1000,
+		procfs_printf(node,
 			"Processor: %d\n"
 			"Implementer: %#x\n"
 			"Variant: %#x\n"
@@ -305,38 +335,22 @@ static ssize_t cpuinfo_func(fs_node_t *node, off_t offset, size_t size, uint8_t 
 			);
 	}
 #endif
-
-	if ((size_t)offset > _bsize) return 0;
-	if (size > _bsize - offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	return size;
 }
 
-static ssize_t meminfo_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	char buf[1024];
+static void meminfo_func(fs_node_t *node) {
 	size_t total = mmu_total_memory();
 	size_t free  = total - mmu_used_memory();
 	size_t kheap = ((uintptr_t)sbrk(0) - 0xffffff0000000000UL) / 1024;
 
-	snprintf(buf, 1000,
+	procfs_printf(node,
 		"MemTotal: %zu kB\n"
 		"MemFree: %zu kB\n"
 		"KHeapUse: %zu kB\n"
 		, total, free, kheap);
-
-	size_t _bsize = strlen(buf);
-	if ((size_t)offset > _bsize) return 0;
-	if (size > _bsize - offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	return size;
 }
 
 #ifdef __x86_64__
-static ssize_t pat_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	char buf[1024];
-
+static void pat_func(fs_node_t *node) {
 	uint32_t pat_value_low, pat_value_high;
 	asm volatile ( "rdmsr" : "=a" (pat_value_low), "=d" (pat_value_high): "c" (0x277) );
 	uint64_t pat_values = ((uint64_t)pat_value_high << 32) | (pat_value_low);
@@ -361,7 +375,7 @@ static ssize_t pat_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buf
 	int pa_6 = (pat_values >> 48) & 0x7;
 	int pa_7 = (pat_values >> 56) & 0x7;
 
-	snprintf(buf, 1000,
+	procfs_printf(node,
 			"PA0: %d %s\n"
 			"PA1: %d %s\n"
 			"PA2: %d %s\n"
@@ -379,252 +393,130 @@ static ssize_t pat_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buf
 			pa_6, pat_names[pa_6],
 			pa_7, pat_names[pa_7]
 	);
-
-	size_t _bsize = strlen(buf);
-	if ((size_t)offset > _bsize) return 0;
-	if (size > _bsize - offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	return size;
 }
 #endif
 
-static ssize_t uptime_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	char buf[1024];
+static void uptime_func(fs_node_t *node) {
 	unsigned long timer_ticks, timer_subticks;
 	relative_time(0,0,&timer_ticks,&timer_subticks);
-	snprintf(buf, 100, "%lu.%06lu\n", timer_ticks, timer_subticks);
-
-	size_t _bsize = strlen(buf);
-	if ((size_t)offset > _bsize) return 0;
-	if (size > _bsize - offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	return size;
+	procfs_printf(node, "%lu.%06lu\n", timer_ticks, timer_subticks);
 }
 
-static ssize_t cmdline_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	char buf[1024];
+static void cmdline_func(fs_node_t *node) {
 	const char * cmdline = arch_get_cmdline();
-	snprintf(buf, 1000, "%s\n", cmdline ? cmdline : "");
-
-	size_t _bsize = strlen(buf);
-	if ((size_t)offset > _bsize) return 0;
-	if (size > _bsize - offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	return size;
-	return 0;
+	procfs_printf(node, "%s\n", cmdline ? cmdline : "");
 }
 
-static ssize_t version_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	char buf[1024];
-	char version_number[512];
-	snprintf(version_number, 510,
-			__kernel_version_format,
+static void version_func(fs_node_t *node) {
+	procfs_printf(node, "%s", __kernel_name);
+	procfs_printf(node, __kernel_version_format,
 			__kernel_version_major,
 			__kernel_version_minor,
 			__kernel_version_lower,
 			__kernel_version_suffix);
-	snprintf(buf, 1000, "%s %s %s %s %s %s\n",
-			__kernel_name,
-			version_number,
+	procfs_printf(node, "%s %s %s %s\n",
 			__kernel_version_codename,
 			__kernel_build_date,
 			__kernel_build_time,
 			__kernel_arch);
-
-	size_t _bsize = strlen(buf);
-	if ((size_t)offset > _bsize) return 0;
-	if (size > _bsize - offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	return size;
 }
 
-static ssize_t compiler_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	char buf[1024];
-	snprintf(buf, 1000, "%s\n", __kernel_compiler_version);
-
-	size_t _bsize = strlen(buf);
-	if ((size_t)offset > _bsize) return 0;
-	if (size > _bsize - offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	return size;
+static void compiler_func(fs_node_t *node) {
+	procfs_printf(node, "%s\n", __kernel_compiler_version);
 }
 
 extern tree_t * fs_tree; /* kernel/fs/vfs.c */
 
-static void mount_recurse(char * buf, tree_node_t * node, size_t height) {
+static void mount_recurse(fs_node_t * pnode, tree_node_t * node, size_t height) {
 	/* End recursion on a blank entry */
 	if (!node) return;
-	char * tmp = malloc(512);
-	memset(tmp, 0, 512);
-	char * c = tmp;
 	/* Indent output */
 	for (uint32_t i = 0; i < height; ++i) {
-		c += snprintf(c, 5, "  ");
+		procfs_printf(pnode, "  ");
 	}
 	/* Get the current process */
 	struct vfs_entry * fnode = (struct vfs_entry *)node->value;
 	/* Print the process name */
 	if (fnode->file) {
-		c += snprintf(c, 100, "%s → %s %p (%s, %s)", fnode->name, fnode->device, (void*)fnode->file, fnode->fs_type, fnode->file->name);
+		procfs_printf(pnode, "%s → %s %p (%s, %s)\n", fnode->name, fnode->device, (void*)fnode->file, fnode->fs_type, fnode->file->name);
 	} else {
-		c += snprintf(c, 100, "%s → (empty)", fnode->name);
+		procfs_printf(pnode, "%s → (empty)\n", fnode->name);
 	}
 	/* Linefeed */
-	snprintf(buf+strlen(buf), 100, "%s\n",tmp);
-	free(tmp);
 	foreach(child, node->children) {
 		/* Recursively print the children */
-		mount_recurse(buf+strlen(buf),child->value, height + 1);
+		mount_recurse(pnode, child->value, height + 1);
 	}
 }
 
-static ssize_t mounts_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	char * buf = malloc(4096);
-
-	buf[0] = '\0';
-
-	mount_recurse(buf, fs_tree->root, 0);
-
-	size_t _bsize = strlen(buf);
-	if ((size_t)offset > _bsize) {
-		free(buf);
-		return 0;
-	}
-	if (size > _bsize - offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	free(buf);
-	return size;
+static void mounts_func(fs_node_t *node) {
+	mount_recurse(node, fs_tree->root, 0);
 }
 
-static ssize_t modules_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static void modules_func(fs_node_t *node) {
 	list_t * hash_keys = hashmap_keys(modules_get_list());
-	if (!hash_keys || !hash_keys->length) return 0;
-	char * buf = malloc(hash_keys->length * 512);
-	unsigned int soffset = 0;
+	if (!hash_keys || !hash_keys->length) return;
 	foreach(_key, hash_keys) {
 		char * key = (char *)_key->value;
 		struct LoadedModule * mod_info = hashmap_get(modules_get_list(), key);
-		soffset += snprintf(&buf[soffset], 100, "%#zx %zu %zu %s\n",
+		procfs_printf(node, "%#zx %zu %zu %s\n",
 			mod_info->baseAddress,
 			mod_info->fileSize,
 			mod_info->loadedSize,
 			key);
 	}
 	free(hash_keys);
-
-	size_t _bsize = strlen(buf);
-	if ((size_t)offset > _bsize) {
-		free(buf);
-		return 0;
-	}
-	if (size > _bsize - offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	free(buf);
-	return size;
 }
 
 extern hashmap_t * fs_types; /* from kernel/fs/vfs.c */
 
-static ssize_t filesystems_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static void filesystems_func(fs_node_t *node) {
 	list_t * hash_keys = hashmap_keys(fs_types);
-	if (!hash_keys || !hash_keys->length) return 0;
-	char * buf = malloc(hash_keys->length * 512);
-	unsigned int soffset = 0;
+	if (!hash_keys || !hash_keys->length) return;
 	foreach(_key, hash_keys) {
 		char * key = (char *)_key->value;
-		soffset += snprintf(&buf[soffset], 100, "%s\n", key);
+		procfs_printf(node, "%s\n", key);
 	}
 	free(hash_keys);
-
-	size_t _bsize = strlen(buf);
-	if ((size_t)offset > _bsize) {
-		free(buf);
-		return 0;
-	}
-	if (size > _bsize - offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	free(buf);
-	return size;
 }
 
-static ssize_t loader_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	char * buf = malloc(512);
-
-	snprintf(buf, 511, "%s\n", arch_get_loader());
-
-	size_t _bsize = strlen(buf);
-	if ((size_t)offset > _bsize) {
-		free(buf);
-		return 0;
-	}
-	if (size > _bsize - offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	free(buf);
-	return size;
+static void loader_func(fs_node_t *node) {
+	procfs_printf(node, "%s\n", arch_get_loader());
 }
 
 #ifdef __x86_64__
 #include <kernel/arch/x86_64/irq.h>
 #include <kernel/arch/x86_64/ports.h>
-static ssize_t irq_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	char * buf = malloc(4096);
-	unsigned int soffset = 0;
-
+static void irq_func(fs_node_t *node) {
 	for (int i = 0; i < 16; ++i) {
-		soffset += snprintf(&buf[soffset], 100, "irq %d: ", i);
+		procfs_printf(node, "irq %d: ", i);
 		for (int j = 0; j < 4; ++j) {
 			const char * t = get_irq_handler(i, j);
 			if (!t) break;
-			soffset += snprintf(&buf[soffset], 100, "%s%s", j ? "," : "", t);
+			procfs_printf(node, "%s%s", j ? "," : "", t);
 		}
-		soffset += snprintf(&buf[soffset], 100, "\n");
+		procfs_printf(node, "\n");
 	}
 
 	outportb(0x20, 0x0b);
 	outportb(0xa0, 0x0b);
-	soffset += snprintf(&buf[soffset], 100, "isr=0x%04x\n", (inportb(0xA0) << 8) | inportb(0x20));
+	procfs_printf(node, "isr=0x%04x\n", (inportb(0xA0) << 8) | inportb(0x20));
 
 	outportb(0x20, 0x0a);
 	outportb(0xa0, 0x0a);
-	soffset += snprintf(&buf[soffset], 100, "irr=0x%04x\n", (inportb(0xA0) << 8) | inportb(0x20));
+	procfs_printf(node, "irr=0x%04x\n", (inportb(0xA0) << 8) | inportb(0x20));
 
-	soffset += snprintf(&buf[soffset], 100, "imr=0x%04x\n", (inportb(0xA1) << 8) | inportb(0x21));
-
-	size_t _bsize = strlen(buf);
-	if ((size_t)offset > _bsize) {
-		free(buf);
-		return 0;
-	}
-	if (size > _bsize - offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	free(buf);
-	return size;
+	procfs_printf(node, "imr=0x%04x\n", (inportb(0xA1) << 8) | inportb(0x21));
 }
 #endif
 
 /**
  * Basically the same as the kdebug `pci` command.
  */
-struct _pci_buf {
-	size_t   offset;
-	char *buffer;
-};
-
 static void scan_hit_list(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * extra) {
+	fs_node_t * node = extra;
 
-	struct _pci_buf * b = extra;
-
-	b->offset += snprintf(b->buffer + b->offset, 100, "%02x:%02x.%d (%04x, %04x:%04x)\n",
+	procfs_printf(node, "%02x:%02x.%d (%04x, %04x:%04x)\n",
 			(int)pci_extract_bus(device),
 			(int)pci_extract_slot(device),
 			(int)pci_extract_func(device),
@@ -632,51 +524,26 @@ static void scan_hit_list(uint32_t device, uint16_t vendorid, uint16_t deviceid,
 			vendorid,
 			deviceid);
 
-	b->offset += snprintf(b->buffer + b->offset, 100, " BAR0: 0x%08x", pci_read_field(device, PCI_BAR0, 4));
-	b->offset += snprintf(b->buffer + b->offset, 100, " BAR1: 0x%08x", pci_read_field(device, PCI_BAR1, 4));
-	b->offset += snprintf(b->buffer + b->offset, 100, " BAR2: 0x%08x", pci_read_field(device, PCI_BAR2, 4));
-	b->offset += snprintf(b->buffer + b->offset, 100, " BAR3: 0x%08x", pci_read_field(device, PCI_BAR3, 4));
-	b->offset += snprintf(b->buffer + b->offset, 100, " BAR4: 0x%08x", pci_read_field(device, PCI_BAR4, 4));
-	b->offset += snprintf(b->buffer + b->offset, 100, " BAR5: 0x%08x\n", pci_read_field(device, PCI_BAR5, 4));
+	procfs_printf(node, " BAR0: 0x%08x", pci_read_field(device, PCI_BAR0, 4));
+	procfs_printf(node, " BAR1: 0x%08x", pci_read_field(device, PCI_BAR1, 4));
+	procfs_printf(node, " BAR2: 0x%08x", pci_read_field(device, PCI_BAR2, 4));
+	procfs_printf(node, " BAR3: 0x%08x", pci_read_field(device, PCI_BAR3, 4));
+	procfs_printf(node, " BAR4: 0x%08x", pci_read_field(device, PCI_BAR4, 4));
+	procfs_printf(node, " BAR5: 0x%08x\n", pci_read_field(device, PCI_BAR5, 4));
 
-	b->offset += snprintf(b->buffer + b->offset, 100, " IRQ Line: %d", pci_read_field(device, 0x3C, 1));
-	b->offset += snprintf(b->buffer + b->offset, 100, " IRQ Pin: %d", pci_read_field(device, 0x3D, 1));
-	b->offset += snprintf(b->buffer + b->offset, 100, " Interrupt: %d", pci_get_interrupt(device));
-	b->offset += snprintf(b->buffer + b->offset, 100, " Status: 0x%04x\n", pci_read_field(device, PCI_STATUS, 2));
+	procfs_printf(node, " IRQ Line: %d", pci_read_field(device, 0x3C, 1));
+	procfs_printf(node, " IRQ Pin: %d", pci_read_field(device, 0x3D, 1));
+	procfs_printf(node, " Interrupt: %d", pci_get_interrupt(device));
+	procfs_printf(node, " Status: 0x%04x\n", pci_read_field(device, PCI_STATUS, 2));
 }
 
-static void scan_count(uint32_t device, uint16_t vendorid, uint16_t deviceid, void * extra) {
-	size_t * count = extra;
-	(*count)++;
+static void pci_func(fs_node_t *node) {
+	pci_scan(&scan_hit_list, -1, node);
 }
 
-static ssize_t pci_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	size_t count = 0;
-	pci_scan(&scan_count, -1, &count);
-
-	struct _pci_buf b = {0,NULL};
-	b.buffer = malloc(count * 1024);
-
-	pci_scan(&scan_hit_list, -1, &b);
-
-	size_t _bsize = b.offset;
-	if ((size_t)offset > _bsize) {
-		free(b.buffer);
-		return 0;
-	}
-	if (size > _bsize - offset) size = _bsize - offset;
-
-	memcpy(buffer, b.buffer + offset, size);
-	free(b.buffer);
-	return size;
-}
-
-static ssize_t idle_func(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	char * buf = malloc(4096);
-	unsigned int soffset = 0;
-
+static void idle_func(fs_node_t *node) {
 	for (int i = 0; i < processor_count; ++i) {
-		soffset += snprintf(&buf[soffset], 100, "%d: %4d %4d %4d %4d\n",
+		procfs_printf(node, "%d: %4d %4d %4d %4d\n",
 			i,
 			processor_local_data[i].kernel_idle_task->usage[0],
 			processor_local_data[i].kernel_idle_task->usage[1],
@@ -684,50 +551,18 @@ static ssize_t idle_func(fs_node_t *node, off_t offset, size_t size, uint8_t *bu
 			processor_local_data[i].kernel_idle_task->usage[3]
 		);
 	}
-
-	size_t _bsize = strlen(buf);
-	if ((size_t)offset > _bsize) {
-		free(buf);
-		return 0;
-	}
-	if (size > _bsize - offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	free(buf);
-	return size;
 }
 
-static ssize_t kallsyms_func(fs_node_t *node, off_t offset, size_t size, uint8_t * buffer) {
+static void kallsyms_func(fs_node_t *fnode) {
 	/* This doesn't include module symbols at the moment... */
 	list_t * syms = ksym_list();
 
-	/* Figure out how much space needs to go in this buffer */
-	size_t total_size = 0;
-	foreach (node, syms) {
-		/* 16 for the address, one space, len(sym), one linefeed = 18 + strlen() */
-		total_size += 18 + strlen((char*)node->value);
-	}
-
-	char * buf = malloc(total_size);
-
-	size_t soffset = 0;
 	foreach(node, syms) {
-		soffset += snprintf(&buf[soffset], 100, "%016zx %s\n", this_core->current_process->user == USER_ROOT_UID ? (uintptr_t)ksym_lookup(node->value) : (uintptr_t)0, (char*)node->value);
+		procfs_printf(fnode, "%016zx %s\n", this_core->current_process->user == USER_ROOT_UID ? (uintptr_t)ksym_lookup(node->value) : (uintptr_t)0, (char*)node->value);
 	}
 
-	if ((size_t)offset >= soffset) {
-		size = 0;
-		goto free_results;
-	}
-
-	if (size > soffset - offset) size = soffset - offset;
-	memcpy(buffer, buf + offset, size);
-
-free_results:
 	list_free(syms);
 	free(syms);
-	free(buf);
-	return size;
 }
 
 static struct procfs_entry std_entries[] = {

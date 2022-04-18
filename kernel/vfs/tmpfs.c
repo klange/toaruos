@@ -552,23 +552,10 @@ fs_node_t * tmpfs_mount(const char * device, const char * mount_path) {
 	return fs;
 }
 
-static ssize_t tmpfs_func(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
-	char * buf = malloc(4096);
-
-	snprintf(buf, 4095,
+static void tmpfs_func(fs_node_t * node) {
+	procfs_printf(node,
 		"UsedBlocks:\t%zd\n",
 		tmpfs_total_blocks);
-
-	size_t _bsize = strlen(buf);
-	if ((size_t)offset > _bsize) {
-		free(buf);
-		return 0;
-	}
-	if (size > _bsize - (size_t)offset) size = _bsize - offset;
-
-	memcpy(buffer, buf + offset, size);
-	free(buf);
-	return size;
 }
 
 static struct procfs_entry tmpfs_entry = {
