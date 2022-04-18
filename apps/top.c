@@ -510,6 +510,16 @@ static void next_sort_order(void) {
 	}
 }
 
+static void prev_sort_order(void) {
+	size_t column_count = sizeof(columns)/sizeof(*columns);
+	for (size_t i = 0; i < column_count; ++i) {
+		if (columns[i] == sort_column) {
+			sort_column = columns[(i + column_count - 1) % column_count];
+			return;
+		}
+	}
+}
+
 /**
  * @brief Gather and display one round of data.
  */
@@ -681,6 +691,7 @@ static int do_once(void) {
 		int c = fgetc(stdin);
 		if (c == 'q') return 0;
 		if (c == 'w') next_sort_order();
+		if (c == 'W') prev_sort_order();
 		if (c == 'h') show_help = !show_help;
 	}
 
