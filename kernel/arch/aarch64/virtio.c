@@ -127,29 +127,6 @@ static void virtio_tablet_thread(void * data) {
 	pci_write_field(device, PCI_BAR4, 4, t|8);
 	pci_write_field(device, PCI_COMMAND, 2, 4|2|1);
 
-	uint8_t caps = pci_read_field(device, 0x34, 1) & 0xFC;
-	dprintf("virtio: capabilities at 0x%02x\n", caps);
-
-	if (caps) {
-		uint8_t next = caps;
-		do {
-			uint8_t cap_id = pci_read_field(device, next, 1);
-			dprintf("@%d cap %d\n", next, cap_id);
-			if (cap_id == 9) {
-				/* vendor cap */
-				uint8_t len  = pci_read_field(device, next+2, 1);
-				uint8_t type = pci_read_field(device, next+3, 1);
-				uint8_t bar  = pci_read_field(device, next+4, 1);
-				uint32_t off = pci_read_field(device, next+8, 4);
-
-				dprintf("len=%d type=%d bar=%d off=%#x\n",
-					len, type, bar, off);
-
-			}
-			next = pci_read_field(device, next+1, 1);
-		} while (next);
-	}
-
 	struct virtio_device_cfg * cfg = (void*)((char*)mmu_map_mmio_region(t + 0x2000, 0x1000));
 	cfg->select = 1; /* ask for name */
 	cfg->subsel = 0;
