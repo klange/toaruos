@@ -203,6 +203,7 @@ int elf_module(char ** args) {
 				case 286: /* R_AARCH64_LDST64_ABS_LO12_NC */
 					T32 = T32 | aarch64_imm_12( ((S + A) >> 3) & 0x1FF );
 					break;
+				case 282: /* R_AARCH64_JUMP26 */
 				case 283: /* R_AARCH64_CALL26 */
 					T32 = T32 | (((S + A - P) >> 2) & 0x3ffffff);
 					break;

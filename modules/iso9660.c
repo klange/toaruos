@@ -2,6 +2,7 @@
  * @file modules/iso9660.c
  * @brief ISO9660 "High Sierra" CD file system driver.
  * @package x86_64
+ * @package aarch64
  *
  * @copyright
  * This file is part of ToaruOS and is released under the terms

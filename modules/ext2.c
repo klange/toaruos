@@ -2,6 +2,7 @@
  * @file modules/ext2.c
  * @brief Implementation of the Ext2 filesystem.
  * @package x86_64
+ * @package aarch64
  *
  * @warning There are many known bugs in this implementation.
  *
