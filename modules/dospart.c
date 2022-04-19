@@ -2,6 +2,7 @@
  * @file modules/dospart.c
  * @brief DOS MBR partition table mapper
  * @package x86_64
+ * @package aarch64
  *
  * Provides partition entries for disks.
  *
