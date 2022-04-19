@@ -235,7 +235,7 @@ static void refresh_interfaces(size_t ifs[32]) {
 		if (ent->d_name[0] == '.') continue;
 		char if_path[1024];
 		snprintf(if_path, 1023, "/dev/net/%s", ent->d_name);
-		int netdev = open(if_path, O_RDWR);
+		int netdev = open(if_path, O_RDONLY);
 		if (netdev < 0) {
 			continue;
 		}
