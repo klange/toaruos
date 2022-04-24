@@ -18,6 +18,8 @@
 #include <sys/types.h>
 #include <sys/shm.h>
 
+#include <math.h>
+
 #include <toaru/graphics.h>
 #include <toaru/hashmap.h>
 #include <toaru/decodeutf8.h>
@@ -1016,6 +1018,28 @@ char * tt_get_name_string(struct TT_Font * font, int identifier) {
 	}
 
 	return NULL;
+}
+
+struct TT_Shape * tt_contour_stroke_shape(struct TT_Contour * in, float width) {
+	struct TT_Contour * stroke = tt_contour_start(0,0);
+
+	for (size_t i = 0; i < in->edgeCount; ++i) {
+		double x_vect = in->edges[i].end.x - in->edges[i].start.x;
+		double y_vect = in->edges[i].end.y - in->edges[i].start.y;
+		double len = sqrt(x_vect * x_vect + y_vect * y_vect);
+		if (len == 0.0) continue;
+		double x_norm = (-y_vect / len) * width;
+		double y_norm = (x_vect / len) * width;
+		stroke = tt_contour_move_to(stroke, x_norm + in->edges[i].start.x, y_norm + in->edges[i].start.y);
+		stroke = tt_contour_line_to(stroke, x_norm + in->edges[i].end.x,   y_norm + in->edges[i].end.y);
+		stroke = tt_contour_line_to(stroke, -x_norm + in->edges[i].end.x,   -y_norm + in->edges[i].end.y);
+		stroke = tt_contour_line_to(stroke, -x_norm + in->edges[i].start.x, -y_norm + in->edges[i].start.y);
+		stroke = tt_contour_line_to(stroke, x_norm + in->edges[i].start.x, y_norm + in->edges[i].start.y);
+	}
+
+	struct TT_Shape * out = tt_contour_finish(stroke);
+	free(stroke);
+	return out;
 }
 
 void tt_contour_stroke_bounded(gfx_context_t * ctx, struct TT_Contour * in, uint32_t color, float width,
