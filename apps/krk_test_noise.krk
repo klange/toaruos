@@ -1,5 +1,6 @@
 #!/bin/kuroko
 import os
+import gc
 if 'KUROKO_TEST_ENV' in os.environ:
     return 0
 
@@ -25,6 +26,7 @@ class NoisePainter(Thread):
 
 let painters = [NoisePainter() for i in range(5)]
 
+gc.pause()
 for painter in painters:
     painter.start()
 
@@ -43,5 +45,7 @@ for i in range(5):
 stop = True
 for painter in painters:
     painter.join()
+
+gc.resume()
 
 drawScreen()
