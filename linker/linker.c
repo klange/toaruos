@@ -414,6 +414,7 @@ static int need_symbol_for_type(unsigned int type) {
 		case 1025:
 		case 1026:
 		case 1030:
+		case 1031:
 		case 257:
 			return 1;
 		default:
@@ -421,6 +422,10 @@ static int need_symbol_for_type(unsigned int type) {
 	}
 
 #endif
+}
+
+static size_t __tlsdesc_static(size_t * a) {
+	return a[1];
 }
 
 /* Apply ELF relocations */
@@ -571,6 +576,18 @@ static int object_relocate(elf_t * object) {
 						}
 						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
 						break;
+					case 1031: {
+						x += *((ssize_t *)(table->r_offset + object->base));
+						if (!hashmap_has(tls_map, symname)) {
+							fprintf(stderr, "Don't know where to get %s from TLS\n", symname);
+							exit(1);
+						}
+						x += (size_t)hashmap_get(tls_map, symname);
+						uintptr_t func = (uintptr_t)&__tlsdesc_static;
+						memcpy((void *)(table->r_offset + object->base), &func, sizeof(uintptr_t));
+						memcpy((void *)(table->r_offset + object->base + sizeof(uintptr_t)), &x, sizeof(uintptr_t));
+						break;
+					}
 #else
 # error "unsupported"
 #endif
