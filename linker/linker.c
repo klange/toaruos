@@ -402,6 +402,8 @@ static int need_symbol_for_type(unsigned int type) {
 		case R_X86_64_JUMP_SLOT:
 		case R_X86_64_8:
 		case R_X86_64_TPOFF64:
+		case R_X86_64_DTPMOD64:
+		case R_X86_64_DTPOFF64:
 			return 1;
 		default:
 			return 0;
@@ -523,8 +525,15 @@ static int object_relocate(elf_t * object) {
 						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
 						break;
 					case R_X86_64_DTPMOD64:
+						if (!hashmap_has(tls_map, symname)) { fprintf(stderr, "tls entry is unallocated?\n"); break; }
+						x = 0;
+						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
 						break;
 					case R_X86_64_DTPOFF64:
+						if (!hashmap_has(tls_map, symname)) { fprintf(stderr, "tls entry is unallocated?\n"); break; }
+						x = table->r_addend;
+						x += (size_t)hashmap_get(tls_map, symname);
+						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
 						break;
 #elif defined(__aarch64__)
 					case 1024: /* COPY */

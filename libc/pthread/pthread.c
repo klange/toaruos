@@ -10,6 +10,7 @@
 #include <pthread.h>
 #include <errno.h>
 #include <string.h>
+#include <stdio.h>
 
 #include <sys/wait.h>
 #include <sys/sysfunc.h>
@@ -37,7 +38,19 @@ struct pthread {
 };
 
 void * __tls_get_addr(void* input) {
+#ifdef __x86_64__
+	struct tls_index {
+		uintptr_t module;
+		uintptr_t offset;
+	};
+	struct tls_index * index = input;
+	/* We only support initial-exec stuff, so this must be %fs:offset */
+	uintptr_t threadbase;
+	asm ("mov %%fs:0, %0" :"=r"(threadbase));
+	return (void*)(threadbase + index->offset);
+#else
 	return NULL;
+#endif
 }
 
 void __make_tls(void) {
