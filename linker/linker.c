@@ -424,6 +424,7 @@ static int need_symbol_for_type(unsigned int type) {
 #endif
 }
 
+__attribute__((unused))
 static size_t __tlsdesc_static(size_t * a) {
 	return a[1];
 }
