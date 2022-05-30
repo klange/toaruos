@@ -25,7 +25,7 @@ class KrkHighlighter(Highlighter):
         'object','exception','isinstance','type','print','tuple','bool','any','all',
         'hex','ord','chr','bytes','set','getattr','setattr','input','zip','enumerate',
         'property','staticmethod','classmethod','filter','min','max','id','map','bin',
-        'sum','sorted','issubclass','hasattr','delattr', 'NotImplemented',
+        'sum','sorted','issubclass','hasattr','delattr', 'NotImplemented', 'abs',
     ]
 
     special = [

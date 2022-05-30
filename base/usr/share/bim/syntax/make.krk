@@ -2,7 +2,7 @@ from syntax import Highlighter, bind
 
 class GnumakeHighlighter(Highlighter):
     name = 'make'
-    extensions = ('Makefile','makefile','GNUmakefile','.mak')
+    extensions = ('Makefile','makefile','GNUmakefile','.mak','.mk')
     commands = [
         "define","endef","undefine","ifdef","ifndef","ifeq","ifneq","else","endif",
         "include","sinclude","override","export","unexport","private","vpath",

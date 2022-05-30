@@ -3,7 +3,7 @@ from bim import defineTheme
 @defineTheme
 def ansi():
     setcolor("text-fg","@7")
-    setcolor("text-bg","@0")
+    setcolor("text-bg","@9")
     setcolor("alternate-fg","@5")
     setcolor("alternate-bg","@9")
     setcolor("number-fg","@3")

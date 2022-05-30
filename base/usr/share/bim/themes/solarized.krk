@@ -31,6 +31,6 @@ def solarized_dark():
     setcolor("red","2;222;53;53")
     setcolor("green","2;55;167;0")
     setcolor("bold","2;147;161;161;1")
-    setcolor("link","2;42;161;152;4")
+    setcolor("link","2;42;161;152")
     setcolor("escape","2;133;153;0")
 

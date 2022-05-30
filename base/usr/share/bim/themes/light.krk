@@ -6,7 +6,8 @@ from themes import ansi
 @defineTheme
 def light():
     if checkprop('can_24bit'):
-        return ansi()
+        colorscheme("ansi")
+        return
     setcolor("text-fg","2;57;76;82")
     setcolor("text-bg","2;250;242;218")
     setcolor("alternate-fg","2;144;153;149")
@@ -33,6 +34,6 @@ def light():
     setcolor("red","2;222;53;53")
     setcolor("green","2;55;167;0")
     setcolor("bold","2;57;76;82;1")
-    setcolor("link","2;0;114;212;4")
+    setcolor("link","2;0;114;212")
     setcolor("escape","2;0;156;143")
 

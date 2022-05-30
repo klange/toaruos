@@ -4,7 +4,8 @@ from themes import ansi
 @defineTheme
 def citylights():
     if checkprop('can_24bit'):
-        return ansi()
+        colorscheme("ansi")
+        return
     setcolor("text-fg","2;151;178;198")
     setcolor("text-bg","2;29;37;44")
     setcolor("alternate-fg","2;45;55;65")
@@ -31,5 +32,5 @@ def citylights():
     setcolor("red","2;222;53;53")
     setcolor("green","2;55;167;0")
     setcolor("bold","2;151;178;198;1")
-    setcolor("link","2;94;196;255;4")
+    setcolor("link","2;94;196;255")
     setcolor("escape","2;133;182;249")

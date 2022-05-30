@@ -91,7 +91,7 @@ class HTMLHighlighter(XMLHighlighter):
     def paintCss():
         # TODO actually paint CSS
         while self[0] and not (self[0] == '<' and self[1] == '/' and self[2] == 's'):
-            self.set_state(0)
+            self.state = 0
             let css = CSSHighlighter(self)
             let result = css.calculate()
             if result == 0:
@@ -112,7 +112,7 @@ class HTMLHighlighter(XMLHighlighter):
         else if self.state == 6:
             return self.paintCss()
         else if self.state == 7:
-            self.set_state(1)
+            self.state = 1
             let css = CSSHighlighter(self)
             if css.calculate() == 1: return 7
             self.__init__(css)

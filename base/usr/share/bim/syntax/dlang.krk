@@ -1,0 +1,27 @@
+from syntax import bind
+from syntax.c import CHighlighter
+
+@bind
+class DHighlighter(CHighlighter):
+    name = 'dlang'
+    extensions = ('.d',)
+    keywords = CHighlighter.keywords + [
+        'abstract', 'alias', 'align', 'assert', 'cast', 'dchar',
+        'debug', 'delegate', 'deprecated', 'export',
+        # Why aren't these in the C highlighter for C++?
+        'try', 'catch', 'finally',
+        'foreach', 'foreach_reverse', 'function', 'interface',
+        'mixin', 'module', 'macro', 'with',
+        'scope','unittest','package','typeof','typeid',
+        'pragma','pure','override','import',
+    ]
+    types = CHighlighter.types + [
+        'inout', 'nothrow', 'shared', 'synchronized', 'string',
+        '__gshared', '__traits', '__vector', '__paramaters',
+        'ubyte','uint','ulong','ushort','real','ref','out','in',
+    ]
+    special = [
+        'null','true','false',
+        '__FILE__','__FILE_FULL_PATH__','__MODULE__','__LINE__',
+        '__FUNCTION__','__PRETTY_FUNCTION__',
+    ]

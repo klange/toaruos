@@ -1,0 +1,42 @@
+'''
+Based on 'strawberry' vim theme:
+@ref https://github.com/haystackandroid/strawberry
+'''
+from bim import defineTheme
+from themes import ansi
+
+@defineTheme
+def strawberry():
+    if checkprop('can_24bit'):
+        colorscheme("ansi")
+        return
+    setcolor("text-fg", "2;117;97;107")
+    setcolor("text-bg", "2;255;240;247")
+    setcolor("alternate-fg", "2;158;139;149")
+    setcolor("alternate-bg", "2;252;238;244")
+    setcolor("number-bg", "2;240;221;230")
+    setcolor("number-fg", "2;158;139;149")
+    setcolor("status-fg", "2;255;240;247")
+    setcolor("status-bg", "2;212;106;132")
+    setcolor("status-alt", "2;255;255;255;1")
+    setcolor("tabbar-bg", "2;212;106;132")
+    setcolor("tab-bg", "2;240;221;230")
+    setcolor("keyword", "2;33;158;33;1")
+    setcolor("string", "2;70;141;212")
+    setcolor("comment", "2;158;139;149;3")
+    setcolor("type", "2;212;106;132;1")
+    setcolor("pragma", "2;162;111;191;1")
+    setcolor("numeral", "2;70;141;212")
+    setcolor("error-fg", "5;15")
+    setcolor("error-bg", "5;196")
+    setcolor("search-fg", "5;234")
+    setcolor("search-bg", "2;212;106;132")
+    setcolor("select-fg", "2;0;43;54")
+    setcolor("select-bg", "2;147;161;161")
+    setcolor("red", "2;222;53;53")
+    setcolor("green", "2;55;167;0")
+    setcolor("bold", "2;117;97;107;1")
+    setcolor("link", "2;51;162;230;4")
+    setcolor("escape", "2;113;203;173")
+
+

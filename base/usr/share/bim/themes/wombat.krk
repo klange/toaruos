@@ -5,7 +5,8 @@ from themes import ansi
 @defineTheme
 def wombat():
     if checkprop('can_256color'):
-        return ansi()
+        colorscheme("ansi")
+        return
     setcolor("text-fg","5;230")
     setcolor("text-bg","5;235")
     setcolor("alternate-fg","5;244")
@@ -32,7 +33,7 @@ def wombat():
     setcolor("red","@1")
     setcolor("green","@2")
     setcolor("bold","5;230;1")
-    setcolor("link","5;117;4")
+    setcolor("link","5;117")
     setcolor("escape","5;194")
     if not checkprop('can_italic'):
         setcolor('comment','5;102;3')
