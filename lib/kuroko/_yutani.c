@@ -117,7 +117,7 @@ static void _message_sweep(KrkInstance * self) {
 	free(((struct MessageClass*)self)->msg);
 }
 
-static KrkValue _message_getattr(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _message_getattr(int argc, const KrkValue argv[], int hasKw) {
 	assert(argc == 2);
 	KrkInstance * self = AS_INSTANCE(argv[0]);
 
@@ -210,7 +210,7 @@ static KrkValue _message_getattr(int argc, KrkValue argv[], int hasKw) {
 #undef TO_INT
 #undef WID
 
-static KrkValue _yutani_repr(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _yutani_repr(int argc, const KrkValue argv[], int hasKw) {
 	struct YutaniClass * self = (struct YutaniClass*)AS_INSTANCE(argv[0]);
 	char out[500];
 	size_t len = sprintf(out, "Yutani(fd=%d,server=%s,display_width=%d,display_height=%d)",
@@ -221,7 +221,7 @@ static KrkValue _yutani_repr(int argc, KrkValue argv[], int hasKw) {
 	return OBJECT_VAL(krk_copyString(out,len));
 }
 
-static KrkValue _yutani_init(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _yutani_init(int argc, const KrkValue argv[], int hasKw) {
 	if (yctxInstance) {
 		krk_runtimeError(vm.exceptions->valueError, "class 'Yutani' is a singleton and has already been initialized.");
 		return NONE_VAL();
@@ -250,17 +250,17 @@ static KrkValue _yutani_init(int argc, KrkValue argv[], int hasKw) {
 		return krk_runtimeError(vm.exceptions->typeError, "expected Yutani"); \
 	struct YutaniClass * self = (struct YutaniClass*)AS_INSTANCE(argv[0])
 
-static KrkValue _yutani_display_width(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _yutani_display_width(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_YUTANI();
 	return INTEGER_VAL(self->yctx->display_width);
 }
 
-static KrkValue _yutani_display_height(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _yutani_display_height(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_YUTANI();
 	return INTEGER_VAL(self->yctx->display_height);
 }
 
-static KrkValue _yutani_poll(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _yutani_poll(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_YUTANI();
 
 	int sync = (argc > 1 && IS_BOOLEAN(argv[1])) ? AS_BOOLEAN(argv[1]) : 1;
@@ -281,7 +281,7 @@ static KrkValue _yutani_poll(int argc, KrkValue argv[], int hasKw) {
 	return krk_pop();
 }
 
-static KrkValue _yutani_wait_for(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _yutani_wait_for(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_YUTANI();
 	if (argc != 2 || !IS_INTEGER(argv[1])) { krk_runtimeError(vm.exceptions->argumentError, "expected int for msgtype"); return NONE_VAL(); }
 	yutani_msg_t * result = yutani_wait_for(self->yctx, AS_INTEGER(argv[1]));
@@ -293,35 +293,35 @@ static KrkValue _yutani_wait_for(int argc, KrkValue argv[], int hasKw) {
 	return krk_pop();
 }
 
-static KrkValue _yutani_subscribe(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _yutani_subscribe(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_YUTANI();
 	yutani_subscribe_windows(self->yctx);
 	return NONE_VAL();
 }
 
-static KrkValue _yutani_unsubscribe(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _yutani_unsubscribe(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_YUTANI();
 	yutani_unsubscribe_windows(self->yctx);
 	return NONE_VAL();
 }
 
-static KrkValue _yutani_query_windows(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _yutani_query_windows(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_YUTANI();
 	yutani_query_windows(self->yctx);
 	return NONE_VAL();
 }
 
-static KrkValue _yutani_fileno(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _yutani_fileno(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_YUTANI();
 	return INTEGER_VAL(fileno(self->yctx->sock));
 }
 
-static KrkValue _yutani_query(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _yutani_query(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_YUTANI();
 	return INTEGER_VAL(yutani_query(self->yctx));
 }
 
-static KrkValue _yutani_menu_process_event(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _yutani_menu_process_event(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_YUTANI();
 	if (argc < 2 || !krk_isInstanceOf(argv[1],Message))
 		return krk_runtimeError(vm.exceptions->typeError, "expected Message");
@@ -342,7 +342,7 @@ static KrkValue _yutani_menu_process_event(int argc, KrkValue argv[], int hasKw)
 } while (0)
 
 #define GFX_PROPERTY(name) \
-static KrkValue _gfx_ ## name (int argc, KrkValue argv[], int hasKw) { \
+static KrkValue _gfx_ ## name (int argc, const KrkValue argv[], int hasKw) { \
 	if (argc != 1 || !krk_isInstanceOf(argv[0], GraphicsContext)) \
 		return krk_runtimeError(vm.exceptions->typeError, "Expected GraphicsContext"); \
 	struct GraphicsContext * self = (struct GraphicsContext *)AS_INSTANCE(argv[0]); \
@@ -357,7 +357,7 @@ GFX_PROPERTY(height);
 		return krk_runtimeError(vm.exceptions->typeError, "expected GraphicsContext"); \
 	struct GraphicsContext * self = (struct GraphicsContext*)AS_INSTANCE(argv[0])
 
-static KrkValue _gfx_fill(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _gfx_fill(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_GFX();
 	if (argc < 2 || !krk_isInstanceOf(argv[1], YutaniColor))
 		return krk_runtimeError(vm.exceptions->typeError, "fill() takes one color() argument");
@@ -366,7 +366,7 @@ static KrkValue _gfx_fill(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _gfx_flip(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _gfx_flip(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_GFX();
 	if (self->doubleBuffered) {
 		flip(self->ctx);
@@ -374,7 +374,7 @@ static KrkValue _gfx_flip(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _gfx_blur(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _gfx_blur(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_GFX();
 	int radius = 2;
 	if (argc > 1 && IS_INTEGER(argv[1])) radius = AS_INTEGER(argv[1]);
@@ -383,7 +383,7 @@ static KrkValue _gfx_blur(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _gfx_line(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _gfx_line(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_GFX();
 	if (argc < 6 ||
 		!IS_INTEGER(argv[1]) ||
@@ -415,7 +415,7 @@ static KrkValue _gfx_line(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _gfx_rect(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _gfx_rect(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_GFX();
 
 	if (argc != 6 ||
@@ -457,7 +457,7 @@ static KrkValue _gfx_rect(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _gfx_draw_sprite(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _gfx_draw_sprite(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_GFX();
 
 	if (argc < 2 || !krk_isInstanceOf(argv[1], YutaniSprite))
@@ -524,7 +524,7 @@ static void _sprite_sweep(KrkInstance * self) {
 	if (sprite->ctx) free(sprite->ctx);
 }
 
-static KrkValue _sprite_repr(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _sprite_repr(int argc, const KrkValue argv[], int hasKw) {
 	struct YutaniSprite * self = (struct YutaniSprite *)AS_INSTANCE(argv[0]);
 
 	KrkValue file;
@@ -538,7 +538,7 @@ static KrkValue _sprite_repr(int argc, KrkValue argv[], int hasKw) {
 	return OBJECT_VAL(krk_copyString(out,len));
 }
 
-static KrkValue _sprite_init(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _sprite_init(int argc, const KrkValue argv[], int hasKw) {
 	if (argc < 1 || !krk_isInstanceOf(argv[0], YutaniSprite))
 		return krk_runtimeError(vm.exceptions->typeError, "expected sprite");
 
@@ -564,7 +564,7 @@ static KrkValue _sprite_init(int argc, KrkValue argv[], int hasKw) {
 	struct WindowClass * self = (struct WindowClass*)AS_INSTANCE(argv[0]); \
 	if (!self->window) return krk_runtimeError(vm.exceptions->valueError, "Window is closed")
 
-static KrkValue _window_repr(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _window_repr(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_WINDOW();
 	KrkValue title;
 	krk_tableGet(&self->inst.fields, OBJECT_VAL(S("title")), &title);
@@ -577,7 +577,7 @@ static KrkValue _window_repr(int argc, KrkValue argv[], int hasKw) {
 	return OBJECT_VAL(krk_copyString(out,len));
 }
 
-static KrkValue _window_init(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _window_init(int argc, const KrkValue argv[], int hasKw) {
 	if (!yctxInstance) return krk_runtimeError(vm.exceptions->valueError, "Compositor is not initialized");
 	if (argc < 1 || !krk_isInstanceOf(argv[0], YutaniWindow))
 		return krk_runtimeError(vm.exceptions->typeError, "Failed to initialize window");
@@ -622,7 +622,7 @@ static KrkValue _window_init(int argc, KrkValue argv[], int hasKw) {
 	return argv[0];
 }
 
-static KrkValue _window_flip(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _window_flip(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_WINDOW();
 	if (self->doubleBuffered) {
 		flip(self->ctx);
@@ -631,7 +631,7 @@ static KrkValue _window_flip(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _window_move(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _window_move(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_WINDOW();
 	if (argc < 3 || !IS_INTEGER(argv[1]) || !IS_INTEGER(argv[2]))
 		return krk_runtimeError(vm.exceptions->typeError, "expected two integer arguments");
@@ -639,7 +639,7 @@ static KrkValue _window_move(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _window_set_focused(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _window_set_focused(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_WINDOW();
 	if (argc < 2 || !IS_INTEGER(argv[1]))
 		return krk_runtimeError(vm.exceptions->typeError, "expected integer argument");
@@ -647,7 +647,7 @@ static KrkValue _window_set_focused(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _window_close(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _window_close(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_WINDOW();
 	yutani_close(((struct YutaniClass*)yctxInstance)->yctx, self->window);
 	self->window = NULL;
@@ -656,7 +656,7 @@ static KrkValue _window_close(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _window_set_stack(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _window_set_stack(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_WINDOW();
 	if (argc < 2 || !IS_INTEGER(argv[1])) return krk_runtimeError(vm.exceptions->typeError, "expected int for z-order");
 	int z = AS_INTEGER(argv[1]);
@@ -664,7 +664,7 @@ static KrkValue _window_set_stack(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _window_update_shape(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _window_update_shape(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_WINDOW();
 	if (argc < 2 || !IS_INTEGER(argv[1])) return krk_runtimeError(vm.exceptions->typeError, "expected int for shape specifier");
 	int set_shape = AS_INTEGER(argv[1]);
@@ -672,7 +672,7 @@ static KrkValue _window_update_shape(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _window_warp_mouse(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _window_warp_mouse(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_WINDOW();
 	if (argc < 3 || !IS_INTEGER(argv[1]) || !IS_INTEGER(argv[2]))
 		return krk_runtimeError(vm.exceptions->typeError, "expected two int values for x, y");
@@ -682,7 +682,7 @@ static KrkValue _window_warp_mouse(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _window_show_mouse(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _window_show_mouse(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_WINDOW();
 	if (argc < 2 || !IS_INTEGER(argv[1])) return krk_runtimeError(vm.exceptions->typeError, "expected int for show_mouse");
 	int show_mouse = AS_INTEGER(argv[1]);
@@ -690,7 +690,7 @@ static KrkValue _window_show_mouse(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _window_resize_start(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _window_resize_start(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_WINDOW();
 	if (argc < 2 || !IS_INTEGER(argv[1])) return krk_runtimeError(vm.exceptions->typeError, "expected int for direction");
 	yutani_scale_direction_t direction = AS_INTEGER(argv[1]);
@@ -698,7 +698,7 @@ static KrkValue _window_resize_start(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _window_resize(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _window_resize(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_WINDOW();
 	if (argc < 3 || !IS_INTEGER(argv[1]) || !IS_INTEGER(argv[2]))
 		return krk_runtimeError(vm.exceptions->typeError, "expected two int values for width, height");
@@ -708,7 +708,7 @@ static KrkValue _window_resize(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _window_resize_offer(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _window_resize_offer(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_WINDOW();
 	if (argc < 3 || !IS_INTEGER(argv[1]) || !IS_INTEGER(argv[2]))
 		return krk_runtimeError(vm.exceptions->typeError, "expected two int values for width, height");
@@ -718,7 +718,7 @@ static KrkValue _window_resize_offer(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _window_resize_accept(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _window_resize_accept(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_WINDOW();
 	if (argc < 3 || !IS_INTEGER(argv[1]) || !IS_INTEGER(argv[2]))
 		return krk_runtimeError(vm.exceptions->typeError, "expected two int values for width, height");
@@ -728,13 +728,13 @@ static KrkValue _window_resize_accept(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _window_resize_done(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _window_resize_done(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_WINDOW();
 	yutani_window_resize_done(((struct YutaniClass*)yctxInstance)->yctx, self->window);
 	return NONE_VAL();
 }
 
-static KrkValue _window_advertise(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _window_advertise(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_WINDOW();
 	if (argc < 2 || !IS_STRING(argv[1]))
 		return krk_runtimeError(vm.exceptions->typeError, "expected string for title");
@@ -749,7 +749,7 @@ static KrkValue _window_advertise(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _window_special_request(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _window_special_request(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_WINDOW();
 	if (argc < 2 || !IS_INTEGER(argv[1])) return krk_runtimeError(vm.exceptions->typeError, "expected int for request");
 	uint32_t request = AS_INTEGER(argv[1]);
@@ -757,14 +757,14 @@ static KrkValue _window_special_request(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _window_reinit(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _window_reinit(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_WINDOW();
 	reinit_graphics_yutani(self->ctx, self->window);
 	return NONE_VAL();
 }
 
 #define WINDOW_PROPERTY(name) \
-static KrkValue _window_ ## name (int argc, KrkValue argv[], int hasKw) { \
+static KrkValue _window_ ## name (int argc, const KrkValue argv[], int hasKw) { \
 	if (argc != 1 || !krk_isInstanceOf(argv[0], YutaniWindow)) \
 		return krk_runtimeError(vm.exceptions->typeError, "Expected Window"); \
 	struct WindowClass * self = (struct WindowClass*)AS_INSTANCE(argv[0]); \
@@ -776,7 +776,7 @@ WINDOW_PROPERTY(x);
 WINDOW_PROPERTY(y);
 WINDOW_PROPERTY(focused);
 
-static KrkValue _decor_get_bounds(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _decor_get_bounds(int argc, const KrkValue argv[], int hasKw) {
 	if (argc > 0 && !krk_isInstanceOf(argv[0], YutaniWindow))
 		return krk_runtimeError(vm.exceptions->typeError, "expected window");
 	struct decor_bounds bounds;
@@ -799,13 +799,13 @@ static KrkValue _decor_get_bounds(int argc, KrkValue argv[], int hasKw) {
 	return krk_pop();
 }
 
-static KrkValue _decor_handle_event(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _decor_handle_event(int argc, const KrkValue argv[], int hasKw) {
 	if (argc < 1 || !krk_isInstanceOf(argv[0], Message))
 		return krk_runtimeError(vm.exceptions->typeError, "expected message");
 	return INTEGER_VAL(decor_handle_event(((struct YutaniClass*)yctxInstance)->yctx, ((struct MessageClass*)AS_INSTANCE(argv[0]))->msg));
 }
 
-static KrkValue _decor_render(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _decor_render(int argc, const KrkValue argv[], int hasKw) {
 	if (argc < 1 || !krk_isInstanceOf(argv[0], YutaniWindow))
 		return krk_runtimeError(vm.exceptions->typeError, "expected window");
 	char * title = (argc > 1 && IS_STRING(argv[1])) ? AS_CSTRING(argv[1]) : NULL;
@@ -822,7 +822,7 @@ static KrkValue _decor_render(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _decor_show_default_menu(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _decor_show_default_menu(int argc, const KrkValue argv[], int hasKw) {
 	if (argc < 1 || !krk_isInstanceOf(argv[0], YutaniWindow))
 		return krk_runtimeError(vm.exceptions->typeError, "show_default_menu() expects Window");
 	if (argc < 3 || !IS_INTEGER(argv[1]) || !IS_INTEGER(argv[2]))
@@ -836,7 +836,7 @@ static KrkValue _decor_show_default_menu(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _yutani_color_init(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _yutani_color_init(int argc, const KrkValue argv[], int hasKw) {
 	if (argc < 4 || !IS_INTEGER(argv[1]) || !IS_INTEGER(argv[2]) || !IS_INTEGER(argv[3]) ||
 	   (argc > 5) || (argc == 5 && !IS_INTEGER(argv[4]))) return krk_runtimeError(vm.exceptions->typeError, "color() expects three or four integer arguments");
 	if (!krk_isInstanceOf(argv[0], YutaniColor)) return krk_runtimeError(vm.exceptions->typeError, "expected color [__init__], not '%s'", krk_typeName(argv[0]));
@@ -849,7 +849,7 @@ static KrkValue _yutani_color_init(int argc, KrkValue argv[], int hasKw) {
 	return argv[0];
 }
 
-static KrkValue _yutani_color_repr(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _yutani_color_repr(int argc, const KrkValue argv[], int hasKw) {
 	if (argc != 1 || !krk_isInstanceOf(argv[0], YutaniColor)) return krk_runtimeError(vm.exceptions->typeError, "expected color [__repr__], not '%s'", krk_typeName(argv[0]));
 	struct YutaniColor * self = (struct YutaniColor*)AS_INSTANCE(argv[0]);
 	char tmp[30];
@@ -861,7 +861,7 @@ static KrkValue _yutani_color_repr(int argc, KrkValue argv[], int hasKw) {
 	return OBJECT_VAL(krk_copyString(tmp,strlen(tmp)));
 }
 
-static KrkValue _yutani_color_str(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _yutani_color_str(int argc, const KrkValue argv[], int hasKw) {
 	if (argc != 1 || !krk_isInstanceOf(argv[0], YutaniColor)) return krk_runtimeError(vm.exceptions->typeError, "expected color [__str__], not '%s'", krk_typeName(argv[0]));
 	struct YutaniColor * self = (struct YutaniColor*)AS_INSTANCE(argv[0]);
 	char tmp[30];
@@ -878,7 +878,7 @@ static KrkValue _yutani_color_str(int argc, KrkValue argv[], int hasKw) {
 		return krk_runtimeError(vm.exceptions->typeError, "expected Font"); \
 	struct YutaniFont * self = (struct YutaniFont*)AS_INSTANCE(argv[0])
 
-static KrkValue _font_init(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _font_init(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_FONT();
 
 	if (argc < 2 || !IS_STRING(argv[1]))
@@ -910,12 +910,12 @@ static KrkValue _font_init(int argc, KrkValue argv[], int hasKw) {
 	return argv[0];
 }
 
-static KrkValue _font_size(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _font_size(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_FONT();
 	return INTEGER_VAL(self->fontSize);
 }
 
-static KrkValue _font_set_size(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _font_set_size(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_FONT();
 	if (argc < 2 || !IS_INTEGER(argv[1]))
 		return krk_runtimeError(vm.exceptions->typeError, "expected int for font size");
@@ -924,7 +924,7 @@ static KrkValue _font_set_size(int argc, KrkValue argv[], int hasKw) {
 	return INTEGER_VAL(self->fontSize);
 }
 
-static KrkValue _font_draw_string(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _font_draw_string(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_FONT();
 	if (argc < 2 || !krk_isInstanceOf(argv[1], GraphicsContext))
 		return krk_runtimeError(vm.exceptions->typeError, "expected GraphicsContext");
@@ -941,7 +941,7 @@ static KrkValue _font_draw_string(int argc, KrkValue argv[], int hasKw) {
 	return INTEGER_VAL(tt_draw_string(ctx, self->fontData, x, y, str, self->fontColor));
 }
 
-static KrkValue _font_width(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _font_width(int argc, const KrkValue argv[], int hasKw) {
 	CHECK_FONT();
 	if (argc < 2 || !IS_STRING(argv[1]))
 		return krk_runtimeError(vm.exceptions->typeError, "expected str");
@@ -971,7 +971,7 @@ static void _menubar_callback(struct menu_bar * _self) {
 	}
 }
 
-static KrkValue _MenuBar_init(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _MenuBar_init(int argc, const KrkValue argv[], int hasKw) {
 	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuBarClass))
 		return krk_runtimeError(vm.exceptions->typeError, "expected MenuBar");
 	if (argc < 2 || !IS_TUPLE(argv[1]))
@@ -1010,7 +1010,7 @@ static KrkValue _MenuBar_init(int argc, KrkValue argv[], int hasKw) {
 	return argv[0];
 }
 
-static KrkValue _MenuBar_place(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _MenuBar_place(int argc, const KrkValue argv[], int hasKw) {
 	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuBarClass))
 		return krk_runtimeError(vm.exceptions->typeError, "expected MenuBar");
 	struct MenuBarClass * self = (struct MenuBarClass*)AS_INSTANCE(argv[0]);
@@ -1026,7 +1026,7 @@ static KrkValue _MenuBar_place(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _MenuBar_render(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _MenuBar_render(int argc, const KrkValue argv[], int hasKw) {
 	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuBarClass))
 		return krk_runtimeError(vm.exceptions->typeError, "expected MenuBar");
 	struct MenuBarClass * self = (struct MenuBarClass*)AS_INSTANCE(argv[0]);
@@ -1036,7 +1036,7 @@ static KrkValue _MenuBar_render(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _MenuBar_mouse_event(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _MenuBar_mouse_event(int argc, const KrkValue argv[], int hasKw) {
 	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuBarClass))
 		return krk_runtimeError(vm.exceptions->typeError, "expected MenuBar");
 	struct MenuBarClass * self = (struct MenuBarClass*)AS_INSTANCE(argv[0]);
@@ -1052,7 +1052,7 @@ static KrkValue _MenuBar_mouse_event(int argc, KrkValue argv[], int hasKw) {
 		&self->menuBar, me, me->new_x, me->new_y));
 }
 
-static KrkValue _MenuBar_insert(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _MenuBar_insert(int argc, const KrkValue argv[], int hasKw) {
 	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuBarClass))
 		return krk_runtimeError(vm.exceptions->typeError, "expected MenuBar");
 	struct MenuBarClass * self = (struct MenuBarClass*)AS_INSTANCE(argv[0]);
@@ -1071,7 +1071,7 @@ static KrkValue _MenuBar_insert(int argc, KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue _MenuList_init(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _MenuList_init(int argc, const KrkValue argv[], int hasKw) {
 	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuListClass))
 		return krk_runtimeError(vm.exceptions->typeError, "expected MenuList");
 	struct MenuListClass * self = (struct MenuListClass*)AS_INSTANCE(argv[0]);
@@ -1084,7 +1084,7 @@ static KrkValue _MenuList_init(int argc, KrkValue argv[], int hasKw) {
 	return argv[0];
 }
 
-static KrkValue _MenuList_insert(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _MenuList_insert(int argc, const KrkValue argv[], int hasKw) {
 	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuListClass))
 		return krk_runtimeError(vm.exceptions->typeError, "expected MenuList");
 	struct MenuListClass * self = (struct MenuListClass*)AS_INSTANCE(argv[0]);
@@ -1113,7 +1113,7 @@ static void _MenuEntry_callback_internal(struct MenuEntry * _self) {
 	krk_callStack(1);
 }
 
-static KrkValue _MenuEntry_init(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _MenuEntry_init(int argc, const KrkValue argv[], int hasKw) {
 	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuEntryClass))
 		return krk_runtimeError(vm.exceptions->typeError, "expected MenuEntry");
 	struct MenuEntryClass * self = (struct MenuEntryClass*)AS_INSTANCE(argv[0]);
@@ -1146,7 +1146,7 @@ static KrkValue _MenuEntry_init(int argc, KrkValue argv[], int hasKw) {
 
 /* TODO properties: icon, action, title */
 
-static KrkValue _MenuEntrySubmenu_init(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _MenuEntrySubmenu_init(int argc, const KrkValue argv[], int hasKw) {
 	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuEntrySubmenuClass))
 		return krk_runtimeError(vm.exceptions->typeError, "expected MenuEntrySubmenu");
 
@@ -1175,7 +1175,7 @@ static KrkValue _MenuEntrySubmenu_init(int argc, KrkValue argv[], int hasKw) {
 	return argv[0];
 }
 
-static KrkValue _MenuEntrySeparator_init(int argc, KrkValue argv[], int hasKw) {
+static KrkValue _MenuEntrySeparator_init(int argc, const KrkValue argv[], int hasKw) {
 	if (argc < 1 || !krk_isInstanceOf(argv[0], MenuEntrySeparatorClass))
 		return krk_runtimeError(vm.exceptions->typeError, "expected MenuEntrySeparator");
 	struct MenuEntryClass * self = (struct MenuEntryClass*)AS_INSTANCE(argv[0]);
