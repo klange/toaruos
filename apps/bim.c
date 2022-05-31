@@ -6308,7 +6308,7 @@ _try_kuroko:
 					KrkValue thisValue = findFromProperty(root, asToken);
 					krk_push(thisValue);
 					if (IS_CLOSURE(thisValue) || IS_BOUND_METHOD(thisValue) ||
-						(IS_NATIVE(thisValue) && !(((KrkNative*)AS_OBJECT(thisValue))->flags & KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY))) {
+						(IS_NATIVE(thisValue) && !(AS_OBJECT(thisValue)->flags & KRK_OBJ_FLAGS_FUNCTION_IS_DYNAMIC_PROPERTY))) {
 						size_t allocSize = s->length + 2;
 						char * tmp = malloc(allocSize);
 						size_t len = snprintf(tmp, allocSize, "%s(", s->chars);
@@ -10615,8 +10615,8 @@ static KrkValue bim_krk_state_paint(int argc, const KrkValue argv[], int hasKw) 
 	return NONE_VAL();
 }
 #define KRK_STRING_FAST(string,offset)  (uint32_t)\
-	(string->type <= 1 ? ((uint8_t*)string->codes)[offset] : \
-	(string->type == 2 ? ((uint16_t*)string->codes)[offset] : \
+	((string->obj.flags & KRK_OBJ_FLAGS_STRING_MASK) <= (KRK_OBJ_FLAGS_STRING_UCS1) ? ((uint8_t*)string->codes)[offset] : \
+	((string->obj.flags & KRK_OBJ_FLAGS_STRING_MASK) == (KRK_OBJ_FLAGS_STRING_UCS2) ? ((uint16_t*)string->codes)[offset] : \
 	((uint32_t*)string->codes)[offset]))
 static KrkValue bim_krk_state_check(int argc, const KrkValue argv[], int hasKw) {
 	/* 'string' in self */
@@ -10679,7 +10679,7 @@ static KrkValue bim_krk_state_findKeywords(int argc, const KrkValue argv[], int 
 
 		KrkString * me = AS_STRING(AS_LIST(argv[1])->values[keyword]);
 		size_t d = 0;
-		if (me->type == KRK_STRING_ASCII) {
+		if ((me->obj.flags & KRK_OBJ_FLAGS_STRING_MASK) == KRK_OBJ_FLAGS_STRING_ASCII) {
 			while (state->i + (int)d < state->line->actual &&
 			       d < me->codesLength &&
 			       state->line->text[state->i+d].codepoint == me->chars[d]) d++;
@@ -10705,7 +10705,7 @@ static KrkValue bim_krk_state_matchAndPaint(int argc, const KrkValue argv[], int
 	int flag = AS_INTEGER(argv[2]);
 	KrkString * me = AS_STRING(argv[1]);
 	size_t d = 0;
-	if (me->type == KRK_STRING_ASCII) {
+	if ((me->obj.flags & KRK_OBJ_FLAGS_STRING_MASK) == KRK_OBJ_FLAGS_STRING_ASCII) {
 		while (state->i + (int)d < state->line->actual &&
 		       d < me->codesLength &&
 		       state->line->text[state->i+d].codepoint == me->chars[d]) d++;
@@ -11154,12 +11154,12 @@ void initialize(void) {
 	 */
 	makeClass(bimModule, &syntaxStateClass, "SyntaxState", vm.baseClasses->objectClass);
 	syntaxStateClass->allocSize = sizeof(struct SyntaxState);
-	krk_defineNative(&syntaxStateClass->methods, "state", bim_krk_state_getstate)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
-	krk_defineNative(&syntaxStateClass->methods, "i", bim_krk_state_index)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
-	krk_defineNative(&syntaxStateClass->methods, "lineno", bim_krk_state_lineno)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
+	krk_defineNative(&syntaxStateClass->methods, "state", bim_krk_state_getstate)->obj.flags |= KRK_OBJ_FLAGS_FUNCTION_IS_DYNAMIC_PROPERTY;
+	krk_defineNative(&syntaxStateClass->methods, "i", bim_krk_state_index)->obj.flags |= KRK_OBJ_FLAGS_FUNCTION_IS_DYNAMIC_PROPERTY;
+	krk_defineNative(&syntaxStateClass->methods, "lineno", bim_krk_state_lineno)->obj.flags |= KRK_OBJ_FLAGS_FUNCTION_IS_DYNAMIC_PROPERTY;
 	krk_defineNative(&syntaxStateClass->methods, "__init__", bim_krk_state_init);
 	krk_defineNative(&syntaxStateClass->methods, "findKeywords", bim_krk_state_findKeywords);
-	krk_defineNative(&syntaxStateClass->methods, "cKeywordQualifier", bim_krk_state_cKeywordQualifier)->flags |= KRK_NATIVE_FLAGS_IS_STATIC_METHOD;
+	krk_defineNative(&syntaxStateClass->methods, "cKeywordQualifier", bim_krk_state_cKeywordQualifier)->obj.flags |= KRK_OBJ_FLAGS_FUNCTION_IS_STATIC_METHOD;
 	krk_defineNative(&syntaxStateClass->methods, "isdigit", bim_krk_state_isdigit);
 	krk_defineNative(&syntaxStateClass->methods, "isxdigit", bim_krk_state_isxdigit);
 	krk_defineNative(&syntaxStateClass->methods, "paint", bim_krk_state_paint);
