@@ -2116,7 +2116,9 @@ int main(int argc, char * argv[]) {
 									arrow_select(1,0);
 									break;
 								case KEY_BACKSPACE:
-									_menu_action_up(NULL);
+									if (!is_desktop_background) {
+										_menu_action_up(NULL);
+									}
 									break;
 								case '\n':
 									_menu_action_open(NULL);
