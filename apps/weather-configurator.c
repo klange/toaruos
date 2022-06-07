@@ -49,6 +49,12 @@ int main(int argc, char * argv[]) {
 		}
 
 		FILE * f = fopen("/etc/weather.json", "w");
+		if (f == NULL) {
+			fprintf(stderr, "Configuration is not set. Please check /etc/weather.json or your permissions.\n");
+			fprintf(stderr, "(Press ENTER to exit.)\n");
+			getchar();
+			return 0;
+		}
 		fprintf(f, "{\n");
 		fprintf(f, "    \"city\": \"%s\",\n", city);
 		fprintf(f, "    \"units\": \"%s\",\n", units);
