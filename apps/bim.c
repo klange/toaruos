@@ -10530,11 +10530,12 @@ static KrkTuple * _bim_state_chars = NULL;
 
 static KrkValue bim_krk_state_getstate(int argc, const KrkValue argv[], int hasKw) {
 	BIM_STATE();
-	if (argc > 1 && IS_INTEGER(argv[1])) {
-		state->state = AS_INTEGER(argv[1]);
-	} else if (argc > 1 && IS_NONE(argv[1])) {
-		state->state = -1;
-	}
+	return INTEGER_VAL(state->state);
+}
+static KrkValue bim_krk_state_setstate(int argc, const KrkValue argv[], int hasKw) {
+	BIM_STATE();
+	if (argc < 2 || !IS_INTEGER(argv[1])) return NONE_VAL();
+	state->state = AS_INTEGER(argv[1]);
 	return INTEGER_VAL(state->state);
 }
 static KrkValue bim_krk_state_index(int argc, const KrkValue argv[], int hasKw) {
@@ -11171,6 +11172,8 @@ void initialize(void) {
 	krk_defineNative(&syntaxStateClass->methods, "__getitem__", bim_krk_state_get);
 	krk_defineNative(&syntaxStateClass->methods, "__setitem__", bim_krk_state_paint);
 	krk_defineNative(&syntaxStateClass->methods, "__contains__", bim_krk_state_check);
+	krk_defineNative(&syntaxStateClass->methods, "__mod__", bim_krk_state_getstate);
+	krk_defineNative(&syntaxStateClass->methods, "__lshift__", bim_krk_state_setstate);
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_NONE", INTEGER_VAL(FLAG_NONE));
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_KEYWORD", INTEGER_VAL(FLAG_KEYWORD));
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_STRING", INTEGER_VAL(FLAG_STRING));
