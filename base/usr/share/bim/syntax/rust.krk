@@ -23,10 +23,10 @@ class RustHighlighter(Highlighter):
             if self.commentBuzzwords(): continue
             else if self[0] == '*' and self[1] == '/':
                 self.paint(2, self.FLAG_COMMENT)
-                self.state--
+                self << self.state - 1
                 if self.state == 0: return 0
             else if self[0] == '/' and self[1] == '*':
-                self.state++
+                self << self.state + 1
                 self.paint(2, self.FLAG_COMMENT)
             else:
                 self.paint(1, self.FLAG_COMMENT)

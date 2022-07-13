@@ -4669,10 +4669,18 @@ void perform_replacement(int line_no, uint32_t * needle, uint32_t * replacement,
 			}
 			int t = 0;
 			for (uint32_t * r = replacement; *r; ++r) {
+				uint32_t rep = *r;
+				if (*r == '\\' && r[1] == 't') {
+					rep = '\t';
+					++r;
+				} else if (*r == '\\' && (r[1] == '\\')) {
+					rep = r[1];
+					++r;
+				}
 				char_t _c;
-				_c.codepoint = *r;
+				_c.codepoint = rep;
 				_c.flags = 0;
-				_c.display_width = codepoint_width(*r);
+				_c.display_width = codepoint_width(rep);
 				line_t * nline = line_insert(line, _c, j + t, line_no -1);
 				if (line != nline) {
 					env->lines[line_no-1] = nline;
@@ -11301,7 +11309,7 @@ void dump_commands(void) {
 	printf("|-------------|-----------------|\n");
 	offsets = malloc(sizeof(int) * flex_prefix_commands_count);
 	for (int i = 0; i < flex_prefix_commands_count; ++i) offsets[i] = i;
-	qsort(offsets, flex_prefix_commands_count, sizeof(int), sort_regular_commands);
+	qsort(offsets, flex_prefix_commands_count, sizeof(int), sort_prefix_commands);
 	for (int i = 0; i < flex_prefix_commands_count; ++i) {
 		printf("| `:%s...` | %s |\n", !strcmp(prefix_commands[offsets[i]].name, "`") ? "`(backtick)`" : 
 			prefix_commands[offsets[i]].name, prefix_commands[offsets[i]].description);

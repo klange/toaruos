@@ -26,10 +26,14 @@ class MarkdownHighlighter(Highlighter):
         ('krk', 1000, KrkHighlighter),
     ]
     def nest(name, state, highlighter):
-        self.state = 0 if self.state < 1 else self.state - state
+        self << (0 if self.state < 1 else self.state - state)
         let sub = highlighter(self)
         while True:
-            sub.state = sub.calculate()
+            let next = sub.calculate()
+            if next is None:
+                sub << -1
+                break
+            sub << next
             if sub.state != 0: break
         if not sub.state or sub.state == -1: return state
         return sub.state + state
@@ -73,18 +77,21 @@ class MarkdownHighlighter(Highlighter):
                     self.paint(1, self.FLAG_BOLD)
                 if self[0] == '*' and self[1] == '*':
                     self.paint(2, self.FLAG_BOLD)
+                return 0
             else if self[0] == '*' and self.isalnum(self[1]) and not self.isalnum(self[-1]):
                 self.paint(1, self.FLAG_COMMENT) # uh
                 while self[0] and self[0] != '*':
                     self.paint(1, self.FLAG_COMMENT)
                 if self[0] == '*':
                     self.paint(1, self.FLAG_COMMENT)
+                return 0
             else if self[0] == '_' and self.isalnum(self[1]) and not self.isalnum(self[-1]):
                 self.paint(1, self.FLAG_COMMENT)
                 while self[0] and self[0] != '_':
                     self.paint(1, self.FLAG_COMMENT)
                 if self[0] == '_':
                     self.paint(1, self.FLAG_COMMENT)
+                return 0
             else if self[0]:
                 self.skip()
                 return 0

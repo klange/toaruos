@@ -173,7 +173,7 @@ def makeit():
             return 0
 
         def calculate(self):
-            let cond = self.state
+            let cond = self % 0
             if cond <= 0:
                 while None not in self:
                     if '#' in self:
