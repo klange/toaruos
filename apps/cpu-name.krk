@@ -44,6 +44,6 @@ else if cpus and 'PartNum' in cpus[0]:
         0x023: 'M1', # Firestorm core
     }
     print(
-        manuf.get(int(cpus[0]['Implementer']),cpus[0]['Implementer']),
-        parts.get(int(cpus[0]['PartNum']),cpus[0]['PartNum'])
+        manuf.get(int(cpus[0]['Implementer'],0),cpus[0]['Implementer']),
+        parts.get(int(cpus[0]['PartNum'],0),cpus[0]['PartNum'])
     )
