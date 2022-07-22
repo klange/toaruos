@@ -480,6 +480,7 @@ struct yutani_msg_clipboard {
 #define YUTANI_WINDOW_FLAG_ALT_ANIMATION    (1 << 3)
 #define YUTANI_WINDOW_FLAG_DIALOG_ANIMATION (1 << 4)
 #define YUTANI_WINDOW_FLAG_NO_ANIMATION     (1 << 5)
+#define YUTANI_WINDOW_FLAG_BLUR_BEHIND      (1 << 8)
 
 /* YUTANI_SPECIAL_REQUEST
  *

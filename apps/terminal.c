@@ -65,6 +65,7 @@ static void usage(char * argv[]) {
 			" -x --grid       \033[3mMake resizes round to nearest match for character cell size.\033[0m\n"
 			" -n --no-frame   \033[3mDisable decorations.\033[0m\n"
 			" -g --geometry   \033[3mSet requested terminal size WIDTHxHEIGHT\033[0m\n"
+			" -B --blurred    \033[3mBlur background behind terminal.\033[0m\n"
 			"\n"
 			" This terminal emulator provides basic support for VT220 escapes and\n"
 			" XTerm extensions, including 256 color support and font effects.\n",
@@ -2289,6 +2290,7 @@ static void parse_geometry(char ** argv, char * str) {
 
 int main(int argc, char ** argv) {
 
+	int _flags = 0;
 	window_width  = char_width * 80;
 	window_height = char_height * 24;
 
@@ -2300,12 +2302,13 @@ int main(int argc, char ** argv) {
 		{"grid",       no_argument,       0, 'x'},
 		{"no-frame",   no_argument,       0, 'n'},
 		{"geometry",   required_argument, 0, 'g'},
+		{"blurred",    no_argument,       0, 'B'},
 		{0,0,0,0}
 	};
 
 	/* Read some arguments */
 	int index, c;
-	while ((c = getopt_long(argc, argv, "bhxnFls:g:", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "bhxnFls:g:B", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
@@ -2335,6 +2338,9 @@ int main(int argc, char ** argv) {
 				break;
 			case 'g':
 				parse_geometry(argv,optarg);
+				break;
+			case 'B':
+				_flags = YUTANI_WINDOW_FLAG_BLUR_BEHIND;
 				break;
 			case '?':
 				break;
@@ -2370,7 +2376,8 @@ int main(int argc, char ** argv) {
 		init_decorations();
 		struct decor_bounds bounds;
 		decor_get_bounds(NULL, &bounds);
-		window = yutani_window_create(yctx, window_width + bounds.width, window_height + bounds.height + menu_bar_height);
+		window = yutani_window_create_flags(yctx, window_width + bounds.width, window_height + bounds.height + menu_bar_height, _flags);
+		yutani_window_update_shape(yctx, window, 20);
 	}
 
 	if (_fullscreen) {

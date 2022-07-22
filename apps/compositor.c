@@ -61,6 +61,15 @@ static void mouse_stop_drag(yutani_globals_t * yg);
 static void window_move(yutani_globals_t * yg, yutani_server_window_t * window, int x, int y);
 static yutani_server_window_t * top_at(yutani_globals_t * yg, uint16_t x, uint16_t y);
 
+#define ENABLE_BLUR_BEHIND
+#ifdef ENABLE_BLUR_BEHIND
+#define BLUR_CLIP_MAX 20
+#define BLUR_KERNEL   10
+static sprite_t * blur_sprite = NULL;
+static gfx_context_t * blur_ctx = NULL;
+static gfx_context_t * clip_ctx = NULL;
+#endif
+
 /**
  * Print usage information.
  */
@@ -730,7 +739,7 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 
 	double opacity = (double)(window->opacity) / 255.0;
 
-	if (window->rotation || window == yg->resizing_window || window->anim_mode) {
+	if (window->rotation || window == yg->resizing_window || window->anim_mode || (window->server_flags & YUTANI_WINDOW_FLAG_BLUR_BEHIND)) {
 		double m[2][3];
 
 		gfx_matrix_identity(m);
@@ -803,6 +812,12 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 				}
 			}
 		}
+#ifdef ENABLE_BLUR_BEHIND
+		if (window->server_flags & YUTANI_WINDOW_FLAG_BLUR_BEHIND) {
+			extern void draw_sprite_transform_blur(gfx_context_t * ctx, gfx_context_t * blur_ctx, const sprite_t * sprite, gfx_matrix_t matrix, float alpha, uint8_t threshold);
+			draw_sprite_transform_blur(yg->backend_ctx, blur_ctx, &_win_sprite, m, opacity, window->alpha_threshold);
+		} else
+#endif
 		if (matrix_is_translation(m)) {
 			draw_sprite_alpha(yg->backend_ctx, &_win_sprite, m[0][2], m[1][2], opacity);
 		} else {
@@ -995,6 +1010,16 @@ static void resize_display(yutani_globals_t * yg) {
 		reinit_graphics_yutani(yg->backend_ctx, yg->host_window);
 		yutani_window_resize_done(yg->host_context, yg->host_window);
 	}
+
+#ifdef ENABLE_BLUR_BEHIND
+	sprite_free(blur_sprite);
+	free(blur_ctx);
+	blur_sprite = create_sprite(yg->backend_ctx->width, yg->backend_ctx->height, ALPHA_OPAQUE);
+	blur_ctx = init_graphics_sprite(blur_sprite);
+	clip_ctx->width = yg->backend_ctx->width;
+	clip_ctx->height = yg->backend_ctx->height;
+#endif
+
 	TRACE("graphics context resized...");
 	yg->width = yg->backend_ctx->width;
 	yg->height = yg->backend_ctx->height;
@@ -1041,12 +1066,19 @@ static void redraw_windows(yutani_globals_t * yg) {
 	}
 
 	gfx_clear_clip(yg->backend_ctx);
+#ifdef ENABLE_BLUR_BEHIND
+	gfx_clear_clip(clip_ctx);
+#endif
 
 	/* If the mouse has moved, that counts as two damage regions */
 	if ((yg->last_mouse_x != tmp_mouse_x) || (yg->last_mouse_y != tmp_mouse_y)) {
 		has_updates = 2;
 		gfx_add_clip(yg->backend_ctx, yg->last_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->last_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
 		gfx_add_clip(yg->backend_ctx, tmp_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, tmp_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
+#ifdef ENABLE_BLUR_BEHIND
+		gfx_add_clip(clip_ctx, yg->last_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X - BLUR_CLIP_MAX, yg->last_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y - BLUR_CLIP_MAX, MOUSE_WIDTH + BLUR_CLIP_MAX * 2, MOUSE_HEIGHT + BLUR_CLIP_MAX * 2);
+		gfx_add_clip(clip_ctx, tmp_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X - BLUR_CLIP_MAX, tmp_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y - BLUR_CLIP_MAX, MOUSE_WIDTH + BLUR_CLIP_MAX * 2, MOUSE_HEIGHT + BLUR_CLIP_MAX * 2);
+#endif
 	}
 
 	yg->last_mouse_x = tmp_mouse_x;
@@ -1075,18 +1107,33 @@ static void redraw_windows(yutani_globals_t * yg) {
 		/* We add a clip region for each window in the update queue */
 		has_updates = 1;
 		gfx_add_clip(yg->backend_ctx, rect->x, rect->y, rect->width, rect->height);
+#ifdef ENABLE_BLUR_BEHIND
+		gfx_add_clip(clip_ctx, rect->x - BLUR_CLIP_MAX, rect->y - BLUR_CLIP_MAX, rect->width + BLUR_CLIP_MAX * 2, rect->height + BLUR_CLIP_MAX * 2);
+#endif
 		free(rect);
 		free(win);
 	}
 
 	/* Render */
 	if (has_updates) {
+
+#ifdef ENABLE_BLUR_BEHIND
+		/* Extend clips */
+		char * oclip = yg->backend_ctx->clips;
+		yg->backend_ctx->clips = clip_ctx->clips;
+#endif
+
 		/*
 		 * In theory, we should restrict this to windows within the clip region,
 		 * but calculating that may be more trouble than it's worth;
 		 * we also need to render windows in stacking order...
 		 */
 		yutani_blit_windows(yg);
+
+#ifdef ENABLE_BLUR_BEHIND
+		/* Restore clip context */
+		yg->backend_ctx->clips = oclip;
+#endif
 
 		/* Send VirtualBox rects */
 		yutani_post_vbox_rects(yg);
@@ -1553,6 +1600,18 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 			(ke->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
 			(ke->event.keycode == 'b')) {
 			yg->debug_bounds = (1-yg->debug_bounds);
+			return;
+		}
+#endif
+#ifdef ENABLE_BLUR_BEHIND
+		if ((ke->event.action == KEY_ACTION_DOWN) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_SUPER) &&
+			(ke->event.modifiers & KEY_MOD_LEFT_SHIFT) &&
+			(ke->event.keycode == 'v')) {
+			if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
+				focused->server_flags ^= YUTANI_WINDOW_FLAG_BLUR_BEHIND;
+				mark_window(yg, focused);
+			}
 			return;
 		}
 #endif
@@ -2179,6 +2238,14 @@ int main(int argc, char * argv[]) {
 		signal(SIGWINEVENT, yutani_display_resize_handle);
 		yg->backend_ctx = init_graphics_fullscreen_double_buffer();
 	}
+
+#ifdef ENABLE_BLUR_BEHIND
+	blur_sprite = create_sprite(yg->backend_ctx->width, yg->backend_ctx->height, ALPHA_OPAQUE);
+	blur_ctx = init_graphics_sprite(blur_sprite);
+	clip_ctx = calloc(1, sizeof(gfx_context_t));
+	clip_ctx->width = yg->backend_ctx->width;
+	clip_ctx->height = yg->backend_ctx->height;
+#endif
 
 	if (!yg->backend_ctx) {
 		free(yg);

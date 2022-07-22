@@ -441,7 +441,8 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 		(ke->event.action == KEY_ACTION_DOWN)) {
 		/* show menu */
 		if (!alt_f2) {
-			alt_f2 = yutani_window_create(yctx, ALTF2_WIDTH, ALTF2_HEIGHT);
+			alt_f2 = yutani_window_create_flags(yctx, ALTF2_WIDTH, ALTF2_HEIGHT, YUTANI_WINDOW_FLAG_BLUR_BEHIND);
+			yutani_window_update_shape(yctx, alt_f2, 5);
 			yutani_window_move(yctx, alt_f2, center_x(ALTF2_WIDTH), center_y(ALTF2_HEIGHT));
 			a2ctx = init_graphics_yutani_double_buffer(alt_f2);
 			redraw_altf2();
@@ -495,7 +496,8 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 			new_focused = active_window + direction;
 			/* Create tab window */
 			alttab = yutani_window_create_flags(yctx, ALTTAB_WIDTH, ALTTAB_HEIGHT,
-				YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS | YUTANI_WINDOW_FLAG_NO_ANIMATION);
+				YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS | YUTANI_WINDOW_FLAG_NO_ANIMATION | YUTANI_WINDOW_FLAG_BLUR_BEHIND);
+			yutani_window_update_shape(yctx, alttab, 5);
 
 			yutani_set_stack(yctx, alttab, YUTANI_ZORDER_OVERLAY);
 

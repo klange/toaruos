@@ -405,6 +405,12 @@ void blur_context_box(gfx_context_t * _src, int radius) {
 	_box_blur_vertical(_src,radius);
 }
 
+void blur_from_into(gfx_context_t * _src, gfx_context_t * _dest, int radius) {
+
+	draw_fill(_dest, rgb(255,0,0));
+
+}
+
 static int (*load_sprite_jpg)(sprite_t *, const char *) = NULL;
 static int (*load_sprite_png)(sprite_t *, const char *) = NULL;
 
@@ -977,6 +983,66 @@ void draw_sprite_transform(gfx_context_t * ctx, const sprite_t * sprite, gfx_mat
 	}
 
 	sprite_free(scanline);
+}
+
+void draw_sprite_transform_blur(gfx_context_t * ctx, gfx_context_t * blur_ctx, const sprite_t * sprite, gfx_matrix_t matrix, float alpha, uint8_t threshold) {
+	double inverse[2][3];
+
+	/* Calculate the inverse matrix for use in calculating sprite
+	 * coordinate from screen coordinate. */
+	gfx_matrix_invert(matrix, inverse);
+
+	/* Use primary matrix to obtain corners of the transformed
+	 * sprite in screen coordinates. */
+	double ul_x, ul_y;
+	double ll_x, ll_y;
+	double ur_x, ur_y;
+	double lr_x, lr_y;
+
+	apply_matrix(0, 0, matrix, &ul_x, &ul_y);
+	apply_matrix(0, sprite->height,  matrix, &ll_x, &ll_y);
+	apply_matrix(sprite->width, 0,  matrix, &ur_x, &ur_y);
+	apply_matrix(sprite->width, sprite->height,   matrix, &lr_x, &lr_y);
+
+	/* Use the corners to calculate bounds within the target context. */
+	int32_t _left   = clamp(fmin(fmin(ul_x, ll_x), fmin(ur_x, lr_x)), 0, ctx->width);
+	int32_t _top    = clamp(fmin(fmin(ul_y, ll_y), fmin(ur_y, lr_y)), 0, ctx->height);
+	int32_t _right  = clamp(fmax(fmax(ul_x+1, ll_x+1), fmax(ur_x+1, lr_x+1)), 0, ctx->width);
+	int32_t _bottom = clamp(fmax(fmax(ul_y+1, ll_y+1), fmax(ur_y+1, lr_y+1)), 0, ctx->height);
+
+	blur_ctx->clips_size = ctx->clips_size;
+	blur_ctx->clips = ctx->clips;
+	blur_ctx->backbuffer = ctx->backbuffer;
+	gfx_context_t * f = init_graphics_subregion(blur_ctx, _left, _top, _right - _left, _bottom - _top);
+	flip(f);
+	f->backbuffer = f->buffer;
+	blur_context_box(f, 10);
+	free(f);
+	blur_ctx->backbuffer = blur_ctx->buffer;
+	blur_ctx->clips_size = 0;
+	blur_ctx->clips = NULL;
+
+	sprite_t * scanline = create_sprite(_right - _left, 1, ALPHA_EMBEDDED);
+	sprite_t * blurline = create_sprite(_right - _left, 1, ALPHA_EMBEDDED);
+	uint8_t alp = alpha * 255;
+
+	for (int32_t _y = _top; _y < _bottom; ++_y) {
+		if (!_is_in_clip(ctx, _y)) continue;
+		for (int32_t _x = _left; _x < _right; ++_x) {
+			double u, v;
+			apply_matrix(_x, _y, inverse, &u, &v);
+			SPRITE(scanline,_x - _left,0) = gfx_bilinear_interpolation(sprite, u, v);
+			SPRITE(blurline,_x - _left,0) = (_ALP(SPRITE(scanline,_x - _left,0)) > threshold) ? GFX(blur_ctx,_x,_y) : 0;
+		}
+		apply_alpha_vector(blurline->bitmap, blurline->width, alp);
+		apply_alpha_vector(scanline->bitmap, scanline->width, alp);
+		draw_sprite(ctx,blurline,_left,_y);
+		draw_sprite(ctx,scanline,_left,_y);
+	}
+
+	sprite_free(scanline);
+	sprite_free(blurline);
+
 }
 
 void draw_sprite_rotate(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, int32_t y, float rotation, float alpha) {
