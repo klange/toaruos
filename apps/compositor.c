@@ -2667,6 +2667,7 @@ int main(int argc, char * argv[]) {
 					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)wr->wid);
 					if (w) {
 						server_window_resize_finish(yg, w, wr->width, wr->height);
+						notify_subscribers(yg);
 					}
 				}
 				break;
