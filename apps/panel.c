@@ -297,10 +297,10 @@ static void redraw_alttab(void) {
 		/* try very hard to get a window texture */
 		char key[1024];
 		YUTANI_SHMKEY_EXP(yctx->server_ident, key, 1024, ad->bufid);
-		size_t size;
+		size_t size = 0;
 		uint32_t * buf =  shm_obtain(key, &size);
 
-		if (buf) {
+		if (buf && size >= ad->width * ad->height * 4) {
 			sprite_t tmp;
 			tmp.width = ad->width;
 			tmp.height = ad->height;
