@@ -1,0 +1,41 @@
+from syntax import Highlighter, bind
+from syntax.c import CHighlighter
+
+class LuaHighlighter(Highlighter):
+    name = 'lua'
+    extensions = ('.lua',)
+    keywords = [
+        'and','break','do','else','elseif',
+        'end','for','function','if',
+        'in','local','not','or',
+        'repeat','return','then','until','while'
+    ]
+    constants = [
+        'false','nil','true'
+    ]
+    def calculate():
+        if self.state <= 0:
+            if self[0] == '-' and self[1] == '-':
+                self.paintComment()
+                return None
+            else if self[0] == '"':
+                self.paintSimpleString()
+                return 0
+            else if self[0] == "'":
+                self.paintSingleString()
+                return 0
+            else if self.findKeywords(self.keywords, self.FLAG_KEYWORD, self.cKeywordQualifier):
+                return 0
+            else if self.findKeywords(self.constants, self.FLAG_NUMERAL, self.cKeywordQualifier):
+                return 0
+            else if not self.cKeywordQualifier(self[-1]) and self.isdigit(self[0]):
+                CHighlighter.paintCNumeral(self)
+                return 0
+            else if self[0]:
+                self.skip()
+                return 0
+            return None
+        return None
+
+bind(LuaHighlighter)
+
