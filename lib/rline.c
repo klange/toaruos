@@ -10,7 +10,7 @@
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2018-2021 K. Lange
+ * Copyright (C) 2018-2022 K. Lange
  */
 #define _XOPEN_SOURCE
 #define _DEFAULT_SOURCE
@@ -344,7 +344,7 @@ static int codepoint_width(int codepoint) {
 	return 1;
 }
 
-void recalculate_tabs(line_t * line) {
+static void recalculate_tabs(line_t * line) {
 	int j = 0;
 	for (int i = 0; i < line->actual; ++i) {
 		if (line->text[i].codepoint == '\t') {
@@ -467,7 +467,7 @@ struct syntax_state {
  * Match and paint a single keyword. Returns 1 if the keyword was matched and 0 otherwise,
  * so it can be used for prefix checking for things that need further special handling.
  */
-int match_and_paint(struct syntax_state * state, const char * keyword, int flag, int (*keyword_qualifier)(int c)) {
+static int match_and_paint(struct syntax_state * state, const char * keyword, int flag, int (*keyword_qualifier)(int c)) {
 	if (keyword_qualifier(lastchar())) return 0;
 	if (!keyword_qualifier(charat())) return 0;
 	int i = state->i;
@@ -492,7 +492,7 @@ int match_and_paint(struct syntax_state * state, const char * keyword, int flag,
  * Find keywords from a list and paint them, assuming they aren't in the middle of other words.
  * Returns 1 if a keyword from the last was found, otherwise 0.
  */
-int find_keywords(struct syntax_state * state, char ** keywords, int flag, int (*keyword_qualifier)(int c)) {
+static int find_keywords(struct syntax_state * state, char ** keywords, int flag, int (*keyword_qualifier)(int c)) {
 	if (keyword_qualifier(lastchar())) return 0;
 	if (!keyword_qualifier(charat())) return 0;
 	for (char ** keyword = keywords; *keyword; ++keyword) {
@@ -510,12 +510,12 @@ int find_keywords(struct syntax_state * state, char ** keywords, int flag, int (
 /**
  * This is a basic character matcher for "keyword" characters.
  */
-int simple_keyword_qualifier(int c) {
+static int simple_keyword_qualifier(int c) {
 	return isalnum(c) || (c == '_');
 }
 
 
-int common_comment_buzzwords(struct syntax_state * state) {
+static int common_comment_buzzwords(struct syntax_state * state) {
 	if (match_and_paint(state, "TODO", FLAG_NOTICE, simple_keyword_qualifier)) { return 1; }
 	else if (match_and_paint(state, "XXX", FLAG_NOTICE, simple_keyword_qualifier)) { return 1; }
 	else if (match_and_paint(state, "FIXME", FLAG_ERROR, simple_keyword_qualifier)) { return 1; }
@@ -527,7 +527,7 @@ int common_comment_buzzwords(struct syntax_state * state) {
  * (Some languages have comments that can continue with a \ - don't use this!)
  * Assumes you've already painted your comment start characters.
  */
-int paint_comment(struct syntax_state * state) {
+static int paint_comment(struct syntax_state * state) {
 	while (charat() != -1) {
 		if (common_comment_buzzwords(state)) continue;
 		else { paint(1, FLAG_COMMENT); }
@@ -535,11 +535,11 @@ int paint_comment(struct syntax_state * state) {
 	return -1;
 }
 
-int c_keyword_qualifier(int c) {
+static int c_keyword_qualifier(int c) {
 	return isalnum(c) || (c == '_');
 }
 
-void paintNHex(struct syntax_state * state, int n) {
+static void paintNHex(struct syntax_state * state, int n) {
 	paint(2, FLAG_ESCAPE);
 	/* Why is my FLAG_ERROR not valid in rline? */
 	for (int i = 0; i < n; ++i) {
@@ -547,7 +547,7 @@ void paintNHex(struct syntax_state * state, int n) {
 	}
 }
 
-char * syn_krk_keywords[] = {
+static char * syn_krk_keywords[] = {
 	"and","class","def","else","for","if","in","import","del",
 	"let","not","or","return","while","try","except","raise",
 	"continue","break","as","from","elif","lambda","with","is",
@@ -555,7 +555,7 @@ char * syn_krk_keywords[] = {
 	NULL
 };
 
-char * syn_krk_types[] = {
+static char * syn_krk_types[] = {
 	/* built-in functions */
 	"self", "super", /* implicit in a class method */
 	"len", "str", "int", "float", "dir", "repr", /* global functions from __builtins__ */
@@ -564,17 +564,17 @@ char * syn_krk_types[] = {
 	"print","set","any","all","bool","ord","chr","hex","oct","filter",
 	"sorted","bytes","getattr","sum","min","max","id","hash","map","bin",
 	"enumerate","zip","setattr","property","staticmethod","classmethod",
-	"issubclass","hasattr","delattr","NotImplemented","abs",
+	"issubclass","hasattr","delattr","NotImplemented","abs","slice","long",
 	NULL
 };
 
-char * syn_krk_special[] = {
+static char * syn_krk_special[] = {
 	"True","False","None",
 	/* Exception names */
 	NULL
 };
 
-char * syn_krk_exception[] = {
+static char * syn_krk_exception[] = {
 	"Exception", "TypeError", "ArgumentError", "IndexError", "KeyError",
 	"AttributeError", "NameError", "ImportError", "IOError", "ValueError",
 	"KeyboardInterrupt", "ZeroDivisionError", "NotImplementedError", "SyntaxError",
@@ -582,7 +582,7 @@ char * syn_krk_exception[] = {
 	NULL
 };
 
-void paint_krk_string_shared(struct syntax_state * state, int type, int isFormat, int isTriple) {
+static void paint_krk_string_shared(struct syntax_state * state, int type, int isFormat, int isTriple) {
 	if (charat() == '\\') {
 		if (nextchar() == 'x') {
 			paintNHex(state, 2);
@@ -602,6 +602,10 @@ void paint_krk_string_shared(struct syntax_state * state, int type, int isFormat
 			paint(2, FLAG_ESCAPE);
 		}
 	} else if (isFormat && charat() == '{') {
+		if (nextchar() == '{') {
+			paint(2, FLAG_STRING);
+			return;
+		}
 		paint(1, FLAG_ESCAPE);
 		if (charat() == '}') {
 			state->i--;
@@ -637,7 +641,7 @@ void paint_krk_string_shared(struct syntax_state * state, int type, int isFormat
 	}
 }
 
-void paint_krk_string(struct syntax_state * state, int type, int isFormat) {
+static void paint_krk_string(struct syntax_state * state, int type, int isFormat) {
 	/* Assumes you came in from a check of charat() == '"' */
 	paint(1, FLAG_STRING);
 	while (charat() != -1) {
@@ -652,18 +656,18 @@ void paint_krk_string(struct syntax_state * state, int type, int isFormat) {
 	}
 }
 
-int paint_krk_numeral(struct syntax_state * state) {
+static int paint_krk_numeral(struct syntax_state * state) {
 	if (charat() == '0' && (nextchar() == 'x' || nextchar() == 'X')) {
 		paint(2, FLAG_NUMERAL);
-		while (isxdigit(charat())) paint(1, FLAG_NUMERAL);
+		while (isxdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
 	} else if (charat() == '0' && (nextchar() == 'o' || nextchar() == 'O')) {
 		paint(2, FLAG_NUMERAL);
-		while (charat() >= '0' && charat() <= '7') paint(1, FLAG_NUMERAL);
+		while ((charat() >= '0' && charat() <= '7') || charat() == '_') paint(1, FLAG_NUMERAL);
 	} else if (charat() == '0' && (nextchar() == 'b' || nextchar() == 'B')) {
 		paint(2, FLAG_NUMERAL);
-		while (charat() == '0' || charat() == '1') paint(1, FLAG_NUMERAL);
+		while (charat() == '0' || charat() == '1' || charat() == '_') paint(1, FLAG_NUMERAL);
 	} else {
-		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
 		if (charat() == '.' && isdigit(nextchar())) {
 			paint(1, FLAG_NUMERAL);
 			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
@@ -672,7 +676,7 @@ int paint_krk_numeral(struct syntax_state * state) {
 	return 0;
 }
 
-int paint_krk_triple_string(struct syntax_state * state, int type, int isFormat) {
+static int paint_krk_triple_string(struct syntax_state * state, int type, int isFormat) {
 	while (charat() != -1) {
 		if (charat() == '\\' && nextchar() == type) {
 			paint(2, FLAG_ESCAPE);
@@ -689,7 +693,7 @@ int paint_krk_triple_string(struct syntax_state * state, int type, int isFormat)
 	return (type == '"') ? 1 : 2; /* continues */
 }
 
-int syn_krk_calculate(struct syntax_state * state) {
+static int syn_krk_calculate(struct syntax_state * state) {
 	switch (state->state) {
 		case -1:
 		case 0:
@@ -734,7 +738,7 @@ int syn_krk_calculate(struct syntax_state * state) {
 	return -1;
 }
 
-char * syn_krk_dbg_commands[] = {
+static char * syn_krk_dbg_commands[] = {
 	"s", "skip",
 	"c", "continue",
 	"q", "quit",
@@ -748,12 +752,12 @@ char * syn_krk_dbg_commands[] = {
 	NULL,
 };
 
-char * syn_krk_dbg_info_types[] = {
+static char * syn_krk_dbg_info_types[] = {
 	"breakpoints",
 	NULL,
 };
 
-int syn_krk_dbg_calculate(struct syntax_state * state) {
+static int syn_krk_dbg_calculate(struct syntax_state * state) {
 	if (state->state < 1) {
 		if (state->i == 0) {
 			if (match_and_paint(state, "p", FLAG_KEYWORD, c_keyword_qualifier) ||
@@ -781,11 +785,11 @@ int syn_krk_dbg_calculate(struct syntax_state * state) {
 }
 
 #ifdef __toaru__
-int esh_variable_qualifier(int c) {
+static int esh_variable_qualifier(int c) {
 	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (c == '_');
 }
 
-int paint_esh_variable(struct syntax_state * state) {
+static int paint_esh_variable(struct syntax_state * state) {
 	if (charat() == '{') {
 		paint(1, FLAG_TYPE);
 		while (charat() != '}' && charat() != -1) paint(1, FLAG_TYPE);
@@ -800,7 +804,7 @@ int paint_esh_variable(struct syntax_state * state) {
 	return 0;
 }
 
-int paint_esh_string(struct syntax_state * state) {
+static int paint_esh_string(struct syntax_state * state) {
 	int last = -1;
 	while (charat() != -1) {
 		if (last != '\\' && charat() == '"') {
@@ -818,7 +822,7 @@ int paint_esh_string(struct syntax_state * state) {
 	return 2;
 }
 
-int paint_esh_single_string(struct syntax_state * state) {
+static int paint_esh_single_string(struct syntax_state * state) {
 	int last = -1;
 	while (charat() != -1) {
 		if (last != '\\' && charat() == '\'') {
@@ -832,18 +836,18 @@ int paint_esh_single_string(struct syntax_state * state) {
 	return 1;
 }
 
-int esh_keyword_qualifier(int c) {
+static int esh_keyword_qualifier(int c) {
 	return (isalnum(c) || c == '?' || c == '_' || c == '-'); /* technically anything that isn't a space should qualify... */
 }
 
-char * esh_keywords[] = {
+static char * esh_keywords[] = {
 	"cd","exit","export","help","history","if","empty?",
 	"equals?","return","export-cmd","source","exec","not","while",
 	"then","else","echo",
 	NULL
 };
 
-int syn_esh_calculate(struct syntax_state * state) {
+static int syn_esh_calculate(struct syntax_state * state) {
 	if (state->state == 1) {
 		return paint_esh_single_string(state);
 	} else if (state->state == 2) {
@@ -877,7 +881,7 @@ int syn_esh_calculate(struct syntax_state * state) {
 		return 0;
 	} else if (find_keywords(state, shell_commands, FLAG_KEYWORD, esh_keyword_qualifier)) {
 		return 0;
-	} else if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
+	} else if (isdigit(charat())) {
 		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
 		return 0;
 	} else if (charat() != -1) {
@@ -887,14 +891,14 @@ int syn_esh_calculate(struct syntax_state * state) {
 	return -1;
 }
 
-char * syn_py_keywords[] = {
+static char * syn_py_keywords[] = {
 	"class","def","return","del","if","else","elif","for","while","continue",
 	"break","assert","as","and","or","except","finally","from","global",
 	"import","in","is","lambda","with","nonlocal","not","pass","raise","try","yield",
 	NULL
 };
 
-char * syn_py_types[] = {
+static char * syn_py_types[] = {
 	/* built-in functions */
 	"abs","all","any","ascii","bin","bool","breakpoint","bytes",
 	"bytearray","callable","compile","complex","delattr","chr",
@@ -908,12 +912,12 @@ char * syn_py_types[] = {
 	NULL
 };
 
-char * syn_py_special[] = {
+static char * syn_py_special[] = {
 	"True","False","None",
 	NULL
 };
 
-int paint_py_triple_double(struct syntax_state * state) {
+static int paint_py_triple_double(struct syntax_state * state) {
 	while (charat() != -1) {
 		if (charat() == '"') {
 			paint(1, FLAG_STRING);
@@ -928,7 +932,7 @@ int paint_py_triple_double(struct syntax_state * state) {
 	return 1; /* continues */
 }
 
-int paint_py_triple_single(struct syntax_state * state) {
+static int paint_py_triple_single(struct syntax_state * state) {
 	while (charat() != -1) {
 		if (charat() == '\'') {
 			paint(1, FLAG_STRING);
@@ -943,7 +947,7 @@ int paint_py_triple_single(struct syntax_state * state) {
 	return 2; /* continues */
 }
 
-int paint_py_single_string(struct syntax_state * state) {
+static int paint_py_single_string(struct syntax_state * state) {
 	paint(1, FLAG_STRING);
 	while (charat() != -1) {
 		if (charat() == '\\' && nextchar() == '\'') {
@@ -960,7 +964,7 @@ int paint_py_single_string(struct syntax_state * state) {
 	return 0;
 }
 
-int paint_py_numeral(struct syntax_state * state) {
+static int paint_py_numeral(struct syntax_state * state) {
 	if (charat() == '0' && (nextchar() == 'x' || nextchar() == 'X')) {
 		paint(2, FLAG_NUMERAL);
 		while (isxdigit(charat())) paint(1, FLAG_NUMERAL);
@@ -997,7 +1001,7 @@ int paint_py_numeral(struct syntax_state * state) {
 	return 0;
 }
 
-void paint_py_format_string(struct syntax_state * state, char type) {
+static void paint_py_format_string(struct syntax_state * state, char type) {
 	paint(1, FLAG_STRING);
 	while (charat() != -1) {
 		if (charat() == '\\' && nextchar() == type) {
@@ -1024,7 +1028,7 @@ void paint_py_format_string(struct syntax_state * state, char type) {
 	}
 }
 
-void paint_simple_string(struct syntax_state * state) {
+static void paint_simple_string(struct syntax_state * state) {
 	/* Assumes you came in from a check of charat() == '"' */
 	paint(1, FLAG_STRING);
 	while (charat() != -1) {
@@ -1041,7 +1045,7 @@ void paint_simple_string(struct syntax_state * state) {
 	}
 }
 
-int syn_py_calculate(struct syntax_state * state) {
+static int syn_py_calculate(struct syntax_state * state) {
 	switch (state->state) {
 		case -1:
 		case 0:
@@ -1162,7 +1166,7 @@ static const char * flag_to_color(int _flag) {
 	}
 }
 
-struct syntax_definition {
+static struct syntax_definition {
 	char * name;
 	int (*calculate)(struct syntax_state *);
 	int tabIndents;
@@ -1710,9 +1714,9 @@ static void insert_char(uint32_t c) {
 	column++;
 }
 
-char * paren_pairs = "()[]{}<>";
+static char * paren_pairs = "()[]{}<>";
 
-int is_paren(int c) {
+static int is_paren(int c) {
 	char * p = paren_pairs;
 	while (*p) {
 		if (c == *p) return 1;
@@ -1721,7 +1725,7 @@ int is_paren(int c) {
 	return 0;
 }
 
-void find_matching_paren(int * out_col, int in_col) {
+static void find_matching_paren(int * out_col, int in_col) {
 	if (column - in_col > the_line->actual) {
 		return; /* Invalid cursor position */
 	}
@@ -1765,7 +1769,7 @@ _match_found:
 	*out_col = col;
 }
 
-void redraw_matching_paren(int col) {
+static void redraw_matching_paren(int col) {
 	for (int j = 0; j < the_line->actual; ++j) {
 		if (j == col) {
 			the_line->text[j].flags |= FLAG_SELECT;
@@ -1775,7 +1779,7 @@ void redraw_matching_paren(int col) {
 	}
 }
 
-void highlight_matching_paren(void) {
+static void highlight_matching_paren(void) {
 	int col = -1;
 	if (column < the_line->actual && is_paren(the_line->text[column].codepoint)) {
 		find_matching_paren(&col, 0);
