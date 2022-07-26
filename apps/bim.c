@@ -6231,11 +6231,11 @@ _try_kuroko:
 			}
 		}
 
-		krk_initScanner(args[arg]);
+		KrkScanner scanner = krk_initScanner(args[arg]);
 		KrkToken * space = malloc(sizeof(KrkToken) * (strlen(args[arg]) + 2));
 		int count = 0;
 		do {
-			space[count++] = krk_scanToken();
+			space[count++] = krk_scanToken(&scanner);
 		} while (space[count-1].type != TOKEN_EOF && space[count-1].type != TOKEN_ERROR);
 
 		if (count == 1) {
