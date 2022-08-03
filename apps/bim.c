@@ -5955,7 +5955,7 @@ int compare_candidate(const void * a, const void * b) {
 /**
  * List of file extensions to ignore when tab completing.
  */
-const char * tab_complete_ignore[] = {".o",NULL};
+const char * tab_complete_ignore[] = {".o",".lo",NULL};
 
 /**
  * Wrapper around krk_valueGetAttribute...
@@ -6313,8 +6313,7 @@ _try_kuroko:
 					KrkToken asToken = {.start = s->chars, .literalWidth = s->length};
 					KrkValue thisValue = findFromProperty(root, asToken);
 					krk_push(thisValue);
-					if (IS_CLOSURE(thisValue) || IS_BOUND_METHOD(thisValue) ||
-						(IS_NATIVE(thisValue) && !(AS_OBJECT(thisValue)->flags & KRK_OBJ_FLAGS_FUNCTION_IS_DYNAMIC_PROPERTY))) {
+					if (IS_CLOSURE(thisValue) || IS_BOUND_METHOD(thisValue) || IS_NATIVE(thisValue)) {
 						size_t allocSize = s->length + 2;
 						char * tmp = malloc(allocSize);
 						size_t len = snprintf(tmp, allocSize, "%s(", s->chars);
@@ -11148,9 +11147,9 @@ void initialize(void) {
 	 */
 	makeClass(bimModule, &syntaxStateClass, "SyntaxState", vm.baseClasses->objectClass);
 	syntaxStateClass->allocSize = sizeof(struct SyntaxState);
-	krk_defineNative(&syntaxStateClass->methods, "state", bim_krk_state_getstate)->obj.flags |= KRK_OBJ_FLAGS_FUNCTION_IS_DYNAMIC_PROPERTY;
-	krk_defineNative(&syntaxStateClass->methods, "i", bim_krk_state_index)->obj.flags |= KRK_OBJ_FLAGS_FUNCTION_IS_DYNAMIC_PROPERTY;
-	krk_defineNative(&syntaxStateClass->methods, "lineno", bim_krk_state_lineno)->obj.flags |= KRK_OBJ_FLAGS_FUNCTION_IS_DYNAMIC_PROPERTY;
+	krk_defineNativeProperty(&syntaxStateClass->methods, "state", bim_krk_state_getstate);
+	krk_defineNativeProperty(&syntaxStateClass->methods, "i", bim_krk_state_index);
+	krk_defineNativeProperty(&syntaxStateClass->methods, "lineno", bim_krk_state_lineno);
 	krk_defineNative(&syntaxStateClass->methods, "__init__", bim_krk_state_init);
 	krk_defineNative(&syntaxStateClass->methods, "findKeywords", bim_krk_state_findKeywords);
 	krk_defineNative(&syntaxStateClass->methods, "cKeywordQualifier", bim_krk_state_cKeywordQualifier)->obj.flags |= KRK_OBJ_FLAGS_FUNCTION_IS_STATIC_METHOD;

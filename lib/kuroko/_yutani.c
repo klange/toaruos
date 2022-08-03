@@ -1237,8 +1237,8 @@ KrkValue krk_module_onload__yutani(void) {
 	Yutani = krk_createClass(module, "Yutani", NULL);
 	Yutani->allocSize = sizeof(struct YutaniClass);
 	Yutani->docstring = S("Yutani()\n  Establish a connection to the compositor display server.");
-	krk_defineNative(&Yutani->methods, "display_width", _yutani_display_width)->obj.flags |= KRK_OBJ_FLAGS_FUNCTION_IS_DYNAMIC_PROPERTY;
-	krk_defineNative(&Yutani->methods, "display_height", _yutani_display_height)->obj.flags |= KRK_OBJ_FLAGS_FUNCTION_IS_DYNAMIC_PROPERTY;
+	krk_defineNativeProperty(&Yutani->methods, "display_width", _yutani_display_width);
+	krk_defineNativeProperty(&Yutani->methods, "display_height", _yutani_display_height);
 	krk_defineNative(&Yutani->methods, "__repr__", _yutani_repr);
 	krk_defineNative(&Yutani->methods, "__init__", _yutani_init);
 	krk_defineNative(&Yutani->methods, "poll", _yutani_poll);
@@ -1262,8 +1262,8 @@ KrkValue krk_module_onload__yutani(void) {
 	 */
 	GraphicsContext = krk_createClass(module, "GraphicsContext", NULL);
 	GraphicsContext->allocSize = sizeof(struct GraphicsContext);
-	krk_defineNative(&GraphicsContext->methods, "width", _gfx_width)->obj.flags |= KRK_OBJ_FLAGS_FUNCTION_IS_DYNAMIC_PROPERTY;
-	krk_defineNative(&GraphicsContext->methods, "height", _gfx_height)->obj.flags |= KRK_OBJ_FLAGS_FUNCTION_IS_DYNAMIC_PROPERTY;
+	krk_defineNativeProperty(&GraphicsContext->methods, "width", _gfx_width);
+	krk_defineNativeProperty(&GraphicsContext->methods, "height", _gfx_height);
 	krk_defineNative(&GraphicsContext->methods, "fill", _gfx_fill)->doc =
 		"GraphicsContext.fill(color)\n"
 		"  Fill the entire context with the given color.";
@@ -1324,10 +1324,10 @@ KrkValue krk_module_onload__yutani(void) {
 	krk_defineNative(&YutaniWindow->methods, "advertise", _window_advertise);
 	krk_defineNative(&YutaniWindow->methods, "reinit", _window_reinit);
 
-	krk_defineNative(&YutaniWindow->methods, "wid", _window_wid)->obj.flags |= KRK_OBJ_FLAGS_FUNCTION_IS_DYNAMIC_PROPERTY;
-	krk_defineNative(&YutaniWindow->methods, "x", _window_x)->obj.flags |= KRK_OBJ_FLAGS_FUNCTION_IS_DYNAMIC_PROPERTY;
-	krk_defineNative(&YutaniWindow->methods, "y", _window_y)->obj.flags |= KRK_OBJ_FLAGS_FUNCTION_IS_DYNAMIC_PROPERTY;
-	krk_defineNative(&YutaniWindow->methods, "focused", _window_focused)->obj.flags |= KRK_OBJ_FLAGS_FUNCTION_IS_DYNAMIC_PROPERTY;
+	krk_defineNativeProperty(&YutaniWindow->methods, "wid", _window_wid);
+	krk_defineNativeProperty(&YutaniWindow->methods, "x", _window_x);
+	krk_defineNativeProperty(&YutaniWindow->methods, "y", _window_y);
+	krk_defineNativeProperty(&YutaniWindow->methods, "focused", _window_focused);
 	krk_finalizeClass(YutaniWindow);
 
 	/**
@@ -1358,7 +1358,7 @@ KrkValue krk_module_onload__yutani(void) {
 	krk_defineNative(&YutaniFont->methods, "width", _font_width)->doc =
 		"Font.width(string)\n"
 		"  Calculate the rendered width of the given string when drawn with this font.";
-	krk_defineNative(&YutaniFont->methods, "size", _font_size)->obj.flags |= KRK_OBJ_FLAGS_FUNCTION_IS_DYNAMIC_PROPERTY;
+	krk_defineNativeProperty(&YutaniFont->methods, "size", _font_size);
 	krk_defineNative(&YutaniFont->methods, "set_size", _font_set_size);
 	krk_finalizeClass(YutaniFont);
 
