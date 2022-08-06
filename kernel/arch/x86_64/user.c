@@ -68,13 +68,17 @@ static void _kill_it(void) {
 	stack += sizeof(type); \
 } while (0)
 
-void arch_return_from_signal_handler(struct regs *r) {
+int arch_return_from_signal_handler(struct regs *r) {
 
 	for (int i = 0; i < 64; ++i) {
 		POP(r->rsp, uint64_t, this_core->current_process->thread.fp_regs[63-i]);
 	}
 
 	arch_restore_floating((process_t*)this_core->current_process);
+
+	POP(r->rsp, sigset_t, this_core->current_process->blocked_signals);
+	long originalSignal;
+	POP(r->rsp, long, originalSignal);
 
 	POP(r->rsp, long, this_core->current_process->interrupted_system_call);
 
@@ -91,6 +95,7 @@ void arch_return_from_signal_handler(struct regs *r) {
 	R(rsp);
 
 	r->rflags = (out.rflags & 0xcd5) | (1 << 21) | (1 << 9) | ((r->rflags & (1 << 8)) ? (1 << 8) : 0);
+	return originalSignal;
 }
 
 
@@ -119,6 +124,12 @@ void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r)
 
 	PUSH(ret.rsp, long, this_core->current_process->interrupted_system_call);
 	this_core->current_process->interrupted_system_call = 0;
+
+	PUSH(ret.rsp, long, signum);
+	PUSH(ret.rsp, sigset_t, this_core->current_process->blocked_signals);
+
+	struct signal_config * config = (struct signal_config*)&this_core->current_process->signals[signum];
+	this_core->current_process->blocked_signals |= config->mask | (1 << signum);
 
 	arch_save_floating((process_t*)this_core->current_process);
 	for (int i = 0; i < 64; ++i) {

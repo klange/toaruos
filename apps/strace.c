@@ -772,6 +772,7 @@ static void handle_syscall(pid_t pid, struct regs * r) {
 		case SYS_GETTIMEOFDAY:
 			/* two output args */
 			break;
+		case SYS_SIGACTION: break;
 		/* These have no arguments: */
 		case SYS_YIELD:
 		case SYS_FORK:

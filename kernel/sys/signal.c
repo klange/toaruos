@@ -91,11 +91,16 @@ static char sig_defaults[] = {
  *
  * @param r Registers after restoration from signal return.
  */
-static void maybe_restart_system_call(struct regs * r) {
+static void maybe_restart_system_call(struct regs * r, int signum) {
 	if (this_core->current_process->interrupted_system_call && arch_syscall_number(r) == -ERESTARTSYS) {
-		arch_syscall_return(r, this_core->current_process->interrupted_system_call);
-		this_core->current_process->interrupted_system_call = 0;
-		syscall_handler(r);
+		if (sig_defaults[signum] == SIG_DISP_Cont || (this_core->current_process->signals[signum].flags & SA_RESTART)) {
+			arch_syscall_return(r, this_core->current_process->interrupted_system_call);
+			this_core->current_process->interrupted_system_call = 0;
+			syscall_handler(r);
+		} else {
+			this_core->current_process->interrupted_system_call = 0;
+			arch_syscall_return(r, -EINTR);
+		}
 	}
 }
 
@@ -119,11 +124,8 @@ static void maybe_restart_system_call(struct regs * r) {
  *             forward to @c arch_enter_signal_handler
  * @returns 0 if another signal needs to be handled, 1 otherwise.
  */
-int handle_signal(process_t * proc, signal_t * sig, struct regs *r) {
-	uintptr_t signum  = sig->signum;
-	free(sig);
-
-	uintptr_t handler = proc->signals[signum];
+int handle_signal(process_t * proc, int signum, struct regs *r) {
+	struct signal_config config = proc->signals[signum];
 
 	/* Are we being traced? */
 	if (this_core->current_process->flags & PROC_FLAG_TRACE_SIGNALS) {
@@ -138,7 +140,7 @@ int handle_signal(process_t * proc, signal_t * sig, struct regs *r) {
 		goto _ignore_signal;
 	}
 
-	if (!handler) {
+	if (!config.handler) {
 		char dowhat = sig_defaults[signum];
 		if (dowhat == SIG_DISP_Term || dowhat == SIG_DISP_Core) {
 			task_exit(((128 + signum) << 8) | signum);
@@ -155,7 +157,7 @@ int handle_signal(process_t * proc, signal_t * sig, struct regs *r) {
 
 			do {
 				switch_task(0);
-			} while (!this_core->current_process->signal_queue->length);
+			} while (!(this_core->current_process->pending_signals & ~this_core->current_process->blocked_signals));
 
 			return 0; /* Return and handle another */
 		} else if (dowhat == SIG_DISP_Cont) {
@@ -166,19 +168,21 @@ int handle_signal(process_t * proc, signal_t * sig, struct regs *r) {
 	}
 
 	/* If the handler value is 1 we treat it as IGN. */
-	if (handler == 1) goto _ignore_signal;
+	if (config.handler == 1) goto _ignore_signal;
 
-	proc->signals[signum] = 0;
+	if (config.flags & SA_RESETHAND) {
+		proc->signals[signum].handler = 0;
+	}
 
-	arch_enter_signal_handler(handler, signum, r);
+	arch_enter_signal_handler(config.handler, signum, r);
 	return 1; /* Should not be reachable */
 
 _ignore_signal:
 	/* we still need to check if we need to restart something */
 
-	maybe_restart_system_call(r);
+	maybe_restart_system_call(r, signum);
 
-	return !this_core->current_process->signal_queue->length;
+	return !(this_core->current_process->pending_signals & ~this_core->current_process->blocked_signals);
 }
 
 /**
@@ -224,9 +228,16 @@ int send_signal(pid_t process, int signal, int force_root) {
 		return -EINVAL;
 	}
 
-	if (!receiver->signals[signal] && !sig_defaults[signal]) {
+	if (!receiver->signals[signal].handler && !sig_defaults[signal]) {
 		/* If there is no handler for a signal and its default disposition is IGNORE,
 		 * we don't even bother sending it, to avoid having to interrupt + restart system calls. */
+		return 0;
+	}
+
+	if (receiver->blocked_signals & (1 << signal)) {
+		spin_lock(sig_lock);
+		receiver->pending_signals |= (1 << signal);
+		spin_unlock(sig_lock);
 		return 0;
 	}
 
@@ -242,11 +253,8 @@ int send_signal(pid_t process, int signal, int force_root) {
 	}
 
 	/* Append signal to list */
-	signal_t * sig = malloc(sizeof(signal_t));
-	sig->signum  = signal;
-
 	spin_lock(sig_lock);
-	list_insert(receiver->signal_queue, sig);
+	receiver->pending_signals |= (1 << signal);
 	spin_unlock(sig_lock);
 
 	/* Informs any blocking events that the process has been interrupted
@@ -311,20 +319,20 @@ int group_send_signal(pid_t group, int signal, int force_root) {
  */
 void process_check_signals(struct regs * r) {
 	spin_lock(sig_lock);
-	if (this_core->current_process &&
-		!(this_core->current_process->flags & PROC_FLAG_FINISHED) &&
-		this_core->current_process->signal_queue &&
-		this_core->current_process->signal_queue->length > 0) {
-		while (1) {
-			node_t * node = list_dequeue(this_core->current_process->signal_queue);
-			spin_unlock(sig_lock);
+	if (this_core->current_process && !(this_core->current_process->flags & PROC_FLAG_FINISHED)) {
+		/* Set an pending signals that were previously blocked */
+		sigset_t active_signals  = this_core->current_process->pending_signals & ~this_core->current_process->blocked_signals;
 
-			signal_t * sig = node->value;
-			free(node);
-
-			if (handle_signal((process_t*)this_core->current_process,sig,r)) return;
-
-			spin_lock(sig_lock);
+		int signal = 0;
+		while (active_signals && signal <= NUMSIGNALS)  {
+			if (active_signals & 1) {
+				this_core->current_process->pending_signals &= ~(1 << signal);
+				spin_unlock(sig_lock);
+				if (handle_signal((process_t*)this_core->current_process, signal, r)) return;
+				spin_lock(sig_lock);
+			}
+			active_signals >>= 1;
+			signal++;
 		}
 	}
 	spin_unlock(sig_lock);
@@ -342,6 +350,9 @@ void process_check_signals(struct regs * r) {
  *          then to @c maybe_restart_system_call to handle system call restarts.
  */
 void return_from_signal_handler(struct regs *r) {
-	arch_return_from_signal_handler(r);
-	maybe_restart_system_call(r);
+	int signum = arch_return_from_signal_handler(r);
+	if (this_core->current_process->pending_signals & ~this_core->current_process->blocked_signals) {
+		process_check_signals(r);
+	}
+	maybe_restart_system_call(r,signum);
 }

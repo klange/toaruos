@@ -16,6 +16,9 @@ _Begin_C_Header
 
 #define SA_NOCLDSTOP 1
 #define SA_SIGINFO   2
+#define SA_NODEFER   4
+#define SA_RESETHAND 8
+#define SA_RESTART   16
 
 #if 0
 #define SIG_SETMASK 0

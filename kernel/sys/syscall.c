@@ -15,6 +15,7 @@
 #include <sys/time.h>
 #include <sys/times.h>
 #include <sys/ptrace.h>
+#include <sys/signal.h>
 #include <syscall_nums.h>
 #include <kernel/printf.h>
 #include <kernel/process.h>
@@ -947,9 +948,31 @@ long sys_signal(long signum, uintptr_t handler) {
 	if (signum > NUMSIGNALS) {
 		return -EINVAL;
 	}
-	uintptr_t old = this_core->current_process->signals[signum];
-	this_core->current_process->signals[signum] = handler;
+	uintptr_t old = this_core->current_process->signals[signum].handler;
+	this_core->current_process->signals[signum].handler = handler;
+	this_core->current_process->signals[signum].flags = SA_RESTART;
 	return old;
+}
+
+long sys_sigaction(int signum, struct sigaction *act, struct sigaction *oldact) {
+	if (act) PTRCHECK(act,sizeof(struct sigaction),0);
+	if (oldact) PTRCHECK(oldact,sizeof(struct sigaction),0);
+
+	if (signum > NUMSIGNALS) return -EINVAL;
+
+	if (oldact) {
+		oldact->sa_handler = (_sig_func_ptr)this_core->current_process->signals[signum].handler;
+		oldact->sa_mask    = this_core->current_process->signals[signum].mask;
+		oldact->sa_flags   = this_core->current_process->signals[signum].flags;
+	}
+
+	if (act) {
+		this_core->current_process->signals[signum].handler = (uintptr_t)act->sa_handler;
+		this_core->current_process->signals[signum].mask    = act->sa_mask;
+		this_core->current_process->signals[signum].flags   = act->sa_flags;
+	}
+
+	return 0;
 }
 
 long sys_fswait(int c, int fds[]) {
@@ -1159,6 +1182,7 @@ static long (*syscalls[])() = {
 	[SYS_TIMES]        = sys_times,
 	[SYS_PTRACE]       = ptrace_handle,
 	[SYS_SETTIMEOFDAY] = sys_settimeofday,
+	[SYS_SIGACTION]    = sys_sigaction,
 
 	[SYS_SOCKET]       = net_socket,
 	[SYS_SETSOCKOPT]   = net_setsockopt,

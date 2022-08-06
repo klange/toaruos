@@ -37,9 +37,12 @@ uint16_t off_y;
 static int volatile draw_lock = 0;
 
 gfx_context_t * ctx;
+pthread_t thread;
 
 void sigint_handler() {
 	should_exit = 1;
+	pthread_join(thread, NULL);
+	exit(1);
 }
 
 void redraw_borders() {
@@ -145,7 +148,6 @@ int main (int argc, char ** argv) {
 
 	yutani_window_advertise_icon(yctx, wina, "Plasma", "plasma");
 
-	pthread_t thread;
 	pthread_create(&thread, NULL, draw_thread, NULL);
 
 	signal(SIGINT, sigint_handler);

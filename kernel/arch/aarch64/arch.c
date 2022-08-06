@@ -69,7 +69,7 @@ static void _kill_it(uintptr_t addr, const char * action, const char * desc, siz
 	stack += sizeof(type); \
 } while (0)
 
-void arch_return_from_signal_handler(struct regs *r) {
+int arch_return_from_signal_handler(struct regs *r) {
 	uintptr_t spsr;
 	uintptr_t sp = r->user_sp;
 
@@ -80,6 +80,10 @@ void arch_return_from_signal_handler(struct regs *r) {
 		POP(sp, uint64_t, this_core->current_process->thread.fp_regs[63-i]);
 	}
 	arch_restore_floating((process_t*)this_core->current_process);
+
+	POP(sp, sigset_t, this_core->current_process->blocked_signals);
+	long originalSignal;
+	POP(sp, long, originalSignal);
 
 	/* Interrupt system call status */
 	POP(sp, long, this_core->current_process->interrupted_system_call);
@@ -95,6 +99,7 @@ void arch_return_from_signal_handler(struct regs *r) {
 	POP(sp, struct regs, *r);
 
 	asm volatile ("msr SP_EL0, %0" :: "r"(r->user_sp));
+	return originalSignal;
 }
 
 /**
@@ -125,6 +130,12 @@ void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r)
 
 	PUSH(sp, long, this_core->current_process->interrupted_system_call);
 	this_core->current_process->interrupted_system_call = 0;
+
+	PUSH(sp, long, signum);
+	PUSH(sp, sigset_t, this_core->current_process->blocked_signals);
+
+	struct signal_config * config = (struct signal_config*)&this_core->current_process->signals[signum];
+	this_core->current_process->blocked_signals |= config->mask | (1 << signum);
 
 	/* Save floating point */
 	arch_save_floating((process_t*)this_core->current_process);

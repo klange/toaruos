@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/signal_defs.h>
+#include <sys/signal.h>
 
 #ifdef __x86_64__
 #include <kernel/arch/x86_64/pml.h>
@@ -73,6 +74,12 @@ typedef struct file_descriptors {
 	spin_lock_t lock;
 } fd_table_t;
 
+struct signal_config {
+	uintptr_t handler;
+	sigset_t  mask;
+	int flags;
+};
+
 #define PROC_FLAG_IS_TASKLET 0x01
 #define PROC_FLAG_FINISHED   0x02
 #define PROC_FLAG_STARTED    0x04
@@ -114,7 +121,6 @@ typedef struct process {
 	list_t * wait_queue;
 	list_t * shm_mappings;
 	list_t * node_waits;
-	list_t * signal_queue;
 
 	node_t sched_node;
 	node_t sleep_node;
@@ -125,12 +131,14 @@ typedef struct process {
 	int awoken_index;
 
 	thread_t thread;
-	thread_t signal_state;
 	image_t image;
 
 	spin_lock_t sched_lock;
 
-	uintptr_t signals[NUMSIGNALS+1];
+	struct signal_config signals[NUMSIGNALS+1];
+	sigset_t blocked_signals;
+	sigset_t pending_signals;
+	sigset_t active_signals;
 
 	int supplementary_group_count;
 	gid_t * supplementary_group_list;
@@ -273,5 +281,5 @@ extern void arch_enter_user(uintptr_t entrypoint, int argc, char * argv[], char 
 __attribute__((noreturn))
 extern void arch_enter_signal_handler(uintptr_t,int,struct regs*);
 extern void arch_wakeup_others(void);
-extern void arch_return_from_signal_handler(struct regs *r);
+extern int arch_return_from_signal_handler(struct regs *r);
 

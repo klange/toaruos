@@ -123,11 +123,10 @@ void switch_next(void) {
 	mmu_set_directory(this_core->current_process->thread.page_directory->directory);
 	arch_set_kernel_stack(this_core->current_process->image.stack);
 
-	if ((this_core->current_process->flags & PROC_FLAG_FINISHED) ||  (!this_core->current_process->signal_queue)) {
+	if (this_core->current_process->flags & PROC_FLAG_FINISHED) {
 		arch_fatal_prepare();
 		printf("Should not have this process...\n");
 		if (this_core->current_process->flags & PROC_FLAG_FINISHED) printf("It is marked finished.\n");
-		if (!this_core->current_process->signal_queue) printf("It doesn't have a signal queue.\n");
 		arch_dump_traceback();
 		arch_fatal();
 		__builtin_unreachable();
@@ -356,7 +355,6 @@ process_t * spawn_kidle(int bsp) {
 	 *       Can we make sure these are never referenced and not allocate them? */
 	idle->wait_queue = list_create("process wait queue (kidle)",idle);
 	idle->shm_mappings = list_create("process shm mappings (kidle)",idle);
-	idle->signal_queue = list_create("process signal queue (kidle)",idle);
 	gettimeofday(&idle->start, NULL);
 	idle->thread.page_directory = malloc(sizeof(page_directory_t));
 	idle->thread.page_directory->refcount = 1;
@@ -406,7 +404,6 @@ process_t * spawn_init(void) {
 	init->flags         = PROC_FLAG_STARTED | PROC_FLAG_RUNNING;
 	init->wait_queue    = list_create("process wait queue (init)", init);
 	init->shm_mappings  = list_create("process shm mapping (init)", init);
-	init->signal_queue  = list_create("process signal queue (init)", init);
 
 	init->sched_node.prev = NULL;
 	init->sched_node.next = NULL;
@@ -495,7 +492,6 @@ process_t * spawn_process(volatile process_t * parent, int flags) {
 
 	proc->wait_queue   = list_create("process wait queue",proc);
 	proc->shm_mappings = list_create("process shm mappings",proc);
-	proc->signal_queue = list_create("process signal queue",proc);
 
 	proc->sched_node.value = proc;
 	proc->sleep_node.value = proc;
@@ -1216,8 +1212,6 @@ void task_exit(int retval) {
 	/* free whatever we can */
 	list_free(this_core->current_process->wait_queue);
 	free(this_core->current_process->wait_queue);
-	list_free(this_core->current_process->signal_queue);
-	free(this_core->current_process->signal_queue);
 	free(this_core->current_process->wd_name);
 	if (this_core->current_process->node_waits) {
 		list_free(this_core->current_process->node_waits);
@@ -1417,7 +1411,6 @@ process_t * spawn_worker_thread(void (*entrypoint)(void * argp), const char * na
 
 	proc->wait_queue   = list_create("worker thread wait queue",proc);
 	proc->shm_mappings = list_create("worker thread shm mappings",proc);
-	proc->signal_queue = list_create("worker thread signal queue",proc);
 
 	proc->sched_node.value = proc;
 	proc->sleep_node.value = proc;
