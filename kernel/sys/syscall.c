@@ -975,6 +975,38 @@ long sys_sigaction(int signum, struct sigaction *act, struct sigaction *oldact) 
 	return 0;
 }
 
+long sys_sigpending(sigset_t * set) {
+	PTRCHECK(set,sizeof(sigset_t),0);
+	*set = this_core->current_process->pending_signals;
+	return 0;
+}
+
+long sys_sigprocmask(int how, sigset_t *restrict set, sigset_t * restrict oset) {
+	if (oset) {
+		PTRCHECK(oset,sizeof(sigset_t),0);
+		*oset = this_core->current_process->blocked_signals;
+	}
+
+	if (set) {
+		PTRCHECK(set,sizeof(sigset_t),0);
+		switch (how) {
+			case SIG_SETMASK:
+				this_core->current_process->blocked_signals = *set;
+				break;
+			case SIG_BLOCK:
+				this_core->current_process->blocked_signals |= *set;
+				break;
+			case SIG_UNBLOCK:
+				this_core->current_process->blocked_signals &= ~*set;
+				break;
+			default:
+				return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
 long sys_fswait(int c, int fds[]) {
 	PTR_VALIDATE(fds);
 	if (!fds) return -EFAULT;
@@ -1183,6 +1215,8 @@ static long (*syscalls[])() = {
 	[SYS_PTRACE]       = ptrace_handle,
 	[SYS_SETTIMEOFDAY] = sys_settimeofday,
 	[SYS_SIGACTION]    = sys_sigaction,
+	[SYS_SIGPENDING]   = sys_sigpending,
+	[SYS_SIGPROCMASK]  = sys_sigprocmask,
 
 	[SYS_SOCKET]       = net_socket,
 	[SYS_SETSOCKOPT]   = net_setsockopt,

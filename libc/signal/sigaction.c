@@ -9,7 +9,3 @@ int sigaction(int signum, struct sigaction *act, struct sigaction *oldact) {
 	__sets_errno(syscall_sigaction(signum, act, oldact));
 }
 
-int sigemptyset(sigset_t * set) {
-	*set = 0;
-	return 0;
-}
