@@ -129,7 +129,7 @@ void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r)
 	PUSH(ret.rsp, sigset_t, this_core->current_process->blocked_signals);
 
 	struct signal_config * config = (struct signal_config*)&this_core->current_process->signals[signum];
-	this_core->current_process->blocked_signals |= config->mask | (1 << signum);
+	this_core->current_process->blocked_signals |= config->mask | (config->flags & SA_NODEFER ? 0 : (1UL << signum));
 
 	arch_save_floating((process_t*)this_core->current_process);
 	for (int i = 0; i < 64; ++i) {
