@@ -177,6 +177,7 @@ typedef struct {
 	int command_offset, command_col_no;
 	struct syntax_definition * command_syn, * command_syn_back;
 	int history_point;
+	int search_point;
 	int search_direction;
 	int prev_line, prev_col, prev_coffset, prev_offset;
 
