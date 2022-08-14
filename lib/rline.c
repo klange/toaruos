@@ -578,7 +578,7 @@ static char * syn_krk_exception[] = {
 	"Exception", "TypeError", "ArgumentError", "IndexError", "KeyError",
 	"AttributeError", "NameError", "ImportError", "IOError", "ValueError",
 	"KeyboardInterrupt", "ZeroDivisionError", "NotImplementedError", "SyntaxError",
-	"AssertionError",
+	"AssertionError", "BaseException", "OSError", "SystemError",
 	NULL
 };
 
@@ -1665,23 +1665,25 @@ static void line_delete(line_t * line, int offset) {
  */
 static void delete_at_cursor(void) {
 	if (column > 0) {
-		if (the_line->text[column-1].codepoint == ' ') {
-			/* Delete this space */
-			line_delete(the_line, column);
-			column--;
-			if (offset > 0) offset--;
+		line_delete(the_line, column);
+		column--;
+		if (offset > 0) offset--;
+	}
+}
 
-			while (column > 0 && the_line->text[column-1].codepoint == ' ' && (column % 4 != 0)) {
-				line_delete(the_line, column);
-				column--;
-				if (offset > 0) offset--;
-			}
-		} else {
-			line_delete(the_line, column);
-			column--;
-			if (offset > 0) offset--;
+static void smart_backspace(void) {
+	if (column > 0) {
+		int i;
+		for (i = 0; i < column; ++i) {
+			if (the_line->text[i].codepoint != ' ') break;
+		}
+		if (i == column) {
+			delete_at_cursor();
+			while (column > 0 && (column % 4)) delete_at_cursor();
+			return;
 		}
 	}
+	delete_at_cursor();
 }
 
 /**
@@ -1691,13 +1693,15 @@ static void delete_word(void) {
 	if (!the_line->actual) return;
 	if (!column) return;
 
+	while (column > 0 && the_line->text[column-1].codepoint == ' ') {
+		delete_at_cursor();
+	}
+
 	do {
 		if (column > 0) {
-			line_delete(the_line, column);
-			column--;
-			if (offset > 0) offset--;
+			delete_at_cursor();
 		}
-	} while (column && the_line->text[column-1].codepoint != ' ');
+	} while (column > 0 && the_line->text[column-1].codepoint != ' ');
 }
 
 /**
@@ -2343,7 +2347,7 @@ static int read_line(void) {
 						break;
 					case DELETE_KEY:
 					case BACKSPACE_KEY:
-						delete_at_cursor();
+						smart_backspace();
 						break;
 					case 13:
 					case ENTER_KEY:
