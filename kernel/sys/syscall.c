@@ -303,6 +303,7 @@ long sys_symlink(char * target, char * name) {
 
 long sys_readlink(const char * file, char * ptr, long len) {
 	PTR_VALIDATE(file);
+	PTRCHECK(ptr,len,0);
 	if (!file) return -EFAULT;
 	fs_node_t * node = kopen((char *) file, O_PATH | O_NOFOLLOW);
 	if (!node) {
