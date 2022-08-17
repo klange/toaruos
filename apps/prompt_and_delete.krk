@@ -1,0 +1,38 @@
+#!/bin/kuroko
+import kuroko
+import os
+import _waitpid
+let count = len(kuroko.argv)
+
+if count < 3:
+    print("expected at least two arguments")
+    return 1
+
+let callbackPid = int(kuroko.argv[1])
+if callbackPid < 1:
+    print("suspicious callback pid:", callbackPid)
+    return 1
+
+count -= 2
+
+def show_dialog(msg,title="File Browser",icon="/usr/share/icons/48/folder.png"):
+    let pid = os.fork()
+    if pid == 0:
+        os.execvp('showdialog',['showdialog',title,icon,msg])
+        os.exit(1)
+    while True:
+        let result = _waitpid.waitpid(pid)
+        if result[0] != pid:
+            continue
+        return result[1] == 0
+
+if show_dialog(f'This will permanently delete {count} file{"s" if count != 1 else ""}.'):
+    for file in kuroko.argv[2:]:
+        try:
+            os.remove(file)
+        except Exception as e:
+            if not show_dialog(f'An error occured while trying to delete "{file}":\n{e.arg}'):
+                break
+    os.kill(callbackPid, 21) # SIGURG
+else:
+    return 1

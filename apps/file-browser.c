@@ -1445,6 +1445,44 @@ static void _menu_action_paste(struct MenuEntry * entry) {
 	yutani_special_request(yctx, NULL, YUTANI_SPECIAL_REQUEST_CLIPBOARD);
 }
 
+static void _menu_action_delete(struct MenuEntry * entry) {
+	size_t filesToDelete = 0;
+	for (int i = 0; i < file_pointers_len; ++i) {
+		if (file_pointers[i]->selected) filesToDelete++;
+	}
+
+	int base_is_root = !strcmp(current_directory, "/"); /* avoid redundant slash */
+	char ** args = malloc(sizeof(char*) * (filesToDelete + 3));
+	args[0] = "/bin/prompt_and_delete.krk";
+	args[1] = malloc(100);
+	snprintf(args[1],100,"%d",getpid());
+	size_t counter = 2;
+	for (int i = 0; i < file_pointers_len; ++i) {
+		if (file_pointers[i]->selected) {
+			const char * name = file_pointers[i]->type == 2 ? file_pointers[i]->filename : file_pointers[i]->name;
+			size_t len = strlen(current_directory) + !base_is_root + strlen(name) + 1;
+			args[counter] = malloc(len);
+			snprintf(args[counter], len, "%s%s%s", current_directory, base_is_root ? "" : "/", name);
+			counter++;
+		}
+	}
+	args[counter] = NULL;
+
+	pid_t child = fork();
+
+	if (!child) {
+		execv(args[0], args);
+		exit(1);
+	} else if (child < 0) {
+		fprintf(stderr, "Error forking.\n");
+	}
+
+	for (size_t i = 1; i < counter; ++i) {
+		free(args[i]);
+	}
+	free(args);
+}
+
 /* Help > About File Browser */
 static void _menu_action_about(struct MenuEntry * entry) {
 	/* Show About dialog */
@@ -1787,14 +1825,14 @@ static void _scroll_down(void) {
 	}
 }
 
+static int signalResponse = 0;
+
 /**
  * Desktop mode responsds to sig_usr2 by returning to
  * the bottom of the Z-order stack.
  */
 static void sig_usr2(int sig) {
-	yutani_set_stack(yctx, main_window, YUTANI_ZORDER_BOTTOM);
-	_menu_action_refresh(NULL);
-	signal(SIGUSR2, sig_usr2);
+	signalResponse |= 1;
 }
 
 /**
@@ -1802,8 +1840,11 @@ static void sig_usr2(int sig) {
  * to the current display size.
  */
 static void sig_usr1(int sig) {
-	yutani_window_resize_offer(yctx, main_window, yctx->display_width, yctx->display_height);
-	signal(SIGUSR1, sig_usr1);
+	signalResponse |= 2;
+}
+
+static void sig_urg(int sig) {
+	signalResponse |= 4;
 }
 
 /**
@@ -1893,6 +1934,14 @@ static void show_context_menu(struct yutani_msg_window_mouse_event * me) {
 	}
 }
 
+static void set_signal_handler(int signum, void (*handler)(int)) {
+	struct sigaction action;
+	action.sa_handler = handler;
+	sigemptyset(&action.sa_mask);
+	action.sa_flags = 0; /* do not restart syscalls, do not reset handler */
+	sigaction(signum, &action, NULL);
+}
+
 int main(int argc, char * argv[]) {
 
 	yctx = yutani_init();
@@ -1907,8 +1956,8 @@ int main(int argc, char * argv[]) {
 		is_desktop_background = 1;
 		menu_bar_height = 0;
 		nav_bar_height = 0;
-		signal(SIGUSR1, sig_usr1);
-		signal(SIGUSR2, sig_usr2);
+		set_signal_handler(SIGUSR1, sig_usr1);
+		set_signal_handler(SIGUSR2, sig_usr2);
 		draw_background(yctx->display_width, yctx->display_height);
 		main_window = yutani_window_create_flags(yctx, yctx->display_width, yctx->display_height, YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS);
 		yutani_window_move(yctx, main_window, 0, 0);
@@ -1929,6 +1978,8 @@ int main(int argc, char * argv[]) {
 		yutani_window_move(yctx, main_window, yctx->display_width / 2 - main_window->width / 2, yctx->display_height / 2 - main_window->height / 2);
 		set_view_mode(VIEW_MODE_TILES);
 	}
+
+	set_signal_handler(SIGURG, sig_urg);
 
 	if (arg_ind < argc) {
 		chdir(argv[arg_ind]);
@@ -1990,7 +2041,9 @@ int main(int argc, char * argv[]) {
 	menu_insert(context_menu, menu_create_normal(NULL,NULL,"Copy",_menu_action_copy));
 	menu_insert(context_menu, menu_create_normal(NULL,NULL,"Paste",_menu_action_paste));
 	menu_insert(context_menu, menu_create_separator());
+	menu_insert(context_menu, menu_create_normal(NULL,NULL,"Delete",_menu_action_delete));
 	if (!is_desktop_background) {
+		menu_insert(context_menu, menu_create_separator());
 		menu_insert(context_menu, menu_create_normal("up",NULL,"Up",_menu_action_up));
 	}
 	menu_insert(context_menu, menu_create_normal("refresh",NULL,"Refresh",_menu_action_refresh));
@@ -2023,6 +2076,19 @@ int main(int argc, char * argv[]) {
 		waitpid(-1, NULL, WNOHANG);
 		int fds[1] = {fileno(yctx->sock)};
 		int index = fswait2(1,fds,wallpaper_old ? 10 : 200);
+
+		if (index < 0 && signalResponse) {
+			if (signalResponse & 1) {
+				yutani_set_stack(yctx, main_window, YUTANI_ZORDER_BOTTOM);
+				_menu_action_refresh(NULL);
+			} else if (signalResponse & 2) {
+				yutani_window_resize_offer(yctx, main_window, yctx->display_width, yctx->display_height);
+			} else if (signalResponse & 4) {
+				_menu_action_refresh(NULL);
+			}
+			signalResponse = 0;
+			continue;
+		}
 
 		maybe_blink_cursor();
 
