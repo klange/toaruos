@@ -38,6 +38,11 @@ static int sudo_loop(int (*prompt_callback)(char * username, char * password, in
 
 	int fails = 0;
 
+	if (geteuid() != 0) {
+		fprintf(stderr, "%s: effective uid is not 0\n", argv[0]);
+		return 1;
+	}
+
 	struct stat buf;
 	if (stat("/var/sudoers", &buf)) {
 		mkdir("/var/sudoers", 0700);
