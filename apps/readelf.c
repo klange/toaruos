@@ -20,7 +20,11 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <getopt.h>
+#ifdef __toaru__
 #include <kernel/elf.h>
+#else
+#include "base/usr/include/kernel/elf.h"
+#endif
 
 #define SHOW_FILE_HEADER      0x0001
 #define SHOW_SECTION_HEADERS  0x0002
@@ -279,14 +283,14 @@ static char * dynamicTagToStr(Elf64_Dyn * dynEntry, char * dynstr) {
 			break;
 		case 0x6ffffff9:
 			name = "(RELACOUNT)";
-			sprintf(extra, "%ld", dynEntry->d_un.d_val);
+			snprintf(extra, 500, "%ld", dynEntry->d_un.d_val);
 			break;
 		default:
 			name = "(unknown)";
 			break;
 	}
 
-	sprintf(buf,"%-15s %s", name, extra);
+	snprintf(buf, 1024, "%-15s %s", name, extra);
 	return buf;
 }
 
@@ -431,6 +435,25 @@ static int usage(char * argv[]) {
 	return 1;
 }
 
+struct StringTable {
+	size_t length;
+	char strings[];
+};
+
+static struct StringTable * load_string_table(FILE * f, Elf64_Shdr * header) {
+	struct StringTable * out = malloc(sizeof(struct StringTable) + header->sh_size + 1);
+	out->length = header->sh_size;
+	fseek(f, header->sh_offset, SEEK_SET);
+	fread(out->strings, header->sh_size, 1, f);
+	out->strings[out->length] = 0;
+	return out;
+}
+
+static const char * string_from_table(struct StringTable * table, size_t offset) {
+	if (offset >= table->length) return "(out of range)";
+	return table->strings + offset;
+}
+
 int main(int argc, char * argv[]) {
 
 	static struct option long_opts[] = {
@@ -568,9 +591,7 @@ int main(int argc, char * argv[]) {
 		fseek(f, header.e_shoff + header.e_shentsize * header.e_shstrndx, SEEK_SET);
 		fread(&shstr_hdr, sizeof(Elf64_Shdr), 1, f);
 
-		char * stringTable = malloc(shstr_hdr.sh_size);
-		fseek(f, shstr_hdr.sh_offset, SEEK_SET);
-		fread(stringTable, shstr_hdr.sh_size, 1, f);
+		struct StringTable * stringTable = load_string_table(f, &shstr_hdr);
 
 		/**
 		 * Section Headers
@@ -585,7 +606,7 @@ int main(int argc, char * argv[]) {
 				fread(&sectionHeader, sizeof(Elf64_Shdr), 1, f);
 
 				printf("  [%2d] %-17.17s %-16.16s %016lx  %08lx\n",
-					i, stringTable + sectionHeader.sh_name, sectionHeaderTypeToStr(sectionHeader.sh_type),
+					i, string_from_table(stringTable, sectionHeader.sh_name), sectionHeaderTypeToStr(sectionHeader.sh_type),
 					sectionHeader.sh_addr, sectionHeader.sh_offset);
 				printf("       %016lx  %016lx %4ld %6d %5d %5ld\n",
 					sectionHeader.sh_size, sectionHeader.sh_entsize, sectionHeader.sh_flags,
@@ -634,6 +655,11 @@ int main(int argc, char * argv[]) {
 			Elf64_Shdr sectionHeader;
 			fread(&sectionHeader, sizeof(Elf64_Shdr), 1, f);
 
+			if (sectionHeader.sh_size > 0x40000000) {
+				/* Suspiciously large section header... */
+				continue;
+			}
+
 			/* I think there should only be one of these... */
 			switch (sectionHeader.sh_type) {
 				case SHT_DYNAMIC:
@@ -671,7 +697,7 @@ int main(int argc, char * argv[]) {
 				case SHT_RELA:
 					if (show_bits & SHOW_RELOCATIONS) {
 						printf("\nRelocation section '%s' at offset 0x%lx contains %ld entries.\n",
-							stringTable + sectionHeader.sh_name, sectionHeader.sh_offset,
+							string_from_table(stringTable, sectionHeader.sh_name), sectionHeader.sh_offset,
 							sectionHeader.sh_size / sizeof(Elf64_Rela));
 						printf("  Offset          Info           Type           Sym. Value    Sym. Name + Addend\n");
 
@@ -692,9 +718,7 @@ int main(int argc, char * argv[]) {
 						Elf64_Shdr shdr_strtab;
 						fseek(f, header.e_shoff + header.e_shentsize * shdr_symtab.sh_link, SEEK_SET);
 						fread(&shdr_strtab, sizeof(Elf64_Shdr), 1, f);
-						char * strtab = malloc(shdr_strtab.sh_size);
-						fseek(f, shdr_strtab.sh_offset, SEEK_SET);
-						fread(strtab, shdr_strtab.sh_size, 1, f);
+						struct StringTable * strtab = load_string_table(f, &shdr_strtab);
 
 						/* Load relocations from file */
 						Elf64_Rela * relocations = malloc(sectionHeader.sh_size);
@@ -703,53 +727,56 @@ int main(int argc, char * argv[]) {
 
 						for (unsigned int i = 0; i < sectionHeader.sh_size / sizeof(Elf64_Rela); ++i) {
 							Elf64_Shdr shdr;
-							Elf64_Sym * this = &symtab[ELF64_R_SYM(relocations[i].r_info)];
-							char * symName;
-
-							/* Get symbol name for this relocation */
-							if ((this->st_info & 0xF) == STT_SECTION) {
-								fseek(f, header.e_shoff + header.e_shentsize * this->st_shndx, SEEK_SET);
-								fread(&shdr, sizeof(Elf64_Shdr), 1, f);
-								symName = stringTable + shdr.sh_name;
-							} else { 
-								symName = strtab + this->st_name;
-							}
-
-							/* Get the value currently in the section data */
+							size_t offset = ELF64_R_SYM(relocations[i].r_info);
 							Elf64_Xword value = 0;
-							int valueSize = sizeOfRelocationValue(ELF64_R_TYPE(relocations[i].r_info));
-							fseek(f, shdr_this.sh_offset + relocations[i].r_offset, SEEK_SET);
-							switch (valueSize) {
-								case 8:
-									{
-										uint64_t val;
-										fread(&val, valueSize, 1, f);
-										value = val;
+							const char * symName = "(null)";
+							if (offset < shdr_symtab.sh_size) {
+								Elf64_Sym * this = &symtab[offset];
+
+								/* Get symbol name for this relocation */
+								if ((this->st_info & 0xF) == STT_SECTION) {
+									fseek(f, header.e_shoff + header.e_shentsize * this->st_shndx, SEEK_SET);
+									fread(&shdr, sizeof(Elf64_Shdr), 1, f);
+									symName = string_from_table(stringTable, shdr.sh_name);
+								} else {
+									symName = string_from_table(strtab, this->st_name);
+								}
+
+								/* Get the value currently in the section data */
+								int valueSize = sizeOfRelocationValue(ELF64_R_TYPE(relocations[i].r_info));
+								fseek(f, shdr_this.sh_offset + relocations[i].r_offset, SEEK_SET);
+								switch (valueSize) {
+									case 8:
+										{
+											uint64_t val;
+											fread(&val, valueSize, 1, f);
+											value = val;
+											break;
+										}
+									case 4:
+										{
+											uint32_t val;
+											fread(&val, valueSize, 1, f);
+											value = val;
+											break;
+										}
+									case 2:
+										{
+											uint16_t val;
+											fread(&val, valueSize, 1, f);
+											value = val;
+											break;
+										}
+									case 1:
+										{
+											uint8_t val;
+											fread(&val, valueSize, 1, f);
+											value = val;
+											break;
+										}
+									default:
 										break;
-									}
-								case 4:
-									{
-										uint32_t val;
-										fread(&val, valueSize, 1, f);
-										value = val;
-										break;
-									}
-								case 2:
-									{
-										uint16_t val;
-										fread(&val, valueSize, 1, f);
-										value = val;
-										break;
-									}
-								case 1:
-									{
-										uint8_t val;
-										fread(&val, valueSize, 1, f);
-										value = val;
-										break;
-									}
-								default:
-									break;
+								}
 							}
 
 							printf("%012lx  %012lx %-15.15s %016lx %s + %lx\n",
@@ -769,7 +796,7 @@ int main(int argc, char * argv[]) {
 				case SHT_SYMTAB:
 					if (show_bits & SHOW_SYMBOLS) {
 						printf("\nSymbol table '%s' contains %ld entries.\n",
-							stringTable + sectionHeader.sh_name,
+							string_from_table(stringTable, sectionHeader.sh_name),
 							sectionHeader.sh_size / sizeof(Elf64_Sym));
 						printf("   Num:    Value          Size Type    Bind   Vis      Ndx Name\n");
 
@@ -780,9 +807,7 @@ int main(int argc, char * argv[]) {
 						Elf64_Shdr shdr_strtab;
 						fseek(f, header.e_shoff + header.e_shentsize * sectionHeader.sh_link, SEEK_SET);
 						fread(&shdr_strtab, sizeof(Elf64_Shdr), 1, f);
-						char * strtab = malloc(shdr_strtab.sh_size);
-						fseek(f, shdr_strtab.sh_offset, SEEK_SET);
-						fread(strtab, shdr_strtab.sh_size, 1, f);
+						struct StringTable * strtab = load_string_table(f, &shdr_strtab);
 
 						for (unsigned int i = 0; i < sectionHeader.sh_size / sizeof(Elf64_Sym); ++i) {
 							printf("%6u: %016lx %6lu %-7.7s %-6.6s %-4d %6d %s\n",
@@ -791,7 +816,7 @@ int main(int argc, char * argv[]) {
 								symbolBindToStr(symtab[i].st_info >> 4),
 								symtab[i].st_other,
 								symtab[i].st_shndx,
-								strtab + symtab[i].st_name);
+								string_from_table(strtab, symtab[i].st_name));
 						}
 
 						free(strtab);
@@ -803,6 +828,8 @@ int main(int argc, char * argv[]) {
 
 			}
 		}
+
+		free(stringTable);
 	}
 
 	return out;
