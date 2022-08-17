@@ -177,10 +177,9 @@ def makeit():
             if cond <= 0:
                 while None not in self:
                     if '#' in self:
-                        for i in range(self.i):
-                            if self[-i-1] != ' ' and self[-i-1] != '\t':
-                                self.skip()
-                                continue
+                        if any(self[-i-1] != ' ' and self[-i-1] != '\t' for i in range(self.i)):
+                            self.skip()
+                            continue
                         self[1] = FLAG_PRAGMA
                         while ' ' in self:
                             self[1] = FLAG_PRAGMA
@@ -237,10 +236,10 @@ def makeit():
                 if '#' in self:
                     self[1] = FLAG_COMMENT
                     while ' ' in self or '\t' in self: self[1] = FLAG_COMMENT
-                    if self.matchAndPaint("if", FLAG_COMMENT, self.cKeywordQualifier):
+                    if self.findKeywords(["if","ifdef","ifndef"], FLAG_COMMENT, self.cKeywordQualifier):
                         self[-1] = FLAG_COMMENT
                         return self.state + 1
-                    else if self.matchAndPaint("else", FLAG_COMMENT, self.cKeywordQualifier) or self.matchAndPaint("elif", FLAG_COMMENT, self.cKeywordQualifier):
+                    else if self.findKeywords(["else","elif"], FLAG_COMMENT, self.cKeywordQualifier):
                         self[-1] = FLAG_COMMENT
                         if self.state == self.preprocessor_base_state: return 0
                         return self.state
