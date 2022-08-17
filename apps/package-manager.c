@@ -237,6 +237,10 @@ static void load_manifest(void) {
 		}
 		qsort(pkg_pointers, pkg_pointers_len, sizeof(struct Package *), comparator);
 	}
+
+	if (!pkg_pointers_len) {
+		system("showdialog 'Package Manager' '/usr/share/icons/48/package.png' 'No packages are available.' &");
+	}
 }
 
 static struct Package * get_package_at_offset(int offset) {
