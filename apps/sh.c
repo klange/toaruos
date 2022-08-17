@@ -779,7 +779,6 @@ static struct alternative cmd_alternatives[] = {
 	{"ip", ALT_NETIF},
 
 	/* Some random other stuff */
-	{"grep", "fgrep", "non-regex-capable grep"},
 	{"more", "bim -", "paging to a text editor"},
 	{"less", "bim -", "paging to a text editor"},
 
