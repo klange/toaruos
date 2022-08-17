@@ -286,7 +286,7 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 		return -EINVAL;
 	}
 
-	if (file->mask & 0x800) {
+	if ((file->mask & S_ISUID) && !(this_core->current_process->flags & (PROC_FLAG_TRACE_SYSCALLS | PROC_FLAG_TRACE_SIGNALS))) {
 		/* setuid */
 		this_core->current_process->user = file->uid;
 	}
