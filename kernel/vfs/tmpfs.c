@@ -406,6 +406,18 @@ static fs_node_t * finddir_tmpfs(fs_node_t * node, char * name) {
 	return NULL;
 }
 
+
+static int try_free_dir(struct tmpfs_dir * d) {
+	spin_lock(d->lock);
+	if (d->files && d->files->length != 0) {
+		spin_unlock(d->lock);
+		return 1;
+	}
+	free(d->files);
+	spin_unlock(d->lock);
+	return 0;
+}
+
 static int unlink_tmpfs(fs_node_t * node, char * name) {
 	struct tmpfs_dir * d = (struct tmpfs_dir *)node->device;
 	int i = -1, j = 0;
@@ -414,7 +426,14 @@ static int unlink_tmpfs(fs_node_t * node, char * name) {
 	foreach(f, d->files) {
 		struct tmpfs_file * t = (struct tmpfs_file *)f->value;
 		if (!strcmp(name, t->name)) {
-			tmpfs_file_free(t);
+			if (t->type == TMPFS_TYPE_DIR) {
+				if (try_free_dir((void*)t)) {
+					spin_unlock(d->lock);
+					return -ENOTEMPTY;
+				}
+			} else {
+				tmpfs_file_free(t);
+			}
 			free(t);
 			i = j;
 			break;
