@@ -164,7 +164,7 @@ long ptrace_signal(int signal, int reason) {
 	switch_task(0);
 
 	int signum = (this_core->current_process->status >> 8);
-	this_core->current_process->status = 0x7F;
+	this_core->current_process->status = 0;
 	return signum;
 }
 
@@ -184,7 +184,7 @@ static void signal_and_continue(pid_t pid, process_t * tracee, int sig) {
 	__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_SUSPENDED));
 
 	/* Does the process have a pending signal? */
-	if ((tracee->status >> 8) & 0xFF && !(tracee->status >> 16)) {
+	if ((tracee->status >> 8) & 0xFF && (!(tracee->status >> 16) || ((tracee->status >> 16) == 0xFF))) {
 		tracee->status = (sig << 8);
 		make_process_ready(tracee);
 	} else if (sig) {

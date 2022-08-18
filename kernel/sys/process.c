@@ -1030,7 +1030,7 @@ int waitpid(int pid, int * status, int options) {
 			if (status) {
 				*status = candidate->status;
 			}
-			candidate->status = 0;
+			candidate->status &= ~0xFF;
 			int pid = candidate->id;
 			if (is_parent && (candidate->flags & PROC_FLAG_FINISHED)) {
 				while (*((volatile int *)&candidate->flags) & PROC_FLAG_RUNNING);
