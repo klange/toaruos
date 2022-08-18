@@ -946,9 +946,8 @@ long sys_pipe(int pipes[2]) {
 }
 
 long sys_signal(long signum, uintptr_t handler) {
-	if (signum > NUMSIGNALS) {
-		return -EINVAL;
-	}
+	if (signum > NUMSIGNALS) return -EINVAL;
+	if (signum == SIGKILL || signum == SIGSTOP) return -EINVAL;
 	uintptr_t old = this_core->current_process->signals[signum].handler;
 	this_core->current_process->signals[signum].handler = handler;
 	this_core->current_process->signals[signum].flags = SA_RESTART;
@@ -957,9 +956,10 @@ long sys_signal(long signum, uintptr_t handler) {
 
 long sys_sigaction(int signum, struct sigaction *act, struct sigaction *oldact) {
 	if (act) PTRCHECK(act,sizeof(struct sigaction),0);
-	if (oldact) PTRCHECK(oldact,sizeof(struct sigaction),0);
+	if (oldact) PTRCHECK(oldact,sizeof(struct sigaction),MMU_PTR_WRITE);
 
 	if (signum > NUMSIGNALS) return -EINVAL;
+	if (signum == SIGKILL || signum == SIGSTOP) return -EINVAL;
 
 	if (oldact) {
 		oldact->sa_handler = (_sig_func_ptr)this_core->current_process->signals[signum].handler;
@@ -977,14 +977,14 @@ long sys_sigaction(int signum, struct sigaction *act, struct sigaction *oldact) 
 }
 
 long sys_sigpending(sigset_t * set) {
-	PTRCHECK(set,sizeof(sigset_t),0);
+	PTRCHECK(set,sizeof(sigset_t),MMU_PTR_WRITE);
 	*set = this_core->current_process->pending_signals;
 	return 0;
 }
 
 long sys_sigprocmask(int how, sigset_t *restrict set, sigset_t * restrict oset) {
 	if (oset) {
-		PTRCHECK(oset,sizeof(sigset_t),0);
+		PTRCHECK(oset,sizeof(sigset_t),MMU_PTR_WRITE);
 		*oset = this_core->current_process->blocked_signals;
 	}
 

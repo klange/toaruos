@@ -104,6 +104,8 @@ static void maybe_restart_system_call(struct regs * r, int signum) {
 	}
 }
 
+#define PENDING (this_core->current_process->pending_signals & ((~this_core->current_process->blocked_signals) | (1 << SIGSTOP) | (1 << SIGKILL)))
+
 /**
  * @brief Examine the pending signal and perform an appropriate action.
  *
@@ -157,7 +159,7 @@ int handle_signal(process_t * proc, int signum, struct regs *r) {
 
 			do {
 				switch_task(0);
-			} while (!(this_core->current_process->pending_signals & ~this_core->current_process->blocked_signals));
+			} while (!PENDING);
 
 			return 0; /* Return and handle another */
 		} else if (dowhat == SIG_DISP_Cont) {
@@ -182,7 +184,7 @@ _ignore_signal:
 
 	maybe_restart_system_call(r, signum);
 
-	return !(this_core->current_process->pending_signals & ~this_core->current_process->blocked_signals);
+	return !PENDING;
 }
 
 /**
@@ -234,7 +236,7 @@ int send_signal(pid_t process, int signal, int force_root) {
 		return 0;
 	}
 
-	if (receiver->blocked_signals & (1 << signal)) {
+	if ((receiver->blocked_signals & (1 << signal)) && signal != SIGKILL && signal != SIGSTOP) {
 		spin_lock(sig_lock);
 		receiver->pending_signals |= (1 << signal);
 		spin_unlock(sig_lock);
@@ -321,7 +323,7 @@ void process_check_signals(struct regs * r) {
 	spin_lock(sig_lock);
 	if (this_core->current_process && !(this_core->current_process->flags & PROC_FLAG_FINISHED)) {
 		/* Set an pending signals that were previously blocked */
-		sigset_t active_signals  = this_core->current_process->pending_signals & ~this_core->current_process->blocked_signals;
+		sigset_t active_signals  = PENDING;
 
 		int signal = 0;
 		while (active_signals && signal <= NUMSIGNALS)  {
@@ -351,7 +353,7 @@ void process_check_signals(struct regs * r) {
  */
 void return_from_signal_handler(struct regs *r) {
 	int signum = arch_return_from_signal_handler(r);
-	if (this_core->current_process->pending_signals & ~this_core->current_process->blocked_signals) {
+	if (PENDING) {
 		process_check_signals(r);
 	}
 	maybe_restart_system_call(r,signum);
