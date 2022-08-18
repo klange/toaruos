@@ -290,7 +290,7 @@ int main(int argc, char ** argv) {
 	optind++;
 
 
-	int showFilenames = (optind + 1 != argc);
+	int showFilenames = (optind + 1 < argc);
 
 	do {
 		FILE * input = stdin;
