@@ -1008,6 +1008,11 @@ long sys_sigprocmask(int how, sigset_t *restrict set, sigset_t * restrict oset) 
 	return 0;
 }
 
+long sys_sigsuspend_cur(void) {
+	switch_task(0);
+	return -EINTR;
+}
+
 long sys_fswait(int c, int fds[]) {
 	PTR_VALIDATE(fds);
 	if (!fds) return -EFAULT;
@@ -1218,6 +1223,7 @@ static long (*syscalls[])() = {
 	[SYS_SIGACTION]    = sys_sigaction,
 	[SYS_SIGPENDING]   = sys_sigpending,
 	[SYS_SIGPROCMASK]  = sys_sigprocmask,
+	[SYS_SIGSUSPEND]   = sys_sigsuspend_cur,
 
 	[SYS_SOCKET]       = net_socket,
 	[SYS_SETSOCKOPT]   = net_setsockopt,
