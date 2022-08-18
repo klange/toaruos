@@ -352,6 +352,7 @@ void draw_prompt(void) {
 volatile int break_while = 0;
 pid_t suspended_pgid = 0;
 hashmap_t * job_hash = NULL;
+hashmap_t * desc_hash = NULL;
 
 void sig_break_loop(int sig) {
 	/* Interrupt handler */
@@ -827,47 +828,6 @@ int is_number(const char * c) {
 	return 1;
 }
 
-static char * _strsignal(int sig) {
-	static char str[256];
-	memset(str, 0, sizeof(str));
-	switch (sig) {
-		case SIGILL:
-			sprintf(str, "Illegal instruction");
-			break;
-		case SIGSEGV:
-			sprintf(str, "Segmentation fault");
-			break;
-		case SIGTERM:
-			sprintf(str, "Terminated");
-			break;
-		case SIGQUIT:
-			sprintf(str, "Quit");
-			break;
-		case SIGKILL:
-			sprintf(str, "Killed");
-			break;
-		case SIGHUP:
-			sprintf(str, "Hangup");
-			break;
-		case SIGUSR1:
-			sprintf(str, "User defined signal 1");
-			break;
-		case SIGUSR2:
-			sprintf(str, "User defined signal 2");
-			break;
-		case SIGINT:
-			sprintf(str, "Interrupt");
-			break;
-		case SIGPIPE:
-			sprintf(str, "Broken pipe");
-			break;
-		default:
-			sprintf(str, "Killed by unhandled signal %d",sig);
-			break;
-	}
-	return str;
-}
-
 /**
  * Prints "Segmentation fault", etc.
  */
@@ -878,7 +838,7 @@ static void handle_status(int ret_code) {
 			fprintf(stderr, "\n");
 			return;
 		}
-		char * str = _strsignal(sig);
+		char * str = strsignal(sig);
 		if (shell_interactive == 1) {
 			fprintf(stderr, "%s\n", str);
 		} else if (shell_interactive == 2) {
@@ -886,6 +846,8 @@ static void handle_status(int ret_code) {
 		}
 	}
 }
+
+static void describe_job(pid_t pid);
 
 int wait_for_child(int pgid, char * name, int retpid) {
 	int waitee = (shell_interactive == 1 && !is_subshell) ? -pgid : pgid;
@@ -904,20 +866,27 @@ int wait_for_child(int pgid, char * name, int retpid) {
 		if (WIFSTOPPED(ret_code)) {
 			suspended_pgid = pgid;
 			if (name) {
-				hashmap_set(job_hash, (void*)(intptr_t)pgid, strdup(name));
+				void * old = hashmap_set(job_hash, (void*)(intptr_t)pgid, strdup(name));
+				if (old) free(old);
 			}
+			void * old = hashmap_set(desc_hash, (void*)(intptr_t)pgid, strdup(WSTOPSIG(ret_code) ? strsignal(WSTOPSIG(ret_code)) : "Stopped"));
+			if (old) free(old);
 			_stopped = 1;
 			break;
 		} else {
 			suspended_pgid = 0;
 			if (hashmap_has(job_hash, (void*)(intptr_t)pgid)) {
 				hashmap_remove(job_hash, (void*)(intptr_t)pgid);
+				hashmap_remove(desc_hash, (void*)(intptr_t)pgid);
 			}
 		}
 	} while (outpid != -1 || (outpid == -1 && e != ECHILD));
 	reset_pgrp();
 	handle_status(ret_code_real);
-	if (_stopped && shell_interactive) fprintf(stderr, "[%d] Stopped\t\t%s\n", pgid, (char*)hashmap_get(job_hash, (void*)(intptr_t)pgid));
+	if (_stopped && shell_interactive) {
+		fprintf(stderr, "\n");
+		describe_job(pgid);
+	}
 	return WEXITSTATUS(ret_code_real);
 }
 
@@ -1705,6 +1674,7 @@ int main(int argc, char ** argv) {
 	srand(getpid() + time(0));
 
 	job_hash = hashmap_create_int(10);
+	desc_hash = hashmap_create_int(10);
 
 	getuser();
 	gethost();
@@ -1772,13 +1742,13 @@ int main(int argc, char ** argv) {
 			int pid = (intptr_t)node->value;
 			int status = 0;
 			if (waitpid(-pid, &status, WNOHANG) > 0) {
-				char * desc = "Done";
-				if (WTERMSIG(status) != 0) {
-					desc = _strsignal(WTERMSIG(status));
-				}
-				fprintf(stderr, "[%d] %s\t\t%s\n", pid, desc, (char*)hashmap_get(job_hash, (void*)(intptr_t)pid));
+				char * desc = strdup(WTERMSIG(status) ? strsignal(WTERMSIG(status)) : "Done");
+				void * old = hashmap_set(desc_hash, (void*)(intptr_t)pid, desc);
+				if (old) free(old);
+				describe_job(pid);
 				if (hashmap_has(job_hash, (void*)(intptr_t)pid)) {
 					hashmap_remove(job_hash, (void*)(intptr_t)pid);
+					hashmap_remove(desc_hash, (void*)(intptr_t)pid);
 				}
 			}
 		}
@@ -2235,11 +2205,16 @@ uint32_t shell_cmd_fg(int argc, char * argv[]) {
 		fprintf(stderr, "no current job / bad pid\n");
 		if (hashmap_has(job_hash, (void*)(intptr_t)pid)) {
 			hashmap_remove(job_hash, (void*)(intptr_t)pid);
+			hashmap_remove(desc_hash, (void*)(intptr_t)pid);
 		}
 		return 1;
 	}
 
 	return wait_for_child(pid, NULL, pid);
+}
+
+static void describe_job(pid_t pid) {
+	fprintf(stderr, "[%d] %s\t\t%s\n", pid, (char*)hashmap_get(desc_hash, (void*)(intptr_t)pid), (char*)hashmap_get(job_hash, (void*)(intptr_t)pid));
 }
 
 uint32_t shell_cmd_bg(int argc, char * argv[]) {
@@ -2253,11 +2228,12 @@ uint32_t shell_cmd_bg(int argc, char * argv[]) {
 		fprintf(stderr, "no current job / bad pid\n");
 		if (hashmap_has(job_hash, (void*)(intptr_t)pid)) {
 			hashmap_remove(job_hash, (void*)(intptr_t)pid);
+			hashmap_remove(desc_hash, (void*)(intptr_t)pid);
 		}
 		return 1;
 	}
 
-	fprintf(stderr, "[%d] %s\n", pid, (char*)hashmap_get(job_hash, (void*)(intptr_t)pid));
+	describe_job(pid);
 	return 0;
 }
 
@@ -2265,8 +2241,7 @@ uint32_t shell_cmd_jobs(int argc, char * argv[]) {
 	list_t * keys = hashmap_keys(job_hash);
 	foreach(node, keys) {
 		int pid = (intptr_t)node->value;
-		char * c = hashmap_get(job_hash, (void*)(intptr_t)pid);
-		fprintf(stdout, "%5d %s\n", pid, c);
+		describe_job(pid);
 	}
 	list_free(keys);
 	free(keys);
