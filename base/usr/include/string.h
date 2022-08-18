@@ -52,6 +52,9 @@ extern char * strncpy(char *dest, const char *src, size_t n);
 extern char * strerror(int errnum);
 extern size_t strxfrm(char *dest, const char *src, size_t n);
 
+extern char * strsignal(int sign);
+extern const char * const sys_siglist[];
+
 _End_C_Header
 
 #include <strings.h>

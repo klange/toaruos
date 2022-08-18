@@ -37,7 +37,6 @@
 #define SIGHATE     34 /* The sending process does not like you */
 #define SIGWINEVENT 35 /* Window server event */
 #define SIGCAT      36 /* Everybody loves cats */
-
 #define SIGTTOU     37
 
 #define NUMSIGNALS  38
