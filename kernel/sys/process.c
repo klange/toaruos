@@ -996,9 +996,9 @@ int waitpid(int pid, int * status, int options) {
 					candidate = child;
 					break;
 				}
-				if (child->flags & PROC_FLAG_SUSPENDED) {
-					int status = child->status;
-					if (((options & WSTOPPED) && (status & 0x7F) == 0x7F) || ((options & WUNTRACED) && status == 0x7F)) {
+				if ((child->flags & PROC_FLAG_SUSPENDED) && ((child->status & 0xFF) == 0x7F)) {
+					int reason = (child->status >> 16) & 0xFF;
+					if ((options & WSTOPPED) || (reason == 0xFF && (options & WUNTRACED))) {
 						candidate = child;
 						break;
 					}

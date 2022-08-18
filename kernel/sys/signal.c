@@ -72,6 +72,7 @@ static char sig_defaults[] = {
 	[SIGCONT    ] = SIG_DISP_Cont,
 	[SIGTTIN    ] = SIG_DISP_Stop,
 	[SIGTTOUT   ] = SIG_DISP_Stop,
+	[SIGTTOU    ] = SIG_DISP_Stop,
 	[SIGVTALRM  ] = SIG_DISP_Term,
 	[SIGPROF    ] = SIG_DISP_Term,
 	[SIGXCPU    ] = SIG_DISP_Core,
@@ -149,7 +150,7 @@ int handle_signal(process_t * proc, int signum, struct regs *r) {
 			__builtin_unreachable();
 		} else if (dowhat == SIG_DISP_Stop) {
 			__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_SUSPENDED);
-			this_core->current_process->status = 0x7F;
+			this_core->current_process->status = 0x7F | (signum << 8) | 0xFF0000;
 
 			process_t * parent = process_get_parent((process_t *)this_core->current_process);
 
