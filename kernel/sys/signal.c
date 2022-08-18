@@ -294,6 +294,7 @@ int group_send_signal(pid_t group, int signal, int force_root) {
  * @param r Userspace registers before signal entry.
  */
 void process_check_signals(struct regs * r) {
+_tryagain:
 	spin_lock(sig_lock);
 	if (this_core->current_process && !(this_core->current_process->flags & PROC_FLAG_FINISHED)) {
 		/* Set an pending signals that were previously blocked */
@@ -305,7 +306,7 @@ void process_check_signals(struct regs * r) {
 				this_core->current_process->pending_signals &= ~(1 << signal);
 				spin_unlock(sig_lock);
 				if (handle_signal((process_t*)this_core->current_process, signal, r)) return;
-				spin_lock(sig_lock);
+				goto _tryagain;
 			}
 			active_signals >>= 1;
 			signal++;

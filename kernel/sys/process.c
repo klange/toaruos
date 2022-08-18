@@ -996,9 +996,12 @@ int waitpid(int pid, int * status, int options) {
 					candidate = child;
 					break;
 				}
-				if ((options & WSTOPPED) && child->flags & PROC_FLAG_SUSPENDED) {
-					candidate = child;
-					break;
+				if (child->flags & PROC_FLAG_SUSPENDED) {
+					int status = child->status;
+					if (((options & WSTOPPED) && (status & 0x7F) == 0x7F) || ((options & WUNTRACED) && status == 0x7F)) {
+						candidate = child;
+						break;
+					}
 				}
 			}
 		}
@@ -1027,6 +1030,7 @@ int waitpid(int pid, int * status, int options) {
 			if (status) {
 				*status = candidate->status;
 			}
+			candidate->status = 0;
 			int pid = candidate->id;
 			if (is_parent && (candidate->flags & PROC_FLAG_FINISHED)) {
 				while (*((volatile int *)&candidate->flags) & PROC_FLAG_RUNNING);
