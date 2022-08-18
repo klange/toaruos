@@ -1013,6 +1013,19 @@ long sys_sigsuspend_cur(void) {
 	return -EINTR;
 }
 
+long sys_sigwait(sigset_t * set, int * sig) {
+	PTRCHECK(set,sizeof(sigset_t),0);
+	PTRCHECK(sig,sizeof(int),MMU_PTR_WRITE);
+
+	/* Silently ignore attempts to wait on KILL or STOP */
+	sigset_t awaited = *set & ~((1 << SIGKILL) | (1 << SIGSTOP));
+
+	/* Don't let processes wait on unblocked signals */
+	if (awaited & ~this_core->current_process->blocked_signals) return -EINVAL;
+
+	return signal_await(awaited, sig);
+}
+
 long sys_fswait(int c, int fds[]) {
 	PTR_VALIDATE(fds);
 	if (!fds) return -EFAULT;
@@ -1224,6 +1237,7 @@ static long (*syscalls[])() = {
 	[SYS_SIGPENDING]   = sys_sigpending,
 	[SYS_SIGPROCMASK]  = sys_sigprocmask,
 	[SYS_SIGSUSPEND]   = sys_sigsuspend_cur,
+	[SYS_SIGWAIT]      = sys_sigwait,
 
 	[SYS_SOCKET]       = net_socket,
 	[SYS_SETSOCKOPT]   = net_setsockopt,

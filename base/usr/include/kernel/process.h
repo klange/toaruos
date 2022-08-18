@@ -138,7 +138,7 @@ typedef struct process {
 	struct signal_config signals[NUMSIGNALS+1];
 	sigset_t blocked_signals;
 	sigset_t pending_signals;
-	sigset_t active_signals;
+	sigset_t awaited_signals;
 
 	int supplementary_group_count;
 	gid_t * supplementary_group_list;

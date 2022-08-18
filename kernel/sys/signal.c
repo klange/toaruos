@@ -204,60 +204,34 @@ _ignore_signal:
 int send_signal(pid_t process, int signal, int force_root) {
 	process_t * receiver = process_from_pid(process);
 
-	if (!receiver) {
-		/* Invalid pid */
-		return -ESRCH;
+	if (!receiver) return -ESRCH;
+	if (!force_root && receiver->user != this_core->current_process->user && this_core->current_process->user != USER_ROOT_UID &&
+		!(signal == SIGCONT && receiver->session == this_core->current_process->session)) return -EPERM;
+	if (receiver->flags & PROC_FLAG_IS_TASKLET) return -EPERM;
+	if (signal > NUMSIGNALS) return -EINVAL;
+	if (receiver->flags & PROC_FLAG_FINISHED) return -ESRCH;
+	if (signal == 0) return 0;
+
+	int awaited = receiver->awaited_signals & (1 << signal);
+	int ignored = !receiver->signals[signal].handler && !sig_defaults[signal];
+	int blocked = (receiver->blocked_signals & (1 << signal)) && signal != SIGKILL && signal != SIGSTOP;
+
+	/* sigcont always unsuspends */
+	if (sig_defaults[signal] == SIG_DISP_Cont && (receiver->flags & PROC_FLAG_SUSPENDED)) {
+		__sync_and_and_fetch(&receiver->flags, ~(PROC_FLAG_SUSPENDED));
+		receiver->status = 0;
 	}
 
-	if (!force_root && receiver->user != this_core->current_process->user && this_core->current_process->user != USER_ROOT_UID) {
-		if (!(signal == SIGCONT && receiver->session == this_core->current_process->session)) {
-			return -EPERM;
-		}
-	}
+	/* Do nothing if the signal is not being waited for or blocked and the default disposition is to ignore. */
+	if (!awaited && !blocked && ignored) return 0;
 
-	if (receiver->flags & PROC_FLAG_IS_TASKLET) {
-		/* Can not send signals to kernel tasklets */
-		return -EINVAL;
-	}
-
-	if (signal > NUMSIGNALS) {
-		/* Invalid signal */
-		return -EINVAL;
-	}
-
-	if (receiver->flags & PROC_FLAG_FINISHED) {
-		/* Can't send signals to finished processes */
-		return -EINVAL;
-	}
-
-	if (!receiver->signals[signal].handler && !sig_defaults[signal]) {
-		/* If there is no handler for a signal and its default disposition is IGNORE,
-		 * we don't even bother sending it, to avoid having to interrupt + restart system calls. */
-		return 0;
-	}
-
-	if ((receiver->blocked_signals & (1 << signal)) && signal != SIGKILL && signal != SIGSTOP) {
-		spin_lock(sig_lock);
-		receiver->pending_signals |= (1 << signal);
-		spin_unlock(sig_lock);
-		return 0;
-	}
-
-	if (sig_defaults[signal] == SIG_DISP_Cont) {
-		/* XXX: I'm not sure this check is necessary? And the SUSPEND flag flip probably
-		 *      should be on the receiving end. */
-		if (!(receiver->flags & PROC_FLAG_SUSPENDED)) {
-			return -EINVAL;
-		} else {
-			__sync_and_and_fetch(&receiver->flags, ~(PROC_FLAG_SUSPENDED));
-			receiver->status = 0;
-		}
-	}
-
-	/* Append signal to list */
+	/* Mark the signal for delivery. */
 	spin_lock(sig_lock);
 	receiver->pending_signals |= (1 << signal);
 	spin_unlock(sig_lock);
+
+	/* If the signal is blocked and not being awaited, end here. */
+	if (blocked && !awaited) return 0;
 
 	/* Informs any blocking events that the process has been interrupted
 	 * by a signal, which should trigger those blocking events to complete
@@ -358,3 +332,63 @@ void return_from_signal_handler(struct regs *r) {
 	}
 	maybe_restart_system_call(r,signum);
 }
+
+/**
+ * @brief Synchronously wait for specified signals to become pending.
+ *
+ * The signals in @c awaited are set as the current "awaited set". Delivery
+ * of these signals will ignore the blocked and ignored states and always
+ * result in the process be awoken with the signal marked pending if it is
+ * sleeping. When the process awakens from @c switch_task the awaiting set
+ * will be cleared.
+ *
+ * If no unblocked signal is pending and an awaited, blocked signal is pending,
+ * its signal number will be placed in @p sig and it will be unmarked as
+ * pending, returning 0. If a unblocked signal is received, @c -EINTR is
+ * returned, and under normal circumstances the caller should raise this
+ * return status up and allow normal signal handling to occur.
+ *
+ * Otherwise, if the process is reawoken by some other means and no unblocked
+ * signals or awaited signals are pending, it will apply the awaited set and
+ * sleep again. This will repeat until either of these conditions are met.
+ *
+ * If a signal specified in @p awaited is not currently blocked, but is pending
+ * upon entering signal_await, it will be marked as not pending and the call
+ * will return immediately; if an unblocked signal is not pending, it will not
+ * be awaited: signal_await will return with -EINTR.
+ *
+ * @param awaited Signals to wait for, should all be blocked by caller.
+ * @param sig     Will be set to the awaited signal, if one arrives.
+ * @returns 0 if an awaited signal arrives, -EINTR if another signal arrives.
+ */
+int signal_await(sigset_t awaited, int * sig) {
+	do {
+		sigset_t maybe = awaited & this_core->current_process->pending_signals;
+		if (maybe) {
+			int signal = 0;
+			while (maybe && signal <= NUMSIGNALS) {
+				if (maybe & 1) {
+					spin_lock(sig_lock);
+					this_core->current_process->pending_signals &= ~(1 << signal);
+					*sig = signal;
+					spin_unlock(sig_lock);
+					return 0;
+				}
+				maybe >>= 1;
+				signal++;
+			}
+		}
+
+		/* Set awaited signals */
+		this_core->current_process->awaited_signals = awaited;
+
+		/* Sleep */
+		switch_task(0);
+
+		/* Unset awaited signals. */
+		this_core->current_process->awaited_signals = 0;
+	} while (!PENDING);
+
+	return -EINTR;
+}
+

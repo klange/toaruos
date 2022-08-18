@@ -15,3 +15,18 @@ int sigsuspend(const sigset_t * restrict set) {
 	return ret;
 }
 
+DEFN_SYSCALL2(sigwait,SYS_SIGWAIT,const sigset_t *,int *);
+
+int sigwait(const sigset_t * set, int * sig) {
+	int res;
+	do {
+		res = syscall_sigwait(set,sig);
+	} while (res == -EINTR);
+
+	if (res < 0) {
+		res = -res;
+		errno = res;
+	}
+
+	return res;
+}
