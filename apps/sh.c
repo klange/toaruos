@@ -874,7 +874,10 @@ static char * _strsignal(int sig) {
 static void handle_status(int ret_code) {
 	if (WIFSIGNALED(ret_code)) {
 		int sig = WTERMSIG(ret_code);
-		if (sig == SIGINT || sig == SIGPIPE) return;
+		if (sig == SIGINT || sig == SIGPIPE) {
+			fprintf(stderr, "\n");
+			return;
+		}
 		char * str = _strsignal(sig);
 		if (shell_interactive == 1) {
 			fprintf(stderr, "%s\n", str);
@@ -890,6 +893,7 @@ int wait_for_child(int pgid, char * name, int retpid) {
 	int ret_code = 0;
 	int ret_code_real = 0;
 	int e;
+	int _stopped = 0;
 
 	do {
 		outpid = waitpid(waitee, &ret_code, WSTOPPED);
@@ -902,7 +906,7 @@ int wait_for_child(int pgid, char * name, int retpid) {
 			if (name) {
 				hashmap_set(job_hash, (void*)(intptr_t)pgid, strdup(name));
 			}
-			fprintf(stderr, "[%d] Stopped\t\t%s\n", pgid, (char*)hashmap_get(job_hash, (void*)(intptr_t)pgid));
+			_stopped = 1;
 			break;
 		} else {
 			suspended_pgid = 0;
@@ -913,6 +917,7 @@ int wait_for_child(int pgid, char * name, int retpid) {
 	} while (outpid != -1 || (outpid == -1 && e != ECHILD));
 	reset_pgrp();
 	handle_status(ret_code_real);
+	if (_stopped && shell_interactive) fprintf(stderr, "[%d] Stopped\t\t%s\n", pgid, (char*)hashmap_get(job_hash, (void*)(intptr_t)pgid));
 	return WEXITSTATUS(ret_code_real);
 }
 

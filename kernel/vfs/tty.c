@@ -146,7 +146,6 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 			if (pty->tios.c_lflag & ECHO) {
 				output_process(pty, '^');
 				output_process(pty, ('@' + c) % 128);
-				output_process(pty, '\n');
 			}
 			clear_input_buffer(pty);
 			if (pty->fg_proc) {
