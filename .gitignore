@@ -26,6 +26,7 @@
 /base/usr/bin/*
 /base/usr/lib/*
 /base/lib/kuroko/*
+/base/usr/share/games/doom
 /.make/
 /cdrom
 /fatbase
