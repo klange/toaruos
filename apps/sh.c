@@ -11,10 +11,10 @@
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2018 K. Lange
+ * Copyright (C) 2013-2022 K. Lange
  */
 #define _XOPEN_SOURCE 500
-#define _POSIX_C_SOURCE 200112L
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <ctype.h>
+#include <wchar.h>
 
 #include <sys/time.h>
 #include <sys/times.h>
@@ -174,6 +175,63 @@ void gethost() {
 	memcpy(_hostname, buf.nodename, len+1);
 }
 
+#define UTF8_ACCEPT 0
+#define UTF8_REJECT 1
+static inline uint32_t decode(uint32_t* state, uint32_t* codep, uint32_t byte) {
+	static int state_table[32] = {
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0xxxxxxx */
+		1,1,1,1,1,1,1,1,                 /* 10xxxxxx */
+		2,2,2,2,                         /* 110xxxxx */
+		3,3,                             /* 1110xxxx */
+		4,                               /* 11110xxx */
+		1                                /* 11111xxx */
+	};
+
+	static int mask_bytes[32] = {
+		0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,
+		0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,
+		0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+		0x1F,0x1F,0x1F,0x1F,
+		0x0F,0x0F,
+		0x07,
+		0x00
+	};
+
+	static int next[5] = {
+		0,
+		1,
+		0,
+		2,
+		3
+	};
+
+	if (*state == UTF8_ACCEPT) {
+		*codep = byte & mask_bytes[byte >> 3];
+		*state = state_table[byte >> 3];
+	} else if (*state > 0) {
+		*codep = (byte & 0x3F) | (*codep << 6);
+		*state = next[*state];
+	}
+	return *state;
+}
+
+int display_width_of_string(const char * str) {
+	uint8_t * s = (uint8_t *)str;
+
+	int out = 0;
+	uint32_t c, state = 0;
+	while (*s) {
+		if (!decode(&state, &c, *s)) {
+			out += wcwidth(c);
+		} else if (state == UTF8_REJECT) {
+			state = 0;
+		}
+		s++;
+	}
+
+	return out;
+}
+
 void print_extended_ps(char * format, char * buffer, int * display_width) {
 	/* Get the time */
 	struct tm * timeinfo;
@@ -208,7 +266,8 @@ void print_extended_ps(char * format, char * buffer, int * display_width) {
 
 	size_t offset = 0;
 	int is_visible = 1;
-	*display_width = 0;
+	char dispchars[1024] = {0};
+	char * dispout = dispchars;
 
 	while (*format) {
 		if (*format == '\\') {
@@ -216,7 +275,7 @@ void print_extended_ps(char * format, char * buffer, int * display_width) {
 			switch (*format) {
 				case '\\':
 					buffer[offset++] = *format;
-					(*display_width) += is_visible ? 1 : 0;
+					if (is_visible) *dispout++ = *format;
 					format++;
 					break;
 				case '[':
@@ -249,19 +308,19 @@ void print_extended_ps(char * format, char * buffer, int * display_width) {
 							}
 						}
 						buffer[offset++] = i;
-						(*display_width) += is_visible ? 1 : 0;
+						if (is_visible) *dispout++ = i;
 					}
 					break;
 				case 'e':
 					buffer[offset++] = '\033';
-					(*display_width) += is_visible ? 1 : 0;
+					if (is_visible) *dispout++ = '\033';
 					format++;
 					break;
 				case 'd':
 					{
 						int size = sprintf(buffer+offset, "%s", date_buffer);
 						offset += size;
-						(*display_width) += is_visible ? size : 0;
+						if (is_visible) { dispout += sprintf(dispout, "%s", date_buffer); }
 					}
 					format++;
 					break;
@@ -269,7 +328,7 @@ void print_extended_ps(char * format, char * buffer, int * display_width) {
 					{
 						int size = sprintf(buffer+offset, "%s", time_buffer);
 						offset += size;
-						(*display_width) += is_visible ? size : 0;
+						if (is_visible) { dispout += sprintf(dispout, "%s", time_buffer); }
 					}
 					format++;
 					break;
@@ -277,7 +336,7 @@ void print_extended_ps(char * format, char * buffer, int * display_width) {
 					{
 						int size = sprintf(buffer+offset, "%s", _hostname);
 						offset += size;
-						(*display_width) += is_visible ? size : 0;
+						if (is_visible) { dispout += sprintf(dispout, "%s", _hostname); }
 					}
 					format++;
 					break;
@@ -285,7 +344,7 @@ void print_extended_ps(char * format, char * buffer, int * display_width) {
 					{
 						int size = sprintf(buffer+offset, "%s", username);
 						offset += size;
-						(*display_width) += is_visible ? size : 0;
+						if (is_visible) { dispout += sprintf(dispout, "%s", username); }
 					}
 					format++;
 					break;
@@ -293,13 +352,13 @@ void print_extended_ps(char * format, char * buffer, int * display_width) {
 					{
 						int size = sprintf(buffer+offset, "%s", _cwd);
 						offset += size;
-						(*display_width) += is_visible ? size : 0;
+						if (is_visible) { dispout += sprintf(dispout, "%s", _cwd); }
 					}
 					format++;
 					break;
 				case '$':
 					buffer[offset++] = (getuid() == 0 ? '#' : '$');
-					(*display_width) += is_visible ? 1 : 0;
+					if (is_visible) *dispout++ = (getuid() == 0 ? '#' : '$');
 					format++;
 					break;
 				case 'U': /* prompt color string */
@@ -314,7 +373,7 @@ void print_extended_ps(char * format, char * buffer, int * display_width) {
 					{
 						int size = sprintf(buffer+offset, "%s", ret);
 						offset += size;
-						(*display_width) += is_visible ? size : 0;
+						if (is_visible) { dispout += sprintf(dispout, "%s", ret); }
 					}
 					format++;
 					break;
@@ -322,31 +381,21 @@ void print_extended_ps(char * format, char * buffer, int * display_width) {
 					{
 						int size = sprintf(buffer+offset, "\\%c", *format);
 						offset += size;
-						(*display_width) += is_visible ? size : 0;
+						if (is_visible) { dispout += sprintf(dispout, "\\%c", *format); }
 					}
 					format++;
 					break;
 			}
 		} else {
 			buffer[offset++] = *format;
-			(*display_width) += is_visible ? 1 : 0;
+			if (is_visible) *dispout++ = *format;
 			format++;
 		}
 	}
 
+	*display_width = display_width_of_string(dispchars);
+
 	buffer[offset] = '\0';
-}
-
-#define FALLBACK_PS1 "\\u@\\h \\w\\$ "
-
-/* Draw the user prompt */
-void draw_prompt(void) {
-	char * ps1 = getenv("PS1");
-	char buf[1024];
-	int display_width;
-	print_extended_ps(ps1 ? ps1 : FALLBACK_PS1, buf, &display_width);
-	fprintf(stdout, "%s", buf);
-	fflush(stdout);
 }
 
 volatile int break_while = 0;
@@ -712,6 +761,7 @@ void add_environment(list_t * env) {
 	}
 }
 
+#define FALLBACK_PS1 "\\u@\\h \\w\\$ "
 int read_entry(char * buffer) {
 	char lprompt[1024], rprompt[1024];
 	int lwidth, rwidth;
