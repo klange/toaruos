@@ -609,6 +609,85 @@ static void draw_semi_block(int c, int x, int y, uint32_t fg, uint32_t bg) {
 
 #include "apps/ununicode.h"
 
+struct GlyphCacheEntry {
+	struct TT_Font * font;
+	sprite_t * sprite;
+	uint32_t size;
+	uint32_t glyph;
+	uint32_t color;
+};
+
+static struct GlyphCacheEntry glyph_cache[1024];
+static unsigned long _hits = 0;
+static unsigned long _misses = 0;
+static unsigned long _wrongcolor = 0;
+
+static void _menu_action_cache_stats(struct MenuEntry * self) {
+	char msg[400];
+
+	unsigned long count = 0;
+	unsigned long size = 0;
+
+	for (int i = 0; i < 1024; ++i) {
+		if (glyph_cache[i].sprite) {
+			count++;
+			size += glyph_cache[i].sprite->width * glyph_cache[i].sprite->height * 4;
+		}
+	}
+
+	snprintf(msg, 400,
+		"Hits: %lu\n"
+		"Misses: %lu\n"
+		"Wrong color: %lu\n"
+		"Populated cache entries: %lu\n"
+		"Size of sprites: %lu\n",
+		_hits, _misses, _wrongcolor, count, size);
+
+	write(fd_slave, msg, strlen(msg));
+}
+
+static void _menu_action_clear_cache(struct MenuEntry * self) {
+	for (int i = 0; i < 1024; ++i) {
+		if (glyph_cache[i].sprite) {
+			sprite_free(glyph_cache[i].sprite);
+		}
+	}
+	memset(glyph_cache,0,sizeof(glyph_cache));
+}
+
+static void draw_cached_glyph(gfx_context_t * ctx, struct TT_Font * _font, uint32_t size, int x, int y, uint32_t glyph, uint32_t fg, int flags) {
+	unsigned int hash = (((uintptr_t)_font >> 8) ^ (glyph * size)) & 1023;
+
+	struct GlyphCacheEntry * entry = &glyph_cache[hash];
+
+	if (entry->font != _font || entry->size != size || entry->glyph != glyph) {
+		if (entry->sprite) sprite_free(entry->sprite);
+		int wide = (flags & ANSI_WIDE) ? 2 : 1;
+		tt_set_size(_font, size);
+
+		entry->font = _font;
+		entry->size = size;
+		entry->glyph = glyph;
+		entry->sprite = create_sprite(char_width * wide, char_height, ALPHA_EMBEDDED);
+		entry->color = _ALP(fg) == 255 ? fg : 0xFFFFFFFF;
+
+		gfx_context_t * _ctx = init_graphics_sprite(entry->sprite);
+		draw_fill(_ctx, 0);
+		tt_draw_glyph(_ctx, entry->font, 0, char_offset, glyph, entry->color);
+		free(_ctx);
+		_misses++;
+	} else {
+		_hits++;
+	}
+
+	if (entry->color != fg) {
+		_wrongcolor++;
+		draw_sprite_alpha_paint(ctx, entry->sprite, x, y, 1.0, fg);
+	} else {
+		draw_sprite(ctx, entry->sprite, x, y);
+	}
+}
+
 /* Write a character to the window. */
 static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, uint32_t bg, uint8_t flags) {
 	uint32_t _fg, _bg;
@@ -695,10 +774,9 @@ static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, u
 			}
 		}
 
-		tt_set_size(_font, font_size);
 		int _x = x + decor_left_width;
-		int _y = y + char_offset + decor_top_height + menu_bar_height;
-		tt_draw_glyph(ctx, _font, _x, _y, glyph, _fg);
+		int _y = y + decor_top_height + menu_bar_height;
+		draw_cached_glyph(ctx, _font, font_size, _x,_y, glyph, _fg, flags);
 	} else {
 		/* Convert other unicode characters. */
 		if (val > 128) {
@@ -2431,6 +2509,11 @@ int main(int argc, char ** argv) {
 	menu_set_insert(terminal_menu_bar.set, "zoom", m);
 
 	m = menu_create();
+	menu_insert(m, menu_create_normal(NULL, NULL, "View stats", _menu_action_cache_stats));
+	menu_insert(m, menu_create_normal(NULL, NULL, "Clear cache", _menu_action_clear_cache));
+	menu_set_insert(terminal_menu_bar.set, "cache", m);
+
+	m = menu_create();
 	_menu_toggle_borders_bar = menu_create_normal(_no_frame ? NULL : "check", NULL, "Show borders", _menu_action_hide_borders);
 	menu_insert(m, _menu_toggle_borders_bar);
 	menu_insert(m, menu_create_submenu(NULL,"zoom","Set zoom..."));
@@ -2439,6 +2522,7 @@ int main(int argc, char ** argv) {
 	menu_insert(m, menu_create_normal(_free_size ? NULL : "check", NULL, "Snap to Cell Size", _menu_action_toggle_free_size));
 	menu_insert(m, menu_create_separator());
 	menu_insert(m, menu_create_normal(NULL, NULL, "Redraw", _menu_action_redraw));
+	menu_insert(m, menu_create_submenu(NULL,"cache","Glyph cache..."));
 	menu_set_insert(terminal_menu_bar.set, "view", m);
 
 	m = menu_create();
