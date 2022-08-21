@@ -120,10 +120,11 @@ yutani_msg_t * yutani_poll(yutani_t * y) {
 		return out;
 	}
 
-	size_t size;
+	ssize_t size;
 	{
 		char tmp[MAX_PACKET_SIZE];
 		size = pex_recv(y->sock, tmp);
+		if (size <= 0) return NULL;
 		out = malloc(size);
 		memcpy(out, tmp, size);
 	}
