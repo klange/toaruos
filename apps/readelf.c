@@ -23,7 +23,7 @@
 #ifdef __toaru__
 #include <kernel/elf.h>
 #else
-#include "base/usr/include/kernel/elf.h"
+#include "../base/usr/include/kernel/elf.h"
 #endif
 
 #define SHOW_FILE_HEADER      0x0001
@@ -335,56 +335,6 @@ static char * relocationInfoToStr(Elf64_Xword info) {
 			return "unknown";
 	}
 #undef CASE
-}
-
-static int sizeOfRelocationValue(int type) {
-	switch (type) {
-		case R_X86_64_TLSDESC:
-			return 16;
-		case R_X86_64_64:
-		case R_X86_64_GLOB_DAT:
-		case R_X86_64_JUMP_SLOT:
-		case R_X86_64_RELATIVE:
-		case R_X86_64_DTPMOD64:
-		case R_X86_64_DTPOFF64:
-		case R_X86_64_TPOFF64:
-		case R_X86_64_PC64:
-		case R_X86_64_GOTOFF64:
-		case R_X86_64_GOT64:
-		case R_X86_64_GOTPCREL64:
-		case R_X86_64_GOTPC64:
-		case R_X86_64_GOTPLT64:
-		case R_X86_64_PLTOFF64:
-		case R_X86_64_SIZE64:
-		case R_X86_64_IRELATIVE:
-			return 8;
-		case R_X86_64_PC32:
-		case R_X86_64_GOT32:
-		case R_X86_64_PLT32:
-		case R_X86_64_GOTPCREL:
-		case R_X86_64_32:
-		case R_X86_64_32S:
-		case R_X86_64_TLSGD:
-		case R_X86_64_TLSLD:
-		case R_X86_64_DTPOFF32:
-		case R_X86_64_GOTTPOFF:
-		case R_X86_64_TPOFF32:
-		case R_X86_64_GOTPC32:
-		case R_X86_64_SIZE32:
-		case R_X86_64_GOTPC32_TLSDESC:
-			return 4;
-		case R_X86_64_16:
-		case R_X86_64_PC16:
-			return 2;
-		case R_X86_64_8:
-		case R_X86_64_PC8:
-			return 1;
-		case R_X86_64_NONE:
-		case R_X86_64_COPY:
-		case R_X86_64_TLSDESC_CALL:
-		default:
-			return 0;
-	}
 }
 
 static char * symbolTypeToStr(int type) {
@@ -728,9 +678,14 @@ int main(int argc, char * argv[]) {
 						for (unsigned int i = 0; i < sectionHeader.sh_size / sizeof(Elf64_Rela); ++i) {
 							Elf64_Shdr shdr;
 							size_t offset = ELF64_R_SYM(relocations[i].r_info);
-							Elf64_Xword value = 0;
+							Elf64_Xword value = 42;
+							printf("%012lx  %012lx %-15.15s ",
+								relocations[i].r_offset, relocations[i].r_info,
+								relocationInfoToStr(ELF64_R_TYPE(relocations[i].r_info)));
 							const char * symName = "(null)";
-							if (offset < shdr_symtab.sh_size) {
+							if (!offset) {
+								printf("                ");
+							} else if (offset < shdr_symtab.sh_size) {
 								Elf64_Sym * this = &symtab[offset];
 
 								/* Get symbol name for this relocation */
@@ -742,49 +697,10 @@ int main(int argc, char * argv[]) {
 									symName = string_from_table(strtab, this->st_name);
 								}
 
-								/* Get the value currently in the section data */
-								int valueSize = sizeOfRelocationValue(ELF64_R_TYPE(relocations[i].r_info));
-								fseek(f, shdr_this.sh_offset + relocations[i].r_offset, SEEK_SET);
-								switch (valueSize) {
-									case 8:
-										{
-											uint64_t val;
-											fread(&val, valueSize, 1, f);
-											value = val;
-											break;
-										}
-									case 4:
-										{
-											uint32_t val;
-											fread(&val, valueSize, 1, f);
-											value = val;
-											break;
-										}
-									case 2:
-										{
-											uint16_t val;
-											fread(&val, valueSize, 1, f);
-											value = val;
-											break;
-										}
-									case 1:
-										{
-											uint8_t val;
-											fread(&val, valueSize, 1, f);
-											value = val;
-											break;
-										}
-									default:
-										break;
-								}
+								value = this->st_value + relocations[i].r_addend;
+								printf("%016lx %s +", value, symName);
 							}
-
-							printf("%012lx  %012lx %-15.15s %016lx %s + %lx\n",
-								relocations[i].r_offset, relocations[i].r_info,
-								relocationInfoToStr(ELF64_R_TYPE(relocations[i].r_info)),
-								value,
-								symName,
-								relocations[i].r_addend);
+							printf(" %lx\n", relocations[i].r_addend);
 						}
 
 						free(relocations);
