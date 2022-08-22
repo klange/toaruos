@@ -15,6 +15,7 @@
 #include <toaru/decorations.h>
 #include <toaru/menu.h>
 #include <toaru/text.h>
+#include <toaru/markup_text.h>
 
 #include <sys/utsname.h>
 
@@ -27,9 +28,6 @@ static int32_t width = 350;
 static int32_t height = 250;
 static char * version_str;
 
-static struct TT_Font * _tt_font_thin = NULL;
-static struct TT_Font * _tt_font_bold = NULL;
-
 static char * icon_path;
 static char * title_str;
 static char * version_str;
@@ -39,13 +37,20 @@ static int center_x(int x) {
 	return (width - x) / 2;
 }
 
-static void draw_string(int y, const char * string, struct TT_Font * font, uint32_t color) {
-
+static void draw_string(int y, const char * string, int mode, uint32_t color) {
 	struct decor_bounds bounds;
 	decor_get_bounds(window, &bounds);
+	struct MarkupState * renderer = markup_setup_renderer(NULL, 0, 0, 0, 1);
+	markup_set_base_font_size(renderer, 13);
+	markup_set_base_state(renderer, mode);
+	markup_push_string(renderer, string);
+	int calcwidth = markup_finish_renderer(renderer);
 
-	tt_set_size(font, 13);
-	tt_draw_string(ctx, font, bounds.left_width + center_x(tt_string_width(font, string)), bounds.top_height + 10 + logo.height + 10 + y + 13, string, color);
+	renderer = markup_setup_renderer(ctx, bounds.left_width + center_x(calcwidth), bounds.top_height + 10 + logo.height + 10 + y + 13, color, 0);
+	markup_set_base_font_size(renderer, 13);
+	markup_set_base_state(renderer, mode);
+	markup_push_string(renderer, string);
+	markup_finish_renderer(renderer);
 }
 
 static void redraw(void) {
@@ -56,7 +61,7 @@ static void redraw(void) {
 	draw_fill(ctx, rgb(204,204,204));
 	draw_sprite(ctx, &logo, bounds.left_width + center_x(logo.width), bounds.top_height + 10);
 
-	draw_string(0, version_str, _tt_font_bold, rgb(0,0,0));
+	draw_string(0, version_str, MARKUP_TEXT_STATE_BOLD, rgb(0,0,0));
 
 	int offset = 20;
 
@@ -64,10 +69,10 @@ static void redraw(void) {
 		if (**copy_str == '-') {
 			offset += 10;
 		} else if (**copy_str == '%') {
-			draw_string(offset, *copy_str+1, _tt_font_thin, rgb(0,0,255));
+			draw_string(offset, *copy_str+1, 0, rgb(0,0,255));
 			offset += 20;
 		} else {
-			draw_string(offset, *copy_str, _tt_font_thin, rgb(0,0,0));
+			draw_string(offset, *copy_str, 0, rgb(0,0,0));
 			offset += 20;
 		}
 	}
@@ -122,9 +127,7 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 	init_decorations();
-
-	_tt_font_thin = tt_font_from_shm("sans-serif");
-	_tt_font_bold = tt_font_from_shm("sans-serif.bold");
+	markup_text_init();
 
 	struct decor_bounds bounds;
 	decor_get_bounds(NULL, &bounds);
