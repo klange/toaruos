@@ -816,7 +816,7 @@ void draw_sprite_alpha(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, 
 
 	for (uint16_t _y = 0; _y < sprite->height; ++_y) {
 		if (y + _y < _top) continue;
-		if (y + _y > _bottom) break;
+		if (y + _y >= _bottom) break;
 		if (!_is_in_clip(ctx, y + _y)) continue;
 		for (uint16_t _x = (x < _left) ? _left - x : 0; _x < sprite->width && x + _x < _right; ++_x) {
 			SPRITE(scanline,_x + x - _left,0) = SPRITE(sprite, _x, _y);
@@ -835,7 +835,7 @@ void draw_sprite_alpha_paint(gfx_context_t * ctx, const sprite_t * sprite, int32
 	int32_t _bottom = min(y + sprite->height, ctx->height);
 	for (uint16_t _y = 0; _y < sprite->height; ++_y) {
 		if (y + _y < _top) continue;
-		if (y + _y > _bottom) break;
+		if (y + _y >= _bottom) break;
 		if (!_is_in_clip(ctx, y + _y)) continue;
 		for (uint16_t _x = (x < _left) ? _left - x : 0; _x < sprite->width && x + _x < _right; ++_x) {
 			/* Get the alpha from the sprite at this pixel */
