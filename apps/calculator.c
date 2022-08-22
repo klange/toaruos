@@ -17,6 +17,7 @@
 #include <toaru/menu.h>
 #include <toaru/button.h>
 #include <toaru/text.h>
+#include <toaru/markup_text.h>
 #include <kuroko/kuroko.h>
 #include <kuroko/vm.h>
 
@@ -35,10 +36,6 @@ static int32_t width = 600;
 static int32_t height = 240;
 
 static char * title_str = "Calculator";
-
-static struct TT_Font * _tt_font = NULL;
-static struct TT_Font * _tt_mono = NULL;
-static struct TT_Font * _tt_mono_bold = NULL;
 
 static int textInputIsAccumulatorValue = 0;
 static char accumulator[1024] = {0};
@@ -144,12 +141,17 @@ static void redraw(void) {
 
 	draw_rectangle_solid(ctx, bounds.left_width, bounds.top_height + MENU_BAR_HEIGHT + 4, window->width - bounds.width, 42, rgb(255,255,255));
 
-	tt_set_size(_tt_mono, 10);
-	tt_draw_string(ctx, _tt_mono, bounds.left_width + 5, bounds.top_height + MENU_BAR_HEIGHT + 14, accumulator, rgb(0,0,0));
+	struct MarkupState * renderer = markup_setup_renderer(ctx, bounds.left_width + 5, bounds.top_height + MENU_BAR_HEIGHT + 14, rgb(0,0,0), 0);
+	markup_set_base_font_size(renderer, 10);
+	markup_set_base_state(renderer, MARKUP_TEXT_STATE_MONO);
+	markup_push_raw_string(renderer, accumulator);
+	markup_finish_renderer(renderer);
 
-	struct TT_Font * inputFont = textInputIsAccumulatorValue ? _tt_mono_bold : _tt_mono;
-	tt_set_size(inputFont, 16);
-	tt_draw_string(ctx, inputFont, bounds.left_width + 5, bounds.top_height + MENU_BAR_HEIGHT + 35, textInput, rgb(0,0,0));
+	renderer = markup_setup_renderer(ctx, bounds.left_width + 5, bounds.top_height + MENU_BAR_HEIGHT + 35, rgb(0,0,0), 0);
+	markup_set_base_font_size(renderer, 16);
+	markup_set_base_state(renderer, (textInputIsAccumulatorValue ? MARKUP_TEXT_STATE_BOLD : 0) | MARKUP_TEXT_STATE_MONO);
+	markup_push_raw_string(renderer, textInput);
+	markup_finish_renderer(renderer);
 
 	for (int i = 0; i < (BTN_ROWS * BTN_COLS); ++i) {
 		ttk_button_draw(ctx, &buttons[i].ttkButton);
@@ -283,13 +285,10 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 	init_decorations();
+	markup_text_init();
 
 	struct decor_bounds bounds;
 	decor_get_bounds(NULL, &bounds);
-
-	_tt_font = tt_font_from_shm("sans-serif");
-	_tt_mono = tt_font_from_shm("monospace");
-	_tt_mono_bold = tt_font_from_shm("monospace.bold");
 
 	window = yutani_window_create(yctx, width + bounds.width, height + bounds.height);
 	req_center_x = yctx->display_width / 2;
