@@ -682,6 +682,50 @@ static struct TT_Contour * tt_draw_glyph_into(struct TT_Contour * contour, struc
 	return contour;
 }
 
+sprite_t * tt_bake_glyph(struct TT_Font * font, unsigned int glyph, uint32_t color, int *_x, int *_y) {
+	struct TT_Contour * contour = tt_contour_start(0, 0);
+	contour = tt_draw_glyph_into(contour,font,100,100,glyph);
+	if (!contour->edgeCount) {
+		*_x = 0;
+		*_y = 0;
+		free(contour);
+		return NULL;
+	}
+
+	/* Calculate bounds to render a sprite */
+	struct TT_Shape * shape = tt_contour_finish(contour);
+	int width = shape->lastX - shape->startX + 2;
+	int height = shape->lastY - shape->startY + 2;
+
+	int off_x = shape->startX - 2; shape->startX -= off_x; shape->lastX -= off_x;
+	int off_y = shape->startY - 2; shape->startY -= off_y; shape->lastY -= off_y;
+
+	/* Adjust the entire shape */
+	for (size_t i = 0; i < shape->edgeCount; ++i) {
+		shape->edges[i].start.x -= off_x;
+		shape->edges[i].end.x -= off_x;
+		shape->edges[i].start.y -= off_y;
+		shape->edges[i].end.y -= off_y;
+	}
+
+	*_x = off_x - 100;
+	*_y = off_y - 100;
+
+	/* Create sprite */
+	sprite_t * out = create_sprite(width,height,ALPHA_EMBEDDED);
+	gfx_context_t * ctx = init_graphics_sprite(out);
+
+	/* Fill to clear */
+	draw_fill(ctx, 0);
+
+	tt_path_paint(ctx, shape, color);
+
+	free(ctx);
+	free(shape);
+	free(contour);
+	return out;
+}
+
 void tt_draw_glyph(gfx_context_t * ctx, struct TT_Font * font, int x, int y, unsigned int glyph, uint32_t color) {
 	struct TT_Contour * contour = tt_contour_start(0, 0);
 	contour = tt_draw_glyph_into(contour,font,x,y,glyph);
@@ -706,6 +750,25 @@ int tt_string_width(struct TT_Font * font, const char * s) {
 	}
 
 	return x_offset;
+}
+
+int tt_string_width_int(struct TT_Font * font, const char * s) {
+	int x_offset = 0;
+	uint32_t cp = 0;
+	uint32_t istate = 0;
+
+	for (const unsigned char * c = (const unsigned char*)s; *c; ++c) {
+		if (!decode(&istate, &cp, *c)) {
+			unsigned int glyph = tt_glyph_for_codepoint(font, cp);
+			x_offset += tt_xadvance_for_glyph(font, glyph) * font->scale;
+		}
+	}
+
+	return x_offset;
+}
+
+float tt_glyph_width(struct TT_Font * font, unsigned int glyph) {
+	return tt_xadvance_for_glyph(font, glyph) * font->scale;
 }
 
 int tt_draw_string(gfx_context_t * ctx, struct TT_Font * font, int x, int y, const char * s, uint32_t color) {
