@@ -6,6 +6,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2021 K. Lange
  */
+#include <math.h>
 #include <toaru/markup.h>
 #include <toaru/list.h>
 #include <toaru/graphics.h>
@@ -131,50 +132,55 @@ static int sizeForState(struct MarkupState * state) {
 
 struct GlyphCacheEntry {
 	struct TT_Font * font;
-	sprite_t * sprite;
+	sprite_t * sprites[3];
+	int xs[3];
 	uint32_t size;
 	uint32_t glyph;
 	uint32_t color;
-	int x;
 	int y;
 };
 
 static struct GlyphCacheEntry glyph_cache[1024];
 
-static void draw_cached_glyph(gfx_context_t * ctx, struct TT_Font * _font, uint32_t size, int x, int y, uint32_t glyph, uint32_t fg) {
+static void draw_cached_glyph(gfx_context_t * ctx, struct TT_Font * _font, uint32_t size, int x, int y, uint32_t glyph, uint32_t fg, float xadj) {
 	unsigned int hash = (((uintptr_t)_font >> 8) ^ (glyph * size)) & 1023;
 
 	struct GlyphCacheEntry * entry = &glyph_cache[hash];
 
 	if (entry->font != _font || entry->size != size || entry->glyph != glyph) {
-		if (entry->sprite) sprite_free(entry->sprite);
+		if (entry->sprites[0]) sprite_free(entry->sprites[0]);
+		if (entry->sprites[1]) sprite_free(entry->sprites[1]);
+		if (entry->sprites[2]) sprite_free(entry->sprites[2]);
 		tt_set_size(_font, size);
 
 		entry->font = _font;
 		entry->size = size;
 		entry->glyph = glyph;
 		entry->color = _ALP(fg) == 255 ? fg : rgb(0,0,0);
-		entry->sprite = tt_bake_glyph(entry->font, entry->glyph, entry->color, &entry->x, &entry->y);
+		entry->sprites[0] = tt_bake_glyph(entry->font, entry->glyph, entry->color, &entry->xs[0], &entry->y, 0.0);
+		entry->sprites[1] = tt_bake_glyph(entry->font, entry->glyph, entry->color, &entry->xs[1], &entry->y, 0.333);
+		entry->sprites[2] = tt_bake_glyph(entry->font, entry->glyph, entry->color, &entry->xs[2], &entry->y, 0.666);
 	}
 
-	if (entry->sprite) {
+	if (entry->sprites[0]) {
+		int sprite = xadj < 0.166 ? 0 : xadj < 0.5 ? 1 : 2;
 		if (entry->color != fg) {
-			draw_sprite_alpha_paint(ctx, entry->sprite, x + entry->x, y + entry->y, 1.0, fg);
+			draw_sprite_alpha_paint(ctx, entry->sprites[sprite], x + entry->xs[sprite], y + entry->y, 1.0, fg);
 		} else {
-			draw_sprite(ctx, entry->sprite, x + entry->x, y + entry->y);
+			draw_sprite(ctx, entry->sprites[sprite], x + entry->xs[sprite], y + entry->y);
 		}
 	}
 }
 
 static int string_draw_internal(gfx_context_t * ctx, struct TT_Font * font, int font_size, int x, int y, char * data, uint32_t color) {
-	int x_offset = x;
+	float x_offset = x;
 	uint32_t cp = 0;
 	uint32_t istate = 0;
 
 	for (const unsigned char * c = (const unsigned char*)data; *c; ++c) {
 		if (!decode(&istate, &cp, *c)) {
 			unsigned int glyph = tt_glyph_for_codepoint(font, cp);
-			draw_cached_glyph(ctx, font, font_size, x_offset, y, glyph, color);
+			draw_cached_glyph(ctx, font, font_size, (int)floor(x_offset), y, glyph, color, x_offset-floor(x_offset));
 			x_offset += tt_glyph_width(font, glyph);
 		}
 	}
@@ -196,7 +202,7 @@ static int parser_dryrun(struct markup_state * self, void * user, char * data) {
 	struct MarkupState * state = (struct MarkupState*)user;
 	struct TT_Font * font = fontForState(state);
 	tt_set_size(font, sizeForState(state));
-	state->cursor_x += tt_string_width_int(font, data);
+	state->cursor_x += tt_string_width(font, data);
 	if (state->cursor_x > state->max_cursor_x) state->max_cursor_x = state->cursor_x;
 	return 0;
 }

@@ -20,7 +20,7 @@ extern void tt_draw_glyph(gfx_context_t * ctx, struct TT_Font * font, int x_offs
 extern int tt_glyph_for_codepoint(struct TT_Font * font, unsigned int codepoint);
 extern int tt_xadvance_for_glyph(struct TT_Font * font, unsigned int ind);
 extern float tt_glyph_width(struct TT_Font * font, unsigned int glyph);
-extern sprite_t * tt_bake_glyph(struct TT_Font * font, unsigned int glyph, uint32_t color, int *_x, int *_y);
+extern sprite_t * tt_bake_glyph(struct TT_Font * font, unsigned int glyph, uint32_t color, int *_x, int *_y, float xadjust);
 
 /* Convenience functions for dealing with whole strings */
 extern int tt_string_width(struct TT_Font * font, const char * s);

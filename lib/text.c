@@ -682,9 +682,9 @@ static struct TT_Contour * tt_draw_glyph_into(struct TT_Contour * contour, struc
 	return contour;
 }
 
-sprite_t * tt_bake_glyph(struct TT_Font * font, unsigned int glyph, uint32_t color, int *_x, int *_y) {
+sprite_t * tt_bake_glyph(struct TT_Font * font, unsigned int glyph, uint32_t color, int *_x, int *_y, float xadjust) {
 	struct TT_Contour * contour = tt_contour_start(0, 0);
-	contour = tt_draw_glyph_into(contour,font,100,100,glyph);
+	contour = tt_draw_glyph_into(contour,font,100+xadjust,100,glyph);
 	if (!contour->edgeCount) {
 		*_x = 0;
 		*_y = 0;
@@ -694,11 +694,11 @@ sprite_t * tt_bake_glyph(struct TT_Font * font, unsigned int glyph, uint32_t col
 
 	/* Calculate bounds to render a sprite */
 	struct TT_Shape * shape = tt_contour_finish(contour);
-	int width = shape->lastX - shape->startX + 2;
+	int width = shape->lastX - shape->startX + 3;
 	int height = shape->lastY - shape->startY + 2;
 
-	int off_x = shape->startX - 2; shape->startX -= off_x; shape->lastX -= off_x;
-	int off_y = shape->startY - 2; shape->startY -= off_y; shape->lastY -= off_y;
+	int off_x = shape->startX - 1; shape->startX -= off_x; shape->lastX -= off_x;
+	int off_y = shape->startY - 1; shape->startY -= off_y; shape->lastY -= off_y;
 
 	/* Adjust the entire shape */
 	for (size_t i = 0; i < shape->edgeCount; ++i) {
