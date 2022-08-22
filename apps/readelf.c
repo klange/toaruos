@@ -363,6 +363,31 @@ static char * symbolBindToStr(int bind) {
 	}
 }
 
+static char * symbolVisToStr(int vis) {
+	static char buf[10];
+	switch (vis) {
+		case 0: return "DEFAULT";
+		case 1: return "INTERNAL";
+		case 2: return "HIDDEN";
+		case 3: return "PROTECTED";
+		default:
+			sprintf(buf, "%x", vis);
+			break;
+	}
+}
+
+static char * symbolNdxToStr(int ndx) {
+	static char buf[10];
+	switch (ndx) {
+		case 0:     return "UND";
+		case 65521: return "ABS";
+		default:
+			sprintf(buf, "%d", ndx);
+			return buf;
+	}
+
+}
+
 static int usage(char * argv[]) {
 	fprintf(stderr,
 		"Usage: %s <option(s)> elf-file(s)\n"
@@ -726,12 +751,12 @@ int main(int argc, char * argv[]) {
 						struct StringTable * strtab = load_string_table(f, &shdr_strtab);
 
 						for (unsigned int i = 0; i < sectionHeader.sh_size / sizeof(Elf64_Sym); ++i) {
-							printf("%6u: %016lx %6lu %-7.7s %-6.6s %-4d %6d %s\n",
+							printf("%6u: %016lx %6lu %-7.7s %-6.6s %-7.7s %4s %s\n",
 								i, symtab[i].st_value, symtab[i].st_size,
 								symbolTypeToStr(symtab[i].st_info & 0xF),
 								symbolBindToStr(symtab[i].st_info >> 4),
-								symtab[i].st_other,
-								symtab[i].st_shndx,
+								symbolVisToStr(symtab[i].st_other),
+								symbolNdxToStr(symtab[i].st_shndx),
 								string_from_table(strtab, symtab[i].st_name));
 						}
 
