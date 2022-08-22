@@ -372,7 +372,7 @@ static char * symbolVisToStr(int vis) {
 		case 3: return "PROTECTED";
 		default:
 			sprintf(buf, "%x", vis);
-			break;
+			return buf;
 	}
 }
 
