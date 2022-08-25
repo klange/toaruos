@@ -11,7 +11,8 @@ extern int __libc_debug;
 struct SortableArray {
 	void * data;
 	size_t size;
-	int (*func)(const void *, const void *);
+	void * arg;
+	int (*func)(const void *, const void *, void *);
 };
 
 static ssize_t partition(struct SortableArray * array, ssize_t lo, ssize_t hi) {
@@ -20,7 +21,7 @@ static ssize_t partition(struct SortableArray * array, ssize_t lo, ssize_t hi) {
 	ssize_t i = lo - 1;
 	for (ssize_t j = lo; j <= hi; ++j) {
 		uint8_t * obj_j = (uint8_t *)array->data + array->size * j;
-		if (array->func(obj_j, pivot) <= 0) {
+		if (array->func(obj_j, pivot, array->arg) <= 0) {
 			i++;
 			if (j != i) {
 				uint8_t * obj_i = (uint8_t *)array->data + array->size * i;
@@ -45,9 +46,18 @@ static void quicksort(struct SortableArray * array, ssize_t lo, ssize_t hi) {
 	}
 }
 
-void qsort(void * base, size_t nmemb, size_t size, int (*compar)(const void *, const void *)) {
+static int sort_caller(const void * a, const void * b, void * arg) {
+	int (*func)(const void *, const void *) = arg;
+	return func(a,b);
+}
+
+void qsort_r(void * base, size_t nmemb, size_t size, int (*compar)(const void *, const void *, void *), void * arg) {
 	if (nmemb < 2) return;
 	if (!size) return;
-	struct SortableArray array = {base,size,compar};
+	struct SortableArray array = {base,size,arg,compar};
 	quicksort(&array, 0, nmemb - 1);
+}
+
+void qsort(void * base, size_t nmemb, size_t size, int (*compar)(const void *, const void *)) {
+	qsort_r(base,nmemb,size,sort_caller,compar);
 }
