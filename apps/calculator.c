@@ -20,6 +20,7 @@
 #include <toaru/markup_text.h>
 #include <kuroko/kuroko.h>
 #include <kuroko/vm.h>
+#include <kuroko/util.h>
 
 static struct menu_bar menu_bar = {0};
 static struct menu_bar_entries menu_entries[] = {
@@ -47,17 +48,22 @@ struct CalculatorButton {
 	void (*onClick)(struct CalculatorButton *);
 };
 
-static void calc_numeric(char * text) {
+static void clear_result(void) {
 	if (textInputIsAccumulatorValue) {
 		textInputIsAccumulatorValue = 0;
 		*textInput = '\0';
 		*accumulator = '\0';
 	}
+}
+
+static void calc_numeric(char * text) {
+	clear_result();
 	strcat(textInput, text);
 }
 
 static void calc_func(char * txt) {
-	if (!textInputIsAccumulatorValue) strcat(accumulator, textInput);
+	clear_result();
+	strcat(accumulator, textInput);
 	strcat(accumulator, txt);
 	*textInput = '\0';
 	textInputIsAccumulatorValue = 0;
@@ -65,9 +71,7 @@ static void calc_func(char * txt) {
 
 static void calc_backspace(void) {
 	if (textInputIsAccumulatorValue) {
-		textInputIsAccumulatorValue = 0;
-		*textInput = '\0';
-		*accumulator = '\0';
+		clear_result();
 	} else if (!*textInput) {
 		size_t l = strlen(accumulator);
 		if (l) {
@@ -97,6 +101,7 @@ static void btn_func_clr(struct CalculatorButton * self) {
 	}
 }
 static void btn_func_equ(struct CalculatorButton * self) {
+	if (textInputIsAccumulatorValue) return;
 	if (*textInput) {
 		strcat(accumulator, textInput);
 		*textInput = '\0';
@@ -104,17 +109,19 @@ static void btn_func_equ(struct CalculatorButton * self) {
 
 	KrkValue result = krk_interpret(accumulator, "<stdin>");
 	if (!IS_NONE(result)) {
-		KrkClass * type = krk_getType(result);
-		if (type->_reprer) {
-			krk_push(result);
-			result = krk_callDirect(type->_reprer, 1);
+		krk_attachNamedValue(&vm.builtins->fields, "_", result);
+		krk_push(result);
+		krk_push(krk_stringFromFormat("%R", result));
+		krk_swap(1);
+		krk_pop();
+		if (IS_STRING(krk_peek(0))) {
+			snprintf(textInput, 1024, "%s", AS_CSTRING(krk_peek(0)));
 		}
-		if (IS_STRING(result)) {
-			sprintf(accumulator, "%s", AS_CSTRING(result));
-			sprintf(textInput, "%s", AS_CSTRING(result));
-		}
+		krk_pop();
 	} else if (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION) {
 		strcat(textInput, "Error.");
+	} else {
+		strcat(textInput, "*");
 	}
 	krk_resetStack();
 
@@ -145,12 +152,14 @@ static void redraw(void) {
 	markup_set_base_font_size(renderer, 10);
 	markup_set_base_state(renderer, MARKUP_TEXT_STATE_MONO);
 	markup_push_raw_string(renderer, accumulator);
+	if (!textInputIsAccumulatorValue && !textInput[0]) markup_push_raw_string(renderer, "_");
 	markup_finish_renderer(renderer);
 
 	renderer = markup_setup_renderer(ctx, bounds.left_width + 5, bounds.top_height + MENU_BAR_HEIGHT + 35, rgb(0,0,0), 0);
 	markup_set_base_font_size(renderer, 16);
 	markup_set_base_state(renderer, (textInputIsAccumulatorValue ? MARKUP_TEXT_STATE_BOLD : 0) | MARKUP_TEXT_STATE_MONO);
 	markup_push_raw_string(renderer, textInput);
+	if (!textInputIsAccumulatorValue && textInput[0]) markup_push_raw_string(renderer, "_");
 	markup_finish_renderer(renderer);
 
 	for (int i = 0; i < (BTN_ROWS * BTN_COLS); ++i) {
