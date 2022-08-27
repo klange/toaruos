@@ -18,6 +18,12 @@
 DEFN_SYSCALL3(clone, SYS_CLONE, uintptr_t, uintptr_t, void *);
 DEFN_SYSCALL0(gettid, SYS_GETTID);
 
+struct __pthread {
+	pid_t tid;
+	void * (*entry)(void*);
+	void * arg;
+};
+
 extern int __libc_is_multicore;
 static inline void _yield(void) {
 	if (!__libc_is_multicore) syscall_yield();
@@ -31,11 +37,6 @@ int clone(uintptr_t a,uintptr_t b,void* c) {
 int gettid() {
 	return syscall_gettid(); /* never fails */
 }
-
-struct pthread {
-	void * (*entry)(void *);
-	void * arg;
-};
 
 void * __tls_get_addr(void* input) {
 #ifdef __x86_64__
@@ -67,29 +68,29 @@ void pthread_exit(void * value) {
 	__builtin_unreachable();
 }
 
-void * __thread_start(void * thread) {
-	__make_tls();
-	struct pthread * me = ((pthread_t *)thread)->ret_val;
-	((pthread_t *)thread)->ret_val = 0;
-	pthread_exit(me->entry(me->arg));
+void * __thread_start(void * pthreadbase) {
+	struct __pthread * this = pthreadbase;
+	this->tid = gettid();
+	char ** tlsbase = (char**)((char*)this + 4096);
+	*tlsbase = (char*)tlsbase;
+	sysfunc(TOARU_SYS_FUNC_SETGSBASE, (char*[]){(char*)tlsbase});
+	pthread_exit(this->entry(this->arg));
 	return NULL;
 }
 
 int pthread_create(pthread_t * thread, pthread_attr_t * attr, void *(*start_routine)(void *), void * arg) {
-	char * stack = valloc(PTHREAD_STACK_SIZE);
-	uintptr_t stack_top = (uintptr_t)stack + PTHREAD_STACK_SIZE;
-
-	thread->stack = stack;
-	struct pthread * data = malloc(sizeof(struct pthread));
-	data->entry = start_routine;
-	data->arg   = arg;
-	thread->ret_val = data;
-	thread->id = clone(stack_top, (uintptr_t)__thread_start, thread);
+	char * stack = valloc(PTHREAD_STACK_SIZE + 8192);
+	memset(stack, 0, PTHREAD_STACK_SIZE + 8192);
+	struct __pthread * this = (void*)(stack + PTHREAD_STACK_SIZE);
+	*thread = this;
+	this->entry = start_routine;
+	this->arg = arg;
+	clone((uintptr_t)this, (uintptr_t)__thread_start, this);
 	return 0;
 }
 
 int pthread_kill(pthread_t thread, int sig) {
-	__sets_errno(kill(thread.id, sig));
+	__sets_errno(kill(thread->tid, sig));
 }
 
 void pthread_cleanup_push(void (*routine)(void *), void *arg) {
@@ -139,7 +140,7 @@ int pthread_attr_destroy(pthread_attr_t *attr) {
 
 int pthread_join(pthread_t thread, void **retval) {
 	int status;
-	int result = waitpid(thread.id, &status, 0);
+	int result = waitpid(thread->tid, &status, 0);
 	if (retval) {
 		*retval = (void*)(uintptr_t)status;
 	}

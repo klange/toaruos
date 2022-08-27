@@ -5,11 +5,7 @@
 
 _Begin_C_Header
 
-typedef struct {
-	uint32_t id;
-	char * stack;
-	void * ret_val;
-} pthread_t;
+typedef struct __pthread * pthread_t;
 typedef unsigned int pthread_attr_t;
 
 typedef struct {
