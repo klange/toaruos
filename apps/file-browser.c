@@ -949,7 +949,7 @@ static void _draw_nav_bar(struct decor_bounds bounds) {
 	}
 
 	/* Draw input box */
-	if (nav_bar_focused) {
+	if (nav_bar_focused && main_window->focused) {
 		struct gradient_definition edge = {28, bounds.top_height + menu_bar_height + 3, rgb(0,120,220), rgb(0,120,220)};
 		draw_rounded_rectangle_pattern(ctx, bounds.left_width + 2 + x + 1, bounds.top_height + menu_bar_height + 4, main_window->width - bounds.width - x - 6, 26, 4, gfx_vertical_gradient_pattern, &edge);
 		draw_rounded_rectangle(ctx, bounds.left_width + 2 + x + 3, bounds.top_height + menu_bar_height + 6, main_window->width - bounds.width - x - 10, 22, 2, rgb(250,250,250));
@@ -965,7 +965,7 @@ static void _draw_nav_bar(struct decor_bounds bounds) {
 	tt_draw_string(ctx, tt_font_thin, bounds.left_width + 2 + x + 5, bounds.top_height + menu_bar_height + 8 + 13, name, rgb(0,0,0));
 	free(name);
 
-	if (nav_bar_focused && !nav_bar_blink) {
+	if (nav_bar_focused && main_window->focused && !nav_bar_blink) {
 		/* Draw cursor indicator at cursor_x */
 		draw_line(ctx,
 				bounds.left_width + 2 + x + 5 + nav_bar_cursor_x,
