@@ -1036,7 +1036,6 @@ static uint8_t cursor_flipped = 0;
 /* A soft request to draw the cursor. */
 static void draw_cursor() {
 	if (!cursor_on) return;
-	mouse_ticks = get_ticks();
 	cursor_flipped = 0;
 	render_cursor();
 }
@@ -1194,7 +1193,6 @@ static int is_wide(uint32_t codepoint) {
 
 /* Save the row that is about to be scrolled offscreen into the scrollback buffer. */
 static void save_scrollback(void) {
-
 	/* If the scrollback is already full, remove the oldest element. */
 	struct scrollback_row * row = NULL;
 	node_t * n = NULL;
@@ -1355,12 +1353,12 @@ static void term_write(char c) {
 				cell_redraw(csr_x-1,csr_y);
 				csr_x++;
 			}
+			draw_cursor();
 		}
 	} else if (unicode_state == UTF8_REJECT) {
 		unicode_state = 0;
 		codepoint = 0;
 	}
-	draw_cursor();
 }
 
 /* ANSI callback to set cursor position */
