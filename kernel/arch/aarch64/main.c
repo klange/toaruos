@@ -278,6 +278,7 @@ void aarch64_sync_enter(struct regs * r) {
 		dprintf("Unknown exception: ESR: %#zx FAR: %#zx ELR: %#zx SPSR: %#zx\n", esr, far, elr, spsr);
 		dprintf("Instruction at ELR: 0x%08x\n", *(uint32_t*)elr);
 		arch_dump_traceback();
+		aarch64_regs(r);
 		arch_fatal();
 	}
 
