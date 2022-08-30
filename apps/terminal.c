@@ -10,7 +10,7 @@
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2021 K. Lange
+ * Copyright (C) 2013-2022 K. Lange
  */
 #include <stdio.h>
 #include <stdint.h>
@@ -2281,7 +2281,7 @@ static void _menu_action_toggle_free_size(struct MenuEntry * self) {
 
 static void _menu_action_show_about(struct MenuEntry * self) {
 	char about_cmd[1024] = "\0";
-	strcat(about_cmd, "about \"About Terminal\" /usr/share/icons/48/utilities-terminal.png \"ToaruOS Terminal\" \"© 2013-2021 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaruos\" ");
+	strcat(about_cmd, "about \"About Terminal\" /usr/share/icons/48/utilities-terminal.png \"ToaruOS Terminal\" \"© 2013-2022 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaruos\" ");
 	char coords[100];
 	sprintf(coords, "%d %d &", (int)window->x + (int)window->width / 2, (int)window->y + (int)window->height / 2);
 	strcat(about_cmd, coords);
