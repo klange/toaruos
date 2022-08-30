@@ -457,6 +457,12 @@ void fpu_enable(void) {
 	asm volatile ("mrs %0, CPACR_EL1" : "=r"(cpacr_el1));
 	cpacr_el1 |= (3 << 20) | (3 << 16);
 	asm volatile ("msr CPACR_EL1, %0" :: "r"(cpacr_el1));
+
+	/* Enable access to physical timer */
+	uint64_t clken = 0;
+	asm volatile ("mrs %0,CNTKCTL_EL1" : "=r"(clken));
+	clken |= (1 << 0);
+	asm volatile ("msr CNTKCTL_EL1,%0" :: "r"(clken));
 }
 
 /**
