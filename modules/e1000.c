@@ -504,7 +504,6 @@ static void e1000_init(struct e1000_nic * nic) {
 #endif
 
 	delay_yield(10000);
-	while (this_core->cpu_id != 0) switch_task(1);
 
 	/* Is this size enough? */
 	uint32_t initial_bar = pci_read_field(e1000_device_pci, PCI_BAR0, 4);

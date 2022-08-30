@@ -119,8 +119,19 @@ int virtio_keyboard_responder(process_t * this, int irq, void * data) {
 	return 0;
 }
 
+static void try_to_get_boot_processor(void) {
+	/* We would prefer these virtio startup processes run on the boot CPU, but
+	 * it's not the end of the world if they don't. If we're not on the boot
+	 * CPU, yield for a bit to try to get on it... */
+	uint64_t expire = arch_perf_timer() + 100000UL * arch_cpu_mhz();
+	while (this_core->cpu_id != 0) {
+		if (arch_perf_timer() >= expire) break;
+		switch_task(1);
+	}
+}
+
 static void virtio_tablet_thread(void * data) {
-	while (this_core->cpu_id != 0) switch_task(1);
+	try_to_get_boot_processor();
 
 	uint32_t device = (uintptr_t)data;
 	uintptr_t t = 0x12000000;
@@ -290,7 +301,7 @@ static const uint8_t ext_key_map[256] = {
 };
 
 static void virtio_keyboard_thread(void * data) {
-	while (this_core->cpu_id != 0) switch_task(1);
+	try_to_get_boot_processor();
 
 	uint32_t device = (uintptr_t)data;
 	uintptr_t t = 0x12100000;
