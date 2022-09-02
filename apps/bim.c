@@ -4188,6 +4188,7 @@ int git_examine(char * filename) {
 	}
 
 	fclose(f);
+	waitpid(-1,NULL,WNOHANG);
 	return 0;
 }
 
@@ -5205,6 +5206,7 @@ int _prefix_command_run_script(char * cmd) {
 			env->lines = remove_line(env->lines, env->line_no-1);
 		}
 		fclose(result);
+		waitpid(-1,NULL,WNOHANG);
 		env->loading = 0;
 
 		/* Return to the original buffer and replace the selected lines with the output */
