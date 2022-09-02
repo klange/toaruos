@@ -151,9 +151,17 @@ static void proc_status_func(fs_node_t *node) {
 		return;
 	}
 
-	char state = (proc->flags & PROC_FLAG_FINISHED) ? 'Z' :
-		((proc->flags & PROC_FLAG_SUSPENDED) ? 'T' :
-			(process_is_ready(proc) ? 'R' : 'S'));
+	char state = 'S';
+
+	/* Base state */
+	if ((proc->flags & PROC_FLAG_RUNNING) || process_is_ready(proc)) {
+		state = 'R'; /* Running or runnable */
+	} else if ((proc->flags & PROC_FLAG_FINISHED)) {
+		state = 'Z'; /* Zombie - exited but not yet reaped */
+	} else if ((proc->flags & PROC_FLAG_SUSPENDED)) {
+		state = 'T'; /* Stopped; TODO can we differentiate stopped tracees correctly? */
+	}
+
 	char * name = proc->name + strlen(proc->name) - 1;
 
 	while (1) {
