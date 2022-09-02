@@ -36,7 +36,8 @@ enum header_columns {
 	COLUMN_SHM,
 	COLUMN_MEM,
 	COLUMN_CPUA,
-	COLUMN_CPU
+	COLUMN_CPU,
+	COLUMN_S
 };
 
 static hashmap_t * process_ents = NULL;
@@ -66,6 +67,7 @@ struct process {
 	char * user;
 	char * process;
 	char * command_line;
+	char * state;
 };
 
 struct columns {
@@ -84,9 +86,10 @@ struct columns {
 	[COLUMN_CPU]  = {"%CPU", offsetof(struct process, cpu),  FORMATTER_PERCENT, 0, SORT_DEC},
 	[COLUMN_CPUA] = {"CPUA", offsetof(struct process, cpua), FORMATTER_PERCENT, 0, SORT_DEC},
 	[COLUMN_USER] = {"USER", offsetof(struct process, user), FORMATTER_STRING,  0, SORT_ASC},
+	[COLUMN_S]    = {"S",    offsetof(struct process, state),FORMATTER_STRING,  0, SORT_ASC},
 };
 
-static int columns[] = { COLUMN_PID, COLUMN_USER, COLUMN_VSZ, COLUMN_SHM, COLUMN_CPU, COLUMN_CPUA, COLUMN_MEM, COLUMN_NONE };
+static int columns[] = { COLUMN_PID, COLUMN_USER, COLUMN_VSZ, COLUMN_SHM, COLUMN_S, COLUMN_CPU, COLUMN_CPUA, COLUMN_MEM, COLUMN_NONE };
 
 /**
  * @brief Print a single column to stdout with the appropriate formatter.
@@ -204,6 +207,7 @@ void free_entry(struct process * out) {
 	if (out->command_line) free(out->command_line);
 	if (out->process) free(out->process);
 	if (out->user) free(out->user);
+	if (out->state) free(out->state);
 	free(out);
 }
 
@@ -250,6 +254,7 @@ struct process * process_entry(struct dirent *dent) {
 
 	int pid = 0, uid = 0, tgid = 0, mem = 0, shm = 0, vsz = 0, cpu = 0, cpua = 0;
 	char name[100];
+	char state[10];
 
 	sprintf(tmp, "/proc/%s/status", dent->d_name);
 	f = fopen(tmp, "r");
@@ -270,6 +275,8 @@ struct process * process_entry(struct dirent *dent) {
 		}
 		if (strstr(line, "Pid:") == line) {
 			pid = atoi(tab);
+		} else if (strstr(line, "State:") == line) {
+			strcpy(state, tab);
 		} else if (strstr(line, "Uid:") == line) {
 			uid = atoi(tab);
 		} else if (strstr(line, "Tgid:") == line) {
@@ -314,6 +321,7 @@ struct process * process_entry(struct dirent *dent) {
 	out->cpu = cpu;
 	out->cpua = cpua;
 	out->process = strdup(name);
+	out->state = strdup(state);
 	out->command_line = NULL;
 	out->user = format_username(out->uid);
 
