@@ -61,6 +61,7 @@ double atanh(double x) { BAD; return 0.0; }
 double erf(double x)   { BAD; return 0.0; }
 double erfc(double x)  { BAD; return 0.0; }
 double gamma(double x) { BAD; return 0.0; }
+double tgamma(double x){ BAD; return 0.0; }
 double lgamma(double x){ BAD; return 0.0; }
 double remainder(double x, double y) { BAD; return 0.0; }
 

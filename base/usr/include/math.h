@@ -53,6 +53,7 @@ extern double atanh(double x);
 extern double erf(double x);
 extern double erfc(double x);
 extern double gamma(double x);
+extern double tgamma(double x);
 extern double lgamma(double x);
 extern double copysign(double x, double y);
 extern double remainder(double x, double y);
