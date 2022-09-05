@@ -17,14 +17,6 @@ static struct MenuList * window_menu;
 static int title_width = 0;
 static yutani_wid_t _window_menu_wid = 0;
 
-/* Update the hover-focus window */
-static void set_focused(int i) {
-	if (focused_app != i) {
-		focused_app = i;
-		redraw();
-	}
-}
-
 static void _window_menu_start_move(struct MenuEntry * self) {
 	if (!_window_menu_wid)
 		return;
@@ -134,23 +126,33 @@ static int widget_rightclick_windowlist(struct PanelWidget * this, struct yutani
 	return 0;
 }
 
+/* Update the hover-focus window */
+static int set_focused(int i) {
+	if (focused_app != i) {
+		focused_app = i;
+		return 1;
+	}
+	return 0;
+}
+
 
 static int widget_move_windowlist(struct PanelWidget * this, struct yutani_msg_window_mouse_event * evt) {
 	int found = 0;
 	int i = 0;
+	int should_redraw = 0;
 
 	foreach(node, window_list) {
 		struct window_ad * ad = node->value;
 		if (evt->new_x >= ad->left && evt->new_x < ad->left + TOTAL_CELL_WIDTH) {
 			found = 1;
-			set_focused(i);
+			should_redraw |= set_focused(i);
 			break;
 		}
 		i++;
 	}
 
 	if (!found) {
-		set_focused(-1);
+		should_redraw |= set_focused(-1);
 	}
 
 	int scroll_direction = 0;
@@ -184,13 +186,12 @@ static int widget_move_windowlist(struct PanelWidget * this, struct yutani_msg_w
 		}
 	}
 
-	return 1;
+	return should_redraw;
 }
 
 static int widget_leave_windowlist(struct PanelWidget * this, struct yutani_msg_window_mouse_event * evt) {
 	this->highlighted = 0;
-	set_focused(-1);
-	return 1;
+	return set_focused(-1);
 }
 
 static int widget_onkey_windowlist(struct PanelWidget * this, struct yutani_msg_key_event * ke) {
