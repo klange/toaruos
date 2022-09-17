@@ -39,3 +39,15 @@ void net_sock_alert(sock_t * sock);
 void net_sock_add(sock_t * sock, void * frame, size_t size);
 void * net_sock_get(sock_t * sock);
 sock_t * net_sock_create(void);
+
+extern long net_socket(int,int,int);
+extern long net_setsockopt(int,int,int,const void*,socklen_t);
+extern long net_bind(int, const struct sockaddr*, socklen_t);
+extern long net_accept(int, struct sockaddr*, socklen_t*);
+extern long net_listen(int,int);
+extern long net_connect(int, const struct sockaddr*, socklen_t);
+extern long net_getsockopt(int,int,int,void*,socklen_t*);
+extern long net_recv(int,struct msghdr*,int);
+extern long net_send(int, const struct msghdr*, int);
+extern long net_shutdown(int, int);
+

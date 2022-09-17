@@ -15,7 +15,6 @@
 #include <kernel/list.h>
 #include <kernel/spinlock.h>
 #include <kernel/vfs.h>
-#include <kernel/mod/net.h>
 #include <kernel/net/netif.h>
 #include <kernel/net/eth.h>
 #include <kernel/net/ipv4.h>
@@ -26,13 +25,6 @@
 #ifndef MISAKA_DEBUG_NET
 #define printf(...)
 #endif
-
-struct ethernet_packet {
-	uint8_t destination[6];
-	uint8_t source[6];
-	uint16_t type;
-	uint8_t payload[];
-} __attribute__((packed)) __attribute__((aligned(2)));
 
 extern spin_lock_t net_raw_sockets_lock;
 extern list_t * net_raw_sockets_list;

@@ -14,7 +14,6 @@
 #include <kernel/syscall.h>
 #include <kernel/vfs.h>
 #include <kernel/hashmap.h>
-#include <kernel/mod/net.h>
 #include <kernel/net/netif.h>
 #include <kernel/net/eth.h>
 

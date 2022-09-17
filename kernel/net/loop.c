@@ -13,7 +13,6 @@
 #include <kernel/vfs.h>
 #include <kernel/spinlock.h>
 #include <kernel/list.h>
-#include <kernel/mod/net.h>
 #include <kernel/net/netif.h>
 #include <kernel/net/eth.h>
 #include <errno.h>

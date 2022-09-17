@@ -31,6 +31,7 @@
 #include <kernel/syscall.h>
 #include <kernel/misc.h>
 #include <kernel/ptrace.h>
+#include <kernel/net/netif.h>
 
 static char   hostname[256];
 static size_t hostname_len = 0;
@@ -1155,17 +1156,6 @@ long sys_times(struct tms *buf) {
 
 	return arch_perf_timer() / arch_cpu_mhz();
 }
-
-extern long net_socket();
-extern long net_setsockopt();
-extern long net_bind();
-extern long net_accept();
-extern long net_listen();
-extern long net_connect();
-extern long net_getsockopt();
-extern long net_recv();
-extern long net_send();
-extern long net_shutdown();
 
 extern long ptrace_handle(long,pid_t,void*,void*);
 

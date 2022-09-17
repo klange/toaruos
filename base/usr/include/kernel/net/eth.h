@@ -1,7 +1,6 @@
 #pragma once
 
 #include <kernel/vfs.h>
-#include <kernel/mod/net.h>
 
 #define ETHERNET_TYPE_IPV4 0x0800
 #define ETHERNET_TYPE_ARP  0x0806
@@ -9,6 +8,13 @@
 
 #define MAC_FORMAT "%02x:%02x:%02x:%02x:%02x:%02x"
 #define FORMAT_MAC(m) (m)[0], (m)[1], (m)[2], (m)[3], (m)[4], (m)[5]
+
+struct ethernet_packet {
+	uint8_t destination[6];
+	uint8_t source[6];
+	uint16_t type;
+	uint8_t payload[];
+} __attribute__((packed)) __attribute__((aligned(2)));
 
 void net_eth_handle(struct ethernet_packet * frame, fs_node_t * nic, size_t size);
 
