@@ -348,7 +348,7 @@ static void graphics_install_bochs(uint16_t resolution_x, uint16_t resolution_y)
 	finalize_graphics("bochs");
 }
 
-extern void arch_framebuffer_initialize();
+extern void arch_framebuffer_initialize(void);
 
 static void graphics_install_preset(uint16_t w, uint16_t h) {
 	/* Make sure memsize is actually big enough */

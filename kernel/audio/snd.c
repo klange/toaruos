@@ -273,7 +273,7 @@ int snd_request_buf(snd_device_t * device, uint32_t size, uint8_t *buffer) {
 	return size;
 }
 
-static snd_device_t * snd_main_device() {
+static snd_device_t * snd_main_device(void) {
 	spin_lock(_devices_lock);
 	foreach(node, &_devices) {
 		spin_unlock(_devices_lock);
