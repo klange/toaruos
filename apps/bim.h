@@ -378,7 +378,7 @@ extern struct syntax_definition * syntaxes;
 
 struct action_def {
 	char * name;
-	void (*action)();
+	uintptr_t action;
 	int options;
 	const char * description;
 };
@@ -390,12 +390,12 @@ extern struct action_def * mappable_actions;
 #define ARG_IS_PROMPT  0x04 /* Prompts for an argument. */
 #define ACTION_IS_RW   0x08 /* Needs to be able to write. */
 
-#define BIM_ACTION(name, options, description) \
-	void name (); /* Define the action with unknown arguments */ \
+#define BIM_ACTION(name, options, description, ...) \
+	extern void name(__VA_ARGS__); /* Define the action with unknown arguments */ \
 	void __attribute__((constructor)) _install_ ## name (void) { \
-		add_action((struct action_def){#name, name, options, description}); \
+		add_action((struct action_def){#name, (uintptr_t)name, options, description}); \
 	} \
-	void name
+	void name(__VA_ARGS__)
 
 struct command_def {
 	char * name;
@@ -431,7 +431,7 @@ extern void quit(const char * message);
 extern void close_buffer(void);
 extern void set_syntax_by_name(const char * name);
 extern void rehighlight_search(line_t * line);
-extern void try_to_center();
+extern void try_to_center(void);
 extern int read_one_character(char * message);
 extern void bim_unget(int c);
 #define bim_getch() bim_getch_timeout(200)
@@ -494,9 +494,14 @@ extern void pause_for_key(void);
 
 struct action_map {
 	int key;
-	void (*method)();
 	int options;
-	int arg;
+	union {
+		struct {
+			uintptr_t method;
+			int arg;
+		};
+		KrkValue callable;
+	};
 };
 
 #define opt_rep  0x1 /* This action will be repeated */
@@ -506,6 +511,7 @@ struct action_map {
 #define opt_rw   0x10 /* Must not be read-only */
 #define opt_norm 0x20 /* Returns to normal mode */
 #define opt_byte 0x40 /* Same as opt_char but forces a byte */
+#define opt_krk  0x80
 
 struct mode_names {
 	const char * description;
