@@ -84,6 +84,8 @@ static char sig_defaults[] = {
 	[SIGCAT     ] = SIG_DISP_Ign,
 };
 
+#define shift_signal(signum) (1ULL << signum)
+
 /**
  * @brief If a system call returned -ERESTARTSYS, restart it.
  *
@@ -105,7 +107,7 @@ static void maybe_restart_system_call(struct regs * r, int signum) {
 	}
 }
 
-#define PENDING (this_core->current_process->pending_signals & ((~this_core->current_process->blocked_signals) | (1 << SIGSTOP) | (1 << SIGKILL)))
+#define PENDING (this_core->current_process->pending_signals & ((~this_core->current_process->blocked_signals) | shift_signal(SIGSTOP) | shift_signal(SIGKILL)))
 
 /**
  * @brief Examine the pending signal and perform an appropriate action.
@@ -213,9 +215,9 @@ int send_signal(pid_t process, int signal, int force_root) {
 	if (receiver->flags & PROC_FLAG_FINISHED) return -ESRCH;
 	if (signal == 0) return 0;
 
-	int awaited = receiver->awaited_signals & (1 << signal);
+	int awaited = receiver->awaited_signals & shift_signal(signal);
 	int ignored = !receiver->signals[signal].handler && !sig_defaults[signal];
-	int blocked = (receiver->blocked_signals & (1 << signal)) && signal != SIGKILL && signal != SIGSTOP;
+	int blocked = (receiver->blocked_signals & shift_signal(signal)) && signal != SIGKILL && signal != SIGSTOP;
 
 	/* sigcont always unsuspends */
 	if (sig_defaults[signal] == SIG_DISP_Cont && (receiver->flags & PROC_FLAG_SUSPENDED)) {
@@ -228,7 +230,7 @@ int send_signal(pid_t process, int signal, int force_root) {
 
 	/* Mark the signal for delivery. */
 	spin_lock(sig_lock);
-	receiver->pending_signals |= (1 << signal);
+	receiver->pending_signals |= shift_signal(signal);
 	spin_unlock(sig_lock);
 
 	/* If the signal is blocked and not being awaited, end here. */
@@ -304,7 +306,7 @@ _tryagain:
 		int signal = 0;
 		while (active_signals && signal <= NUMSIGNALS)  {
 			if (active_signals & 1) {
-				this_core->current_process->pending_signals &= ~(1 << signal);
+				this_core->current_process->pending_signals &= ~shift_signal(signal);
 				spin_unlock(sig_lock);
 				if (handle_signal((process_t*)this_core->current_process, signal, r)) return;
 				goto _tryagain;
@@ -371,7 +373,7 @@ int signal_await(sigset_t awaited, int * sig) {
 			while (maybe && signal <= NUMSIGNALS) {
 				if (maybe & 1) {
 					spin_lock(sig_lock);
-					this_core->current_process->pending_signals &= ~(1 << signal);
+					this_core->current_process->pending_signals &= ~shift_signal(signal);
 					*sig = signal;
 					spin_unlock(sig_lock);
 					return 0;
