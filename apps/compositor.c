@@ -1018,6 +1018,13 @@ static void resize_display(yutani_globals_t * yg) {
 	blur_ctx = init_graphics_sprite(blur_sprite);
 	clip_ctx->width = yg->backend_ctx->width;
 	clip_ctx->height = yg->backend_ctx->height;
+
+	/* reinitialize extended clip context or we won't be drawing enough later... */
+	if (clip_ctx->clips && clip_ctx->clips_size) {
+		free(clip_ctx->clips);
+		clip_ctx->clips_size = 0;
+		clip_ctx->clips = NULL;
+	}
 #endif
 
 	TRACE("graphics context resized...");
