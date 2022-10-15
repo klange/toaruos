@@ -578,10 +578,19 @@ static inline void term_set_point(uint16_t x, uint16_t y, uint32_t color ) {
 	GFX(ctx, (x+decor_left_width),(y+decor_top_height+menu_bar_height)) = color;
 }
 
+static void _fill_region(uint32_t _bg, uint16_t x, uint16_t y, uint16_t width, uint16_t height) {
+	for (uint8_t i = 0; i < height; ++i) {
+		for (uint8_t j = 0; j < width; ++j) {
+			term_set_point(x+j,y+i,_bg);
+		}
+	}
+}
+
 /* Draw a partial block character. */
 static void draw_semi_block(int c, int x, int y, uint32_t fg, uint32_t bg) {
 	bg = premultiply(bg);
-	fg = premultiply(fg);
+	fg = alpha_blend_rgba(bg, premultiply(fg));
+	_fill_region(bg, x, y, char_width, char_height);
 	if (c == 0x2580) {
 		for (uint8_t i = 0; i < char_height / 2; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
@@ -604,6 +613,48 @@ static void draw_semi_block(int c, int x, int y, uint32_t fg, uint32_t bg) {
 				term_set_point(x+j, y+i,fg);
 			}
 		}
+	}
+}
+
+static void draw_box_drawing(int c, int x, int y, uint32_t fg, uint32_t bg) {
+	bg = premultiply(bg);
+	fg = alpha_blend_rgba(bg, premultiply(fg));
+	_fill_region(bg, x, y, char_width, char_height);
+
+	int lineheight = char_height / 16;
+	int linewidth = char_width / 8;
+
+	lineheight = lineheight < 1 ? 1 : lineheight;
+	linewidth = linewidth < 1 ? 1 : linewidth;
+
+	int mid_x = char_width / 2 - linewidth / 2;
+	int mid_y = char_height / 2 - lineheight / 2;
+	int extra_x = (mid_x * 2 < char_width) ? char_width - mid_x * 2 : 0;
+	int extra_y = (mid_y * 2 < char_height) ? char_height - mid_y * 2 : 0;
+
+#define UP    _fill_region(fg, x + mid_x, y, linewidth, mid_y + lineheight)
+#define DOWN  _fill_region(fg, x + mid_x, y + mid_y, linewidth, mid_y + extra_y)
+#define LEFT  _fill_region(fg, x, y + mid_y, mid_x + linewidth, lineheight)
+#define RIGHT _fill_region(fg, x + mid_x, y + mid_y, mid_x + extra_x, lineheight)
+#define VERT  _fill_region(fg, x + mid_x, y, linewidth, char_height)
+#define HORI  _fill_region(fg, x, y + mid_y, char_width, lineheight)
+
+	switch (c) {
+		case 0x2500: HORI; break;
+		case 0x2502: VERT; break;
+		case 0x250c: RIGHT; DOWN; break;
+		case 0x2510: LEFT; DOWN; break;
+		case 0x2514: UP; RIGHT; break;
+		case 0x2518: UP; LEFT; break;
+		case 0x251c: VERT; RIGHT; break;
+		case 0x2524: VERT; LEFT; break;
+		case 0x252c: HORI; DOWN; break;
+		case 0x2534: UP; HORI; break;
+		case 0x253c: HORI; VERT; break;
+		case 0x2574: LEFT; break;
+		case 0x2575: UP; break;
+		case 0x2576: RIGHT; break;
+		case 0x2577: DOWN; break;
 	}
 }
 
@@ -716,16 +767,42 @@ static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, u
 		_bg |= 0xFF << 24;
 	}
 
-	/* Draw block characters */
-	if (val >= 0x2580 && val <= 0x258F) {
-		uint32_t pbg = premultiply(_bg);
-		for (uint8_t i = 0; i < char_height; ++i) {
-			for (uint8_t j = 0; j < char_width; ++j) {
-				term_set_point(x+j,y+i,pbg);
-			}
+	switch (val) {
+		/* Line drawing */
+		case 0x2500:
+		case 0x2502:
+		case 0x250c:
+		case 0x2510:
+		case 0x2514:
+		case 0x2518:
+		case 0x251c:
+		case 0x2524:
+		case 0x252c:
+		case 0x2534:
+		case 0x253c:
+		case 0x2574:
+		case 0x2575:
+		case 0x2576:
+		case 0x2577:
+			draw_box_drawing(val, x, y, _fg, _bg);
+			goto _extra_stuff;
+
+		/* Semi-filled blocks */
+		case 0x2580 ... 0x258f: {
+			draw_semi_block(val, x, y, _fg, _bg);
+			goto _extra_stuff;
 		}
-		draw_semi_block(val, x, y, _fg, _bg);
-		goto _extra_stuff;
+
+		/* Instead of checker, does 50% opacity fill */
+		case 0x2591:
+		case 0x2592:
+		case 0x2593:
+			_fill_region(alpha_blend_rgba(premultiply(_bg), interp_colors(rgb(0,0,0), premultiply(_fg), 255 * (val - 0x2590) / 4)), x, y, char_width, char_height);
+			goto _extra_stuff;
+
+
+		default:
+			break;
 	}
 
 	/* Draw glyphs */
