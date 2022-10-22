@@ -1,7 +1,7 @@
 #!/bin/bash
 VERSION=$(git describe --exact-match --tags)
 LAST=$(git describe --abbrev=0 --tags ${VERSION}^)
-CHANGELOG=$(git log --pretty=format:%s ${LAST}..HEAD | grep ':' | sed -re 's/(.*)\:/- \`\1\`\:/' | sort)
+CHANGELOG=$(git log --pretty=format:%s ${LAST}..HEAD | grep ':' | sed -re 's/([^:]*)\:/- \`\1\`\:/' | sort)
 cat <<NOTES
 # ToaruOS ${VERSION}
 
