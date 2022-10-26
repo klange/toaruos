@@ -1,4 +1,6 @@
 /* bad math */
+#include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 
 double sqrt(double x) {
@@ -40,7 +42,10 @@ double atan2(double y, double x) {
 }
 
 double pow(double x, double y) {
-	return 0.0;
+	if (getenv("LIBM_DEBUG")) {
+		fprintf(stderr, "pow(%f, %f)\n", x, y);
+	}
+	return x;
 }
 
 double fmod(double x, double y) {
