@@ -22,9 +22,9 @@ extern int sigfillset(sigset_t * set);
 extern int sigaddset(sigset_t * set, int signum);
 extern int sigdelset(sigset_t * set, int signum);
 extern int sigismember(sigset_t * set, int signum);
-extern int sigprocmask(int how, const sigset_t * restrict set, sigset_t * restrict oset);
+extern int sigprocmask(int how, const sigset_t * set, sigset_t * oset);
 extern int sigpending(sigset_t * set);
-extern int sigsuspend(const sigset_t * restrict set);
+extern int sigsuspend(const sigset_t * set);
 extern int sigwait(const sigset_t * set, int * sig);
 
 _End_C_Header
