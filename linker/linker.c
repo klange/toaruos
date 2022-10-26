@@ -578,12 +578,18 @@ static int object_relocate(elf_t * object) {
 						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
 						break;
 					case 1031: {
-						x += *((ssize_t *)(table->r_offset + object->base));
-						if (!hashmap_has(tls_map, symname)) {
-							fprintf(stderr, "Don't know where to get %s from TLS\n", symname);
-							exit(1);
+						if (symbol) {
+							if (!hashmap_has(tls_map, symname)) {
+								fprintf(stderr, "Warning: Don't know where to get %s (symbol %d) from TLS\n", symname, symbol);
+								break;
+							}
+							x += *((ssize_t *)(table->r_offset + object->base));
+							x += (size_t)hashmap_get(tls_map, symname);
+						} else {
+							/* local tls descriptor? no symbol? idk what to do with this, hope it works */
+							x = current_tls_offset;
+							current_tls_offset += 8*4; /* idk, alignment I guess */
 						}
-						x += (size_t)hashmap_get(tls_map, symname);
 						uintptr_t func = (uintptr_t)&__tlsdesc_static;
 						memcpy((void *)(table->r_offset + object->base), &func, sizeof(uintptr_t));
 						memcpy((void *)(table->r_offset + object->base + sizeof(uintptr_t)), &x, sizeof(uintptr_t));
