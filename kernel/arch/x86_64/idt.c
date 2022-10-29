@@ -357,13 +357,15 @@ void arch_dump_traceback(void) {
  *
  * @param fromAddr The low address to map, should be page aligned.
  */
-static void map_more_stack(uintptr_t fromAddr) {
+static int map_more_stack(uintptr_t fromAddr) {
 	volatile process_t * volatile proc = this_core->current_process;
 
 	/* Is this thread the process leader? */
 	if (proc->group != 0) {
 		proc = process_from_pid(proc->group);
 	}
+
+	if (!proc) return 0;
 
 	/* Make sure nothing else is going to mess with this process's page tables */
 	spin_lock(proc->image.lock);
@@ -378,6 +380,7 @@ static void map_more_stack(uintptr_t fromAddr) {
 	proc->image.userstack = fromAddr;
 
 	spin_unlock(proc->image.lock);
+	return 1;
 }
 
 /**
@@ -520,8 +523,7 @@ static void _page_fault(struct regs * r) {
 
 	/* Quietly map more stack if it was a viable stack address. */
 	if (faulting_address < 0x800000000000 && faulting_address > 0x700000000000) {
-		map_more_stack(faulting_address & 0xFFFFffffFFFFf000);
-		return;
+		if (map_more_stack(faulting_address & 0xFFFFffffFFFFf000)) return;
 	}
 
 	/* Otherwise, segfault the current process. */
