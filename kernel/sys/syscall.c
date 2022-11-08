@@ -111,7 +111,12 @@ long sys_sysfunc(long fn, char ** args) {
 			extern void mmu_unmap_user(uintptr_t addr, size_t size);
 			PTR_VALIDATE(&args[0]);
 			PTR_VALIDATE(&args[1]);
+			volatile process_t * volatile proc = this_core->current_process;
+			if (proc->group != 0) proc = process_from_pid(proc->group);
+			if (!proc) return -EFAULT;
+			spin_lock(proc->image.lock);
 			mmu_unmap_user((uintptr_t)args[0], (size_t)args[1]);
+			spin_unlock(proc->image.lock);
 			return 0;
 		}
 
