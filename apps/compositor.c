@@ -935,7 +935,15 @@ static void yutani_screenshot(yutani_globals_t * yg) {
 	yg->screenshot_frame = 0;
 
 	/* raw screenshots */
-	FILE * f = fopen("/tmp/screenshot.tga", "w");
+
+	char fname[1024];
+	struct tm * timeinfo;
+	struct timeval now;
+	gettimeofday(&now, NULL);
+	timeinfo = localtime((time_t *)&now.tv_sec);
+	strftime(fname,1024,"/tmp/screenshot_%F_%H_%M_%S.tga",timeinfo);
+
+	FILE * f = fopen(fname, "w");
 	if (!f) {
 		TRACE("Error opening output file for screenshot.");
 		return;
@@ -999,6 +1007,14 @@ static void yutani_screenshot(yutani_globals_t * yg) {
 		}
 	}
 	fclose(f);
+
+
+	FILE * toast = fopen("/dev/pex/toast", "w");
+	fprintf(toast, "{\"icon\": \"%s\", \"body\": \"Screenshot taken.\"}", fname);
+	fclose(toast);
+
+	/* Blorp */
+	system("play /usr/share/ttk/blorp.wav &");
 }
 
 static void resize_display(yutani_globals_t * yg) {
