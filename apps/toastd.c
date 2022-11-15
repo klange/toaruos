@@ -97,6 +97,10 @@ static void handle_msg(JSON_Value * msg) {
 			if (myIcon.width < 100) {
 				textOffset = myIcon.width + 8; /* Sounds like a fine padding... */
 				draw_sprite(ctx, &myIcon, 10, (background_sprite.height - myIcon.height) / 2);
+			} else {
+				int h = myIcon.height * 100 / myIcon.width;
+				textOffset = 100 + 8;
+				draw_sprite_scaled(ctx, &myIcon, 10, (background_sprite.height - h) / 2, 100, h);
 			}
 			free(myIcon.bitmap);
 		}
