@@ -19,7 +19,7 @@ try:
         meminfo[bits[0].strip()] = bits[1].strip()
 
     if 'MemTotal' in meminfo:
-        let kB = int(meminfo['MemTotal'])
+        let kB = int(meminfo['MemTotal'].replace('kB',''))
         if kB < 1000000:
             let sock = os.open("/dev/pex/toast",os.O_WRONLY)
             let msg = '{"icon":"/usr/share/icons/48/help.png","body":"<b>Low System Memory</b><br>At least 1GiB of RAM is<br>recommended for the Live CD.<br>' + str(kB//1024) + 'MiB was detected."}'
