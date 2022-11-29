@@ -81,9 +81,10 @@ static int widget_click_clock(struct PanelWidget * this, struct yutani_msg_windo
 	return 0;
 }
 
-static int widget_update_clock(struct PanelWidget * this) {
+static int widget_update_clock(struct PanelWidget * this, int * force_updates) {
 	if (clockmenu && clockmenu->window) {
 		menu_force_redraw(clockmenu);
+		*force_updates = 1;
 	}
 	return 0;
 }

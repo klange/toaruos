@@ -693,7 +693,7 @@ static int widget_draw_generic(struct PanelWidget * this, gfx_context_t * ctx) {
 	return 0;
 }
 
-static int widget_update_generic(struct PanelWidget * this) {
+static int widget_update_generic(struct PanelWidget * this, int * force_updates) {
 	return 0;
 }
 
@@ -741,11 +741,12 @@ static void widgets_layout(void) {
 	}
 }
 
-static void update_periodic_widgets(void) {
+static void update_periodic_widgets(int * force_updates) {
+	*force_updates = 0;
 	int needs_layout = 0;
 	foreach(widget_node, widgets_enabled) {
 		struct PanelWidget * widget = widget_node->value;
-		needs_layout |= widget->update(widget);
+		needs_layout |= widget->update(widget, force_updates);
 	}
 	if (needs_layout) widgets_layout();
 	redraw();
@@ -871,7 +872,8 @@ int main (int argc, char ** argv) {
 	}
 
 	/* Lay out the widgets */
-	update_periodic_widgets();
+	int force_updates = 0;
+	update_periodic_widgets(&force_updates);
 	widgets_layout();
 
 	/* Subscribe to window updates */
@@ -891,7 +893,7 @@ int main (int argc, char ** argv) {
 
 	while (_continue) {
 
-		int index = fswait2(1,fds,200);
+		int index = fswait2(1,fds,force_updates ? 50 : 200); /* ~20 fps? */
 
 		if (index == 0) {
 			/* Respond to Yutani events */
@@ -941,13 +943,13 @@ int main (int argc, char ** argv) {
 
 		struct timeval now;
 		gettimeofday(&now, NULL);
-		if (now.tv_sec != last_tick) {
+		if (now.tv_sec != last_tick || force_updates) {
 			last_tick = now.tv_sec;
 			waitpid(-1, NULL, WNOHANG);
-			update_periodic_widgets();
 			if (was_tabbing) {
 				redraw_alttab();
 			}
+			update_periodic_widgets(&force_updates);
 		}
 	}
 

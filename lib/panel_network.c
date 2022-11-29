@@ -94,7 +94,7 @@ _netif_next:
 	netstat_count++;
 }
 
-static int widget_update_network(struct PanelWidget * this) {
+static int widget_update_network(struct PanelWidget * this, int * force_updates) {
 	network_status = 0;
 	netstat_count = 0;
 

@@ -29,7 +29,7 @@ static hashmap_t * weather_icons = NULL;
 static sprite_t * weather_icon = NULL;
 static int widgets_weather_enabled = 0;
 
-static int widget_update_weather(struct PanelWidget * this) {
+static int widget_update_weather(struct PanelWidget * this, int * force_updates) {
 	FILE * f = fopen("/tmp/weather-parsed.conf","r");
 	if (!f) {
 		weather_status_valid = 0;

@@ -177,7 +177,7 @@ static int widget_click_date(struct PanelWidget * this, struct yutani_msg_window
 	return 0;
 }
 
-static int widget_update_date(struct PanelWidget * this) {
+static int widget_update_date(struct PanelWidget * this, int * force_updates) {
 	int width_before = date_widget_width;
 	update_date_widget();
 	this->width = date_widget_width;
