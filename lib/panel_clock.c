@@ -34,7 +34,7 @@ void _menu_draw_MenuEntry_Clock(gfx_context_t * ctx, struct MenuEntry * self, in
 	draw_rounded_rectangle(ctx, 6, offset + 2, 136, 136, 68, rgb(255,255,255));
 
 	for (int i = 0; i < 60; ++i) {
-		watch_draw_line(ctx, offset, 68, i % 5 ? 64 : 60, i, 60, rgb(0,0,0), i % 5 ? 0.5 : 1.0);
+		watch_draw_line(ctx, offset, 68, i % 5 ? 65 : 60, i, 60, rgb(0,0,0), i % 5 ? 0.3 : 1.0);
 	}
 
 	static const char * digits[] = {"12","1","2","3","4","5","6","7","8","9","10","11"};
@@ -63,7 +63,8 @@ void _menu_draw_MenuEntry_Clock(gfx_context_t * ctx, struct MenuEntry * self, in
 
 	watch_draw_line(ctx, offset, 40, 0, hour, 12, rgb(0,0,0), 2.0);
 	watch_draw_line(ctx, offset, 60, 0, min, 60, rgb(0,0,0), 1.5);
-	watch_draw_line(ctx, offset, 65, -4, sec, 60, rgb(240,0,0), 1.0);
+	watch_draw_line(ctx, offset, 65, -12, sec, 60, rgb(240,0,0), 0.5);
+	watch_draw_line(ctx, offset, -4, -8, sec, 60, rgb(240,0,0), 2.0);
 
 }
 
