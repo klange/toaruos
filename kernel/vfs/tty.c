@@ -77,7 +77,7 @@ void tty_output_process_slave(pty_t * pty, uint8_t c) {
 	}
 
 	if (c >= 'a' && c <= 'z' && (pty->tios.c_oflag & OLCUC)) {
-		c = c + 'a' - 'A';
+		c = c + 'A' - 'a';
 		OUT(c);
 		return;
 	}
