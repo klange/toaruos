@@ -860,7 +860,7 @@ static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, u
 			val = ununicode(val);
 		}
 		/* Draw using the bitmap font. */
-		uint16_t * c = large_font[val];
+		uint8_t * c = large_font[val];
 		for (uint8_t i = 0; i < char_height; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
 				if (c[i] & (1 << (LARGE_FONT_MASK-j))) {

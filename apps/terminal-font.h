@@ -48,7 +48,7 @@
 #define LARGE_FONT_CELL_WIDTH 8
 #define LARGE_FONT_CELL_HEIGHT 17
 #define LARGE_FONT_MASK 7
-uint16_t large_font[][17] = {
+uint8_t large_font[][17] = {
 	/* 0 32 */
 	{
 		/*          */

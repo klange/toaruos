@@ -39,8 +39,6 @@
 #include <toaru/pex.h>
 #include <toaru/hashmap.h>
 
-#include "terminal-font.h"
-
 #define TIMEOUT_SECS 2
 
 static FILE * console;

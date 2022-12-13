@@ -180,7 +180,7 @@ static void write_char(int x, int y, int val, int attr) {
 
 	uint32_t colors[] = {bg_color, fg_color};
 
-	uint16_t * c = large_font[val];
+	uint8_t * c = large_font[val];
 	for (uint8_t i = 0; i < char_height; ++i) {
 		for (uint8_t j = 0; j < char_width; ++j) {
 			set_point(x+j,y+i,colors[!!(c[i] & (1 << LARGE_FONT_MASK-j))]);

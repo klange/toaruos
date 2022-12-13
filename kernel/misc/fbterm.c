@@ -64,7 +64,7 @@ static void fb_write_char(int _x, int _y, int val, uint32_t color) {
 	int x = 1 + _x * char_width;
 	int y = _y * char_height;
 
-	uint16_t * c = large_font[val];
+	uint8_t * c = large_font[val];
 	for (uint8_t i = 0; i < char_height; ++i) {
 		for (uint8_t j = 0; j < char_width; ++j) {
 			if (c[i] & (1 << (LARGE_FONT_MASK-j))) {
