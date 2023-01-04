@@ -256,6 +256,10 @@ do_bios_call.1:
 	cmp %bx, %ax
 	je do_bios_call.test_key
 
+	mov $0x05, %ax
+	cmp %bx, %ax
+	je do_bios_call.set_font
+
 	/* Else: Bad call, jump to loop. */
 	jmp do_bios_call.done
 
@@ -287,6 +291,16 @@ do_bios_call.test_key:
 	mov %bl, %ah
 	int $0x16
 	movl %eax, 20(%esp)
+	jmp do_bios_call.done
+
+do_bios_call.set_font:
+	movl 36(%esp), %ebp /* address of font data into ebp */
+	mov $0x1100, %ax /* mode = load user-defined font */
+	mov $17, %bh /* 17 bytes (rows) per character */
+	mov $0, %bl  /* font block 0 */
+	mov $0, %dx  /* starting from char 0 */
+	mov $0x100, %cx /* write 256 glyphs */
+	int $0x10
 	jmp do_bios_call.done
 
 do_bios_call.done:
