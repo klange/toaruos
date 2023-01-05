@@ -16,7 +16,7 @@
 #include <unistd.h>
 #include <poll.h>
 #include <signal.h>
-#include <sys/times.h>
+#include <sys/time.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
@@ -31,6 +31,12 @@ struct ICMP_Header {
 	uint16_t sequence_number;
 	uint8_t payload[];
 };
+
+static unsigned long clocktime(void) {
+	struct timeval tv;
+	gettimeofday(&tv,NULL);
+	return tv.tv_sec * 1000000 + tv.tv_usec;
+}
 
 static uint16_t icmp_checksum(char * payload, size_t len) {
 	uint32_t sum = 0;
@@ -98,7 +104,7 @@ int main(int argc, char * argv[]) {
 		ping->checksum = htons(icmp_checksum((void*)ping, BYTES_TO_SEND));
 
 		/* Send it and wait */
-		clock_t sent_at = times(NULL);
+		unsigned long sent_at = clocktime();
 		if (sendto(sock, (void*)ping, BYTES_TO_SEND, 0, (struct sockaddr*)&dest, sizeof(struct sockaddr_in)) < 0) {
 			fprintf(stderr, "sendto: %s\n", strerror(errno));
 		}
@@ -115,7 +121,7 @@ int main(int argc, char * argv[]) {
 			struct sockaddr_in source;
 			socklen_t source_size = sizeof(struct sockaddr_in);
 			ssize_t len = recvfrom(sock, data, 4096, 0, (struct sockaddr*)&source, &source_size);
-			clock_t rcvd_at = times(NULL);
+			unsigned long rcvd_at = clocktime();
 			if (len > 0) {
 				/* Is it actually a PING response ? */
 
