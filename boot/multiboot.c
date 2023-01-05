@@ -264,39 +264,9 @@ static void finish_boot(void) {
 		}
 	}
 
-	uint64_t foobar = ((uint32_t)(uintptr_t)&do_the_nasty) | (0x10L << 32L);
-
-	uint32_t * foo = (uint32_t *)0x7c00;
-
-	foo[0] = MULTIBOOT_EAX_MAGIC;
-	foo[1] = (uintptr_t)finalHeader;
-	foo[2] = _xmain;
-
+	/* Jump to entry with register arguments */
 	__asm__ __volatile__ (
-			"push %0\n"
-			"lretl\n"
-			 : : "g"(foobar));
-
-	__asm__ (
-		"do_the_nasty:\n"
-		"cli\n"
-		".code32\n"
-		"mov %cr0, %eax\n"
-		"and $0x7FFeFFFF, %eax\n"
-		"mov %eax, %cr0\n"
-		"mov $0xc0000080, %ecx\n"
-		"rdmsr\n"
-		"and $0xfffffeff, %eax\n"
-		"wrmsr\n"
-		"mov $0x640, %eax\n"
-		"mov %eax, %cr4\n"
-		"mov 0x7c00, %eax\n"
-		"mov 0x7c04, %ebx\n"
-		"mov 0x7c08, %ecx\n"
-		"jmp *%ecx\n"
-		"target: jmp target\n"
-		".code64\n"
-		);
+		"jmp %0" :: "r"(_xmain), "a"(MULTIBOOT_EAX_MAGIC), "b"(finalHeader));
 
 	__builtin_unreachable();
 }

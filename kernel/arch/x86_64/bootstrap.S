@@ -151,7 +151,6 @@ jmp_to_long:
 
     /* Set up initial page region, which was zero'd for us by the loader */
     mov $init_page_region, %edi
-    mov %edi, %cr3
 
     /* PML4[0] = &PDP[0] | (PRESENT, WRITABLE, USER) */
     mov $0x1007, %eax
@@ -179,6 +178,9 @@ jmp_to_long:
     add $8, %edi
     loop .set_entry
 
+    mov $init_page_region, %edi
+    mov %edi, %cr3
+
     /* Enable PAE */
     mov %cr4, %eax
     or $32, %eax
@@ -190,12 +192,19 @@ jmp_to_long:
     or $256, %eax
     wrmsr
 
-    /* Set PG */
+    /* Check PG */
     mov %cr0, %eax
+
+    /* If paging was enabled, assume we were already in long mode (eg. booted by EFI) */
+    test $0x80000000, %eax
+    jnz .continue
+
+    /* Otherwise enable paging */
     or $0x80000000, %eax
     mov %eax, %cr0
 
     lgdt gdtr
+
     ljmp $0x08,$realm64
 
 .align 8
@@ -236,6 +245,8 @@ realm64:
     mov %ax, %gs
     mov %ax, %ss
 
+.continue:
+    cli
     pop %rdi
     pop %rsi
     pop %rdx
