@@ -65,7 +65,7 @@ static yutani_server_window_t * top_at(yutani_globals_t * yg, uint16_t x, uint16
 #ifdef ENABLE_BLUR_BEHIND
 #define BLUR_CLIP_MAX 20
 #define BLUR_KERNEL   10
-static sprite_t * blur_sprite = NULL;
+static char * blur_texture = NULL;
 static gfx_context_t * blur_ctx = NULL;
 static gfx_context_t * clip_ctx = NULL;
 #endif
@@ -1017,6 +1017,19 @@ static void yutani_screenshot(yutani_globals_t * yg) {
 	system("play /usr/share/ttk/blorp.wav &");
 }
 
+static gfx_context_t * init_graphics_with_store(gfx_context_t * base, char * store) {
+	gfx_context_t * out = malloc(sizeof(gfx_context_t));
+	out->clips = NULL;
+	out->width = base->width;
+	out->height = base->height;
+	out->stride = base->stride;
+	out->depth = base->depth;
+	out->size = base->size;
+	out->buffer = store;
+	out->backbuffer = out->buffer;
+	return out;
+}
+
 static void resize_display(yutani_globals_t * yg) {
 	TRACE("Resizing display.");
 
@@ -1028,10 +1041,9 @@ static void resize_display(yutani_globals_t * yg) {
 	}
 
 #ifdef ENABLE_BLUR_BEHIND
-	sprite_free(blur_sprite);
 	free(blur_ctx);
-	blur_sprite = create_sprite(yg->backend_ctx->width, yg->backend_ctx->height, ALPHA_OPAQUE);
-	blur_ctx = init_graphics_sprite(blur_sprite);
+	blur_texture = realloc(blur_texture, yg->backend_ctx->stride * yg->backend_ctx->height);
+	blur_ctx = init_graphics_with_store(yg->backend_ctx, blur_texture);
 	clip_ctx->width = yg->backend_ctx->width;
 	clip_ctx->height = yg->backend_ctx->height;
 
@@ -2263,8 +2275,8 @@ int main(int argc, char * argv[]) {
 	}
 
 #ifdef ENABLE_BLUR_BEHIND
-	blur_sprite = create_sprite(yg->backend_ctx->width, yg->backend_ctx->height, ALPHA_OPAQUE);
-	blur_ctx = init_graphics_sprite(blur_sprite);
+	blur_texture = realloc(blur_texture, yg->backend_ctx->stride * yg->backend_ctx->height);
+	blur_ctx = init_graphics_with_store(yg->backend_ctx, blur_texture);
 	clip_ctx = calloc(1, sizeof(gfx_context_t));
 	clip_ctx->width = yg->backend_ctx->width;
 	clip_ctx->height = yg->backend_ctx->height;
