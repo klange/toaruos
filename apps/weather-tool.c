@@ -37,6 +37,13 @@ int main(int argc, char * argv[]) {
 	char * key = JSON_KEY(config, "key")->string;
 	char * units = JSON_KEY(config, "units")->string;
 	char cmdline[1024];
+	
+	/* Check if the unit input is invalid (see #222)
+	 * 	This should in fact be checked before the configuration is saved
+	 *	and inform the user of an invalid value */
+	if (((strcmp(units, "metric") || (strcmp(units, "imperial")) {
+		units = "metric";
+	}
 
 	/* If the city is 'guess', we'll make a single query to a separate service to
 	 * get a location from the user's external IP... */
