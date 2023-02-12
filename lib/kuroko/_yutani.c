@@ -8,6 +8,7 @@
 #include <kuroko/vm.h>
 #include <kuroko/value.h>
 #include <kuroko/object.h>
+#include <kuroko/util.h>
 
 static KrkInstance * module;
 static KrkInstance * yctxInstance = NULL;
@@ -242,7 +243,7 @@ static KrkValue _yutani_init(int argc, const KrkValue argv[], int hasKw) {
 	yctxInstance = self;
 	krk_attachNamedObject(&module->fields, "_yutani_t", (KrkObj*)self);
 
-	return argv[0];
+	return NONE_VAL();
 }
 
 #define CHECK_YUTANI() \
@@ -555,7 +556,7 @@ static KrkValue _sprite_init(int argc, const KrkValue argv[], int hasKw) {
 	self->ctx = init_graphics_sprite(&self->sprite);
 	krk_attachNamedValue(&self->inst.fields, "file", argv[1]);
 
-	return argv[0];
+	return NONE_VAL();
 }
 
 #define CHECK_WINDOW() \
@@ -619,7 +620,7 @@ static KrkValue _window_init(int argc, const KrkValue argv[], int hasKw) {
 	krk_attachNamedValue(&_self->fields, "icon", icon);
 	krk_attachNamedValue(&_self->fields, "closed", BOOLEAN_VAL(0));
 
-	return argv[0];
+	return NONE_VAL();
 }
 
 static KrkValue _window_flip(int argc, const KrkValue argv[], int hasKw) {
@@ -846,7 +847,7 @@ static KrkValue _yutani_color_init(int argc, const KrkValue argv[], int hasKw) {
 	} else {
 		self->color = rgb(AS_INTEGER(argv[1]),AS_INTEGER(argv[2]),AS_INTEGER(argv[3]));
 	}
-	return argv[0];
+	return NONE_VAL();
 }
 
 static KrkValue _yutani_color_repr(int argc, const KrkValue argv[], int hasKw) {
@@ -907,7 +908,7 @@ static KrkValue _font_init(int argc, const KrkValue argv[], int hasKw) {
 
 	self->fontColor = IS_NONE(fontColor) ? rgb(0,0,0) : ((struct YutaniColor*)AS_INSTANCE(fontColor))->color;
 
-	return argv[0];
+	return NONE_VAL();
 }
 
 static KrkValue _font_size(int argc, const KrkValue argv[], int hasKw) {
@@ -1007,7 +1008,7 @@ static KrkValue _MenuBar_init(int argc, const KrkValue argv[], int hasKw) {
 	KrkValue dict = krk_dict_of(0,NULL, 0);
 	krk_attachNamedValue(&self->inst.fields, "set", dict);
 
-	return argv[0];
+	return NONE_VAL();
 }
 
 static KrkValue _MenuBar_place(int argc, const KrkValue argv[], int hasKw) {
@@ -1081,7 +1082,7 @@ static KrkValue _MenuList_init(int argc, const KrkValue argv[], int hasKw) {
 	KrkValue list = krk_list_of(0,NULL,0);
 	krk_attachNamedValue(&self->inst.fields, "entries", list);
 
-	return argv[0];
+	return NONE_VAL();
 }
 
 static KrkValue _MenuList_insert(int argc, const KrkValue argv[], int hasKw) {
@@ -1141,7 +1142,7 @@ static KrkValue _MenuEntry_init(int argc, const KrkValue argv[], int hasKw) {
 
 	krk_attachNamedValue(&self->inst.fields, "callback", argv[2]);
 
-	return argv[0];
+	return NONE_VAL();
 }
 
 /* TODO properties: icon, action, title */
@@ -1172,7 +1173,7 @@ static KrkValue _MenuEntrySubmenu_init(int argc, const KrkValue argv[], int hasK
 
 	self->menuEntry->_private = self;
 
-	return argv[0];
+	return NONE_VAL();
 }
 
 static KrkValue _MenuEntrySeparator_init(int argc, const KrkValue argv[], int hasKw) {
@@ -1181,7 +1182,7 @@ static KrkValue _MenuEntrySeparator_init(int argc, const KrkValue argv[], int ha
 	struct MenuEntryClass * self = (struct MenuEntryClass*)AS_INSTANCE(argv[0]);
 	self->menuEntry = menu_create_separator();
 	self->menuEntry->_private = self;
-	return argv[0];
+	return NONE_VAL();
 }
 
 KrkValue krk_module_onload__yutani(void) {
@@ -1220,7 +1221,7 @@ KrkValue krk_module_onload__yutani(void) {
 	 */
 	YutaniColor = krk_createClass(module, "color", NULL);
 	YutaniColor->allocSize = sizeof(struct YutaniColor);
-	YutaniColor->docstring = S("color(r,g,b,a=255)\n  Representation of an RGB(A) color.");
+	KRK_DOC(YutaniColor,"color(r,g,b,a=255)\n  Representation of an RGB(A) color.");
 	krk_defineNative(&YutaniColor->methods, "__init__", _yutani_color_init);
 	krk_defineNative(&YutaniColor->methods, "__repr__", _yutani_color_repr);
 	krk_defineNative(&YutaniColor->methods, "__str__", _yutani_color_str);
@@ -1236,7 +1237,7 @@ KrkValue krk_module_onload__yutani(void) {
 	 */
 	Yutani = krk_createClass(module, "Yutani", NULL);
 	Yutani->allocSize = sizeof(struct YutaniClass);
-	Yutani->docstring = S("Yutani()\n  Establish a connection to the compositor display server.");
+	KRK_DOC(Yutani, "Yutani()\n  Establish a connection to the compositor display server.");
 	krk_defineNativeProperty(&Yutani->methods, "display_width", _yutani_display_width);
 	krk_defineNativeProperty(&Yutani->methods, "display_height", _yutani_display_height);
 	krk_defineNative(&Yutani->methods, "__repr__", _yutani_repr);
@@ -1302,7 +1303,7 @@ KrkValue krk_module_onload__yutani(void) {
 	 */
 	YutaniWindow = krk_createClass(module, "Window", GraphicsContext);
 	YutaniWindow->allocSize = sizeof(struct WindowClass);
-	YutaniWindow->docstring = S("Window(width,height,flags=0,title=None,icon=None,doublebuffer=False)\n"
+	KRK_DOC(YutaniWindow, "Window(width,height,flags=0,title=None,icon=None,doublebuffer=False)\n"
 		"  Create a new window and initializes a graphics rendering context for it.");
 	krk_defineNative(&YutaniWindow->methods, "__repr__", _window_repr);
 	krk_defineNative(&YutaniWindow->methods, "__init__", _window_init);
@@ -1338,7 +1339,7 @@ KrkValue krk_module_onload__yutani(void) {
 	YutaniSprite = krk_createClass(module, "Sprite", GraphicsContext);
 	YutaniSprite->allocSize = sizeof(struct YutaniSprite);
 	YutaniSprite->_ongcsweep = _sprite_sweep;
-	YutaniSprite->docstring = S("Sprite(filename)\n  Create a sprite from the requested texture file.");
+	KRK_DOC(YutaniSprite, "Sprite(filename)\n  Create a sprite from the requested texture file.");
 	krk_defineNative(&YutaniSprite->methods, "__repr__", _sprite_repr);
 	krk_defineNative(&YutaniSprite->methods, "__init__", _sprite_init);
 	krk_finalizeClass(YutaniSprite);
@@ -1349,7 +1350,7 @@ KrkValue krk_module_onload__yutani(void) {
 	 */
 	YutaniFont = krk_createClass(module, "Font", NULL);
 	YutaniFont->allocSize = sizeof(struct YutaniFont);
-	YutaniFont->docstring = S("Font(type,size,gamma=1.7,stroke=0.75,color=color(0,0,0))\n"
+	KRK_DOC(YutaniFont, "Font(type,size,gamma=1.7,stroke=0.75,color=color(0,0,0))\n"
 		"  Create a Font specification for rendering text.");
 	krk_defineNative(&YutaniFont->methods, "__init__", _font_init);
 	krk_defineNative(&YutaniFont->methods, "draw_string", _font_draw_string)->doc =
