@@ -17,7 +17,14 @@ static KrkInstance * module;
 		KrkInstance inst; \
 		yname * pname; \
 		__VA_ARGS__ \
+	}; \
+	__attribute__((unused)) \
+	static int _init_check_ ## kname (struct _yutani_ ## kname * self) { \
+		return self->pname != NULL; \
 	}
+
+#define NO_REINIT(type) do { if (_init_check_ ## type (self)) return krk_runtimeError(vm.exceptions->typeError, "Can not reinit " #type); } while (0)
+#define INIT_CHECK(type) do { if (!_init_check_ ## type (self)) return krk_runtimeError(vm.exceptions->typeError, #type " object uninitialized"); } while (0)
 
 WRAP_TYPE(Message,yutani_msg_t,msg);
 #define IS_Message(o) (krk_isInstanceOf(o,Message))
@@ -28,6 +35,10 @@ static void _Message_gcsweep(KrkInstance * _self) {
 }
 
 #define CURRENT_CTYPE struct _yutani_Message*
+
+KRK_StaticMethod(Message,__new__) {
+	return krk_runtimeError(vm.exceptions->typeError, "can not instantiate Message");
+}
 
 /* Base type stuff */
 KRK_Method(Message,msg_magic) {
@@ -163,29 +174,6 @@ WRAP_PROP_FROM(state,kr_super)
 WRAP_PROP_FROM(state,kbd_esc_buf)
 #undef CURRENT_CTYPE
 
-static int _type_check(KrkClass * cls, KrkClass * myCls) {
-	if (!krk_isSubClass(cls, myCls)) {
-		krk_runtimeError(vm.exceptions->typeError, "%S is not a subclass of %S", cls->name, myCls->name);
-		return 1;
-	}
-
-	KrkClass * _cls = cls;
-	while (_cls) {
-		if (_cls->_new == myCls->_new) break;
-		if (_cls->_new && IS_NATIVE(OBJECT_VAL(_cls->_new))) {
-			krk_runtimeError(vm.exceptions->typeError, "%S.__new__(%S) is not safe, use %S.__new__() instead",
-				myCls->name, cls->name, _cls->name);
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-#define CHECK_TYPE(myCls) do { \
-		if (_type_check(cls, myCls)) return NONE_VAL(); \
-} while (0)
-
 WRAP_TYPE(YutaniCtx,yutani_t,yctx);
 #define AS_YutaniCtx(o) ((struct _yutani_YutaniCtx*)AS_OBJECT(o))
 #define IS_YutaniCtx(o) (krk_isInstanceOf(o,YutaniCtx))
@@ -199,8 +187,6 @@ KRK_StaticMethod(YutaniCtx,__new__) {
 	if (!krk_parseArgs("O!", (const char*[]){"cls"}, KRK_BASE_CLASS(type), &cls)) {
 		return NONE_VAL();
 	}
-
-	CHECK_TYPE(YutaniCtx);
 
 	CURRENT_CTYPE self = (CURRENT_CTYPE)krk_newInstance(cls);
 	krk_push(OBJECT_VAL(self));
@@ -324,6 +310,24 @@ WRAP_TYPE(Window,gfx_context_t,ctx,
 
 #define CHECK_GFX() do { if (!self->ctx) return krk_runtimeError(vm.exceptions->valueError, "invalid context"); } while (0)
 
+KRK_StaticMethod(GraphicsContext,__new__) {
+	KrkClass * cls;
+	int _argc;
+	const KrkValue * _argv;
+
+	if (!krk_parseArgs("O!*~",(const char*[]){"cls"},KRK_BASE_CLASS(type),&cls,&_argc,&_argv)) return NONE_VAL();
+
+	if (!krk_isSubClass(cls, GraphicsContext)) {
+		return krk_runtimeError(vm.exceptions->typeError, "%S is not a subclass of GraphicsContext", cls->name);
+	}
+
+	if (cls == GraphicsContext) {
+		return krk_runtimeError(vm.exceptions->typeError, "Can not create GraphicsContext");
+	}
+
+	return OBJECT_VAL(krk_newInstance(cls));
+}
+
 KRK_Method(GraphicsContext,fill) {
 	uint32_t color;
 	if (!krk_parseArgs(".I",(const char*[]){"color"},&color)) return NONE_VAL();
@@ -381,6 +385,8 @@ KRK_Method(GraphicsContext,rect) {
 	if (solid && radius) {
 		return krk_runtimeError(vm.exceptions->valueError, "can not combine 'radius' and 'solid'");
 	}
+
+	CHECK_GFX();
 
 	if (radius) {
 		draw_rounded_rectangle(self->ctx, x, y, width, height, radius, color);
@@ -448,8 +454,8 @@ KRK_Method(GraphicsContext,draw_sprite) {
 
 static void _yutani_Sprite_gcsweep(KrkInstance * _self) {
 	struct _yutani_Sprite * self = (void*)_self;
-	sprite_free(self->sprite);
-	release_graphics_yutani(self->ctx);
+	if (self->sprite) sprite_free(self->sprite);
+	if (self->ctx) release_graphics_yutani(self->ctx);
 }
 
 #define IS_Sprite(o) (krk_isInstanceOf(o,Sprite))
@@ -461,16 +467,13 @@ static void _yutani_Sprite_gcsweep(KrkInstance * _self) {
  *
  * Either file or width/height need to be specified, but not both.
  */
-KRK_StaticMethod(Sprite,__new__) {
-	KrkClass * cls;
+KRK_Method(Sprite,__init__) {
 	const char * filename = NULL;
 	unsigned int width = 0;
 	unsigned int height = 0;
 
 	if (!krk_parseArgs(
-		"O!|z$II",(const char*[]){"cls","file","width","height"},
-		KRK_BASE_CLASS(type),
-		&cls,
+		".|z$II",(const char*[]){"file","width","height"},
 		&filename,
 		&width,
 		&height
@@ -478,12 +481,12 @@ KRK_StaticMethod(Sprite,__new__) {
 		return NONE_VAL();
 	}
 
-	CHECK_TYPE(Sprite);
-
 	if ((!filename && (!width || !height)) || (filename && (width || height))) {
 		return krk_runtimeError(vm.exceptions->argumentError,
 			"Either 'file' or both of 'width' and 'height' must be provided, but not both.");
 	}
+
+	NO_REINIT(Sprite);
 
 	sprite_t * sprite;
 
@@ -502,8 +505,6 @@ KRK_StaticMethod(Sprite,__new__) {
 	/* Initialize representative graphics context */
 	gfx_context_t * ctx = init_graphics_sprite(sprite);
 
-	CURRENT_CTYPE self = (CURRENT_CTYPE)krk_newInstance(cls);
-	krk_push(OBJECT_VAL(self));
 	self->ctx = ctx;
 	self->sprite = sprite;
 
@@ -511,13 +512,14 @@ KRK_StaticMethod(Sprite,__new__) {
 	krk_attachNamedValue(&self->inst.fields, "file",
 		filename ? OBJECT_VAL(krk_copyString(filename,strlen(filename))) : NONE_VAL());
 
-	return krk_pop();
+	return NONE_VAL();
 }
 
 KRK_Method(Sprite,__repr__) {
-
 	KrkValue file = NONE_VAL();
 	krk_tableGet_fast(&self->inst.fields, S("file"), &file);
+
+	INIT_CHECK(Sprite);
 
 	if (!IS_NONE(file)) {
 		return krk_stringFromFormat("Sprite(file=%R,width=%u,height=%u)",
@@ -552,8 +554,7 @@ static void update_window_title(struct _yutani_Window * self) {
 	/* TODO Update decorations */
 }
 
-KRK_StaticMethod(Window,__new__) {
-	KrkClass * cls;
+KRK_Method(Window,__init__) {
 	unsigned int width;
 	unsigned int height;
 	unsigned int flags = 0;
@@ -564,9 +565,7 @@ KRK_StaticMethod(Window,__new__) {
 	if (!yctxInstance) return krk_runtimeError(vm.exceptions->valueError, "Compositor is not initialized");
 
 	if (!krk_parseArgs(
-		"O!II|IV!V!p",(const char *[]){"cls","width","height","flags","title","icon","doublebuffer"},
-		KRK_BASE_CLASS(type),
-		&cls,
+		".II|IV!V!p",(const char *[]){"width","height","flags","title","icon","doublebuffer"},
 		&width, &height,
 		&flags,
 		KRK_BASE_CLASS(str), &title,
@@ -576,10 +575,7 @@ KRK_StaticMethod(Window,__new__) {
 		return NONE_VAL();
 	}
 
-	CHECK_TYPE(Window);
-
-	CURRENT_CTYPE self = (CURRENT_CTYPE)krk_newInstance(cls);
-	krk_push(OBJECT_VAL(self));
+	NO_REINIT(Window);
 
 	self->window = yutani_window_create_flags(yctxInstance->yctx, width, height, flags);
 	self->doubleBuffered = doublebuffer;
@@ -590,22 +586,12 @@ KRK_StaticMethod(Window,__new__) {
 
 	update_window_title(self);
 
-	return krk_pop();
+	return NONE_VAL();
 }
-
-static int _check_window(struct _yutani_Window * self) {
-	if (!self->window) {
-		krk_runtimeError(vm.exceptions->valueError, "window is closed");
-		return 0;
-	}
-	return 1;
-}
-
-#define CHECK_WINDOW() do { if (!_check_window(self)) return NONE_VAL(); } while (0)
 
 KRK_Method(Window,title) {
+	INIT_CHECK(Window);
 	if (argc > 1) {
-		CHECK_WINDOW();
 		if (!IS_STRING(argv[1]) && !IS_NONE(argv[1])) return TYPE_ERROR(str,argv[1]);
 		self->title = argv[1];
 		update_window_title(self);
@@ -614,8 +600,8 @@ KRK_Method(Window,title) {
 }
 
 KRK_Method(Window,icon) {
+	INIT_CHECK(Window);
 	if (argc > 1) {
-		CHECK_WINDOW();
 		if (!IS_STRING(argv[1]) && !IS_NONE(argv[1])) return TYPE_ERROR(str,argv[1]);
 		self->icon = argv[1];
 		update_window_title(self);
@@ -624,11 +610,11 @@ KRK_Method(Window,icon) {
 	return self->icon;
 }
 
-KRK_Method(Window,wid) { CHECK_WINDOW(); return INTEGER_VAL(self->window->wid); }
-KRK_Method(Window,x) { CHECK_WINDOW(); return INTEGER_VAL(self->window->x); }
-KRK_Method(Window,y) { CHECK_WINDOW(); return INTEGER_VAL(self->window->y); }
+KRK_Method(Window,wid) { INIT_CHECK(Window); return INTEGER_VAL(self->window->wid); }
+KRK_Method(Window,x) { INIT_CHECK(Window); return INTEGER_VAL(self->window->x); }
+KRK_Method(Window,y) { INIT_CHECK(Window); return INTEGER_VAL(self->window->y); }
 KRK_Method(Window,focused) {
-	CHECK_WINDOW();
+	INIT_CHECK(Window);
 
 	if (argc > 1) {
 		if (!IS_BOOLEAN(argv[1])) return krk_runtimeError(vm.exceptions->typeError, "focused must be bool, not %T", argv[1]);
@@ -641,6 +627,7 @@ KRK_Method(Window,focused) {
 KRK_Method(Window,closed) { return INTEGER_VAL(self->closed); }
 
 KRK_Method(Window,__repr__) {
+	INIT_CHECK(Window);
 	if (!self->window) {
 		return krk_stringFromFormat("Window(title=%R,closed=True)", self->title);
 	}
@@ -649,7 +636,7 @@ KRK_Method(Window,__repr__) {
 }
 
 KRK_Method(Window,flip) {
-	CHECK_WINDOW();
+	INIT_CHECK(Window);
 	if (self->doubleBuffered) {
 		flip(self->ctx);
 	}
@@ -660,13 +647,13 @@ KRK_Method(Window,flip) {
 KRK_Method(Window,move) {
 	int x, y;
 	if (!krk_parseArgs(".ii", (const char*[]){"x","y"}, &x, &y)) return NONE_VAL();
-	CHECK_WINDOW();
+	INIT_CHECK(Window);
 	yutani_window_move(yctxInstance->yctx, self->window, x, y);
 	return NONE_VAL();
 }
 
 KRK_Method(Window,close) {
-	CHECK_WINDOW();
+	INIT_CHECK(Window);
 	yutani_close(yctxInstance->yctx, self->window);
 	self->window = NULL;
 	release_graphics_yutani(self->ctx);
@@ -678,7 +665,7 @@ KRK_Method(Window,close) {
 KRK_Method(Window,set_stack) {
 	unsigned int z;
 	if (!krk_parseArgs(".I", (const char*[]){"z"}, &z)) return NONE_VAL();
-	CHECK_WINDOW();
+	INIT_CHECK(Window);
 	yutani_set_stack(yctxInstance->yctx, self->window, z);
 	return NONE_VAL();
 }
@@ -686,7 +673,7 @@ KRK_Method(Window,set_stack) {
 KRK_Method(Window,special_request) {
 	unsigned int request;
 	if (!krk_parseArgs(".I", (const char*[]){"request"}, &request)) return NONE_VAL();
-	CHECK_WINDOW();
+	INIT_CHECK(Window);
 	yutani_special_request(yctxInstance->yctx, self->window, request);
 	return NONE_VAL();
 }
@@ -694,7 +681,7 @@ KRK_Method(Window,special_request) {
 KRK_Method(Window,resize) {
 	unsigned int width, height;
 	if (!krk_parseArgs(".II", (const char*[]){"width","height"}, &width, &height)) return NONE_VAL();
-	CHECK_WINDOW();
+	INIT_CHECK(Window);
 	yutani_window_resize(yctxInstance->yctx, self->window, width, height);
 	return NONE_VAL();
 }
@@ -702,13 +689,13 @@ KRK_Method(Window,resize) {
 KRK_Method(Window,resize_start) {
 	unsigned int direction;
 	if (!krk_parseArgs(".I", (const char*[]){"direction"}, &direction)) return NONE_VAL();
-	CHECK_WINDOW();
+	INIT_CHECK(Window);
 	yutani_window_resize_start(yctxInstance->yctx, self->window, direction);
 	return NONE_VAL();
 }
 
 KRK_Method(Window,resize_done) {
-	CHECK_WINDOW();
+	INIT_CHECK(Window);
 	yutani_window_resize_done(yctxInstance->yctx, self->window);
 	return NONE_VAL();
 }
@@ -716,7 +703,7 @@ KRK_Method(Window,resize_done) {
 KRK_Method(Window,resize_offer) {
 	unsigned int width, height;
 	if (!krk_parseArgs(".II", (const char*[]){"width","height"}, &width, &height)) return NONE_VAL();
-	CHECK_WINDOW();
+	INIT_CHECK(Window);
 	yutani_window_resize_offer(yctxInstance->yctx, self->window, width, height);
 	return NONE_VAL();
 }
@@ -724,7 +711,7 @@ KRK_Method(Window,resize_offer) {
 KRK_Method(Window,resize_accept) {
 	unsigned int width, height;
 	if (!krk_parseArgs(".II", (const char*[]){"width","height"}, &width, &height)) return NONE_VAL();
-	CHECK_WINDOW();
+	INIT_CHECK(Window);
 	yutani_window_resize_accept(yctxInstance->yctx, self->window, width, height);
 	return NONE_VAL();
 }
@@ -732,7 +719,7 @@ KRK_Method(Window,resize_accept) {
 KRK_Method(Window,update_shape) {
 	unsigned int threshold;
 	if (!krk_parseArgs(".I", (const char*[]){"threshold"}, &threshold)) return NONE_VAL();
-	CHECK_WINDOW();
+	INIT_CHECK(Window);
 	yutani_window_update_shape(yctxInstance->yctx, self->window, threshold);
 	return NONE_VAL();
 }
@@ -740,7 +727,7 @@ KRK_Method(Window,update_shape) {
 KRK_Method(Window,show_mouse) {
 	unsigned int mouse;
 	if (!krk_parseArgs(".I", (const char*[]){"mouse"}, &mouse)) return NONE_VAL();
-	CHECK_WINDOW();
+	INIT_CHECK(Window);
 	yutani_window_show_mouse(yctxInstance->yctx, self->window, mouse);
 	return NONE_VAL();
 }
@@ -748,13 +735,13 @@ KRK_Method(Window,show_mouse) {
 KRK_Method(Window,warp_mouse) {
 	int x, y;
 	if (!krk_parseArgs(".ii", (const char*[]){"x","y"}, &x, &y)) return NONE_VAL();
-	CHECK_WINDOW();
+	INIT_CHECK(Window);
 	yutani_window_warp_mouse(yctxInstance->yctx, self->window, x, y);
 	return NONE_VAL();
 }
 
 KRK_Method(Window,reinit) {
-	CHECK_WINDOW();
+	INIT_CHECK(Window);
 	reinit_graphics_yutani(self->ctx, self->window);
 	return NONE_VAL();
 }
@@ -770,25 +757,25 @@ WRAP_TYPE(Font,struct TT_Font,fontData,
 #define AS_Font(o) ((struct _yutani_Font*)AS_OBJECT(o))
 #define CURRENT_CTYPE struct _yutani_Font*
 
+#define CHECK_FONT() do { if (!self->fontData) return krk_runtimeError(vm.exceptions->valueError, "font is uninitialized"); } while (0)
+
 static void _yutani_Font_gcsweep(KrkInstance * _self) {
 	CURRENT_CTYPE self = (CURRENT_CTYPE)_self;
-	free(self->fontData);
+	if (self->fontData) free(self->fontData);
 }
 
-KRK_StaticMethod(Font,__new__) {
-	KrkClass * cls;
+KRK_Method(Font,__init__) {
 	const char * filename;
 	int size;
 	uint32_t color = rgb(0,0,0);
 
 	if (!krk_parseArgs(
-		"O!si|I",(const char*[]){"cls","font","size","color"},
-		KRK_BASE_CLASS(type), &cls,
+		".si|I",(const char*[]){"font","size","color"},
 		&filename, &size, &color)) {
 		return NONE_VAL();
 	}
 
-	CHECK_TYPE(Font);
+	NO_REINIT(Font);
 
 	struct TT_Font * fd;
 
@@ -804,19 +791,17 @@ KRK_StaticMethod(Font,__new__) {
 
 	tt_set_size(fd, size);
 
-	CURRENT_CTYPE self = (CURRENT_CTYPE)krk_newInstance(cls);
-	krk_push(OBJECT_VAL(self));
-
 	self->fontData = fd;
 	self->fontSize = size;
 	self->fontColor = color;
 
 	krk_attachNamedValue(&self->inst.fields, "file", OBJECT_VAL(krk_copyString(filename, strlen(filename))));
 
-	return krk_pop();
+	return NONE_VAL();
 }
 
 KRK_Method(Font,size) {
+	INIT_CHECK(Font);
 	if (argc > 1) {
 		if (!IS_INTEGER(argv[1])) return krk_runtimeError(vm.exceptions->typeError, "size must be int, not %T", argv[1]);
 		self->fontSize = AS_INTEGER(argv[1]);
@@ -839,6 +824,7 @@ KRK_Method(Font,draw_string) {
 		return NONE_VAL();
 	}
 
+	INIT_CHECK(Font);
 	return INTEGER_VAL(tt_draw_string(ctx->ctx, self->fontData, x, y, s, self->fontColor));
 }
 
@@ -857,6 +843,8 @@ KRK_Method(Font,draw_string_shadow) {
 		return NONE_VAL();
 	}
 
+	INIT_CHECK(Font);
+
 	/* This has a weird API for reasons I can't remember */
 	tt_draw_string_shadow(ctx->ctx, self->fontData, (char*)s, self->fontSize, x, y, self->fontColor, shadow, blur);
 
@@ -866,6 +854,7 @@ KRK_Method(Font,draw_string_shadow) {
 KRK_Method(Font,width) {
 	const char * s;
 	if (!krk_parseArgs("s", (const char*[]){"s"}, &s)) return NONE_VAL();
+	INIT_CHECK(Font);
 	return INTEGER_VAL(tt_string_width(self->fontData, s));
 }
 
@@ -903,18 +892,16 @@ static void _menubar_callback(struct menu_bar * _self) {
 	}
 }
 
-KRK_StaticMethod(MenuBar,__new__) {
-	KrkClass * cls;
+KRK_Method(MenuBar,__init__) {
 	KrkTuple * entries;
 
 	if (!krk_parseArgs(
-		"O!O!", (const char*[]){"cls","entries"},
-		KRK_BASE_CLASS(type), &cls,
+		".O!", (const char*[]){"entries"},
 		KRK_BASE_CLASS(tuple), &entries)) {
 		return NONE_VAL();
 	}
 
-	CHECK_TYPE(MenuBar);
+	NO_REINIT(MenuBar);
 
 	size_t count = entries->values.count;
 	struct menu_bar * out = malloc(sizeof(struct menu_bar));
@@ -937,9 +924,6 @@ KRK_StaticMethod(MenuBar,__new__) {
 
 	out->set = menu_set_create();
 
-	CURRENT_CTYPE self = (CURRENT_CTYPE)krk_newInstance(cls);
-	krk_push(OBJECT_VAL(self));
-
 	self->menuBar = out;
 	out->_private = self;
 	out->redraw_callback = _menubar_callback;
@@ -947,7 +931,7 @@ KRK_StaticMethod(MenuBar,__new__) {
 	krk_attachNamedValue(&self->inst.fields, "entries", OBJECT_VAL(entries));
 	krk_attachNamedValue(&self->inst.fields, "set", krk_dict_of(0,NULL,0));
 
-	return krk_pop();
+	return NONE_VAL();
 
 _error:
 	for (size_t i = 0; i < count; ++i) {
@@ -956,6 +940,7 @@ _error:
 	}
 	free(out->entries);
 	free(out);
+
 	return NONE_VAL();
 }
 
@@ -971,6 +956,8 @@ KRK_Method(MenuBar,place) {
 		return NONE_VAL();
 	}
 
+	INIT_CHECK(MenuBar);
+
 	self->menuBar->x = x;
 	self->menuBar->y = y;
 	self->menuBar->width = width;
@@ -982,6 +969,7 @@ KRK_Method(MenuBar,place) {
 KRK_Method(MenuBar,render) {
 	struct _yutani_GraphicsContext * ctx;
 	if (!krk_parseArgs(".O!",(const char*[]){"ctx"}, GraphicsContext, &ctx)) return NONE_VAL();
+	INIT_CHECK(MenuBar);
 	menu_bar_render(self->menuBar, ctx->ctx);
 	return NONE_VAL();
 }
@@ -998,6 +986,7 @@ KRK_Method(MenuBar,mouse_event) {
 		return NONE_VAL();
 	}
 
+	INIT_CHECK(MenuBar);
 	return INTEGER_VAL(menu_bar_mouse_event(yctxInstance->yctx, window->window, self->menuBar,
 		AS_Message_WindowMouseEvent(message),
 		AS_Message_WindowMouseEvent(message)->new_x ,
@@ -1016,6 +1005,7 @@ KRK_Method(MenuBar,insert) {
 		return NONE_VAL();
 	}
 
+	INIT_CHECK(MenuBar);
 	menu_set_insert(self->menuBar->set, AS_CSTRING(name), menu->menuList);
 
 	KrkValue dict = NONE_VAL();
@@ -1034,28 +1024,26 @@ KRK_Method(MenuBar,insert) {
 #define AS_MenuList(o) ((struct _yutani_MenuList*)AS_OBJECT(o))
 #define CURRENT_CTYPE struct _yutani_MenuList*
 
-KRK_StaticMethod(MenuList,__new__) {
-	KrkClass * cls;
+KRK_Method(MenuList,__init__) {
+	if (!krk_parseArgs(".",(const char*[]){}, NULL)) return NONE_VAL();
 
-	if (!krk_parseArgs("O!",(const char*[]){"cls"}, KRK_BASE_CLASS(type), &cls)) return NONE_VAL();
-	CHECK_TYPE(MenuList);
+	NO_REINIT(MenuList);
 
 	struct MenuList * out = menu_create();
-	CURRENT_CTYPE self = (CURRENT_CTYPE)krk_newInstance(cls);
-	krk_push(OBJECT_VAL(self));
-
 	self->menuList = out;
 
 	KrkValue list = krk_list_of(0,NULL,0);
 	krk_attachNamedValue(&self->inst.fields, "entries", list);
 
-	return krk_pop();
+	return NONE_VAL();
 }
 
 KRK_Method(MenuList,insert) {
 	struct _yutani_MenuEntry * entry;
 
 	if (!krk_parseArgs(".O!",(const char*[]){"entry"}, MenuEntry, &entry)) return NONE_VAL();
+
+	INIT_CHECK(MenuList);
 
 	menu_insert(self->menuList, entry->menuEntry);
 
@@ -1087,33 +1075,29 @@ static void _MenuEntry_callback_internal(struct MenuEntry * _self) {
 	}
 }
 
-KRK_StaticMethod(MenuEntry,__new__) {
-	KrkClass * cls;
+KRK_Method(MenuEntry,__init__) {
 	const char * title;
 	KrkValue callback;
 	const char * icon = NULL;
 	const char * action = NULL;
 
 	if (!krk_parseArgs(
-		"O!sV|zz", (const char*[]){"cls","title","callback","icon","action"},
-		KRK_BASE_CLASS(type), &cls,
+		".sV|zz", (const char*[]){"title","callback","icon","action"},
 		&title, &callback,
 		&icon, &action
 	)) {
 		return NONE_VAL();
 	}
 
-	CHECK_TYPE(MenuEntry);
+	NO_REINIT(MenuEntry);
 
 	struct MenuEntry * out = menu_create_normal(icon, action, title, _MenuEntry_callback_internal);
-	CURRENT_CTYPE self = (CURRENT_CTYPE)krk_newInstance(cls);
 	self->menuEntry = out;
-	krk_push(OBJECT_VAL(self));
 	out->_private = self;
 
 	krk_attachNamedValue(&self->inst.fields, "callback", callback);
 
-	return krk_pop();
+	return NONE_VAL();
 }
 
 #undef CURRENT_CTYPE
@@ -1122,30 +1106,26 @@ KRK_StaticMethod(MenuEntry,__new__) {
 #define AS_MenuEntrySubmenu(o) ((struct _yutani_MenuEntrySubmenu*)AS_OBJECT(o))
 #define CURRENT_CTYPE struct _yutani_MenuEntrySubmenu*
 
-KRK_StaticMethod(MenuEntrySubmenu,__new__) {
-	KrkClass * cls;
+KRK_Method(MenuEntrySubmenu,__init__) {
 	const char * title;
 	const char * icon = NULL;
 	const char * action = NULL;
 
 	if (!krk_parseArgs(
-		"O!s|zz", (const char*[]){"cls","title","icon","action"},
-		KRK_BASE_CLASS(type), &cls,
+		".s|zz", (const char*[]){"title","icon","action"},
 		&title,
 		&icon, &action
 	)) {
 		return NONE_VAL();
 	}
 
-	CHECK_TYPE(MenuEntrySubmenu);
+	NO_REINIT(MenuEntrySubmenu);
 
 	struct MenuEntry * out = menu_create_submenu(icon, action, title);
-	CURRENT_CTYPE self = (CURRENT_CTYPE)krk_newInstance(cls);
 	self->menuEntry = out;
-	krk_push(OBJECT_VAL(self));
 	out->_private = self;
 
-	return krk_pop();
+	return NONE_VAL();
 }
 
 #undef CURRENT_CTYPE
@@ -1154,16 +1134,13 @@ KRK_StaticMethod(MenuEntrySubmenu,__new__) {
 #define AS_MenuEntrySeparator(o) ((struct _yutani_MenuEntrySeparator*)AS_OBJECT(o))
 #define CURRENT_CTYPE struct _yutani_MenuEntrySeparator*
 
-KRK_StaticMethod(MenuEntrySeparator,__new__) {
-	KrkClass * cls;
-	if (!krk_parseArgs("O!", (const char*[]){"cls"}, KRK_BASE_CLASS(type), &cls)) return NONE_VAL();
-	CHECK_TYPE(MenuEntrySeparator);
+KRK_Method(MenuEntrySeparator,__init__) {
+	if (!krk_parseArgs(".", (const char*[]){}, NULL)) return NONE_VAL();
+	NO_REINIT(MenuEntrySeparator);
 	struct MenuEntry * out = menu_create_separator();
-	CURRENT_CTYPE self = (CURRENT_CTYPE)krk_newInstance(cls);
 	self->menuEntry = out;
-	krk_push(OBJECT_VAL(self));
 	out->_private = self;
-	return krk_pop();
+	return NONE_VAL();
 }
 
 #undef CURRENT_CTYPE
@@ -1239,6 +1216,7 @@ KrkValue krk_module_onload__yutani2(void) {
 	krk_makeClass(module, &Message, "Message", KRK_BASE_CLASS(object));
 	Message->allocSize = sizeof(struct _yutani_Message);
 	Message->_ongcsweep = _Message_gcsweep;
+	BIND_STATICMETHOD(Message,__new__);
 	BIND_METHOD(Message,__repr__);
 	BIND_PROP(Message,msg_magic);
 	BIND_PROP(Message,msg_type);
@@ -1346,6 +1324,7 @@ KrkValue krk_module_onload__yutani2(void) {
 	 */
 	krk_makeClass(module, &YutaniCtx, "YutaniCtx", KRK_BASE_CLASS(object));
 	YutaniCtx->allocSize = sizeof(struct _yutani_YutaniCtx);
+	YutaniCtx->obj.flags |= KRK_OBJ_FLAGS_NO_INHERIT;
 	BIND_STATICMETHOD(YutaniCtx,__new__);
 	BIND_METHOD(YutaniCtx,poll);
 	BIND_METHOD(YutaniCtx,wait_for);
@@ -1378,6 +1357,8 @@ KrkValue krk_module_onload__yutani2(void) {
 	 */
 	krk_makeClass(module, &GraphicsContext, "GraphicsContext", KRK_BASE_CLASS(object));
 	GraphicsContext->allocSize = sizeof(struct _yutani_GraphicsContext);
+	GraphicsContext->obj.flags |= KRK_OBJ_FLAGS_NO_INHERIT;
+	BIND_STATICMETHOD(GraphicsContext,__new__);
 	BIND_PROP(GraphicsContext,width);
 	BIND_PROP(GraphicsContext,height);
 	BIND_PROP(GraphicsContext,isDoubleBuffered);
@@ -1394,12 +1375,12 @@ KrkValue krk_module_onload__yutani2(void) {
 	 * typically derived from an image file.
 	 *
 	 * class Sprite(GraphicsContext):
-	 *     def __new__(cls, file=None, width=0, height=0)
+	 *     def __init__(self, file=None, width=0, height=0)
 	 */
 	krk_makeClass(module, &Sprite, "Sprite", GraphicsContext);
 	Sprite->allocSize = sizeof(struct _yutani_Sprite);
 	Sprite->_ongcsweep = _yutani_Sprite_gcsweep;
-	BIND_STATICMETHOD(Sprite,__new__);
+	BIND_METHOD(Sprite,__init__);
 	BIND_METHOD(Sprite,__repr__);
 	krk_finalizeClass(Sprite);
 
@@ -1414,7 +1395,7 @@ KrkValue krk_module_onload__yutani2(void) {
 	 *     y: int
 	 *     focused: bool
 	 *     closed: bool
-	 *     def __new__(cls, width: int, height: int, flags: int = 0, title: str = None, icon: str = None, doublebuffer: bool = True)
+	 *     def __init__(self, width: int, height: int, flags: int = 0, title: str = None, icon: str = None, doublebuffer: bool = True)
 	 *     def flip(self)
 	 *     def move(self, x: int, y: int)
 	 *     def close(self)
@@ -1433,7 +1414,7 @@ KrkValue krk_module_onload__yutani2(void) {
 	krk_makeClass(module, &Window, "Window", GraphicsContext);
 	Window->allocSize = sizeof(struct _yutani_Window);
 	Window->_ongcscan = _yutani_Window_gcscan;
-	BIND_STATICMETHOD(Window,__new__);
+	BIND_METHOD(Window,__init__);
 	BIND_METHOD(Window,__repr__);
 	BIND_METHOD(Window,flip);
 	BIND_METHOD(Window,move);
@@ -1464,7 +1445,7 @@ KrkValue krk_module_onload__yutani2(void) {
 	 *
 	 * class Font:
 	 *     size: int
-	 *     def __new__(cls, font: str, size: int, color: int = rgb(0,0,0))
+	 *     def __init__(self, font: str, size: int, color: int = rgb(0,0,0))
 	 *     def draw_string(self, ctx: GraphicsContext, s: str, x: int, y: int) -> int
 	 *     def draw_string_shadow(self, ctx: GraphicsContext, s: str, x: int, y: int, shadow: int, blur: int)
 	 *     def width(self, s: str) -> int
@@ -1472,7 +1453,7 @@ KrkValue krk_module_onload__yutani2(void) {
 	krk_makeClass(module, &Font, "Font", KRK_BASE_CLASS(object));
 	Font->allocSize = sizeof(struct _yutani_Font);
 	Font->_ongcsweep = _yutani_Font_gcsweep;
-	BIND_STATICMETHOD(Font,__new__);
+	BIND_METHOD(Font,__init__);
 	BIND_METHOD(Font,draw_string);
 	BIND_METHOD(Font,draw_string_shadow);
 	BIND_METHOD(Font,width);
@@ -1485,7 +1466,7 @@ KrkValue krk_module_onload__yutani2(void) {
 	 * This should really be in a higher-level GUI toolkit, but for now we have what we have...
 	 *
 	 * class MenuBar:
-	 *     def __new__(cls, entries: tuple[tuple[str,str]])
+	 *     def __init__(self, entries: tuple[tuple[str,str]])
 	 *     def place(self, x: int, y: int, width: int, window: Window)
 	 *     def render(self, ctx: GraphicsContext)
 	 *     def mouse_event(self, window: Window, message: Message_WindowMouseEvent)
@@ -1494,7 +1475,7 @@ KrkValue krk_module_onload__yutani2(void) {
 	krk_makeClass(module, &MenuBar, "MenuBar", KRK_BASE_CLASS(object));
 	MenuBar->allocSize = sizeof(struct _yutani_MenuBar);
 	MenuBar->_ongcsweep = _yutani_MenuBar_gcsweep;
-	BIND_STATICMETHOD(MenuBar,__new__);
+	BIND_METHOD(MenuBar,__init__);
 	BIND_METHOD(MenuBar,place);
 	BIND_METHOD(MenuBar,render);
 	BIND_METHOD(MenuBar,mouse_event);
@@ -1506,13 +1487,13 @@ KrkValue krk_module_onload__yutani2(void) {
 	 * MenuList wrapper
 	 *
 	 * class MenuList:
-	 *     def __new__(cls)
+	 *     def __init__(self)
 	 *     def insert(self, entry: MenuEntry)
 	 */
 	krk_makeClass(module, &MenuList, "MenuList", KRK_BASE_CLASS(object));
 	MenuList->allocSize = sizeof(struct _yutani_MenuList);
 	/* XXX where is the cleanup function for this? */
-	BIND_STATICMETHOD(MenuList,__new__);
+	BIND_METHOD(MenuList,__init__);
 	BIND_METHOD(MenuList,insert);
 	krk_finalizeClass(MenuList);
 
@@ -1521,33 +1502,33 @@ KrkValue krk_module_onload__yutani2(void) {
 	 * Menu entry wrapper.
 	 *
 	 * class MenuEntry:
-	 *     def __new__(cls, title: str, callback: function, icon: str = None, action: str = None)
+	 *     def __init__(self, title: str, callback: function, icon: str = None, action: str = None)
 	 */
 	krk_makeClass(module, &MenuEntry, "MenuEntry", KRK_BASE_CLASS(object));
 	MenuEntry->allocSize = sizeof(struct _yutani_MenuEntry);
-	BIND_STATICMETHOD(MenuEntry,__new__);
+	BIND_METHOD(MenuEntry,__init__);
 	krk_finalizeClass(MenuEntry);
 
 	/*
 	 * Submenu subtype
 	 *
 	 * class MenuEntrySubmenu(MenuEntry):
-	 *     def __new__(cls, title: str, icon: str = None, action: str = None)
+	 *     def __init__(self, title: str, icon: str = None, action: str = None)
 	 */
 	krk_makeClass(module, &MenuEntrySubmenu, "MenuEntrySubmenu", MenuEntry);
 	MenuEntrySubmenu->allocSize = sizeof(struct _yutani_MenuEntrySubmenu);
-	BIND_STATICMETHOD(MenuEntrySubmenu,__new__);
+	BIND_METHOD(MenuEntrySubmenu,__init__);
 	krk_finalizeClass(MenuEntrySubmenu);
 
 	/**
 	 * Separator subtype
 	 *
 	 * class MenuEntrySeparator(MenuEntry):
-	 *     def __new__(cls)
+	 *     def __init__(self)
 	 */
 	krk_makeClass(module, &MenuEntrySeparator, "MenuEntrySeparator", MenuEntry);
 	MenuEntrySeparator->allocSize = sizeof(struct _yutani_MenuEntrySeparator);
-	BIND_STATICMETHOD(MenuEntrySeparator,__new__);
+	BIND_METHOD(MenuEntrySeparator,__init__);
 	krk_finalizeClass(MenuEntrySeparator);
 
 	BIND_FUNC(module,decor_get_bounds);
