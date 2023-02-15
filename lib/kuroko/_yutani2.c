@@ -904,7 +904,7 @@ KRK_Method(MenuBar,__init__) {
 	NO_REINIT(MenuBar);
 
 	size_t count = entries->values.count;
-	struct menu_bar * out = malloc(sizeof(struct menu_bar));
+	struct menu_bar * out = calloc(sizeof(struct menu_bar), 1);
 	out->entries = calloc(sizeof(struct menu_bar_entries), count + 1);
 
 	for (size_t i = 0; i < count; ++i) {
