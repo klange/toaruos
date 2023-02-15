@@ -184,7 +184,7 @@ KRK_StaticMethod(YutaniCtx,__new__) {
 	if (yctxInstance) return OBJECT_VAL(yctxInstance);
 
 	KrkClass * cls;
-	if (!krk_parseArgs("O!", (const char*[]){"cls"}, KRK_BASE_CLASS(type), &cls)) {
+	if (!krk_parseArgs("O!:YutaniCtx", (const char*[]){"cls"}, KRK_BASE_CLASS(type), &cls)) {
 		return NONE_VAL();
 	}
 
@@ -473,7 +473,7 @@ KRK_Method(Sprite,__init__) {
 	unsigned int height = 0;
 
 	if (!krk_parseArgs(
-		".|z$II",(const char*[]){"file","width","height"},
+		".|z$II:Sprite",(const char*[]){"file","width","height"},
 		&filename,
 		&width,
 		&height
@@ -565,7 +565,7 @@ KRK_Method(Window,__init__) {
 	if (!yctxInstance) return krk_runtimeError(vm.exceptions->valueError, "Compositor is not initialized");
 
 	if (!krk_parseArgs(
-		".II|IV!V!p",(const char *[]){"width","height","flags","title","icon","doublebuffer"},
+		".II|IV!V!p:Window",(const char *[]){"width","height","flags","title","icon","doublebuffer"},
 		&width, &height,
 		&flags,
 		KRK_BASE_CLASS(str), &title,
@@ -770,7 +770,7 @@ KRK_Method(Font,__init__) {
 	uint32_t color = rgb(0,0,0);
 
 	if (!krk_parseArgs(
-		".si|I",(const char*[]){"font","size","color"},
+		".si|I:Font",(const char*[]){"font","size","color"},
 		&filename, &size, &color)) {
 		return NONE_VAL();
 	}
@@ -896,7 +896,7 @@ KRK_Method(MenuBar,__init__) {
 	KrkTuple * entries;
 
 	if (!krk_parseArgs(
-		".O!", (const char*[]){"entries"},
+		".O!:MenuBar", (const char*[]){"entries"},
 		KRK_BASE_CLASS(tuple), &entries)) {
 		return NONE_VAL();
 	}
@@ -1025,7 +1025,7 @@ KRK_Method(MenuBar,insert) {
 #define CURRENT_CTYPE struct _yutani_MenuList*
 
 KRK_Method(MenuList,__init__) {
-	if (!krk_parseArgs(".",(const char*[]){}, NULL)) return NONE_VAL();
+	if (!krk_parseArgs(".:MenuList",(const char*[]){}, NULL)) return NONE_VAL();
 
 	NO_REINIT(MenuList);
 
@@ -1082,7 +1082,7 @@ KRK_Method(MenuEntry,__init__) {
 	const char * action = NULL;
 
 	if (!krk_parseArgs(
-		".sV|zz", (const char*[]){"title","callback","icon","action"},
+		".sV|zz:MenuEntry", (const char*[]){"title","callback","icon","action"},
 		&title, &callback,
 		&icon, &action
 	)) {
@@ -1112,7 +1112,7 @@ KRK_Method(MenuEntrySubmenu,__init__) {
 	const char * action = NULL;
 
 	if (!krk_parseArgs(
-		".s|zz", (const char*[]){"title","icon","action"},
+		".s|zz:MenuEntrySubmenu", (const char*[]){"title","icon","action"},
 		&title,
 		&icon, &action
 	)) {
@@ -1135,7 +1135,7 @@ KRK_Method(MenuEntrySubmenu,__init__) {
 #define CURRENT_CTYPE struct _yutani_MenuEntrySeparator*
 
 KRK_Method(MenuEntrySeparator,__init__) {
-	if (!krk_parseArgs(".", (const char*[]){}, NULL)) return NONE_VAL();
+	if (!krk_parseArgs(".:MenuEntrySeparator", (const char*[]){}, NULL)) return NONE_VAL();
 	NO_REINIT(MenuEntrySeparator);
 	struct MenuEntry * out = menu_create_separator();
 	self->menuEntry = out;
