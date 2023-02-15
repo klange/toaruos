@@ -174,6 +174,13 @@ WRAP_PROP_FROM(state,kr_super)
 WRAP_PROP_FROM(state,kbd_esc_buf)
 #undef CURRENT_CTYPE
 
+#define AS_Message_WindowClose(o) ((struct yutani_msg_key_event*)AS_Message(o)->msg->data)
+#define IS_Message_WindowClose(o) (krk_isInstanceOf(o,MSG_CLS(WindowClose)))
+#define CURRENT_CTYPE struct yutani_msg_key_event *
+static KrkClass * MSG_CLS(WindowClose);
+WRAP_PROP_INT(Message_WindowClose,wid)
+#undef CURRENT_CTYPE
+
 WRAP_TYPE(YutaniCtx,yutani_t,yctx);
 #define AS_YutaniCtx(o) ((struct _yutani_YutaniCtx*)AS_OBJECT(o))
 #define IS_YutaniCtx(o) (krk_isInstanceOf(o,YutaniCtx))
@@ -229,6 +236,9 @@ static KrkValue makeMessage(yutani_msg_t * result) {
 			break;
 		case YUTANI_MSG_KEY_EVENT:
 			msgType = Message_KeyEvent;
+			break;
+		case YUTANI_MSG_WINDOW_CLOSE:
+			msgType = Message_WindowClose;
 			break;
 
 		default: break;
@@ -865,6 +875,7 @@ WRAP_TYPE(MenuList,struct MenuList, menuList);
 WRAP_TYPE(MenuEntry,struct MenuEntry, menuEntry);
 WRAP_TYPE(MenuEntrySubmenu,struct MenuEntry, menuEntry);
 WRAP_TYPE(MenuEntrySeparator,struct MenuEntry, menuEntry);
+WRAP_TYPE(MenuEntryCustom,struct MenuEntry, menuEntry);
 
 #define IS_MenuBar(o) (krk_isInstanceOf(o,MenuBar))
 #define AS_MenuBar(o) ((struct _yutani_MenuBar*)AS_OBJECT(o))
@@ -1100,6 +1111,21 @@ KRK_Method(MenuEntry,__init__) {
 	return NONE_VAL();
 }
 
+#define MENU_ENTRY_INT_PROP(name) \
+	KRK_Method(MenuEntry,name) { \
+		int set = 0, to = 0; \
+		if (!krk_parseArgs(".|i?",(const char*[]){"value"},&set,&to)) return NONE_VAL(); \
+		if (set) self->menuEntry-> name = to; \
+		return INTEGER_VAL(self->menuEntry-> name); \
+	}
+
+MENU_ENTRY_INT_PROP(height)
+MENU_ENTRY_INT_PROP(width)
+MENU_ENTRY_INT_PROP(rwidth)
+MENU_ENTRY_INT_PROP(hilight)
+MENU_ENTRY_INT_PROP(offset)
+
+
 #undef CURRENT_CTYPE
 
 #define IS_MenuEntrySubmenu(o) (krk_isInstanceOf(o,MenuEntrySubmenu))
@@ -1138,6 +1164,90 @@ KRK_Method(MenuEntrySeparator,__init__) {
 	if (!krk_parseArgs(".:MenuEntrySeparator", (const char*[]){}, NULL)) return NONE_VAL();
 	NO_REINIT(MenuEntrySeparator);
 	struct MenuEntry * out = menu_create_separator();
+	self->menuEntry = out;
+	out->_private = self;
+	return NONE_VAL();
+}
+
+#undef CURRENT_CTYPE
+
+#define IS_MenuEntryCustom(o) (krk_isInstanceOf(o,MenuEntryCustom))
+#define AS_MenuEntryCustom(o) ((struct _yutani_MenuEntryCustom*)AS_OBJECT(o))
+#define CURRENT_CTYPE struct _yutani_MenuEntryCustom*
+
+static void _custom_menu_render(gfx_context_t * ctx, struct MenuEntry  * _self, int offset) {
+	CURRENT_CTYPE self = (CURRENT_CTYPE)_self->_private;
+	KrkClass * myClass = self->inst._class;
+	KrkValue method;
+	if (!krk_tableGet_fast(&myClass->methods, S("render"), &method)) return;
+	krk_push(method);
+	krk_push(OBJECT_VAL(self));
+
+	struct _yutani_GraphicsContext * gctx = (struct _yutani_GraphicsContext*)krk_newInstance(GraphicsContext);
+	gctx->ctx = ctx;
+	krk_push(OBJECT_VAL(gctx));
+	krk_push(INTEGER_VAL(offset));
+
+	krk_callStack(3);
+}
+
+static void _custom_menu_focus_change(struct MenuEntry * _self, int focused) {
+	CURRENT_CTYPE self = (CURRENT_CTYPE)_self->_private;
+	KrkClass * myClass = self->inst._class;
+	KrkValue method;
+	if (!krk_tableGet_fast(&myClass->methods, S("focus_change"), &method)) return;
+	krk_push(method);
+	krk_push(OBJECT_VAL(self));
+	krk_push(BOOLEAN_VAL(focused));
+	krk_callStack(2);
+}
+
+static void _custom_menu_activate(struct MenuEntry * _self, int focused) {
+	CURRENT_CTYPE self = (CURRENT_CTYPE)_self->_private;
+	KrkClass * myClass = self->inst._class;
+	KrkValue method;
+	if (!krk_tableGet_fast(&myClass->methods, S("activate"), &method)) return;
+	krk_push(method);
+	krk_push(OBJECT_VAL(self));
+	krk_push(BOOLEAN_VAL(focused));
+	krk_callStack(2);
+}
+
+static int _custom_menu_mouse_event(struct MenuEntry * _self, struct yutani_msg_window_mouse_event * event) {
+	CURRENT_CTYPE self = (CURRENT_CTYPE)_self->_private;
+	KrkClass * myClass = self->inst._class;
+	KrkValue method;
+	if (!krk_tableGet_fast(&myClass->methods, S("mouse_event"), &method)) return 0;
+	krk_push(method);
+	krk_push(OBJECT_VAL(self));
+
+	size_t size = sizeof(yutani_msg_t) + sizeof(struct yutani_msg_window_mouse_event);
+	yutani_msg_t * tmp = malloc(size);
+	tmp->type = YUTANI_MSG_WINDOW_MOUSE_EVENT;
+	tmp->size = size;
+	memcpy(tmp->data, event, sizeof(struct yutani_msg_window_mouse_event));
+
+	krk_push(makeMessage(tmp));
+
+	KrkValue result = krk_callStack(2);
+	if (IS_INTEGER(result)) return AS_INTEGER(result);
+	return 0;
+}
+
+static struct MenuEntryVTable _custom_menu_vtable = {
+	.methods = 4,
+	.renderer = _custom_menu_render,
+	.focus_change = _custom_menu_focus_change,
+	.activate = _custom_menu_activate,
+	.mouse_event = _custom_menu_mouse_event,
+};
+
+KRK_Method(MenuEntryCustom,__init__) {
+	if (!krk_parseArgs(".:MenuEntryCustom", (const char*[]){}, NULL)) return NONE_VAL();
+	NO_REINIT(MenuEntryCustom);
+	struct MenuEntry * out = menu_create_separator(); /* Steal some defaults */
+	out->_type = -1; /* Special */
+	out->vtable = &_custom_menu_vtable;
 	self->menuEntry = out;
 	out->_private = self;
 	return NONE_VAL();
@@ -1305,6 +1415,10 @@ KrkValue krk_module_onload__yutani2(void) {
 	BIND_PROP(Message_KeyEvent,kr_super);
 	BIND_PROP(Message_KeyEvent,kbd_esc_buf);
 	krk_finalizeClass(Message_KeyEvent);
+
+	MAKE_MSG(WindowClose);
+	BIND_PROP(Message_WindowClose,wid);
+	krk_finalizeClass(Message_WindowClose);
 
 	/**
 	 * Core connection type; singleton
@@ -1507,6 +1621,11 @@ KrkValue krk_module_onload__yutani2(void) {
 	krk_makeClass(module, &MenuEntry, "MenuEntry", KRK_BASE_CLASS(object));
 	MenuEntry->allocSize = sizeof(struct _yutani_MenuEntry);
 	BIND_METHOD(MenuEntry,__init__);
+	BIND_PROP(MenuEntry,height);
+	BIND_PROP(MenuEntry,width);
+	BIND_PROP(MenuEntry,rwidth);
+	BIND_PROP(MenuEntry,hilight);
+	BIND_PROP(MenuEntry,offset);
 	krk_finalizeClass(MenuEntry);
 
 	/*
@@ -1530,6 +1649,11 @@ KrkValue krk_module_onload__yutani2(void) {
 	MenuEntrySeparator->allocSize = sizeof(struct _yutani_MenuEntrySeparator);
 	BIND_METHOD(MenuEntrySeparator,__init__);
 	krk_finalizeClass(MenuEntrySeparator);
+
+	krk_makeClass(module, &MenuEntryCustom, "MenuEntryCustom", MenuEntry);
+	MenuEntryCustom->allocSize = sizeof(struct _yutani_MenuEntryCustom);
+	BIND_METHOD(MenuEntryCustom,__init__);
+	krk_finalizeClass(MenuEntryCustom);
 
 	BIND_FUNC(module,decor_get_bounds);
 	BIND_FUNC(module,decor_render);
