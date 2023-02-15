@@ -721,11 +721,13 @@ void menu_key_action(struct MenuList * menu, struct yutani_msg_key_event * me) {
 			got_it = 1;
 			continue;
 		}
-		if (got_it) {
+		if (got_it && entry->_type != MenuEntry_Separator) {
 			next = entry;
 			break;
 		}
-		previous = entry;
+		if (entry->_type != MenuEntry_Separator) {
+			previous = entry;
+		}
 	}
 
 	if (me->event.keycode == KEY_ARROW_DOWN) {
