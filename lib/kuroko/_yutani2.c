@@ -1,7 +1,10 @@
+#include <errno.h>
+#include <sys/fswait.h>
 #include <toaru/yutani.h>
 #include <toaru/decorations.h>
 #include <toaru/menu.h>
 #include <toaru/text.h>
+#include <toaru/button.h>
 
 #include <kuroko/kuroko.h>
 #include <kuroko/vm.h>
@@ -1314,6 +1317,75 @@ KRK_Function(rgb) {
 	}
 }
 
+KRK_Function(draw_button) {
+	struct _yutani_GraphicsContext * ctx;
+	int x, y, width, height, hilight;
+	const char * title;
+
+	if (!krk_parseArgs("O!iiIIsi",
+		(const char*[]){"ctx","x","y","width","height","title","hilight"},
+		GraphicsContext, &ctx,
+		&x, &y, &width, &height,
+		&title, &hilight)) {
+		return NONE_VAL();
+	}
+
+	struct TTKButton button = {x,y,width,height,(char*)title,hilight};
+	ttk_button_draw(ctx->ctx, &button);
+	return NONE_VAL();
+}
+
+KRK_Function(fswait) {
+	KrkTuple * fds;
+	int timeout = -1;
+
+	if (!krk_parseArgs("O!|i",(const char*[]){"fds","timeout"},
+		KRK_BASE_CLASS(tuple), &fds,
+		&timeout)) {
+		return NONE_VAL();
+	}
+
+	size_t count = fds->values.count;
+
+	if (!count) {
+		return krk_runtimeError(vm.exceptions->typeError, "can not wait on nothing?");
+	}
+
+	/* Spot check first */
+	for (size_t i = 0; i < count; ++i) {
+		KrkValue val = fds->values.values[i];
+		if (!IS_INTEGER(val)) return krk_runtimeError(vm.exceptions->typeError, "fds must be tuple of int, not %T", val);
+	}
+
+	int * _fds = malloc(sizeof(int) * count);
+	int * _results = malloc(sizeof(int) * count);
+	for (size_t i = 0; i < count; ++i) {
+		KrkValue val = fds->values.values[i];
+		_fds[i] = AS_INTEGER(val);
+		_results[i] = 0;
+	}
+
+	errno = 0;
+	int status = fswait3(count, _fds, timeout, _results);
+	free(_fds);
+
+	if (status < 0) {
+		int _errno = errno;
+		free(_results);
+		return krk_runtimeError(vm.exceptions->OSError, "%d: %s", status, strerror(_errno));
+	}
+
+	KrkTuple * output = krk_newTuple(count);
+	krk_push(OBJECT_VAL(output));
+	for (size_t i = 0; i < count; ++i) {
+		output->values.values[output->values.count++] = INTEGER_VAL(_results[i]);
+	}
+
+	free(_results);
+
+	return krk_pop();
+}
+
 #undef CURRENT_CTYPE
 
 KrkValue krk_module_onload__yutani2(void) {
@@ -1661,6 +1733,9 @@ KrkValue krk_module_onload__yutani2(void) {
 	BIND_FUNC(module,decor_show_default_menu);
 
 	BIND_FUNC(module,rgb);
+
+	BIND_FUNC(module,draw_button);
+	BIND_FUNC(module,fswait);
 
 	return krk_pop(); /* module */
 }
