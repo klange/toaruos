@@ -286,8 +286,16 @@ void boot(void) {
 	draw_logo(0);
 
 	for (unsigned int i = 0; i < ST->NumberOfTableEntries; ++i) {
+		/* ACPI 1 table pointer. */
 		if (ST->ConfigurationTable[i].VendorGuid.Data1 == 0xeb9d2d30 &&
 			ST->ConfigurationTable[i].VendorGuid.Data2 == 0x2d88 &&
+			ST->ConfigurationTable[i].VendorGuid.Data3 == 0x11d3) {
+			multiboot_header.config_table = (uintptr_t)ST->ConfigurationTable[i].VendorTable & 0xFFFFffff;
+			break;
+		}
+		/* ACPI 2 table pointer. */
+		if (ST->ConfigurationTable[i].VendorGuid.Data1 == 0x8868e871 &&
+			ST->ConfigurationTable[i].VendorGuid.Data2 == 0xe4f1 &&
 			ST->ConfigurationTable[i].VendorGuid.Data3 == 0x11d3) {
 			multiboot_header.config_table = (uintptr_t)ST->ConfigurationTable[i].VendorTable & 0xFFFFffff;
 			break;
