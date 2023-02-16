@@ -1093,7 +1093,7 @@ int process_wait_nodes(process_t * process,fs_node_t * nodes[], int timeout) {
 	}
 
 	if (timeout == 0) {
-		return -2;
+		return index;
 	}
 
 	n = nodes;
