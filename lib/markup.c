@@ -103,6 +103,7 @@ int markup_free_tag(struct markup_tag * tag) {
 	list_free(keys);
 	free(keys);
 	hashmap_free(tag->options);
+	free(tag->options);
 	return 0;
 }
 

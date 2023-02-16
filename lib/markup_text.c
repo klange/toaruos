@@ -257,6 +257,8 @@ int markup_finish_renderer(struct MarkupState * state) {
 	markup_finish(state->parser);
 	list_free(state->state);
 	list_free(state->colors);
+	free(state->state);
+	free(state->colors);
 	int total = state->max_cursor_x - state->initial_left;
 	free(state);
 	return total;
