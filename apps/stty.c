@@ -170,6 +170,7 @@ static int show_settings(int all) {
 	print_iflag("ixany",  IXANY,  0);
 	print_iflag("ixoff",  IXOFF,  0);
 	print_iflag("ixon",   IXON,   0);
+	print_iflag("iuclc",  IUCLC,  0);
 	print_iflag("parmrk", PARMRK, 0);
 	if (printed) { fprintf(stdout, "\n"); printed = 0; }
 
@@ -323,6 +324,7 @@ int main(int argc, char * argv[]) {
 		set_iflag("ixon",   IXON);
 		set_iflag("ixany",  IXANY);
 		set_iflag("ixoff",  IXOFF);
+		set_iflag("iuclc",  IUCLC);
 
 		set_oflag("olcuc",  OLCUC);
 		set_oflag("opost",  OPOST);

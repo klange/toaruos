@@ -178,6 +178,10 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 		c = '\n';
 	}
 
+	if ((pty->tios.c_iflag & IUCLC) && (c >= 'A' && c <= 'Z')) {
+		c = c - 'A' + 'a';
+	}
+
 	if (pty->tios.c_lflag & ICANON) {
 
 		if (c == pty->tios.c_cc[VLNEXT] && (pty->tios.c_lflag & IEXTEN)) {
