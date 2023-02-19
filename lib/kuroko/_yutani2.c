@@ -866,7 +866,7 @@ KRK_Method(Font,draw_string_shadow) {
 
 KRK_Method(Font,width) {
 	const char * s;
-	if (!krk_parseArgs("s", (const char*[]){"s"}, &s)) return NONE_VAL();
+	if (!krk_parseArgs(".s", (const char*[]){"s"}, &s)) return NONE_VAL();
 	INIT_CHECK(Font);
 	return INTEGER_VAL(tt_string_width(self->fontData, s));
 }
