@@ -1372,7 +1372,9 @@ KRK_Function(fswait) {
 	if (status < 0) {
 		int _errno = errno;
 		free(_results);
-		return krk_runtimeError(vm.exceptions->OSError, "%d: %s", status, strerror(_errno));
+		/* check if we were already raising a keyboard interrupt */
+		if (krk_currentThread.flags & (KRK_THREAD_HAS_EXCEPTION | KRK_THREAD_SIGNALLED)) return NONE_VAL();
+		return krk_runtimeError(vm.exceptions->OSError, "%s", strerror(_errno));
 	}
 
 	KrkTuple * output = krk_newTuple(count);
