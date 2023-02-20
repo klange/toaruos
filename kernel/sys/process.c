@@ -1082,7 +1082,7 @@ int process_wait_nodes(process_t * process,fs_node_t * nodes[], int timeout) {
 		do {
 			int result = selectcheck_fs(*n);
 			if (result < 0) {
-				return -1;
+				return -EBADF;
 			}
 			if (result == 0) {
 				return index;
@@ -1153,7 +1153,7 @@ void process_awaken_signal(process_t * process) {
 	spin_lock(sleep_lock);
 	spin_lock(process->sched_lock);
 	if (process->node_waits) {
-		process_awaken_from_fswait(process, -1);
+		process_awaken_from_fswait(process, -EINTR);
 	} else {
 		spin_unlock(process->sched_lock);
 	}
