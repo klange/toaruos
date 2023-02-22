@@ -1,80 +1,175 @@
 #!/bin/kuroko
-from _yutani import (color, Yutani, Window, Decorator, Message,
-                     MenuBar, MenuList, MenuEntry, MenuEntrySeparator,
-                     Font
-                    )
+from _yutani2 import (YutaniCtx, Font, rgb, rgb, MenuBar, decor_get_bounds, decor_render,
+                      MenuList, MenuEntry, MenuEntrySeparator, Message, decor_handle_event, decor_show_default_menu,
+                      MenuEntryCustom)
 
-let running = True
-let y = Yutani()
-let w = Window(640,480,title="Test Window",doublebuffer=True)
-let dejavu = Font("sans-serif",13)
+from yutani_mainloop import Window, yctx as y, AsyncMainloop, Task, sleep
+import math
+import random
 
-w.move(200,200)
+let mainloop = AsyncMainloop()
 
-let mb = MenuBar((("File",'file'),("Help",'help')))
-let _menu_File = MenuList()
+def close_enough(me):
+    return me.command == 2 and math.sqrt((me.new_x - me.old_x) ** 2 + (me.new_y - me.old_y) **2) < 10
 
-_menu_File.insert(MenuEntry("Test", lambda menu: print("hello, world")))
-_menu_File.insert(MenuEntrySeparator())
-_menu_File.insert(MenuEntry("Quit", lambda menu: (running = False)))
+class Button:
+    ''' Basic button widget based on draw_button '''
 
-mb.insert('file', _menu_File)
-let _menu_Help = MenuList()
-let _menu_Help_help = MenuEntry("Help",lambda menu: print("oh no!"))
-_menu_Help.insert(_menu_Help_help)
-mb.insert('help', _menu_Help)
+    def __init__(self, window, x, y, width, height, title, callback):
+        self.ctx = window
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.title = title
+        self.state = 0
+        self.callback = asyncCallback
 
-def drawWindow():
-    w.fill(color(255,255,255))
-    Decorator.render(w)
-    let bounds = Decorator.get_bounds(w)
-    mb.place(bounds['left_width'],bounds['top_height'],w.width-bounds['width'],w)
-    mb.render(w)
-    dejavu.draw_string(w,"Hello, world.",20,120)
-    w.flip()
+    def __contains__(self, coord):
+        if not isinstance(cord, tuple):
+            return False
 
-drawWindow()
-
-mb.callback = lambda x: drawWindow()
-
-print(globals())
-
-def handleMouseEvent(msg):
-    let decResponse = Decorator.handle_event(msg)
-    if decResponse == Decorator.DECOR_CLOSE:
-        w.close()
+    def focus_enter(self):
+        self.state = 1
         return True
-    else if decResponse == Decorator.DECOR_RIGHT:
-        Decorator.show_default_menu(w,w.x+msg.new_x,w.y+msg.new_y)
-    mb.mouse_event(w,msg)
 
-def finishResize(msg):
-    w.resize_accept(msg.width, msg.height)
-    w.reinit()
-    drawWindow()
-    w.resize_done()
-    w.flip()
+    def focus_leave(self):
+        self.state = 0
+        return True
 
-while running:
-    let msg = y.poll()
-    if y.menu_process_event(msg):
-        drawWindow()
-    if msg.type == Message.MSG_SESSION_END:
-        w.close()
-        break
-    else if msg.type == Message.MSG_KEY_EVENT:
+    def mouse_down(self, msg):
+        self.state = 2
+        return True
+
+    def mouse_up(self, msg):
+        # TODO check if old_x, old_y is in button
+        self.callback(self)
+        self.state = 0
+        return True
+
+    def draw(self):
+        draw_button(self.ctx, self.x, self.y, self.width, self.height, self.title, self.state)
+
+class MyMenuWidget(MenuEntryCustom):
+    def __init__(self):
+        super().__init__()
+        self.height = 30
+        self.rwidth = 148
+        self.dejavu = Font("sans-serif", 13)
+        self.x = 0
+        self.y = 0
+
+    def render(self, ctx, offset):
+        self.offset = offset
+        if self.hilight:
+            ctx.rect(1,offset,self.width-2,self.height,rgb(100,int(255 * self.x / self.width),int(255 * (self.y-offset) / self.height)),radius=4)
+            self.dejavu.draw_string(ctx, f"{self.x=},{self.y=}", 2, offset + 13)
+        else:
+            self.dejavu.draw_string(ctx, f"{offset=}", 2, offset + 13)
+
+    def activate(self, flags):
+        print("Activated by keyboard!")
+
+    def click_within(self, evt):
+        if evt.command == 0: return True
+        if evt.command == 2:
+            if \
+                evt.new_x >= 0 and evt.new_x < self.width and \
+                evt.new_y >= self.offset and evt.new_y < self.offset + self.height and \
+                evt.old_x >= 0 and evt.old_x < self.width and \
+                evt.old_y >= self.offset and evt.old_y < self.offset + self.height:
+                return True
+            else:
+                print(f'{evt.old_x=} {evt.old_y=} {evt.new_x=} {evt.old_y=} {self.offset=} {self.width=} {self.height=}')
+
+    async def async_thingy(self):
+        print("Schedule async callback")
+        await sleep(2)
+        print("Finish async callback")
+
+    def mouse_event(self, evt):
+        self.x = evt.new_x
+        self.y = evt.new_y
+        if self.click_within(evt):
+            Task(self.async_thingy())
+            print("Clicked!")
+        return True
+
+class MyWindow(Window):
+    def __init__(self):
+        super().__init__(640, 480, title="Hello", doublebuffer=True)
+        self.bgc = rgb(255,255,255)
+        self.dejavu = Font("sans-serif", 13)
+        self.mb = MenuBar((("File",'file'),("Help",'help')))
+        let _menu_File = MenuList()
+        _menu_File.insert(MenuEntry("Test", lambda menu: print("hello, world")))
+        _menu_File.insert(MenuEntrySeparator())
+        _menu_File.insert(MenuEntry("Quit", lambda menu: self.close()))
+        self.mb.insert('file', _menu_File)
+        let _menu_Help = MenuList()
+        let _menu_Help_help = MenuEntry("Help",lambda menu: print("oh no!"))
+        _menu_Help.insert(_menu_Help_help)
+        _menu_Help.insert(MyMenuWidget())
+        _menu_Help.insert(MyMenuWidget())
+        self.mb.insert('help', _menu_Help)
+        self.mb.callback = lambda x: self.draw()
+
+    def draw(self):
+        self.fill(self.bgc)
+        decor_render(self)
+        let bounds = decor_get_bounds(self)
+        self.mb.place(bounds['left_width'],bounds['top_height'],self.width-bounds['width'],self)
+        self.mb.render(self)
+        self.dejavu.draw_string(self,"Hello, world.",20,120)
+        self.dejavu.draw_string(self,f"{self.x}, {self.y}",20,140)
+        self.flip()
+
+    def mouse_event(self, msg):
+        let decResponse = decor_handle_event(msg)
+        if decResponse == 2:
+            print("Close me?")
+            self.close()
+            return True
+        else if decResponse == 5:
+            decor_show_default_menu(self, self.x + msg.new_x, self.y + msg.new_y)
+        self.mb.mouse_event(self, msg)
+
+    def interp(a,b,p):
+        return a * (1.0 - p) + b * p
+
+    def interp_color(a,b,p):
+        return rgb(*(int(self.interp(l,r,p)) for l,r in zip(a,b)))
+
+    async def animate(self):
+        let mySentinel = object()
+        self.animator = mySentinel
+        let start = (255 * random.random(),255 * random.random(),255 * random.random())
+        let end = (255,255,255)
+        for i in range(31):
+            await sleep(0.033)
+            if self.animator is not mySentinel:
+                break
+            self.bgc = self.interp_color(start,end,i/30)
+            self.draw()
+
+    def keyboard_event(self, msg):
         print(msg.keycode)
-    else if msg.type == Message.MSG_WINDOW_FOCUS_CHANGE:
-        if msg.wid == w.wid:
-            print("focus changed")
-            w.set_focused(msg.focused)
-            drawWindow()
-    else if msg.type == Message.MSG_RESIZE_OFFER:
-        finishResize(msg)
-    else if msg.type == Message.MSG_WINDOW_MOUSE_EVENT:
-        if msg.wid == w.wid:
-            if handleMouseEvent(msg): break
-    else if msg.type == Message.MSG_WINDOW_CLOSE:
-        w.close()
-        break
+        if msg.keycode == 102 and msg.action == 1:
+            Task(self.animate())
 
+    def close(self):
+        super().close()
+        mainloop.exit()
+
+    def window_moved(self, msg):
+        self.draw()
+
+    def menu_close(self):
+        self.draw()
+
+let w = MyWindow()
+w.move(200,200)
+w.draw()
+
+mainloop.menu_closed_callback = w.menu_close
+mainloop.run()

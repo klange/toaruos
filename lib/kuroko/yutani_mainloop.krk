@@ -1,0 +1,203 @@
+'''
+Asynchronous event loop for Yutani applications.
+'''
+import time
+import _yutani2
+
+let _windows = {}
+let yctx = _yutani2.YutaniCtx()
+
+class Window(_yutani2.Window):
+    '''
+    Base class for eventloop-managed windows, providing stub implementations
+    of the core callback functions.
+    '''
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args,**kwargs)
+        _windows[self.wid] = self
+
+    def close(self):
+        if self.wid in _windows:
+            del _windows[self.wid]
+        super().close()
+
+    def draw(self):
+        pass
+
+    def keyboard_event(self, msg):
+        pass
+
+    def focus_changed(self, msg):
+        self.focused = msg.focused
+        self.draw()
+
+    def finish_resize(self, msg):
+        self.resize_accept(msg.width, msg.height)
+        self.reinit()
+        self.draw()
+        self.resize_done()
+        self.flip()
+
+    def window_moved(self, msg):
+        pass
+
+    def mouse_event(self, msg):
+        pass
+
+let current_loop
+
+class Future():
+    def __init__(self):
+        self.result = None
+        self.loop = current_loop
+        self.done = False
+        self.callbacks = []
+
+    def add_callback(self, func):
+        self.callbacks.append(func)
+
+    def schedule_callbacks(self):
+        let mycallbacks = self.callbacks[:]
+        self.callbacks = []
+        for callback in mycallbacks:
+            self.loop.call_soon(callback, self)
+
+    def set_result(self, result):
+        self.result = result
+        self.done = True
+        self.schedule_callbacks()
+
+    def __await__(self):
+        if not self.done:
+            yield self
+        return self.result
+
+class Task():
+    def __init__(self, coro):
+        self.coro = coro
+        current_loop.call_soon(self.step)
+
+    def step(self):
+        let result = self.coro.send(None)
+        if isinstance(result,Future):
+            result.add_callback(self.wakeup)
+        else if result == self.coro:
+            return # This task is done
+        else if result is None:
+            current_loop.call_soon(self.step)
+        else:
+            print("Don't know what to do with",result)
+
+    def wakeup(self, future):
+        self.step()
+
+async def sleep(delay, result=None):
+    let future = Future()
+    current_loop.call_later(delay, future.set_result, result)
+    return await future
+
+class Timer():
+    def __init__(self, time, func, args):
+        self.time = time
+        self.func = func
+        self.args = args
+
+    def __lt__(self, other):
+        return self.time < other.time
+    def __gt__(self, other):
+        return self.time > other.time
+    def __le__(self, other):
+        return self.time <= other.time
+    def __ge__(self, other):
+        return self.time >= other.time
+    def __eq__(self, other):
+        return self.time == other.time
+
+class AsyncMainloop():
+    def __init__(self):
+        self.should_exit = 0
+        self.status_code = 0
+        self.ready = []
+        self.schedule = []
+        self.fileno = yctx.fileno()
+        self.menu_closed_callback = None
+
+    def exit(self, arg=0):
+        self.status_code = arg
+        self.should_exit = 1
+
+    def call_soon(self, func, *args):
+        self.ready.append((func,args))
+
+    def call_later(self, delay, func, *args):
+        self.call_at(time.time() + delay, func, *args)
+
+    def call_at(self, time, func, *args):
+        self.schedule.append(Timer(time,func,args))
+        self.schedule.sort()
+
+    def maybe_coro(self, result):
+        if isinstance(result, generator):
+            Task(result)
+
+    def handle_message(self):
+        let msg = yctx.poll()
+        if yctx.menu_process_event(msg):
+            if self.menu_closed_callback:
+                self.maybe_coro(self.menu_closed_callback())
+        if msg.msg_type == _yutani2.Message.MSG_SESSION_END:
+            return False
+        else if msg.msg_type == _yutani2.Message.MSG_KEY_EVENT:
+            if msg.wid in _windows:
+                self.maybe_coro(_windows[msg.wid].keyboard_event(msg))
+        else if msg.msg_type == _yutani2.Message.MSG_WINDOW_FOCUS_CHANGE:
+            if msg.wid in _windows:
+                self.maybe_coro(_windows[msg.wid].focus_changed(msg))
+        else if msg.msg_type == _yutani2.Message.MSG_RESIZE_OFFER:
+            if msg.wid in _windows:
+                self.maybe_coro(_windows[msg.wid].finish_resize(msg))
+        else if msg.msg_type == _yutani2.Message.MSG_WINDOW_MOVE:
+            if msg.wid in _windows:
+                self.maybe_coro(_windows[msg.wid].window_moved(msg))
+        else if msg.msg_type == _yutani2.Message.MSG_WINDOW_MOUSE_EVENT:
+            if msg.wid in _windows:
+                self.maybe_coro(_windows[msg.wid].mouse_event(msg))
+        else if msg.msg_type == _yutani2.Message.MSG_WINDOW_CLOSE:
+            if msg.wid in _windows:
+                self.maybe_coro(_windows[msg.wid].close())
+        return True
+
+    def run_once(self):
+        # Determine if anything in the schedule list can be run
+        let timeout = -1
+        let now = time.time()
+
+        if self.ready:
+            timeout = 0
+        else if self.schedule:
+            timeout = max(0,self.schedule[0].time - now)
+
+        # Poll
+        let res = _yutani2.fswait((self.fileno,), int(timeout * 1000))
+
+        # TODO probably hooks if these have callbacks
+        if res[0]:
+            self.handle_message()
+
+        # Schedule future stuff
+        while self.schedule and self.schedule[0].time <= now:
+            self.ready.append((self.schedule[0].func,self.schedule[0].args))
+            self.schedule.pop(0)
+
+        let count = len(self.ready)
+
+        for i in range(count):
+            let func, args = self.ready.pop(0)
+            func(*args)
+
+    def run(self):
+        current_loop = self
+        while not self.should_exit:
+            self.run_once()
+
