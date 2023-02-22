@@ -1,0 +1,358 @@
+#!/bin/kuroko
+'''
+Minesweeper game
+
+Originally written in Python and ported to Kuroko.
+Visual design is based on the Gnome "Mines".
+'''
+import math
+import random
+from _yutani2 import (Font, rgb, decor_get_bounds, decor_render, decor_handle_event, decor_show_default_menu,
+    MenuBar, MenuEntry, MenuEntrySeparator, MenuList, MenuEntrySubmenu)
+from yutani_mainloop import Window, AsyncMainloop
+
+let app_version = '2.0.0'
+let mainloop = AsyncMainloop()
+
+def frgb(r,g,b):
+    '''RGB from float triplet'''
+    return rgb(int(255 * r),int(255 * g), int(255 * b))
+
+def hsv_to_rgb(h,s,v):
+    '''HSV (radians and floats) to RGB (255/255/255) conversion.'''
+    let c  = v * s
+    let hp = math.fmod(h, 2 * math.pi)
+    let x = c * (1.0 - abs(math.fmod(hp / 1.0472, 2) - 1.0))
+    let m = v - c
+    let rp, gp, bp
+    if hp <= 1.0472:
+        rp = c; gp = x; bp = 0
+    else if hp <= 2.0944:
+        rp = x; gp = c; bp = 0
+    else if hp <= 3.1416:
+        rp = 0; gp = c; bp = x
+    else if hp <= 4.1888:
+        rp = 0; gp = x; bp = c
+    else if hp <= 5.2360:
+        rp = x; gp = 0; bp = c
+    else:
+        rp = c; gp = 0; bp = x
+    return rgb(int((rp + m) * 255), int((gp + m) * 255), int((bp + m) * 255))
+
+def good_color(cnt):
+    '''Use neighbor count to pick a good color.'''
+    if cnt == 0:
+        return frgb(0.6,0.6,0.6)
+    let x = cnt / 8
+    let h = 1.95 - x * 3.145
+    return hsv_to_rgb(h,0.4,0.7)
+
+class MineButton:
+    def __init__(self, action, r, c, is_mine, neighbor_mines):
+        self.row, self.col = r, c
+        self.is_mine = is_mine
+        self.font = Font("sans-serif",13)
+        self.width = None
+        self.revealed = False
+        self.mines = neighbor_mines
+        self.flagged = False
+        self.hilight = 0
+        self.action = action
+        self.text = ""
+
+    def focus_enter(self):
+        self.hilight = 1
+
+    def focus_leave(self):
+        self.hilight = 0
+
+    def reveal(self):
+        if self.revealed: return
+        self.revealed = True
+        if self.is_mine:
+            self.text = "✸" # U+2738
+        else if self.mines == 0:
+            self.text = ""
+        else:
+            self.text = str(self.mines)
+
+    def set_flagged(self):
+        self.flagged = not self.flagged
+
+    def draw(self, window, x, y, w, h):
+        self.font.size = int(h * 0.75)
+        if self.width != w:
+            self.x, self.y, self.width, self.height = x, y, w, h
+        let color = rgb(255,255,255)
+        if self.revealed and self.is_mine:
+            color = frgb(0.4,0.4,0.4)
+        else if self.revealed:
+            color = good_color(self.mines)
+        else if self.hilight == 1:
+            color = frgb(0.7,0.7,0.7)
+        else if self.hilight == 2:
+            color = frgb(0.3,0.3,0.3)
+        window.rect(x+1, y+1, w-2, h-2, color, radius=3)
+        let text = self.text
+        if not self.revealed and self.flagged:
+            text = '⚑' # U+2691
+        if text:
+            self.font.draw_string(window,text,x+self.width//2-self.font.width(text)//2,int(y+self.height * 0.75))
+
+def randrange(size):
+    return int(size * random.random())
+
+class MinesWindow(Window):
+
+    base_width = 400
+    base_height = 440
+
+    def __init__(self):
+        let bounds = decor_get_bounds()
+        super().__init__(self.base_width + bounds['width'], self.base_height + bounds['height'], title="Mines", icon="mines", doublebuffer=True)
+        self.move(100,100)
+        self.button_width = {}
+        self.button_height = 0
+        self.subtitleText = 'Hello, world.'
+        self.subtitleFont = Font('sans-serif.bold',17)
+        self.mb = MenuBar((("Game",'game'),("Help",'help')))
+
+        let _menu_Game = MenuList()
+        _menu_Game.insert(MenuEntrySubmenu('New Game', icon='new', action='new-game'))
+        _menu_Game.insert(MenuEntrySeparator())
+        _menu_Game.insert(MenuEntry('Exit', lambda menu: self.close(), icon='exit'))
+        self.mb.insert('game',_menu_Game)
+        let _menu_Help = MenuList()
+        _menu_Help.insert(MenuEntry("About Mines", self.launch_about, icon='star'))
+        self.mb.insert('help',_menu_Help)
+        let _menu_New_Game = MenuList()
+        _menu_New_Game.insert(MenuEntry("9×9, 10 mines", lambda menu: self.basic_game()))
+        _menu_New_Game.insert(MenuEntry("16×16, 40 mines", lambda menu: self.new_game((16,40))))
+        _menu_New_Game.insert(MenuEntry("20×20, 90 mines", lambda menu: self.new_game((20,90))))
+        self.mb.insert('new-game',_menu_New_Game)
+        self.mb.callback = lambda x: self.draw()
+
+        self.hover_widget = None
+        self.down_button = None
+        self.top_height = bounds['top_height'] + 24 + 40
+
+        self.modifiers = 0
+
+        self.basic_game()
+
+    def launch_about(self, menu):
+        import os
+        os.system(f'about "About Mines" /usr/share/icons/48/mines.png "Mines {app_version}" "© 2017-2023 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaruos" &')
+
+    def basic_game(self):
+        self.new_game((9,10))
+
+    def new_game(self, action):
+
+        self.first_click = True
+        self.field_size, self.mine_count = action
+        self.subtitleText = f'There are {self.mine_count} mines.'
+        self.mines = []
+        let i = 0
+        while len(self.mines) < self.mine_count:
+            let x, y = randrange(self.field_size), randrange(self.field_size)
+            i += 1
+            if (x, y) not in self.mines:
+                i = 0
+                self.mines.append((x,y))
+            if i > 50:
+                print("Board generation failed")
+                return
+
+        def check_neighbors(r, c):
+            let n = []
+            if r > 0:
+                if c > 0:
+                    n.append((r-1,c-1))
+                n.append((r-1,c))
+                if c < self.field_size - 1:
+                    n.append((r-1,c+1))
+            if r < self.field_size - 1:
+                if c > 0:
+                    n.append((r+1,c-1))
+                n.append((r+1,c))
+                if c < self.field_size - 1:
+                    n.append((r+1,c+1))
+            if c > 0:
+                n.append((r,c-1))
+            if c < self.field_size - 1:
+                n.append((r,c+1))
+            return n
+
+        def check_neighbor_buttons(r,c):
+            return [self.buttons[x][y] for x, y in check_neighbors(r,c)]
+
+        def mine_func(b):
+            let button = b
+            if self.first_click:
+                let i = 0
+                while button.is_mine or button.mines:
+                    if i > 30:
+                        print("Failed to generate board")
+                        return
+                    self.new_game(action)
+                    button = self.buttons[button.row][button.col]
+                    i += 1
+                self.first_click = False
+            if button.flagged:
+                return
+            if button.is_mine and not button.revealed:
+                self.subtitleText = "You lose."
+                for row in self.buttons:
+                    for b in row:
+                        b.reveal()
+                self.draw()
+                return
+            else:
+                if not button.revealed:
+                    button.reveal()
+                    if button.mines == 0:
+                        let n = [x for x in check_neighbor_buttons(button.row,button.col) if not x.revealed]
+                        while n:
+                            b = n.pop()
+                            b.reveal()
+                            if b.mines == 0:
+                                n.extend([x for x in check_neighbor_buttons(b.row,b.col) if not x.revealed and not x in n])
+                    self.check_win()
+
+        self.buttons = []
+        for row in range(self.field_size):
+            let r = []
+            for col in range(self.field_size):
+                let is_mine = (row,col) in self.mines
+                let neighbor_mines = len([x for x in check_neighbors(row,col) if x in self.mines])
+                r.append(MineButton(mine_func, row, col, is_mine, neighbor_mines))
+            self.buttons.append(r)
+
+    def check_win(self):
+        let buttons = []
+        for row in self.buttons:
+            buttons.extend(row)
+        let n_flagged = len([x for x in buttons if x.flagged and not x.revealed])
+        let n_revealed = len([x for x in buttons if x.revealed])
+        if n_flagged == self.mine_count and n_revealed + n_flagged == self.field_size ** 2:
+            self.subtitleText = "You win."
+            for b in buttons:
+                b.reveal()
+
+    def draw(self):
+        self.fill(rgb(204,204,204))
+        let bounds = decor_get_bounds(self)
+        self.subtitleFont.draw_string(self,self.subtitleText,
+            (self.width - self.subtitleFont.width(self.subtitleText)) // 2,
+            bounds['top_height'] + 24 + 25)
+        let offset_x = bounds['left_width']
+        let offset_y = self.top_height
+        self.button_height = (self.height - self.top_height - bounds['bottom_height']) // len(self.buttons)
+        let i = 0
+        for row in self.buttons:
+            self.button_width[i] = (self.width - bounds['width']) // len(row)
+            for button in row:
+                if button:
+                    button.draw(self,offset_x,offset_y,self.button_width[i],self.button_height)
+                offset_x += self.button_width[i]
+            offset_x = bounds['left_width']
+            offset_y += self.button_height
+            i += 1
+        self.mb.place(bounds['left_width'],bounds['top_height'],self.width-bounds['width'],self)
+        self.mb.render(self)
+        decor_render(self)
+        self.flip()
+
+    def flag(self, button):
+        button.set_flagged()
+        self.check_win()
+        self.draw()
+
+    def mouse_event(self, msg):
+        let decResponse = decor_handle_event(msg)
+        if decResponse == 2:
+            self.close()
+            return True
+        else if decResponse == 5:
+            decor_show_default_menu(self, self.x + msg.new_x, self.y + msg.new_y)
+
+        let bounds = decor_get_bounds(self)
+        let x, y = msg.new_x, msg.new_y
+        let w, h = self.width, self.height
+
+        if x >= 0 and x < w and y < self.top_height:
+            if self.hover_widget:
+                self.hover_widget.focus_leave()
+                self.hover_widget = None
+                self.draw()
+            self.mb.mouse_event(self, msg)
+            return
+
+        let redraw = False
+        if self.down_button:
+            if msg.command == 2 or msg.command == 0: # RAISE or CLICK
+                if not (msg.buttons & 1): # BUTTON_LEFT
+                    if x >= self.down_button.x and \
+                        x < self.down_button.x + self.down_button.width and \
+                        y >= self.down_button.y and \
+                        y < self.down_button.y + self.down_button.height:
+                            self.down_button.focus_enter()
+                            if self.modifiers & 1: # LEFT_CTRL
+                                self.flag(self.down_button)
+                            else:
+                                self.down_button.action(self.down_button)
+                            self.down_button = None
+                            redraw = True
+                    else:
+                        self.down_button.focus_leave()
+                        self.down_button = None
+                        redraw = True
+        else:
+            # TOOD decors, menubar
+            if y >= self.top_height and y < h and x >= bounds['left_width'] and x < w:
+                let button
+                let xh = self.button_height * len(self.buttons)
+                let row = ((y - self.top_height) * len(self.buttons)) // xh
+                if row < len(self.buttons):
+                    let xw = self.button_width[row] * len(self.buttons[row])
+                    let col = ((x - bounds['left_width']) * len(self.buttons[row])) // xw
+                    if col < len(self.buttons[row]):
+                        button = self.buttons[row][col]
+                    else:
+                        button = None
+                else:
+                    button = None
+                if button is not self.hover_widget:
+                    if button:
+                        button.focus_enter()
+                        redraw = True
+                    if self.hover_widget:
+                        self.hover_widget.focus_leave()
+                        redraw = True
+                    self.hover_widget = button
+                if msg.command == 3: # DOWN
+                    if button:
+                        button.hilight = 2
+                        self.down_button = button
+                        redraw = True
+            else:
+                if self.hover_widget:
+                    self.hover_widget.focus_leave()
+                    redraw = True
+                self.hover_widget = None
+        if redraw:
+            self.draw()
+
+    def keyboard_event(self, msg):
+        self.modifiers = msg.modifiers
+
+    def close(self):
+        super().close()
+        mainloop.exit()
+
+
+let window = MinesWindow()
+window.draw()
+
+mainloop.run()
