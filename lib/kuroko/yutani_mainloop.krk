@@ -147,6 +147,7 @@ class AsyncMainloop():
             if self.menu_closed_callback:
                 self.maybe_coro(self.menu_closed_callback())
         if msg.msg_type == _yutani2.Message.MSG_SESSION_END:
+            self.exit()
             return False
         else if msg.msg_type == _yutani2.Message.MSG_KEY_EVENT:
             if msg.wid in _windows:
