@@ -26,7 +26,7 @@ static struct MenuList * volume_menu;
 static long volume_level = 0;
 static int mixer = -1;
 
-static int widget_update_volume(struct PanelWidget * this) {
+static int widget_update_volume(struct PanelWidget * this, int * force_updates) {
 	if (mixer == -1) {
 		mixer = open("/dev/mixer", O_RDONLY);
 	}
