@@ -33,6 +33,13 @@
 
 static int left, top, width, height;
 
+static struct menu_bar menu_bar = {0};
+static struct menu_bar_entries menu_entries[] = {
+	{"File", "file"},
+	{"Help", "help"},
+	{NULL, NULL},
+};
+
 static yutani_t * yctx;
 static yutani_window_t * wina;
 static gfx_context_t * ctx_base;
@@ -385,7 +392,7 @@ static void draw_legend_element(int which, int count, int index, uint32_t color,
 	if (legend_width <= 0) return;
 
 	/* Calculate graph offset from the usual rule */
-	int y = bounds.top_height + (which + 1) * (top_pad + graph_height) + which * bottom_pad + 4;
+	int y = MENU_BAR_HEIGHT + bounds.top_height + (which + 1) * (top_pad + graph_height) + which * bottom_pad + 4;
 
 	/* Space to give to each unit. */
 	int unit_width = legend_width / count;
@@ -458,8 +465,20 @@ static void redraw_net_scale(void) {
 	char net_max[100];
 	snprintf(net_max, 100, "%0.2fmbps", (double)net_scale / 1024.0);
 	int swidth = tt_string_width(tt_thin, net_max) + 2;
-	draw_rectangle(ctx_base, bounds.left_width + width - swidth, bounds.top_height + 2 * (top_pad + bottom_pad + graph_height), swidth, 20, rgb(204,204,204));
-	tt_draw_string(ctx_base, tt_thin, bounds.left_width + width - swidth, bounds.top_height + 2 * (top_pad + bottom_pad + graph_height) + 17, net_max, rgb(0,0,0));
+	draw_rectangle(ctx_base, bounds.left_width + width - swidth, MENU_BAR_HEIGHT + bounds.top_height + 2 * (top_pad + bottom_pad + graph_height), swidth, 20, rgb(204,204,204));
+	tt_draw_string(ctx_base, tt_thin, bounds.left_width + width - swidth, MENU_BAR_HEIGHT + bounds.top_height + 2 * (top_pad + bottom_pad + graph_height) + 17, net_max, rgb(0,0,0));
+}
+
+void render_base(void) {
+	render_decorations(wina, ctx_base, "System Monitor");
+	menu_bar_render(&menu_bar, ctx_base);
+}
+
+static void redraw_window_callback(struct menu_bar * self) {
+	(void)self;
+	render_base();
+	flip(ctx_base);
+	yutani_flip(yctx,wina);
 }
 
 static void initial_stuff(void) {
@@ -467,35 +486,40 @@ static void initial_stuff(void) {
 	decor_get_bounds(wina, &bounds);
 	graph_height = (height - top_pad * 3 - bottom_pad * 3) / 3;
 
+	menu_bar.x = bounds.left_width;
+	menu_bar.y = bounds.top_height;
+	menu_bar.width = ctx_base->width - bounds.width;
+	menu_bar.window = wina;
+
 	draw_fill(ctx_base, rgb(204,204,204));
 
-	ctx_cpu = init_graphics_subregion(ctx_base, bounds.left_width + left_pad, bounds.top_height + top_pad, width - h_pad, graph_height);
-	ctx_mem = init_graphics_subregion(ctx_base, bounds.left_width + left_pad, bounds.top_height + 2 * top_pad + graph_height + bottom_pad, width - h_pad, graph_height);
-	ctx_net = init_graphics_subregion(ctx_base, bounds.left_width + left_pad, bounds.top_height + 3 * top_pad + 2 * graph_height + 2 * bottom_pad, width - h_pad, graph_height);
+	ctx_cpu = init_graphics_subregion(ctx_base, bounds.left_width + left_pad, MENU_BAR_HEIGHT + bounds.top_height + top_pad, width - h_pad, graph_height);
+	ctx_mem = init_graphics_subregion(ctx_base, bounds.left_width + left_pad, MENU_BAR_HEIGHT + bounds.top_height + 2 * top_pad + graph_height + bottom_pad, width - h_pad, graph_height);
+	ctx_net = init_graphics_subregion(ctx_base, bounds.left_width + left_pad, MENU_BAR_HEIGHT + bounds.top_height + 3 * top_pad + 2 * graph_height + 2 * bottom_pad, width - h_pad, graph_height);
 
 	draw_fill(ctx_cpu, rgb(0xF8,0xF8,0xF8));
 	draw_fill(ctx_mem, rgb(0xF8,0xF8,0xF8));
 	draw_fill(ctx_net, rgb(0xF8,0xF8,0xF8));
 
 	tt_set_size(tt_bold, 13);
-	tt_draw_string(ctx_base, tt_bold, bounds.left_width + 3, bounds.top_height + 14, "CPU", rgb(0,0,0));
-	tt_draw_string(ctx_base, tt_bold, bounds.left_width + 3, bounds.top_height + (top_pad + bottom_pad + graph_height) + 14, "Memory", rgb(0,0,0));
-	tt_draw_string(ctx_base, tt_bold, bounds.left_width + 3, bounds.top_height + 2 * (top_pad + bottom_pad + graph_height) + 14, "Network", rgb(0,0,0));
+	tt_draw_string(ctx_base, tt_bold, bounds.left_width + 3, MENU_BAR_HEIGHT + bounds.top_height + 14, "CPU", rgb(0,0,0));
+	tt_draw_string(ctx_base, tt_bold, bounds.left_width + 3, MENU_BAR_HEIGHT + bounds.top_height + (top_pad + bottom_pad + graph_height) + 14, "Memory", rgb(0,0,0));
+	tt_draw_string(ctx_base, tt_bold, bounds.left_width + 3, MENU_BAR_HEIGHT + bounds.top_height + 2 * (top_pad + bottom_pad + graph_height) + 14, "Network", rgb(0,0,0));
 
 	tt_set_size(tt_thin, 10);
-	tt_draw_string(ctx_base, tt_thin, bounds.left_width + width - 30, bounds.top_height + 17, "100%", rgb(0,0,0));
-	tt_draw_string(ctx_base, tt_thin, bounds.left_width + width - 30, bounds.top_height + (top_pad + bottom_pad + graph_height) + 17, "100%", rgb(0,0,0));
+	tt_draw_string(ctx_base, tt_thin, bounds.left_width + width - 30, MENU_BAR_HEIGHT + bounds.top_height + 17, "100%", rgb(0,0,0));
+	tt_draw_string(ctx_base, tt_thin, bounds.left_width + width - 30, MENU_BAR_HEIGHT + bounds.top_height + (top_pad + bottom_pad + graph_height) + 17, "100%", rgb(0,0,0));
 
 	char net_max[100];
 	snprintf(net_max, 100, "%0.2fmbps", (double)net_scale / 1024.0);
 	int swidth = tt_string_width(tt_thin, net_max) + 2;
-	tt_draw_string(ctx_base, tt_thin, bounds.left_width + width - swidth, bounds.top_height + 2 * (top_pad + bottom_pad + graph_height) + 17, net_max, rgb(0,0,0));
+	tt_draw_string(ctx_base, tt_thin, bounds.left_width + width - swidth, MENU_BAR_HEIGHT + bounds.top_height + 2 * (top_pad + bottom_pad + graph_height) + 17, net_max, rgb(0,0,0));
 
-	tt_draw_string(ctx_base, tt_thin, bounds.left_width + width - 25, bounds.top_height + top_pad + graph_height + 13, "0%", rgb(0,0,0));
-	tt_draw_string(ctx_base, tt_thin, bounds.left_width + width - 25, bounds.top_height + 2 * (top_pad + graph_height) + bottom_pad + 13, "0%", rgb(0,0,0));
-	tt_draw_string(ctx_base, tt_thin, bounds.left_width + width - 40, bounds.top_height + 3 * (top_pad + graph_height) + 2 * bottom_pad + 13, "0mbps", rgb(0,0,0));
+	tt_draw_string(ctx_base, tt_thin, bounds.left_width + width - 25, MENU_BAR_HEIGHT + bounds.top_height + top_pad + graph_height + 13, "0%", rgb(0,0,0));
+	tt_draw_string(ctx_base, tt_thin, bounds.left_width + width - 25, MENU_BAR_HEIGHT + bounds.top_height + 2 * (top_pad + graph_height) + bottom_pad + 13, "0%", rgb(0,0,0));
+	tt_draw_string(ctx_base, tt_thin, bounds.left_width + width - 40, MENU_BAR_HEIGHT + bounds.top_height + 3 * (top_pad + graph_height) + 2 * bottom_pad + 13, "0mbps", rgb(0,0,0));
 
-	render_decorations(wina, ctx_base, "System Monitor");
+	render_base();
 
 	draw_legend_cpu();
 	draw_legend_mem();
@@ -518,7 +542,7 @@ void resize_finish(int w, int h) {
 	decor_get_bounds(wina, &bounds);
 
 	width  = w - bounds.left_width - bounds.right_width;
-	height = h - bounds.top_height - bounds.bottom_height;
+	height = h - MENU_BAR_HEIGHT - bounds.top_height - bounds.bottom_height;
 
 	initial_stuff();
 	redraw_graphs();
@@ -527,6 +551,27 @@ void resize_finish(int w, int h) {
 
 	yutani_window_resize_done(yctx, wina);
 }
+
+static void _menu_action_exit(struct MenuEntry * entry) {
+	exit(0);
+}
+
+static void _menu_action_help(struct MenuEntry * entry) {
+	system("help-browser systemmonitor.trt &");
+	render_base();
+}
+
+static void _menu_action_about(struct MenuEntry * entry) {
+	/* Show About dialog */
+	char about_cmd[1024] = "\0";
+	strcat(about_cmd, "about \"About System Monitor\" /usr/share/icons/48/system-monitor.png \"System Monitor\" \"© 2021-2023 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaruos\" ");
+	char coords[100];
+	sprintf(coords, "%d %d &", (int)wina->x + (int)wina->width / 2, (int)wina->y + (int)wina->height / 2);
+	strcat(about_cmd, coords);
+	system(about_cmd);
+	render_base();
+}
+
 
 int main (int argc, char ** argv) {
 	left   = 100;
@@ -553,11 +598,25 @@ int main (int argc, char ** argv) {
 	struct decor_bounds bounds;
 	decor_get_bounds(NULL, &bounds);
 
-	wina = yutani_window_create(yctx, width + bounds.width, height + bounds.height);
+	wina = yutani_window_create(yctx, width + bounds.width, height + bounds.height + MENU_BAR_HEIGHT);
 	yutani_window_move(yctx, wina, left, top);
 	yutani_window_advertise_icon(yctx, wina, "System Monitor", "system-monitor");
 
 	ctx_base = init_graphics_yutani_double_buffer(wina);
+
+	menu_bar.entries = menu_entries;
+	menu_bar.redraw_callback = redraw_window_callback;
+	menu_bar.set = menu_set_create();
+
+	struct MenuList * m = menu_create(); /* File */
+	menu_insert(m, menu_create_normal("exit",NULL,"Exit", _menu_action_exit));
+	menu_set_insert(menu_bar.set, "file", m);
+
+	m = menu_create();
+	menu_insert(m, menu_create_normal("help",NULL,"Contents",_menu_action_help));
+	menu_insert(m, menu_create_separator());
+	menu_insert(m, menu_create_normal("star",NULL,"About System Monitor",_menu_action_about));
+	menu_set_insert(menu_bar.set, "help", m);
 
 	tt_thin = tt_font_from_shm("sans-serif");
 	tt_bold = tt_font_from_shm("sans-serif.bold");
@@ -585,7 +644,7 @@ int main (int argc, char ** argv) {
 			while (m) {
 				if (menu_process_event(yctx, m)) {
 					/* just decorations should be fine */
-					render_decorations(wina, ctx_base, "System Monitor");
+					render_base();
 					flip(ctx_base);
 					yutani_flip(yctx, wina);
 				}
@@ -605,7 +664,7 @@ int main (int argc, char ** argv) {
 							yutani_window_t * win = hashmap_get(yctx->windows, (void*)(uintptr_t)wf->wid);
 							if (win == wina) {
 								win->focused = wf->focused;
-								render_decorations(wina, ctx_base, "System Monitor");
+								render_base();
 								flip(ctx_base);
 								yutani_flip(yctx, wina);
 							}
@@ -635,6 +694,7 @@ int main (int argc, char ** argv) {
 										/* Other actions */
 										break;
 								}
+								menu_bar_mouse_event(yctx, wina, &menu_bar, me, me->new_x, me->new_y);
 							}
 						}
 						break;
