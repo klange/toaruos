@@ -85,6 +85,7 @@ struct TT_Font {
 	struct TT_Table hhea_ptr;
 	struct TT_Table hmtx_ptr;
 	struct TT_Table name_ptr;
+	struct TT_Table os_2_ptr;
 
 	off_t cmap_start;
 
@@ -97,6 +98,11 @@ struct TT_Font {
 	int loca_type;
 };
 
+struct TT_FontMetrics {
+	float ascender;
+	float descender;
+	float lineGap;
+};
 
 /* Currently, the edge sorter is disabled. It doesn't really help much,
  * and it's very slow with our horrible qsort implementation. */
@@ -379,6 +385,29 @@ static inline uint16_t tt_read_16(struct TT_Font * font) {
 	if (a < 0 || b < 0) return 0;
 	return ((a & 0xFF) << 8) |
 	       ((b & 0xFF) << 0);
+}
+
+int tt_measure_font(struct TT_Font * font, struct TT_FontMetrics * metrics) {
+	int a, d, l;
+	if (font->os_2_ptr.offset) {
+		tt_seek(font, font->os_2_ptr.offset + 2 * 37);
+		a = (int16_t)tt_read_16(font);
+		d = -(int16_t)tt_read_16(font);
+
+		tt_seek(font, font->hhea_ptr.offset + 2 * 4);
+		l = (int16_t)tt_read_16(font);
+	} else {
+		tt_seek(font, font->hhea_ptr.offset + 2 * 2);
+		a = (int16_t)tt_read_16(font);
+		d = (int16_t)tt_read_16(font);
+		l = (int16_t)tt_read_16(font);
+	}
+
+	metrics->ascender  = a * font->scale;
+	metrics->descender = d * font->scale;
+	metrics->lineGap   = l * font->scale;
+
+	return 0;
 }
 
 int tt_xadvance_for_glyph(struct TT_Font * font, unsigned int ind) {
@@ -841,6 +870,10 @@ static int tt_font_load(struct TT_Font * font) {
 				break;
 			case 0x6e616d65: /* name */
 				font->name_ptr.offset = offset;
+				font->name_ptr.length = length;
+				break;
+			case 0x4f532f32: /* OS/2 */
+				font->os_2_ptr.offset = offset;
 				font->name_ptr.length = length;
 				break;
 		}

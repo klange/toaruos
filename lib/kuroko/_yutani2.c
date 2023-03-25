@@ -871,6 +871,23 @@ KRK_Method(Font,width) {
 	return INTEGER_VAL(tt_string_width(self->fontData, s));
 }
 
+KRK_Method(Font,measure) {
+	INIT_CHECK(Font);
+
+	KrkTuple * out = krk_newTuple(3);
+	krk_push(OBJECT_VAL(out));
+
+	struct TT_FontMetrics metrics;
+
+	tt_measure_font(self->fontData, &metrics);
+
+	out->values.values[out->values.count++] = FLOATING_VAL(metrics.ascender);
+	out->values.values[out->values.count++] = FLOATING_VAL(metrics.descender);
+	out->values.values[out->values.count++] = FLOATING_VAL(metrics.lineGap);
+
+	return krk_pop();
+}
+
 #undef CURRENT_CTYPE
 
 WRAP_TYPE(MenuBar,struct menu_bar,menuBar);
@@ -1645,6 +1662,7 @@ KrkValue krk_module_onload__yutani2(void) {
 	BIND_METHOD(Font,draw_string);
 	BIND_METHOD(Font,draw_string_shadow);
 	BIND_METHOD(Font,width);
+	BIND_METHOD(Font,measure);
 	BIND_PROP(Font,size);
 	krk_finalizeClass(Font);
 
