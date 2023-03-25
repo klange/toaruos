@@ -1,0 +1,163 @@
+#!/bin/kuroko
+from _yutani2 import (YutaniCtx, Font, rgb, rgb, MenuBar, decor_get_bounds, decor_render,
+                      MenuList, MenuEntry, MenuEntrySeparator, Message, decor_handle_event, decor_show_default_menu,
+                      MenuEntryCustom)
+
+from yutani_mainloop import Window, yctx as y, AsyncMainloop, Task, sleep
+import math
+import random
+
+let mainloop = AsyncMainloop()
+
+class Word:
+    def __init__(self, x, y, word, w, sw):
+        self.x = x
+        self.y = y
+        self.word = word
+        self.w = w
+        self.sw = sw
+
+class Line:
+    def __init__(self, x, y, cw):
+        self.words = []
+        self.x = x
+        self.y = y
+        self.cw = cw
+        self.justify = "center"
+        self.islast = True
+
+    def add(self, word, w, sw):
+        self.words.append(Word(self.x, self.y, word, w, sw))
+
+    def finalize(self):
+        if self.justify == "right":
+            let _x = self.x + self.cw
+            for word in self.words[::-1]:
+                word.x = _x - word.w
+                _x -= word.w + word.sw
+        else if self.justify == "justify" and not self.islast and not len(self.words) < 2:
+            let mw = sum(word.w for word in self.words)
+            let av = float(self.cw - mw) / (len(self.words) - 1)
+            let _x = float(self.x)
+            for word in self.words:
+                word.x = int(_x)
+                _x += float(word.w) + av
+        else if self.justify == "center":
+            let mw = sum(word.w for word in self.words) + sum(word.sw for word in self.words[:-1])
+            let _x = self.x + (self.cw - mw) // 2
+            for word in self.words:
+                word.x = _x
+                _x += word.w + word.sw
+        else: # self.justify == "left":
+            let _x = self.x
+            for word in self.words:
+                word.x = _x
+                _x += word.w + word.sw
+
+def premul(r,g,b,a):
+    return rgb(int(r*a),int(g*a),int(b*a),a)
+
+def layout_and_draw(ctx, text):
+    let lines = []
+    let base_x = 9
+    let x = base_x
+    let cw = ctx.width - 9 - base_x
+    let font = Font("sans-serif", 16)
+    let asc, desc, gap = font.measure()
+    let lh = int(16 * 1.2)
+    let lb = int((lh - int(asc - desc)) / 2)
+    let y = 57 + lb + int(asc)
+    let line = Line(x, y, cw)
+
+    for word in text.split(' '):
+        let w = font.width(word)
+        if w + x >= ctx.width - 9:
+            line.islast = False
+            line.finalize()
+            lines.append(line)
+            x = base_x
+            y += lh
+            line = Line(x, y, cw)
+        let sw = font.width(' ')
+        line.add(word, w, sw)
+        x += w + sw
+
+    if line.words:
+        line.finalize()
+        lines.append(line)
+
+    for line in lines:
+        for word in line.words:
+            ctx.rect(word.x, int(word.y - asc), word.w, word.y - int(word.y - asc), premul(255,0,0,0.25))
+            ctx.rect(word.x, word.y, word.w, -int(desc), premul(0,0,255,0.25))
+            font.draw_string(ctx, word.word, word.x, word.y)
+
+
+
+class BlockElement:
+    pass
+
+class InlineElement:
+    pass
+
+
+
+
+class MyWindow(Window):
+    def __init__(self):
+        super().__init__(640, 480, title="Hello", doublebuffer=True)
+        self.bgc = rgb(255,255,255)
+        self.dejavu = Font("sans-serif", 13)
+        self.mb = MenuBar((("File",'file'),("Help",'help')))
+        let _menu_File = MenuList()
+        _menu_File.insert(MenuEntry("Test", lambda menu: print("hello, world")))
+        _menu_File.insert(MenuEntrySeparator())
+        _menu_File.insert(MenuEntry("Quit", lambda menu: self.close()))
+        self.mb.insert('file', _menu_File)
+        let _menu_Help = MenuList()
+        let _menu_Help_help = MenuEntry("Help",lambda menu: print("oh no!"))
+        _menu_Help.insert(_menu_Help_help)
+        self.mb.insert('help', _menu_Help)
+        self.mb.callback = lambda x: self.draw()
+
+    def draw(self):
+        self.fill(self.bgc)
+        decor_render(self)
+        let bounds = decor_get_bounds(self)
+        self.mb.place(bounds['left_width'],bounds['top_height'],self.width-bounds['width'],self)
+        self.mb.render(self)
+        #layout_and_draw(self, "This is some long text. It goes on and on. It has many words. It may wrap to another line. I hope it does. That would be what I want it to do.")
+        layout_and_draw(self, "Far out in the uncharted backwaters of the unfashionable end of the western spiral arm of the Galaxy lies a small unregarded yellow sun.")
+        self.flip()
+
+    def mouse_event(self, msg):
+        let decResponse = decor_handle_event(msg)
+        if decResponse == 2:
+            print("Close me?")
+            self.close()
+            return True
+        else if decResponse == 5:
+            decor_show_default_menu(self, self.x + msg.new_x, self.y + msg.new_y)
+        self.mb.mouse_event(self, msg)
+
+    def keyboard_event(self, msg):
+        print(msg.keycode)
+        if msg.keycode == 113 and msg.action == 1:
+            self.close()
+
+    def close(self):
+        super().close()
+        mainloop.exit()
+
+    def window_moved(self, msg):
+        self.draw()
+
+    def menu_close(self):
+        self.draw()
+
+let w = MyWindow()
+w.move(200,200)
+w.draw()
+
+mainloop.menu_closed_callback = w.menu_close
+mainloop.run()
