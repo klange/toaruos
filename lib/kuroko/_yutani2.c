@@ -543,6 +543,15 @@ KRK_Method(Sprite,__repr__) {
 	}
 }
 
+KRK_Method(Sprite,free) {
+	INIT_CHECK(Sprite);
+	if (self->sprite) sprite_free(self->sprite);
+	if (self->ctx) release_graphics_yutani(self->ctx);
+	self->sprite = NULL;
+	self->ctx = NULL;
+	return NONE_VAL();
+}
+
 #undef CURRENT_CTYPE
 
 static void _yutani_Window_gcscan(KrkInstance * _self) {
@@ -1049,6 +1058,10 @@ KRK_Method(MenuBar,insert) {
 	return NONE_VAL();
 }
 
+KRK_Method(MenuBar,height) {
+	return INTEGER_VAL(MENU_BAR_HEIGHT);
+}
+
 #undef CURRENT_CTYPE
 
 #define IS_MenuList(o) (krk_isInstanceOf(o,MenuList))
@@ -1270,6 +1283,125 @@ KRK_Method(MenuEntryCustom,__init__) {
 	out->vtable = &_custom_menu_vtable;
 	self->menuEntry = out;
 	out->_private = self;
+	return NONE_VAL();
+}
+
+#undef CURRENT_CTYPE
+
+WRAP_TYPE(TTShape,struct TT_Shape, shape);
+#define IS_TTShape(o) (krk_isInstanceOf(o,TTShape))
+#define AS_TTShape(o) ((struct _yutani_TTShape*)AS_OBJECT(o))
+
+WRAP_TYPE(TTContour,struct TT_Contour, contour);
+#define IS_TTContour(o) (krk_isInstanceOf(o,TTContour))
+#define AS_TTContour(o) ((struct _yutani_TTContour*)AS_OBJECT(o))
+#define CURRENT_CTYPE struct _yutani_TTContour*
+
+extern struct TT_Contour * tt_contour_start(float x, float y);
+extern struct TT_Shape * tt_contour_finish(struct TT_Contour * in);
+extern struct TT_Shape * tt_contour_stroke_shape(struct TT_Contour * in, float width);
+extern struct TT_Contour * tt_contour_line_to(struct TT_Contour * shape, float x, float y);
+extern struct TT_Contour * tt_contour_move_to(struct TT_Contour * shape, float x, float y);
+extern void tt_path_paint(gfx_context_t * ctx, const struct TT_Shape * shape, uint32_t color);
+
+void _TTContour_ongcsweep(KrkInstance * _self) {
+	CURRENT_CTYPE self = (CURRENT_CTYPE)_self;
+	if (self->contour) {
+		fprintf(stderr, "free contour\n");
+		free(self->contour);
+	}
+	self->contour = NULL;
+}
+
+KRK_Method(TTContour,__init__) {
+	float x, y;
+	if (!krk_parseArgs(".ff:TTContour", (const char*[]){"x","y"}, &x, &y))
+		return NONE_VAL();
+
+	NO_REINIT(TTContour);
+	self->contour = tt_contour_start(x,y);
+
+	return NONE_VAL();
+}
+
+KRK_Method(TTContour,line_to) {
+	float x, y;
+	if (!krk_parseArgs(".ff", (const char*[]){"x","y"}, &x, &y))
+		return NONE_VAL();
+	INIT_CHECK(TTContour);
+	self->contour = tt_contour_line_to(self->contour, x, y);
+	return NONE_VAL();
+}
+
+KRK_Method(TTContour,move_to) {
+	float x, y;
+	if (!krk_parseArgs(".ff", (const char*[]){"x","y"}, &x, &y))
+		return NONE_VAL();
+	INIT_CHECK(TTContour);
+	self->contour = tt_contour_move_to(self->contour, x, y);
+	return NONE_VAL();
+}
+
+KRK_Method(TTContour,finish) {
+	INIT_CHECK(TTContour);
+	struct _yutani_TTShape * newShape = (struct _yutani_TTShape*)krk_newInstance(TTShape);
+	newShape->shape = tt_contour_finish(self->contour);
+	return OBJECT_VAL(newShape);
+}
+
+KRK_Method(TTContour,stroke) {
+	float width;
+	if (!krk_parseArgs(".f", (const char*[]){"width"}, &width)) return NONE_VAL();
+	INIT_CHECK(TTContour);
+	struct _yutani_TTShape * newShape = (struct _yutani_TTShape*)krk_newInstance(TTShape);
+	newShape->shape = tt_contour_stroke_shape(self->contour, width);
+	return OBJECT_VAL(newShape);
+}
+
+KRK_Method(TTContour,free) {
+	INIT_CHECK(TTContour);
+	free(self->contour);
+	self->contour = NULL;
+	return NONE_VAL();
+}
+
+#undef CURRENT_CTYPE
+#define CURRENT_CTYPE struct _yutani_TTShape*
+
+void _TTShape_ongcsweep(KrkInstance * _self) {
+	CURRENT_CTYPE self = (CURRENT_CTYPE)_self;
+	if (self->shape) {
+		fprintf(stderr, "free shape\n");
+		free(self->shape);
+	}
+	self->shape = NULL;
+}
+
+KRK_Method(TTShape,__init__) {
+	return krk_runtimeError(vm.exceptions->typeError, "Can not initialize empty shape; use TTContour.finish instead");
+}
+
+KRK_Method(TTShape,paint) {
+	struct _yutani_GraphicsContext * ctx;
+	uint32_t color;
+
+	if (!krk_parseArgs(
+		".O!I", (const char*[]){"ctx","color"},
+		GraphicsContext, &ctx, &color)) {
+		return NONE_VAL();
+	}
+
+	INIT_CHECK(TTShape);
+
+	tt_path_paint(ctx->ctx, self->shape, color);
+
+	return NONE_VAL();
+}
+
+KRK_Method(TTShape,free) {
+	INIT_CHECK(TTShape);
+	free(self->shape);
+	self->shape = NULL;
 	return NONE_VAL();
 }
 
@@ -1587,6 +1719,7 @@ KrkValue krk_module_onload__yutani2(void) {
 	Sprite->_ongcsweep = _yutani_Sprite_gcsweep;
 	BIND_METHOD(Sprite,__init__);
 	BIND_METHOD(Sprite,__repr__);
+	BIND_METHOD(Sprite,free);
 	krk_finalizeClass(Sprite);
 
 	/*
@@ -1686,6 +1819,7 @@ KrkValue krk_module_onload__yutani2(void) {
 	BIND_METHOD(MenuBar,render);
 	BIND_METHOD(MenuBar,mouse_event);
 	BIND_METHOD(MenuBar,insert);
+	BIND_PROP(MenuBar,height);
 
 	krk_finalizeClass(MenuBar);
 
@@ -1746,6 +1880,26 @@ KrkValue krk_module_onload__yutani2(void) {
 	MenuEntryCustom->allocSize = sizeof(struct _yutani_MenuEntryCustom);
 	BIND_METHOD(MenuEntryCustom,__init__);
 	krk_finalizeClass(MenuEntryCustom);
+
+
+	krk_makeClass(module, &TTContour, "TTContour", KRK_BASE_CLASS(object));
+	TTContour->allocSize = sizeof(struct _yutani_TTContour);
+	TTContour->_ongcsweep = _TTContour_ongcsweep;
+	BIND_METHOD(TTContour,__init__);
+	BIND_METHOD(TTContour,line_to);
+	BIND_METHOD(TTContour,move_to);
+	BIND_METHOD(TTContour,finish);
+	BIND_METHOD(TTContour,free);
+	BIND_METHOD(TTContour,stroke);
+	krk_finalizeClass(TTContour);
+
+	krk_makeClass(module, &TTShape, "TTShape", KRK_BASE_CLASS(object));
+	TTShape->allocSize = sizeof(struct _yutani_TTShape);
+	TTShape->_ongcsweep = _TTShape_ongcsweep;
+	BIND_METHOD(TTShape,__init__);
+	BIND_METHOD(TTShape,paint);
+	BIND_METHOD(TTShape,free);
+	krk_finalizeClass(TTShape);
 
 	BIND_FUNC(module,decor_get_bounds);
 	BIND_FUNC(module,decor_render);
