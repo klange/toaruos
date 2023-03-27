@@ -1116,21 +1116,113 @@ char * tt_get_name_string(struct TT_Font * font, int identifier) {
 	return NULL;
 }
 
+struct PenPoly {
+	float x;
+	float y;
+	float inner;
+	float outer;
+	float basis;
+};
+
+static float tangent(float x_0, float y_0, float x_1, float y_1) {
+	return fmod(atan2(y_0 - y_1, x_1 - x_0) + 2.0 * M_PI, 2.0 * M_PI);
+}
+
+static int angle_compare(float s, struct PenPoly * pen, int a) {
+	if (s >= pen[a].inner && s < pen[a].outer) return 0;
+	if (s >= pen[a].inner && pen[a].outer < pen[a].inner) return 0;
+	if (s <  pen[a].outer && pen[a].outer < pen[a].inner) return 0;
+	if (s <  pen[a].outer && (2.0 * M_PI + s - pen[a].outer > M_PI)) return 1;
+	if (s >  pen[a].outer && (s - pen[a].outer > M_PI)) return 1;
+	return -1;
+}
+
+static int best_angle(int sides, struct PenPoly * pen, float s) {
+	for (int a = 0; a < sides; ++a) {
+		if (angle_compare(s,pen,a) == 0) return a;
+	}
+	return 0;
+}
+
+
 struct TT_Shape * tt_contour_stroke_shape(struct TT_Contour * in, float width) {
+
 	struct TT_Contour * stroke = tt_contour_start(0,0);
 
-	for (size_t i = 0; i < in->edgeCount; ++i) {
-		double x_vect = in->edges[i].end.x - in->edges[i].start.x;
-		double y_vect = in->edges[i].end.y - in->edges[i].start.y;
-		double len = sqrt(x_vect * x_vect + y_vect * y_vect);
-		if (len == 0.0) continue;
-		double x_norm = (-y_vect / len) * width;
-		double y_norm = (x_vect / len) * width;
-		stroke = tt_contour_move_to(stroke, x_norm + in->edges[i].start.x, y_norm + in->edges[i].start.y);
-		stroke = tt_contour_line_to(stroke, x_norm + in->edges[i].end.x,   y_norm + in->edges[i].end.y);
-		stroke = tt_contour_line_to(stroke, -x_norm + in->edges[i].end.x,   -y_norm + in->edges[i].end.y);
-		stroke = tt_contour_line_to(stroke, -x_norm + in->edges[i].start.x, -y_norm + in->edges[i].start.y);
-		stroke = tt_contour_line_to(stroke, x_norm + in->edges[i].start.x, y_norm + in->edges[i].start.y);
+	if (in->edgeCount) {
+		int sides = width < 1.0 ? 4 : 16;
+		float inner = 2.0 * M_PI / (float)sides;
+		float outer = (M_PI - inner) / 2.0;
+		struct PenPoly * pen = malloc(sizeof(struct PenPoly) * sides); /* Arbitrary */
+		for (int i = 0; i < sides; ++i) {
+			float angle = (float)i * 2.0 * M_PI / (float)sides;
+			pen[i].x = cos(angle) * width;
+			pen[i].y = -sin(angle) * width;
+			pen[i].basis = angle;
+			pen[i].inner = fmod(angle + outer, 2.0 * M_PI);
+			pen[i].outer = fmod(angle + outer + inner, 2.0 * M_PI);
+		}
+
+
+		int start_of_segment = 0;
+		int next_segment = (int)in->edgeCount;
+
+		do {
+			int started = 0;
+			int v = start_of_segment;
+			float s = tangent(in->edges[v].start.x, in->edges[v].start.y, in->edges[v].end.x, in->edges[v].end.y);
+			int a = best_angle(sides,pen,s);
+
+			while (v < (int)in->edgeCount) {
+				s = tangent(in->edges[v].start.x, in->edges[v].start.y, in->edges[v].end.x, in->edges[v].end.y);
+				stroke = (started ? tt_contour_line_to : tt_contour_move_to)(stroke, pen[a].x + in->edges[v].start.x, pen[a].y + in->edges[v].start.y);
+				started = 1;
+				int comp = angle_compare(s,pen,a);
+				if (comp == 0) {
+					if (v + 1 == (int)in->edgeCount) {
+						next_segment = in->edgeCount;
+						break;
+					}
+					if (in->edges[v+1].start.x != in->edges[v].end.x || in->edges[v+1].start.y != in->edges[v].end.y) {
+						next_segment = v + 1;
+						break;
+					}
+					v++;
+				} else if (comp == 1) {
+					a = (sides + a - 1) % sides;
+				} else {
+					a = (a + 1) % sides;
+				}
+			}
+			while (v >= start_of_segment) {
+				s = tangent(in->edges[v].end.x, in->edges[v].end.y, in->edges[v].start.x, in->edges[v].start.y);
+				stroke = tt_contour_line_to(stroke, in->edges[v].end.x + pen[a].x, in->edges[v].end.y + pen[a].y);
+				int comp = angle_compare(s,pen,a);
+				if (comp == 0) {
+					if (v == start_of_segment) break;
+					v--;
+				} else if (comp == 1) {
+					a = (sides + a - 1) % sides;
+				} else {
+					a = (a + 1) % sides;
+				}
+			}
+			while (v == start_of_segment) {
+				s = tangent(in->edges[v].start.x, in->edges[v].start.y, in->edges[v].end.x, in->edges[v].end.y);
+				stroke = tt_contour_line_to(stroke, pen[a].x + in->edges[v].start.x, pen[a].y + in->edges[v].start.y);
+				int comp = angle_compare(s,pen,a);
+				if (comp == 0) {
+					break;
+				} else if (comp == 1) {
+					a = (sides + a - 1) % sides;
+				} else {
+					a = (a + 1) % sides;
+				}
+			}
+			start_of_segment = next_segment;
+		} while (next_segment != (int)in->edgeCount);
+
+		free(pen);
 	}
 
 	struct TT_Shape * out = tt_contour_finish(stroke);
