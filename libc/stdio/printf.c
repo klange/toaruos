@@ -340,7 +340,7 @@ size_t xvasprintf(int (*callback)(void *, char), void * userData, const char * f
 						val = val - (unsigned long long)val;
 						val *= 10.0;
 						double roundy = ((double)(val - (unsigned long long)val) - 0.99999);
-						if (roundy < 0.00001 && roundy > -0.00001) {
+						if (roundy < 0.00001 && roundy > -0.00001 && ((unsigned long long)(val) % 10) != 9) {
 							written += print_dec((unsigned long long)(val) % 10 + 1, 0, callback, userData, 0, 0, 1);
 							break;
 						}
