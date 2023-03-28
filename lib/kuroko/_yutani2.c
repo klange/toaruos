@@ -317,6 +317,12 @@ WRAP_TYPE(Window,gfx_context_t,ctx,
 	int closed;
 );
 
+WRAP_TYPE(Subregion,gfx_context_t,ctx,
+	int doubleBuffered;
+	int x;
+	int y;
+);
+
 #define IS_GraphicsContext(o) (krk_isInstanceOf(o,GraphicsContext))
 #define AS_GraphicsContext(o) ((struct _yutani_GraphicsContext*)AS_OBJECT(o))
 #define CURRENT_CTYPE struct _yutani_GraphicsContext*
@@ -766,6 +772,80 @@ KRK_Method(Window,reinit) {
 	INIT_CHECK(Window);
 	reinit_graphics_yutani(self->ctx, self->window);
 	return NONE_VAL();
+}
+#undef CURRENT_CTYPE
+
+static void _yutani_Subregion_gcsweep(KrkInstance * _self) {
+	struct _yutani_Subregion * self = (void*)_self;
+	if (self->ctx) {
+		if (self->ctx->clips) {
+			free(self->ctx->clips);
+		}
+		free(self->ctx);
+		self->ctx = NULL;
+	}
+}
+
+#define IS_Subregion(o) (krk_isInstanceOf(o,Subregion))
+#define AS_Subregion(o) ((struct _yutani_Subregion*)AS_OBJECT(o))
+#define CURRENT_CTYPE struct _yutani_Subregion*
+
+KRK_Method(Subregion,__init__) {
+	struct _yutani_GraphicsContext * ctx;
+	int x, y, w, h;
+	if (!krk_parseArgs(
+		".O!iiii:Subregion", (const char*[]){"ctx","x","y","w","h"},
+		GraphicsContext, &ctx,
+		&x, &y, &w, &h)) {
+		return NONE_VAL();
+	}
+
+	NO_REINIT(Subregion);
+
+	if (!ctx->ctx) return krk_runtimeError(vm.exceptions->typeError, "ctx is not initialized");
+
+	if (w < 0 || h < 0) return krk_runtimeError(vm.exceptions->typeError, "invalid subregion");
+
+	if (x < 0) {
+		w += x;
+		x = 0;
+	}
+
+	if (y < 0) {
+		h += y;
+		y = 0;
+	}
+
+	if (x >= ctx->ctx->width || y >= ctx->ctx->height) {
+		x = 0; y = 0; w = 0; h = 0;
+	}
+
+	if (x + w > ctx->ctx->width) {
+		w = ctx->ctx->width - x;
+	}
+
+	if (y + h > ctx->ctx->height) {
+		h = ctx->ctx->height - y;
+	}
+
+	gfx_context_t * sub = init_graphics_subregion(ctx->ctx, x, y, w, h);
+	self->ctx = sub;
+	self->doubleBuffered = ctx->doubleBuffered;
+	self->x = x;
+	self->y = y;
+	krk_attachNamedObject(&self->inst.fields, "parent", (KrkObj*)ctx);
+
+	return NONE_VAL();
+}
+
+KRK_Method(Subregion,offset_x) {
+	ATTRIBUTE_NOT_ASSIGNABLE();
+	return INTEGER_VAL(self->x);
+}
+
+KRK_Method(Subregion,offset_y) {
+	ATTRIBUTE_NOT_ASSIGNABLE();
+	return INTEGER_VAL(self->y);
 }
 
 #undef CURRENT_CTYPE
@@ -1777,6 +1857,14 @@ KrkValue krk_module_onload__yutani2(void) {
 	BIND_PROP(Window,focused);
 	BIND_PROP(Window,closed);
 	krk_finalizeClass(Window);
+
+	krk_makeClass(module, &Subregion, "Subregion", GraphicsContext);
+	Subregion->allocSize = sizeof(struct _yutani_Subregion);
+	Subregion->_ongcsweep = _yutani_Subregion_gcsweep;
+	BIND_METHOD(Subregion,__init__);
+	BIND_PROP(Subregion,offset_x);
+	BIND_PROP(Subregion,offset_y);
+	krk_finalizeClass(Subregion);
 
 	/*
 	 * Typeface using the 'text' library.
