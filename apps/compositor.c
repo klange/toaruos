@@ -44,6 +44,7 @@
 #include <toaru/yutani-server.h>
 #include <toaru/hashmap.h>
 #include <toaru/list.h>
+#include <toaru/text.h>
 
 #define _DEBUG_YUTANI
 #ifdef _DEBUG_YUTANI
@@ -828,6 +829,31 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 	} else {
 		draw_sprite(yg->backend_ctx, &_win_sprite, window->x, window->y);
 	}
+
+#if YUTANI_DEBUG_WINDOW_BOUNDS
+	if (yg->debug_bounds) {
+		int32_t t_x, t_y;
+		int32_t s_x, s_y;
+		int32_t r_x, r_y;
+		int32_t q_x, q_y;
+
+		yutani_window_to_device(window, 0, 0, &t_x, &t_y);
+		yutani_window_to_device(window, window->width, window->height, &s_x, &s_y);
+		yutani_window_to_device(window, 0, window->height, &r_x, &r_y);
+		yutani_window_to_device(window, window->width, 0, &q_x, &q_y);
+
+		uint32_t x = alpha_blend(rgba(0,0,0,0), yutani_color_for_wid(window->wid), rgb(178,0,0));
+
+		struct TT_Contour * contour = tt_contour_start(t_x,t_y);
+		contour = tt_contour_line_to(contour, r_x,r_y);
+		contour = tt_contour_line_to(contour, s_x,s_y);
+		contour = tt_contour_line_to(contour, q_x,q_y);
+		struct TT_Shape * shape = tt_contour_finish(contour);
+		free(contour);
+		tt_path_paint(yg->backend_ctx, shape, x);
+		free(shape);
+	}
+#endif
 
 	return 0;
 }
