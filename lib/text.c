@@ -289,7 +289,7 @@ struct TT_Contour * tt_contour_start(float x, float y) {
 	return shape;
 }
 
-struct TT_Shape * tt_contour_finish(struct TT_Contour * in) {
+struct TT_Shape * tt_contour_finish(const struct TT_Contour * in) {
 	size_t size = in->edgeCount + 1;
 	struct TT_Shape * tmp = malloc(sizeof(struct TT_Shape) + sizeof(struct TT_Edge) * size);
 	memcpy(tmp->edges, in->edges, sizeof(struct TT_Edge) * in->edgeCount);
@@ -1149,9 +1149,8 @@ static int best_angle(int sides, struct PenPoly * pen, float s) {
 	return 0;
 }
 
-
-struct TT_Shape * tt_contour_stroke_shape(struct TT_Contour * in, float width) {
-
+__attribute__((visibility("protected")))
+struct TT_Contour * tt_contour_stroke_contour(const struct TT_Contour * in, float width) {
 	struct TT_Contour * stroke = tt_contour_start(0,0);
 
 	if (in->edgeCount) {
@@ -1230,6 +1229,11 @@ struct TT_Shape * tt_contour_stroke_shape(struct TT_Contour * in, float width) {
 		free(pen);
 	}
 
+	return stroke;
+}
+
+struct TT_Shape * tt_contour_stroke_shape(const struct TT_Contour * in, float width) {
+	struct TT_Contour * stroke = tt_contour_stroke_contour(in,width);
 	struct TT_Shape * out = tt_contour_finish(stroke);
 	free(stroke);
 	return out;

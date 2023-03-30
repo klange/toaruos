@@ -1569,6 +1569,15 @@ KRK_Method(TTContour,stroke) {
 	return OBJECT_VAL(newShape);
 }
 
+KRK_Method(TTContour,stroke_path) {
+	float width;
+	if (!krk_parseArgs(".f", (const char*[]){"width"}, &width)) return NONE_VAL();
+	INIT_CHECK(TTContour);
+	struct _yutani_TTContour * newContour = (struct _yutani_TTContour*)krk_newInstance(TTContour);
+	newContour->contour = tt_contour_stroke_contour(self->contour, width);
+	return OBJECT_VAL(newContour);
+}
+
 KRK_Method(TTContour,free) {
 	INIT_CHECK(TTContour);
 	free(self->contour);
@@ -2123,6 +2132,7 @@ KrkValue krk_module_onload__yutani2(void) {
 	BIND_METHOD(TTContour,finish);
 	BIND_METHOD(TTContour,free);
 	BIND_METHOD(TTContour,stroke);
+	BIND_METHOD(TTContour,stroke_path);
 	BIND_METHOD(TTContour,transform);
 	krk_finalizeClass(TTContour);
 
