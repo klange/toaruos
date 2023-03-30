@@ -40,10 +40,9 @@ struct TT_Coord {
 	float y;
 };
 
-struct TT_Edge {
+struct TT_Line {
 	struct TT_Coord start;
 	struct TT_Coord end;
-	int direction;
 };
 
 struct TT_Contour {
@@ -51,12 +50,18 @@ struct TT_Contour {
 	size_t nextAlloc;
 	size_t flags;
 	size_t last_start;
-	struct TT_Edge edges[];
+	struct TT_Line edges[];
 };
 
 struct TT_Intersection {
 	float x;
 	int affect;
+};
+
+struct TT_Edge {
+	struct TT_Coord start;
+	struct TT_Coord end;
+	int direction;
 };
 
 struct TT_Shape {
@@ -249,7 +254,7 @@ struct TT_Contour * tt_contour_line_to(struct TT_Contour * shape, float x, float
 	} else {
 		if (shape->edgeCount + 1 == shape->nextAlloc) {
 			shape->nextAlloc *= 2;
-			shape = realloc(shape, sizeof(struct TT_Contour) + sizeof(struct TT_Edge) * (shape->nextAlloc));
+			shape = realloc(shape, sizeof(struct TT_Contour) + sizeof(struct TT_Line) * (shape->nextAlloc));
 		}
 		shape->edges[shape->edgeCount].start.x = shape->edges[shape->edgeCount-1].end.x;
 		shape->edges[shape->edgeCount].start.y = shape->edges[shape->edgeCount-1].end.y;
@@ -267,7 +272,7 @@ struct TT_Contour * tt_contour_move_to(struct TT_Contour * shape, float x, float
 	}
 	if (shape->edgeCount + 1 == shape->nextAlloc) {
 		shape->nextAlloc *= 2;
-		shape = realloc(shape, sizeof(struct TT_Contour) + sizeof(struct TT_Edge) * (shape->nextAlloc));
+		shape = realloc(shape, sizeof(struct TT_Contour) + sizeof(struct TT_Line) * (shape->nextAlloc));
 	}
 	shape->edges[shape->edgeCount].start.x = x;
 	shape->edges[shape->edgeCount].start.y = y;
@@ -277,7 +282,7 @@ struct TT_Contour * tt_contour_move_to(struct TT_Contour * shape, float x, float
 }
 
 struct TT_Contour * tt_contour_start(float x, float y) {
-	struct TT_Contour * shape = malloc(sizeof(struct TT_Contour) + sizeof(struct TT_Edge) * 2);
+	struct TT_Contour * shape = malloc(sizeof(struct TT_Contour) + sizeof(struct TT_Line) * 2);
 	shape->edgeCount = 0;
 	shape->nextAlloc = 2;
 	shape->flags = 0;
@@ -292,7 +297,9 @@ struct TT_Contour * tt_contour_start(float x, float y) {
 struct TT_Shape * tt_contour_finish(const struct TT_Contour * in) {
 	size_t size = in->edgeCount + 1;
 	struct TT_Shape * tmp = malloc(sizeof(struct TT_Shape) + sizeof(struct TT_Edge) * size);
-	memcpy(tmp->edges, in->edges, sizeof(struct TT_Edge) * in->edgeCount);
+	for (size_t i = 0; i < in->edgeCount; ++i) {
+		memcpy(&tmp->edges[i], &in->edges[i], sizeof(struct TT_Line));
+	}
 
 	if (in->flags & 1) {
 		size--;
