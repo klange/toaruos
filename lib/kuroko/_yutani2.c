@@ -850,6 +850,75 @@ KRK_Method(Subregion,offset_y) {
 
 #undef CURRENT_CTYPE
 
+static KrkClass * TransformMatrix;
+struct _yutani_TransformMatrix {
+	KrkInstance inst;
+	gfx_matrix_t matrix;
+};
+
+#define IS_TransformMatrix(o) (krk_isInstanceOf(o,TransformMatrix))
+#define AS_TransformMatrix(o) ((struct _yutani_TransformMatrix*)AS_OBJECT(o))
+#define CURRENT_CTYPE struct _yutani_TransformMatrix*
+
+KRK_Method(TransformMatrix,__init__) {
+	if (!krk_parseArgs(".:TransformMatrix", (const char*[]){}, NULL)) return NONE_VAL();
+	/* Might accept lists of doubles later */
+	gfx_matrix_identity(self->matrix);
+	return NONE_VAL();
+}
+
+KRK_Method(TransformMatrix,__repr__) {
+	struct StringBuilder sb = {};
+
+	KrkValue floats[6];
+
+	for (int i = 0; i < 6; ++i) {
+		floats[i] = FLOATING_VAL(self->matrix[i/3][i%3]);
+	}
+
+	krk_pushStringBuilderFormat(&sb, "TransformMatrix[ [%R,%R,%R] [%R,%R,%R] ]",
+		floats[0], floats[1], floats[2], floats[3], floats[4], floats[5]);
+
+	return krk_finishStringBuilder(&sb);
+}
+
+KRK_Method(TransformMatrix,scale) {
+	double x, y;
+	if (!krk_parseArgs(".dd", (const char*[]){"x","y"}, &x, &y)) return NONE_VAL();
+	gfx_matrix_scale(self->matrix,x,y);
+	return NONE_VAL();
+}
+
+KRK_Method(TransformMatrix,translate) {
+	double x, y;
+	if (!krk_parseArgs(".dd", (const char*[]){"x","y"}, &x, &y)) return NONE_VAL();
+	gfx_matrix_translate(self->matrix,x,y);
+	return NONE_VAL();
+}
+
+KRK_Method(TransformMatrix,rotate) {
+	double r;
+	if (!krk_parseArgs(".d", (const char*[]){"r"}, &r)) return NONE_VAL();
+	gfx_matrix_rotate(self->matrix,r);
+	return NONE_VAL();
+}
+
+KRK_Method(TransformMatrix,apply) {
+	double x, y;
+	if (!krk_parseArgs(".dd", (const char*[]){"x","y"}, &x, &y)) return NONE_VAL();
+	KrkTuple * out = krk_newTuple(2);
+	krk_push(OBJECT_VAL(out));
+
+	double o_x, o_y;
+	gfx_apply_matrix(x,y,self->matrix,&o_x,&o_y);
+	out->values.values[out->values.count++] = FLOATING_VAL(o_x);
+	out->values.values[out->values.count++] = FLOATING_VAL(o_y);
+
+	return krk_pop();
+}
+
+#undef CURRENT_CTYPE
+
 WRAP_TYPE(Font,struct TT_Font,fontData,
 	int fontSize;
 	uint32_t fontColor;
@@ -1479,6 +1548,17 @@ KRK_Method(TTContour,free) {
 	return NONE_VAL();
 }
 
+KRK_Method(TTContour,transform) {
+	struct _yutani_TransformMatrix * matrix;
+	if (!krk_parseArgs(".O!", (const char*[]){"matrix"},
+		TransformMatrix, &matrix)) return NONE_VAL();
+	INIT_CHECK(TTContour);
+
+	tt_contour_transform(self->contour, matrix->matrix);
+
+	return NONE_VAL();
+}
+
 #undef CURRENT_CTYPE
 #define CURRENT_CTYPE struct _yutani_TTShape*
 
@@ -2015,6 +2095,7 @@ KrkValue krk_module_onload__yutani2(void) {
 	BIND_METHOD(TTContour,finish);
 	BIND_METHOD(TTContour,free);
 	BIND_METHOD(TTContour,stroke);
+	BIND_METHOD(TTContour,transform);
 	krk_finalizeClass(TTContour);
 
 	krk_makeClass(module, &TTShape, "TTShape", KRK_BASE_CLASS(object));
@@ -2024,6 +2105,16 @@ KrkValue krk_module_onload__yutani2(void) {
 	BIND_METHOD(TTShape,paint);
 	BIND_METHOD(TTShape,free);
 	krk_finalizeClass(TTShape);
+
+	krk_makeClass(module, &TransformMatrix, "TransformMatrix", KRK_BASE_CLASS(object));
+	TransformMatrix->allocSize = sizeof(struct _yutani_TransformMatrix);
+	BIND_METHOD(TransformMatrix,__init__);
+	BIND_METHOD(TransformMatrix,__repr__);
+	BIND_METHOD(TransformMatrix,scale);
+	BIND_METHOD(TransformMatrix,translate);
+	BIND_METHOD(TransformMatrix,rotate);
+	BIND_METHOD(TransformMatrix,apply);
+	krk_finalizeClass(TransformMatrix);
 
 	BIND_FUNC(module,decor_get_bounds);
 	BIND_FUNC(module,decor_render);
