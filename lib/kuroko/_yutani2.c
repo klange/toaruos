@@ -903,6 +903,13 @@ KRK_Method(TransformMatrix,rotate) {
 	return NONE_VAL();
 }
 
+KRK_Method(TransformMatrix,shear) {
+	double x, y;
+	if (!krk_parseArgs(".dd", (const char*[]){"x","y"}, &x, &y)) return NONE_VAL();
+	gfx_matrix_shear(self->matrix,x,y);
+	return NONE_VAL();
+}
+
 KRK_Method(TransformMatrix,apply) {
 	double x, y;
 	if (!krk_parseArgs(".dd", (const char*[]){"x","y"}, &x, &y)) return NONE_VAL();
@@ -2113,6 +2120,7 @@ KrkValue krk_module_onload__yutani2(void) {
 	BIND_METHOD(TransformMatrix,scale);
 	BIND_METHOD(TransformMatrix,translate);
 	BIND_METHOD(TransformMatrix,rotate);
+	BIND_METHOD(TransformMatrix,shear);
 	BIND_METHOD(TransformMatrix,apply);
 	krk_finalizeClass(TransformMatrix);
 

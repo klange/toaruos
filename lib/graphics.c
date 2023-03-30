@@ -896,6 +896,13 @@ void gfx_matrix_scale(gfx_matrix_t matrix, double x, double y) {
 	});
 }
 
+void gfx_matrix_shear(gfx_matrix_t matrix, double x, double y) {
+	multiply_matrix(matrix, (gfx_matrix_t){
+		{1.0, x, 0.0},
+		{y, 1.0, 0.0},
+	});
+}
+
 void gfx_matrix_rotate(gfx_matrix_t matrix, double r) {
 	multiply_matrix(matrix, (gfx_matrix_t){
 		{ cos(r), -sin(r), 0.0},
