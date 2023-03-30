@@ -106,12 +106,6 @@ static uint32_t if_colors[32];
 
 #define EASE_WIDTH 8
 
-extern struct TT_Contour * tt_contour_start(float x, float y);
-extern struct TT_Shape * tt_contour_finish(struct TT_Contour * in);
-extern struct TT_Contour * tt_contour_line_to(struct TT_Contour * shape, float x, float y);
-extern void tt_path_paint(gfx_context_t * ctx, const struct TT_Shape * shape, uint32_t color);
-extern struct TT_Shape * tt_contour_stroke_shape(struct TT_Contour * in, float width);
-
 static void plot_graph(gfx_context_t * ctx, size_t scale, long samples[100], uint32_t color, float shift) {
 	float unit_width = (float)ctx->width / 99.0;
 	float factor[EASE_WIDTH];

@@ -859,6 +859,14 @@ WRAP_TYPE(Font,struct TT_Font,fontData,
 #define AS_Font(o) ((struct _yutani_Font*)AS_OBJECT(o))
 #define CURRENT_CTYPE struct _yutani_Font*
 
+WRAP_TYPE(TTShape,struct TT_Shape, shape);
+#define IS_TTShape(o) (krk_isInstanceOf(o,TTShape))
+#define AS_TTShape(o) ((struct _yutani_TTShape*)AS_OBJECT(o))
+
+WRAP_TYPE(TTContour,struct TT_Contour, contour);
+#define IS_TTContour(o) (krk_isInstanceOf(o,TTContour))
+#define AS_TTContour(o) ((struct _yutani_TTContour*)AS_OBJECT(o))
+
 #define CHECK_FONT() do { if (!self->fontData) return krk_runtimeError(vm.exceptions->valueError, "font is uninitialized"); } while (0)
 
 static void _yutani_Font_gcsweep(KrkInstance * _self) {
@@ -973,6 +981,47 @@ KRK_Method(Font,measure) {
 	out->values.values[out->values.count++] = FLOATING_VAL(metrics.ascender);
 	out->values.values[out->values.count++] = FLOATING_VAL(metrics.descender);
 	out->values.values[out->values.count++] = FLOATING_VAL(metrics.lineGap);
+
+	return krk_pop();
+}
+
+KRK_Method(Font,draw_glyph_into) {
+	INIT_CHECK(Font);
+
+	struct _yutani_TTContour * contour;
+	float x, y;
+	unsigned int glyph;
+
+	if (!krk_parseArgs(".O!ffI",
+		(const char*[]){"contour","x","y","glyph"},
+		TTContour, &contour,
+		&x, &y, &glyph)) return NONE_VAL();
+
+	if (!contour->contour) return krk_runtimeError(vm.exceptions->typeError, "contour is not initialized");
+
+	/* tt_draw_glyph_into returns potentially-realloc'd contour, but we'll return nothing and
+	 * just mutate the passed contour object. */
+	contour->contour = tt_draw_glyph_into(contour->contour, self->fontData, x, y, glyph);
+	return NONE_VAL();
+}
+
+KRK_Method(Font,prepare_string) {
+	INIT_CHECK(Font);
+
+	float x, y;
+	const char * s;
+
+	if (!krk_parseArgs(".ffs", (const char*[]){"x","y","s"},
+		&x, &y, &s)) return NONE_VAL();
+
+	float out_width = 0;
+	KrkTuple * out_tuple = krk_newTuple(2); /* contour, width */
+	krk_push(OBJECT_VAL(out_tuple));
+
+	struct _yutani_TTContour * contour = (struct _yutani_TTContour*)krk_newInstance(TTContour);
+	contour->contour = tt_prepare_string(self->fontData, x, y, s, &out_width);
+	out_tuple->values.values[out_tuple->values.count++] = OBJECT_VAL(contour);
+	out_tuple->values.values[out_tuple->values.count++] = FLOATING_VAL(out_width);
 
 	return krk_pop();
 }
@@ -1368,26 +1417,11 @@ KRK_Method(MenuEntryCustom,__init__) {
 
 #undef CURRENT_CTYPE
 
-WRAP_TYPE(TTShape,struct TT_Shape, shape);
-#define IS_TTShape(o) (krk_isInstanceOf(o,TTShape))
-#define AS_TTShape(o) ((struct _yutani_TTShape*)AS_OBJECT(o))
-
-WRAP_TYPE(TTContour,struct TT_Contour, contour);
-#define IS_TTContour(o) (krk_isInstanceOf(o,TTContour))
-#define AS_TTContour(o) ((struct _yutani_TTContour*)AS_OBJECT(o))
 #define CURRENT_CTYPE struct _yutani_TTContour*
-
-extern struct TT_Contour * tt_contour_start(float x, float y);
-extern struct TT_Shape * tt_contour_finish(struct TT_Contour * in);
-extern struct TT_Shape * tt_contour_stroke_shape(struct TT_Contour * in, float width);
-extern struct TT_Contour * tt_contour_line_to(struct TT_Contour * shape, float x, float y);
-extern struct TT_Contour * tt_contour_move_to(struct TT_Contour * shape, float x, float y);
-extern void tt_path_paint(gfx_context_t * ctx, const struct TT_Shape * shape, uint32_t color);
 
 void _TTContour_ongcsweep(KrkInstance * _self) {
 	CURRENT_CTYPE self = (CURRENT_CTYPE)_self;
 	if (self->contour) {
-		fprintf(stderr, "free contour\n");
 		free(self->contour);
 	}
 	self->contour = NULL;
@@ -1884,6 +1918,8 @@ KrkValue krk_module_onload__yutani2(void) {
 	BIND_METHOD(Font,draw_string_shadow);
 	BIND_METHOD(Font,width);
 	BIND_METHOD(Font,measure);
+	BIND_METHOD(Font,draw_glyph_into);
+	BIND_METHOD(Font,prepare_string);
 	BIND_PROP(Font,size);
 	krk_finalizeClass(Font);
 
