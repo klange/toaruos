@@ -1262,3 +1262,15 @@ void tt_contour_stroke_bounded(gfx_context_t * ctx, struct TT_Contour * in, uint
 		}
 	}
 }
+
+void tt_contour_transform(struct TT_Contour * cnt, gfx_matrix_t matrix) {
+	for (size_t i = 0; i < cnt->edgeCount; i++) {
+		double x, y;
+		gfx_apply_matrix(cnt->edges[i].start.x, cnt->edges[i].start.y, matrix, &x, &y);
+		cnt->edges[i].start.x = x;
+		cnt->edges[i].start.y = y;
+		gfx_apply_matrix(cnt->edges[i].end.x, cnt->edges[i].end.y, matrix, &x, &y);
+		cnt->edges[i].end.x = x;
+		cnt->edges[i].end.y = y;
+	}
+}

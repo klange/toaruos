@@ -852,6 +852,10 @@ static void apply_matrix(double x, double y, gfx_matrix_t matrix, double *out_x,
 	*out_y = matrix[1][0] * x + matrix[1][1] * y + matrix[1][2];
 }
 
+void gfx_apply_matrix(double x, double y, gfx_matrix_t matrix, double *out_x, double *out_y) {
+	apply_matrix(x,y,matrix,out_x,out_y);
+}
+
 static void multiply_matrix(gfx_matrix_t x, gfx_matrix_t y) {
 	double a = x[0][0];
 	double b = x[0][1];

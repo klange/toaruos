@@ -43,6 +43,7 @@ extern struct TT_Shape * tt_contour_stroke_shape(struct TT_Contour * in, float w
 extern struct TT_Contour * tt_contour_line_to(struct TT_Contour * shape, float x, float y);
 extern struct TT_Contour * tt_contour_move_to(struct TT_Contour * shape, float x, float y);
 extern void tt_path_paint(gfx_context_t * ctx, const struct TT_Shape * shape, uint32_t color);
+extern void tt_contour_transform(struct TT_Contour * cnt, gfx_matrix_t matrix);
 
 /* Internal methods to draw paths into vector contours */
 extern struct TT_Contour * tt_draw_glyph_into(struct TT_Contour * contour, struct TT_Font * font, float x_offset, float y_offset, unsigned int glyph);
