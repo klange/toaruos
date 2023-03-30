@@ -217,6 +217,12 @@ static void paint_scanline(gfx_context_t * ctx, int y, const struct TT_Shape * s
 	}
 }
 
+static inline int _is_in_clip(gfx_context_t * ctx, int32_t y) {
+	if (!ctx->clips) return 1;
+	if (y < 0 || y >= ctx->clips_size) return 1;
+	return ctx->clips[y];
+}
+
 void tt_path_paint(gfx_context_t * ctx, const struct TT_Shape * shape, uint32_t color) {
 	size_t size = shape->edgeCount;
 	struct TT_Intersection * crosses = malloc(sizeof(struct TT_Intersection) * size);
@@ -229,6 +235,7 @@ void tt_path_paint(gfx_context_t * ctx, const struct TT_Shape * shape, uint32_t 
 	int endY = shape->lastY <= ctx->height ? shape->lastY : ctx->height;
 
 	for (int y = startY; y < endY; ++y) {
+		if (!_is_in_clip(ctx,y)) continue;
 		float _y = y + 0.0001;
 		for (int l = 0; l < 4; ++l) {
 			size_t cnt;
