@@ -25,6 +25,8 @@
 #include <toaru/decodeutf8.h>
 #include <toaru/spinlock.h>
 
+#include "toaru/text.h"
+
 #undef min
 #define min(a,b) ((a) < (b) ? (a) : (b))
 
@@ -96,12 +98,6 @@ struct TT_Font {
 
 	int cmap_type;
 	int loca_type;
-};
-
-struct TT_FontMetrics {
-	float ascender;
-	float descender;
-	float lineGap;
 };
 
 /* Currently, the edge sorter is disabled. It doesn't really help much,
@@ -496,7 +492,8 @@ static void midpoint(float x_0, float y_0, float cx, float cy, float x_1, float 
 	*outy = nt2 * y_0 + 2 * t * nt * cy + t2 * y_1;
 }
 
-static struct TT_Contour * tt_draw_glyph_into(struct TT_Contour * contour, struct TT_Font * font, float x_offset, float y_offset, unsigned int glyph) {
+__attribute__((visibility("protected")))
+struct TT_Contour * tt_draw_glyph_into(struct TT_Contour * contour, struct TT_Font * font, float x_offset, float y_offset, unsigned int glyph) {
 	off_t glyf_offset = tt_get_glyph_offset(font, glyph);
 	if (tt_get_glyph_offset(font, glyph + 1) == glyf_offset) return contour;
 
@@ -800,7 +797,8 @@ float tt_glyph_width(struct TT_Font * font, unsigned int glyph) {
 	return tt_xadvance_for_glyph(font, glyph) * font->scale;
 }
 
-int tt_draw_string(gfx_context_t * ctx, struct TT_Font * font, int x, int y, const char * s, uint32_t color) {
+__attribute__((visibility("protected")))
+struct TT_Contour * tt_prepare_string(struct TT_Font * font, float x, float y, const char * s, float * out_width) {
 	struct TT_Contour * contour = tt_contour_start(0, 0);
 
 	float x_offset = x;
@@ -815,14 +813,21 @@ int tt_draw_string(gfx_context_t * ctx, struct TT_Font * font, int x, int y, con
 		}
 	}
 
+	if (out_width) *out_width = x_offset - x;
+
+	return contour;
+}
+
+int tt_draw_string(gfx_context_t * ctx, struct TT_Font * font, int x, int y, const char * s, uint32_t color) {
+	float width;
+	struct TT_Contour * contour = tt_prepare_string(font,x,y,s,&width);
 	if (contour->edgeCount) {
 		struct TT_Shape * shape = tt_contour_finish(contour);
 		tt_path_paint(ctx, shape, color);
 		free(shape);
 	}
 	free(contour);
-
-	return x_offset - x;
+	return width;
 }
 
 

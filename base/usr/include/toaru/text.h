@@ -35,3 +35,15 @@ struct TT_FontMetrics {
 };
 
 extern int tt_measure_font(struct TT_Font * font, struct TT_FontMetrics * metrics);
+
+/* Vector rasterizer engine */
+extern struct TT_Contour * tt_contour_start(float x, float y);
+extern struct TT_Shape * tt_contour_finish(struct TT_Contour * in);
+extern struct TT_Shape * tt_contour_stroke_shape(struct TT_Contour * in, float width);
+extern struct TT_Contour * tt_contour_line_to(struct TT_Contour * shape, float x, float y);
+extern struct TT_Contour * tt_contour_move_to(struct TT_Contour * shape, float x, float y);
+extern void tt_path_paint(gfx_context_t * ctx, const struct TT_Shape * shape, uint32_t color);
+
+/* Internal methods to draw paths into vector contours */
+extern struct TT_Contour * tt_draw_glyph_into(struct TT_Contour * contour, struct TT_Font * font, float x_offset, float y_offset, unsigned int glyph);
+extern struct TT_Contour * tt_prepare_string(struct TT_Font * font, float x, float y, const char * s, float * out_width);
