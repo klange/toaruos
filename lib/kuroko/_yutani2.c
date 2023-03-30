@@ -861,11 +861,32 @@ struct _yutani_TransformMatrix {
 #define CURRENT_CTYPE struct _yutani_TransformMatrix*
 
 KRK_Method(TransformMatrix,__init__) {
-	if (!krk_parseArgs(".:TransformMatrix", (const char*[]){}, NULL)) return NONE_VAL();
-	/* Might accept lists of doubles later */
-	gfx_matrix_identity(self->matrix);
+	double a = 1.0, b = 0, tx = 0, c = 0, d = 1.0, ty = 0;
+	if (!krk_parseArgs(".|dddddd:TransformMatrix",
+		(const char*[]){"a","b","tx","c","d","ty"}, 
+		&a,&b,&tx,&c,&d,&ty)) return NONE_VAL();
+	self->matrix[0][0] = a;
+	self->matrix[0][1] = b;
+	self->matrix[0][2] = tx;
+	self->matrix[1][0] = c;
+	self->matrix[1][1] = d;
+	self->matrix[1][2] = ty;
 	return NONE_VAL();
 }
+
+#define MATRIX_VAR(name,row,col) KRK_Method(TransformMatrix,name) { \
+	double x = self->matrix[row][col]; \
+	if (!krk_parseArgs(".|d",(const char*[]){"val"},&x)) return NONE_VAL(); \
+	self->matrix[row][col] = x; \
+	return FLOATING_VAL(x); \
+}
+
+MATRIX_VAR(a,0,0)
+MATRIX_VAR(b,0,1)
+MATRIX_VAR(tx,0,1)
+MATRIX_VAR(c,1,0)
+MATRIX_VAR(d,1,1)
+MATRIX_VAR(ty,1,1)
 
 KRK_Method(TransformMatrix,__repr__) {
 	struct StringBuilder sb = {};
@@ -2122,6 +2143,12 @@ KrkValue krk_module_onload__yutani2(void) {
 	BIND_METHOD(TransformMatrix,rotate);
 	BIND_METHOD(TransformMatrix,shear);
 	BIND_METHOD(TransformMatrix,apply);
+	BIND_PROP(TransformMatrix,a);
+	BIND_PROP(TransformMatrix,b);
+	BIND_PROP(TransformMatrix,tx);
+	BIND_PROP(TransformMatrix,c);
+	BIND_PROP(TransformMatrix,d);
+	BIND_PROP(TransformMatrix,ty);
 	krk_finalizeClass(TransformMatrix);
 
 	BIND_FUNC(module,decor_get_bounds);
