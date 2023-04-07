@@ -955,7 +955,7 @@ long sys_pipe(int pipes[2]) {
 }
 
 long sys_signal(long signum, uintptr_t handler) {
-	if (signum > NUMSIGNALS) return -EINVAL;
+	if (signum > NUMSIGNALS || signum < 0) return -EINVAL;
 	if (signum == SIGKILL || signum == SIGSTOP) return -EINVAL;
 	uintptr_t old = this_core->current_process->signals[signum].handler;
 	this_core->current_process->signals[signum].handler = handler;
@@ -967,7 +967,7 @@ long sys_sigaction(int signum, struct sigaction *act, struct sigaction *oldact) 
 	if (act) PTRCHECK(act,sizeof(struct sigaction),0);
 	if (oldact) PTRCHECK(oldact,sizeof(struct sigaction),MMU_PTR_WRITE);
 
-	if (signum > NUMSIGNALS) return -EINVAL;
+	if (signum > NUMSIGNALS || signum < 0) return -EINVAL;
 	if (signum == SIGKILL || signum == SIGSTOP) return -EINVAL;
 
 	if (oldact) {
