@@ -1253,34 +1253,6 @@ struct TT_Shape * tt_contour_stroke_shape(const struct TT_Contour * in, float wi
 	return out;
 }
 
-void tt_contour_stroke_bounded(gfx_context_t * ctx, struct TT_Contour * in, uint32_t color, float width,
-		int x_0, int y_0, int w, int h) {
-	/* This is a stupid slow thing */
-	for (int y = y_0; y < y_0 + h; y++) {
-		for (int x = x_0; x < x_0 + w; x++) {
-			struct gfx_point p = {(float)x + 0.5, (float)y + 0.5};
-			/* For every line in the contour... */
-			float mindist = 100.0;
-			for (size_t i = 0; i < in->edgeCount; ++i) {
-				struct gfx_point v = { in->edges[i].start.x, in->edges[i].start.y };
-				struct gfx_point w = { in->edges[i].end.x, in->edges[i].end.y };
-
-				float mine = gfx_line_distance(&p,&v,&w);
-				if (mine < mindist) mindist = mine;
-			}
-
-			if (mindist < width + 0.5) {
-				if (mindist < width - 0.5) {
-					GFX(ctx,x,y) = alpha_blend_rgba(GFX(ctx,x,y), color);
-				} else {
-					float alpha = 1.0 - (mindist - width + 0.5);
-					GFX(ctx,x,y) = alpha_blend_rgba(GFX(ctx,x,y), premultiply(rgba(_RED(color),_GRE(color),_BLU(color),(int)((double)_ALP(color) * alpha))));
-				}
-			}
-		}
-	}
-}
-
 void tt_contour_transform(struct TT_Contour * cnt, gfx_matrix_t matrix) {
 	for (size_t i = 0; i < cnt->edgeCount; i++) {
 		double x, y;
@@ -1291,4 +1263,157 @@ void tt_contour_transform(struct TT_Contour * cnt, gfx_matrix_t matrix) {
 		cnt->edges[i].end.x = x;
 		cnt->edges[i].end.y = y;
 	}
+}
+
+static inline int out_of_bounds(const sprite_t * tex, int x, int y) {
+	return x < 0 || y < 0 || x >= tex->width || y >= tex->height;
+}
+
+static inline uint32_t linear_interp(uint32_t left, uint32_t right, uint16_t pr) {
+	uint16_t pl = 0xFF ^ pr;
+	uint8_t d_r = (((uint32_t)(_RED(right) * pr + 0x80) * 0x101) >> 16UL) + (((uint32_t)(_RED(left) * pl + 0x80) * 0x101) >> 16UL);
+	uint8_t d_g = (((uint32_t)(_GRE(right) * pr + 0x80) * 0x101) >> 16UL) + (((uint32_t)(_GRE(left) * pl + 0x80) * 0x101) >> 16UL);
+	uint8_t d_b = (((uint32_t)(_BLU(right) * pr + 0x80) * 0x101) >> 16UL) + (((uint32_t)(_BLU(left) * pl + 0x80) * 0x101) >> 16UL);
+	uint8_t d_a = (((uint32_t)(_ALP(right) * pr + 0x80) * 0x101) >> 16UL) + (((uint32_t)(_ALP(left) * pl + 0x80) * 0x101) >> 16UL);
+	return tt_rgba(d_r, d_g, d_b, d_a);
+}
+
+static inline uint32_t sprite_pixel_no_repeat(const sprite_t * tex, int x, int y) {
+	return out_of_bounds(tex,x,y) ? 0 : SPRITE(tex,x,y);
+}
+
+static inline int wrap(int x, int w) {
+	return x < 0 ? (w - 1 - (-x -1) % w) : (x % w);
+}
+
+static inline uint32_t sprite_pixel_repeat(const sprite_t * tex, int x, int y) {
+	int w = tex->width;
+	int h = tex->height;
+	return SPRITE(tex,wrap(x,w),wrap(y,h));
+}
+
+static inline uint32_t sprite_pixel_pad(const sprite_t * tex, int x, int y) {
+	int w = tex->width;
+	int h = tex->height;
+	if (x < 0) x = 0;
+	if (x >= w) x = w-1;
+	if (y < 0) y = 0;
+	if (y >= h) y = h-1;
+	return SPRITE(tex,x,y);
+}
+
+typedef uint32_t (*pixel_getter_t)(const sprite_t*,int,int);
+
+__attribute__((hot))
+static inline uint32_t sprite_interpolate_bilinear(const sprite_t * tex, double u, double v, pixel_getter_t pixel_getter) {
+	int x = floor(u);
+	int y = floor(v);
+	uint32_t ul = pixel_getter(tex,x,y);
+	uint32_t ur = pixel_getter(tex,x+1,y);
+	uint32_t ll = pixel_getter(tex,x,y+1);
+	uint32_t lr = pixel_getter(tex,x+1,y+1);
+	if ((ul | ur | ll | lr) == 0) return 0;
+	uint8_t u_ratio = (u - x) * 0xFF;
+	uint8_t v_ratio = (v - y) * 0xFF;
+	uint32_t top = linear_interp(ul,ur,u_ratio);
+	uint32_t bot = linear_interp(ll,lr,u_ratio);
+	return linear_interp(top,bot,v_ratio);
+}
+
+static inline uint32_t sprite_interpolate_nearest(const sprite_t * tex, double u, double v, pixel_getter_t pixel_getter) {
+	int x = floor(u);
+	int y = floor(v);
+	return pixel_getter(tex,x,y);
+}
+
+typedef uint32_t (*sprite_interp_t)(const sprite_t *, double, double, pixel_getter_t);
+
+__attribute__((hot))
+static inline void paint_scanline_sprite(gfx_context_t * ctx, int y, const struct TT_Shape * shape, float * subsamples, sprite_t * sprite, double u, double v, double filter_dxx, double filter_dxy, sprite_interp_t sprite_interp, pixel_getter_t pixel_getter) {
+	for (int x = shape->startX < 0 ? 0 : shape->startX; x < shape->lastX && x < ctx->width; ++x) {
+		uint16_t na = (int)(255 * subsamples[x - shape->startX]) >> 2;
+		uint32_t color = sprite_interp(sprite, u, v, pixel_getter);
+		uint32_t nc = tt_apply_alpha(color, na);
+		GFX(ctx, x, y) = tt_alpha_blend_rgba(GFX(ctx, x, y), nc);
+		subsamples[x-shape->startX] = 0;
+		u += filter_dxx;
+		v += filter_dxy;
+	}
+}
+
+static inline void tt_path_paint_sprite_internal(gfx_context_t * ctx, const struct TT_Shape * shape, sprite_t * sprite, gfx_matrix_t matrix, sprite_interp_t sprite_interp, pixel_getter_t pixel_getter) {
+	gfx_matrix_t inverse;
+	gfx_matrix_invert(matrix,inverse);
+	size_t size = shape->edgeCount;
+	struct TT_Intersection * crosses = malloc(sizeof(struct TT_Intersection) * size);
+
+	size_t subsample_width = shape->lastX - shape->startX;
+	float * subsamples = malloc(sizeof(float) * subsample_width);
+	memset(subsamples, 0, sizeof(float) * subsample_width);
+
+	int startY = shape->startY < 0 ? 0 : shape->startY;
+	int endY = shape->lastY <= ctx->height ? shape->lastY : ctx->height;
+
+	double filter_x, filter_y, filter_dxx, filter_dxy, filter_dyx, filter_dyy;
+	int _left = shape->startX < 0 ? 0 : shape->startX;
+	gfx_apply_matrix(_left, startY, inverse, &filter_x, &filter_y);
+	gfx_apply_matrix(_left+1, startY, inverse, &filter_dxx, &filter_dxy);
+	filter_dxx -= filter_x;
+	filter_dxy -= filter_y;
+	gfx_apply_matrix(_left, startY+1, inverse, &filter_dyx, &filter_dyy);
+	filter_dyx -= filter_x;
+	filter_dyy -= filter_y;
+
+	for (int y = startY; y < endY; ++y) {
+		float u = filter_x;
+		float v = filter_y;
+		filter_x += filter_dyx;
+		filter_y += filter_dyy;
+		if (!_is_in_clip(ctx,y)) continue;
+		float _y = y + 0.0001;
+		for (int l = 0; l < 4; ++l) {
+			size_t cnt;
+			if ((cnt = prune_edges(size, _y, shape->edges, crosses))) {
+				sort_intersections(cnt, crosses);
+				process_scanline(_y, shape, subsample_width, subsamples, cnt, crosses);
+			}
+			_y += 1.0/4.0;
+		}
+		paint_scanline_sprite(ctx, y, shape, subsamples, sprite, u, v, filter_dxx, filter_dxy, sprite_interp, pixel_getter);
+	}
+
+	free(subsamples);
+	free(crosses);
+}
+
+void tt_path_paint_sprite(gfx_context_t * ctx, const struct TT_Shape * shape, sprite_t * sprite, gfx_matrix_t matrix) {
+	tt_path_paint_sprite_internal(ctx,shape,sprite,matrix,sprite_interpolate_bilinear,sprite_pixel_repeat);
+}
+
+void tt_path_paint_sprite_options(gfx_context_t * ctx, const struct TT_Shape * shape, sprite_t * sprite, gfx_matrix_t matrix, int filter, int wrap) {
+	sprite_interp_t sprite_interp = sprite_interpolate_bilinear;
+	pixel_getter_t pixel_getter = sprite_pixel_repeat;
+
+	switch (filter) {
+		case TT_PATH_FILTER_BILINEAR:
+		default:
+			break;
+		case TT_PATH_FILTER_NEAREST:
+			sprite_interp = sprite_interpolate_nearest;
+			break;
+	}
+
+	switch (wrap) {
+		case TT_PATH_WRAP_REPEAT:
+		default:
+			break;
+		case TT_PATH_WRAP_NONE:
+			pixel_getter = sprite_pixel_no_repeat;
+			break;
+		case TT_PATH_WRAP_PAD:
+			pixel_getter = sprite_pixel_pad;
+			break;
+	}
+
+	tt_path_paint_sprite_internal(ctx,shape,sprite,matrix,sprite_interp,pixel_getter);
 }

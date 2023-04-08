@@ -49,3 +49,15 @@ extern void tt_contour_transform(struct TT_Contour * cnt, gfx_matrix_t matrix);
 /* Internal methods to draw paths into vector contours */
 extern struct TT_Contour * tt_draw_glyph_into(struct TT_Contour * contour, struct TT_Font * font, float x_offset, float y_offset, unsigned int glyph);
 extern struct TT_Contour * tt_prepare_string(struct TT_Font * font, float x, float y, const char * s, float * out_width);
+
+/* Draw with texture from sprite */
+extern void tt_path_paint_sprite(gfx_context_t * ctx, const struct TT_Shape * shape, sprite_t * sprite, gfx_matrix_t matrix);
+extern void tt_path_paint_sprite_options(gfx_context_t * ctx, const struct TT_Shape * shape, sprite_t * sprite, gfx_matrix_t matrix, int filter, int wrap);
+
+/* Path painting options */
+#define TT_PATH_FILTER_BILINEAR 0 /* Bilinear filter. Good quality, slow. Default. */
+#define TT_PATH_FILTER_NEAREST  1 /* Nearest neighbor. Low quality, fast. */
+
+#define TT_PATH_WRAP_REPEAT     0 /* Repeat the sprite texture, simple modulo. Default. */
+#define TT_PATH_WRAP_NONE       1 /* Do not repeat the sprite texture. Space outside of the texture is treated as empty. */
+#define TT_PATH_WRAP_PAD        2 /* Extend the edges of the texture linearly. */
