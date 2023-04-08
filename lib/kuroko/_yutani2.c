@@ -1385,6 +1385,18 @@ MENU_ENTRY_INT_PROP(hilight)
 MENU_ENTRY_INT_PROP(offset)
 
 
+KRK_Method(MenuEntry,update_icon) {
+	char * icon;
+	if (!krk_parseArgs(".z", (const char*[]){"icon"}, &icon)) return NONE_VAL();
+
+	INIT_CHECK(MenuEntry);
+
+	menu_update_icon(self->menuEntry, icon);
+
+	return NONE_VAL();
+}
+
+
 #undef CURRENT_CTYPE
 
 #define IS_MenuEntrySubmenu(o) (krk_isInstanceOf(o,MenuEntrySubmenu))
@@ -1393,13 +1405,14 @@ MENU_ENTRY_INT_PROP(offset)
 
 KRK_Method(MenuEntrySubmenu,__init__) {
 	const char * title;
-	const char * icon = NULL;
 	const char * action = NULL;
+	const char * icon = NULL;
 
 	if (!krk_parseArgs(
-		".s|zz:MenuEntrySubmenu", (const char*[]){"title","icon","action"},
+		".ss|z:MenuEntrySubmenu", (const char*[]){"title","action","icon"},
 		&title,
-		&icon, &action
+		&action,
+		&icon
 	)) {
 		return NONE_VAL();
 	}
@@ -2124,6 +2137,7 @@ KrkValue krk_module_onload__yutani2(void) {
 	BIND_PROP(MenuEntry,rwidth);
 	BIND_PROP(MenuEntry,hilight);
 	BIND_PROP(MenuEntry,offset);
+	BIND_METHOD(MenuEntry,update_icon);
 	krk_finalizeClass(MenuEntry);
 
 	/*
