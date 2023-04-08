@@ -1629,6 +1629,37 @@ KRK_Method(TTShape,paint) {
 	return NONE_VAL();
 }
 
+extern void tt_path_paint_sprite(gfx_context_t * ctx, const struct TT_Shape * shape, sprite_t * sprite, gfx_matrix_t matrix);
+extern void tt_path_paint_sprite_options(gfx_context_t * ctx, const struct TT_Shape * shape, sprite_t * sprite, gfx_matrix_t matrix, int, int);
+KRK_Method(TTShape,paint_sprite) {
+	struct _yutani_GraphicsContext * ctx;
+	struct _yutani_Sprite * sprite;
+	struct _yutani_TransformMatrix * matrix;
+
+	int filter = 0;
+	int wrap = 0;
+
+	if (!krk_parseArgs(
+		".O!O!O!|ii", (const char*[]){"ctx","sprite","matrix","filter","wrap"},
+		GraphicsContext, &ctx,
+		Sprite, &sprite,
+		TransformMatrix, &matrix,
+		&filter, &wrap)) {
+		return NONE_VAL();
+	}
+
+	INIT_CHECK(TTShape);
+	if (!sprite->sprite) return krk_runtimeError(vm.exceptions->valueError, "sprite go brrr");
+
+	if (filter == 0 && wrap == 0) {
+		tt_path_paint_sprite(ctx->ctx, self->shape, sprite->sprite, matrix->matrix);
+	} else {
+		tt_path_paint_sprite_options(ctx->ctx, self->shape, sprite->sprite, matrix->matrix, filter, wrap);
+	}
+
+	return NONE_VAL();
+}
+
 KRK_Method(TTShape,free) {
 	INIT_CHECK(TTShape);
 	free(self->shape);
@@ -2141,7 +2172,15 @@ KrkValue krk_module_onload__yutani2(void) {
 	TTShape->_ongcsweep = _TTShape_ongcsweep;
 	BIND_METHOD(TTShape,__init__);
 	BIND_METHOD(TTShape,paint);
+	BIND_METHOD(TTShape,paint_sprite);
 	BIND_METHOD(TTShape,free);
+#define CONST(n) krk_attachNamedValue(&TTShape->methods, #n, INTEGER_VAL(n))
+	CONST(TT_PATH_FILTER_BILINEAR);
+	CONST(TT_PATH_FILTER_NEAREST);
+	CONST(TT_PATH_WRAP_REPEAT);
+	CONST(TT_PATH_WRAP_NONE);
+	CONST(TT_PATH_WRAP_PAD);
+#undef CONST
 	krk_finalizeClass(TTShape);
 
 	krk_makeClass(module, &TransformMatrix, "TransformMatrix", KRK_BASE_CLASS(object));
