@@ -134,6 +134,7 @@ extern void gfx_matrix_scale(gfx_matrix_t, double x, double y);
 extern void gfx_matrix_translate(gfx_matrix_t, double x, double y);
 extern void gfx_matrix_rotate(gfx_matrix_t, double rotation);
 extern void gfx_matrix_shear(gfx_matrix_t matrix, double x, double y);
+extern int gfx_matrix_invert(gfx_matrix_t m, gfx_matrix_t inverse);
 extern void gfx_apply_matrix(double x, double y, gfx_matrix_t matrix, double *out_x, double *out_y);
 
 
