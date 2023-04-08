@@ -1,0 +1,206 @@
+#!/bin/kuroko
+from _yutani2 import (YutaniCtx, Font, rgb, MenuBar, decor_get_bounds, decor_render,
+                      MenuList, MenuEntry, decor_handle_event, decor_show_default_menu,
+                      Sprite, TTContour, TransformMatrix, MenuEntrySubmenu, TTShape)
+
+from yutani_mainloop import Window, yctx as y, AsyncMainloop, Task, sleep
+import math
+import random
+
+let mainloop = AsyncMainloop()
+
+let texture_star = Sprite("/usr/share/icons/48/star.png")
+let texture_flowers = Sprite('/usr/share/wallpaper.jpg')
+
+let tt_texture = texture_star
+
+def scale_by(tm,val):
+    tm.scale(val/1000,val/1000)
+
+def rotate_by(tm,val):
+    tm.rotate(val/1000)
+
+def shear_x_by(tm,val):
+    tm.shear(val/1000,0.0)
+
+def shear_y_by(tm,val):
+    tm.shear(0.0,val/1000)
+
+let x_thing = scale_by
+let y_thing = rotate_by
+
+def draw_text():
+    let font = Font('sans-serif.bold',128)
+    let Rect, w = font.prepare_string(0,128,"ToaruOS")
+    return Rect
+
+def draw_box():
+    let Rect = TTContour(20,20)
+    Rect.line_to(520,20)
+    Rect.line_to(520,520)
+    Rect.line_to(20,520)
+    return Rect
+
+let base_graphic = draw_text
+
+let tt_filter = TTShape.TT_PATH_FILTER_BILINEAR
+let tt_wrap = TTShape.TT_PATH_WRAP_REPEAT
+
+def paint_demo(ctx, cursor):
+    let tm = TransformMatrix()
+    let Rect = base_graphic()
+    let SRect = Rect.finish()
+    Rect.free()
+    let x, y = cursor
+    x_thing(tm,x)
+    y_thing(tm,y)
+    SRect.paint_sprite(ctx,tt_texture,tm,tt_filter,tt_wrap)
+    SRect.free()
+
+def set_menu(menu, action):
+    for sibling in menu.group:
+        sibling.update_icon(None)
+    menu.update_icon('check')
+    action()
+
+def check_list(entries, default=0):
+    let ml = MenuList()
+    let group = []
+    for i, e in enumerate(entries):
+        let name, action = e
+        let me = MenuEntry(name, lambda menu: set_menu(menu, action), "check" if i == default else None)
+        me.group = group
+        group.append(me)
+        ml.insert(me)
+    return ml
+
+class MyWindow(Window):
+    def __init__(self):
+        super().__init__(640, 480, title="Path Demo", doublebuffer=True)
+        self.bgc = rgb(255,255,255)
+        self.mb = MenuBar((("File",'file'),("View",'view'),("Help",'help')))
+        let _menu_File = MenuList()
+        _menu_File.insert(MenuEntry("Quit", lambda menu: self.close()))
+        self.mb.insert('file', _menu_File)
+        let _menu_View = MenuList()
+
+        let _menu_View_Horizontal = check_list((
+            ("Scale",   lambda: x_thing = scale_by),
+            ("Rotate",  lambda: x_thing = rotate_by),
+            ("Shear X", lambda: x_thing = shear_x_by),
+            ("Shear Y", lambda: x_thing = shear_y_by),
+        ))
+        self.mb.insert('view-horizontal', _menu_View_Horizontal)
+        _menu_View.insert(MenuEntrySubmenu("Horizontal","view-horizontal"))
+    
+        let _menu_View_Vertical = check_list((
+            ("Scale",   lambda: y_thing = scale_by),
+            ("Rotate",  lambda: y_thing = rotate_by),
+            ("Shear X", lambda: y_thing = shear_x_by),
+            ("Shear Y", lambda: y_thing = shear_y_by),
+        ), default=1)
+        self.mb.insert('view-vertical', _menu_View_Vertical)
+        _menu_View.insert(MenuEntrySubmenu("Vertical","view-vertical"))
+
+        let _menu_View_Filter = check_list((
+            ("Bilinear", lambda: tt_filter = TTShape.TT_PATH_FILTER_BILINEAR),
+            ("Nearest",  lambda: tt_filter = TTShape.TT_PATH_FILTER_NEAREST)
+        ))
+        self.mb.insert('view-filter', _menu_View_Filter)
+        _menu_View.insert(MenuEntrySubmenu("Filter","view-filter"))
+
+        let _menu_View_Wrap = check_list((
+            ('Repeat', lambda: tt_wrap = TTShape.TT_PATH_WRAP_REPEAT),
+            ('None',   lambda: tt_wrap = TTShape.TT_PATH_WRAP_NONE),
+            ('Pad',    lambda: tt_wrap = TTShape.TT_PATH_WRAP_PAD)
+        ))
+        self.mb.insert('view-wrap', _menu_View_Wrap)
+        _menu_View.insert(MenuEntrySubmenu("Wrap",'view-wrap'))
+
+        let _menu_View_Texture = check_list((
+            ('Star',    lambda: tt_texture = texture_star),
+            ('Flowers', lambda: tt_texture = texture_flowers),
+        ))
+        self.mb.insert('view-texture', _menu_View_Texture)
+        _menu_View.insert(MenuEntrySubmenu('Texture','view-texture'))
+
+        let _menu_View_Shape = check_list((
+            ('Text', lambda: base_graphic = draw_text),
+            ('Box',  lambda: base_graphic = draw_box),
+        ))
+        self.mb.insert('view-shape', _menu_View_Shape)
+        _menu_View.insert(MenuEntrySubmenu('Shape','view-shape'))
+
+        self.mb.insert('view', _menu_View)
+
+        let _menu_Help = MenuList()
+        let _menu_Help_help = MenuEntry("Help",lambda menu: print("Should open some help here I guess"))
+        _menu_Help.insert(_menu_Help_help)
+        self.mb.insert('help', _menu_Help)
+        self.mb.callback = lambda x: self.pending_updates = True
+        self.cursor = 0,0
+        self.redrawer = Task(self.redraw_loop())
+        self.pending_updates = True
+
+    async def redraw_loop(self):
+        while not self.closed:
+            if self.pending_updates:
+                self.draw()
+                self.pending_updates = False
+            await sleep(0.016)
+
+    def draw(self):
+        self.fill(self.bgc)
+        decor_render(self)
+        let bounds = decor_get_bounds(self)
+        self.mb.place(bounds['left_width'],bounds['top_height'],self.width-bounds['width'],self)
+        self.mb.render(self)
+        self.mb.height = 24 # Compatibility
+        let sprite = Sprite(width=self.width-bounds['width'],height=self.height-bounds['height']-self.mb.height)
+        sprite.fill(rgb(255,255,255))
+        paint_demo(sprite,self.cursor)
+        self.draw_sprite(sprite,bounds['left_width'],bounds['top_height']+self.mb.height)
+        sprite.free()
+        self.flip()
+
+    def mouse_event(self, msg):
+        let decResponse = decor_handle_event(msg)
+        if decResponse == 2:
+            self.close()
+            return True
+        else if decResponse == 5:
+            decor_show_default_menu(self, self.x + msg.new_x, self.y + msg.new_y)
+        self.mb.mouse_event(self, msg)
+        let nc = msg.new_x, msg.new_y
+        if self.cursor != nc:
+            self.cursor = nc
+            self.pending_updates = True
+
+    def keyboard_event(self, msg):
+        if msg.keycode == 113 and msg.action == 1:
+            self.close()
+
+    def close(self):
+        super().close()
+        mainloop.exit()
+
+    def window_moved(self, msg):
+        self.pending_updates = True
+
+    def menu_close(self):
+        self.pending_updates = True
+
+    def finish_resize(self, msg):
+        if msg.width < 100 or msg.height < 100:
+            self.resize_offer(100 if msg.width < 100 else msg.width, 100 if msg.height < 100 else msg.height)
+            return
+        super().finish_resize(msg)
+
+mainloop.activate()
+
+let w = MyWindow()
+w.move(200,200)
+w.draw()
+
+mainloop.menu_closed_callback = w.menu_close
+mainloop.run()
