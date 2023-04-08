@@ -951,16 +951,20 @@ void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx) {
 	int _x = self->x;
 	int _y = self->y;
 	int width = self->width;
+	int height = MENU_BAR_HEIGHT;
+
+	if (_x < 0) _x = 0;
+	if (_y < 0) _y = 0;
+	if (_x + width > ctx->width) width = ctx->width - _x;
+	if (_y + height > ctx->height) height = ctx->height - _y;
+
+	gfx_context_t * subctx = init_graphics_subregion(ctx, _x, _y, width, height);
 
 	uint32_t menu_bar_color = rgb(59,59,59);
-	for (int y = 0; y < MENU_BAR_HEIGHT; ++y) {
-		for (int x = 0; x < width; ++x) {
-			GFX(ctx, x+_x,y+_y) = menu_bar_color;
-		}
-	}
+	draw_rectangle(subctx, 0, 0, width, height, menu_bar_color);
 
 	/* for each menu entry */
-	int offset = _x;
+	int offset = 0;
 	struct menu_bar_entries * _entries = self->entries;
 
 	if (!self->num_entries) {
@@ -973,16 +977,14 @@ void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx) {
 	while (_entries->title) {
 		int w = string_width(_entries->title) + 11;
 		if ((self->active_menu && hashmap_has(menu_get_windows_hash(), (void*)(uintptr_t)self->active_menu_wid)) && _entries == self->active_entry) {
-			for (int y = _y; y < _y + MENU_BAR_HEIGHT; ++y) {
-				for (int x = offset + 2; x < offset + 2 + w; ++x) {
-					GFX(ctx, x, y) = rgb(93,163,236);
-				}
-			}
+			draw_rectangle(subctx, offset + 2, 0, w, height, rgb(93,163,236));
 		}
-		draw_string(ctx, offset + 7, _y + 2, 0xFFFFFFFF, _entries->title);
+		draw_string(subctx, offset + 7, 2, 0xFFFFFFFF, _entries->title);
 		offset += w;
 		_entries++;
 	}
+
+	free(subctx);
 }
 
 void menu_bar_show_menu(yutani_t * yctx, yutani_window_t * window, struct menu_bar * self, int offset, struct menu_bar_entries * _entries) {
