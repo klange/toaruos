@@ -1,7 +1,7 @@
 #!/bin/kuroko
 from _yutani2 import (YutaniCtx, Font, rgb, rgb, MenuBar, decor_get_bounds, decor_render,
                       MenuList, MenuEntry, MenuEntrySeparator, Message, decor_handle_event, decor_show_default_menu,
-                      MenuEntryCustom)
+                      MenuEntryCustom, Sprite, Subregion, TTContour, TransformMatrix, MenuEntrySubmenu)
 
 from yutani_mainloop import Window, yctx as y, AsyncMainloop, Task, sleep
 import math
@@ -9,25 +9,67 @@ import random
 
 let mainloop = AsyncMainloop()
 
+def premul(r,g,b,a):
+    return rgb(int(r*a),int(g*a),int(b*a),a)
+
+let show_ascent = True
+def toggle_ascent(self):
+    show_ascent = !show_ascent
+    self.update_icon('check' if show_ascent else None)
+
+let font_size = 16
+
 class Word:
-    def __init__(self, x, y, word, w, sw):
+    def __init__(self, x, y, word, w, sw, font):
         self.x = x
         self.y = y
         self.word = word
         self.w = w
         self.sw = sw
+        self.font = font
+        self.asc, self.desc, self.gap = font.measure()
+
+    def draw(self, ctx):
+        if show_ascent:
+            let bas = TTContour(self.x+0.5, self.y+0.5)
+            bas.line_to(self.x+0.5+self.w,self.y+0.5)
+            let bas_s = bas.stroke(0.5)
+            bas_s.paint(ctx, premul(0,255,0,0.5))
+            bas_s.free()
+            bas.free()
+
+
+            let asc = TTContour(self.x+0.5, self.y+0.5)
+            asc.line_to(self.x+0.5,self.y+0.5-self.asc)
+            asc.line_to(self.x+0.5+self.w,self.y+0.5-self.asc)
+            asc.line_to(self.x+0.5+self.w,self.y+0.5)
+            let asc_s = asc.stroke(0.5)
+            asc_s.paint(ctx, premul(255,0,0,0.5))
+            asc_s.free()
+            asc.free()
+
+            let des = TTContour(self.x+0.5,self.y+0.5)
+            des.line_to(self.x+0.5,self.y+0.5-self.desc)
+            des.line_to(self.x+0.5+self.w,self.y+0.5-self.desc)
+            des.line_to(self.x+0.5+self.w,self.y+0.5)
+            let des_s = des.stroke(0.5)
+            des_s.paint(ctx,premul(0,0,255,0.5))
+            des_s.free()
+            des.free()
+
+        self.font.draw_string(ctx, self.word, self.x, self.y)
 
 class Line:
-    def __init__(self, x, y, cw):
+    def __init__(self, x, y, cw, justify='center'):
         self.words = []
         self.x = x
         self.y = y
         self.cw = cw
-        self.justify = "center"
+        self.justify = justify
         self.islast = True
 
-    def add(self, word, w, sw):
-        self.words.append(Word(self.x, self.y, word, w, sw))
+    def add(self, word, w, sw, font):
+        self.words.append(Word(self.x, self.y, word, w, sw, font))
 
     def finalize(self):
         if self.justify == "right":
@@ -54,32 +96,35 @@ class Line:
                 word.x = _x
                 _x += word.w + word.sw
 
-def premul(r,g,b,a):
-    return rgb(int(r*a),int(g*a),int(b*a),a)
+    def draw(self, ctx):
+        for word in self.words:
+            word.draw(ctx)
 
-def layout_and_draw(ctx, text):
+def layout_and_draw(ctx, text, justify='center'):
     let lines = []
-    let base_x = 9
+    let left_padding = 10
+    let right_padding = 10
+    let base_x = left_padding
     let x = base_x
-    let cw = ctx.width - 9 - base_x
-    let font = Font("sans-serif", 16)
+    let cw = ctx.width - left_padding - right_padding
+    let font = Font("sans-serif", font_size)
     let asc, desc, gap = font.measure()
-    let lh = int(16 * 1.2)
+    let lh = int(font_size * 1.2)
     let lb = int((lh - int(asc - desc)) / 2)
-    let y = 57 + lb + int(asc)
-    let line = Line(x, y, cw)
+    let y = lb + int(asc)
+    let line = Line(x, y, cw, justify)
 
     for word in text.split(' '):
         let w = font.width(word)
-        if w + x >= ctx.width - 9:
+        if w + x >= cw:
             line.islast = False
             line.finalize()
             lines.append(line)
             x = base_x
             y += lh
-            line = Line(x, y, cw)
+            line = Line(x, y, cw, justify)
         let sw = font.width(' ')
-        line.add(word, w, sw)
+        line.add(word, w, sw, font)
         x += w + sw
 
     if line.words:
@@ -87,38 +132,70 @@ def layout_and_draw(ctx, text):
         lines.append(line)
 
     for line in lines:
-        for word in line.words:
-            ctx.rect(word.x, int(word.y - asc), word.w, word.y - int(word.y - asc), premul(255,0,0,0.25))
-            ctx.rect(word.x, word.y, word.w, -int(desc), premul(0,0,255,0.25))
-            font.draw_string(ctx, word.word, word.x, word.y)
+        line.draw(ctx)
 
+    #let sub = Subregion(ctx, 200, 200, 200, 200)
+    #sub.fill(rgb(255,255,0))
 
+def set_menu(menu, action):
+    for sibling in menu.group:
+        sibling.update_icon(None)
+    menu.update_icon('check')
+    action()
 
-class BlockElement:
-    pass
-
-class InlineElement:
-    pass
-
-
-
+def check_list(entries, default=0):
+    let ml = MenuList()
+    let group = []
+    for i, e in enumerate(entries):
+        let name, action = e
+        let me = MenuEntry(name, lambda menu: set_menu(menu, action), "check" if i == default else None)
+        me.group = group
+        group.append(me)
+        ml.insert(me)
+    return ml
 
 class MyWindow(Window):
     def __init__(self):
         super().__init__(640, 480, title="Hello", doublebuffer=True)
         self.bgc = rgb(255,255,255)
         self.dejavu = Font("sans-serif", 13)
-        self.mb = MenuBar((("File",'file'),("Help",'help')))
+        self.mb = MenuBar((("File",'file'),("View",'view'),("Help",'help')))
         let _menu_File = MenuList()
         _menu_File.insert(MenuEntry("Test", lambda menu: print("hello, world")))
         _menu_File.insert(MenuEntrySeparator())
         _menu_File.insert(MenuEntry("Quit", lambda menu: self.close()))
         self.mb.insert('file', _menu_File)
+        let _menu_View = MenuList()
+
+        let _menu_View_Justify = check_list((
+            ('Left', lambda: self.set_justification('left')),
+            ('Right', lambda: self.set_justification('right')),
+            ('Center', lambda: self.set_justification('center')),
+            ('Justify', lambda: self.set_justification('justify')),
+        ), default=2)
+        self.mb.insert('view-justify', _menu_View_Justify)
+        _menu_View.insert(MenuEntrySubmenu('Justify','view-justify'))
+
+        let _menu_View_Size = check_list((
+            (lambda x=y: (str(x), lambda: font_size = x))() for y in [8,12,16,32,64]
+        ), default=2)
+        self.mb.insert('view-size', _menu_View_Size)
+        _menu_View.insert(MenuEntrySubmenu('Font size', 'view-size'))
+
+        _menu_View.insert(MenuEntry('Show ascent/descent',toggle_ascent,icon='check'))
+
+        self.mb.insert('view', _menu_View)
         let _menu_Help = MenuList()
         let _menu_Help_help = MenuEntry("Help",lambda menu: print("oh no!"))
         _menu_Help.insert(_menu_Help_help)
         self.mb.insert('help', _menu_Help)
         self.mb.callback = lambda x: self.draw()
+        self.justification = 'center'
+        self.cursor = 1,1
+
+    def set_justification(self, justify):
+        self.justification = justify
+        self.draw()
 
     def draw(self):
         self.fill(self.bgc)
@@ -126,22 +203,30 @@ class MyWindow(Window):
         let bounds = decor_get_bounds(self)
         self.mb.place(bounds['left_width'],bounds['top_height'],self.width-bounds['width'],self)
         self.mb.render(self)
-        #layout_and_draw(self, "This is some long text. It goes on and on. It has many words. It may wrap to another line. I hope it does. That would be what I want it to do.")
-        layout_and_draw(self, "Far out in the uncharted backwaters of the unfashionable end of the western spiral arm of the Galaxy lies a small unregarded yellow sun.")
+        self.mb.height = 24 # Compatibility
+        #let layout = Layout("Far out in the uncharted backwaters of the unfashionable end of the western spiral arm of the Galaxy lies a small unregarded yellow sun.", width=self.width)
+        let sprite = Sprite(width=self.width-bounds['width'],height=self.height-bounds['height']-self.mb.height)
+        sprite.fill(rgb(255,255,255))
+        layout_and_draw(sprite, "Far out in the uncharted backwaters of the unfashionable end of the western spiral arm of the Galaxy lies a small unregarded yellow sun.", self.justification)
+        #layout.draw(sprite)
+        self.draw_sprite(sprite,bounds['left_width'],bounds['top_height']+self.mb.height)
+        sprite.free()
         self.flip()
 
     def mouse_event(self, msg):
         let decResponse = decor_handle_event(msg)
         if decResponse == 2:
-            print("Close me?")
             self.close()
             return True
         else if decResponse == 5:
             decor_show_default_menu(self, self.x + msg.new_x, self.y + msg.new_y)
         self.mb.mouse_event(self, msg)
+        let nc = msg.new_x, msg.new_y
+        if nc != self.cursor:
+            self.cursor = nc
+            self.draw()
 
     def keyboard_event(self, msg):
-        print(msg.keycode)
         if msg.keycode == 113 and msg.action == 1:
             self.close()
 
@@ -154,6 +239,12 @@ class MyWindow(Window):
 
     def menu_close(self):
         self.draw()
+
+    def finish_resize(self, msg):
+        if msg.width < 100 or msg.height < 100:
+            self.resize_offer(100 if msg.width < 100 else msg.width, 100 if msg.height < 100 else msg.height)
+            return
+        super().finish_resize(msg)
 
 let w = MyWindow()
 w.move(200,200)
