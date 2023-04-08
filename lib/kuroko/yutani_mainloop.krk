@@ -202,3 +202,5 @@ class AsyncMainloop():
         while not self.should_exit:
             self.run_once()
 
+    def activate(self):
+        current_loop = self
