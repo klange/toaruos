@@ -127,39 +127,13 @@ int read_key(int * c) {
 	static int shift_state = 0;
 
 	int sc = read_scancode(0);
+	int shift  = do_bios_call(4,2) & 0x3;
 
-	if (sc == 0xe0) {
-		*c = 0xe0;
-		return 1;
-	}
-
-	if (*c == 0xe0) {
-		*c = 0;
-		switch (sc) {
-			/* Keft left and right */
-			case 0x4B:
-				return shift_state ? 4 : 2;
-			case 0x4D:
-				return shift_state ? 5 : 3;
-		}
-		return 1;
-	}
-
-	switch (sc) {
-		/* Shift down */
-		case 0x2A:
-		case 0x36:
-			shift_state = 1;
-			return 1;
-		/* Shift up */
-		case 0xAA:
-		case 0xB6:
-			shift_state = 0;
-			return 1;
-	}
+	if (sc == 0x4B) return shift ? 4 : 2;
+	if (sc == 0x4D) return shift ? 5 : 3;
 
 	if (!(sc & 0x80)) {
-		*c = shift_state ? kbd_us_l2[sc] : kbd_us[sc];
+		*c = shift ? kbd_us_l2[sc] : kbd_us[sc];
 		return *c == 0;
 	}
 
