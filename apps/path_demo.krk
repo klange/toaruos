@@ -34,6 +34,12 @@ def draw_text():
     let Rect, w = font.prepare_string(0,128,"ToaruOS")
     return Rect
 
+let cursor = 0,0
+def draw_cursor_position():
+    let font = Font('sans-serif.bold',128)
+    let Rect, w = font.prepare_string(0,128,f'{cursor[0]},{cursor[1]}')
+    return Rect
+
 def draw_box():
     let Rect = TTContour(20,20)
     Rect.line_to(520,20)
@@ -46,14 +52,18 @@ let base_graphic = draw_text
 let tt_filter = TTShape.TT_PATH_FILTER_BILINEAR
 let tt_wrap = TTShape.TT_PATH_WRAP_REPEAT
 
+let warp_shape = False
+
 def paint_demo(ctx, cursor):
     let tm = TransformMatrix()
-    let Rect = base_graphic()
-    let SRect = Rect.finish()
-    Rect.free()
     let x, y = cursor
     x_thing(tm,x)
     y_thing(tm,y)
+    let Rect = base_graphic()
+    if warp_shape:
+        Rect.transform(tm)
+    let SRect = Rect.finish()
+    Rect.free()
     SRect.paint_sprite(ctx,tt_texture,tm,tt_filter,tt_wrap)
     SRect.free()
 
@@ -126,10 +136,18 @@ class MyWindow(Window):
 
         let _menu_View_Shape = check_list((
             ('Text', lambda: base_graphic = draw_text),
+            ('Cursor', lambda: base_graphic = draw_cursor_position),
             ('Box',  lambda: base_graphic = draw_box),
         ))
         self.mb.insert('view-shape', _menu_View_Shape)
         _menu_View.insert(MenuEntrySubmenu('Shape','view-shape'))
+
+        let _menu_View_Warp_Shape = check_list((
+            ('No',  lambda: warp_shape = False),
+            ('Yes', lambda: warp_shape = True),
+        ))
+        self.mb.insert('view-warp-shape', _menu_View_Warp_Shape)
+        _menu_View.insert(MenuEntrySubmenu('Warp shape','view-warp-shape'))
 
         self.mb.insert('view', _menu_View)
 
@@ -138,7 +156,7 @@ class MyWindow(Window):
         _menu_Help.insert(_menu_Help_help)
         self.mb.insert('help', _menu_Help)
         self.mb.callback = lambda x: self.pending_updates = True
-        self.cursor = 0,0
+        cursor = 0,0
         self.redrawer = Task(self.redraw_loop())
         self.pending_updates = True
 
@@ -158,7 +176,7 @@ class MyWindow(Window):
         self.mb.height = 24 # Compatibility
         let sprite = Sprite(width=self.width-bounds['width'],height=self.height-bounds['height']-self.mb.height)
         sprite.fill(rgb(255,255,255))
-        paint_demo(sprite,self.cursor)
+        paint_demo(sprite,cursor)
         self.draw_sprite(sprite,bounds['left_width'],bounds['top_height']+self.mb.height)
         sprite.free()
         self.flip()
@@ -172,8 +190,8 @@ class MyWindow(Window):
             decor_show_default_menu(self, self.x + msg.new_x, self.y + msg.new_y)
         self.mb.mouse_event(self, msg)
         let nc = msg.new_x, msg.new_y
-        if self.cursor != nc:
-            self.cursor = nc
+        if cursor != nc:
+            cursor = nc
             self.pending_updates = True
 
     def keyboard_event(self, msg):
