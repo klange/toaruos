@@ -89,7 +89,7 @@ mb2_tag_fb:
 
 .align 8
 .word 4
-.word 0
+.word 1
 .long 12
 .long 2 /* We support EGA text, but don't require it */
 
