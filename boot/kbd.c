@@ -182,6 +182,6 @@ int read_scancode(int timeout) {
 		}
 	}
 	int result = do_bios_call(4,0);
-	return result >> 8;
+	return (result >> 8) & 0xFF;
 }
 #endif
