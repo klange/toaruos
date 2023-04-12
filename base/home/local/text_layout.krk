@@ -189,13 +189,22 @@ class MyWindow(Window):
         let _menu_Help_help = MenuEntry("Help",lambda menu: print("oh no!"))
         _menu_Help.insert(_menu_Help_help)
         self.mb.insert('help', _menu_Help)
-        self.mb.callback = lambda x: self.draw()
+        self.mb.callback = lambda x: self.pending_updates = True
+        self.redrawer = Task(self.redraw_loop())
+        self.pending_updates = True
         self.justification = 'center'
         self.cursor = 1,1
 
     def set_justification(self, justify):
         self.justification = justify
-        self.draw()
+        self.pending_updates = True
+
+    async def redraw_loop(self):
+        while not self.closed:
+            if self.pending_updates:
+                self.draw()
+                self.pending_updates = False
+            await sleep(0.016)
 
     def draw(self):
         self.fill(self.bgc)
@@ -224,7 +233,7 @@ class MyWindow(Window):
         let nc = msg.new_x, msg.new_y
         if nc != self.cursor:
             self.cursor = nc
-            self.draw()
+            self.pending_updates = True
 
     def keyboard_event(self, msg):
         if msg.keycode == 113 and msg.action == 1:
@@ -235,10 +244,10 @@ class MyWindow(Window):
         mainloop.exit()
 
     def window_moved(self, msg):
-        self.draw()
+        self.pending_updates = True
 
     def menu_close(self):
-        self.draw()
+        self.pending_updates = True
 
     def finish_resize(self, msg):
         if msg.width < 100 or msg.height < 100:
@@ -246,9 +255,10 @@ class MyWindow(Window):
             return
         super().finish_resize(msg)
 
+mainloop.activate()
+
 let w = MyWindow()
 w.move(200,200)
-w.draw()
 
 mainloop.menu_closed_callback = w.menu_close
 mainloop.run()
