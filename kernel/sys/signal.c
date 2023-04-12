@@ -95,6 +95,7 @@ static char sig_defaults[] = {
  * @param r Registers after restoration from signal return.
  */
 static void maybe_restart_system_call(struct regs * r, int signum) {
+	if (signum < 0 || signum >= NUMSIGNALS) return;
 	if (this_core->current_process->interrupted_system_call && arch_syscall_number(r) == -ERESTARTSYS) {
 		if (sig_defaults[signum] == SIG_DISP_Cont || (this_core->current_process->signals[signum].flags & SA_RESTART)) {
 			arch_syscall_return(r, this_core->current_process->interrupted_system_call);
@@ -211,7 +212,7 @@ int send_signal(pid_t process, int signal, int force_root) {
 	if (!force_root && receiver->user != this_core->current_process->user && this_core->current_process->user != USER_ROOT_UID &&
 		!(signal == SIGCONT && receiver->session == this_core->current_process->session)) return -EPERM;
 	if (receiver->flags & PROC_FLAG_IS_TASKLET) return -EPERM;
-	if (signal > NUMSIGNALS) return -EINVAL;
+	if (signal >= NUMSIGNALS || signal < 0) return -EINVAL;
 	if (receiver->flags & PROC_FLAG_FINISHED) return -ESRCH;
 	if (signal == 0) return 0;
 
@@ -265,6 +266,8 @@ int group_send_signal(pid_t group, int signal, int force_root) {
 	int kill_self = 0;
 	int killed_something = 0;
 
+	if (signal < 0) return 0;
+
 	foreach(node, process_list) {
 		process_t * proc = node->value;
 		if (proc->group == proc->id && proc->job == group) {
@@ -304,7 +307,7 @@ _tryagain:
 		sigset_t active_signals  = PENDING;
 
 		int signal = 0;
-		while (active_signals && signal <= NUMSIGNALS)  {
+		while (active_signals && signal < NUMSIGNALS)  {
 			if (active_signals & 1) {
 				this_core->current_process->pending_signals &= ~shift_signal(signal);
 				spin_unlock(sig_lock);
@@ -370,7 +373,7 @@ int signal_await(sigset_t awaited, int * sig) {
 		sigset_t maybe = awaited & this_core->current_process->pending_signals;
 		if (maybe) {
 			int signal = 0;
-			while (maybe && signal <= NUMSIGNALS) {
+			while (maybe && signal < NUMSIGNALS) {
 				if (maybe & 1) {
 					spin_lock(sig_lock);
 					this_core->current_process->pending_signals &= ~shift_signal(signal);
