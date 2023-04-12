@@ -1037,7 +1037,7 @@ long sys_sigwait(sigset_t * set, int * sig) {
 
 long sys_fswait(int c, int fds[]) {
 	PTR_VALIDATE(fds);
-	if (!fds) return -EFAULT;
+	if (!fds || c < 0) return -EFAULT;
 	for (int i = 0; i < c; ++i) {
 		if (!FD_CHECK(fds[i])) return -EBADF;
 	}
@@ -1054,7 +1054,7 @@ long sys_fswait(int c, int fds[]) {
 
 long sys_fswait_timeout(int c, int fds[], int timeout) {
 	PTR_VALIDATE(fds);
-	if (!fds) return -EFAULT;
+	if (!fds || c < 0) return -EFAULT;
 	for (int i = 0; i < c; ++i) {
 		if (!FD_CHECK(fds[i])) return -EBADF;
 	}
@@ -1072,7 +1072,7 @@ long sys_fswait_timeout(int c, int fds[], int timeout) {
 long sys_fswait_multi(int c, int fds[], int timeout, int out[]) {
 	PTR_VALIDATE(fds);
 	PTR_VALIDATE(out);
-	if (!fds || !out) return -EFAULT;
+	if (!fds || !out || c < 0) return -EFAULT;
 	int has_match = -1;
 	for (int i = 0; i < c; ++i) {
 		if (!FD_CHECK(fds[i])) {
