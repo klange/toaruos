@@ -34,7 +34,6 @@ static void _window_menu_start_maximize(struct MenuEntry * self) {
 static void _window_menu_close(struct MenuEntry * self) {
 	if (!_window_menu_wid)
 		return;
-	yutani_focus_window(yctx, _window_menu_wid);
 	yutani_special_request_wid(yctx, _window_menu_wid, YUTANI_SPECIAL_REQUEST_PLEASE_CLOSE);
 }
 
