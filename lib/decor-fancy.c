@@ -44,9 +44,10 @@ static struct TT_Font * _tt_font = NULL;
 
 #define BUTTON_CLOSE 0
 #define BUTTON_MAXIMIZE 1
-#define ACTIVE   2
-#define INACTIVE 11
-static sprite_t * sprites[20];
+#define BUTTON_MINIMIZE 2
+#define ACTIVE   3
+#define INACTIVE 12
+static sprite_t * sprites[21];
 
 #define TEXT_OFFSET ((window->decorator_flags & DECOR_FLAG_TILED) ? 5 : 10)
 #define BUTTON_OFFSET ((window->decorator_flags & DECOR_FLAG_TILED) ? 5 : 0)
@@ -247,6 +248,12 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 				draw_sprite_alpha_paint(ctx, sprites[BUTTON_MAXIMIZE],
 					width + (BUTTON_OFFSET - 50) * TOTAL_SCALE,
 					(16 - BUTTON_OFFSET) * TOTAL_SCALE, 1.0, title_color);
+
+				if (width + (BUTTON_OFFSET - 72) * TOTAL_SCALE > bounds.left_width) {
+					draw_sprite_alpha_paint(ctx, sprites[BUTTON_MINIMIZE],
+						width + (BUTTON_OFFSET - 72) * TOTAL_SCALE,
+						(16 - BUTTON_OFFSET) * TOTAL_SCALE, 1.0, title_color);
+				}
 			}
 		}
 	}
@@ -265,6 +272,12 @@ static int check_button_press_fancy(yutani_window_t * window, int x, int y) {
 			y >= 16 * TOTAL_SCALE && y <= 26 * TOTAL_SCALE) {
 			return DECOR_MAXIMIZE;
 		}
+
+		if (x >= (int)window->width + (BUTTON_OFFSET - 72) * TOTAL_SCALE &&
+			x <= (int)window->width + (BUTTON_OFFSET - 62) * TOTAL_SCALE &&
+			y >= 16 * TOTAL_SCALE && y <= 26 * TOTAL_SCALE) {
+			return DECOR_MINIMIZE;
+		}
 	}
 
 	return 0;
@@ -273,6 +286,7 @@ static int check_button_press_fancy(yutani_window_t * window, int x, int y) {
 void decor_init() {
 	init_sprite(BUTTON_CLOSE, TTK_FANCY_PATH "button-close.png");
 	init_sprite(BUTTON_MAXIMIZE, TTK_FANCY_PATH "button-maximize.png");
+	init_sprite(BUTTON_MINIMIZE, TTK_FANCY_PATH "button-minimize.png");
 
 	create_borders_from_spritesheet(ACTIVE, TTK_FANCY_PATH "borders-active.png");
 	create_borders_from_spritesheet(INACTIVE, TTK_FANCY_PATH "borders-inactive.png");

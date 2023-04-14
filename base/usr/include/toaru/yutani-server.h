@@ -61,8 +61,8 @@ static int yutani_animation_lengths[] = {
 	0,   /* None */
 	200, /* Fade In */
 	200, /* Fade Out */
-	0,   /* Minimize */
-	0,   /* Unminimized */
+	200,   /* Minimize */
+	200,   /* Unminimized */
 	100, /* Squeeze in */
 	100, /* Squeeze out */
 	10,  /* Disappear */
@@ -77,6 +77,17 @@ static int yutani_is_closing_animation[] = {
 	0,
 	1,
 	1,
+};
+
+static int yutani_is_minimizing_animation[] = {
+	0,
+	0,
+	0,
+	1,
+	0,
+	0,
+	0,
+	0
 };
 
 /* Debug Options */
@@ -161,6 +172,7 @@ typedef struct YutaniServerWindow {
 
 	/* Window is hidden? */
 	int hidden;
+	int minimized;
 } yutani_server_window_t;
 
 typedef struct YutaniGlobals {
@@ -312,6 +324,9 @@ typedef struct YutaniGlobals {
 	uint64_t resize_release_time;
 	int32_t resizing_init_w;
 	int32_t resizing_init_h;
+
+	list_t * windows_to_minimize;
+	list_t * minimized_zs;
 } yutani_globals_t;
 
 struct key_bind {

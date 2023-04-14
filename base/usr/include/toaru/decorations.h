@@ -66,6 +66,7 @@ extern yutani_window_t * decor_show_default_menu(yutani_window_t * window, int y
 #define DECOR_RESIZE    3 /* Resize button */
 #define DECOR_MAXIMIZE  4
 #define DECOR_RIGHT     5
+#define DECOR_MINIMIZE  6
 
 #define DECOR_ACTIVE   0
 #define DECOR_INACTIVE 1

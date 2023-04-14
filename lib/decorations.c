@@ -122,6 +122,10 @@ static void _decor_maximize(yutani_t * yctx, yutani_window_t * window) {
 	}
 }
 
+static void _decor_minimize(yutani_t * yctx, yutani_window_t * window) {
+	yutani_special_request(yctx, window, YUTANI_SPECIAL_REQUEST_MINIMIZE);
+}
+
 static yutani_window_t * _decor_menu_owner_window = NULL;
 static struct MenuList * _decor_menu = NULL;
 
@@ -319,6 +323,9 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 									break;
 								case DECOR_MAXIMIZE:
 									_decor_maximize(yctx, window);
+									break;
+								case DECOR_MINIMIZE:
+									_decor_minimize(yctx, window);
 									break;
 								default:
 									break;

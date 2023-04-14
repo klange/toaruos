@@ -79,13 +79,18 @@ static int widget_draw_windowlist(struct PanelWidget * this, gfx_context_t * ctx
 				}
 			}
 
+			uint32_t text_color = TEXT_COLOR;
+			if (j == focused_app) text_color = HILIGHT_COLOR;
+			else if (ad->flags & 1) text_color = FOCUS_COLOR;
+			else if (ad->flags & 2) text_color = premultiply(rgba(_RED(TEXT_COLOR),_GRE(TEXT_COLOR),_BLU(TEXT_COLOR),127));
+
 			if (title_width >= MIN_TEXT_WIDTH) {
 				/* Ellipsifiy the title */
 				char * s = ellipsify(ad->name, 14, font, title_width - 4, NULL);
 				sprite_t * icon = icon_get_48(ad->icon);
 				gfx_context_t * subctx = init_graphics_subregion(ctx, i, 0, w, ctx->height);
 				draw_sprite_scaled_alpha(subctx, icon, w - 48 - 2, 0, 48, 48, (ad->flags & 1) ? 1.0 : 0.7);
-				tt_draw_string_shadow(subctx, font, s, 14, 2, TEXT_Y_OFFSET, (j == focused_app) ? HILIGHT_COLOR : (ad->flags & 1) ? FOCUS_COLOR : TEXT_COLOR, rgb(0,0,0), 4);
+				tt_draw_string_shadow(subctx, font, s, 14, 2, TEXT_Y_OFFSET, text_color, rgb(0,0,0), 4);
 				free(subctx);
 				free(s);
 			} else {
