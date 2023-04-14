@@ -1330,6 +1330,7 @@ void yutani_clip_init(yutani_globals_t * yg) {
  * the whole region specified and then mark that.
  */
 static void mark_window_relative(yutani_globals_t * yg, yutani_server_window_t * window, int32_t x, int32_t y, int32_t width, int32_t height) {
+	if (window->hidden || window->minimized) return;
 	yutani_damage_rect_t * rect = malloc(sizeof(yutani_damage_rect_t));
 	yutani_server_window_t fake_window;
 
@@ -1402,7 +1403,7 @@ static void mark_window(yutani_globals_t * yg, yutani_server_window_t * window) 
  * Set a window as closed. It will be removed after rendering has completed.
  */
 static void window_mark_for_close(yutani_globals_t * yg, yutani_server_window_t * w) {
-	if (w->hidden) {
+	if (w->hidden || w->minimized) {
 		window_actually_close(yg, w);
 	} else {
 		w->anim_mode = yutani_pick_animation(w->server_flags, 1);
@@ -1454,6 +1455,14 @@ static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t 
 
 	/* Remove from the general list of windows. */
 	list_remove(yg->windows, list_index_of(yg->windows, w));
+
+	if (w->minimized) {
+		node_t * n = list_find(yg->minimized_zs, w);
+		if (n) {
+			list_delete(yg->minimized_zs, n);
+			free(n);
+		}
+	}
 
 	/* Unstack the window */
 	unorder_window(yg, w);
@@ -1653,12 +1662,13 @@ static void window_unminimize(yutani_globals_t * yg, yutani_server_window_t * wi
 	window->z = 1;
 
 	window->minimized = 0;
-	window->anim_mode = YUTANI_EFFECT_UNMINIMIZE; //yutani_pick_animation(window->server_flags, 0);
+	window->anim_mode = YUTANI_EFFECT_UNMINIMIZE;
 	window->anim_start = yutani_current_time(yg);
 }
 
 static void window_minimize(yutani_globals_t * yg, yutani_server_window_t * window) {
-	window->anim_mode = YUTANI_EFFECT_MINIMIZE; //yutani_pick_animation(window->server_flags, 0);
+	if (!window->client_length) return; /* Windows must be advertised to be minimized. */
+	window->anim_mode = YUTANI_EFFECT_MINIMIZE;
 	window->anim_start = yutani_current_time(yg);
 }
 
