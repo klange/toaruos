@@ -220,7 +220,7 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 
 	uint32_t title_color = (decors_active == ACTIVE) ? ACTIVE_COLOR : INACTIVE_COLOR;
 
-	int buttons_width = (!(window->decorator_flags & DECOR_FLAG_NO_MAXIMIZE)) ? 50 : 28;
+	int buttons_width = (!(window->decorator_flags & DECOR_FLAG_NO_MAXIMIZE)) ? 72 : 28;
 	int usable_width = width - bounds.width - (2 * buttons_width + 10) * TOTAL_SCALE;
 
 	tt_set_size(_tt_font, 12 * TOTAL_SCALE);
