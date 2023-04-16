@@ -31,6 +31,12 @@ static void _window_menu_start_maximize(struct MenuEntry * self) {
 	yutani_focus_window(yctx, _window_menu_wid);
 }
 
+static void _window_menu_start_minimize(struct MenuEntry * self) {
+	if (!_window_menu_wid)
+		return;
+	yutani_special_request_wid(yctx, _window_menu_wid, YUTANI_SPECIAL_REQUEST_MINIMIZE);
+}
+
 static void _window_menu_close(struct MenuEntry * self) {
 	if (!_window_menu_wid)
 		return;
@@ -100,6 +106,8 @@ static int widget_draw_windowlist(struct PanelWidget * this, gfx_context_t * ctx
 			}
 
 			ad->left = this->left + i;
+
+			yutani_window_panel_size(yctx, ad->wid, ad->left + X_PAD, Y_PAD, w, ctx->height);
 
 			j++;
 			i += w;
@@ -216,6 +224,7 @@ struct PanelWidget * widget_init_windowlist(void) {
 	window_menu = menu_create();
 	window_menu->flags |= MENU_FLAG_BUBBLE_LEFT;
 	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Maximize", _window_menu_start_maximize));
+	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Minimize", _window_menu_start_minimize));
 	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Move", _window_menu_start_move));
 	menu_insert(window_menu, menu_create_separator());
 	menu_insert(window_menu, menu_create_normal(NULL, NULL, "Close", _window_menu_close));
