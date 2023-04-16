@@ -828,9 +828,10 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 							double time_diff = ((double)frame / (float)yutani_animation_lengths[window->anim_mode]);
 							double x = 0.5 + time_diff * 0.5;
 							opacity *= time_diff;
-							//int t_x = (window->width * (1.0 - x)) / 2;
-							//gfx_matrix_translate(m, t_x, 0.0);
-							gfx_matrix_scale(m, 1.0, x);
+							double t_y = -window->y * (1.0 - time_diff);
+							double t_x = (window->width * (1.0 - x)) / 2;
+							gfx_matrix_translate(m, t_x, t_y);
+							gfx_matrix_scale(m, x, x);
 						}
 						break;
 					default:
@@ -1174,7 +1175,18 @@ static void redraw_windows(yutani_globals_t * yg) {
 	if (yg->top_z && yg->top_z->anim_mode) mark_window(yg, yg->top_z);
 	foreach (node, yg->mid_zs) {
 		yutani_server_window_t * w = node->value;
-		if (w && w->anim_mode) mark_window(yg, w);
+		if (w && w->anim_mode) {
+			if (w->anim_mode == YUTANI_EFFECT_MINIMIZE || w->anim_mode == YUTANI_EFFECT_UNMINIMIZE) {
+				yutani_damage_rect_t * rect = malloc(sizeof(yutani_damage_rect_t));
+				rect->x = 0;
+				rect->y = 0;
+				rect->width = yg->width;
+				rect->height = yg->height;
+				list_insert(yg->update_list, rect);
+			} else {
+				mark_window(yg, w);
+			}
+		}
 	}
 	foreach (node, yg->overlay_zs) {
 		yutani_server_window_t * w = node->value;
