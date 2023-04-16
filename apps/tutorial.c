@@ -348,6 +348,7 @@ int main(int argc, char * argv[]) {
 	decor_get_bounds(NULL, &bounds);
 
 	window = yutani_window_create(yctx, width + bounds.width, height + bounds.height);
+	window->decorator_flags |= DECOR_FLAG_NO_MAXIMIZE;
 	req_center_x = yctx->display_width / 2;
 	req_center_y = yctx->display_height / 2;
 	yutani_window_move(yctx, window, req_center_x - window->width / 2, req_center_y - window->height / 2);
