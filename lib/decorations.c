@@ -143,6 +143,12 @@ static void _decor_start_maximize(struct MenuEntry * self) {
 	yutani_focus_window(_decor_menu_owner_window->ctx, _decor_menu_owner_window->wid);
 }
 
+static void _decor_start_minimize(struct MenuEntry * self) {
+	if (!_decor_menu_owner_window)
+		return;
+	_decor_minimize(_decor_menu_owner_window->ctx, _decor_menu_owner_window);
+}
+
 static void _decor_close(struct MenuEntry * self) {
 	if (!_decor_menu_owner_window)
 		return;
@@ -163,6 +169,7 @@ void init_decorations() {
 
 	_decor_menu = menu_create();
 	menu_insert(_decor_menu, menu_create_normal(NULL, NULL, "Maximize", _decor_start_maximize));
+	menu_insert(_decor_menu, menu_create_normal(NULL, NULL, "Minimize", _decor_start_minimize));
 	menu_insert(_decor_menu, menu_create_normal(NULL, NULL, "Move", _decor_start_move));
 	menu_insert(_decor_menu, menu_create_separator());
 	menu_insert(_decor_menu, menu_create_normal(NULL, NULL, "Close", _decor_close));
