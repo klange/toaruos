@@ -826,12 +826,13 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 					case YUTANI_EFFECT_UNMINIMIZE:
 						{
 							double time_diff = ((double)frame / (float)yutani_animation_lengths[window->anim_mode]);
-							double x = 0.5 + time_diff * 0.5;
 							opacity *= time_diff;
-							double t_y = -window->y * (1.0 - time_diff);
-							double t_x = (window->width * (1.0 - x)) / 2;
+							double t_x = -(window->x - window->icon_x) * (1.0 - time_diff);
+							double t_y = -(window->y - window->icon_y) * (1.0 - time_diff);
+							double s_x = 1.0 + (((float)window->icon_w / (float)(window->width ?: 1.0)) - 1.0) * (1.0 - time_diff);
+							double s_y = 1.0 + (((float)window->icon_h / (float)(window->height ?: 1.0)) - 1.0) * (1.0 - time_diff);
 							gfx_matrix_translate(m, t_x, t_y);
-							gfx_matrix_scale(m, x, x);
+							gfx_matrix_scale(m, s_x, s_y);
 						}
 						break;
 					default:
