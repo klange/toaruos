@@ -2193,7 +2193,9 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					int32_t y_diff = yg->mouse_y / MOUSE_SCALE - (yg->mouse_window->y + yg->mouse_window->height / 2);
 					int new_r = atan2(x_diff, y_diff) * 180.0 / (-M_PI);
 					mark_window(yg, yg->mouse_window);
-					yg->mouse_window->rotation = new_r + yg->mouse_init_r;
+					/* Normalize to -179~180 range */
+					int nr = (new_r + yg->mouse_init_r + 360) % 360;
+					yg->mouse_window->rotation = nr > 180 ? nr - 360 : nr;
 					mark_window(yg, yg->mouse_window);
 				}
 			}
