@@ -725,11 +725,11 @@ static inline int matrix_is_translation(gfx_matrix_t m) {
 	return (m[0][0] == 1.0 && m[0][1] == 0.0 && m[1][0] == 0.0 && m[1][1] == 1.0);
 }
 
-static void apply_rotation(yutani_globals_t * yg, yutani_server_window_t * window, gfx_matrix_t m) {
+static void apply_rotation(yutani_globals_t * yg, yutani_server_window_t * window, gfx_matrix_t m, int16_t r) {
 	if (window == yg->resizing_window) {
-		if (window->rotation) {
+		if (r) {
 			gfx_matrix_translate(m, yg->resizing_init_w / 2, yg->resizing_init_h / 2);
-			gfx_matrix_rotate(m, (double)window->rotation * M_PI / 180.0);
+			gfx_matrix_rotate(m, (double)r * M_PI / 180.0);
 			gfx_matrix_translate(m, -yg->resizing_init_w / 2, -yg->resizing_init_h / 2);
 		}
 		double x_scale = (double)yg->resizing_w / (double)yg->resizing_window->width;
@@ -742,9 +742,9 @@ static void apply_rotation(yutani_globals_t * yg, yutani_server_window_t * windo
 		}
 		gfx_matrix_translate(m, (int)yg->resizing_offset_x, (int)yg->resizing_offset_y);
 		gfx_matrix_scale(m, x_scale, y_scale);
-	} else if (window->rotation) {
+	} else if (r) {
 		gfx_matrix_translate(m, window->width / 2, window->height / 2);
-		gfx_matrix_rotate(m, (double)window->rotation * M_PI / 180.0);
+		gfx_matrix_rotate(m, (double)r * M_PI / 180.0);
 		gfx_matrix_translate(m, -window->width / 2, -window->height / 2);
 	}
 }
@@ -791,7 +791,7 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 				}
 				window->anim_mode = 0;
 				window->anim_start = 0;
-				apply_rotation(yg, window, m);
+				apply_rotation(yg, window, m, window->rotation);
 			} else {
 				switch (window->anim_mode) {
 					case YUTANI_EFFECT_SQUEEZE_OUT:
@@ -804,7 +804,7 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 						{
 							double time_diff = ((double)frame / (float)yutani_animation_lengths[window->anim_mode]);
 
-							apply_rotation(yg, window, m);
+							apply_rotation(yg, window, m, window->rotation);
 
 							if (window->server_flags & YUTANI_WINDOW_FLAG_DIALOG_ANIMATION) {
 								double x = time_diff;
@@ -837,16 +837,16 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 							double s_y = 1.0 + (((float)window->icon_h / (float)(window->height ?: 1.0)) - 1.0) * (1.0 - time_diff);
 							gfx_matrix_translate(m, t_x, t_y);
 							gfx_matrix_scale(m, s_x, s_y);
-							apply_rotation(yg, window, m);
+							apply_rotation(yg, window, m, window->rotation * time_diff);
 						}
 						break;
 					default:
-						apply_rotation(yg, window, m);
+						apply_rotation(yg, window, m, window->rotation);
 						break;
 				}
 			}
 		} else {
-			apply_rotation(yg, window, m);
+			apply_rotation(yg, window, m, window->rotation);
 		}
 #ifdef ENABLE_BLUR_BEHIND
 		if (window->server_flags & YUTANI_WINDOW_FLAG_BLUR_BEHIND) {
