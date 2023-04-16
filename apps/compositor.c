@@ -3036,6 +3036,18 @@ int main(int argc, char * argv[]) {
 					TRACE("Copied text to clipbard (size=%d)", yg->clipboard_size);
 				}
 				break;
+			case YUTANI_MSG_WINDOW_PANEL_SIZE:
+				{
+					struct yutani_msg_window_panel_size * ps = (void *)m->data;
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)ps->wid);
+					if (w) {
+						w->icon_x = ps->x;
+						w->icon_y = ps->y;
+						w->icon_w = ps->w;
+						w->icon_h = ps->h;
+					}
+				}
+				break;
 			default:
 				{
 					TRACE("Unknown type: 0x%8x", m->type);

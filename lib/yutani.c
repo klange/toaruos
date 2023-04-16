@@ -513,6 +513,19 @@ void yutani_msg_buildx_clipboard(yutani_msg_t * msg, char * content) {
 	memcpy(cl->content, content, strlen(content));
 }
 
+void yutani_msg_buildx_window_panel_size(yutani_msg_t * msg, yutani_wid_t wid, int32_t x, int32_t y, int32_t w, int32_t h) {
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_WINDOW_PANEL_SIZE;
+	msg->size  = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_panel_size);
+
+	struct yutani_msg_window_panel_size * ps = (void *)msg->data;
+	ps->wid = wid;
+	ps->x = x;
+	ps->y = y;
+	ps->w = w;
+	ps->h = h;
+}
+
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg) {
 	return pex_reply(y->sock, msg->size, (char *)msg);
 }
@@ -1054,6 +1067,12 @@ void yutani_set_clipboard(yutani_t * yctx, char * content) {
 		yutani_msg_buildx_clipboard(m, content);
 		yutani_msg_send(yctx, m);
 	}
+}
+
+void yutani_window_panel_size(yutani_t * yctx, yutani_wid_t wid, int32_t x, int32_t y, int32_t w, int32_t h) {
+	yutani_msg_buildx_window_panel_size_alloc(m);
+	yutani_msg_buildx_window_panel_size(m,wid,x,y,w,h);
+	yutani_msg_send(yctx, m);
 }
 
 /**

@@ -256,6 +256,14 @@ struct yutani_msg_clipboard {
 	char content[];
 };
 
+struct yutani_msg_window_panel_size {
+	yutani_wid_t wid;
+	int32_t x;
+	int32_t y;
+	int32_t w;
+	int32_t h;
+};
+
 /* Magic value */
 #define YUTANI_MSG__MAGIC 0xABAD1DEA
 
@@ -294,6 +302,7 @@ struct yutani_msg_clipboard {
 #define YUTANI_MSG_WINDOW_WARP_MOUSE   0x00000027
 #define YUTANI_MSG_WINDOW_SHOW_MOUSE   0x00000028
 #define YUTANI_MSG_WINDOW_RESIZE_START 0x00000029
+#define YUTANI_MSG_WINDOW_PANEL_SIZE   0x0000002a
 
 #define YUTANI_MSG_SESSION_END         0x00000030
 
@@ -536,6 +545,7 @@ extern void yutani_window_resize_accept(yutani_t * yctx, yutani_window_t * windo
 extern void yutani_window_resize_done(yutani_t * yctx, yutani_window_t * window);
 extern void yutani_window_advertise(yutani_t * yctx, yutani_window_t * window, char * name);
 extern void yutani_window_advertise_icon(yutani_t * yctx, yutani_window_t * window, char * name, char * icon);
+extern void yutani_window_panel_size(yutani_t * yctx, yutani_wid_t wid, int32_t x, int32_t y, int32_t w, int32_t h);
 extern void yutani_subscribe_windows(yutani_t * y);
 extern void yutani_unsubscribe_windows(yutani_t * y);
 extern void yutani_query_windows(yutani_t * y);

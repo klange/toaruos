@@ -173,6 +173,8 @@ typedef struct YutaniServerWindow {
 	/* Window is hidden? */
 	int hidden;
 	int minimized;
+
+	int32_t icon_x, icon_y, icon_w, icon_h;
 } yutani_server_window_t;
 
 typedef struct YutaniGlobals {
