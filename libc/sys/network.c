@@ -210,7 +210,7 @@ char * inet_ntoa(struct in_addr in) {
 
 static struct hostent _hostent = {0};
 static uint32_t _hostent_addr = 0;
-static char * _host_entry_list[1] = {0};
+static char * _host_entry_list[2] = {0};
 
 struct dns_packet {
 	uint16_t qid;
