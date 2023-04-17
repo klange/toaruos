@@ -21,6 +21,9 @@ typedef long off_t;
 typedef long time_t;
 typedef long clock_t;
 
+#define __need_size_t
+#include <stddef.h>
+
 typedef long ssize_t;
 
 typedef unsigned long useconds_t;

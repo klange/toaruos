@@ -33,5 +33,15 @@ extern struct hostent * gethostbyname(const char * name);
 #define NI_NUMERICHOST 1
 #define NI_MAXHOST     255
 
+/* Defined error codes returned by getaddrinfo */
+#define EAI_AGAIN      -1
+#define EAI_BADFLAGS   -2
+#define EAI_BADEXFLAGS -3
+#define EAI_FAMILY     -4
+#define EAI_MEMORY     -5
+#define EAI_NONAME     -6
+#define EAI_SERVICE    -7
+#define EAI_SOCKTYPE   -8
+
 
 _End_C_Header

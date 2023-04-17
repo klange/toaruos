@@ -10,10 +10,13 @@ _Begin_C_Header
 #define AF_INET 1
 #define AF_RAW 2
 
+#define PF_INET AF_INET
+
 #define SOCK_STREAM 1
 #define SOCK_DGRAM  2
 #define SOCK_RAW    3
 
+#define IPPROTO_IP  0
 #define IPPROTO_ICMP 1
 #define IPPROTO_TCP 6
 #define IPPROTO_UDP 17
