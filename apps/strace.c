@@ -20,6 +20,7 @@
 #include <sys/sysfunc.h>
 #include <sys/utsname.h>
 #include <sys/time.h>
+#include <sys/socket.h>
 #include <syscall_nums.h>
 
 static FILE * logfile;
@@ -528,6 +529,24 @@ static void buffer_arg(pid_t pid, uintptr_t buffer, ssize_t count) {
 	}
 }
 
+static void msghdr_arg(pid_t pid, uintptr_t msghdr) {
+	struct msghdr data = {0};
+	if (data_read_bytes(pid, msghdr, (char*)&data, sizeof(struct msghdr))) {
+		fprintf(logfile, "(?)");
+	} else {
+		fprintf(logfile, "{msg_name=%#zx,msg_iovlen=%zu,msg_iov[0]=", (uintptr_t)data.msg_name, data.msg_iovlen);
+		if (data.msg_iovlen > 0) {
+			struct iovec iodata = {0};
+			if (data_read_bytes(pid, (uintptr_t)data.msg_iov, (char*)&iodata, sizeof(struct iovec))) {
+				fprintf(logfile,"?");
+			} else {
+				fprintf(logfile,"{iov_base=%#zx,iov_len=%zu}", (uintptr_t)iodata.iov_base, iodata.iov_len);
+			}
+		}
+		fprintf(logfile,"}");
+	}
+}
+
 static void print_error(int err) {
 	const char * name = (err >= 0 && (size_t)err < (sizeof(errno_names) / sizeof(*errno_names))) ? errno_names[err] : NULL;
 	if (name) {
@@ -539,7 +558,7 @@ static void print_error(int err) {
 
 static void maybe_errno(struct regs * r) {
 	fprintf(logfile, ") = %ld", syscall_result(r));
-	if ((intptr_t)syscall_result(r) < 0) print_error(syscall_result(r));
+	if ((intptr_t)syscall_result(r) < 0) print_error(-syscall_result(r));
 	fprintf(logfile, "\n");
 }
 
@@ -773,6 +792,12 @@ static void handle_syscall(pid_t pid, struct regs * r) {
 			/* two output args */
 			break;
 		case SYS_SIGACTION: break;
+		case SYS_RECV:
+		case SYS_SEND:
+			fd_arg(pid, syscall_arg1(r)); COMMA;
+			msghdr_arg(pid, syscall_arg2(r)); COMMA;
+			int_arg(syscall_arg3(r));
+			break;
 		/* These have no arguments: */
 		case SYS_YIELD:
 		case SYS_FORK:
