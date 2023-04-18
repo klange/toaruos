@@ -948,4 +948,7 @@ void mmu_init(uintptr_t memaddr, size_t memsize, uintptr_t firstFreePage, uintpt
 
 	lowest_available = (firstFreePage + bytesOfFrames) - memaddr;
 	module_base_address = endOfRamDisk + MODULE_BASE_START;
+	if (module_base_address & PAGE_LOW_MASK) {
+		module_base_address = (module_base_address & PAGE_SIZE_MASK) + PAGE_SIZE;
+	}
 }
