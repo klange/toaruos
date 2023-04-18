@@ -705,7 +705,14 @@ static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	if (!sock->rx_queue->length && sock->nonblocking) return -EAGAIN;
 
 	while (!sock->rx_queue->length) {
-		process_wait_nodes((process_t *)this_core->current_process, (fs_node_t*[]){(fs_node_t*)sock,NULL}, 200);
+		int r = process_wait_nodes((process_t *)this_core->current_process, (fs_node_t*[]){(fs_node_t*)sock,NULL}, 200);
+		if (r == -EINTR) return -ERESTARTSYS;
+		if (!sock->rx_queue->length) {
+			if (sock->priv[1] == 3) {
+				/* Socket was closed while waiting */
+				return 0;
+			}
+		}
 	}
 
 	char * packet = net_sock_get(sock);
