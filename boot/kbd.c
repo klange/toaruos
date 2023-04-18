@@ -123,6 +123,8 @@ static char kbd_us_l2[128] = {
 	'-', 0, 0, 0, '+', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
+extern int do_bios_call(unsigned int function, unsigned int arg1);
+
 int read_key(int * c) {
 	static int shift_state = 0;
 
@@ -139,8 +141,6 @@ int read_key(int * c) {
 
 	return 1;
 }
-
-extern int do_bios_call(unsigned int function, unsigned int arg1);
 
 int kbd_status(void) {
 	int result = do_bios_call(4,0x11);
