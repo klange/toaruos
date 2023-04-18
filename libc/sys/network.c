@@ -29,6 +29,8 @@ DEFN_SYSCALL5(getsockopt, SYS_GETSOCKOPT, int,int,int,void*,size_t*);
 DEFN_SYSCALL3(recv, SYS_RECV, int,void*,int);
 DEFN_SYSCALL3(send, SYS_SEND, int,const void*,int);
 DEFN_SYSCALL2(shutdown, SYS_SHUTDOWN, int, int);
+DEFN_SYSCALL3(getsockname, SYS_GETSOCKNAME, int,void*,size_t*);
+DEFN_SYSCALL3(getpeername, SYS_GETPEERNAME, int,void*,size_t*);
 
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 	__sets_errno(syscall_connect(sockfd,addr,addrlen));
@@ -157,13 +159,11 @@ int shutdown(int sockfd, int how) {
 #define UNIMPLEMENTED fprintf(stderr, "[libnetwork] Unimplemented: %s\n", __FUNCTION__)
 
 int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
-	UNIMPLEMENTED;
-	return -1;
+	__sets_errno(syscall_getsockname(sockfd, addr, addrlen));
 }
 
 int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
-	UNIMPLEMENTED;
-	return -1;
+	__sets_errno(syscall_getpeername(sockfd, addr, addrlen));
 }
 
 in_addr_t inet_addr(const char * in) {

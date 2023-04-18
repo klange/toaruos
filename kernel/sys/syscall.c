@@ -1249,6 +1249,8 @@ static scall_func syscalls[] = {
 	[SYS_RECV]         = (scall_func)(uintptr_t)net_recv,
 	[SYS_SEND]         = (scall_func)(uintptr_t)net_send,
 	[SYS_SHUTDOWN]     = (scall_func)(uintptr_t)net_shutdown,
+	[SYS_GETSOCKNAME]  = (scall_func)(uintptr_t)net_getsockname,
+	[SYS_GETPEERNAME]  = (scall_func)(uintptr_t)net_getpeername,
 };
 
 static long num_syscalls = sizeof(syscalls) / sizeof(*syscalls);

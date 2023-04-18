@@ -964,6 +964,32 @@ ssize_t sock_tcp_write(fs_node_t *node, off_t offset, size_t size, uint8_t *buff
 	return sock_tcp_send((sock_t*)node, &_header, 0);
 }
 
+long sock_tcp_getsockname(sock_t * sock, struct sockaddr *addr, socklen_t * addrlen) {
+	in_addr_t ip4_addr = 0;
+	fs_node_t * nic = net_if_route(((struct sockaddr_in*)&sock->dest)->sin_addr.s_addr);
+	if (nic) {
+		ip4_addr = ((struct EthernetDevice*)nic->device)->ipv4_addr;
+	}
+
+	struct sockaddr_in out = {
+		AF_INET, htons(sock->priv[0]), { ip4_addr }, {0},
+	};
+
+	memcpy(addr, &out, *addrlen < sizeof(struct sockaddr_in) ? *addrlen : sizeof(struct sockaddr_in));
+	if (*addrlen < sizeof(struct sockaddr_in)) *addrlen = sizeof(struct sockaddr_in);
+	return 0;
+}
+
+long sock_tcp_getpeername(sock_t * sock, struct sockaddr *addr, socklen_t * addrlen) {
+	in_addr_t ip4_addr = ((struct sockaddr_in*)&sock->dest)->sin_addr.s_addr;
+	struct sockaddr_in out = {
+		AF_INET, ((struct sockaddr_in*)&sock->dest)->sin_port, { ip4_addr }, {0},
+	};
+	memcpy(addr, &out, *addrlen < sizeof(struct sockaddr_in) ? *addrlen : sizeof(struct sockaddr_in));
+	if (*addrlen < sizeof(struct sockaddr_in)) *addrlen = sizeof(struct sockaddr_in);
+	return 0;
+}
+
 static int tcp_socket(void) {
 	printf("tcp socket...\n");
 	sock_t * sock = net_sock_create();
@@ -971,6 +997,8 @@ static int tcp_socket(void) {
 	sock->sock_send = sock_tcp_send;
 	sock->sock_close = sock_tcp_close;
 	sock->sock_connect = sock_tcp_connect;
+	sock->sock_getsockname = sock_tcp_getsockname;
+	sock->sock_getpeername = sock_tcp_getpeername;
 	sock->_fnode.read = sock_tcp_read;
 	sock->_fnode.write = sock_tcp_write;
 	int fd = process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock);
