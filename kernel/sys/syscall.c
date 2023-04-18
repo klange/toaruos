@@ -259,6 +259,7 @@ static long stat_node(fs_node_t * fn, uintptr_t st) {
 	if (fn->flags & FS_BLOCKDEVICE) { flags |= _IFBLK; }
 	if (fn->flags & FS_PIPE)        { flags |= _IFIFO; }
 	if (fn->flags & FS_SYMLINK)     { flags |= _IFLNK; }
+	if (fn->flags & FS_SOCKET)      { flags |= _IFSOCK; }
 
 	f->st_mode  = fn->mask | flags;
 	f->st_nlink = fn->nlink;
@@ -422,7 +423,7 @@ long sys_close(int fd) {
 
 long sys_seek(int fd, long offset, long whence) {
 	if (FD_CHECK(fd)) {
-		if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE)) return -ESPIPE;
+		if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ESPIPE;
 		switch (whence) {
 			case 0:
 				FD_OFFSET(fd) = offset;
