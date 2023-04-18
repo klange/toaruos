@@ -20,6 +20,8 @@ static char * poll_print_flags(int flags) {
 	return buf;
 }
 
+extern int __libc_debug;
+
 int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 	int count_pollin = 0;
 
@@ -33,7 +35,9 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 	for (nfds_t i = 0; i < nfds; ++i) {
 		if (fds[i].events & (~POLLIN)) {
 			if (fds[i].events == (POLLIN | POLLPRI)) continue;
-			fprintf(stderr, "%s: poll: unsupported bit set in fds: %s\n", _argv_0, poll_print_flags(fds[i].events));
+			if (__libc_debug) {
+				fprintf(stderr, "%s: poll: unsupported bit set in fds: %s\n", _argv_0, poll_print_flags(fds[i].events));
+			}
 			if ((fds[i].events & POLLOUT) && nfds == 1) {
 				fds[i].revents |= POLLOUT;
 				return 1;
