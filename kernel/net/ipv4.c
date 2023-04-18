@@ -207,6 +207,8 @@ static long sock_icmp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	}
 	if (msg->msg_iovlen == 0) return 0;
 
+	if (!sock->rx_queue->length && sock->nonblocking) return -EAGAIN;
+
 	char * packet = net_sock_get(sock);
 	if (!packet) return -EINTR;
 	size_t packet_size = *(size_t*)packet - sizeof(struct ipv4_packet);
@@ -536,6 +538,8 @@ static long sock_udp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	}
 	if (msg->msg_iovlen == 0) return 0;
 
+	if (!sock->rx_queue->length && sock->nonblocking) return -EAGAIN;
+
 	char * packet = net_sock_get(sock);
 	if (!packet) return -EINTR;
 	struct ipv4_packet * data = (struct ipv4_packet*)(packet + sizeof(size_t));
@@ -697,6 +701,8 @@ static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	if (!sock->rx_queue->length && sock->priv[1] == 3) {
 		return 0; /* EOF */
 	}
+
+	if (!sock->rx_queue->length && sock->nonblocking) return -EAGAIN;
 
 	while (!sock->rx_queue->length) {
 		process_wait_nodes((process_t *)this_core->current_process, (fs_node_t*[]){(fs_node_t*)sock,NULL}, 200);

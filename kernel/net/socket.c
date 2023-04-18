@@ -105,6 +105,18 @@ void sock_generic_close(fs_node_t *node) {
 	printf("net: socket closed\n");
 }
 
+int sock_generic_ioctl(fs_node_t * node, unsigned long request, void * argp) {
+	sock_t * sock = (sock_t*)node;
+	switch (request) {
+		case FIONBIO: {
+			if (!mmu_validate_user_pointer(argp, sizeof(int), 0)) return -EFAULT;
+			sock->nonblocking = (!!*(int*)argp);
+			return 0;
+		}
+	}
+	return -EINVAL;
+}
+
 sock_t * net_sock_create(void) {
 	sock_t * sock = calloc(sizeof(struct SockData),1);
 	sock->_fnode.flags = FS_SOCKET; /* uh, FS_SOCKET? */
@@ -113,6 +125,7 @@ sock_t * net_sock_create(void) {
 	sock->_fnode.selectcheck = sock_generic_check;
 	sock->_fnode.selectwait = sock_generic_wait;
 	sock->_fnode.close = sock_generic_close;
+	sock->_fnode.ioctl = sock_generic_ioctl;
 	sock->alert_wait = list_create("socket alert wait", sock);
 	sock->rx_wait    = list_create("socket rx wait", sock);
 	sock->rx_queue   = list_create("socket rx queue", sock);

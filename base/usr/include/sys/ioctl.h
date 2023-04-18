@@ -14,4 +14,5 @@
 
 #define IOCTL_PACKETFS_QUEUED 0x5050
 
+#define FIONBIO  0x4e424c4b
 
