@@ -66,6 +66,7 @@ static void usage(char * argv[]) {
 			" -n --no-frame   \033[3mDisable decorations.\033[0m\n"
 			" -g --geometry   \033[3mSet requested terminal size WIDTHxHEIGHT\033[0m\n"
 			" -B --blurred    \033[3mBlur background behind terminal.\033[0m\n"
+			" -S --scrollback \033[3mSet the scrollback buffer size, 0 for unlimited.\033[0m\n"
 			"\n"
 			" This terminal emulator provides basic support for VT220 escapes and\n"
 			" XTerm extensions, including 256 color support and font effects.\n",
@@ -175,7 +176,7 @@ struct scrollback_row {
 	term_cell_t cells[];
 };
 
-#define MAX_SCROLLBACK 1000
+static size_t max_scrollback = 10000;
 static list_t * scrollback_list = NULL;
 static int scrollback_offset = 0;
 
@@ -1274,7 +1275,7 @@ static void save_scrollback(void) {
 	struct scrollback_row * row = NULL;
 	node_t * n = NULL;
 
-	if (scrollback_list->length == MAX_SCROLLBACK) {
+	if (max_scrollback && scrollback_list->length == max_scrollback) {
 		n = list_dequeue(scrollback_list);
 		row = n->value;
 		if (row->width < term_width) {
@@ -2456,12 +2457,13 @@ int main(int argc, char ** argv) {
 		{"no-frame",   no_argument,       0, 'n'},
 		{"geometry",   required_argument, 0, 'g'},
 		{"blurred",    no_argument,       0, 'B'},
+		{"scrollback", required_argument, 0, 'S'},
 		{0,0,0,0}
 	};
 
 	/* Read some arguments */
 	int index, c;
-	while ((c = getopt_long(argc, argv, "bhxnFls:g:B", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "bhxnFls:g:BS:", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
@@ -2494,6 +2496,9 @@ int main(int argc, char ** argv) {
 				break;
 			case 'B':
 				_flags = YUTANI_WINDOW_FLAG_BLUR_BEHIND;
+				break;
+			case 'S':
+				max_scrollback = strtoull(optarg,NULL,10);
 				break;
 			case '?':
 				break;
