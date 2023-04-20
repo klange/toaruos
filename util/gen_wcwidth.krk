@@ -56,12 +56,12 @@ for line in lines:
     # Is this a range?
     if '..' in codepoint:
         let start, end = codepoint.split('..',1)
-        start = int(f'0x{start}')
-        end = int(f'0x{end}')
+        start = int(f'0x{start}',0)
+        end = int(f'0x{end}',0)
         for i = start; i <= end; i++:
             classes[i] = classify(i, group, ctype)
     else:
-        codepoint = int(f'0x{codepoint}')
+        codepoint = int(f'0x{codepoint}',0)
         classes[codepoint] = classify(codepoint, group, ctype)
 
 for i in range(1,0x110000):
@@ -81,4 +81,4 @@ for i in range(1,0x110000):
 
     last = classes[i]
 
-print(f'\telse if (wc < 0x110000) return {last};\n\treturn -1;\n}')
+print(f'\telse if (wc < 0x110000) return {last};\n\treturn -1;\n}}')
