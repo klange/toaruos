@@ -5,7 +5,11 @@
 _Begin_C_Header
 
 /* i386 */
+#ifdef __aarch64__
+#define _JBLEN 32
+#else
 #define _JBLEN 9
+#endif
 
 typedef long long jmp_buf[_JBLEN];
 
