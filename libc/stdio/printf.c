@@ -438,12 +438,19 @@ static int cb_asprintf(void * user, char c) {
 
 int vasprintf(char ** buf, const char * fmt, va_list args) {
 	struct CBData data = {NULL,0,0};
-	int out = xvasprintf(cb_asprintf, &data, fmt, args);
+	xvasprintf(cb_asprintf, &data, fmt, args);
 	cb_asprintf(&data, '\0');
 	*buf = data.str;
-	return out;
+	return 0;
 }
 
+int asprintf(char ** ret, const char * fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	int out = vasprintf(ret,fmt,args);
+	va_end(args);
+	return out;
+}
 
 /* Streams */
 
