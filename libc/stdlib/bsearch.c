@@ -7,7 +7,7 @@ void *bsearch(const void *key, const void *base, size_t nmemb, size_t size,
 	size_t i = 0;
 	while (i < nmemb) {
 		const void * a = b;
-		if (!compar(a,key)) return (void *)a;
+		if (!compar(key,a)) return (void *)a;
 		i++;
 		b += size;
 	}
