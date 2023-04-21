@@ -23,6 +23,8 @@ _Begin_C_Header
 #define F_GETFL 3
 #define F_SETFL 4
 
+#define F_DUPFD 10
+
 /* Advisory locks are not currently supported;
  * these definitions are stubs. */
 #define F_GETLK  5
