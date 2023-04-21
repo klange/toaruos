@@ -95,4 +95,7 @@ typedef long fpos_t;
 extern int fgetpos(FILE *stream, fpos_t *pos);
 extern int fsetpos(FILE *stream, const fpos_t *pos);
 
+/* Compatibility */
+#define FILENAME_MAX 1024
+
 _End_C_Header;
