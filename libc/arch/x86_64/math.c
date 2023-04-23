@@ -1,17 +1,5 @@
 #include <math.h>
 
-double ceil(double x) {
-	if (x == 0.0) return x;
-
-	double out;
-	asm volatile (
-		"frndint\n"
-		: "=t"(out) : "0"(x)
-	);
-	if (out < x) return out + 1.0;
-	return out;
-}
-
 double floor(double x) {
 	if (x == 0.0) return x;
 
