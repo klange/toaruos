@@ -484,3 +484,59 @@ int fpclassify(double x) {
 	}
 	return FP_NORMAL;
 }
+
+double ceil(double x) {
+	union {
+		double asFloat;
+		uint64_t asInt;
+	} bits = {x};
+	int64_t exponent = ((bits.asInt >> 52) & 0x7FF) - 0x3ff;
+	uint64_t mantissa = (bits.asInt & 0xFffffFFFFffffULL);
+	if (exponent >= 52 || x == 0) return x;
+	if (exponent <= -1) return (bits.asInt >> 63) ? -0.0 : 1.0;
+	uint64_t mask = (0xfffffFFFFffffULL >> exponent);
+	if (!(mask & mantissa)) return x;
+	if (!(bits.asInt >> 63)) {
+		bits.asInt += mask;
+	}
+	bits.asInt &= ~mask;
+	return bits.asFloat;
+}
+
+double round(double x) {
+	union {
+		double asFloat;
+		uint64_t asInt;
+	} bits = {x};
+	int64_t exponent = ((bits.asInt >> 52) & 0x7FF) - 0x3ff;
+	uint64_t mantissa = (bits.asInt & 0xFffffFFFFffffULL);
+	if (exponent >= 52 || x == 0) return x;
+	if (exponent < -1) return (bits.asInt >> 63) ? -0.0 : 0.0;
+	if (exponent == -1) return x >= 0.5 ? 1.0 : (x <= -0.5 ? -1.0 : ((bits.asInt >> 63) ? -0.0 : 0.0));
+
+	uint64_t mask  = 0xfffffFFFFffffULL >> exponent;
+	uint64_t a = mantissa & mask;
+	uint64_t b = mantissa & (mask >> 1);
+
+	if (a & ~b) {
+		bits.asInt += mask;
+		bits.asInt &= ~mask;
+		return bits.asFloat;
+	}
+
+	bits.asInt &= ~mask;
+	return bits.asFloat;
+}
+
+float ceilf(float x) {
+	return ceil(x);
+}
+
+float roundf(float x) {
+	return round(x);
+}
+
+long lroundf(float x) {
+	return round(x);
+}
+

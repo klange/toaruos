@@ -69,4 +69,9 @@ extern int fpclassify(double x);
 #define isnan(x)    (fpclassify(x) == FP_NAN)
 #define isinf(x)    (fpclassify(x) == FP_INFINITE)
 
+extern float ceilf(float x);
+extern double round(double x);
+extern float roundf(float x);
+extern long lroundf(float x);
+
 _End_C_Header
