@@ -2308,7 +2308,9 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 
 				mark_window(yg, yg->resizing_window);
 
-				if (!yg->resize_release_time || !(me->event.buttons & yg->resizing_button)) {
+				if (!yg->resize_release_time ||
+				    !(me->event.buttons & yg->resizing_button) ||
+				    (yg->resize_release_time && yutani_time_since(yg, yg->resize_release_time) >= 100)) {
 					yg->resize_release_time = yutani_current_time(yg);
 					yutani_msg_buildx_window_resize_alloc(response);
 					yutani_msg_buildx_window_resize(response,YUTANI_MSG_RESIZE_OFFER, yg->resizing_window->wid, yg->resizing_w, yg->resizing_h, 0, yg->resizing_window->tiled);
