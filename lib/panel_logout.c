@@ -12,7 +12,8 @@ static struct MenuList * logout_menu;
 static sprite_t * sprite_logout;
 
 static int widget_draw_logout(struct PanelWidget * this, gfx_context_t * ctx) {
-	draw_sprite_alpha_paint(ctx, sprite_logout, 1, 2, 1.0, (logout_menu->window ? HILIGHT_COLOR : ICON_COLOR)); /* Logout button */
+	panel_highlight_widget(this,ctx,!!logout_menu->window);
+	draw_sprite_alpha_paint(ctx, sprite_logout, (ctx->width - sprite_logout->width) / 2, 2, 1.0, (logout_menu->window ? this->pctx->color_text_hilighted : this->pctx->color_icon_normal)); /* Logout button */
 	return 0;
 }
 
@@ -32,7 +33,8 @@ struct PanelWidget * widget_init_logout(void) {
 	menu_insert(logout_menu, menu_create_normal("exit", "log-out", "Log Out", launch_application_menu));
 
 	struct PanelWidget * widget = widget_new();
-	widget->width = 24;
+
+	widget->width = sprite_logout->width + widget->pctx->extra_widget_spacing;
 	widget->draw = widget_draw_logout;
 	widget->click = widget_click_logout;
 	list_insert(widgets_enabled, widget);

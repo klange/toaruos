@@ -139,11 +139,12 @@ static int widget_click_network(struct PanelWidget * this, struct yutani_msg_win
 }
 
 static int widget_draw_network(struct PanelWidget * this, gfx_context_t * ctx) {
-	uint32_t color = (netstat && netstat->window) ? HILIGHT_COLOR : ICON_COLOR;
+	uint32_t color = (netstat && netstat->window) ? this->pctx->color_text_hilighted : this->pctx->color_icon_normal;
+	panel_highlight_widget(this,ctx,(netstat && netstat->window));
 	if (network_status & 2) {
-		draw_sprite_alpha_paint(ctx, sprite_net_active, 0, 1, 1.0, color);
+		draw_sprite_alpha_paint(ctx, sprite_net_active, (ctx->width - sprite_net_active->width) / 2, 1, 1.0, color);
 	} else {
-		draw_sprite_alpha_paint(ctx, sprite_net_disabled, 0, 1, 1.0, color);
+		draw_sprite_alpha_paint(ctx, sprite_net_disabled, (ctx->width - sprite_net_disabled->width) / 2, 1, 1.0, color);
 	}
 
 	return 0;
@@ -156,7 +157,7 @@ struct PanelWidget * widget_init_network(void) {
 	load_sprite(sprite_net_disabled, "/usr/share/icons/24/net-disconnected.png");
 
 	struct PanelWidget * widget = widget_new();
-	widget->width = 24;
+	widget->width = sprite_net_active->width + widget->pctx->extra_widget_spacing;
 	widget->draw = widget_draw_network;
 	widget->click = widget_click_network;
 	widget->update = widget_update_network;

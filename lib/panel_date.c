@@ -53,6 +53,9 @@ void _menu_draw_MenuEntry_Calendar(gfx_context_t * ctx, struct MenuEntry * self,
 	memcpy(&actual, timeinfo, sizeof(struct tm));
 	timeinfo = &actual;
 
+	struct TT_Font * font = ((struct PanelWidget*)self->_private)->pctx->font;
+	struct TT_Font * font_bold = ((struct PanelWidget*)self->_private)->pctx->font_bold;
+
 	/* Render heading with Month Year */
 	{
 		char month[20];
@@ -90,7 +93,7 @@ void _menu_draw_MenuEntry_Calendar(gfx_context_t * ctx, struct MenuEntry * self,
 		snprintf(date, 11, "%d", day);
 		/* Is this the cell for today? */
 		if (day == timeinfo->tm_mday) {
-			draw_rounded_rectangle(ctx, left - 1, self->offset + CALENDAR_BASE_HEIGHT + line * CALENDAR_LINE_HEIGHT - 2, cell_size + 2, CALENDAR_LINE_HEIGHT, 12, SPECIAL_COLOR);
+			draw_rounded_rectangle(ctx, left - 1, self->offset + CALENDAR_BASE_HEIGHT + line * CALENDAR_LINE_HEIGHT - 2, cell_size + 2, CALENDAR_LINE_HEIGHT, 12, ((struct PanelWidget*)self->_private)->pctx->color_special);
 			tt_draw_string(ctx, font, left + (cell_size - tt_string_width(font, date)) / 2,
 				self->offset + CALENDAR_BASE_HEIGHT + 13 + line * CALENDAR_LINE_HEIGHT, date, rgb(255,255,255));
 		} else {
@@ -114,7 +117,7 @@ static struct MenuEntryVTable calendar_vtable = {
 /*
  * Special menu entry to display a calendar
  */
-struct MenuEntry * menu_create_calendar(void) {
+struct MenuEntry * menu_create_calendar(struct PanelWidget * this) {
 	struct MenuEntry * out = menu_create_separator(); /* Steal some defaults */
 
 	out->_type = -1; /* Special */
@@ -123,9 +126,9 @@ struct MenuEntry * menu_create_calendar(void) {
 	gettimeofday(&now, NULL);
 	out->height = CALENDAR_LINE_HEIGHT * weeks_in_month(localtime((time_t *)&now.tv_sec)) + CALENDAR_BASE_HEIGHT + CALENDAR_PAD_HEIGHT;
 
-	tt_set_size(font_mono, 13);
-	out->rwidth = 200; //tt_string_width(font_mono, "XX XX XX XX XX XX XX") + 20;
+	out->rwidth = 200;
 	out->vtable = &calendar_vtable;
+	out->_private = this;
 	return out;
 }
 
@@ -133,9 +136,12 @@ struct MenuEntry * menu_create_calendar(void) {
 static int weekday_width, date_width;
 static char weekday[80], date[80];
 
-static void update_date_widget(void) {
+static void update_date_widget(struct PanelWidget * this) {
 	struct timeval now;
 	struct tm * timeinfo;
+
+	struct TT_Font * font = this->pctx->font;
+	struct TT_Font * font_bold = this->pctx->font_bold;
 
 	/* Get the current time for the clock */
 	gettimeofday(&now, NULL);
@@ -156,15 +162,20 @@ static void update_date_widget(void) {
 }
 
 static int widget_draw_date(struct PanelWidget * this, gfx_context_t * ctx) {
-	update_date_widget();
+	update_date_widget(this);
+
+	panel_highlight_widget(this,ctx,!!calmenu->window);
+
+	struct TT_Font * font = this->pctx->font;
+	struct TT_Font * font_bold = this->pctx->font_bold;
 
 	/* Day-of-week */
 	int t = (this->width - weekday_width) / 2;
-	tt_draw_string(ctx, font, t, 13, weekday,  calmenu->window ? HILIGHT_COLOR : TEXT_COLOR);
+	tt_draw_string(ctx, font, t, 13, weekday,  calmenu->window ? this->pctx->color_text_hilighted : this->pctx->color_text_normal);
 
 	/* Month Day */
 	t = (this->width - date_width) / 2;
-	tt_draw_string(ctx, font_bold, t, 23, date,  calmenu->window ? HILIGHT_COLOR : TEXT_COLOR);
+	tt_draw_string(ctx, font_bold, t, 23, date,  calmenu->window ? this->pctx->color_text_hilighted : this->pctx->color_text_normal);
 
 	return 0;
 }
@@ -179,17 +190,18 @@ static int widget_click_date(struct PanelWidget * this, struct yutani_msg_window
 
 static int widget_update_date(struct PanelWidget * this, int * force_updates) {
 	int width_before = date_widget_width;
-	update_date_widget();
+	update_date_widget(this);
 	this->width = date_widget_width;
 	return width_before != date_widget_width;
 }
 
 struct PanelWidget * widget_init_date(void) {
+	struct PanelWidget * widget = widget_new();
+
 	calmenu = menu_create();
 	calmenu->flags |= MENU_FLAG_BUBBLE_CENTER;
-	menu_insert(calmenu, menu_create_calendar());
+	menu_insert(calmenu, menu_create_calendar(widget));
 
-	struct PanelWidget * widget = widget_new();
 	widget->width = 92; /* TODO calculate correct width */
 	widget->draw = widget_draw_date;
 	widget->click = widget_click_date;

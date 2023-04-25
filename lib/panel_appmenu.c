@@ -12,8 +12,10 @@
 static struct MenuList * appmenu;
 
 static int widget_draw_appmenu(struct PanelWidget * this, gfx_context_t * ctx) {
-	tt_set_size(font, 16);
-	tt_draw_string(ctx, font, 0, 20, "Applications", appmenu->window ? HILIGHT_COLOR : TEXT_COLOR);
+	panel_highlight_widget(this,ctx, !!appmenu->window);
+	tt_set_size(this->pctx->font, 16);
+	int w = tt_string_width(this->pctx->font, "Applications");
+	tt_draw_string(ctx, this->pctx->font, (ctx->width - w) / 2, 20, "Applications", appmenu->window ? this->pctx->color_text_hilighted : this->pctx->color_text_normal);
 	return 0;
 }
 
@@ -42,6 +44,7 @@ struct PanelWidget * widget_init_appmenu(void) {
 	yutani_key_bind(yctx, KEY_F1, KEY_MOD_LEFT_ALT, YUTANI_BIND_STEAL);
 
 	struct PanelWidget * widget = widget_new();
+
 	widget->width = 130;
 	widget->draw = widget_draw_appmenu;
 	widget->click = widget_click_appmenu;

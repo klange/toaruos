@@ -16,6 +16,7 @@
 static struct MenuList * window_menu;
 static int title_width = 0;
 static yutani_wid_t _window_menu_wid = 0;
+static int focused_app = -1;
 
 static void _window_menu_start_move(struct MenuEntry * self) {
 	if (!_window_menu_wid)
@@ -84,30 +85,30 @@ static int widget_draw_windowlist(struct PanelWidget * this, gfx_context_t * ctx
 				}
 			}
 
-			uint32_t text_color = TEXT_COLOR;
-			if (j == focused_app) text_color = HILIGHT_COLOR;
-			else if (ad->flags & 1) text_color = FOCUS_COLOR;
-			else if (ad->flags & 2) text_color = premultiply(rgba(_RED(TEXT_COLOR),_GRE(TEXT_COLOR),_BLU(TEXT_COLOR),127));
+			uint32_t text_color = this->pctx->color_text_normal;
+			if (j == focused_app) text_color = this->pctx->color_text_hilighted;
+			else if (ad->flags & 1) text_color = this->pctx->color_text_focused;
+			else if (ad->flags & 2) text_color = premultiply(rgba(_RED(this->pctx->color_text_normal),_GRE(this->pctx->color_text_normal),_BLU(this->pctx->color_text_normal),127));
 
 			if (title_width >= MIN_TEXT_WIDTH) {
 				/* Ellipsifiy the title */
-				char * s = ellipsify(ad->name, 14, font, title_width - 4, NULL);
+				char * s = ellipsify(ad->name, 14, this->pctx->font, title_width - 4, NULL);
 				sprite_t * icon = icon_get_48(ad->icon);
-				gfx_context_t * subctx = init_graphics_subregion(ctx, i, 0, w, ctx->height);
+				gfx_context_t * subctx = init_graphics_subregion(ctx, i, 0, w, ctx->height-1);
 				draw_sprite_scaled_alpha(subctx, icon, w - 48 - 2, 0, 48, 48, (ad->flags & 1) ? 1.0 : 0.7);
-				tt_draw_string_shadow(subctx, font, s, 14, 2, TEXT_Y_OFFSET, text_color, rgb(0,0,0), 4);
+				tt_draw_string_shadow(subctx, this->pctx->font, s, 14, 2, 6, text_color, rgb(0,0,0), 4);
 				free(subctx);
 				free(s);
 			} else {
 				sprite_t * icon = icon_get_16(ad->icon);
-				gfx_context_t * subctx = init_graphics_subregion(ctx, i, 0, w, ctx->height);
+				gfx_context_t * subctx = init_graphics_subregion(ctx, i, 0, w, ctx->height-1);
 				draw_sprite_scaled(subctx, icon, 6, 6, 16, 16);
 				free(subctx);
 			}
 
 			ad->left = this->left + i;
 
-			yutani_window_panel_size(yctx, ad->wid, ad->left + X_PAD, Y_PAD, w, ctx->height);
+			yutani_window_panel_size(yctx, ad->wid, ad->left + this->pctx->basewindow->x, this->pctx->basewindow->y, w, ctx->height);
 
 			j++;
 			i += w;

@@ -116,7 +116,7 @@ static int widget_update_weather(struct PanelWidget * this, int * force_updates)
 
 	if (!widgets_weather_enabled) {
 		widgets_weather_enabled = 1;
-		this->width = 48;
+		this->width = 60;
 		return 1;
 	}
 
@@ -173,11 +173,12 @@ static int widget_click_weather(struct PanelWidget * this, struct yutani_msg_win
 
 static int widget_draw_weather(struct PanelWidget * this, gfx_context_t * ctx) {
 	if (widgets_weather_enabled) {
-		uint32_t color = (weather && weather->window) ? HILIGHT_COLOR : ICON_COLOR;
-		tt_set_size(font, 12);
-		int t = tt_string_width(font, weather_temp_str);
-		tt_draw_string(ctx, font, 24 + (24 - t) / 2, 6 + 12, weather_temp_str, color);
-		draw_sprite_alpha_paint(ctx, weather_icon, 0, 1, 1.0, color);
+		uint32_t color = (weather && weather->window) ? this->pctx->color_text_hilighted : this->pctx->color_icon_normal;
+		panel_highlight_widget(this,ctx, (weather && weather->window));
+		tt_set_size(this->pctx->font, 12);
+		int t = tt_string_width(this->pctx->font, weather_temp_str);
+		tt_draw_string(ctx, this->pctx->font, 4 + 24 + (24 - t) / 2, 6 + 12, weather_temp_str, color);
+		draw_sprite_alpha_paint(ctx, weather_icon, 4, 1, 1.0, color);
 	}
 	return 0;
 }

@@ -179,15 +179,18 @@ static int widget_click_volume(struct PanelWidget * this, struct yutani_msg_wind
 
 
 static int widget_draw_volume(struct PanelWidget * this, gfx_context_t * ctx) {
-	uint32_t color = (volume_menu && volume_menu->window) ? HILIGHT_COLOR : ICON_COLOR;
+	uint32_t color = (volume_menu && volume_menu->window) ? this->pctx->color_text_hilighted : this->pctx->color_icon_normal;
+
+	panel_highlight_widget(this,ctx,(volume_menu && volume_menu->window));
+
 	if (volume_level < 10) {
-		draw_sprite_alpha_paint(ctx, sprite_volume_mute, 0, 1, 1.0, color);
+		draw_sprite_alpha_paint(ctx, sprite_volume_mute, (ctx->width - sprite_volume_mute->width) / 2, 1, 1.0, color);
 	} else if (volume_level < 0x547ae147) {
-		draw_sprite_alpha_paint(ctx, sprite_volume_low, 0, 1, 1.0, color);
+		draw_sprite_alpha_paint(ctx, sprite_volume_low,  (ctx->width - sprite_volume_low->width) / 2, 1, 1.0, color);
 	} else if (volume_level < 0xa8f5c28e) {
-		draw_sprite_alpha_paint(ctx, sprite_volume_med, 0, 1, 1.0, color);
+		draw_sprite_alpha_paint(ctx, sprite_volume_med,  (ctx->width - sprite_volume_med->width) / 2, 1, 1.0, color);
 	} else {
-		draw_sprite_alpha_paint(ctx, sprite_volume_high, 0, 1, 1.0, color);
+		draw_sprite_alpha_paint(ctx, sprite_volume_high, (ctx->width - sprite_volume_high->width) / 2, 1, 1.0, color);
 	}
 
 	return 0;
@@ -221,7 +224,7 @@ struct PanelWidget * widget_init_volume(void) {
 	load_sprite(sprite_volume_high, "/usr/share/icons/24/volume-full.png");
 
 	struct PanelWidget * widget = widget_new();
-	widget->width = 24;
+	widget->width = sprite_volume_high->width + widget->pctx->extra_widget_spacing;
 	widget->draw = widget_draw_volume;
 	widget->click = widget_click_volume;
 	widget->move  = widget_move_volume;

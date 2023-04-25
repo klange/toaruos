@@ -50,6 +50,17 @@
 #define ALTF2_WIDTH 400
 #define ALTF2_HEIGHT 200
 
+/* How many windows we can support in the advertisement lift before truncating it */
+#define MAX_WINDOW_COUNT 100
+/* Height of the panel window */
+#define PANEL_HEIGHT 27
+/* How far down dropdown menus should be shown */
+#define DROPDOWN_OFFSET PANEL_HEIGHT
+/* How much padding should be assured on the left and right of the screen for menus */
+#define MENU_PAD 4
+
+static struct PanelContext panel_context;
+
 static gfx_context_t * ctx = NULL;
 static yutani_window_t * panel = NULL;
 
@@ -68,17 +79,11 @@ yutani_t * yctx;
 int width;
 int height;
 
-struct TT_Font * font = NULL;
-struct TT_Font * font_bold = NULL;
-struct TT_Font * font_mono = NULL;
-struct TT_Font * font_mono_bold = NULL;
-
 list_t * widgets_enabled = NULL;
 
 /* Windows, indexed by z-order */
 struct window_ad * ads_by_z[MAX_WINDOW_COUNT+1] = {NULL};
 
-int focused_app = -1;
 int active_window = -1;
 
 static int was_tabbing = 0;
@@ -226,9 +231,9 @@ static void redraw_altf2(void) {
 	draw_rounded_rectangle(a2ctx,0,0, ALTF2_WIDTH, ALTF2_HEIGHT, 11, premultiply(rgba(120,120,120,150)));
 	draw_rounded_rectangle(a2ctx,1,1, ALTF2_WIDTH-2, ALTF2_HEIGHT-2, 10, ALTTAB_BACKGROUND);
 
-	tt_set_size(font, 20);
-	int t = tt_string_width(font, altf2_buffer);
-	tt_draw_string(a2ctx, font, center_x_a2(t), 80, altf2_buffer, rgb(255,255,255));
+	tt_set_size(panel_context.font, 20);
+	int t = tt_string_width(panel_context.font, altf2_buffer);
+	tt_draw_string(a2ctx, panel_context.font, center_x_a2(t), 80, altf2_buffer, rgb(255,255,255));
 
 	flip(a2ctx);
 	yutani_flip(yctx, alt_f2);
@@ -337,9 +342,9 @@ static void redraw_alttab(void) {
 	{
 		struct window_ad * ad = ads_by_z[new_focused];
 		int t;
-		char * title = ellipsify(ad->name, 16, font, alttab->width - 20, &t);
-		tt_set_size(font, 16);
-		tt_draw_string(actx, font, center_x_a(t), rows * (ALTTAB_WIN_SIZE + 20) + 44, title, rgb(255,255,255));
+		char * title = ellipsify(ad->name, 16, panel_context.font, alttab->width - 20, &t);
+		tt_set_size(panel_context.font, 16);
+		tt_draw_string(actx, panel_context.font, center_x_a(t), rows * (ALTTAB_WIN_SIZE + 20) + 44, title, rgb(255,255,255));
 		free(title);
 	}
 
@@ -532,7 +537,7 @@ void redraw(void) {
 
 	foreach(widget_node, widgets_enabled) {
 		struct PanelWidget * widget = widget_node->value;
-		gfx_context_t * inner = init_graphics_subregion(ctx, widget->left, Y_PAD, widget->width, PANEL_HEIGHT - Y_PAD * 2);
+		gfx_context_t * inner = init_graphics_subregion(ctx, widget->left, 0, widget->width, PANEL_HEIGHT);
 		widget->draw(widget, inner);
 		free(inner);
 	}
@@ -679,6 +684,12 @@ static int widget_leave_generic(struct PanelWidget * this, struct yutani_msg_win
 	return 1;
 }
 
+void panel_highlight_widget(struct PanelWidget * this, gfx_context_t * ctx, int active) {
+	if (this->highlighted || active) {
+		draw_rounded_rectangle(ctx, 3, 3, ctx->width - 6, ctx->height - 6, 11, premultiply(rgba(120,120,120,active ? 180 : 150)));
+	}
+}
+
 static int widget_draw_generic(struct PanelWidget * this, gfx_context_t * ctx) {
 	draw_rounded_rectangle(
 		ctx, 0, 0, ctx->width, ctx->height, 7, premultiply(rgba(120,120,120,150)));
@@ -702,6 +713,7 @@ static int widget_onkey_generic(struct PanelWidget * this, struct yutani_msg_key
 
 struct PanelWidget * widget_new(void) {
 	struct PanelWidget * out = calloc(1, sizeof(struct PanelWidget));
+	out->pctx = &panel_context;
 	out->draw = widget_draw_generic;
 	out->click = mouse_event_ignore; /* click_generic */
 	out->right_click = mouse_event_ignore; /* right_click_generic */
@@ -804,17 +816,26 @@ int main (int argc, char ** argv) {
 	yctx = yutani_init();
 
 	/* Shared fonts */
-	font           = tt_font_from_shm("sans-serif");
-	font_bold      = tt_font_from_shm("sans-serif.bold");
-	font_mono      = tt_font_from_shm("monospace");
-	font_mono_bold = tt_font_from_shm("monospace.bold");
+	panel_context.font           = tt_font_from_shm("sans-serif");
+	panel_context.font_bold      = tt_font_from_shm("sans-serif.bold");
+	panel_context.font_mono      = tt_font_from_shm("monospace");
+	panel_context.font_mono_bold = tt_font_from_shm("monospace.bold");
 
 	/* For convenience, store the display size */
 	width  = yctx->display_width;
 	height = yctx->display_height;
 
+	panel_context.color_text_normal    = rgb(230,230,230);
+	panel_context.color_text_hilighted = rgb(142,216,255);
+	panel_context.color_text_focused   = rgb(255,255,255);
+	panel_context.color_icon_normal    = rgb(230,230,230);
+	panel_context.color_special        = rgb(93,163,236);
+	panel_context.font_size_default    = 14;
+	panel_context.extra_widget_spacing = 12;
+
 	/* Create the panel window */
 	panel = yutani_window_create_flags(yctx, width, PANEL_HEIGHT, YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS | YUTANI_WINDOW_FLAG_ALT_ANIMATION);
+	panel_context.basewindow = panel;
 
 	/* And move it to the top layer */
 	yutani_set_stack(yctx, panel, YUTANI_ZORDER_TOP);

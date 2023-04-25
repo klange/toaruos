@@ -39,6 +39,7 @@ void _menu_draw_MenuEntry_Clock(gfx_context_t * ctx, struct MenuEntry * self, in
 
 	static const char * digits[] = {"12","1","2","3","4","5","6","7","8","9","10","11"};
 
+	struct TT_Font * font = ((struct PanelWidget*)self->_private)->pctx->font;
 	tt_set_size(font, 12);
 	for (int i = 0; i < 12; ++i) {
 		int w = tt_string_width(font, digits[i]);
@@ -73,19 +74,24 @@ static struct MenuEntryVTable clock_vtable = {
 	.renderer = _menu_draw_MenuEntry_Clock,
 };
 
-struct MenuEntry * menu_create_clock(void) {
+struct MenuEntry * menu_create_clock(struct PanelWidget * this) {
 	struct MenuEntry * out = menu_create_separator(); /* Steal some defaults */
 
 	out->_type = -1; /* Special */
 	out->height = 140;
 	out->rwidth = 148;
 	out->vtable = &clock_vtable;
+	out->_private = this;
 	return out;
 }
 
 static int widget_draw_clock(struct PanelWidget * this, gfx_context_t * ctx) {
 	struct timeval now;
 	struct tm * timeinfo;
+
+	panel_highlight_widget(this,ctx,!!clockmenu->window);
+
+	struct TT_Font * font = this->pctx->font;
 
 	/* Get the current time for the clock */
 	gettimeofday(&now, NULL);
@@ -95,7 +101,8 @@ static int widget_draw_clock(struct PanelWidget * this, gfx_context_t * ctx) {
 	char time[80];
 	strftime(time, 80, "%H:%M:%S", timeinfo);
 	tt_set_size(font, 16);
-	tt_draw_string(ctx, font, 0, 20, time, clockmenu->window ? HILIGHT_COLOR : TEXT_COLOR);
+	int w = tt_string_width(font, time);
+	tt_draw_string(ctx, font, (ctx->width - w) / 2, 20, time, clockmenu->window ? this->pctx->color_text_hilighted : this->pctx->color_text_normal);
 
 	return 0;
 }
@@ -117,12 +124,13 @@ static int widget_update_clock(struct PanelWidget * this, int * force_updates) {
 }
 
 struct PanelWidget * widget_init_clock(void) {
+	struct PanelWidget * widget = widget_new();
+
 	clockmenu = menu_create();
 	clockmenu->flags |= MENU_FLAG_BUBBLE_RIGHT;
-	menu_insert(clockmenu, menu_create_clock());
+	menu_insert(clockmenu, menu_create_clock(widget));
 
-	struct PanelWidget * widget = widget_new();
-	widget->width = 80; /* TODO what */
+	widget->width = 90; /* TODO what */
 	widget->draw = widget_draw_clock;
 	widget->click = widget_click_clock;
 	widget->update = widget_update_clock;
