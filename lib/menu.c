@@ -136,7 +136,7 @@ static struct MenuEntryVTable _menu_vtable_MenuEntry_Normal = {
 };
 
 struct MenuEntry * menu_create_normal(const char * icon, const char * action, const char * title, void (*callback)(struct MenuEntry *)) {
-	struct MenuEntry_Normal * out = malloc(sizeof(struct MenuEntry_Normal));
+	struct MenuEntry_Normal * out = calloc(1,sizeof(struct MenuEntry_Normal));
 
 	out->_type = MenuEntry_Normal;
 	out->height = MENU_ENTRY_HEIGHT;
@@ -209,7 +209,7 @@ static struct MenuEntryVTable _menu_vtable_MenuEntry_Submenu = {
 };
 
 struct MenuEntry * menu_create_submenu(const char * icon, const char * action, const char * title) {
-	struct MenuEntry_Submenu * out = malloc(sizeof(struct MenuEntry_Submenu));
+	struct MenuEntry_Submenu * out = calloc(1,sizeof(struct MenuEntry_Submenu));
 
 	out->_type = MenuEntry_Submenu;
 	out->height = MENU_ENTRY_HEIGHT;
@@ -251,7 +251,7 @@ static struct MenuEntryVTable _menu_vtable_MenuEntry_Separator = {
 };
 
 struct MenuEntry * menu_create_separator(void) {
-	struct MenuEntry_Separator * out = malloc(sizeof(struct MenuEntry_Separator));
+	struct MenuEntry_Separator * out = calloc(1,sizeof(struct MenuEntry_Separator));
 
 	out->_type = MenuEntry_Separator;
 	out->height = 6;
@@ -634,7 +634,6 @@ int menu_has_eventual_child(struct MenuList * root, struct MenuList * child) {
 
 	while (candidate && candidate != child) {
 		if (candidate == root->child) {
-			root->child = NULL;
 			return 1;
 		}
 		candidate = root->child;
