@@ -177,7 +177,7 @@ static void panel_check_click(struct yutani_msg_window_mouse_event * evt) {
 
 		/* Figure out what widget this belongs to */
 		struct PanelWidget * target = NULL;
-		if (evt->new_y >= Y_PAD && evt->new_y < PANEL_HEIGHT - Y_PAD) {
+		if (evt->new_y >= 0 && evt->new_y < PANEL_HEIGHT) {
 			foreach(widget_node, widgets_enabled) {
 				struct PanelWidget * widget = widget_node->value;
 				if (evt->new_x >= widget->left && evt->new_x < widget->left + widget->width) {
@@ -616,8 +616,7 @@ static void update_window_list(void) {
 }
 
 static void redraw_panel_background(gfx_context_t * ctx, int width, int height) {
-	draw_fill(ctx, rgba(0,0,0,0));
-	draw_rounded_rectangle(ctx, X_PAD, Y_PAD, width - X_PAD * 2, panel->height - Y_PAD * 2, 14, rgba(0,0,0,200));
+	draw_fill(ctx, rgba(0,0,0,0xF2));
 }
 
 static void resize_finish(int xwidth, int xheight) {
@@ -729,8 +728,8 @@ static void widgets_layout(void) {
 	}
 
 	/* Now lay out the widgets */
-	int x = 16;
-	int available = width - 32;
+	int x = 0;
+	int available = width;
 	foreach(node, widgets_enabled) {
 		struct PanelWidget * widget = node->value;
 		widget->left = x;
@@ -758,11 +757,11 @@ int panel_menu_show_at(struct MenuList * menu, int x) {
 	/* Calculate the expected size of the menu window. */
 	menu_calculate_dimensions(menu, &mheight, &mwidth);
 
-	if (x - mwidth / 2 < X_PAD) {
-		offset = X_PAD;
+	if (x - mwidth / 2 < MENU_PAD) {
+		offset = MENU_PAD;
 		menu->flags = (menu->flags & ~MENU_FLAG_BUBBLE) | MENU_FLAG_BUBBLE_LEFT;
-	} else if (x + mwidth / 2 > width - X_PAD) {
-		offset = width - X_PAD - mwidth;
+	} else if (x + mwidth / 2 > width - MENU_PAD) {
+		offset = width - MENU_PAD - mwidth;
 		menu->flags = (menu->flags & ~MENU_FLAG_BUBBLE) | MENU_FLAG_BUBBLE_RIGHT;
 	} else {
 		offset = x - mwidth / 2;
