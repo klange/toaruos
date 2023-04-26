@@ -46,6 +46,8 @@ struct decor_bounds {
 extern void (*decor_render_decorations)(yutani_window_t *, gfx_context_t *, char *, int);
 extern int  (*decor_check_button_press)(yutani_window_t *, int x, int y);
 extern int  (*decor_get_bounds)(yutani_window_t *, struct decor_bounds *);
+extern int decor_hover_button;
+extern yutani_window_t * decor_hover_window;
 
 /*
  * Run me once to set things up
@@ -67,6 +69,7 @@ extern yutani_window_t * decor_show_default_menu(yutani_window_t * window, int y
 #define DECOR_MAXIMIZE  4
 #define DECOR_RIGHT     5
 #define DECOR_MINIMIZE  6
+#define DECOR_REDRAW    7
 
 #define DECOR_ACTIVE   0
 #define DECOR_INACTIVE 1

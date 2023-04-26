@@ -1156,3 +1156,15 @@ void release_graphics_yutani(gfx_context_t * gfx) {
 	}
 	free(gfx);
 }
+
+void yutani_internal_refocus(yutani_t * yctx, yutani_window_t * window) {
+	/* Check if a refocus is already in our queue to be processed */
+	foreach(node, yctx->queued) {
+		yutani_msg_t * out = (yutani_msg_t *)node->value;
+		if (out->type == YUTANI_MSG_WINDOW_FOCUS_CHANGE) return;
+	}
+	/* Otherwise, produce an artificial one matching the reported focus state of the window */
+	yutani_msg_t * msg = malloc(sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_focus_change));
+	yutani_msg_buildx_window_focus_change(msg, window->wid, window->focused);
+	list_insert(yctx->queued, msg);
+}

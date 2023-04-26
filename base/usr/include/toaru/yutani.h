@@ -567,6 +567,7 @@ extern gfx_context_t * init_graphics_yutani(yutani_window_t * window);
 extern gfx_context_t *  init_graphics_yutani_double_buffer(yutani_window_t * window);
 extern void reinit_graphics_yutani(gfx_context_t * out, yutani_window_t * window);
 extern void release_graphics_yutani(gfx_context_t * gfx);
+extern void yutani_internal_refocus(yutani_t * yctx, yutani_window_t * window);
 
 _End_C_Header
 

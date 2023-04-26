@@ -139,6 +139,8 @@ static char * ellipsify(char * input, int font_size, struct TT_Font * font, int 
 	return out;
 }
 
+#define BUTTON_PAD 5
+
 static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
 	int width = window->width;
 	int height = window->height;
@@ -238,21 +240,39 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 		tt_draw_string(ctx, _tt_font, title_offset, (TEXT_OFFSET + 14) * TOTAL_SCALE, title, title_color);
 	}
 
+	uint32_t h_color = rgb(100,100,100);
+	uint32_t i_color = (decor_hover_window == window && decor_hover_button) ? ACTIVE_COLOR : title_color;
+
 	if (width + (BUTTON_OFFSET - 28) * TOTAL_SCALE > bounds.left_width) {
+		if (decor_hover_window == window && decor_hover_button == DECOR_CLOSE) {
+			draw_rounded_rectangle(ctx,
+				width + (BUTTON_OFFSET - 28 - BUTTON_PAD) * TOTAL_SCALE,
+				(16 - BUTTON_OFFSET - BUTTON_PAD) * TOTAL_SCALE, 8 + BUTTON_PAD * 2, 8 + BUTTON_PAD * 2, 4, h_color);
+		}
 		draw_sprite_alpha_paint(ctx, sprites[BUTTON_CLOSE],
 			width + (BUTTON_OFFSET - 28) * TOTAL_SCALE,
-			(16 - BUTTON_OFFSET) * TOTAL_SCALE, 1.0, title_color);
+			(16 - BUTTON_OFFSET) * TOTAL_SCALE, 1.0, i_color);
 
 		if (width + (BUTTON_OFFSET - 50) * TOTAL_SCALE > bounds.left_width) {
 			if (!(window->decorator_flags & DECOR_FLAG_NO_MAXIMIZE)) {
+				if (decor_hover_window == window && decor_hover_button == DECOR_MAXIMIZE) {
+					draw_rounded_rectangle(ctx,
+						width + (BUTTON_OFFSET - 50 - BUTTON_PAD) * TOTAL_SCALE,
+						(16 - BUTTON_OFFSET - BUTTON_PAD) * TOTAL_SCALE, 8 + BUTTON_PAD * 2, 8 + BUTTON_PAD * 2, 4, h_color);
+				}
 				draw_sprite_alpha_paint(ctx, sprites[BUTTON_MAXIMIZE],
 					width + (BUTTON_OFFSET - 50) * TOTAL_SCALE,
-					(16 - BUTTON_OFFSET) * TOTAL_SCALE, 1.0, title_color);
+					(16 - BUTTON_OFFSET) * TOTAL_SCALE, 1.0, i_color);
 
 				if (width + (BUTTON_OFFSET - 72) * TOTAL_SCALE > bounds.left_width) {
+					if (decor_hover_window == window && decor_hover_button == DECOR_MINIMIZE) {
+						draw_rounded_rectangle(ctx,
+							width + (BUTTON_OFFSET - 72 - BUTTON_PAD) * TOTAL_SCALE,
+							(16 - BUTTON_OFFSET - BUTTON_PAD) * TOTAL_SCALE, 8 + BUTTON_PAD * 2, 8 + BUTTON_PAD * 2, 4, h_color);
+					}
 					draw_sprite_alpha_paint(ctx, sprites[BUTTON_MINIMIZE],
 						width + (BUTTON_OFFSET - 72) * TOTAL_SCALE,
-						(16 - BUTTON_OFFSET) * TOTAL_SCALE, 1.0, title_color);
+						(16 - BUTTON_OFFSET) * TOTAL_SCALE, 1.0, i_color);
 				}
 			}
 		}
@@ -260,23 +280,27 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 }
 
 static int check_button_press_fancy(yutani_window_t * window, int x, int y) {
-	if (x >= (int)window->width + (BUTTON_OFFSET - 28) * TOTAL_SCALE &&
-		x <= (int)window->width + (BUTTON_OFFSET - 18) * TOTAL_SCALE &&
-		y >= 16 * TOTAL_SCALE && y <= 26 * TOTAL_SCALE ) {
-		return DECOR_CLOSE;
-	}
-
-	if (!(window->decorator_flags & DECOR_FLAG_NO_MAXIMIZE)) {
-		if (x >= (int)window->width + (BUTTON_OFFSET - 50) * TOTAL_SCALE &&
-			x <= (int)window->width + (BUTTON_OFFSET - 40) * TOTAL_SCALE &&
-			y >= 16 * TOTAL_SCALE && y <= 26 * TOTAL_SCALE) {
-			return DECOR_MAXIMIZE;
+	if (y >= (16 - BUTTON_OFFSET - BUTTON_PAD) * TOTAL_SCALE && y <= (16 - BUTTON_OFFSET + 8 + BUTTON_PAD) * TOTAL_SCALE ) {
+		if (x >= (int)window->width + (BUTTON_OFFSET - 28 - BUTTON_PAD) * TOTAL_SCALE &&
+			x <= (int)window->width + (BUTTON_OFFSET - 28 + 8 + BUTTON_PAD) * TOTAL_SCALE) {
+			return DECOR_CLOSE;
 		}
 
-		if (x >= (int)window->width + (BUTTON_OFFSET - 72) * TOTAL_SCALE &&
-			x <= (int)window->width + (BUTTON_OFFSET - 62) * TOTAL_SCALE &&
-			y >= 16 * TOTAL_SCALE && y <= 26 * TOTAL_SCALE) {
-			return DECOR_MINIMIZE;
+		if (!(window->decorator_flags & DECOR_FLAG_NO_MAXIMIZE)) {
+			if (x >= (int)window->width + (BUTTON_OFFSET - 50 - BUTTON_PAD) * TOTAL_SCALE &&
+				x <= (int)window->width + (BUTTON_OFFSET - 50 + 8 + BUTTON_PAD) * TOTAL_SCALE) {
+				return DECOR_MAXIMIZE;
+			}
+
+			if (x >= (int)window->width + (BUTTON_OFFSET - 72 - BUTTON_PAD) * TOTAL_SCALE &&
+				x <= (int)window->width + (BUTTON_OFFSET - 72 + 8 + BUTTON_PAD) * TOTAL_SCALE) {
+				return DECOR_MINIMIZE;
+			}
+		}
+
+		if (x >= (int)window->width + (BUTTON_OFFSET - 72 - BUTTON_PAD) * TOTAL_SCALE &&
+			x <= (int)window->width + (BUTTON_OFFSET - 28 + 8 + BUTTON_PAD) * TOTAL_SCALE) {
+			return DECOR_OTHER;
 		}
 	}
 
