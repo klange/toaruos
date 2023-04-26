@@ -19,7 +19,7 @@ static ssize_t read_null(fs_node_t *node, off_t offset, size_t size, uint8_t *bu
 }
 
 static ssize_t write_null(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	return 0;
+	return size;
 }
 
 static void open_null(fs_node_t * node, unsigned int flags) {
@@ -32,11 +32,11 @@ static void close_null(fs_node_t * node) {
 
 static ssize_t read_zero(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	memset(buffer, 0x00, size);
-	return 1;
+	return size;
 }
 
 static ssize_t write_zero(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	return 0;
+	return size;
 }
 
 static void open_zero(fs_node_t * node, unsigned int flags) {
