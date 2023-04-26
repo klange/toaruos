@@ -62,10 +62,13 @@ static int rm_thing(char * tmp) {
 
 int main(int argc, char * argv[]) {
 	int opt;
-	while ((opt = getopt(argc, argv, "r")) != -1) {
+	while ((opt = getopt(argc, argv, "fr")) != -1) {
 		switch (opt) {
 			case 'r':
 				recursive = 1;
+				break;
+			case 'f':
+				/* ignore */
 				break;
 			default:
 				fprintf(stderr, "rm: unrecognized option '%c'\n", opt);
