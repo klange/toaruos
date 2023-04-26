@@ -324,6 +324,12 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	this_core->current_process->thread.page_directory->directory = mmu_clone(NULL);
 	mmu_set_directory(this_core->current_process->thread.page_directory->directory);
 	process_release_directory(this_directory);
+	for (int i = 0; i < NUMSIGNALS; ++i) {
+		if (this_core->current_process->signals[i].handler != 1) {
+			this_core->current_process->signals[i].handler = 0;
+			this_core->current_process->signals[i].flags = 0;
+		}
+	}
 
 	for (int i = 0; i < header.e_phnum; ++i) {
 		Elf64_Phdr phdr;

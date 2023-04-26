@@ -1299,6 +1299,9 @@ pid_t fork(void) {
 	new_proc->thread.page_directory->directory = directory;
 	spin_init(new_proc->thread.page_directory->lock);
 
+	memcpy(new_proc->signals, parent->signals, sizeof(struct signal_config) * (NUMSIGNALS+1));
+	new_proc->blocked_signals = parent->blocked_signals;
+
 	struct regs r;
 	memcpy(&r, parent->syscall_registers, sizeof(struct regs));
 	sp = new_proc->image.stack;
@@ -1337,6 +1340,8 @@ pid_t clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 	spin_lock(new_proc->thread.page_directory->lock);
 	new_proc->thread.page_directory->refcount++;
 	spin_unlock(new_proc->thread.page_directory->lock);
+	memcpy(new_proc->signals, parent->signals, sizeof(struct signal_config) * (NUMSIGNALS+1));
+	new_proc->blocked_signals = parent->blocked_signals;
 
 	struct regs r;
 	memcpy(&r, parent->syscall_registers, sizeof(struct regs));
