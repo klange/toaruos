@@ -55,7 +55,7 @@ EMU_KERNEL  = -fw_cfg name=opt/org.toaruos.kernel,file=misaka-kernel
 run: system
 	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session vid=auto" ${EMU_RAMDISK} ${EMU_KERNEL}
 
-hvf: EMU_MACH = virt-2.12,highmem=off
+hvf: EMU_MACH = virt-2.12
 hvf: EMU_CPU = host -accel hvf
 hvf: system
 	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session vid=auto" ${EMU_RAMDISK} ${EMU_KERNEL}
