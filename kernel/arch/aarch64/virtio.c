@@ -228,7 +228,7 @@ static void virtio_tablet_thread(void * data) {
 
 		uint16_t them = queue->used.index;
 
-		for (; index < them; index++) {
+		for (; index != them; index++) {
 			asm volatile ("dc ivac, %0\ndsb sy" :: "r"(&buffers[index%queue_size]) : "memory");
 			struct virtio_input_event evt = buffers[index%queue_size];
 			while (evt.type == 0xFF) {
@@ -376,7 +376,7 @@ static void virtio_keyboard_thread(void * data) {
 
 		uint16_t them = queue->used.index;
 
-		for (; index < them; index++) {
+		for (; index != them; index++) {
 			asm volatile ("dc ivac, %0\ndsb sy" :: "r"(&buffers[index%queue_size]) : "memory");
 			struct virtio_input_event evt = buffers[index%queue_size];
 			while (evt.type == 0xFF) {
