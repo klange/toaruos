@@ -45,9 +45,10 @@ static struct TT_Font * _tt_font = NULL;
 #define BUTTON_CLOSE 0
 #define BUTTON_MAXIMIZE 1
 #define BUTTON_MINIMIZE 2
-#define ACTIVE   3
-#define INACTIVE 12
-static sprite_t * sprites[21];
+#define BUTTON_UNMAXIMIZE 3
+#define ACTIVE   4
+#define INACTIVE 13
+static sprite_t * sprites[22];
 
 #define TEXT_OFFSET ((window->decorator_flags & DECOR_FLAG_TILED) ? 5 : 10)
 #define BUTTON_OFFSET ((window->decorator_flags & DECOR_FLAG_TILED) ? 5 : 0)
@@ -260,7 +261,7 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 						width + (BUTTON_OFFSET - 50 - BUTTON_PAD) * TOTAL_SCALE,
 						(16 - BUTTON_OFFSET - BUTTON_PAD) * TOTAL_SCALE, 8 + BUTTON_PAD * 2, 8 + BUTTON_PAD * 2, 4, h_color);
 				}
-				draw_sprite_alpha_paint(ctx, sprites[BUTTON_MAXIMIZE],
+				draw_sprite_alpha_paint(ctx, sprites[(window->decorator_flags & DECOR_FLAG_TILED) ? BUTTON_UNMAXIMIZE : BUTTON_MAXIMIZE],
 					width + (BUTTON_OFFSET - 50) * TOTAL_SCALE,
 					(16 - BUTTON_OFFSET) * TOTAL_SCALE, 1.0, i_color);
 
@@ -311,6 +312,7 @@ void decor_init() {
 	init_sprite(BUTTON_CLOSE, TTK_FANCY_PATH "button-close.png");
 	init_sprite(BUTTON_MAXIMIZE, TTK_FANCY_PATH "button-maximize.png");
 	init_sprite(BUTTON_MINIMIZE, TTK_FANCY_PATH "button-minimize.png");
+	init_sprite(BUTTON_UNMAXIMIZE, TTK_FANCY_PATH "button-unmaximize.png");
 
 	create_borders_from_spritesheet(ACTIVE, TTK_FANCY_PATH "borders-active.png");
 	create_borders_from_spritesheet(INACTIVE, TTK_FANCY_PATH "borders-inactive.png");
