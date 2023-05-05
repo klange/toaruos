@@ -74,6 +74,7 @@ static int symlink_tmpfs(fs_node_t * parent, char * target, char * name) {
 	struct tmpfs_file * t = tmpfs_file_new(name);
 	t->type = TMPFS_TYPE_LINK;
 	t->target = strdup(target);
+	t->length = strlen(target);
 
 	t->mask = 0777;
 	t->uid = this_core->current_process->user;
@@ -125,11 +126,11 @@ static struct tmpfs_dir * tmpfs_dir_new(char * name, struct tmpfs_dir * parent) 
 }
 
 static void tmpfs_file_free(struct tmpfs_file * t) {
+	spin_lock(t->lock);
 	if (t->type == TMPFS_TYPE_LINK) {
-		printf("tmpfs: bad link free?\n");
+		/* free target string */
 		free(t->target);
 	}
-	spin_lock(t->lock);
 	for (size_t i = 0; i < t->block_count; ++i) {
 		mmu_frame_release((uintptr_t)t->blocks[i] * 0x1000);
 		tmpfs_total_blocks--;
