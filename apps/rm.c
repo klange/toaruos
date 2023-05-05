@@ -42,7 +42,12 @@ static int rm_directory(char * source) {
 	}
 	closedir(dirp);
 
-	return unlink(source);
+	int res = unlink(source);
+	if (res < 0) {
+		fprintf(stderr, "rm: %s: %s\n", source, strerror(errno));
+		return 1;
+	}
+	return 0;
 }
 
 static int rm_thing(char * tmp) {
@@ -55,7 +60,12 @@ static int rm_thing(char * tmp) {
 		}
 		return rm_directory(tmp);
 	} else {
-		return unlink(tmp);
+		int res = unlink(tmp);
+		if (res < 0) {
+			fprintf(stderr, "rm: %s: %s\n", tmp, strerror(errno));
+			return 1;
+		}
+		return 0;
 	}
 }
 
