@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/esh
 
 if not stat -Lq /dev/cdrom0 then exit 0
 

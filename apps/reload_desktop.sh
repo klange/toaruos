@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/esh
 
 export-cmd DESKTOP cat /var/run/.wallpaper.pid
 

@@ -96,7 +96,7 @@ int main(int argc, char * argv[]) {
 	prog_lines[i] = "msk count";
 	sprintf(data_lines[i++], C_A "Packages: " C_O);
 
-	prog_lines[i] = "sh -v";
+	prog_lines[i] = "esh -v";
 	sprintf(data_lines[i++], C_A "Shell: " C_O);
 
 	prog_lines[i] = "yutani-query resolution";

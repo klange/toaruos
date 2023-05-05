@@ -48,6 +48,12 @@ def file_filter(tarinfo):
 
     return tarinfo
 
+def symlink(file,target):
+    ti = tarfile.TarInfo(file)
+    ti.type = tarfile.SYMTYPE
+    ti.linkname = target
+    return ti
+
 with tarfile.open('ramdisk.igz','w:gz') as ramdisk:
     ramdisk.add('base',arcname='/',filter=file_filter)
 
@@ -63,5 +69,6 @@ with tarfile.open('ramdisk.igz','w:gz') as ramdisk:
         ramdisk.add('tags',arcname='/src/tags',filter=file_filter)
     ramdisk.add('util/auto-dep.krk',arcname='/bin/auto-dep.krk',filter=file_filter)
     ramdisk.add('kuroko/src/kuroko',arcname='/usr/include/kuroko',filter=file_filter)
+    ramdisk.addfile(symlink('bin/sh','esh'))
 
 

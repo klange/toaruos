@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/esh
 
 # This daemonizes
 exec splash-log

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/esh
 
 if empty? "$1" then exec sh -c "echo 'usage: $0 WALLPAPER'"
 if not stat -Lq "$1" then exec sh -c "echo '$0: $1 does not exist'"

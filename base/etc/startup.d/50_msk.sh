@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/esh
 
 if kcmdline -q no-startup-msk then exit 0
 
