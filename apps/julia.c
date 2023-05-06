@@ -281,7 +281,7 @@ void draw_label(void) {
 	clock_t time_after = clock();
 	char description[100];
 	if (explore_mode) {
-		snprintf(description, 100, "<i>x</i>=%g <i>y</i>=%g, <i>zoom</i>=%g, %ld ms%s", expx, expy, expz, (time_after - time_before) / 1000, step_n == 0 ? "*" : "");
+		snprintf(description, 100, "<i>x</i>=%g <i>y</i>=%g, <i>zoom</i>=%g×, %ld ms%s", expx, expy, 1.0/expz, (time_after - time_before) / 1000, step_n == 0 ? "*" : "");
 	} else {
 		snprintf(description, 100, "<i>c</i> = %g + %g<i>i</i>, %ld ms%s", conx, cony, (time_after - time_before) / 1000, step_n == 0 ? "*" : "");
 	}
