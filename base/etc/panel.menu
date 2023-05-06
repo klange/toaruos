@@ -17,6 +17,7 @@ exec terminal,utilities-terminal,Terminal
 exec drawlines,drawlines,Draw Lines
 :decorated
 exec julia,julia,Julia Fractals
+exec mandelbrot,mandelbrot,Mandelbrot Explorer
 exec plasma,plasma,Plasma
 :settings
 exec gsudo package-manager,package,Package Manager

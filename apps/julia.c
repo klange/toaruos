@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <math.h>
+#include <libgen.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -25,6 +26,10 @@
 #include <toaru/markup_text.h>
 
 #define GFX_(xpt, ypt) (GFX(ctx,xpt+decor_left_width,ypt+decor_top_height))
+
+static char * app_name = "Julia Fractals";
+static char * app_desc = "Julia fractal generator";
+static char * app_icon = "julia";
 
 /* Pointer to graphics memory */
 static yutani_t * yctx;
@@ -40,16 +45,20 @@ static int decor_height = 0;
 
 
 /* Julia fractals elements */
-float conx = -0.752;  /* real part of c */
-float cony = 0.117;    /* imag part of c */
-float Maxx = 2;      /* X bounds */
-float Minx = -2;
-float Maxy = 1;      /* Y bounds */
-float Miny = -1;
-float pixcorx;       /* Internal values */
-float pixcory;
-float rotation = 4.1888; /* Blue */
+double conx = -0.752;  /* real part of c */
+double cony = 0.117;    /* imag part of c */
+double expx = 0.0;
+double expy = 0.0;
+double expz = 1.0; /* scale */
+double Maxx = 2;      /* X bounds */
+double Minx = -2;
+double Maxy = 1;      /* Y bounds */
+double Miny = -1;
+double pixcorx;       /* Internal values */
+double pixcory;
+double rotation = 4.1888; /* Blue */
 int maxiter = 1000; /* Iteration levels */
+int explore_mode = 0;
 
 uint32_t * palette = NULL;
 
@@ -157,9 +166,10 @@ int top    = 40;
 int width  = 300;
 int height = 300;
 
+
 static uint32_t julia(int xpt, int ypt) {
-	long double x = xpt * pixcorx + Minx;
-	long double y = Maxy - ypt * pixcory;
+	long double x = (xpt * pixcorx + Minx) * expz + expx;
+	long double y = (Maxy - ypt * pixcory) * expz + expy;
 	long double xnew = 0;
 	long double ynew = 0;
 
@@ -176,36 +186,60 @@ static uint32_t julia(int xpt, int ypt) {
 	return palette[k];
 }
 
+static uint32_t mandelbrot(int xpt, int ypt) {
+	long double x0 = (xpt * pixcorx + Minx) * expz + expx;
+	long double y0 = (Maxy - ypt * pixcory) * expz + expy;
+	long double x = 0;
+	long double y = 0;
+	long double xnew = 0;
+	long double ynew = 0;
+
+	int k = 0;
+	for (k = 0; k < maxiter; k++) {
+		xnew = x * x - y * y + x0;
+		ynew = 2 * x * y + y0;
+		x    = xnew;
+		y    = ynew;
+		if ((x * x + y * y) > 4.0)
+			break;
+	}
+
+	return palette[k];
+}
+
+uint32_t (*function)(int,int) = julia;
+
 #define T_I "\033[3m"
 #define T_N "\033[0m"
 void usage(char * argv[]) {
 	printf(
-			"Julia fractal generator.\n"
+			"%s.\n"
 			"\n"
 			"usage: %s [-i " T_I "iterations" T_N "] [-x " T_I "minx" T_N "]\n"
 			"          [-X " T_I "maxx" T_N "] [-c " T_I "real" T_N "] [-C " T_I "imag" T_N "]\n"
 			"          [-W " T_I "width" T_N "] [-H " T_I "height" T_N "] [-h]\n"
 			"\n"
 			" -i --iterations  " T_I "Number of iterations to run" T_N "\n"
-			" -x --minx        " T_I "Minimum X value" T_N "\n"
-			" -X --maxx        " T_I "Maximum X value" T_N "\n"
+			" -x --center-x    " T_I "Center X" T_N "\n"
+			" -y --center-y    " T_I "Center Y" T_N "\n"
 			" -c --creal       " T_I "Real component of c" T_N "\n"
 			" -C --cimag       " T_I "Imaginary component of c" T_N "\n"
 			" -r --rotate      " T_I "Hue rotation for color mapping" T_N "\n"
 			" -W --width       " T_I "Window width" T_N "\n"
 			" -H --height      " T_I "Window height" T_N "\n"
 			" -h --help        " T_I "Show this help message." T_N "\n",
+			app_desc,
 			argv[0]);
 }
 
 static void decors() {
-	render_decorations(window, ctx, "Julia Fractals");
+	render_decorations(window, ctx, app_name);
 	flip(ctx);
 }
 
 static void do_line(gfx_context_t * ctx, int j) {
 	for (int i = 0; i < width; ++i) {
-		GFX_(i,j) = julia(i,j);
+		GFX_(i,j) = function(i,j);
 	}
 	memcpy(&GFXR(ctx,0,decor_top_height+j),&GFX(ctx,0,decor_top_height+j),ctx->stride);
 	yutani_flip_region(yctx, window, decor_left_width, decor_top_height + j, width, 1);
@@ -220,8 +254,8 @@ static clock_t time_before;
 #define START_POINT -4
 
 void start_processing(void) {
-	float _x = Maxx - Minx;
-	float _y = _x / width * height;
+	double _x = Maxx - Minx;
+	double _y = _x / width * height;
 
 	Miny = 0 - _y / 2;
 	Maxy = _y / 2;
@@ -246,8 +280,39 @@ void start_processing(void) {
 void draw_label(void) {
 	clock_t time_after = clock();
 	char description[100];
-	snprintf(description, 100, "<i>c</i> = %g + %g<i>i</i>, %ld ms%s", conx, cony, (time_after - time_before) / 1000, step_n == 0 ? "*" : "");
-	markup_draw_string(ctx, decor_left_width + 2, window->height - decor_bottom_height - 2, description, rgb(255,255,255));
+	if (explore_mode) {
+		snprintf(description, 100, "<i>x</i>=%g <i>y</i>=%g, <i>zoom</i>=%g, %ld ms%s", expx, expy, expz, (time_after - time_before) / 1000, step_n == 0 ? "*" : "");
+	} else {
+		snprintf(description, 100, "<i>c</i> = %g + %g<i>i</i>, %ld ms%s", conx, cony, (time_after - time_before) / 1000, step_n == 0 ? "*" : "");
+	}
+
+	/* Set up a clip box */
+	gfx_context_t * tmp = init_graphics_subregion(ctx, decor_left_width, decor_top_height, width, height);
+
+	/* Create a sprite to draw into */
+	sprite_t * stmp = create_sprite(width, height, ALPHA_EMBEDDED);
+	gfx_context_t * sctx = init_graphics_sprite(stmp);
+
+	/* Draw shadow */
+	draw_fill(sctx, rgba(0,0,0,0));
+	markup_draw_string(sctx, 2, height - 2, description, rgb(0,0,0));
+	blur_context_box(sctx, 2);
+	blur_context_box(sctx, 2);
+
+	/* Paint it twice */
+	draw_sprite(tmp, stmp, 0, 0);
+	draw_sprite(tmp, stmp, 0, 0);
+
+	/* Free the sprite part */
+	free(sctx);
+	sprite_free(stmp);
+
+	/* Now draw the white text */
+	markup_draw_string(tmp, 2, height - 2, description, rgb(255,255,255));
+
+	/* Free clip space */
+	free(tmp);
+
 	flip(ctx);
 	yutani_flip(yctx,window);
 }
@@ -276,7 +341,7 @@ void step_once(void) {
 		for (int x = 0, i = 0; x < width; x += step_res, i++) {
 			if ((step_n != START_POINT) && (step_i & 1) == 0 && (i & 1) == 0) continue;
 
-			uint32_t c = julia(x,step_y);
+			uint32_t c = function(x,step_y);
 			for (int _y = 0; _y < step_res && _y + step_y < height; _y++) {
 				for (int _x = 0; _x < step_res && _x + x < width; _x++) {
 					GFX_(_x+x,_y+step_y) = c;
@@ -318,9 +383,10 @@ void resize_finish(int w, int h) {
 	yutani_flip(yctx, window);
 }
 
-static double amount(struct yutani_msg_key_event * ke) {
-	double basis = 0.001;
-
+static double shift_amount = 0.001;
+static double pan_amount = 0.1;
+static double zoom_amount = 2.0;
+static double amount(struct yutani_msg_key_event * ke, double basis) {
 	if (ke->event.modifiers & (KEY_MOD_LEFT_SHIFT | KEY_MOD_RIGHT_SHIFT)) basis *= 10.0;
 	if (ke->event.modifiers & (KEY_MOD_LEFT_CTRL | KEY_MOD_RIGHT_CTRL)) basis *= 5.0;
 
@@ -329,10 +395,19 @@ static double amount(struct yutani_msg_key_event * ke) {
 
 int main(int argc, char * argv[]) {
 
+	if (!strcmp(basename(argv[0]),"mandelbrot")) {
+		function = mandelbrot;
+		app_name = "Mandelbrot Explorer";
+		app_desc = "Mandelbrot set plotter";
+		app_icon = "mandelbrot";
+		explore_mode = 1;
+		expx = -0.75;
+	}
+
 	static struct option long_opts[] = {
 		{"iterations", required_argument, 0, 'i'},
-		{"minx",       required_argument, 0, 'x'},
-		{"maxx",       required_argument, 0, 'X'},
+		{"center-x",   required_argument, 0, 'x'},
+		{"center-y",   required_argument, 0, 'y'},
 		{"creal",      required_argument, 0, 'c'},
 		{"cimag",      required_argument, 0, 'C'},
 		{"rotate",     required_argument, 0, 'r'},
@@ -358,10 +433,10 @@ int main(int argc, char * argv[]) {
 					if (maxiter > 1000) maxiter = 1000;
 					break;
 				case 'x':
-					Minx = atof(optarg);
+					expx = atof(optarg);
 					break;
-				case 'X':
-					Maxx = atof(optarg);
+				case 'y':
+					expy = atof(optarg);
 					break;
 				case 'c':
 					conx = atof(optarg);
@@ -408,7 +483,7 @@ int main(int argc, char * argv[]) {
 	window = yutani_window_create(yctx, width + decor_width, height + decor_height);
 	yutani_window_move(yctx, window, left, top);
 
-	yutani_window_advertise_icon(yctx, window, "Julia Fractals", "julia");
+	yutani_window_advertise_icon(yctx, window, app_name, app_icon);
 
 	ctx = init_graphics_yutani_double_buffer(window);
 
@@ -439,30 +514,75 @@ int main(int argc, char * argv[]) {
 					{
 						struct yutani_msg_key_event * ke = (void*)m->data;
 						if (ke->event.action == KEY_ACTION_DOWN) {
-							switch (ke->event.keycode) {
-								case 'q':
-									playing = 0;
-									break;
-								case KEY_ARROW_LEFT:
-									conx -= amount(ke);
-									needs_redraw = 1;
-									break;
-								case KEY_ARROW_RIGHT:
-									conx += amount(ke);
-									needs_redraw = 1;
-									break;
-								case KEY_ARROW_UP:
-									cony += amount(ke);
-									needs_redraw = 1;
-									break;
-								case KEY_ARROW_DOWN:
-									cony -= amount(ke);
-									needs_redraw = 1;
-									break;
-								case 'p':
-									next_palette();
-									needs_redraw = 1;
-									break;
+							if (explore_mode) {
+								switch (ke->event.keycode) {
+									case KEY_ARROW_LEFT:
+										expx -= amount(ke, pan_amount) * expz;
+										needs_redraw = 1;
+										break;
+									case KEY_ARROW_RIGHT:
+										expx += amount(ke, pan_amount) * expz;
+										needs_redraw = 1;
+										break;
+									case KEY_ARROW_UP:
+										expy += amount(ke, pan_amount) * expz;
+										needs_redraw = 1;
+										break;
+									case KEY_ARROW_DOWN:
+										expy -= amount(ke, pan_amount) * expz;
+										needs_redraw = 1;
+										break;
+									case KEY_PAGE_UP:
+										expz /= amount(ke, zoom_amount);
+										needs_redraw = 1;
+										break;
+									case KEY_PAGE_DOWN:
+										expz *= amount(ke, zoom_amount);
+										needs_redraw = 1;
+										break;
+									case 'q':
+										playing = 0;
+										break;
+									case 'p':
+										next_palette();
+										needs_redraw = 1;
+										break;
+									case 'e':
+										explore_mode = 0;
+										needs_redraw = 1;
+										break;
+								}
+
+							} else {
+								switch (ke->event.keycode) {
+									case 'q':
+										playing = 0;
+										break;
+									case KEY_ARROW_LEFT:
+										conx -= amount(ke, shift_amount);
+										needs_redraw = 1;
+										break;
+									case KEY_ARROW_RIGHT:
+										conx += amount(ke, shift_amount);
+										needs_redraw = 1;
+										break;
+									case KEY_ARROW_UP:
+										cony += amount(ke, shift_amount);
+										needs_redraw = 1;
+										break;
+									case KEY_ARROW_DOWN:
+										cony -= amount(ke, shift_amount);
+										needs_redraw = 1;
+										break;
+									case 'p':
+										next_palette();
+										needs_redraw = 1;
+										break;
+									case 'e':
+										explore_mode = 1;
+										needs_redraw = 1;
+										break;
+								}
 							}
 						}
 					}
