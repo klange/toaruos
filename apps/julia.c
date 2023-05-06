@@ -200,34 +200,100 @@ void usage(char * argv[]) {
 
 static void decors() {
 	render_decorations(window, ctx, "Julia Fractals");
+	flip(ctx);
 }
 
-void redraw() {
+static void do_line(gfx_context_t * ctx, int j) {
+	for (int i = 0; i < width; ++i) {
+		GFX_(i,j) = julia(i,j);
+	}
+	memcpy(&GFXR(ctx,0,decor_top_height+j),&GFX(ctx,0,decor_top_height+j),ctx->stride);
+	yutani_flip_region(yctx, window, decor_left_width, decor_top_height + j, width, 1);
+}
+
+static int step_res;
+static int step_n;
+static int step_y;
+static int step_i;
+static int processing = 0;
+static clock_t time_before;
+#define START_POINT -4
+
+void start_processing(void) {
 	float _x = Maxx - Minx;
 	float _y = _x / width * height;
 
 	Miny = 0 - _y / 2;
 	Maxy = _y / 2;
 
-	decors();
-
 	pixcorx = (Maxx - Minx) / width;
 	pixcory = (Maxy - Miny) / height;
 
-	clock_t time_before = clock();
+	step_n = START_POINT;
+	step_y = 0;
+	step_i = 0;
+	step_res = 64;
 
-	for (int j = 0; j < height; ++j) {
-		for (int i = 0; i < width; ++i) {
-			GFX_(i,j) = julia(i,j);
-		}
-		yutani_flip_region(yctx, window, decor_left_width, decor_top_height + j, width, 1);
+	processing = 1;
+	draw_fill(ctx, rgb(0,0,0));
+
+	decors();
+	yutani_flip(yctx, window);
+
+	time_before = clock();
+}
+
+void draw_label(void) {
+	clock_t time_after = clock();
+	char description[100];
+	snprintf(description, 100, "<i>c</i> = %g + %g<i>i</i>, %ld ms%s", conx, cony, (time_after - time_before) / 1000, step_n == 0 ? "*" : "");
+	markup_draw_string(ctx, decor_left_width + 2, window->height - decor_bottom_height - 2, description, rgb(255,255,255));
+	flip(ctx);
+	yutani_flip(yctx,window);
+}
+
+void step_once(void) {
+	if (step_n < 0 && step_y > height) {
+		flip(ctx);
+		yutani_flip(yctx,window);
+		step_res /= 2;
+		step_y = 0;
+		step_i = 0;
+		step_n++;
 	}
 
-	clock_t time_after = clock();
+	if (step_n >= height) {
+		processing = 0;
+		draw_label();
+		return;
+	}
 
-	char description[100];
-	snprintf(description, 100, "<i>c</i> = %g + %g<i>i</i>, %ld ms", conx, cony, (time_after - time_before) / 1000);
-	markup_draw_string(ctx, decor_left_width + 2, window->height - decor_bottom_height - 2, description, rgb(255,255,255));
+	if (step_n == 0) {
+		draw_label();
+	}
+
+	if (step_n < 0) {
+		for (int x = 0, i = 0; x < width; x += step_res, i++) {
+			if ((step_n != START_POINT) && (step_i & 1) == 0 && (i & 1) == 0) continue;
+
+			uint32_t c = julia(x,step_y);
+			for (int _y = 0; _y < step_res && _y + step_y < height; _y++) {
+				for (int _x = 0; _x < step_res && _x + x < width; _x++) {
+					GFX_(_x+x,_y+step_y) = c;
+				}
+			}
+		}
+
+
+		step_i += 1;
+		step_y += step_res;
+	} else if (step_n % 2) {
+		do_line(ctx,height/2 + step_n/2);
+		step_n++;
+	} else {
+		do_line(ctx,height/2 - step_n/2 - 1);
+		step_n++;
+	}
 }
 
 void resize_finish(int w, int h) {
@@ -247,11 +313,8 @@ void resize_finish(int w, int h) {
 	width  = w - decor_left_width - decor_right_width;
 	height = h - decor_top_height - decor_bottom_height;
 
-	draw_fill(ctx, rgb(0,0,0));
-	decors();
+	start_processing();
 	yutani_window_resize_done(yctx, window);
-
-	redraw();
 	yutani_flip(yctx, window);
 }
 
@@ -347,18 +410,24 @@ int main(int argc, char * argv[]) {
 
 	yutani_window_advertise_icon(yctx, window, "Julia Fractals", "julia");
 
-	ctx = init_graphics_yutani(window);
+	ctx = init_graphics_yutani_double_buffer(window);
 
 	initialize_palette();
 
-	redraw();
-	yutani_flip(yctx, window);
+	start_processing();
 
 	int playing = 1;
 	int needs_redraw = 0;
 
 	while (playing) {
+
+		if (processing && !yutani_query(yctx)) {
+			step_once();
+			continue;
+		}
+
 		yutani_msg_t * m = yutani_poll(yctx);
+
 		while (m) {
 			if (menu_process_event(yctx, m)) {
 				/* just decorations should be fine */
@@ -445,8 +514,7 @@ int main(int argc, char * argv[]) {
 		}
 
 		if (needs_redraw) {
-			redraw();
-			yutani_flip(yctx, window);
+			start_processing();
 			needs_redraw = 0;
 		}
 	}
