@@ -812,8 +812,10 @@ float tt_glyph_width(struct TT_Font * font, unsigned int glyph) {
 }
 
 __attribute__((visibility("protected")))
-struct TT_Contour * tt_prepare_string(struct TT_Font * font, float x, float y, const char * s, float * out_width) {
-	struct TT_Contour * contour = tt_contour_start(0, 0);
+struct TT_Contour * tt_prepare_string_into(struct TT_Contour * contour, struct TT_Font * font, float x, float y, const char * s, float * out_width) {
+	if (contour == NULL) {
+		contour = tt_contour_start(0, 0);
+	}
 
 	float x_offset = x;
 	uint32_t cp = 0;
@@ -830,6 +832,11 @@ struct TT_Contour * tt_prepare_string(struct TT_Font * font, float x, float y, c
 	if (out_width) *out_width = x_offset - x;
 
 	return contour;
+}
+
+__attribute__((visibility("protected")))
+struct TT_Contour * tt_prepare_string(struct TT_Font * font, float x, float y, const char * s, float * out_width) {
+	return tt_prepare_string_into(NULL, font, x, y, s, out_width);
 }
 
 int tt_draw_string(gfx_context_t * ctx, struct TT_Font * font, int x, int y, const char * s, uint32_t color) {

@@ -1105,18 +1105,23 @@ KRK_Method(Font,draw_glyph_into) {
 KRK_Method(Font,prepare_string) {
 	INIT_CHECK(Font);
 
+	struct _yutani_TTContour * contour = NULL;
 	float x, y;
 	const char * s;
 
-	if (!krk_parseArgs(".ffs", (const char*[]){"x","y","s"},
-		&x, &y, &s)) return NONE_VAL();
+	if (!krk_parseArgs(".ffs|O!", (const char*[]){"x","y","s","into"},
+		&x, &y, &s, TTContour, &contour)) return NONE_VAL();
 
 	float out_width = 0;
 	KrkTuple * out_tuple = krk_newTuple(2); /* contour, width */
 	krk_push(OBJECT_VAL(out_tuple));
 
-	struct _yutani_TTContour * contour = (struct _yutani_TTContour*)krk_newInstance(TTContour);
-	contour->contour = tt_prepare_string(self->fontData, x, y, s, &out_width);
+	/* if @c into is unset, make a new one to store result; otherwise, @c into is updated */
+	if (!contour) {
+		contour = (struct _yutani_TTContour*)krk_newInstance(TTContour);
+	}
+
+	contour->contour = tt_prepare_string_into(contour->contour, self->fontData, x, y, s, &out_width);
 	out_tuple->values.values[out_tuple->values.count++] = OBJECT_VAL(contour);
 	out_tuple->values.values[out_tuple->values.count++] = FLOATING_VAL(out_width);
 
