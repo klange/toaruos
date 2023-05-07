@@ -234,7 +234,6 @@ void usage(char * argv[]) {
 
 static void decors() {
 	render_decorations(window, ctx, app_name);
-	flip(ctx);
 }
 
 static void do_line(gfx_context_t * ctx, int j) {
@@ -252,6 +251,8 @@ static int step_i;
 static int processing = 0;
 static clock_t time_before;
 #define START_POINT -4
+
+void step_once(void);
 
 void start_processing(void) {
 	double _x = Maxx - Minx;
@@ -272,9 +273,9 @@ void start_processing(void) {
 	draw_fill(ctx, rgb(0,0,0));
 
 	decors();
-	yutani_flip(yctx, window);
 
 	time_before = clock();
+	step_once();
 }
 
 void draw_label(void) {
@@ -320,7 +321,8 @@ void draw_label(void) {
 void step_once(void) {
 	if (step_n < 0 && step_y > height) {
 		flip(ctx);
-		yutani_flip(yctx,window);
+		yutani_flip(yctx, window);
+
 		step_res /= 2;
 		step_y = 0;
 		step_i = 0;
@@ -348,7 +350,6 @@ void step_once(void) {
 				}
 			}
 		}
-
 
 		step_i += 1;
 		step_y += step_res;
@@ -507,6 +508,7 @@ int main(int argc, char * argv[]) {
 			if (menu_process_event(yctx, m)) {
 				/* just decorations should be fine */
 				decors();
+				flip(ctx);
 				yutani_flip(yctx, window);
 			}
 			switch (m->type) {
@@ -594,6 +596,7 @@ int main(int argc, char * argv[]) {
 						if (win && win == window) {
 							win->focused = wf->focused;
 							decors();
+							flip(ctx);
 							yutani_flip(yctx, window);
 						}
 					}
