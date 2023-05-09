@@ -15,7 +15,9 @@ def entry(sym):
     print(f'.asciz "{sym}"')
 
 let ignore = ['abs','kernel_symbols_start','kernel_symbols_end']
-let lines  = [x.strip().split(' ')[2] for x in fileio.stdin.readlines() if x not in ignore]
+let source = [x.strip() for x in fileio.stdin.readlines()]
+let symbols = [x.split()[0] for x in source if not x.endswith(':')]
+let lines  = [x for x in symbols if x not in ignore]
 
 print('.section .symbols')
 print()

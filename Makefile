@@ -108,8 +108,7 @@ kernel/sys/version.o: ${KERNEL_SOURCES}
 
 kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/gensym.krk
 	-rm -f kernel/symbols.o
-	${CC} -T kernel/arch/${ARCH}/link.ld ${KERNEL_CFLAGS} -o misaka-kernel.64 ${KERNEL_ASMOBJS} ${KERNEL_OBJS}
-	${NM} misaka-kernel.64 -g | kuroko util/gensym.krk > kernel/symbols.S
+	${NM} misaka-kernel.64 -g -f p ${KERNEL_ASMOBJS} ${KERNEL_OBJS} | sort | kuroko util/gensym.krk > kernel/symbols.S
 	${CC} -c kernel/symbols.S -o $@
 
 kernel/%.o: kernel/%.S
