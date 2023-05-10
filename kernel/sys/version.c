@@ -24,7 +24,7 @@ const char * __kernel_version_format = "%d.%d.%d-%s";
 
 /* Version numbers X.Y.Z */
 int    __kernel_version_major = 2;
-int    __kernel_version_minor = 1;
+int    __kernel_version_minor = 2;
 int    __kernel_version_lower = 0;
 
 /* Kernel build suffix, which doesn't necessarily
@@ -39,7 +39,7 @@ int    __kernel_version_lower = 0;
 const char * __kernel_version_suffix   = KERNEL_VERSION_SUFFIX;
 
 /* The release codename. */
-const char * __kernel_version_codename = "\"Sister's Noise\"";
+const char * __kernel_version_codename = "\"Eternal Reality\"";
 
 /* Build architecture */
 const char * __kernel_arch = STRSTR(KERNEL_ARCH);
