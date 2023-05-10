@@ -41,7 +41,7 @@ There are no external runtime dependencies and all required source code, totalli
 - **Bim** (text editor), [apps/bim.c](apps/bim.c), is a Vim-inspired editor with syntax highlighting.
 - **Terminal**, [apps/terminal.c](apps/terminal.c), xterm-esque terminal emulator with 24-bit color support.
 - **ld.so** (dynamic linker/loader), [linker/linker.c](linker/linker.c), loads dynamically-linked ELF binaries.
-- **Esh** (shell), [apps/sh.c](apps/sh.c), supports pipes, redirections, variables, etc.
+- **Esh** (shell), [apps/esh.c](apps/esh.c), supports pipes, redirections, variables, etc.
 - **Kuroko** (interpreter), [kuroko/](https://kuroko-lang.github.io/), a dynamic bytecode-compiled programming language.
 
 ## Current Goals
