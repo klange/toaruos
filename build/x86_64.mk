@@ -25,7 +25,7 @@ EMU_ARGS += -smp $(SMP)
 EMU_ARGS += ${EMU_KVM}
 EMU_ARGS += -no-reboot
 EMU_ARGS += -serial mon:stdio
-EMU_ARGS += -soundhw pcspk,ac97
+EMU_ARGS += -device AC97
 
 # UTC is the default setting.
 #EMU_ARGS += -rtc base=utc
