@@ -327,7 +327,7 @@ static void set_focused_window(yutani_globals_t * yg, yutani_server_window_t * w
 		return; /* Already focused */
 	}
 
-	if (w->minimized) {
+	if (w && w->minimized) {
 		window_unminimize(yg,w);
 	}
 
