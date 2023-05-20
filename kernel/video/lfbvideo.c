@@ -534,7 +534,7 @@ static int lfb_init(const char * c) {
 	}
 
 	if (args_present("lfbwc")) {
-		lfb_use_write_combining = atoi(args_value("lfbwc"));
+		lfb_use_write_combining = 1;
 	}
 
 	int ret_val = 0;

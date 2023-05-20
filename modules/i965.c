@@ -92,10 +92,7 @@ static void setup_framebuffer(uint32_t pcidev) {
 	lfb_resolution_impl = i965_modeset;
 	lfb_set_resolution(1440,900);
 
-	if (!args_present("lfbwc")) {
-		/* if lfbwc wasn't specified, default to enabled */
-		lfb_use_write_combining = 1;
-	}
+	lfb_use_write_combining = 1;
 
 	/* Normally we don't clear the screen on mode set, but we should do it here */
 	memset(lfb_vid_memory, 0, lfb_memsize);
