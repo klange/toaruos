@@ -32,6 +32,7 @@
 #define REG_DSPASURF      0x7019c
 
 extern fs_node_t * lfb_device;
+extern int lfb_use_write_combining;
 static uintptr_t ctrl_regs = 0;
 
 static uint32_t i965_mmio_read(uint32_t reg) {
@@ -90,6 +91,11 @@ static void setup_framebuffer(uint32_t pcidev) {
 
 	lfb_resolution_impl = i965_modeset;
 	lfb_set_resolution(1440,900);
+
+	if (!args_present("lfbwc")) {
+		/* if lfbwc wasn't specified, default to enabled */
+		lfb_use_write_combining = 1;
+	}
 
 	/* Normally we don't clear the screen on mode set, but we should do it here */
 	memset(lfb_vid_memory, 0, lfb_memsize);

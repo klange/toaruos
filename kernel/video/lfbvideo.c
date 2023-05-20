@@ -44,6 +44,7 @@ uint32_t lfb_resolution_s = 0;
 uint8_t * lfb_vid_memory = (uint8_t *)0xE0000000;
 size_t lfb_memsize = 0xFF0000;
 const char * lfb_driver_name = NULL;
+int lfb_use_write_combining = 0;
 
 uintptr_t lfb_qemu_mmio = 0;
 
@@ -110,7 +111,7 @@ static int ioctl_vid(fs_node_t * node, unsigned long request, void * argp) {
 				}
 				for (uintptr_t i = 0; i < lfb_memsize; i += 0x1000) {
 					union PML * page = mmu_get_page(lfb_user_offset + i, MMU_GET_MAKE);
-					mmu_frame_map_address(page,MMU_FLAG_WRITABLE|MMU_FLAG_WC,((uintptr_t)(lfb_vid_memory) & 0xFFFFFFFF) + i);
+					mmu_frame_map_address(page,MMU_FLAG_WRITABLE | (lfb_use_write_combining ? MMU_FLAG_WC : 0),((uintptr_t)(lfb_vid_memory) & 0xFFFFFFFF) + i);
 				}
 				*((uintptr_t *)argp) = lfb_user_offset;
 			}
@@ -530,6 +531,10 @@ static int lfb_init(const char * c) {
 	} else if (!lfb_resolution_x) {
 		x = PREFERRED_W;
 		y = PREFERRED_H;
+	}
+
+	if (args_present("lfbwc")) {
+		lfb_use_write_combining = atoi(args_value("lfbwc"));
 	}
 
 	int ret_val = 0;
