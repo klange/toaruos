@@ -101,6 +101,10 @@ int kmain() {
 			"Migrates the ramdisk from tarball to an in-memory",
 			"temporary filesystem at boot. Needed for packages.");
 
+	BOOT_OPTION(_lfbwc,       1, "WC framebuffer",
+			"Enables write-combining PAT configuration for",
+			"framebuffers. Toggle if graphics are slow.");
+
 	while (1) {
 		/* Loop over rendering the menu */
 		show_menu();
@@ -161,6 +165,10 @@ int kmain() {
 
 		if (_qemubug) {
 			strcat(cmdline, "sharedps2 ");
+		}
+
+		if (_lfbwc) {
+			strcat(cmdline, "lfbwc ");
 		}
 
 		if (!boot_edit) break;
