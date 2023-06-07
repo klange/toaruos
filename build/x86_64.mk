@@ -105,7 +105,7 @@ fatbase/efi/boot/bootx64.efi: boot/efi64.so
 BUILD_KRK=$(TOOLCHAIN)/local/bin/kuroko
 $(TOOLCHAIN)/local/bin/kuroko: kuroko/src/*.c
 	mkdir -p $(TOOLCHAIN)/local/bin
-	cc -Ikuroko/src -DNO_RLINE -DSTATIC_ONLY -DKRK_DISABLE_THREADS -o "${TOOLCHAIN}/local/bin/kuroko" kuroko/src/*.c
+	cc -Ikuroko/src -DNO_RLINE -DKRK_STATIC_ONLY -DKRK_DISABLE_THREADS -o "${TOOLCHAIN}/local/bin/kuroko" kuroko/src/*.c
 
 image.iso: cdrom/fat.img cdrom/boot.sys boot/mbr.S util/update-extents.krk | $(BUILD_KRK)
 	xorriso -as mkisofs -R -J -c bootcat \
