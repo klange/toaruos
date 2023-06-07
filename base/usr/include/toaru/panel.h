@@ -75,7 +75,6 @@ struct window_ad {
 extern struct window_ad * ads_by_z[];
 extern list_t * window_list;
 extern void redraw(void);
-extern char * ellipsify(char * input, int font_size, struct TT_Font * font, int max_width, int * out_width);
 extern int panel_menu_show(struct PanelWidget * this, struct MenuList * menu);
 extern int panel_menu_show_at(struct MenuList * menu, int x);
 extern void panel_highlight_widget(struct PanelWidget * this, gfx_context_t * ctx, int active);

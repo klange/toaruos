@@ -1128,6 +1128,27 @@ KRK_Method(Font,prepare_string) {
 	return krk_pop();
 }
 
+KRK_Method(Font,ellipsify) {
+	const char * s;
+	int max_width;
+
+	if (!krk_parseArgs(".si", (const char*[]){"s","w"},
+		&s, &max_width)) return NONE_VAL();
+
+	int out_width = 0;
+	char * out = tt_ellipsify(s, self->fontSize, self->fontData, max_width, &out_width);
+
+	KrkTuple * out_tuple = krk_newTuple(2);
+	krk_push(OBJECT_VAL(out_tuple));
+
+	out_tuple->values.values[out_tuple->values.count++] = OBJECT_VAL(krk_copyString(out, strlen(out)));
+	out_tuple->values.values[out_tuple->values.count++] = INTEGER_VAL(out_width);
+
+	free(out);
+
+	return krk_pop();
+}
+
 #undef CURRENT_CTYPE
 
 WRAP_TYPE(MenuBar,struct menu_bar,menuBar);
@@ -2086,6 +2107,7 @@ KrkValue krk_module_onload__yutani2(void) {
 	BIND_METHOD(Font,measure);
 	BIND_METHOD(Font,draw_glyph_into);
 	BIND_METHOD(Font,prepare_string);
+	BIND_METHOD(Font,ellipsify);
 	BIND_PROP(Font,size);
 	krk_finalizeClass(Font);
 

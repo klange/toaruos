@@ -358,25 +358,6 @@ static void next_net(gfx_context_t * ctx) {
 	ticks_last = ticks_now;
 }
 
-static char * ellipsify(char * input, int font_size, struct TT_Font * font, int max_width, int * out_width) {
-	int len = strlen(input);
-	char * out = malloc(len + 4);
-	memcpy(out, input, len + 1);
-	int width;
-	tt_set_size(font, font_size);
-	while ((width = tt_string_width(font, out)) > max_width) {
-		len--;
-		out[len+0] = '.';
-		out[len+1] = '.';
-		out[len+2] = '.';
-		out[len+3] = '\0';
-	}
-
-	if (out_width) *out_width = width;
-
-	return out;
-}
-
 static void draw_legend_element(int which, int count, int index, uint32_t color, char * label) {
 	struct decor_bounds bounds;
 	decor_get_bounds(wina, &bounds);
@@ -399,7 +380,7 @@ static void draw_legend_element(int which, int count, int index, uint32_t color,
 		unit_x, y, 20, 20, 5, color);
 
 	if (unit_width > 22) {
-		char * label_cropped = ellipsify(label, 12, tt_thin, unit_width - 22, NULL);
+		char * label_cropped = tt_ellipsify(label, 12, tt_thin, unit_width - 22, NULL);
 		tt_draw_string(ctx_base, tt_thin, 22 + unit_x, y + 14, label_cropped, rgb(0,0,0));
 	}
 

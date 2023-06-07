@@ -211,28 +211,6 @@ static int print_human_readable_size(char * _out, uint64_t s) {
 #define HILIGHT_BORDER_BOTTOM rgb(47,106,167)
 
 /**
- * Clip text and add ellipsis to fit a specified display width.
- */
-static char * ellipsify(char * input, int font_size, struct TT_Font * font, int max_width, int * out_width) {
-	int len = strlen(input);
-	char * out = malloc(len + 4);
-	memcpy(out, input, len + 1);
-	int width;
-	tt_set_size(font, font_size);
-	while ((width = tt_string_width(font, out)) > max_width) {
-		len--;
-		out[len+0] = '.';
-		out[len+1] = '.';
-		out[len+2] = '.';
-		out[len+3] = '\0';
-	}
-
-	if (out_width) *out_width = width;
-
-	return out;
-}
-
-/**
  * Draw an icon view entry
  */
 static void draw_file(struct File * f, int offset) {
@@ -249,7 +227,7 @@ static void draw_file(struct File * f, int offset) {
 
 		/* If the display name is too long to fit, cut it with an ellipsis. */
 		int name_width;
-		char * name = ellipsify(f->name, 13, tt_font_thin, FILE_WIDTH - 8, &name_width);
+		char * name = tt_ellipsify(f->name, 13, tt_font_thin, FILE_WIDTH - 8, &name_width);
 
 		/* Draw the icon */
 		int center_x_icon = (FILE_WIDTH - icon->width) / 2;
@@ -309,8 +287,8 @@ static void draw_file(struct File * f, int offset) {
 			draw_sprite_alpha_paint(contents, icon, x + 11, y + 11, 0.3, rgb(255,255,255));
 		}
 
-		char * name = ellipsify(f->name, 13, tt_font_bold, FILE_WIDTH - 81, NULL);
-		char * type = ellipsify(f->filetype, 13, tt_font_thin, FILE_WIDTH - 81, NULL);
+		char * name = tt_ellipsify(f->name, 13, tt_font_bold, FILE_WIDTH - 81, NULL);
+		char * type = tt_ellipsify(f->filetype, 13, tt_font_thin, FILE_WIDTH - 81, NULL);
 
 		if (f->type == 0) {
 			tt_set_size(tt_font_bold, 13);
@@ -356,7 +334,7 @@ static void draw_file(struct File * f, int offset) {
 			draw_sprite(contents, icon, x + 4, y + 4);
 		}
 
-		char * name = ellipsify(f->name, 13, tt_font_thin, FILE_WIDTH - 26, NULL);
+		char * name = tt_ellipsify(f->name, 13, tt_font_thin, FILE_WIDTH - 26, NULL);
 
 		tt_set_size(tt_font_thin, 13);
 		tt_draw_string(contents, tt_font_thin, x + 24, y + 15, name, text_color);
@@ -961,7 +939,7 @@ static void _draw_nav_bar(struct decor_bounds bounds) {
 
 	/* Draw the nav bar text, ellipsified if needed */
 	int max_width = main_window->width - bounds.width - x - 12;
-	char * name = ellipsify(nav_bar, 13, tt_font_thin, max_width, NULL);
+	char * name = tt_ellipsify(nav_bar, 13, tt_font_thin, max_width, NULL);
 	tt_draw_string(ctx, tt_font_thin, bounds.left_width + 2 + x + 5, bounds.top_height + menu_bar_height + 8 + 13, name, rgb(0,0,0));
 	free(name);
 

@@ -92,7 +92,7 @@ static int widget_draw_windowlist(struct PanelWidget * this, gfx_context_t * ctx
 
 			if (title_width >= MIN_TEXT_WIDTH) {
 				/* Ellipsifiy the title */
-				char * s = ellipsify(ad->name, 14, this->pctx->font, title_width - 4, NULL);
+				char * s = tt_ellipsify(ad->name, 14, this->pctx->font, title_width - 4, NULL);
 				sprite_t * icon = icon_get_48(ad->icon);
 				gfx_context_t * subctx = init_graphics_subregion(ctx, i, 0, w, ctx->height-1);
 				draw_sprite_scaled_alpha(subctx, icon, w - 48 - 2, 0, 48, 48, (ad->flags & 1) ? 1.0 : 0.7);

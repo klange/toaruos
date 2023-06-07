@@ -55,6 +55,9 @@ extern struct TT_Contour * tt_prepare_string_into(struct TT_Contour * contour, s
 extern void tt_path_paint_sprite(gfx_context_t * ctx, const struct TT_Shape * shape, sprite_t * sprite, gfx_matrix_t matrix);
 extern void tt_path_paint_sprite_options(gfx_context_t * ctx, const struct TT_Shape * shape, sprite_t * sprite, gfx_matrix_t matrix, int filter, int wrap);
 
+/* Truncate text with an ellipsis to fit a requested width. */
+extern char * tt_ellipsify(const char * input, int font_size, struct TT_Font * font, int max_width, int * out_width);
+
 /* Path painting options */
 #define TT_PATH_FILTER_BILINEAR 0 /* Bilinear filter. Good quality, slow. Default. */
 #define TT_PATH_FILTER_NEAREST  1 /* Nearest neighbor. Low quality, fast. */

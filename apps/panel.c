@@ -91,28 +91,6 @@ static int new_focused = -1;
 
 static void widgets_layout(void);
 
-/**
- * Clip text and add ellipsis to fit a specified display width.
- */
-char * ellipsify(char * input, int font_size, struct TT_Font * font, int max_width, int * out_width) {
-	int len = strlen(input);
-	char * out = malloc(len + 4);
-	memcpy(out, input, len + 1);
-	int width;
-	tt_set_size(font, font_size);
-	while ((width = tt_string_width(font, out)) > max_width) {
-		len--;
-		out[len+0] = '.';
-		out[len+1] = '.';
-		out[len+2] = '.';
-		out[len+3] = '\0';
-	}
-
-	if (out_width) *out_width = width;
-
-	return out;
-}
-
 static int _close_enough(struct yutani_msg_window_mouse_event * me) {
 	if (me->command == YUTANI_MOUSE_EVENT_RAISE && sqrt(pow(me->new_x - me->old_x, 2) + pow(me->new_y - me->old_y, 2)) < 10) {
 		return 1;
@@ -342,7 +320,7 @@ static void redraw_alttab(void) {
 	{
 		struct window_ad * ad = ads_by_z[new_focused];
 		int t;
-		char * title = ellipsify(ad->name, 16, panel_context.font, alttab->width - 20, &t);
+		char * title = tt_ellipsify(ad->name, 16, panel_context.font, alttab->width - 20, &t);
 		tt_set_size(panel_context.font, 16);
 		tt_draw_string(actx, panel_context.font, center_x_a(t), rows * (ALTTAB_WIN_SIZE + 20) + 44, title, rgb(255,255,255));
 		free(title);

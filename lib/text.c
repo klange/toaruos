@@ -1424,3 +1424,29 @@ void tt_path_paint_sprite_options(gfx_context_t * ctx, const struct TT_Shape * s
 
 	tt_path_paint_sprite_internal(ctx,shape,sprite,matrix,sprite_interp,pixel_getter);
 }
+
+char * tt_ellipsify(const char * input, int font_size, struct TT_Font * font, int max_width, int * out_width) {
+	int width;
+	int len = strlen(input);
+	char * out = malloc(len + 4);
+
+	if (max_width <= 0) {
+		out[0] = '\0';
+		width = 0;
+		goto _finish;
+	}
+
+	memcpy(out, input, len + 1);
+	tt_set_size(font, font_size);
+	while ((width = tt_string_width(font, out)) > max_width) {
+		len--;
+		if (len+0>=0) out[len+0] = '.';
+		if (len+1>=0) out[len+1] = '.';
+		if (len+2>=0) out[len+2] = '.';
+		out[len+3] = '\0';
+	}
+
+_finish:
+	if (out_width) *out_width = width;
+	return out;
+}

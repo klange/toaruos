@@ -121,25 +121,6 @@ static int get_bounds_fancy(yutani_window_t * window, struct decor_bounds * boun
 	return 0;
 }
 
-static char * ellipsify(char * input, int font_size, struct TT_Font * font, int max_width, int * out_width) {
-	int len = strlen(input);
-	char * out = malloc(len + 4);
-	memcpy(out, input, len + 1);
-	int width;
-	tt_set_size(font, font_size);
-	while ((width = tt_string_width(font, out)) > max_width) {
-		len--;
-		out[len+0] = '.';
-		out[len+1] = '.';
-		out[len+2] = '.';
-		out[len+3] = '\0';
-	}
-
-	if (out_width) *out_width = width;
-
-	return out;
-}
-
 #define BUTTON_PAD 5
 
 static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
@@ -231,7 +212,7 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 	if (title_width > usable_width) {
 		usable_width += buttons_width * TOTAL_SCALE;
 		if (usable_width > 0) {
-			char * tmp_title = ellipsify(title, 12 * TOTAL_SCALE, _tt_font, usable_width, &title_width);
+			char * tmp_title = tt_ellipsify(title, 12 * TOTAL_SCALE, _tt_font, usable_width, &title_width);
 			int title_offset = bounds.left_width + 10 * TOTAL_SCALE;
 			tt_draw_string(ctx, _tt_font, title_offset, (TEXT_OFFSET + 14) * TOTAL_SCALE, tmp_title, title_color);
 			free(tmp_title);
