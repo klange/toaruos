@@ -416,13 +416,13 @@ static void cmdline_func(fs_node_t *node) {
 }
 
 static void version_func(fs_node_t *node) {
-	procfs_printf(node, "%s", __kernel_name);
+	procfs_printf(node, "%s ", __kernel_name);
 	procfs_printf(node, __kernel_version_format,
 			__kernel_version_major,
 			__kernel_version_minor,
 			__kernel_version_lower,
 			__kernel_version_suffix);
-	procfs_printf(node, "%s %s %s %s\n",
+	procfs_printf(node, " %s %s %s %s\n",
 			__kernel_version_codename,
 			__kernel_build_date,
 			__kernel_build_time,
