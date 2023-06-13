@@ -766,7 +766,7 @@ int panel_menu_show_at(struct MenuList * menu, int x) {
 
 	/* If we succeeded, move it to the final offset and display it */
 	if (menu->window) {
-		yutani_window_move(yctx, menu->window, offset, DROPDOWN_OFFSET);
+		yutani_window_move_relative(yctx, menu->window, panel, offset, DROPDOWN_OFFSET);
 		yutani_flip(yctx,menu->window);
 		return 0;
 	}
