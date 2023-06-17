@@ -88,6 +88,7 @@ static uint16_t char_height    = 17;   /* Height of a cell in pixels */
 static uint16_t char_offset    = 0;    /* Offset of the font within the cell */
 static int      csr_x          = 0;    /* Cursor X */
 static int      csr_y          = 0;    /* Cursor Y */
+static int      csr_h          = 0;    /* Cursor last column hold flag */
 static uint32_t current_fg     = 7;    /* Current foreground color */
 static uint32_t current_bg     = 0;    /* Current background color */
 
@@ -160,7 +161,7 @@ static gfx_context_t * ctx;
 static struct MenuList * menu_right_click = NULL;
 
 static void render_decors(void);
-static void term_clear();
+static void term_clear(int i);
 static void reinit(void);
 static void term_redraw_cursor();
 
@@ -1361,6 +1362,27 @@ static void redraw_scrollback(void) {
 	}
 }
 
+static void undraw_cursor(void) {
+	cell_redraw(csr_x, csr_y);
+}
+
+static void normalize_x(int setting_lcf) {
+	if (csr_x >= term_width) {
+		csr_x = term_width - 1;
+		if (setting_lcf) {
+			csr_h = 1;
+		}
+	}
+}
+
+static void normalize_y(void) {
+	if (csr_y == term_height) {
+		save_scrollback();
+		term_scroll(1);
+		csr_y = term_height - 1;
+	}
+}
+
 /*
  * ANSI callback for writing characters.
  * Parses some things (\n\r, etc.) itself that should probably
@@ -1370,69 +1392,80 @@ static void term_write(char c) {
 	static uint32_t unicode_state = 0;
 	static uint32_t codepoint = 0;
 
-	cell_redraw(csr_x, csr_y);
-
 	if (!decode(&unicode_state, &codepoint, (uint8_t)c)) {
 		uint32_t o = codepoint;
 		codepoint = 0;
-		if (c == '\r') {
-			csr_x = 0;
-			draw_cursor();
-			return;
-		}
-		if (csr_x < 0) csr_x = 0;
-		if (csr_y < 0) csr_y = 0;
-		if (csr_x == term_width) {
-			csr_x = 0;
-			++csr_y;
-			if (c == '\n') return;
-		}
-		if (csr_y == term_height) {
-			save_scrollback();
-			term_scroll(1);
-			csr_y = term_height - 1;
-		}
-		if (c == '\n') {
-			++csr_y;
-			if (csr_y == term_height) {
-				save_scrollback();
-				term_scroll(1);
-				csr_y = term_height - 1;
-			}
-			draw_cursor();
-		} else if (c == '\007') {
-			/* bell */
-			/* XXX play sound */
-		} else if (c == '\b') {
-			if (csr_x > 0) {
-				--csr_x;
-			}
-			cell_redraw(csr_x, csr_y);
-			draw_cursor();
-		} else if (c == '\t') {
-			csr_x += (8 - csr_x % 8);
-			draw_cursor();
-		} else {
-			int wide = is_wide(o);
-			uint8_t flags = ansi_state->flags;
-			if (wide && csr_x == term_width - 1) {
-				csr_x = 0;
+
+		switch (c) {
+			case '\a':
+				/* boop */
+				return;
+
+			case '\r':
+				undraw_cursor();
+				csr_x = csr_h = 0;
+				draw_cursor();
+				return;
+
+			case '\t':
+				undraw_cursor();
+				csr_x += (8 - csr_x % 8);
+				normalize_x(0);
+				draw_cursor();
+				return;
+
+			case '\v':
+			case '\f':
+			case '\n':
+				undraw_cursor();
+				csr_h = 0;
 				++csr_y;
-			}
-			if (wide) {
-				flags = flags | ANSI_WIDE;
-			}
-			cell_set(csr_x,csr_y, o, current_fg, current_bg, flags);
-			cell_redraw(csr_x,csr_y);
-			csr_x++;
-			if (wide && csr_x != term_width) {
-				cell_set(csr_x, csr_y, 0xFFFF, current_fg, current_bg, ansi_state->flags);
+				normalize_y();
+				draw_cursor();
+				return;
+
+			case '\b':
+				if (csr_x > 0) {
+					undraw_cursor();
+					--csr_x;
+					draw_cursor();
+				}
+				csr_h = 0;
+				return;
+
+			default: {
+				int wide = is_wide(o);
+				uint8_t flags = ansi_state->flags;
+
+				undraw_cursor();
+
+				if (csr_h || (wide && csr_x == term_width - 1)) {
+					csr_x = csr_h = 0;
+					++csr_y;
+					normalize_y();
+				}
+
+				if (wide) {
+					flags = flags | ANSI_WIDE;
+				}
+
+				cell_set(csr_x,csr_y, o, current_fg, current_bg, flags);
 				cell_redraw(csr_x,csr_y);
-				cell_redraw(csr_x-1,csr_y);
 				csr_x++;
+
+				if (wide && csr_x != term_width) {
+					cell_set(csr_x, csr_y, 0xFFFF, current_fg, current_bg, ansi_state->flags);
+					cell_redraw(csr_x,csr_y);
+					cell_redraw(csr_x-1,csr_y);
+					csr_x++;
+				}
+
+				normalize_x(1);
+				draw_cursor();
+				return;
 			}
-			draw_cursor();
 		}
+
 	} else if (unicode_state == UTF8_REJECT) {
 		unicode_state = 0;
 		codepoint = 0;
@@ -1442,8 +1475,13 @@ static void term_write(char c) {
 /* ANSI callback to set cursor position */
 static void term_set_csr(int x, int y) {
 	cell_redraw(csr_x,csr_y);
+	if (x < 0) x = 0;
+	if (x >= term_width) x = term_width - 1;
+	if (y < 0) y = 0;
+	if (y >= term_height) y = term_height - 1;
 	csr_x = x;
 	csr_y = y;
+	csr_h = 0;
 	draw_cursor();
 }
 
@@ -1511,6 +1549,7 @@ static void term_clear(int i) {
 		/* Clear all */
 		csr_x = 0;
 		csr_y = 0;
+		csr_h = 0;
 		memset((void *)term_buffer, 0x00, term_width * term_height * sizeof(term_cell_t));
 		if (!_no_frame) {
 			render_decors();
