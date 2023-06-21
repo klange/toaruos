@@ -64,6 +64,11 @@ static void clear_input_buffer(pty_t * pty) {
 #define input_process tty_input_process
 
 void tty_output_process_slave(pty_t * pty, uint8_t c) {
+	if (!(pty->tios.c_oflag & OPOST)) {
+		OUT(c);
+		return;
+	}
+
 	if (c == '\n' && (pty->tios.c_oflag & ONLCR)) {
 		c = '\n';
 		OUT(c);
