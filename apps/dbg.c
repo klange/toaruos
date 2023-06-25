@@ -220,8 +220,8 @@ typedef struct elf_object {
 static int find_symbol(pid_t pid, uintptr_t addr_in, char ** name, uintptr_t *addr_out, char ** objname) {
 
 	intptr_t  current_max = INTPTR_MAX;
-	uintptr_t current_addr = NULL;
-	uintptr_t current_xname = NULL;
+	uintptr_t current_addr = (uintptr_t)NULL;
+	uintptr_t current_xname = (uintptr_t)NULL;
 	char * current_name = NULL;
 	char * current_obj = NULL;
 	uintptr_t best_base = 0;
