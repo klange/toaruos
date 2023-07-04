@@ -166,7 +166,7 @@ size_t xvasprintf(int (*callback)(void *, char), void * userData, const char * f
 				alt = 1;
 				++f;
 			} else if (*f == '*') {
-				arg_width = (char)va_arg(args, int);
+				arg_width = (int)va_arg(args, int);
 				++f;
 			} else if (*f == '0') {
 				fill_zero = 1;
