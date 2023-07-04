@@ -14,7 +14,7 @@ class KrkHighlighter(Highlighter):
     checkKrkCode = None
 
     keywords = [
-        'and','class','def','else','export','for','if','in','import','let','not',
+        'and','class','def','else','for','if','in','import','let','not',
         'or','return','while','try','except','raise','continue','break','as','from',
         'elif', 'lambda', 'pass', 'with', 'is', 'del', 'assert', 'yield', 'finally',
         'async', 'await',

@@ -1,0 +1,78 @@
+from syntax import Highlighter, bind
+from syntax.c import CHighlighter
+
+class GraphqlHighlighter(Highlighter):
+    name = 'graphql'
+    extensions = ('.graphql','.gql',)
+    keywords = [
+        'repeatable','on','implements','extend',
+        'enum','scalar','type','union','input','interface','subscription',
+        'query','mutation','fragment','directive','schema',
+    ]
+    constants = [
+        'true','false','null',
+        '__schema','__type','__typename',
+    ]
+    primitives = [
+    ]
+    def paintTriple():
+        while self[0]:
+            if self[0] == "'":
+                self.paint(1, self.FLAG_STRING)
+                if self[0] == "'" and self[1] == "'":
+                    self.paint(2, self.FLAG_STRING)
+                    return 0
+            else:
+                self.paint(1, self.FLAG_STRING)
+        return 2
+    def paintPyTriple(quote):
+        while self[0]:
+            if self[0] == quote:
+                self.paint(1, self.FLAG_STRING)
+                if self[0] == quote and self[1] == quote:
+                    self.paint(2, self.FLAG_STRING)
+                    return 0
+            else:
+                self.paint(1, self.FLAG_STRING)
+        return 1 if quote == '"' else 2
+    def calculate():
+        if self.state <= 0:
+            if self[0] == '#':
+                self.paintComment()
+            else if self[0] == '"':
+                if self[1] == '"' and self[2] == '"':
+                    self.paint(3, self.FLAG_STRING)
+                    return self.paintPyTriple('"')
+                self.paintSimpleString()
+                return 0
+            else if self[0] == "'":
+                self.paintSingleString()
+                return 0
+            else if self.findKeywords(self.keywords, self.FLAG_KEYWORD, self.cKeywordQualifier):
+                return 0
+            else if self.findKeywords(self.primitives, self.FLAG_TYPE, self.cKeywordQualifier):
+                return 0
+            else if self.findKeywords(self.constants, self.FLAG_NUMERAL, self.cKeywordQualifier):
+                return 0
+            else if not self.cKeywordQualifier(self[-1]) and self.isdigit(self[0]):
+                CHighlighter.paintCNumeral(self)
+                return 0
+            else if self[0] == '@':
+                self.paint(1, self.FLAG_TYPE)
+                while self.cKeywordQualifier(self[0]):
+                    self.paint(1, self.FLAG_TYPE)
+                return 0
+            else if not self.cKeywordQualifier(self[-1]) and self[0] in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
+                while self.cKeywordQualifier(self[0]):
+                    self.paint(1, self.FLAG_TYPE)
+                return 0
+            else if self[0]:
+                self.skip()
+                return 0
+            return None
+        else if self.state == 1:
+            return self.paintPyTriple('"')
+        return None
+
+bind(GraphqlHighlighter)
+

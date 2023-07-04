@@ -74,7 +74,7 @@ class GnumakeHighlighter(Highlighter):
                 self.makeVar()
             else:
                 self.paint(1, self.FLAG_STRING)
-    def variableOrComment(flag):
+    def variableOrComment(flag, next):
         while self[0]:
             if self[0] == '$':
                 self.makeVar()
@@ -84,15 +84,21 @@ class GnumakeHighlighter(Highlighter):
                 self.paintString()
             else if self[0] == '"':
                 self.paintString()
+            else if self[0] == '\\' and not self[1]:
+                return next
             else:
                 self.paint(1, flag)
         return 0
     def calculate():
+        if self.state == 2:
+            return self.variableOrComment(self.FLAG_NUMERAL, 2)
+        else if self.state == 3:
+            return self.variableOrComment(self.FLAG_NONE, 3)
         if self.i == 0 and self[0] == '\t':
             self.skip()
             if self[0] == '@':
                 self.paint(1, self.FLAG_KEYWORD)
-            self.variableOrComment(self.FLAG_NUMERAL)
+            return self.variableOrComment(self.FLAG_NUMERAL, 2)
         else:
             while self[0] == ' ': self.skip()
             let whatisit
@@ -112,7 +118,7 @@ class GnumakeHighlighter(Highlighter):
                     else if self.findKeywords(self.commands, self.FLAG_KEYWORD, self.commandQualifier):
                         continue
                     else if self[0] == '$':
-                        self.variableOrComment(self.FLAG_NONE)
+                        self.variableOrComment(self.FLAG_NONE, 3)
                     else:
                         self.skip()
             else if whatisit == 1: # rule
@@ -121,7 +127,7 @@ class GnumakeHighlighter(Highlighter):
                         self.paintComment()
                     else if self[0] == ':':
                         self.paint(1, self.FLAG_TYPE)
-                        self.variableOrComment(self.FLAG_NONE)
+                        self.variableOrComment(self.FLAG_NONE, 3)
                     else if self.findKeywords(self.targets, self.FLAG_KEYWORD, self.commandQualifier):
                         continue
                     else:
@@ -132,7 +138,7 @@ class GnumakeHighlighter(Highlighter):
                     self.paint(1, self.FLAG_TYPE)
                 while self[0] and self[0] != '=':
                     self.skip()
-                self.variableOrComment(self.FLAG_NONE)
+                return self.variableOrComment(self.FLAG_NONE, 3)
         return None
 
 bind(GnumakeHighlighter)

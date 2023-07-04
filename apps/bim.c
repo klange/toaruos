@@ -10938,7 +10938,7 @@ static KrkValue bim_krk_state_init(int argc, const KrkValue argv[], int hasKw) {
 
 	*state = ((struct SyntaxState*)AS_INSTANCE(argv[1]))->state;
 
-	return argv[0];
+	return NONE_VAL();
 }
 
 static KrkValue krk_bim_get_commands(int argc, const KrkValue argv[], int hasKw) {
