@@ -551,7 +551,6 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 		fbterm_initialize();
 	} else {
 		early_log_initialize();
-		console_set_output(_early_log_write);
 	}
 
 	dprintf("%s %d.%d.%d-%s %s %s\n",
