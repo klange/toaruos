@@ -116,7 +116,6 @@ void dtb_callback_direct_children(uint32_t * node, void (*callback)(uint32_t * c
 
 static uint32_t * find_node_int(const char * name, int (*cmp)(const char*,const char*)) {
 	uintptr_t addr = (uintptr_t)mmu_map_from_physical(aarch64_dtb_phys);
-	dprintf("dtb: find '%s' from %#zx\n", name, addr);
 	struct fdt_header * fdt = (struct fdt_header*)addr;
 	char * dtb_strings = (char *)(addr + swizzle(fdt->off_dt_strings));
 	uint32_t * dtb_struct = (uint32_t *)(addr + swizzle(fdt->off_dt_struct));
