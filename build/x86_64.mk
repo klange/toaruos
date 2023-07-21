@@ -26,6 +26,7 @@ EMU_ARGS += ${EMU_KVM}
 EMU_ARGS += -no-reboot
 EMU_ARGS += -serial mon:stdio
 EMU_ARGS += -device AC97
+EMU_ARGS += -name "ToaruOS ${ARCH}"
 
 # UTC is the default setting.
 #EMU_ARGS += -rtc base=utc

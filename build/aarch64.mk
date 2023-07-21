@@ -39,7 +39,7 @@ EMU_ARGS  = -M $(EMU_MACH)
 EMU_ARGS += -m $(RAM)
 EMU_ARGS += -smp $(SMP)
 EMU_ARGS += -cpu $(EMU_CPU)
-EMU_RAGS += -no-reboot
+EMU_ARGS += -no-reboot
 EMU_ARGS += -serial mon:stdio
 EMU_ARGS += -device bochs-display
 EMU_ARGS += -device virtio-tablet-pci    # Mouse with absolute positioning
@@ -48,6 +48,7 @@ EMU_ARGS += -device AC97
 EMU_ARGS += -d guest_errors
 EMU_ARGS += -net user
 EMU_ARGS += -netdev hubport,id=u1,hubid=0, -device e1000e,netdev=u1
+EMU_ARGS += -name "ToaruOS ${ARCH}"
 
 EMU_RAMDISK = -fw_cfg name=opt/org.toaruos.initrd,file=ramdisk.igz
 EMU_KERNEL  = -fw_cfg name=opt/org.toaruos.kernel,file=misaka-kernel
