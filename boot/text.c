@@ -303,7 +303,14 @@ static void draw_square(int x, int y, int stage) {
 }
 
 void draw_logo(int stage) {
-	if (!in_graphics_mode) return;
+	if (!in_graphics_mode) {
+		move_cursor(0,0);
+		print_("Loading... ");
+		char tmp[2] = {0};
+		tmp[0] = "/-\\|/-\\|"[stage];
+		print_(tmp);
+		return;
+	}
 	uint64_t logo_squares = 0x981818181818FFFFUL;
 	for (int y = 0; y < 8; ++y) {
 		for (int x = 0; x < 8; ++x) {
