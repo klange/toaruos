@@ -418,9 +418,9 @@ static void virtio_keyboard_thread(void * data) {
 static void virtio_input_maybe(uint32_t device, uint16_t v, uint16_t d, void * extra) {
 	if (v == 0x1af4 && d == 0x1052) {
 		if (pci_find_type(device) == 0x0900) {
-			spawn_worker_thread(virtio_keyboard_thread, "virtio-keyboard", (void*)(uintptr_t)device);
+			spawn_worker_thread(virtio_keyboard_thread, "[virtio-keyboard]", (void*)(uintptr_t)device);
 		} else if (pci_find_type(device) == 0x0980) {
-			spawn_worker_thread(virtio_tablet_thread, "virtio-tablet", (void*)(uintptr_t)device);
+			spawn_worker_thread(virtio_tablet_thread, "[virtio-tablet]", (void*)(uintptr_t)device);
 		}
 	}
 
