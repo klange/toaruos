@@ -5,17 +5,19 @@
  * Provides /proc and its contents, which allow userspace tools
  * to query kernel status through directory and text file interfaces.
  *
- * The way this is implemented is a bit messy... every time a read
- * request happens, we generate a text blob and then try to provide
- * the part the reader actually asked for. This is susceptible to
- * corruption if the layout of data changed between two read calls.
- * We should probably be generating data on open and disposing of
- * it on call...
+ * When a procfs entry is opened, a dynamic buffer is allocated and
+ * the bound function is called. The function can then print into
+ * the buffer, which will expand as necessary. Reads on the device
+ * will then return data from that buffer. When the file node for
+ * the entry is later closed, the dynamic buffer is freed. This
+ * resolves a long-standing issue with the previous implementation
+ * where subsequent reads could return corrupted data if offsets
+ * changed from newly generated data.
  *
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2014-2021 K. Lange
+ * Copyright (C) 2014-2023 K. Lange
  */
 #include <stdint.h>
 #include <stddef.h>
