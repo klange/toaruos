@@ -10,7 +10,7 @@
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2021 K. Lange
+ * Copyright (C) 2021-2023 K. Lange
  */
 #include <errno.h>
 #include <kernel/types.h>
@@ -95,15 +95,6 @@ int elf_module(char ** args) {
 	read_fs(file, 0, file->length, (void*)module_load_address);
 
 	/**
-	 * Locate the section string table, which we'll use for debugging and to check
-	 * for special section names (eg. dependencies, PCI mappings...)
-	 */
-	#if 0
-	Elf64_Shdr * shstr_hdr = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * header.e_shstrndx);
-	char * stringTable = (char*)(module_load_address + shstr_hdr->sh_offset);
-	#endif
-
-	/**
 	 * Set up section header entries to have correct loaded addresses, and map
 	 * any NOBITS sections to new memory. We'll page-align anything, which
 	 * should be good enough for any object files we make...
@@ -137,19 +128,16 @@ int elf_module(char ** args) {
 		/* Uh, we should be able to figure out how many symbols we have by doing something less dumb than
 		 * just checking the size of the section, right? */
 		for (unsigned int sym = 0; sym < sectionHeader->sh_size / sizeof(Elf64_Sym); ++sym) {
-			/* TODO: We need to share symbols... */
-			#if 0
-			int binding = (symTable[sym].st_info >> 4);
-			int type = (symTable[sym].st_info & 0xF);
-			#endif
+			/* Unlike the previous implementation of this module loader in toaru32,
+			 * we specifically do not support binding symbols directly from newly
+			 * loaded modules. If a module wants to expose symbols, it should use
+			 * @c ksym_bind to supply new symbol names to the symbol table. */
 
 			if (symTable[sym].st_shndx > 0 && symTable[sym].st_shndx < SHN_LOPROC) {
 				Elf64_Shdr * sh_hdr = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * symTable[sym].st_shndx);
 				symTable[sym].st_value = symTable[sym].st_value + sh_hdr->sh_addr;
-				// dprintf("mod: bind local symbol '%s' to %#zx\n", symTable[sym].st_name ? (symNames + symTable[sym].st_name) : "(unnamed)", symTable[sym].st_value);
 			} else if (symTable[sym].st_shndx == SHN_UNDEF) {
 				symTable[sym].st_value = (uintptr_t)ksym_lookup(symNames + symTable[sym].st_name);
-				// dprintf("mod: bind kernel symbol '%s' to %#zx\n", symTable[sym].st_name ? (symNames + symTable[sym].st_name) : "(unnamed)", symTable[sym].st_value);
 			}
 
 			if (symTable[sym].st_name && !strcmp(symNames + symTable[sym].st_name, "metadata")) {
