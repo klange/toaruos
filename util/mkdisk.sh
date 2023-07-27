@@ -12,8 +12,8 @@ SPACE_REQ=$(du -sb "$DIR/../fatbase" | cut -f 1)
 let "SIZE = ($SPACE_REQ / 950000)"
 
 # Minimum size
-if [ $SIZE -lt 14 ]; then
-    SIZE=14
+if [ $SIZE -lt 4 ]; then
+    SIZE=4
 fi
 
 # Use more sectors-per-cluster for larger disk sizes
