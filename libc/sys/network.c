@@ -358,16 +358,52 @@ struct hostent * gethostbyname(const char * name) {
 		return NULL;
 	}
 
-	/* Get a return value */
-	_hostent.h_name = (char*)name;
-	_hostent.h_aliases = NULL;
-	_hostent.h_addrtype = AF_INET;
-	_hostent.h_length = sizeof(uint32_t);
-	_hostent.h_addr_list = _host_entry_list;
-	_host_entry_list[0] = (char*)&_hostent_addr;
-	_hostent_addr = *(uint32_t*)(buf+len-4);
+	uint16_t answers = ntohs(response->answers);
+	uint16_t queries = ntohs(response->questions);
+	const unsigned char * d = response->data;
 
-	return &_hostent;
+	for (uint16_t i = 0; i < queries; ++i) {
+		while (1) {
+			if (d - response->data >= len) goto _nope;
+			int l = *d++;
+			if ((l & 0xc0) == 0xc0) { d++; break; }
+			if (!l) break;
+			d += l;
+		}
+		d += 4;
+	}
+	for (uint16_t i = 0; i < answers; ++i) {
+		while (1) {
+			if (d - response->data >= len) goto _nope;
+			int l = *d++;
+			if ((l & 0xc0) == 0xc0) { d++; break; }
+			if (!l) break;
+			d += l;
+		}
+
+		if (d - response->data > len + 10) goto _nope;
+		d += 2; /* skip type */
+		uint16_t cls  = d[0] * 256 + d[1]; d += 2;
+		d += 4; /* skip ttl */
+		uint16_t dlen = d[0] * 256 + d[1]; d += 2;
+		if (dlen == 4 && cls == 1) {
+			if (d - response->data > len + dlen) goto _nope;
+			/* Get a return value */
+			_hostent.h_name = (char*)name;
+			_hostent.h_aliases = NULL;
+			_hostent.h_addrtype = AF_INET;
+			_hostent.h_length = sizeof(uint32_t);
+			_hostent.h_addr_list = _host_entry_list;
+			_host_entry_list[0] = (char*)&_hostent_addr;
+			_hostent_addr = *(uint32_t*)(d);
+			return &_hostent;
+		}
+		d += dlen;
+	}
+
+_nope:
+	fprintf(stderr, "gethostbyname: no viable answer\n");
+	return NULL;
 }
 
 int getnameinfo(const struct sockaddr *addr, socklen_t addrlen,
