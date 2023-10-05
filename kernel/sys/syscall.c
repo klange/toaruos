@@ -1258,19 +1258,21 @@ static long num_syscalls = sizeof(syscalls) / sizeof(*syscalls);
 
 void syscall_handler(struct regs * r) {
 
-	if (arch_syscall_number(r) >= num_syscalls) {
-		arch_syscall_return(r, -EINVAL);
-		return;
-	}
-
-	scall_func func = syscalls[arch_syscall_number(r)];
 	this_core->current_process->syscall_registers = r;
 
 	if (this_core->current_process->flags & PROC_FLAG_TRACE_SYSCALLS) {
 		ptrace_signal(SIGTRAP, PTRACE_EVENT_SYSCALL_ENTER);
 	}
 
-	long result = func(
+	long result;
+
+	if (arch_syscall_number(r) >= num_syscalls) {
+		result = -EINVAL;
+		goto _finish_syscall;
+	}
+
+	scall_func func = syscalls[arch_syscall_number(r)];
+	result = func(
 		arch_syscall_arg0(r), arch_syscall_arg1(r), arch_syscall_arg2(r),
 		arch_syscall_arg3(r), arch_syscall_arg4(r));
 
@@ -1278,6 +1280,7 @@ void syscall_handler(struct regs * r) {
 		this_core->current_process->interrupted_system_call = arch_syscall_number(r);
 	}
 
+_finish_syscall:
 	arch_syscall_return(r, result);
 
 	if (this_core->current_process->flags & PROC_FLAG_TRACE_SYSCALLS) {

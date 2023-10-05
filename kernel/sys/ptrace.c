@@ -252,7 +252,6 @@ long ptrace_detach(pid_t pid, int sig) {
  * but pushed somewhere else...
  *
  * TODO We should support reading FPU regs as well.
- * TODO @c PTRACE_SETREGS so we can modify them.
  *
  * @param pid Tracee ID
  * @param data Address in tracer to write data into.
@@ -267,6 +266,29 @@ long ptrace_getregs(pid_t pid, void * data) {
 	memcpy(data, tracee->syscall_registers, sizeof(struct regs));
 #ifdef __aarch64__
 	memcpy((char*)data + sizeof(struct regs), &tracee->thread.context.saved[10], sizeof(uintptr_t));
+#endif
+
+	return 0;
+}
+
+/**
+ * @brief Modify the registers of the tracee.
+ *
+ * @ref PTRACE_SETREGS
+ *
+ * @param pid Tracee ID
+ * @param data Address in tracer to read data from.
+ * @returns 0 on success, -ESRCH if tracee is invalid.
+ */
+long ptrace_setregs(pid_t pid, void * data) {
+	if (!data || ptr_validate(data, "ptrace")) return -EFAULT;
+	process_t * tracee = process_from_pid(pid);
+	if (!tracee || (tracee->tracer != this_core->current_process->id) || !(tracee->flags & PROC_FLAG_SUSPENDED)) return -ESRCH;
+
+	/* Copy registers */
+	memcpy(tracee->syscall_registers, data, sizeof(struct regs));
+#ifdef __aarch64__
+	memcpy(&tracee->thread.context.saved[10], (char*)data + sizeof(struct regs), sizeof(uintptr_t));
 #endif
 
 	return 0;
@@ -442,6 +464,8 @@ long ptrace_handle(long request, pid_t pid, void * addr, void * data) {
 			return ptrace_singlestep(pid,(uintptr_t)data);
 		case PTRACE_DETACH:
 			return ptrace_detach(pid,(uintptr_t)data);
+		case PTRACE_SETREGS:
+			return ptrace_setregs(pid,data);
 		default:
 			return -EINVAL;
 	}
