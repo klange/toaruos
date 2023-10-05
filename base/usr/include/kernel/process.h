@@ -117,7 +117,6 @@ typedef struct process {
 
 	tree_node_t * tree_entry;
 	struct regs * syscall_registers;
-	struct regs * interrupt_registers;
 	list_t * wait_queue;
 	list_t * shm_mappings;
 	list_t * node_waits;
@@ -201,8 +200,6 @@ struct ProcessorLocal {
 
 	int cpu_id;
 	union PML * current_pml;
-
-	struct regs * interrupt_registers;
 
 #ifdef __x86_64__
 	int lapic_id;

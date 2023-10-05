@@ -248,10 +248,6 @@ long ptrace_detach(pid_t pid, int sig) {
  * Copies the interrupt register context of the tracee into a tracer-provided
  * address. The size, meaning, and layout of the data copied is architecture-dependent.
  *
- * Currently this is either @c interrupt_registers or @c syscall_registers, depending
- * on what is available. Since the tracee needs to be suspended this should represent
- * the actual userspace register context when it resumes.
- *
  * On AArch64 we also add ELR, which isn't in the interrupt or syscall register contexts,
  * but pushed somewhere else...
  *
@@ -268,7 +264,7 @@ long ptrace_getregs(pid_t pid, void * data) {
 	if (!tracee || (tracee->tracer != this_core->current_process->id) || !(tracee->flags & PROC_FLAG_SUSPENDED)) return -ESRCH;
 
 	/* Copy registers */
-	memcpy(data, tracee->interrupt_registers ? tracee->interrupt_registers : tracee->syscall_registers, sizeof(struct regs));
+	memcpy(data, tracee->syscall_registers, sizeof(struct regs));
 #ifdef __aarch64__
 	memcpy((char*)data + sizeof(struct regs), &tracee->thread.context.saved[10], sizeof(uintptr_t));
 #endif
@@ -398,7 +394,7 @@ long ptrace_singlestep(pid_t pid, int sig) {
 
 	/* arch_set_singlestep? */
 	#if defined(__x86_64__)
-	struct regs * target = tracee->interrupt_registers ? tracee->interrupt_registers : tracee->syscall_registers;
+	struct regs * target = tracee->syscall_registers;
 	target->rflags |= (1 << 8);
 	#elif defined(__aarch64__)
 	tracee->thread.context.saved[11] |= (1 << 21);

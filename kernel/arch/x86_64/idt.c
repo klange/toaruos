@@ -678,7 +678,6 @@ struct regs * isr_handler_inner(struct regs * r) {
 
 struct regs * isr_handler(struct regs * r) {
 	int from_userspace = r->cs != 0x08;
-	this_core->interrupt_registers = r;
 
 	if (from_userspace && this_core->current_process) {
 		this_core->current_process->time_switch = arch_perf_timer();
