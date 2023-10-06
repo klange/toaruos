@@ -27,6 +27,7 @@
 #include <toaru/rline.h>
 #include <toaru/hashmap.h>
 #include <kernel/elf.h>
+#include <sys/uregs.h>
 
 static char * last_command = NULL;
 static char * binary_path = NULL;
@@ -34,60 +35,10 @@ static FILE * binary_obj = NULL;
 static pid_t  binary_pid = 0;
 static int    binary_is_child = 0;
 
-#if defined(__x86_64__)
-#include <kernel/arch/x86_64/regs.h>
-static void dump_regs(struct regs * r) {
-	fprintf(stdout,
-		"  $rip=0x%016lx\n"
-		"  $rsi=0x%016lx,$rdi=0x%016lx,$rbp=0x%016lx,$rsp=0x%016lx\n"
-		"  $rax=0x%016lx,$rbx=0x%016lx,$rcx=0x%016lx,$rdx=0x%016lx\n"
-		"  $r8= 0x%016lx,$r9= 0x%016lx,$r10=0x%016lx,$r11=0x%016lx\n"
-		"  $r12=0x%016lx,$r13=0x%016lx,$r14=0x%016lx,$r15=0x%016lx\n"
-		"  cs=0x%016lx  ss=0x%016lx rflags=0x%016lx int=0x%02lx err=0x%02lx\n",
-		r->rip,
-		r->rsi, r->rdi, r->rbp, r->rsp,
-		r->rax, r->rbx, r->rcx, r->rdx,
-		r->r8, r->r9, r->r10, r->r11,
-		r->r12, r->r13, r->r14, r->r15,
-		r->cs, r->ss, r->rflags, r->int_no, r->err_code
-	);
+static void dump_regs(struct URegs * r) {
+	fprintf(stdout, UREGS_FMT, UREGS_ARGS(r));
+
 }
-#define regs_ip(regs) ((regs)->rip)
-#define regs_bp(regs) ((regs)->rbp)
-#elif defined(__aarch64__)
-#define regs _regs
-#include <kernel/arch/aarch64/regs.h>
-#undef regs
-struct regs {
-	struct _regs gp;
-	uint64_t elr;
-};
-static void dump_regs(struct regs *r) {
-#define reg(a,b) printf(" $x%02d=0x%016lx $x%02d=0x%016lx\n",a,r->gp.x ## a, b, r->gp.x ## b)
-	reg(0,1);
-	reg(2,3);
-	reg(4,5);
-	reg(6,7);
-	reg(8,9);
-	reg(10,11);
-	reg(12,13);
-	reg(14,15);
-	reg(16,17);
-	reg(18,19);
-	reg(20,21);
-	reg(22,23);
-	reg(24,25);
-	reg(26,27);
-	reg(28,29);
-	printf(" $x30=0x%016lx  sp=0x%016lx\n", r->gp.x30, r->gp.user_sp);
-	printf(" elr=0x%016lx\n", r->elr);
-#undef reg
-#define regs_ip(regs) ((regs)->elr)
-#define regs_bp(regs) ((regs)->gp.x29)
-}
-#else
-# error "Unsupported arch"
-#endif
 
 #define M(e) [e] = #e
 const char * signal_names[256] = {
@@ -397,11 +348,11 @@ static void show_libs(pid_t pid) {
 	}
 }
 
-static void attempt_backtrace(pid_t pid, struct regs * regs) {
+static void attempt_backtrace(pid_t pid, struct URegs * regs) {
 
 	/* We already printed the top, now let's try to dig down */
-	uintptr_t ip = regs_ip(regs);
-	uintptr_t bp = regs_bp(regs);
+	uintptr_t ip = uregs_ip(regs);
+	uintptr_t bp = uregs_bp(regs);
 	int depth = 0;
 	int max_depth = 20;
 
@@ -450,18 +401,18 @@ static int signal_from_string(const char * str) {
 	return -1;
 }
 
-static void show_commandline(pid_t pid, int status, struct regs * regs) {
+static void show_commandline(pid_t pid, int status, struct URegs * regs) {
 
 	fprintf(stderr, "[Process %d, ip=%#zx]\n",
-		pid, regs_ip(regs));
+		pid, uregs_ip(regs));
 
 	/* Try to figure out what symbol that is */
 	char * name = NULL;
 	char * objname = NULL;
 	uintptr_t addr = 0;
-	if (find_symbol(pid, regs_ip(regs), &name, &addr, &objname)) {
+	if (find_symbol(pid, uregs_ip(regs), &name, &addr, &objname)) {
 		fprintf(stderr, "     %s+%zx in %s\n",
-			name, regs_ip(regs) - addr, objname);
+			name, uregs_ip(regs) - addr, objname);
 		free(name);
 		free(objname);
 	}
@@ -767,7 +718,7 @@ int main(int argc, char * argv[]) {
 					int event = (status >> 16) & 0xFF;
 					switch (event) {
 						case PTRACE_EVENT_SINGLESTEP: {
-								struct regs regs;
+								struct URegs regs;
 								ptrace(PTRACE_GETREGS, res, NULL, &regs);
 								show_commandline(res, status, &regs);
 							}
@@ -780,7 +731,7 @@ int main(int argc, char * argv[]) {
 				} else {
 					printf("Program received signal %s.\n", sig_to_str(WSTOPSIG(status)));
 
-					struct regs regs;
+					struct URegs regs;
 					ptrace(PTRACE_GETREGS, res, NULL, &regs);
 
 					show_commandline(res, status, &regs);
