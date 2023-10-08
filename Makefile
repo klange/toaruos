@@ -64,6 +64,7 @@ KRK_MODS_X = $(patsubst lib/kuroko/%.c,$(BASE)/lib/kuroko/%.so,$(wildcard lib/ku
 KRK_MODS_Y = $(patsubst lib/kuroko/%.c,.make/%.kmak,$(wildcard lib/kuroko/*.c))
 
 CFLAGS= -O2 -std=gnu11 -I. -Iapps -fplan9-extensions -Wall -Wextra -Wno-unused-parameter ${ARCH_USER_CFLAGS}
+LIBC_CFLAGS = -O2 -std=gnu11 -ffreestanding -Wall -Wextra -Wno-unused-parameter ${ARCH_USER_CFLAGS}
 
 LIBC_OBJS  = $(patsubst %.c,%.o,$(wildcard libc/*.c))
 LIBC_OBJS += $(patsubst %.c,%.o,$(wildcard libc/*/*.c))
@@ -134,7 +135,7 @@ clean:
 	-rm -f boot/efi/*.o boot/bios/*.o
 
 libc/%.o: libc/%.c base/usr/include/syscall.h 
-	$(CC) -O2 -std=gnu11 -ffreestanding -Wall -Wextra -Wno-unused-parameter -fPIC -c -o $@ $<
+	$(CC) ${LIBC_CFLAGS} -fPIC -c -o $@ $<
 
 .PHONY: libc
 libc: $(BASE)/lib/libc.a $(BASE)/lib/libc.so
