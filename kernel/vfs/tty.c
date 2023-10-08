@@ -702,7 +702,7 @@ pty_t * pty_new(struct winsize * size, int index) {
 	pty->tios.c_iflag = ICRNL | BRKINT;
 	pty->tios.c_oflag = ONLCR | OPOST;
 	pty->tios.c_lflag = ECHO | ECHOE | ECHOK | ICANON | ISIG | IEXTEN;
-	pty->tios.c_cflag = CREAD | CS8;
+	pty->tios.c_cflag = CREAD | CS8 | B38400;
 	pty->tios.c_cc[VEOF]   =  4; /* ^D */
 	pty->tios.c_cc[VEOL]   =  0; /* Not set */
 	pty->tios.c_cc[VERASE] = 0x7f; /* ^? */

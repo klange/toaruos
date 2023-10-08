@@ -15,7 +15,7 @@ speed_t cfgetispeed(const struct termios * tio) {
 	return 0;
 }
 speed_t cfgetospeed(const struct termios * tio) {
-	return 0;
+	return tio->c_cflag & CBAUD;
 }
 
 int cfsetispeed(struct termios * tio, speed_t speed) {
@@ -24,6 +24,7 @@ int cfsetispeed(struct termios * tio, speed_t speed) {
 }
 
 int cfsetospeed(struct termios * tio, speed_t speed) {
+	tio->c_cflag = (tio->c_cflag & ~CBAUD) | (speed & CBAUD);
 	return 0;
 }
 

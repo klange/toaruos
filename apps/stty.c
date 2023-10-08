@@ -114,15 +114,66 @@ static int set_toggle_(tcflag_t * flag, const char * lbl, int base, int val, con
 #define set_ctoggle(lbl,base,val) if (set_toggle_(&(t.c_cflag), lbl, base, val, argv[i])) { i++; continue; }
 #define set_otoggle(lbl,base,val) if (set_toggle_(&(t.c_oflag), lbl, base, val, argv[i])) { i++; continue; }
 
+static struct baud_table {
+	const char * as_str;
+	speed_t as_baud;
+} baud_rates[] = {
+	{      "0", B0      },
+	{     "50", B50     },
+	{     "75", B75     },
+	{    "110", B110    },
+	{    "134", B134    },
+	{  "134.5", B134    },
+	{    "150", B150    },
+	{    "200", B200    },
+	{    "300", B300    },
+	{    "600", B600    },
+	{   "1200", B1200   },
+	{   "1800", B1800   },
+	{   "2400", B2400   },
+	{   "4800", B4800   },
+	{   "9600", B9600   },
+	{  "19200", B19200  },
+	{  "38400", B38400  },
+	{  "57600", B57600  },
+	{ "115200", B115200 },
+	{ "230400", B230400 },
+	{ "460800", B460800 },
+	{ "921600", B921600 },
+};
+
+static int set_baud_rate(struct termios * t, const char * arg) {
+	for (size_t j = 0; j < sizeof(baud_rates) / sizeof(*baud_rates); ++j) {
+		if (!strcmp(arg, baud_rates[j].as_str)) {
+			cfsetospeed(t, baud_rates[j].as_baud);
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int print_baud_rate(struct termios * t) {
+	speed_t ospeed = cfgetospeed(t);
+	for (size_t j = 0; j < sizeof(baud_rates) / sizeof(*baud_rates); ++j) {
+		if (ospeed == baud_rates[j].as_baud) {
+			fprintf(stdout, "speed %s baud; ", baud_rates[j].as_str);
+			return 1;
+		}
+	}
+	return 0;
+}
+
 static int show_settings(int all) {
+	struct termios t;
+	tcgetattr(STDERR_FILENO, &t);
+	print_baud_rate(&t);
+
+	/* Baud rate */
 	/* Size */
 	struct winsize w;
 	ioctl(STDERR_FILENO, TIOCGWINSZ, &w);
 	fprintf(stdout, "rows %d; columns %d; ypixels %d; xpixels %d;\n", w.ws_row, w.ws_col, w.ws_ypixel, w.ws_xpixel);
 	printed = 0;
-
-	struct termios t;
-	tcgetattr(STDERR_FILENO, &t);
 
 	/* Keys */
 	print_cc(&t, "intr",  VINTR,  3);
@@ -261,7 +312,7 @@ int main(int argc, char * argv[]) {
 			t.c_iflag = ICRNL | BRKINT;
 			t.c_oflag = ONLCR | OPOST;
 			t.c_lflag = ECHO | ECHOE | ECHOK | ICANON | ISIG | IEXTEN;
-			t.c_cflag = CREAD | CS8;
+			t.c_cflag |= CREAD;
 			t.c_cc[VEOF]   =  4; /* ^D */
 			t.c_cc[VEOL]   =  0; /* Not set */
 			t.c_cc[VERASE] = 0x7F; /* ^? */
@@ -285,6 +336,13 @@ int main(int argc, char * argv[]) {
 
 			i++;
 			continue;
+		}
+
+		if (*argv[i] >= '0' && *argv[i] < '9') {
+			if (set_baud_rate(&t, argv[i])) {
+				i++;
+				continue;
+			}
 		}
 
 		set_char("eof",   VEOF);

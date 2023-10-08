@@ -14,6 +14,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <pty.h>
@@ -41,6 +42,7 @@ int main(int argc, char * argv[]) {
 
 	if (optind < argc) {
 		file = argv[optind];
+		optind++;
 	}
 
 	fd_serial = open(file, O_RDWR);
@@ -56,6 +58,22 @@ int main(int argc, char * argv[]) {
 	dup2(fd_serial, 2);
 
 	system("stty sane");
+
+	if (optind < argc) {
+		if (*argv[optind] >= '0' && *argv[optind] <= '9' && strlen(argv[optind]) < 30) {
+			char tmp[100];
+			snprintf(tmp, 100, "stty %s", argv[optind]);
+			system(tmp);
+			optind++;
+		}
+	}
+
+	if (optind < argc) {
+		/* If there's still arguments, assume TERM value */
+		setenv("TERM", argv[optind], 1);
+		optind++;
+	}
+
 	system("ttysize -q");
 
 	char * tokens[] = {"/bin/login",NULL,NULL,NULL};
