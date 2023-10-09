@@ -37,21 +37,6 @@
 static int _debug = 0;
 static FILE * _splash = NULL;
 
-int tokenize(char * str, char * sep, char **buf) {
-	char * pch_i;
-	char * save_i;
-	int    argc = 0;
-	pch_i = strtok_r(str,sep,&save_i);
-	if (!pch_i) { return 0; }
-	while (pch_i != NULL) {
-		buf[argc] = (char *)pch_i;
-		++argc;
-		pch_i = strtok_r(NULL,sep,&save_i);
-	}
-	buf[argc] = NULL;
-	return argc;
-}
-
 void copy_link(char * source, char * dest, int mode, int uid, int gid) {
 	//fprintf(stderr, "need to copy link %s to %s\n", source, dest);
 	char tmp[1024];
@@ -144,51 +129,11 @@ void free_ramdisk(char * path) {
 	close(fd);
 }
 
-hashmap_t * get_cmdline(void) {
-	int fd = open("/proc/cmdline", O_RDONLY);
-	char * out = malloc(1024);
-	size_t r = read(fd, out, 1024);
-	out[r] = '\0';
-	if (out[r-1] == '\n') {
-		out[r-1] = '\0';
-	}
-
-	char * arg = strdup(out);
-	char * argv[1024];
-	int argc = tokenize(arg, " ", argv);
-
-	/* New let's parse the tokens into the arguments list so we can index by key */
-
-	hashmap_t * args = hashmap_create(10);
-
-	for (int i = 0; i < argc; ++i) {
-		char * c = strdup(argv[i]);
-
-		char * name;
-		char * value;
-
-		name = c;
-		value = NULL;
-		/* Find the first = and replace it with a null */
-		char * v = c;
-		while (*v) {
-			if (*v == '=') {
-				*v = '\0';
-				v++;
-				value = v;
-				goto _break;
-			}
-			v++;
-		}
-
-_break:
-		hashmap_set(args, name, value);
-	}
-
-	free(arg);
-	free(out);
-
-	return args;
+#include "../kernel/misc/args.c"
+static hashmap_t * get_cmdline(void) {
+	char * results = args_from_procfs();
+	if (results) free(results);
+	return kernel_args_map;
 }
 
 int main(int argc, char * argv[]) {

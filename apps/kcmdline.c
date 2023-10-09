@@ -23,62 +23,7 @@
 #include <unistd.h>
 #include <toaru/hashmap.h>
 
-hashmap_t * args_map = NULL;
-
-int tokenize(char * str, char * sep, char **buf) {
-	char * pch_i;
-	char * save_i;
-	int    argc = 0;
-	pch_i = strtok_r(str,sep,&save_i);
-	if (!pch_i) { return 0; }
-	while (pch_i != NULL) {
-		buf[argc] = (char *)pch_i;
-		++argc;
-		pch_i = strtok_r(NULL,sep,&save_i);
-	}
-	buf[argc] = NULL;
-	return argc;
-}
-
-void args_parse(char * _arg) {
-	char * arg = strdup(_arg);
-	char * argv[1024];
-	int argc = tokenize(arg, " ", argv);
-
-	for (int i = 0; i < argc; ++i) {
-		char * c = strdup(argv[i]);
-
-		char * name;
-		char * value;
-
-		name = c;
-		value = NULL;
-		/* Find the first = and replace it with a null */
-		char * v = c;
-		while (*v) {
-			if (*v == '=') {
-				*v = '\0';
-				v++;
-				value = v;
-				char * tmp = value;
-				/* scan it for \037 and replace with spaces */
-				while (*tmp) {
-					if (*tmp == '\037') {
-						*tmp = ' ';
-					}
-					tmp++;
-				}
-				goto _break;
-			}
-			v++;
-		}
-
-_break:
-		hashmap_set(args_map, name, value);
-	}
-
-	free(arg);
-}
+#include "../kernel/misc/args.c"
 
 void show_usage(int argc, char * argv[]) {
 	printf(
@@ -94,28 +39,15 @@ void show_usage(int argc, char * argv[]) {
 }
 
 int main(int argc, char * argv[]) {
-	/* Open */
-	FILE * f = fopen("/proc/cmdline", "r");
-	if (!f) return 1;
-
-	/* Read */
-	char * cmdline = malloc(4096); /* cmdline can't be longer than that */
-	memset(cmdline, 0, 4096);
-	size_t size = fread(cmdline, 1, 4096, f);
-	if (cmdline[size-1] == '\n') cmdline[size-1] = '\0';
-	fclose(f);
-
-	/* Parse */
-	args_map = hashmap_create(10);
-	args_parse(cmdline);
+	char * cmdline = args_from_procfs();
 
 	/* Figure out what we're doing */
 	int opt;
 	while ((opt = getopt(argc, argv, "?g:q:s")) != -1) {
 		switch (opt) {
 			case 'g':
-				if (hashmap_has(args_map, optarg)) {
-					char * tmp = (char*)hashmap_get(args_map, optarg);
+				if (hashmap_has(kernel_args_map, optarg)) {
+					char * tmp = (char*)hashmap_get(kernel_args_map, optarg);
 					if (!tmp) {
 						printf("%s\n", optarg); /* special case = present but not set should yield name of variable */
 					} else {
@@ -126,9 +58,9 @@ int main(int argc, char * argv[]) {
 					return 1;
 				}
 			case 'q':
-				return !hashmap_has(args_map,optarg);
+				return !hashmap_has(kernel_args_map,optarg);
 			case 's':
-				return size;
+				return strlen(cmdline);
 			case '?':
 				show_usage(argc, argv);
 				return 1;
