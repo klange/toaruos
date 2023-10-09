@@ -9,7 +9,7 @@
 #include <toaru/list.h>
 #include <toaru/hashmap.h>
 
-unsigned int hashmap_string_hash(void * _key) {
+unsigned int hashmap_string_hash(const void * _key) {
 	unsigned int hash = 0;
 	char * key = (char *)_key;
 	int c;
@@ -21,24 +21,24 @@ unsigned int hashmap_string_hash(void * _key) {
 	return hash;
 }
 
-int hashmap_string_comp(void * a, void * b) {
+int hashmap_string_comp(const void * a, const void * b) {
 	return !strcmp(a,b);
 }
 
-void * hashmap_string_dupe(void * key) {
+void * hashmap_string_dupe(const void * key) {
 	return strdup(key);
 }
 
-unsigned int hashmap_int_hash(void * key) {
+unsigned int hashmap_int_hash(const void * key) {
 	return (uintptr_t)key;
 }
 
-int hashmap_int_comp(void * a, void * b) {
+int hashmap_int_comp(const void * a, const void * b) {
 	return (uintptr_t)a == (uintptr_t)b;
 }
 
-void * hashmap_int_dupe(void * key) {
-	return key;
+void * hashmap_int_dupe(const void * key) {
+	return (void*)key;
 }
 
 static void hashmap_int_free(void * ptr) {
@@ -79,7 +79,7 @@ hashmap_t * hashmap_create_int(int size) {
 	return map;
 }
 
-void * hashmap_set(hashmap_t * map, void * key, void * value) {
+void * hashmap_set(hashmap_t * map, const void * key, void * value) {
 	unsigned int hash = map->hash_func(key) % map->size;
 
 	hashmap_entry_t * x = map->entries[hash];
@@ -112,7 +112,7 @@ void * hashmap_set(hashmap_t * map, void * key, void * value) {
 	}
 }
 
-void * hashmap_get(hashmap_t * map, void * key) {
+void * hashmap_get(hashmap_t * map, const void * key) {
 	unsigned int hash = map->hash_func(key) % map->size;
 
 	hashmap_entry_t * x = map->entries[hash];
@@ -129,7 +129,7 @@ void * hashmap_get(hashmap_t * map, void * key) {
 	}
 }
 
-void * hashmap_remove(hashmap_t * map, void * key) {
+void * hashmap_remove(hashmap_t * map, const void * key) {
 	unsigned int hash = map->hash_func(key) % map->size;
 
 	hashmap_entry_t * x = map->entries[hash];
@@ -161,7 +161,7 @@ void * hashmap_remove(hashmap_t * map, void * key) {
 	}
 }
 
-int hashmap_has(hashmap_t * map, void * key) {
+int hashmap_has(hashmap_t * map, const void * key) {
 	unsigned int hash = map->hash_func(key) % map->size;
 
 	hashmap_entry_t * x = map->entries[hash];
