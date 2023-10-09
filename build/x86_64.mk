@@ -62,9 +62,8 @@ test: system
 shell: system
 	${EMU} -M ${EMU_MACH} -m $(RAM) -smp $(SMP) ${EMU_KVM} -cdrom image.iso \
 		-nographic -no-reboot -audiodev none,id=id -serial null -serial mon:stdio \
-		-fw_cfg name=opt/org.toaruos.gettyargs,string="-a local /dev/ttyS1" \
-		-fw_cfg name=opt/org.toaruos.bootmode,string=headless \
-		-fw_cfg name=opt/org.toaruos.term,string=${TERM}
+		-fw_cfg name=opt/org.toaruos.gettyargs,string="-a local /dev/ttyS1 115200 ${TERM}" \
+		-fw_cfg name=opt/org.toaruos.bootmode,string=headless
 
 misaka-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
 	${CC} -g -T kernel/arch/${ARCH}/link.ld ${KERNEL_CFLAGS} -o $@.64 ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
