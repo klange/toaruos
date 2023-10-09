@@ -85,6 +85,7 @@ int procfs_printf(fs_node_t * node, const char * fmt, ...) {
 static void procfs_entry_open(fs_node_t * node, unsigned int flags) {
 	procfs_entry_t * entry = (void*)node;
 	entry->func(node);
+	node->length = entry->used;
 }
 
 static void procfs_entry_close(fs_node_t * node) {
