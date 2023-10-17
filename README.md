@@ -147,7 +147,7 @@ By default, the bootloader will pass a flag to the VirtualBox device driver to d
 Most development of ToaruOS happens in QEMU, as it provides the most flexibility in hardware and the best debugging experience. A recommended QEMU command line in an Ubuntu 20.04 host is:
 
 ```
-qemu-system-x86_64 -enable-kvm -m 1G -soundhw ac97 -cdrom image.iso -smp 2
+qemu-system-x86_64 -enable-kvm -m 1G -device AC97 -cdrom image.iso -smp 2
 ```
 
 Replace `-enable-kvm` with `-accel hvm` or `-accel haxm` as appropriate on host platforms without KVM, or remove it to try under QEMU's TCG software emulation.
