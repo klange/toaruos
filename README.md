@@ -61,7 +61,9 @@ The following projects are currently in progress:
 
 ### Building With Docker
 
-General users hoping to build ToaruOS from source are recommended to use the prebuilt Docker image, which contains all the necessary tools:
+General users hoping to build ToaruOS from source are recommended to fork the repository on Github and make use of the Github CI pipeline.
+
+For those looking to build locally on an appropriately configured Linux host with Docker, a build container is available. The ToaruOS repository should be used as a bind mount at `/root/misaka` and `util/build-in-docker.sh` can be run within this container to complete the compilation process:
 
     git clone https://github.com/klange/toaruos
     cd toaruos
