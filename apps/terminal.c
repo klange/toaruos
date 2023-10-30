@@ -1243,14 +1243,10 @@ static void term_shift_region(int top, int height, int how_much) {
 
 /* Scroll the terminal up or down. */
 static void term_scroll(int how_much) {
-
 	term_shift_region(0, term_height, how_much);
 
 	/* Remove image data for image cells that are no longer on screen. */
 	flush_unused_images();
-
-	/* Flip the entire window. */
-	yutani_flip(yctx, window);
 }
 
 static void insert_delete_lines(int how_many) {
