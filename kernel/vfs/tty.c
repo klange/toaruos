@@ -322,13 +322,18 @@ int pty_ioctl(pty_t * pty, unsigned long request, void * argp) {
 			return 0;
 		case TCSETS:
 		case TCSETSW:
-		case TCSETSF:
 			if (!argp) return -EINVAL;
 			validate(argp);
+			/* TODO wait on output for SETSW */
 			if (!(((struct termios *)argp)->c_lflag & ICANON) && (pty->tios.c_lflag & ICANON)) {
 				/* Switch out of canonical mode, the dump the input buffer */
 				dump_input_buffer(pty);
 			}
+			goto tcset_common;
+		case TCSETSF:
+			clear_input_buffer(pty);
+			ring_buffer_discard(pty->in);
+		tcset_common:
 			memcpy(&pty->tios, argp, sizeof(struct termios));
 			return 0;
 		default:

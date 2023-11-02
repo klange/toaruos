@@ -31,4 +31,5 @@ void ring_buffer_interrupt(ring_buffer_t * ring_buffer);
 void ring_buffer_alert_waiters(ring_buffer_t * ring_buffer);
 void ring_buffer_select_wait(ring_buffer_t * ring_buffer, void * process);
 void ring_buffer_eof(ring_buffer_t * ring_buffer);
+void ring_buffer_discard(ring_buffer_t * ring_buffer);
 

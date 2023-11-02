@@ -86,6 +86,12 @@ void ring_buffer_select_wait(ring_buffer_t * ring_buffer, void * process) {
 	list_insert(((process_t *)process)->node_waits, ring_buffer);
 }
 
+void ring_buffer_discard(ring_buffer_t * ring_buffer) {
+	spin_lock(ring_buffer->lock);
+	ring_buffer->read_ptr = ring_buffer->write_ptr;
+	spin_unlock(ring_buffer->lock);
+}
+
 size_t ring_buffer_read(ring_buffer_t * ring_buffer, size_t size, uint8_t * buffer) {
 	size_t collected = 0;
 	while (collected == 0) {
