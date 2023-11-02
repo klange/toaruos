@@ -331,6 +331,22 @@ int main(int argc, char * argv[]) {
 			continue;
 		}
 
+		if (!strcmp(argv[i], "raw")) {
+			t.c_iflag = 0;       /* no input processing */
+			t.c_oflag &= ~OPOST; /* no postprocessing of output */
+			t.c_lflag &= ~(ISIG | ICANON | XCASE);
+			i++;
+			continue;
+		}
+
+		if (!strcmp(argv[i], "cooked")) {
+			t.c_iflag |= ICRNL | BRKINT;
+			t.c_oflag |= OPOST;
+			t.c_lflag |= ISIG | ICANON;
+			i++;
+			continue;
+		}
+
 		if (!strcmp(argv[i], "size")) {
 			show_size();
 
@@ -429,6 +445,6 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
-	tcsetattr(STDERR_FILENO, TCSAFLUSH, &t);
+	tcsetattr(STDERR_FILENO, TCSADRAIN, &t);
 	return 0;
 }
