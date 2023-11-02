@@ -366,9 +366,16 @@ ssize_t read_pty_slave(fs_node_t * node, off_t offset, size_t size, uint8_t *buf
 		return ring_buffer_read(pty->in, size, buffer);
 	} else {
 		if (pty->tios.c_cc[VMIN] == 0) {
-			return ring_buffer_read(pty->in, MIN(size, ring_buffer_unread(pty->in)), buffer);
+			return ring_buffer_read(pty->in, size, buffer);
 		} else {
-			return ring_buffer_read(pty->in, MIN(pty->tios.c_cc[VMIN], size), buffer);
+			ssize_t c = 0;
+			ssize_t vmin = MIN(pty->tios.c_cc[VMIN], size);
+			while (c < vmin) {
+				ssize_t r = ring_buffer_read(pty->in, size - c, buffer + c);
+				if (r < 0) return c ? c : r;
+				c += r;
+			}
+			return c;
 		}
 	}
 }
