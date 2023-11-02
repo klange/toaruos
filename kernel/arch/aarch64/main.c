@@ -333,6 +333,7 @@ void aarch64_sync_enter(struct regs * r) {
 
 _resume_user:
 	process_check_signals(r);
+	update_process_times_on_exit();
 }
 
 static void spin(void) {

@@ -36,6 +36,8 @@ void arch_enter_user(uintptr_t entrypoint, int argc, char * argv[], char * envp[
 	ret.rflags = (1 << 21) | (1 << 9);
 	ret.rsp = stack;
 
+	update_process_times_on_exit();
+
 	asm volatile (
 		"pushq %0\n"
 		"pushq %1\n"
@@ -137,6 +139,8 @@ void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r)
 	}
 
 	PUSH(ret.rsp, uintptr_t, 0x00000008DEADBEEF);
+
+	update_process_times_on_exit();
 
 	asm volatile(
 		"pushq %0\n"

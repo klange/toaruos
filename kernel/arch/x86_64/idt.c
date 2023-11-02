@@ -687,6 +687,7 @@ struct regs * isr_handler(struct regs * r) {
 
 	if (from_userspace && this_core->current_process) {
 		process_check_signals(out);
+		update_process_times_on_exit();
 	}
 
 	return out;

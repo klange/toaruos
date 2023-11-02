@@ -261,6 +261,7 @@ extern pid_t clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg);
 extern int waitpid(int pid, int * status, int options);
 extern int exec(const char * path, int argc, char *const argv[], char *const env[], int interp_depth);
 extern void update_process_usage(uint64_t clock_ticks, uint64_t perf_scale);
+extern void update_process_times_on_exit(void);
 
 extern tree_t * process_tree;  /* Parent->Children tree */
 extern list_t * process_list;  /* Flat storage */

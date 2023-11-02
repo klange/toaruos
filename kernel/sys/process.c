@@ -65,19 +65,33 @@ static spin_lock_t wait_lock_tmp = { 0 };
 static spin_lock_t sleep_lock = { 0 };
 static spin_lock_t reap_lock = { 0 };
 
-void update_process_times(int includeSystem) {
+/**
+ * Update both the total time and the system time when switching to a new thread
+ * or exiting the current thread.
+ */
+void update_process_times(void) {
 	uint64_t pTime = arch_perf_timer();
 	if (this_core->current_process->time_in && this_core->current_process->time_in < pTime) {
 		this_core->current_process->time_total +=  pTime - this_core->current_process->time_in;
 	}
 	this_core->current_process->time_in = 0;
 
-	if (includeSystem) {
-		if (this_core->current_process->time_switch && this_core->current_process->time_switch < pTime) {
-			this_core->current_process->time_sys += pTime - this_core->current_process->time_switch;
-		}
-		this_core->current_process->time_switch = 0;
+	if (this_core->current_process->time_switch && this_core->current_process->time_switch < pTime) {
+		this_core->current_process->time_sys += pTime - this_core->current_process->time_switch;
 	}
+	this_core->current_process->time_switch = 0;
+}
+
+/**
+ * Add time spent in kernel to time_sys when returning to userspace, such as through
+ * an interrupt return or entry into a signal handler.
+ */
+void update_process_times_on_exit(void) {
+	uint64_t pTime = arch_perf_timer();
+	if (this_core->current_process->time_switch && this_core->current_process->time_switch < pTime) {
+		this_core->current_process->time_sys += pTime - this_core->current_process->time_switch;
+	}
+	this_core->current_process->time_switch = 0;
 }
 
 #define must_have_lock(lck) if (lck.owner != this_core->cpu_id+1) { arch_fatal_prepare(); printf("Failed lock check.\n"); arch_dump_traceback(); arch_fatal(); }
@@ -108,7 +122,7 @@ void update_process_times(int includeSystem) {
  */
 void switch_next(void) {
 	this_core->previous_process = this_core->current_process;
-	update_process_times(1);
+	update_process_times();
 
 	/* Get the next available process, discarded anything in the queue
 	 * marked as finished. */
@@ -1262,7 +1276,7 @@ void task_exit(int retval) {
 		spin_unlock(this_core->current_process->wait_lock);
 	}
 
-	update_process_times(1);
+	update_process_times();
 
 	process_t * parent = process_get_parent((process_t *)this_core->current_process);
 	__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_FINISHED);

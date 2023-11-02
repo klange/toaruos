@@ -37,6 +37,8 @@ void arch_enter_user(uintptr_t entrypoint, int argc, char * argv[], char * envp[
 		::
 		"r"(entrypoint), "r"(stack), "r"(0));
 
+	update_process_times_on_exit();
+
 	register uint64_t x0 __asm__("x0") = argc;
 	register uint64_t x1 __asm__("x1") = (uintptr_t)argv;
 	register uint64_t x2 __asm__("x2") = (uintptr_t)envp;
@@ -144,6 +146,8 @@ void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r)
 	}
 	PUSH(sp, uintptr_t, this_core->current_process->thread.context.saved[12]);
 	PUSH(sp, uintptr_t, this_core->current_process->thread.context.saved[13]);
+
+	update_process_times_on_exit();
 
 	asm volatile(
 		"msr ELR_EL1, %0\n" /* entrypoint */
