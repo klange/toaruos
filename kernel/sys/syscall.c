@@ -1157,9 +1157,9 @@ long sys_times(struct tms *buf) {
 	if (buf) {
 		PTR_VALIDATE(buf);
 
-		buf->tms_utime  = this_core->current_process->time_total        / arch_cpu_mhz();
+		buf->tms_utime  = (this_core->current_process->time_total - this_core->current_process->time_sys) / arch_cpu_mhz();
 		buf->tms_stime  = this_core->current_process->time_sys          / arch_cpu_mhz();
-		buf->tms_cutime = this_core->current_process->time_children     / arch_cpu_mhz();
+		buf->tms_cutime = (this_core->current_process->time_children - this_core->current_process->time_sys_children) / arch_cpu_mhz();
 		buf->tms_cstime = this_core->current_process->time_sys_children / arch_cpu_mhz();
 	}
 
