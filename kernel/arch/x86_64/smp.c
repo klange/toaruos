@@ -66,7 +66,7 @@ static void __ap_bootstrap(void) {
 		"mov $0x10, %%ax\n"
 		"mov %%ax, %%ds\n"
 		"mov %%ax, %%ss\n"
-		"mov $0x2b, %%ax\n"
+		"mov $0x33, %%ax\n" /* TSS offset in gdt */
 		"ltr %%ax\n"
 		".extern _ap_stack_base\n"
 		"mov _ap_stack_base,%%rsp\n"
@@ -155,6 +155,16 @@ void load_processor_info(void) {
 		cpuid(0x80000004, brand[8], brand[9], brand[10], brand[11]);
 		memcpy(processor_local_data[this_core->cpu_id].cpu_model_name, brand, 48);
 	}
+
+	extern void syscall_entry(void);
+	uint32_t efer_hi, efer_lo;
+	asm volatile ("rdmsr" : "=d"(efer_hi), "=a"(efer_lo) : "c"(0xc0000080));    /* Read current EFER */
+	asm volatile ("wrmsr" : : "c"(0xc0000080), "d"(efer_hi), "a"(efer_lo | 1)); /* Enable SYSCALL/SYSRET in EFER */
+	asm volatile ("wrmsr" : : "c"(0xC0000081), "d"(0x1b0008), "a"(0));          /* Set segment bases in STAR */
+	asm volatile ("wrmsr" : : "c"(0xC0000082),                                  /* Set SYSCALL entry point in LSTAR */
+	              "d"((uintptr_t)&syscall_entry >> 32),
+	              "a"((uintptr_t)&syscall_entry & 0xFFFFffff));
+	asm volatile ("wrmsr" : : "c"(0xC0000084), "d"(0), "a"(0x700));             /* SFMASK: Direction flag, interrupt flag, trap flag are all cleared */
 }
 
 /**

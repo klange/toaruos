@@ -207,7 +207,9 @@ struct ProcessorLocal {
 	int  cpu_model;
 	int  cpu_family;
 	char cpu_model_name[48];
-	const char * cpu_manufacturer;
+	const char * cpu_manufacturer; /* 0x68 */
+	uintptr_t syscall_stack;       /* 0x70: Should match TSS.RSP[0] */
+	uintptr_t user_sysret_stack;   /* 0x78: Used only at start of SYSCALL entry to store user RSP before pushing it */
 #endif
 
 #ifdef __aarch64__

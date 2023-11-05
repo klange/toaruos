@@ -693,3 +693,14 @@ struct regs * isr_handler(struct regs * r) {
 	return out;
 
 }
+
+struct regs * syscall_centry(struct regs * r) {
+	this_core->current_process->time_switch = arch_perf_timer();
+
+	struct regs * out = _syscall_entrypoint(r);
+
+	process_check_signals(out);
+	update_process_times_on_exit();
+
+	return out;
+}

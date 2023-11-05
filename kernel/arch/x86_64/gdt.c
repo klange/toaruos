@@ -45,7 +45,7 @@ typedef struct {
 } __attribute__((packed)) gdt_pointer_t;
 
 typedef struct  {
-	gdt_entry_t entries[6];
+	gdt_entry_t entries[7];
 	gdt_entry_high_t tss_extra;
 	gdt_pointer_t pointer;
 	tss_entry_t tss;
@@ -58,6 +58,7 @@ FullGDT gdt[32] __attribute__((used)) = {{
 		{0xFFFF, 0x0000, 0x00, 0x92, (1 << 5) | (1 << 7) | 0x0F, 0x00},
 		{0xFFFF, 0x0000, 0x00, 0xFA, (1 << 5) | (1 << 7) | 0x0F, 0x00},
 		{0xFFFF, 0x0000, 0x00, 0xF2, (1 << 5) | (1 << 7) | 0x0F, 0x00},
+		{0xFFFF, 0x0000, 0x00, 0xFA, (1 << 5) | (1 << 7) | 0x0F, 0x00},
 		{0x0067, 0x0000, 0x00, 0xE9, 0x00, 0x00},
 	},
 	{0x00000000, 0x00000000},
@@ -75,10 +76,10 @@ void gdt_install(void) {
 		gdt[i].pointer.base  = (uintptr_t)&gdt[i].entries;
 
 		uintptr_t addr = (uintptr_t)&gdt[i].tss;
-		gdt[i].entries[5].limit_low = sizeof(gdt[i].tss);
-		gdt[i].entries[5].base_low = (addr & 0xFFFF);
-		gdt[i].entries[5].base_middle = (addr >> 16) & 0xFF;
-		gdt[i].entries[5].base_high = (addr >> 24) & 0xFF;
+		gdt[i].entries[6].limit_low = sizeof(gdt[i].tss);
+		gdt[i].entries[6].base_low = (addr & 0xFFFF);
+		gdt[i].entries[6].base_middle = (addr >> 16) & 0xFF;
+		gdt[i].entries[6].base_high = (addr >> 24) & 0xFF;
 		gdt[i].tss_extra.base_highest = (addr >> 32) & 0xFFFFFFFF;
 	}
 
@@ -92,7 +93,7 @@ void gdt_install(void) {
 		"mov %%ax, %%ds\n"
 		"mov %%ax, %%es\n"
 		"mov %%ax, %%ss\n"
-		"mov $0x2b, %%ax\n"
+		"mov $0x33, %%ax\n" /* TSS offset */
 		"ltr %%ax\n"
 		: : "r"(&gdt[0].pointer)
 	);
@@ -104,6 +105,7 @@ void gdt_copy_to_trampoline(int ap, char * trampoline) {
 
 void arch_set_kernel_stack(uintptr_t stack) {
 	gdt[this_core->cpu_id].tss.rsp[0] = stack;
+	this_core->syscall_stack = stack;
 }
 
 void arch_set_tls_base(uintptr_t tlsbase) {

@@ -263,3 +263,68 @@ arch_enter_tasklet:
     popq %rdi
     popq %rsi
     jmpq *%rsi
+
+
+.extern syscall_centry
+.global syscall_entry
+.type syscall_entry, @function
+syscall_entry:
+    swapgs             /* SYSCALL only happens from userspace, so we must always swap gs */
+    mov %rsp, %gs:0x78 /* Store user RSP temporarily */
+    mov %gs:0x70, %rsp /* Restore kernel stack for this thread */
+
+    /* Normal `struct regs` layout, same as what we'd get on an interrupt */
+    pushq $0x23        /* SS */
+    pushq %gs:0x78     /* RSP */
+    push %r11          /* RFLAGS - SYSCALL stores in r11 */
+    pushq $0x2b        /* CS */
+    push %rcx          /* RIP - SYSCALL stores in rcx */
+
+    pushq $0           /* Dummy error code */
+    pushq $0           /* Dummy interrupt number */
+
+    push %rax
+    push %rbx
+    pushq $0           /* rcx is not valid, set to zero */
+    push %rdx
+    push %rsi
+    push %rdi
+    push %rbp
+    push %r8
+    push %r9
+    push %r10
+    pushq $0           /* r11 is not valid, set to zero */
+    push %r12
+    push %r13
+    push %r14
+    push %r15
+
+    mov %rsp, %rdi
+    call syscall_centry
+    mov %rax, %rsp
+
+    pop %r15
+    pop %r14
+    pop %r13
+    pop %r12
+    add $8, %rsp
+    pop %r10
+    pop %r9
+    pop %r8
+    pop %rbp
+    pop %rdi
+    pop %rsi
+    pop %rdx
+    add $8, %rsp
+    pop %rbx
+    pop %rax
+
+    add $16, %rsp
+
+    pop %rcx
+    add $8, %rsp
+    pop %r11
+    pop %rsp
+
+    swapgs
+    sysretq

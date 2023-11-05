@@ -30,7 +30,7 @@
  */
 void arch_enter_user(uintptr_t entrypoint, int argc, char * argv[], char * envp[], uintptr_t stack) {
 	struct regs ret;
-	ret.cs = 0x18 | 0x03;
+	ret.cs = 0x28 | 0x03;
 	ret.ss = 0x20 | 0x03;
 	ret.rip = entrypoint;
 	ret.rflags = (1 << 21) | (1 << 9);
@@ -116,7 +116,7 @@ int arch_return_from_signal_handler(struct regs *r) {
  */
 void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r) {
 	struct regs ret;
-	ret.cs = 0x18 | 0x03;
+	ret.cs = 0x28 | 0x03;
 	ret.ss = 0x20 | 0x03;
 	ret.rip = entrypoint;
 	ret.rflags = (1 << 21) | (1 << 9);
