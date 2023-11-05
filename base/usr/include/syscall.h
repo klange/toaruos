@@ -24,7 +24,7 @@ _Begin_C_Header
 	long syscall_##fn(P1 p1) { \
 		long __res = num; __asm__ __volatile__("int $0x7F" \
 				: "=a" (__res) \
-				: "a" (__res), "b" ((long)(p1))); \
+				: "a" (__res), "D" ((long)(p1))); \
 		return __res; \
 	}
 
@@ -32,7 +32,7 @@ _Begin_C_Header
 	long syscall_##fn(P1 p1, P2 p2) { \
 		long __res = num; __asm__ __volatile__("int $0x7F" \
 				: "=a" (__res) \
-				: "a" (__res), "b" ((long)(p1)), "c"((long)(p2))); \
+				: "a" (__res), "D" ((long)(p1)), "S"((long)(p2))); \
 		return __res; \
 	}
 
@@ -40,23 +40,26 @@ _Begin_C_Header
 	long syscall_##fn(P1 p1, P2 p2, P3 p3) { \
 		long __res = num; __asm__ __volatile__("int $0x7F" \
 				: "=a" (__res) \
-				: "a" (__res), "b" ((long)(p1)), "c"((long)(p2)), "d"((long)(p3))); \
+				: "a" (__res), "D" ((long)(p1)), "S"((long)(p2)), "d"((long)(p3))); \
 		return __res; \
 	}
 
 #define DEFN_SYSCALL4(fn, num, P1, P2, P3, P4) \
 	long syscall_##fn(P1 p1, P2 p2, P3 p3, P4 p4) { \
+		register long p4_ __asm__("r10") = (long)p4; \
 		long __res = num; __asm__ __volatile__("int $0x7F" \
 				: "=a" (__res) \
-				: "a" (__res), "b" ((long)(p1)), "c"((long)(p2)), "d"((long)(p3)), "S"((long)(p4))); \
+				: "a" (__res), "D" ((long)(p1)), "S"((long)(p2)), "d"((long)(p3)), "r"((long)(p4_))); \
 		return __res; \
 	}
 
 #define DEFN_SYSCALL5(fn, num, P1, P2, P3, P4, P5) \
 	long syscall_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) { \
+		register long p4_ __asm__("r10") = (long)p4; \
+		register long p5_ __asm__("r8") = (long)p5; \
 		long __res = num; __asm__ __volatile__("int $0x7F" \
 				: "=a" (__res) \
-				: "a" (__res), "b" ((long)(p1)), "c"((long)(p2)), "d"((long)(p3)), "S"((long)(p4)), "D"((long)(p5))); \
+				: "a" (__res), "D" ((long)(p1)), "S"((long)(p2)), "d"((long)(p3)), "r"((long)(p4_)), "r"((long)(p5_))); \
 		return __res; \
 	}
 #elif defined(__aarch64__)

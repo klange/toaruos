@@ -9,11 +9,11 @@ _Begin_C_Header
 # include <kernel/arch/x86_64/regs.h>
 # define uregs_syscall_result(r) ((r)->rax)
 # define uregs_syscall_num(r)    ((r)->rax)
-# define uregs_syscall_arg1(r)   ((r)->rbx)
-# define uregs_syscall_arg2(r)   ((r)->rcx)
+# define uregs_syscall_arg1(r)   ((r)->rdi)
+# define uregs_syscall_arg2(r)   ((r)->rsi)
 # define uregs_syscall_arg3(r)   ((r)->rdx)
-# define uregs_syscall_arg4(r)   ((r)->rsi)
-# define uregs_syscall_arg5(r)   ((r)->rdi)
+# define uregs_syscall_arg4(r)   ((r)->r10)
+# define uregs_syscall_arg5(r)   ((r)->r8)
 # define uregs_ip(r)             ((r)->rip)
 # define uregs_bp(r)             ((r)->rbp)
 # define UREGS_FMT \

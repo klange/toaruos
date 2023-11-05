@@ -281,10 +281,10 @@ long arch_reboot(void) {
 /* Syscall parameter accessors */
 void arch_syscall_return(struct regs * r, long retval) { r->rax = retval; }
 long arch_syscall_number(struct regs * r) { return (unsigned long)r->rax; }
-long arch_syscall_arg0(struct regs * r) { return r->rbx; }
-long arch_syscall_arg1(struct regs * r) { return r->rcx; }
+long arch_syscall_arg0(struct regs * r) { return r->rdi; }
+long arch_syscall_arg1(struct regs * r) { return r->rsi; }
 long arch_syscall_arg2(struct regs * r) { return r->rdx; }
-long arch_syscall_arg3(struct regs * r) { return r->rsi; }
-long arch_syscall_arg4(struct regs * r) { return r->rdi; }
+long arch_syscall_arg3(struct regs * r) { return r->r10; }
+long arch_syscall_arg4(struct regs * r) { return r->r8; }
 long arch_stack_pointer(struct regs * r) { return r->rsp; }
 long arch_user_ip(struct regs * r) { return r->rip; }
