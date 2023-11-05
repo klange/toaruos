@@ -531,30 +531,6 @@ static void _page_fault(struct regs * r) {
 }
 
 /**
- * @brief Legacy system call entrypoint.
- *
- * We don't have a non-legacy entrypoint, but this use of
- * an interrupt to make syscalls is considered "legacy"
- * by the existence of its replacement (SYSCALL/SYSRET).
- *
- * @param r Interrupt register context, which contains syscall arguments.
- * @return Register state after system call, which contains return value.
- */
-static struct regs * _syscall_entrypoint(struct regs * r) {
-	/* syscall_handler will modify r to set return value. */
-	syscall_handler(r);
-
-	/*
-	 * I'm not actually sure if we're still cli'ing in any of the
-	 * syscall handlers, but definitely make sure we're not allowing
-	 * interrupts to remain disabled upon return from a system call.
-	 */
-	asm volatile("sti");
-
-	return r;
-}
-
-/**
  * @brief AP-local timer signal.
  *
  * Update clocks and switch task gracefully.
@@ -655,7 +631,7 @@ struct regs * isr_handler_inner(struct regs * r) {
 
 		/* Local interrupts that make it here. */
 		case 123: return _local_timer(r);
-		case 127: return _syscall_entrypoint(r);
+		case 127: syscall_handler(r); return r;
 
 		/* Other interrupts that don't make it here:
 		 *   124: TLB shootdown, we just reload CR3 in the handler.
@@ -697,10 +673,10 @@ struct regs * isr_handler(struct regs * r) {
 struct regs * syscall_centry(struct regs * r) {
 	this_core->current_process->time_switch = arch_perf_timer();
 
-	struct regs * out = _syscall_entrypoint(r);
+	syscall_handler(r);
 
-	process_check_signals(out);
+	process_check_signals(r);
 	update_process_times_on_exit();
 
-	return out;
+	return r;
 }
