@@ -60,10 +60,18 @@ static uintptr_t ramdisk_len = 0;
 uintptr_t final_offset = 0;
 uintptr_t _xmain = 0;
 
+static inline uint64_t read_tsc(void) {
+	uint32_t lo, hi;
+	asm volatile ( "rdtsc" : "=a"(lo), "=d"(hi) );
+	return ((uint64_t)hi << 32) | (uint64_t)lo;
+}
+
 static int load_aout(uint32_t * hdr) {
 	uintptr_t base_offset = (uintptr_t)hdr - (uintptr_t)kernel_load_start;
 	uintptr_t hdr_offset  = hdr[3] - base_offset;
-	size_t xtra = 0x100000;
+	uint32_t  rando = 0;
+	asm volatile ( "rdtsc" : "=a"(rando), "=d"((uint32_t){0}) );
+	size_t    xtra = (rando & 0xFF) << 12;
 
 	memcpy((void*)(uintptr_t)hdr[4] + xtra, kernel_load_start + (hdr[4] - hdr_offset), (hdr[5] - hdr[4]));
 	memset((void*)(uintptr_t)hdr[5] + xtra, 0, (hdr[6] - hdr[5]));
