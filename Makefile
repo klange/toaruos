@@ -79,7 +79,7 @@ LC = $(BASE)/lib/libc.so $(GCC_SHARED)
 .PHONY: all system clean run shell
 
 $(BASE)/mod/%.ko: modules/%.c | dirs
-	${CC} -c ${KERNEL_CFLAGS} -mcmodel=large  -o $@ $<
+	${CC} -c ${KERNEL_CFLAGS} -fno-pie -mcmodel=large  -o $@ $<
 
 ramdisk.igz: $(wildcard $(BASE)/* $(BASE)/*/* $(BASE)/*/*/* $(BASE)/*/*/*/* $(BASE)/*/*/*/*/*) $(APPS_X) $(LIBS_X) $(KRK_MODS_X) $(BASE)/bin/kuroko $(BASE)/lib/ld.so $(BASE)/lib/libm.so $(APPS_KRK_X) $(KRK_MODS) $(APPS_SH_X) $(MODULES)
 	python3 util/createramdisk.py

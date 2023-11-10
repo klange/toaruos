@@ -1,6 +1,6 @@
 ARCH=x86_64
 
-ARCH_KERNEL_CFLAGS  = -mno-red-zone -fno-omit-frame-pointer -mfsgsbase
+ARCH_KERNEL_CFLAGS  = -mno-red-zone -fno-omit-frame-pointer -mfsgsbase -fPIE
 ARCH_KERNEL_CFLAGS += -mgeneral-regs-only -z max-page-size=0x1000 -nostdlib
 ARCH_USER_CFLAGS += -z max-page-size=0x1000
 
@@ -66,15 +66,15 @@ shell: system
 		-fw_cfg name=opt/org.toaruos.bootmode,string=headless
 
 misaka-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
-	${CC} -g -T kernel/arch/${ARCH}/link.ld ${KERNEL_CFLAGS} -o $@.64 ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
-	${OC} --strip-debug -I elf64-x86-64 -O elf32-i386 $@.64 $@
+	${CC} -g -T kernel/arch/${ARCH}/link.ld ${KERNEL_CFLAGS} -Wl,-static,-pie,--no-dynamic-linker,-z,notext,-z,norelro -o $@.64 ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
+	cp $@.64 $@
+	${STRIP} $@
 
 # Loader stuff, legacy CDs
 fatbase/ramdisk.igz: ramdisk.igz
 	cp $< $@
 fatbase/kernel: misaka-kernel
 	cp $< $@
-	strip $@
 
 cdrom/fat.img: fatbase/ramdisk.igz fatbase/kernel fatbase/efi/boot/bootx64.efi util/mkdisk.sh | dirs
 	util/mkdisk.sh $@ fatbase

@@ -12,11 +12,29 @@ SECTIONS
 		*(.bootstrap)
 		code = .;
 		*(.text)
+		*(.shit)
 	}
 
 	.rodata BLOCK(4K) : ALIGN(4K)
 	{
 		*(.rodata)
+	}
+	.rela.dyn BLOCK(4K) : ALIGN(4K)
+	{
+		_rela_start = .;
+		*(.rela)
+		*(.rela.text)
+		*(.rela.got)
+		*(.rela.plt)
+		*(.rela.bss)
+		*(.rela.ifunc)
+		*(.rela.text.*)
+		*(.rela.data)
+		*(.rela.data.*)
+		*(.rela.rodata)
+		*(.rela.rodata*)
+		*(.rela.dyn)
+		_rela_end = .;
 	}
 
 	.data BLOCK(4K) : ALIGN(4K)
@@ -26,11 +44,11 @@ SECTIONS
 		*(.symbols)
 		PROVIDE(kernel_symbols_start = .);
 		PROVIDE(kernel_symbols_end = .);
-		PROVIDE(bss_start = .);
 	}
 
 	.bss BLOCK(4K) : ALIGN(4K)
 	{
+		PROVIDE(bss_start = .);
 		bss = .;
 		*(COMMON)
 		*(.bss)

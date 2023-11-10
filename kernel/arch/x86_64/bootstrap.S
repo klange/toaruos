@@ -75,7 +75,7 @@ mb2_tag_entry:
 .word 3
 .word 0
 .long 12
-.long start
+.long start_mbi2
 
 /* Framebuffer tag */
 .align 8
@@ -98,6 +98,15 @@ mb2_tag_fb:
 .word 6
 .word 0
 .long 8
+
+.align 8
+.word 10
+.word 0
+.long 24
+.long 0x200000
+.long 0x1000000
+.long 4096
+.long 1
 
 /* End tag */
 .align 8
@@ -124,12 +133,34 @@ stack_top:
 .extern kmain
 .type kmain, @function
 
+.global start_mbi2
+.type start_mbi2, @function
+
+start_mbi2:
+    /* Use reserved 0 space of boot information struct to thunk eip */
+    movl %ebx, %ecx
+    addl $8, %ecx
+    jmp good_to_go
+
 .global start
 .type start, @function
 
 start:
+    /* Use boot_drive as a temporary place to thunk eip */
+    movl %ebx, %ecx
+    addl $16, %ecx
+
+good_to_go:
+    mov  %ecx, %esp
+
+    call _forward
+_forward:
+    popl %ecx
+    subl $_forward, %ecx
+
     /* Setup our stack */
     mov $stack_top, %esp
+    addl %ecx, %esp
 
     /* Make sure our stack is 16-byte aligned */
     and $-16, %esp
@@ -151,6 +182,8 @@ jmp_to_long:
 
     /* Set up initial page region, which was zero'd for us by the loader */
     mov $init_page_region, %edi
+    addl %ecx, %edi
+    pushl %ecx
 
     /* PML4[0] = &PDP[0] | (PRESENT, WRITABLE, USER) */
     mov $0x1007, %eax
@@ -179,6 +212,9 @@ jmp_to_long:
     loop .set_entry
 
     mov $init_page_region, %edi
+    popl %ecx
+    addl %ecx, %edi
+    pushl %ecx
     mov %edi, %cr3
 
     /* Enable PAE */
@@ -203,8 +239,31 @@ jmp_to_long:
     or $0x80000000, %eax
     mov %eax, %cr0
 
+super_duper_bullshit:
+    popl %ecx
+
+    lea (_lgdt_instr+3)(%ecx), %eax
+    movl (%eax), %ebx
+    addl %ecx, %ebx
+    movl %ebx, (%eax)
+
+    lea (gdtr+2)(%ecx), %eax
+    movl (%eax), %ebx
+    addl %ecx, %ebx
+    movl %ebx, (%eax)
+
+    lea (_ljmp_instr+1)(%ecx), %eax
+    movl (%eax), %ebx
+    addl %ecx, %ebx
+    movl %ebx, (%eax)
+
+    pushl $0
+    pushl %ecx
+
+_lgdt_instr:
     lgdt gdtr
 
+_ljmp_instr:
     ljmp $0x08,$realm64
 
 .align 8
@@ -247,6 +306,7 @@ realm64:
 
 .continue:
     cli
+    pop %rcx
     pop %rdi
     pop %rsi
     pop %rdx

@@ -24,6 +24,7 @@ __attribute__((used))
 __attribute__((naked))
 static void __ap_bootstrap(void) {
 	asm volatile (
+		".section .shit\n"
 		".code16\n"
 		".org 0x0\n"
 		".global _ap_bootstrap_start\n"
@@ -34,8 +35,7 @@ static void __ap_bootstrap(void) {
 		"mov %%eax, %%cr4\n"
 
 		/* Kernel base PML4 */
-		".global init_page_region\n"
-		"mov $init_page_region, %%edx\n"
+		"mov $0x77777777, %%edx\n"
 		"mov %%edx, %%cr3\n"
 
 		/* Set LME */
@@ -52,7 +52,7 @@ static void __ap_bootstrap(void) {
 		"addr32 lgdtl %%cs:_ap_bootstrap_gdtp-_ap_bootstrap_start\n"
 
 		/* Jump... */
-		"data32 jmp $0x08,$ap_premain\n"
+		"data32 jmp $0x08,$0x5A5A5A5A\n"
 
 		".global _ap_bootstrap_gdtp\n"
 		".align 16\n"
@@ -60,21 +60,30 @@ static void __ap_bootstrap(void) {
 		".word 0\n"
 		".quad 0\n"
 
+		".global _ap_bootstrap_end\n"
+		"_ap_bootstrap_end:\n"
+		".section .text\n"
+		: : : "memory"
+	);
+}
+
+__attribute__((used))
+__attribute__((naked))
+static void __ap_bootstrap_landing(void) {
+	asm volatile (
 		".code64\n"
 		".align 16\n"
-		"ap_premain:\n"
+		".global _ap_premain\n"
+		"_ap_premain:\n"
 		"mov $0x10, %%ax\n"
 		"mov %%ax, %%ds\n"
 		"mov %%ax, %%ss\n"
 		"mov $0x33, %%ax\n" /* TSS offset in gdt */
 		"ltr %%ax\n"
 		".extern _ap_stack_base\n"
-		"mov _ap_stack_base,%%rsp\n"
+		"mov _ap_stack_base(%%rip),%%rsp\n"
 		".extern ap_main\n"
 		"callq ap_main\n"
-
-		".global _ap_bootstrap_end\n"
-		"_ap_bootstrap_end:\n"
 		: : : "memory"
 	);
 }
@@ -82,6 +91,7 @@ static void __ap_bootstrap(void) {
 extern char _ap_bootstrap_start[];
 extern char _ap_bootstrap_end[];
 extern char _ap_bootstrap_gdtp[];
+extern char _ap_premain[];
 extern size_t arch_cpu_mhz(void);
 extern void gdt_copy_to_trampoline(int ap, char * trampoline);
 extern void arch_set_core_base(uintptr_t base);
@@ -421,6 +431,9 @@ _toomany:
 	/* Get a page we can backup the previous contents of the bootstrap target page to, as it probably has mmap crap in multiboot2 */
 	uintptr_t tmp_space = mmu_allocate_a_frame() << 12;
 	memcpy(mmu_map_from_physical(tmp_space), mmu_map_from_physical(0x1000), 0x1000);
+
+	*(uint32_t*)(&_ap_bootstrap_start[0xb])  = (void*)&init_page_region;
+	*(uint32_t*)(&_ap_bootstrap_start[0x37]) = (void*)&_ap_premain;
 
 	/* Map the bootstrap code */
 	memcpy(mmu_map_from_physical(0x1000), &_ap_bootstrap_start, (uintptr_t)&_ap_bootstrap_end - (uintptr_t)&_ap_bootstrap_start);

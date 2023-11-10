@@ -94,7 +94,7 @@ ISR_NOERR 127
 _isr123:
     /* Acknowledge IPI */
     pushq %r12
-    mov (lapic_final), %r12
+    mov (lapic_final)(%rip), %r12
     add $0xb0, %r12
     movl $0, (%r12)
     popq %r12
@@ -116,7 +116,7 @@ _isr124:
     pushq %r12
     mov %cr3, %r12
     mov %r12, %cr3
-    mov (lapic_final), %r12
+    mov (lapic_final)(%rip), %r12
     add $0xb0, %r12
     movl $0, (%r12)
     popq %r12
@@ -128,7 +128,7 @@ _isr124:
 .type _isr126, @function
 _isr126:
     pushq %r12
-    mov (lapic_final), %r12
+    mov (lapic_final)(%rip), %r12
     add $0xb0, %r12
     movl $0, (%r12)
     popq %r12

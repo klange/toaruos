@@ -23,6 +23,7 @@
 #include <kernel/ksym.h>
 #include <kernel/misc.h>
 #include <kernel/version.h>
+#include <kernel/elf.h>
 
 #include <kernel/arch/x86_64/ports.h>
 #include <kernel/arch/x86_64/cmos.h>
@@ -76,6 +77,7 @@ struct MB2_TagHeader {
 
 void * mboot2_find_next(char * current, uint32_t type) {
 	char * header = current;
+	while ((uintptr_t)header & 7) header++;
 	struct MB2_TagHeader * tag = (void*)header;
 	while (1) {
 		if (tag->type == 0) return NULL;
@@ -219,11 +221,11 @@ void mboot_unmark_valid_memory(void) {
 	}
 }
 
-static void symbols_install(void) {
+static void symbols_install(uint64_t base) {
 	ksym_install();
 	kernel_symbol_t * k = (kernel_symbol_t *)&kernel_symbols_start;
 	while ((uintptr_t)k < (uintptr_t)&kernel_symbols_end) {
-		ksym_bind(k->name, (void*)k->addr);
+		ksym_bind(k->name, (void*)(k->addr + base));
 		k = (kernel_symbol_t *)((uintptr_t)k + sizeof *k + strlen(k->name) + 1);
 	}
 }
@@ -284,6 +286,7 @@ static void mount_ramdisk(uintptr_t addr, size_t len) {
 		uint32_t decompressedSize = *(uint32_t*)mmu_map_from_physical(addr + len - sizeof(uint32_t));
 		size_t pageCount = (((size_t)decompressedSize + 0xFFF) & ~(0xFFF)) >> 12;
 		uintptr_t physicalAddress = mmu_allocate_n_frames(pageCount) << 12;
+
 		if (physicalAddress == (uintptr_t)-1) {
 			dprintf("gzip: failed to allocate pages\n");
 			return;
@@ -408,7 +411,16 @@ void arch_framebuffer_initialize(void) {
  *
  * Called by the x86-64 longmode bootstrap.
  */
-int kmain(struct multiboot * mboot, uint32_t mboot_mag, void* esp) {
+int kmain(struct multiboot * mboot, uint32_t mboot_mag, void* esp, uint64_t base) {
+	extern Elf64_Rela _rela_start[], _rela_end[];
+	for (Elf64_Rela * rela = _rela_start; rela < _rela_end; ++rela) {
+		switch (ELF64_R_TYPE(rela->r_info)) {
+			case R_X86_64_RELATIVE:
+				*(uint64_t*)(rela->r_offset + base) = base + rela->r_addend;
+				break;
+		}
+	}
+
 	/* The debug log is over /dev/ttyS0, but skips the PTY interface; it's available
 	 * as soon as we can call printf(), which is as soon as we get to long mode. */
 	early_log_initialize();
@@ -443,7 +455,7 @@ int kmain(struct multiboot * mboot, uint32_t mboot_mag, void* esp) {
 
 	/* With the MMU initialized, set up things required for the scheduler. */
 	pat_initialize();
-	symbols_install();
+	symbols_install(base);
 	gdt_install();
 	idt_install();
 	fpu_initialize();
