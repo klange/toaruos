@@ -22,7 +22,7 @@ class KrkHighlighter(Highlighter):
 
     types = [
         'self','super','len','str','int','float','dir','repr','list','dict','range',
-        'object','exception','isinstance','type','print','tuple','bool','any','all',
+        'object','isinstance','type','print','tuple','bool','any','all',
         'hex','ord','chr','bytes','set','getattr','setattr','input','zip','enumerate',
         'property','staticmethod','classmethod','filter','min','max','id','map','bin',
         'sum','sorted','issubclass','hasattr','delattr', 'NotImplemented', 'abs',
