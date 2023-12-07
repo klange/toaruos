@@ -432,8 +432,8 @@ _toomany:
 	uintptr_t tmp_space = mmu_allocate_a_frame() << 12;
 	memcpy(mmu_map_from_physical(tmp_space), mmu_map_from_physical(0x1000), 0x1000);
 
-	*(uint32_t*)(&_ap_bootstrap_start[0xb])  = (void*)&init_page_region;
-	*(uint32_t*)(&_ap_bootstrap_start[0x37]) = (void*)&_ap_premain;
+	*(uint32_t*)(&_ap_bootstrap_start[0xb])  = (uintptr_t)&init_page_region;
+	*(uint32_t*)(&_ap_bootstrap_start[0x37]) = (uintptr_t)&_ap_premain;
 
 	/* Map the bootstrap code */
 	memcpy(mmu_map_from_physical(0x1000), &_ap_bootstrap_start, (uintptr_t)&_ap_bootstrap_end - (uintptr_t)&_ap_bootstrap_start);
