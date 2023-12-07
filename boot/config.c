@@ -105,6 +105,10 @@ int kmain() {
 			"Enables write-combining PAT configuration for",
 			"framebuffers. Toggle if graphics are slow.");
 
+	BOOT_OPTION(_kaslr,       1, "KASLR (experimental)",
+			"Enables rudimentary randomization of the kernel",
+			"load address within a small range.");
+
 	while (1) {
 		/* Loop over rendering the menu */
 		show_menu();
@@ -170,6 +174,9 @@ int kmain() {
 		if (_lfbwc) {
 			strcat(cmdline, "lfbwc ");
 		}
+
+		extern int disable_kaslr;
+		disable_kaslr = !_kaslr;
 
 		if (!boot_edit) break;
 		if (boot_editor()) break;
