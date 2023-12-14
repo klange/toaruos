@@ -67,5 +67,5 @@ debug: system
 BUILD_KRK=$(TOOLCHAIN)/local/bin/kuroko
 $(TOOLCHAIN)/local/bin/kuroko: kuroko/src/*.c
 	mkdir -p $(TOOLCHAIN)/local/bin
-	cc -Ikuroko/src -DNO_RLINE -DKRK_STATIC_ONLY -DKRK_DISABLE_THREADS -o "${TOOLCHAIN}/local/bin/kuroko" kuroko/src/*.c
+	cc -Ikuroko/src -DKRK_BUNDLE_LIBS="BUNDLED(os);BUNDLED(fileio);" -DNO_RLINE -DKRK_STATIC_ONLY -DKRK_DISABLE_THREADS -o "${TOOLCHAIN}/local/bin/kuroko" kuroko/src/*.c kuroko/src/modules/module_os.c kuroko/src/modules/module_fileio.c
 
