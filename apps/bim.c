@@ -11467,21 +11467,31 @@ void initialize(void) {
 
 	krk_startModule("<bim-syntax>");
 
-#ifdef __toaru__
-# define KUROKO_SEARCH_PATH "/lib/kuroko/"
-#else
-# define KUROKO_SEARCH_PATH "/usr/lib/kuroko/"
-#endif
-
-	/* Try to import the shared object 'os' module. If we can't,
-	 * try adjusting the module_paths to find it. */
-	krk_interpret(
-		"try:\n"
-		"   import os\n"
-		"except:\n"
-		"   import kuroko\n"
-		"   if '" KUROKO_SEARCH_PATH "' not in kuroko.module_paths:\n"
-		"       kuroko.module_paths.append('" KUROKO_SEARCH_PATH "')", "<bim-syntax>");
+	/* Try to import the shared object 'os' module. If we can't, try adjusting the module_paths to find it. */
+	const char * potential_search_paths[] = {"/usr/lib/kuroko/","/usr/local/lib/kuroko/","/lib/kuroko/",NULL};
+	const char ** next = potential_search_paths;
+	while (*next) {
+		KrkValue result = krk_interpret(
+			"try:\n"
+			" import os\n"
+			" return True\n"
+			"except:\n"
+			" return False\n", "<bim-syntax>");
+		if (IS_BOOLEAN(result) && AS_BOOLEAN(result)) break;
+		if (!access(*next, R_OK)) {
+			char snippet[1000];
+			snprintf(snippet, 1000,
+				"try:\n"
+				" import kuroko\n"
+				" if '%s' not in kuroko.module_paths:\n"
+				"  kuroko.module_paths.append('%s')\n"
+				"except:\n"
+				" pass",
+				*next, *next);
+			krk_interpret(snippet, "<bim-syntax>");
+		}
+		next++;
+	}
 
 	import_directory("syntax");
 	krk_startModule("<bim-themes>");
