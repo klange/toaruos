@@ -568,12 +568,23 @@ FILE * open_biminfo(void) {
 /**
  * Check if a file is open by examining the biminfo file
  */
-int file_is_open(char * file_name) {
+int file_is_open(char * file) {
 	/* Get the absolute path of the file to normalize for lookup */
+	char * _file = file;
+	if (file[0] == '~') {
+		char * home = getenv("HOME");
+		if (home) {
+			_file = malloc(strlen(file) + strlen(home) + 4); /* Paranoia */
+			sprintf(_file, "%s%s", home, file+1);
+		}
+	}
+
 	char tmp_path[PATH_MAX+2];
-	if (!realpath(file_name, tmp_path)) {
+	if (!realpath(_file, tmp_path)) {
+		if (_file != file) free(_file);
 		return 0; /* Assume not */
 	}
+	if (_file != file) free(_file);
 	strcat(tmp_path," ");
 
 	FILE * biminfo = open_biminfo();
@@ -624,11 +635,23 @@ int fetch_from_biminfo(buffer_t * buf) {
 	/* Can't fetch if we don't have a filename */
 	if (!buf->file_name) return 1;
 
+	char * file = buf->file_name;
+	char * _file = file;
+	if (file[0] == '~') {
+		char * home = getenv("HOME");
+		if (home) {
+			_file = malloc(strlen(file) + strlen(home) + 4); /* Paranoia */
+			sprintf(_file, "%s%s", home, file+1);
+		}
+	}
+
 	/* Get the absolute path of the file to normalize for lookup */
 	char tmp_path[PATH_MAX+2];
-	if (!realpath(buf->file_name, tmp_path)) {
+	if (!realpath(_file, tmp_path)) {
+		if (_file != file) free(_file);
 		return 1;
 	}
+	if (_file != file) free(_file);
 	strcat(tmp_path," ");
 
 	FILE * biminfo = open_biminfo();
@@ -669,11 +692,23 @@ int fetch_from_biminfo(buffer_t * buf) {
 int update_biminfo(buffer_t * buf, int is_open) {
 	if (!buf->file_name) return 1;
 
+	char * file = buf->file_name;
+	char * _file = file;
+	if (file[0] == '~') {
+		char * home = getenv("HOME");
+		if (home) {
+			_file = malloc(strlen(file) + strlen(home) + 4); /* Paranoia */
+			sprintf(_file, "%s%s", home, file+1);
+		}
+	}
+
 	/* Get the absolute path of the file to normalize for lookup */
 	char tmp_path[PATH_MAX+1];
-	if (!realpath(buf->file_name, tmp_path)) {
+	if (!realpath(_file, tmp_path)) {
+		if (_file != file) free(_file);
 		return 1;
 	}
+	if (_file != file) free(_file);
 	strcat(tmp_path," ");
 
 	FILE * biminfo = open_biminfo();
@@ -11086,13 +11121,15 @@ void import_directory(char * dirName) {
 	if (dirpath) free(dirpath);
 	struct dirent * ent = readdir(dirp);
 	while (ent) {
-		if (str_ends_with(ent->d_name,".krk") && !str_ends_with(ent->d_name,"__init__.krk")) {
+		if (str_ends_with(ent->d_name,".krk")) {
 			/* put "dir.file" onto the stack */
 			krk_push(OBJECT_VAL(krk_copyString(dirName,strlen(dirName))));
-			krk_push(OBJECT_VAL(S(".")));
-			krk_addObjects();
-			krk_push(OBJECT_VAL(krk_copyString(ent->d_name,strlen(ent->d_name)-4)));
-			krk_addObjects();
+			if (!str_ends_with(ent->d_name,"__init__.krk")) {
+				krk_push(OBJECT_VAL(S(".")));
+				krk_addObjects();
+				krk_push(OBJECT_VAL(krk_copyString(ent->d_name,strlen(ent->d_name)-4)));
+				krk_addObjects();
+			}
 
 			/* import that */
 			krk_doRecursiveModuleLoad(AS_STRING(krk_peek(0)));
@@ -11155,6 +11192,19 @@ static void findBim(char * argv[]) {
 	} /* Else, give up at this point and just don't attach it at all. */
 }
 
+static void do_kuroko_imports(void) {
+	krk_resetStack();
+	krk_startModule("<bim-site>");
+	import_directory("site");
+	krk_startModule("<bim-syntax>");
+	import_directory("syntax");
+	krk_startModule("<bim-themes>");
+	import_directory("themes");
+	krk_startModule("<bim-repl>");
+	load_bimrc();
+	krk_resetStack();
+}
+
 BIM_COMMAND(reload,"reload","Reloads all the Kuroko stuff.") {
 	/* Unload everything syntax-y */
 	KrkValue result = krk_interpret(
@@ -11170,15 +11220,7 @@ BIM_COMMAND(reload,"reload","Reloads all the Kuroko stuff.") {
 	}
 
 	/* Reload everything */
-	krk_resetStack();
-	krk_startModule("<bim-syntax>");
-	import_directory("syntax");
-	krk_startModule("<bim-themes>");
-	import_directory("themes");
-	krk_startModule("<bim-repl>");
-	/* Re-run the RC file */
-	load_bimrc();
-	krk_resetStack();
+	do_kuroko_imports();
 	return 0;
 }
 
@@ -11463,46 +11505,7 @@ void initialize(void) {
 
 	krk_finalizeClass(syntaxStateClass);
 
-	krk_resetStack();
-
-	krk_startModule("<bim-syntax>");
-
-	/* Try to import the shared object 'os' module. If we can't, try adjusting the module_paths to find it. */
-	const char * potential_search_paths[] = {"/usr/lib/kuroko/","/usr/local/lib/kuroko/","/lib/kuroko/",NULL};
-	const char ** next = potential_search_paths;
-	while (*next) {
-		KrkValue result = krk_interpret(
-			"try:\n"
-			" import os\n"
-			" return True\n"
-			"except:\n"
-			" return False\n", "<bim-syntax>");
-		if (IS_BOOLEAN(result) && AS_BOOLEAN(result)) break;
-		if (!access(*next, R_OK)) {
-			char snippet[1000];
-			snprintf(snippet, 1000,
-				"try:\n"
-				" import kuroko\n"
-				" if '%s' not in kuroko.module_paths:\n"
-				"  kuroko.module_paths.append('%s')\n"
-				"except:\n"
-				" pass",
-				*next, *next);
-			krk_interpret(snippet, "<bim-syntax>");
-		}
-		next++;
-	}
-
-	import_directory("syntax");
-	krk_startModule("<bim-themes>");
-	import_directory("themes");
-
-	/* Start context for command line */
-	krk_startModule("<bim-repl>");
-
-	/* Load bimrc */
-	load_bimrc();
-	krk_resetStack();
+	do_kuroko_imports();
 
 	/* Disable default traceback printing */
 	vm.globalFlags |= KRK_GLOBAL_CLEAN_OUTPUT;
