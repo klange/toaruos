@@ -25,10 +25,7 @@ KRK_Function(waitpid) {
 	return krk_pop();
 }
 
-KrkValue krk_module_onload__waitpid(void) {
-	KrkInstance * module = krk_newInstance(KRK_BASE_CLASS(module));
-	krk_push(OBJECT_VAL(module));
-
+KRK_Module(_waitpid) {
 	BIND_FUNC(module,waitpid);
 
 #define BIND_CONST(name) krk_attachNamedValue(&module->fields, #name, INTEGER_VAL(name))
@@ -37,6 +34,4 @@ KrkValue krk_module_onload__waitpid(void) {
 	BIND_CONST(WUNTRACED);
 	BIND_CONST(WSTOPPED);
 	BIND_CONST(WNOKERN);
-
-	return krk_pop();
 }

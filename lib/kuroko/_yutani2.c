@@ -10,7 +10,7 @@
 #include <kuroko/vm.h>
 #include <kuroko/util.h>
 
-static KrkInstance * module;
+static KrkInstance * _module;
 
 #define CURRENT_NAME self
 
@@ -206,7 +206,7 @@ KRK_StaticMethod(YutaniCtx,__new__) {
 	yctxInstance = self;
 	self->yctx = yctx;
 	init_decorations();
-	krk_attachNamedObject(&module->fields, "_yutani_t", (KrkObj*)self);
+	krk_attachNamedObject(&_module->fields, "_yutani_t", (KrkObj*)self);
 
 	return krk_pop();
 }
@@ -1840,10 +1840,8 @@ KRK_Function(fswait) {
 
 #undef CURRENT_CTYPE
 
-KrkValue krk_module_onload__yutani2(void) {
-	module = krk_newInstance(KRK_BASE_CLASS(module));
-	krk_push(OBJECT_VAL(module));
-
+KRK_Module(_yutani2) {
+	_module = module;
 	/**
 	 * Base message type
 	 */
@@ -2250,6 +2248,4 @@ KrkValue krk_module_onload__yutani2(void) {
 
 	BIND_FUNC(module,draw_button);
 	BIND_FUNC(module,fswait);
-
-	return krk_pop(); /* module */
 }
