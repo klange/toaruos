@@ -38,15 +38,15 @@ static char * months_short[] = {
 
 size_t strftime(char *s, size_t max, const char *fmt, const struct tm *tm) {
 	if (!tm) {
+		if (max < sizeof("[tm is null]")) return 0;
 		return sprintf(s, "[tm is null]");
 	}
 	char * b = s;
-	size_t count = 0;
 	for (const char *f = fmt; *f; f++) {
 		if (*f != '%') {
-			count++;
+			if (max == 0) return 0;
+			max--;
 			*b++ = *f;
-			if (count == max) return b - s;
 			continue;
 		}
 		++f;
@@ -61,22 +61,23 @@ size_t strftime(char *s, size_t max, const char *fmt, const struct tm *tm) {
 		}
 		(void)_alte; /* TODO: Implement these */
 		(void)_alto;
+		int w = 0;
 		switch (*f) {
 			case 'a':
-				b += sprintf(b, "%s", weekdays_short[tm->tm_wday]);
+				w = snprintf(b, max, "%s", weekdays_short[tm->tm_wday]);
 				break;
 			case 'A':
-				b += sprintf(b, "%s", weekdays[tm->tm_wday]);
+				w = snprintf(b, max, "%s", weekdays[tm->tm_wday]);
 				break;
 			case 'h':
 			case 'b':
-				b += sprintf(b, "%s", months_short[tm->tm_mon]);
+				w = snprintf(b, max, "%s", months_short[tm->tm_mon]);
 				break;
 			case 'B':
-				b += sprintf(b, "%s", months[tm->tm_mon]);
+				w = snprintf(b, max, "%s", months[tm->tm_mon]);
 				break;
 			case 'c':
-				b += sprintf(b, "%s %s %02d %02d:%02d:%02d %04d",
+				w = snprintf(b, max, "%s %s %02d %02d:%02d:%02d %04d",
 						weekdays_short[tm->tm_wday],
 						months_short[tm->tm_mon],
 						tm->tm_mday,
@@ -86,119 +87,124 @@ size_t strftime(char *s, size_t max, const char *fmt, const struct tm *tm) {
 						tm->tm_year + 1900);
 				break;
 			case 'C':
-				b += sprintf(b, "%02d", (tm->tm_year + 1900) / 100);
+				w = snprintf(b, max, "%02d", (tm->tm_year + 1900) / 100);
 				break;
 			case 'd':
-				b += sprintf(b, "%02d", tm->tm_mday);
+				w = snprintf(b, max, "%02d", tm->tm_mday);
 				break;
 			case 'D':
-				b += sprintf(b, "%02d/%02d/%02d", tm->tm_mon+1, tm->tm_mday, tm->tm_year % 100);
+				w = snprintf(b, max, "%02d/%02d/%02d", tm->tm_mon+1, tm->tm_mday, tm->tm_year % 100);
 				break;
 			case 'e':
-				b += sprintf(b, "%2d", tm->tm_mday);
+				w = snprintf(b, max, "%2d", tm->tm_mday);
 				break;
 			case 'F':
-				b += sprintf(b, "%04d-%02d-%02d", tm->tm_year + 1900, tm->tm_mon+1, tm->tm_mday);
+				w = snprintf(b, max, "%04d-%02d-%02d", tm->tm_year + 1900, tm->tm_mon+1, tm->tm_mday);
 				break;
 			case 'H':
-				b += sprintf(b, "%02d", tm->tm_hour);
+				w = snprintf(b, max, "%02d", tm->tm_hour);
 				break;
 			case 'I':
-				b += sprintf(b, "%02d", tm->tm_hour == 0 ? 12 : (tm->tm_hour == 12 ? 12 : (tm->tm_hour % 12)));
+				w = snprintf(b, max, "%02d", tm->tm_hour == 0 ? 12 : (tm->tm_hour == 12 ? 12 : (tm->tm_hour % 12)));
 				break;
 			case 'j':
-				b += sprintf(b, "%03d", tm->tm_yday);
+				w = snprintf(b, max, "%03d", tm->tm_yday);
 				break;
 			case 'k':
-				b += sprintf(b, "%2d", tm->tm_hour);
+				w = snprintf(b, max, "%2d", tm->tm_hour);
 				break;
 			case 'l':
-				b += sprintf(b, "%2d", tm->tm_hour == 0 ? 12 : (tm->tm_hour == 12 ? 12 : (tm->tm_hour % 12)));
+				w = snprintf(b, max, "%2d", tm->tm_hour == 0 ? 12 : (tm->tm_hour == 12 ? 12 : (tm->tm_hour % 12)));
 				break;
 			case 'm':
-				b += sprintf(b, "%02d", tm->tm_mon+1);
+				w = snprintf(b, max, "%02d", tm->tm_mon+1);
 				break;
 			case 'M':
-				b += sprintf(b, "%02d", tm->tm_min);
+				w = snprintf(b, max, "%02d", tm->tm_min);
 				break;
 			case 'n':
-				b += sprintf(b, "\n");
+				w = snprintf(b, max, "\n");
 				break;
 			case 'p':
-				b += sprintf(b, "%s", tm->tm_hour < 12 ? "AM" : "PM");
+				w = snprintf(b, max, "%s", tm->tm_hour < 12 ? "AM" : "PM");
 				break;
 			case 'P':
-				b += sprintf(b, "%s", tm->tm_hour < 12 ? "am" : "pm");
+				w = snprintf(b, max, "%s", tm->tm_hour < 12 ? "am" : "pm");
 				break;
 			case 'r':
-				b += sprintf(b, "%02d:%02d:%02d %s",
+				w = snprintf(b, max, "%02d:%02d:%02d %s",
 						tm->tm_hour == 0 ? 12 : (tm->tm_hour == 12 ? 12 : (tm->tm_hour % 12)),
 						tm->tm_min,
 						tm->tm_sec,
 						tm->tm_hour < 12 ? "AM" : "PM");
 				break;
 			case 'R':
-				b += sprintf(b, "%02d:%02d",
+				w = snprintf(b, max, "%02d:%02d",
 						tm->tm_hour,
 						tm->tm_min);
 				break;
 			case 's':
-				b += sprintf(b, "%ld", mktime((struct tm*)tm));
+				w = snprintf(b, max, "%ld", mktime((struct tm*)tm));
 				break;
 			case 'S':
-				b += sprintf(b, "%02d", tm->tm_sec);
+				w = snprintf(b, max, "%02d", tm->tm_sec);
 				break;
 			case 't':
-				b += sprintf(b, "\t");
+				w = snprintf(b, max, "\t");
 				break;
 			case 'T':
-				b += sprintf(b, "%02d:%02d:%02d",
+				w = snprintf(b, max, "%02d:%02d:%02d",
 						tm->tm_hour,
 						tm->tm_min,
 						tm->tm_sec);
 				break;
 			case 'u':
-				b += sprintf(b, "%d", tm->tm_wday == 0 ? 7 : tm->tm_wday);
+				w = snprintf(b, max, "%d", tm->tm_wday == 0 ? 7 : tm->tm_wday);
 				break;
 			case 'w':
-				b += sprintf(b, "%d", tm->tm_wday);
+				w = snprintf(b, max, "%d", tm->tm_wday);
 				break;
 			case 'x':
-				b += sprintf(b, "%02d/%02d/%02d", tm->tm_mon+1, tm->tm_mday, tm->tm_year % 100);
+				w = snprintf(b, max, "%02d/%02d/%02d", tm->tm_mon+1, tm->tm_mday, tm->tm_year % 100);
 				break;
 			case 'X':
-				b += sprintf(b, "%02d:%02d:%02d",
+				w = snprintf(b, max, "%02d:%02d:%02d",
 						tm->tm_hour,
 						tm->tm_min,
 						tm->tm_sec);
 				break;
 			case 'y':
-				b += sprintf(b, "%02d", tm->tm_year % 100);
+				w = snprintf(b, max, "%02d", tm->tm_year % 100);
 				break;
 			case 'Y':
-				b += sprintf(b, "%04d", tm->tm_year + 1900);
+				w = snprintf(b, max, "%04d", tm->tm_year + 1900);
 				break;
-			case 'z':
-				if (tm->_tm_zone_offset >= 0) {
-					b += sprintf(b, "+%04d", tm->_tm_zone_offset);
-				} else {
-					b += sprintf(b, "-%04d", -tm->_tm_zone_offset);
-				}
+			case 'z': {
+				int zone_offset = tm->_tm_zone_offset >= 0 ? tm->_tm_zone_offset : -tm->_tm_zone_offset;
+				char sign = tm->_tm_zone_offset >= 0 ? '+' : '-';
+				int hour = zone_offset / 3600;
+				int mins = (zone_offset / 60) % 60;
+				w = snprintf(b, max, "%c%02d%02d", sign, hour, mins);
 				break;
+			}
 			case 'Z':
-				b += sprintf(b, tm->_tm_zone_name);
+				w = snprintf(b, max, tm->_tm_zone_name);
 				break;
 			case '%':
-				b += sprintf(b, "%c", '%');
+				w = snprintf(b, max, "%c", '%');
 				break;
 			case 'V':
 			case 'W':
 			case 'U':
 			case 'G':
 			case 'g':
-				b += sprintf(b, "<%c unsupported>", *f);
+				w = snprintf(b, max, "<%c unsupported>", *f);
 				break;
 		}
+		if (w < 0) return 0; /* error while formatting */
+		if ((size_t)w >= max) return 0; /* output was truncated */
+		max -= w;
+		b += w;
 	}
 	/* Ensure the buffer ends in a null */
 	*b = '\0';
