@@ -5975,6 +5975,15 @@ BIM_COMMAND(global_statusbar,"global.statusbar","Show or set whether to display 
 	return 0;
 }
 
+BIM_COMMAND(global_scrollamount,"global.scrollamount","Show or set scroll amount when using mouse wheel") {
+	if (argc < 2) {
+		render_status_message("global.scrollamount=%d",global_config.scroll_amount);
+	} else {
+		global_config.scroll_amount = atoi(argv[1]);
+	}
+	return 0;
+}
+
 BIM_COMMAND(global_search_wraps,"wrapsearch","Enable search wrapping around from top or bottom") {
 	if (argc < 2) {
 		render_status_message("wrapsearch=%d",global_config.search_wraps);
