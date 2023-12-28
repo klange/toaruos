@@ -872,8 +872,6 @@ int wcwidth(wchar_t wc) {
 	else if (wc < 0x2f00) return -1;
 	else if (wc < 0x2fd6) return 2;
 	else if (wc < 0x2ff0) return -1;
-	else if (wc < 0x2ffc) return 2;
-	else if (wc < 0x3000) return -1;
 	else if (wc < 0x302a) return 2;
 	else if (wc < 0x302e) return 0;
 	else if (wc < 0x303f) return 2;
@@ -889,7 +887,7 @@ int wcwidth(wchar_t wc) {
 	else if (wc < 0x318f) return 2;
 	else if (wc < 0x3190) return -1;
 	else if (wc < 0x31e4) return 2;
-	else if (wc < 0x31f0) return -1;
+	else if (wc < 0x31ef) return -1;
 	else if (wc < 0x321f) return 2;
 	else if (wc < 0x3220) return -1;
 	else if (wc < 0x3248) return 2;
