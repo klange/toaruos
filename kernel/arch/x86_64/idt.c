@@ -449,7 +449,7 @@ static void panic(const char * desc, struct regs * r, uintptr_t faulting_address
  * @param r Interrupt register context
  * @return Register context, which should be unmodified.
  */
-static struct regs * _debug_int(struct regs * r) {
+static void _debug_int(struct regs * r) {
 	/* Unset the debug flag */
 	r->rflags &= ~(1 << 8);
 
@@ -457,9 +457,6 @@ static struct regs * _debug_int(struct regs * r) {
 	if (this_core->current_process->flags & PROC_FLAG_TRACE_SIGNALS) {
 		ptrace_signal(SIGTRAP, PTRACE_EVENT_SINGLESTEP);
 	}
-
-	/* Return from interrupt */
-	return r;
 }
 
 /**
@@ -538,11 +535,10 @@ static void _page_fault(struct regs * r) {
  * @param r Interrupt register context
  * @return Register state after resume from task task switch.
  */
-static struct regs * _local_timer(struct regs * r) {
+static void _local_timer(struct regs * r) {
 	extern void arch_update_clock(void);
 	arch_update_clock();
 	switch_task(1);
-	return r;
 }
 
 /**
@@ -581,10 +577,10 @@ static void _handle_irq(struct regs * r, int irq) {
 #define EXC(i,n) case i: _exception(r, n); break;
 #define IRQ(i) case i: _handle_irq(r,i-32); break;
 
-struct regs * isr_handler_inner(struct regs * r) {
+void isr_handler_inner(struct regs * r) {
 	switch (r->int_no) {
 		EXC(0,"divide-by-zero");
-		case 1: return _debug_int(r);
+		case 1: _debug_int(r); return;
 		/* NMI doesn't reach here, we use it as a panic signal. */
 		EXC(3,"breakpoint"); /* TODO: This should map to a ptrace event */
 		EXC(4,"overflow");
@@ -630,8 +626,8 @@ struct regs * isr_handler_inner(struct regs * r) {
 		IRQ(47);
 
 		/* Local interrupts that make it here. */
-		case 123: return _local_timer(r);
-		case 127: syscall_handler(r); return r;
+		case 123: _local_timer(r); return;
+		case 127: syscall_handler(r); return;
 
 		/* Other interrupts that don't make it here:
 		 *   124: TLB shootdown, we just reload CR3 in the handler.
@@ -648,35 +644,28 @@ struct regs * isr_handler_inner(struct regs * r) {
 		 * to run that was awoken by the interrupt. */
 		switch_next();
 	}
-
-	return r;
 }
 
-struct regs * isr_handler(struct regs * r) {
+void isr_handler(struct regs * r) {
 	int from_userspace = r->cs != 0x08;
 
 	if (from_userspace && this_core->current_process) {
 		this_core->current_process->time_switch = arch_perf_timer();
 	}
 
-	struct regs * out = isr_handler_inner(r);
+	isr_handler_inner(r);
 
 	if (from_userspace && this_core->current_process) {
-		process_check_signals(out);
+		process_check_signals(r);
 		update_process_times_on_exit();
 	}
-
-	return out;
-
 }
 
-struct regs * syscall_centry(struct regs * r) {
+void syscall_centry(struct regs * r) {
 	this_core->current_process->time_switch = arch_perf_timer();
 
 	syscall_handler(r);
 
 	process_check_signals(r);
 	update_process_times_on_exit();
-
-	return r;
 }

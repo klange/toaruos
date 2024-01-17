@@ -187,7 +187,6 @@ isr_common:
     /* Call interrupt handler */
     mov %rsp, %rdi
     call isr_handler
-    mov %rax, %rsp
 
     /* Restore all registers */
     pop %r15
@@ -301,7 +300,6 @@ syscall_entry:
 
     mov %rsp, %rdi
     call syscall_centry
-    mov %rax, %rsp
 
     pop %r15
     pop %r14
