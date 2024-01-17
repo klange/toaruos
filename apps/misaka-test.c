@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sched.h>
 #include <sys/wait.h>
 
 #include <toaru/graphics.h>
