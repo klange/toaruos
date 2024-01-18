@@ -63,7 +63,7 @@ static int sudo_loop(int (*prompt_callback)(char * username, char * password, in
 			fprintf(stderr, "%s: unable to obtain username for real uid=%d\n", argv[0], getuid());
 			return 1;
 		}
-		char * username = p->pw_name;
+		char * username = strdup(p->pw_name);
 
 		char token_file[64];
 		sprintf(token_file, "/var/sudoers/%d", me); /* TODO: Restrict to this session? */
@@ -82,6 +82,8 @@ static int sudo_loop(int (*prompt_callback)(char * username, char * password, in
 			char * password = calloc(sizeof(char) * 1024, 1);
 
 			if (prompt_callback(username, password, fails, argv)) {
+				free(username);
+				free(password);
 				return 1;
 			}
 
@@ -90,6 +92,7 @@ static int sudo_loop(int (*prompt_callback)(char * username, char * password, in
 			free(password);
 
 			if (uid < 0) {
+				free(username);
 				fails++;
 				if (fails == 3) {
 					fprintf(stderr, "%s: %d incorrect password attempts\n", argv[0], fails);
@@ -104,6 +107,7 @@ static int sudo_loop(int (*prompt_callback)(char * username, char * password, in
 		if (need_sudoers) {
 			FILE * sudoers = fopen("/etc/sudoers","r");
 			if (!sudoers) {
+				free(username);
 				fprintf(stderr, "%s: /etc/sudoers is not available\n", argv[0]);
 				return 1;
 			}
@@ -126,9 +130,12 @@ static int sudo_loop(int (*prompt_callback)(char * username, char * password, in
 
 			if (!in_sudoers) {
 				fprintf(stderr, "%s is not in sudoers file.\n", username);
+				free(username);
 				return 1;
 			}
 		}
+
+		free(username);
 
 		/* Write a timestamp file */
 		FILE * f = fopen(token_file, "w");
