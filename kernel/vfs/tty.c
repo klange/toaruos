@@ -382,8 +382,23 @@ void     close_pty_master(fs_node_t * node) {
 	return;
 }
 
+static int ignoring(int sig) {
+	if (this_core->current_process->blocked_signals & (1ULL << sig)) return 1;
+	if (this_core->current_process->signals[sig].handler == 1) return 1;
+	return 0;
+}
+
 ssize_t read_pty_slave(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
+
+	/* If this process *is* part of this tty's session, but is NOT in the foreground job
+	 * and it tries to read from the TTY, then send it SIGTTIN - but only if it's not
+	 * ignoring it. If it is ignoring, make the write fail with EIO. */
+	if (pty->ct_proc == this_core->current_process->session && pty->fg_proc && this_core->current_process->job != pty->fg_proc) {
+		if (ignoring(SIGTTIN)) return -EIO;
+		group_send_signal(this_core->current_process->job, SIGTTIN, 1);
+		return -ERESTARTSYS;
+	}
 
 	if (pty->tios.c_lflag & ICANON) {
 		return ring_buffer_read(pty->in, size, buffer);
@@ -405,6 +420,19 @@ ssize_t read_pty_slave(fs_node_t * node, off_t offset, size_t size, uint8_t *buf
 
 ssize_t write_pty_slave(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
+
+	if (pty->tios.c_lflag & TOSTOP) {
+		/* If TOSTOP is enabled and this process *is* part of this tty's session but
+		 * is NOT in the foreground job, then send the whole job SIGTTOU - but only
+		 * if we weren't ignoring SIGTTOU ourselves. If we were ignoring it, then
+		 * the write can continue without issue. */
+		if (pty->ct_proc == this_core->current_process->session && pty->fg_proc && this_core->current_process->job != pty->fg_proc) {
+			if (!ignoring(SIGTTOU)) {
+				group_send_signal(this_core->current_process->job, SIGTTOU, 1);
+				return -ERESTARTSYS;
+			}
+		}
+	}
 
 	size_t l = 0;
 	for (uint8_t * c = buffer; l < size; ++c, ++l) {
