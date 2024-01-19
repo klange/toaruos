@@ -56,6 +56,8 @@ int main(int argc, char * argv[]) {
 	dup2(fd_serial, 0);
 	dup2(fd_serial, 1);
 	dup2(fd_serial, 2);
+	ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
+	tcsetpgrp(STDIN_FILENO, getpid());
 
 	system("stty sane");
 

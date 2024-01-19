@@ -144,8 +144,10 @@ do_fork:
 	f = fork();
 	if (getpid() != pid) {
 		ioctl(STDIN_FILENO, IOCTLTTYLOGIN, &uid);
-		toaru_set_credentials(uid);
 		setsid();
+		ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
+		tcsetpgrp(STDIN_FILENO, getpid());
+		toaru_set_credentials(uid);
 		char * args[] = {
 			getenv("SHELL"),
 			NULL
