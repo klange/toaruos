@@ -109,14 +109,17 @@ void set_pgid(int pgid) {
 
 void set_pgrp(int pgid) {
 	if (shell_interactive == 1 && !is_subshell) {
+		sigset_t ss;
+		sigfillset(&ss);
+		sigprocmask(SIG_SETMASK, &ss, NULL);
 		tcsetpgrp(STDIN_FILENO, pgid);
+		sigemptyset(&ss);
+		sigprocmask(SIG_SETMASK, &ss, NULL);
 	}
 }
 
 void reset_pgrp() {
-	if (shell_interactive == 1 && !is_subshell) {
-		tcsetpgrp(STDIN_FILENO, my_pgid);
-	}
+	set_pgrp(my_pgid);
 }
 
 void shell_install_command(char * name, shell_command_t func, char * desc) {
@@ -874,7 +877,7 @@ int wait_for_child(int pgid, char * name, int retpid) {
 		if (outpid == retpid) {
 			ret_code_real = ret_code;
 		}
-		if (WIFSTOPPED(ret_code)) {
+		if (outpid != -1 && WIFSTOPPED(ret_code)) {
 			suspended_pgid = pgid;
 			if (name) {
 				void * old = hashmap_set(job_hash, (void*)(intptr_t)pgid, strdup(name));
@@ -883,8 +886,9 @@ int wait_for_child(int pgid, char * name, int retpid) {
 			void * old = hashmap_set(desc_hash, (void*)(intptr_t)pgid, strdup(WSTOPSIG(ret_code) ? strsignal(WSTOPSIG(ret_code)) : "Stopped"));
 			if (old) free(old);
 			_stopped = 1;
+			if (!shell_interactive) continue;
 			break;
-		} else {
+		} else if (outpid != -1) {
 			suspended_pgid = 0;
 			if (hashmap_has(job_hash, (void*)(intptr_t)pgid)) {
 				hashmap_remove(job_hash, (void*)(intptr_t)pgid);
@@ -1534,6 +1538,7 @@ _nope:
 		if (shell_interactive == 1) {
 			fprintf(stderr, "[%d] %s\n", pgid, arg_starts[0][0]);
 			hashmap_set(job_hash, (void*)(intptr_t)pgid, strdup(arg_starts[0][0]));
+			hashmap_set(desc_hash, (void*)(intptr_t)pgid, strdup("Running"));
 		} else {
 			hashmap_set(job_hash, (void*)(intptr_t)last_child, strdup(arg_starts[0][0]));
 		}
@@ -1738,8 +1743,6 @@ int main(int argc, char ** argv) {
 	shell_interactive = 1;
 
 	my_pgid = getpgid(0);
-	signal(SIGTTOU, SIG_IGN);
-	signal(SIGTTIN, SIG_IGN);
 
 	source_eshrc();
 	add_path();
@@ -1752,14 +1755,21 @@ int main(int argc, char ** argv) {
 		foreach(node, keys) {
 			int pid = (intptr_t)node->value;
 			int status = 0;
-			if (waitpid(-pid, &status, WNOHANG) > 0) {
-				char * desc = strdup(WTERMSIG(status) ? strsignal(WTERMSIG(status)) : "Done");
+			if (waitpid(-pid, &status, WNOHANG|WUNTRACED) > 0) {
+				char * desc;
+				if (WIFSTOPPED(status)) {
+					desc = strdup(WSTOPSIG(status) ? strsignal(WSTOPSIG(status)) : "Stopped");
+				} else {
+					desc = strdup(WTERMSIG(status) ? strsignal(WTERMSIG(status)) : "Done");
+				}
 				void * old = hashmap_set(desc_hash, (void*)(intptr_t)pid, desc);
 				if (old) free(old);
 				describe_job(pid);
-				if (hashmap_has(job_hash, (void*)(intptr_t)pid)) {
-					hashmap_remove(job_hash, (void*)(intptr_t)pid);
-					hashmap_remove(desc_hash, (void*)(intptr_t)pid);
+				if (WIFEXITED(status)) {
+					if (hashmap_has(job_hash, (void*)(intptr_t)pid)) {
+						hashmap_remove(job_hash, (void*)(intptr_t)pid);
+						hashmap_remove(desc_hash, (void*)(intptr_t)pid);
+					}
 				}
 			}
 		}
@@ -2213,6 +2223,7 @@ uint32_t shell_cmd_fg(int argc, char * argv[]) {
 	set_pgrp(pid);
 
 	if (kill(-pid, SIGCONT) < 0) {
+		reset_pgrp();
 		fprintf(stderr, "no current job / bad pid\n");
 		if (hashmap_has(job_hash, (void*)(intptr_t)pid)) {
 			hashmap_remove(job_hash, (void*)(intptr_t)pid);
