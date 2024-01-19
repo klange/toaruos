@@ -320,6 +320,24 @@ int pty_ioctl(pty_t * pty, unsigned long request, void * argp) {
 			validate(argp);
 			*(pid_t *)argp = pty->fg_proc;
 			return 0;
+		case TIOCSCTTY:
+			/* If this is already the control session, quietly ignore. */
+			if (this_core->current_process->session == this_core->current_process->id &&
+				pty->ct_proc == this_core->current_process->session) {
+				return 0;
+			}
+			/* If we aren't a session leader, we can't do this. */
+			if (this_core->current_process->session != this_core->current_process->id) {
+				return -EPERM;
+			}
+			/* If there's already a control session, only root can steal control, and only if *argp is 1
+			 * (on Linux, that's "if argp is 1", but we kinda messed this up by checking ioctl argp stuff
+			 * for bounds validity in the system call layer, so instead we use a pointer to 1... */
+			if (pty->ct_proc && (!argp || (*(int*)argp != 1) || this_core->current_process->user != 0)) {
+				return -EPERM;
+			}
+			pty->ct_proc = this_core->current_process->session;
+			return 0;
 		case TCSETS:
 		case TCSETSW:
 			if (!argp) return -EINVAL;
