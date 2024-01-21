@@ -538,7 +538,7 @@ static void _page_fault(struct regs * r) {
 static void _local_timer(struct regs * r) {
 	extern void arch_update_clock(void);
 	arch_update_clock();
-	switch_task(1);
+	if (r->cs != 0x08) switch_task(1);
 }
 
 /**
