@@ -138,7 +138,7 @@ void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r)
 		PUSH(ret.rsp, uint64_t, this_core->current_process->thread.fp_regs[i]);
 	}
 
-	PUSH(ret.rsp, uintptr_t, 0x00000008DEADBEEF);
+	PUSH(ret.rsp, uintptr_t, 0x516);
 
 	update_process_times_on_exit();
 

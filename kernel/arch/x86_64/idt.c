@@ -499,8 +499,8 @@ static void _page_fault(struct regs * r) {
 	uintptr_t faulting_address;
 	asm volatile("mov %%cr2, %0" : "=r"(faulting_address));
 
-	/* 8DEADBEEFh is the magic ret-from-sig address. */
-	if (faulting_address == 0x8DEADBEEF) {
+	/* magic ret-from-sig address */
+	if (faulting_address == 0x516) {
 		return_from_signal_handler(r);
 		return;
 	}
