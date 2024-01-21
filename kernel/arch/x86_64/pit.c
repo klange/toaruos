@@ -66,11 +66,9 @@ int pit_interrupt(struct regs *r) {
 
 	irq_ack(0);
 
+	if (r->cs == 0x08) return 1;
+
 	switch_task(1);
-	asm volatile (
-		".global _ret_from_preempt_source\n"
-		"_ret_from_preempt_source:"
-	);
 	return 1;
 }
 

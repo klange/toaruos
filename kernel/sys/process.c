@@ -156,8 +156,6 @@ void switch_next(void) {
 	__builtin_unreachable();
 }
 
-extern void * _ret_from_preempt_source;
-
 /**
  * @brief Yield the processor to the next available task.
  *
@@ -173,7 +171,7 @@ void switch_task(uint8_t reschedule) {
 	/* switch_task() called but the scheduler isn't enabled? Resume... this is probably a bug. */
 	if (!this_core->current_process) return;
 
-	if (this_core->current_process == this_core->kernel_idle_task && __builtin_return_address(0) != &_ret_from_preempt_source) {
+	if (this_core->current_process == this_core->kernel_idle_task) {
 		arch_fatal_prepare();
 		printf("Context switch from kernel_idle_task triggered from somewhere other than pre-emption source. Halting.\n");
 		printf("This generally means that a driver responding to interrupts has attempted to yield in its interrupt context.\n");
@@ -316,15 +314,7 @@ pid_t get_next_pid(void) {
 static void _kidle(void) {
 	while (1) {
 		arch_pause();
-	}
-}
-
-static void _kburn(void) {
-	while (1) {
-		arch_pause();
-#ifndef __aarch64__
 		switch_next();
-#endif
 	}
 }
 
@@ -361,7 +351,7 @@ process_t * spawn_kidle(int bsp) {
 		MMU_FLAG_KERNEL);
 
 	/* TODO arch_initialize_context(uintptr_t) ? */
-	idle->thread.context.ip = bsp ? (uintptr_t)&_kidle : (uintptr_t)&_kburn;
+	idle->thread.context.ip = (uintptr_t)&_kidle;
 	idle->thread.context.sp = idle->image.stack;
 	idle->thread.context.bp = idle->image.stack;
 
