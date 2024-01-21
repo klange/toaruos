@@ -477,13 +477,11 @@ int kmain(struct multiboot * mboot, uint32_t mboot_mag, void* esp, uint64_t base
 	framebuffer_initialize();
 	fbterm_initialize();
 
+	/* Start up other cores and enable an appropriate preempt source. */
 	smp_initialize();
 
 	/* Decompress and mount all initial ramdisks. */
 	mount_multiboot_ramdisks(mboot_struct);
-
-	/* Set up preempt source */
-	pit_initialize();
 
 	/* Install generic PC device drivers. */
 	ps2hid_install();

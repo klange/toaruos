@@ -177,6 +177,27 @@ void load_processor_info(void) {
 	asm volatile ("wrmsr" : : "c"(0xC0000084), "d"(0), "a"(0x700));             /* SFMASK: Direction flag, interrupt flag, trap flag are all cleared */
 }
 
+static void lapic_timer_initialize(void) {
+	/* Enable our spurious vector register */
+	*((volatile uint32_t*)(lapic_final + 0x0F0)) = 0x127;
+	*((volatile uint32_t*)(lapic_final + 0x320)) = 0x7b;
+	*((volatile uint32_t*)(lapic_final + 0x3e0)) = 1;
+
+	/* Time our APIC timer against the TSC */
+	uint64_t before = arch_perf_timer();
+	*((volatile uint32_t*)(lapic_final + 0x380)) = 1000000;
+	while (*((volatile uint32_t*)(lapic_final + 0x390)));
+	uint64_t after = arch_perf_timer();
+
+	uint64_t ms = (after-before)/arch_cpu_mhz();
+	uint64_t target = 10000000000UL / ms;
+
+	/* Enable our APIC timer to send periodic wakeup signals */
+	*((volatile uint32_t*)(lapic_final + 0x3e0)) = 1;
+	*((volatile uint32_t*)(lapic_final + 0x320)) = 0x7b | 0x20000;
+	*((volatile uint32_t*)(lapic_final + 0x380)) = target;
+}
+
 /**
  * @brief C entrypoint for APs, called by the bootstrap.
  *
@@ -202,25 +223,6 @@ void ap_main(void) {
 	fpu_initialize();
 	pat_initialize();
 
-	/* Enable our spurious vector register */
-	*((volatile uint32_t*)(lapic_final + 0x0F0)) = 0x127;
-	*((volatile uint32_t*)(lapic_final + 0x320)) = 0x7b;
-	*((volatile uint32_t*)(lapic_final + 0x3e0)) = 1;
-
-	/* Time our APIC timer against the TSC */
-	uint64_t before = arch_perf_timer();
-	*((volatile uint32_t*)(lapic_final + 0x380)) = 1000000;
-	while (*((volatile uint32_t*)(lapic_final + 0x390)));
-	uint64_t after = arch_perf_timer();
-
-	uint64_t ms = (after-before)/arch_cpu_mhz();
-	uint64_t target = 10000000000UL / ms;
-
-	/* Enable our APIC timer to send periodic wakeup signals */
-	*((volatile uint32_t*)(lapic_final + 0x3e0)) = 1;
-	*((volatile uint32_t*)(lapic_final + 0x320)) = 0x7b | 0x20000;
-	*((volatile uint32_t*)(lapic_final + 0x380)) = target;
-
 	/* Set our pml pointers */
 	this_core->current_pml = &init_page_region[0];
 
@@ -233,6 +235,8 @@ void ap_main(void) {
 
 	/* Inform BSP it can continue. */
 	_ap_startup_flag = 1;
+
+	lapic_timer_initialize();
 
 	/* Enter scheduler */
 	switch_next();
@@ -366,7 +370,7 @@ void smp_initialize(void) {
 	/* Did we still not find our table? */
 	if (!good) {
 		dprintf("smp: No RSD PTR found\n");
-		return;
+		goto _pit_fallback;
 	}
 
 	/* Map the ACPI RSDP */
@@ -382,11 +386,11 @@ void smp_initialize(void) {
 	/* Did the checksum fail? */
 	if (check != 0 && !args_present("noacpichecksum")) {
 		dprintf("smp: Bad checksum on RSDP (add 'noacpichecksum' to ignore this)\n");
-		return; /* bad checksum */
+		goto _pit_fallback; /* bad checksum */
 	}
 
 	/* Was SMP disabled by a commandline flag? */
-	if (args_present("nosmp")) return;
+	if (args_present("nosmp")) goto _pit_fallback;
 
 	/* Map the RSDT from the address given by the RSDP */
 	struct rsdt * rsdt = mmu_map_from_physical(rsdp->rsdt_address);
@@ -419,12 +423,11 @@ void smp_initialize(void) {
 	}
 
 _toomany:
-	processor_count = cores;
-
-	if (!lapic_base) return;
+	if (!lapic_base) goto _pit_fallback;
 
 	/* Allocate a virtual address with which we can poke the lapic */
 	lapic_final = (uintptr_t)mmu_map_mmio_region(lapic_base, 0x1000);
+	lapic_timer_initialize();
 
 	if (cores <= 1) return;
 
@@ -458,6 +461,8 @@ _toomany:
 
 		/* Wait for AP to signal it is ready before starting next AP */
 		do { asm volatile ("pause" : : : "memory"); } while (!_ap_startup_flag);
+
+		processor_count++;
 	}
 
 	/* Copy data back */
@@ -465,6 +470,12 @@ _toomany:
 	mmu_frame_clear(tmp_space);
 
 	dprintf("smp: enabled with %d cores\n", cores);
+	return;
+
+_pit_fallback:
+	dprintf("pit: falling back to pit as preempt source\n");
+	extern void pit_initialize(void);
+	pit_initialize();
 }
 
 /**
