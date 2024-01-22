@@ -342,8 +342,6 @@ static void spin(void) {
 	}
 }
 
-char _ret_from_preempt_source[1];
-
 #define EOI(x) do { \
 	gicc_regs[4] = (x); \
 } while (0)
