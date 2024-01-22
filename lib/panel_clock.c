@@ -58,7 +58,7 @@ void _menu_draw_MenuEntry_Clock(gfx_context_t * ctx, struct MenuEntry * self, in
 	gettimeofday(&now, NULL);
 	timeinfo = localtime((time_t *)&now.tv_sec);
 
-	double sec = timeinfo->tm_sec + tick((double)now.tv_usec / 1000000.0);
+	double sec = timeinfo->tm_sec + tick((double)now.tv_usec / 1000000.0) - 1.0;
 	double min = timeinfo->tm_min + sec / 60.0;
 	double hour = (timeinfo->tm_hour % 12) + min / 60.0;
 
