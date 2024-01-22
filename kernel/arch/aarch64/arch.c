@@ -159,7 +159,7 @@ void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r)
 		"r"(0));
 
 	register uint64_t x0 __asm__("x0") = signum;
-	register uint64_t x30 __asm__("x30") = 0x8DEADBEEF;
+	register uint64_t x30 __asm__("x30") = 0x516;
 	register uint64_t x4 __asm__("x4") = (uintptr_t)this_core->sp_el1;
 
 	asm volatile(

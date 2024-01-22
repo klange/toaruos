@@ -301,7 +301,7 @@ void aarch64_sync_enter(struct regs * r) {
 	}
 
 	/* Magic signal return */
-	if (elr == 0x8DEADBEEF && far == 0x8DEADBEEF) {
+	if (elr == 0x516 && far == 0x516) {
 		return_from_signal_handler(r);
 		goto _resume_user;
 	}
