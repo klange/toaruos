@@ -87,15 +87,14 @@ void gdt_install(void) {
 	gdt[0].tss.rsp[0] = (uintptr_t)&stack_top;
 
 	asm volatile (
-		"mov %0, %%rdi\n"
-		"lgdt (%%rdi)\n"
+		"lgdt %0\n"
 		"mov $0x10, %%ax\n"
 		"mov %%ax, %%ds\n"
 		"mov %%ax, %%es\n"
 		"mov %%ax, %%ss\n"
 		"mov $0x33, %%ax\n" /* TSS offset */
 		"ltr %%ax\n"
-		: : "r"(&gdt[0].pointer)
+		: : "m"(gdt[0].pointer) : "rax", "memory"
 	);
 }
 
