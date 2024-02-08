@@ -106,4 +106,7 @@ extern long pathconf(const char *path, int name);
 
 extern int getgroups(int size, gid_t list[]);
 
+ssize_t pread(int fd, void *buf, size_t count, off_t offset);
+ssize_t pwrite(int fd, const void *buf, size_t count, off_t offset);
+
 _End_C_Header
