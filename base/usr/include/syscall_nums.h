@@ -80,3 +80,5 @@
 #define SYS_SIGWAIT 77
 #define SYS_GETSOCKNAME 78
 #define SYS_GETPEERNAME 79
+#define SYS_PREAD 80
+#define SYS_PWRITE 81

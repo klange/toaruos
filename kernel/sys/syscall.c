@@ -240,6 +240,30 @@ long sys_write(int fd, char * ptr, unsigned long len) {
 	return -EBADF;
 }
 
+long sys_pwrite(int fd, void * ptr, size_t count, off_t offset) {
+	if (FD_CHECK(fd)) {
+		if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ESPIPE;
+		PTRCHECK(ptr,count,MMU_PTR_NULL);
+		fs_node_t * node = FD_ENTRY(fd);
+		if (!(FD_MODE(fd) & 2)) return -EACCES;
+		if (count && !ptr) return -EFAULT;
+		return write_fs(node, offset, count, (uint8_t*)ptr);
+	}
+	return -EBADF;
+}
+
+long sys_pread(int fd, void * ptr, size_t count, off_t offset) {
+	if (FD_CHECK(fd)) {
+		if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ESPIPE;
+		PTRCHECK(ptr,count,MMU_PTR_NULL|MMU_PTR_WRITE);
+		fs_node_t * node = FD_ENTRY(fd);
+		if (!(FD_MODE(fd) & 01)) return -EACCES;
+		if (count && !ptr) return -EFAULT;
+		return read_fs(node, offset, count, (uint8_t *)ptr);
+	}
+	return -EBADF;
+}
+
 static long stat_node(fs_node_t * fn, uintptr_t st) {
 	struct stat * f = (struct stat *)st;
 
@@ -1239,6 +1263,8 @@ static scall_func syscalls[] = {
 	[SYS_SIGPROCMASK]  = (scall_func)(uintptr_t)sys_sigprocmask,
 	[SYS_SIGSUSPEND]   = (scall_func)(uintptr_t)sys_sigsuspend_cur,
 	[SYS_SIGWAIT]      = (scall_func)(uintptr_t)sys_sigwait,
+	[SYS_PREAD]        = (scall_func)(uintptr_t)sys_pread,
+	[SYS_PWRITE]       = (scall_func)(uintptr_t)sys_pwrite,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,
