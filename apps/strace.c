@@ -99,6 +99,8 @@ const char * syscall_names[] = {
 	[SYS_RECV]         = "recv",
 	[SYS_SEND]         = "send",
 	[SYS_SHUTDOWN]     = "shutdown",
+	[SYS_PREAD]        = "pread",
+	[SYS_PWRITE]       = "pwrite",
 };
 
 char syscall_mask[] = {
@@ -173,6 +175,8 @@ char syscall_mask[] = {
 	[SYS_RECV]         = 1,
 	[SYS_SEND]         = 1,
 	[SYS_SHUTDOWN]     = 1,
+	[SYS_PREAD]        = 1,
+	[SYS_PWRITE]       = 1,
 };
 
 #define M(e) [e] = #e
@@ -582,6 +586,16 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			buffer_arg(pid, uregs_syscall_arg2(r), uregs_syscall_arg3(r)); COMMA;
 			uint_arg(uregs_syscall_arg3(r));
 			break;
+		case SYS_PREAD:
+			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			/* Plus three more when done */
+			break;
+		case SYS_PWRITE:
+			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			buffer_arg(pid, uregs_syscall_arg2(r), uregs_syscall_arg3(r)); COMMA;
+			uint_arg(uregs_syscall_arg3(r)); COMMA;
+			uint_arg(uregs_syscall_arg4(r));
+			break;
 		case SYS_CLOSE:
 			fd_arg(pid, uregs_syscall_arg1(r));
 			break;
@@ -792,6 +806,12 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 			uint_arg(uregs_syscall_arg3(r));
 			maybe_errno(r);
 			break;
+		case SYS_PREAD:
+			buffer_arg(pid, uregs_syscall_arg2(r), uregs_syscall_result(r)); COMMA;
+			uint_arg(uregs_syscall_arg3(r)); COMMA;
+			uint_arg(uregs_syscall_arg4(r));
+			maybe_errno(r);
+			break;
 		case SYS_GETHOSTNAME:
 			string_arg(pid, uregs_syscall_arg1(r));
 			maybe_errno(r);
@@ -888,7 +908,7 @@ int main(int argc, char * argv[]) {
 								int syscalls[] = {
 									SYS_OPEN, SYS_READ, SYS_WRITE, SYS_CLOSE, SYS_STAT, SYS_FSWAIT,
 									SYS_FSWAIT2, SYS_FSWAIT3, SYS_SEEK, SYS_IOCTL, SYS_PIPE, SYS_MKPIPE,
-									SYS_DUP2, SYS_READDIR, SYS_OPENPTY,
+									SYS_DUP2, SYS_READDIR, SYS_OPENPTY, SYS_PREAD, SYS_PWRITE,
 									0
 								};
 								for (int *i = syscalls; *i; i++) {
