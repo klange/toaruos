@@ -547,13 +547,13 @@ static void _local_timer(struct regs * r) {
  * @param r           Interrupt register context
  * @param description Textual description of the exception, for panic messages.
  */
-static void _exception(struct regs * r, const char * description) {
+static void _exception(struct regs * r, const char * description, int signum) {
 	/* If we were in kernel space, this is a panic */
 	if (!this_core->current_process || r->cs == 0x08) {
 		panic(description, r, r->int_no);
 	}
-	/* Otherwise, these interrupts should trigger SIGILL */
-	send_signal(this_core->current_process->id, SIGILL, 1);
+	/* Otherwise, these interrupts should trigger a signal */
+	send_signal(this_core->current_process->id, signum, 1);
 }
 
 /**
@@ -574,37 +574,37 @@ static void _handle_irq(struct regs * r, int irq) {
 	irq_ack(irq);
 }
 
-#define EXC(i,n) case i: _exception(r, n); break;
+#define EXC(i,n,s) case i: _exception(r, n, s); break;
 #define IRQ(i) case i: _handle_irq(r,i-32); break;
 
 void isr_handler_inner(struct regs * r) {
 	switch (r->int_no) {
-		EXC(0,"divide-by-zero");
+		EXC(0,"divide-by-zero",SIGFPE);
 		case 1: _debug_int(r); return;
 		/* NMI doesn't reach here, we use it as a panic signal. */
-		EXC(3,"breakpoint"); /* TODO: This should map to a ptrace event */
-		EXC(4,"overflow");
-		EXC(5,"bound range exceeded");
-		EXC(6,"invalid opcode");
-		EXC(7,"device not available");
+		EXC(3,"breakpoint",SIGTRAP); /* TODO: This should map to a ptrace event */
+		EXC(4,"overflow",SIGFPE);
+		EXC(5,"bound range exceeded",SIGBUS);
+		EXC(6,"invalid opcode",SIGILL);
+		EXC(7,"device not available",SIGBUS);
 		case 8: _double_fault(r); break;
 		/* 9 is a legacy exception that shouldn't happen */
-		EXC(10,"invalid TSS");
-		EXC(11,"segment not present");
-		EXC(12,"stack-segment fault");
+		EXC(10,"invalid TSS",SIGBUS);
+		EXC(11,"segment not present",SIGBUS);
+		EXC(12,"stack-segment fault",SIGBUS);
 		case 13: _general_protection_fault(r); break;
 		case 14: _page_fault(r); break;
 		/* 15 is reserved */
-		EXC(16,"floating point exception");
-		EXC(17,"alignment check");
-		EXC(18,"machine check");
-		EXC(19,"SIMD floating-point exception");
-		EXC(20,"virtualization exception");
-		EXC(21,"control protection exception");
+		EXC(16,"floating point exception",SIGFPE);
+		EXC(17,"alignment check",SIGBUS);
+		EXC(18,"machine check",SIGBUS);
+		EXC(19,"SIMD floating-point exception",SIGFPE);
+		EXC(20,"virtualization exception",SIGBUS);
+		EXC(21,"control protection exception",SIGBUS);
 		/* 22 through 27 are reserved */
-		EXC(28,"hypervisor injection exception");
-		EXC(29,"VMM communication exception");
-		EXC(30,"security exception");
+		EXC(28,"hypervisor injection exception",SIGBUS);
+		EXC(29,"VMM communication exception",SIGBUS);
+		EXC(30,"security exception",SIGBUS);
 		/* 31 is reserved */
 
 		/* 16 IRQs that go to the general IRQ chain */
