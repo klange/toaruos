@@ -19,13 +19,9 @@
 int main(int argc, char * argv[]) {
 	int fd = open("/dev/port", O_RDWR);
 	if (fd < 0) return 1;
-	lseek(fd, 0x3D4, SEEK_SET);
-	write(fd, (unsigned char[]){14}, 1);
-	lseek(fd, 0x3D5, SEEK_SET);
-	write(fd, (unsigned char[]){0xFF}, 1);
-	lseek(fd, 0x3D4, SEEK_SET);
-	write(fd, (unsigned char[]){15}, 1);
-	lseek(fd, 0x3D5, SEEK_SET);
-	write(fd, (unsigned char[]){0xFF}, 1);
+	pwrite(fd, (unsigned char[]){14}, 1, 0x3D4);
+	pwrite(fd, (unsigned char[]){0xFF}, 1, 0x3D5);
+	pwrite(fd, (unsigned char[]){15}, 1, 0x3D4);
+	pwrite(fd, (unsigned char[]){0xFF}, 1, 0x3D5);
 	return 0;
 }
