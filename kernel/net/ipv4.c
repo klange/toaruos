@@ -117,6 +117,16 @@ uint16_t calculate_tcp_checksum(struct tcp_check_header * p, struct tcp_header *
 	return ~(sum & 0xFFFF) & 0xFFFF;
 }
 
+static hashmap_t * udp_sockets = NULL;
+static hashmap_t * tcp_sockets = NULL;
+static hashmap_t * icmp_sockets = NULL;
+
+void ipv4_install(void) {
+	udp_sockets = hashmap_create_int(10);
+	tcp_sockets = hashmap_create_int(10);
+	icmp_sockets = hashmap_create_int(10);
+}
+
 int net_ipv4_send(struct ipv4_packet * response, fs_node_t * nic) {
 	/* TODO: This should be routing, with a _hint_ about the interface, not the actual nic to send from! */
 	struct EthernetDevice * enic = nic->device;
@@ -152,8 +162,6 @@ int net_ipv4_send(struct ipv4_packet * response, fs_node_t * nic) {
 	return 0;
 }
 
-static sock_t * icmp_handler = NULL;
-
 static void icmp_handle(struct ipv4_packet * packet, const char * src, const char * dest, fs_node_t * nic) {
 	struct icmp_header * header = (void*)&packet->payload;
 
@@ -187,10 +195,10 @@ static void icmp_handle(struct ipv4_packet * packet, const char * src, const cha
 		net_ipv4_send(response,nic);
 		free(response);
 	} else if (header->type == 0 && header->code == 0) {
-		printf("net: ping reply\n");
 		/* Did we have a client waiting for this? */
-		if (icmp_handler) {
-			net_sock_add(icmp_handler, packet, ntohs(packet->length));
+		sock_t * handler = hashmap_get(icmp_sockets, (void*)(uintptr_t)ntohs(header->identifier));
+		if (handler) {
+			net_sock_add(handler, packet, ntohs(packet->length));
 		}
 	} else {
 		printf("net: ipv4: %s: %s -> %s ICMP %d (code = %d)\n", nic->name, src, dest, header->type, header->code);
@@ -198,7 +206,7 @@ static void icmp_handle(struct ipv4_packet * packet, const char * src, const cha
 }
 
 static void sock_icmp_close(sock_t * sock) {
-	icmp_handler = NULL;
+	hashmap_remove(icmp_sockets, (void*)(uintptr_t)sock->priv32[0]);
 }
 
 static long sock_icmp_recv(sock_t * sock, struct msghdr * msg, int flags) {
@@ -225,8 +233,19 @@ static long sock_icmp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 			((struct sockaddr_in*)msg->msg_name)->sin_family = AF_INET;
 			((struct sockaddr_in*)msg->msg_name)->sin_port = 0;
 			((struct sockaddr_in*)msg->msg_name)->sin_addr.s_addr = src->source;
-			((struct sockaddr_in*)msg->msg_name)->sin_zero[0] = src->ttl;
 		}
+	}
+
+	/* TODO should check flag IP_RECVTTL ? Also this should be common to all IPPROTO_IP sockets */
+	if (sock->priv32[2] && msg->msg_controllen > sizeof(struct cmsghdr) + 1) {
+		struct cmsghdr * out = msg->msg_control;
+		out->cmsg_len = sizeof(struct cmsghdr) + 1;
+		out->cmsg_level = IPPROTO_IP;
+		out->cmsg_type = IP_RECVTTL;
+		out->cmsg_data[0] = src->ttl;
+		msg->msg_controllen = sizeof(struct cmsghdr) + 1;
+	} else {
+		msg->msg_controllen = 0;
 	}
 
 	memcpy(msg->msg_iov[0].iov_base, src->payload, packet_size);
@@ -235,13 +254,14 @@ static long sock_icmp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 }
 
 static long sock_icmp_send(sock_t * sock, const struct msghdr *msg, int flags) {
-	if (msg->msg_iovlen > 1) {
-		return -ENOTSUP;
-	}
+	if (msg->msg_iovlen > 1) return -ENOTSUP;
 	if (msg->msg_iovlen == 0) return 0;
-	if (msg->msg_namelen != sizeof(struct sockaddr_in)) {
-		return -EINVAL;
-	}
+	if (msg->msg_namelen != sizeof(struct sockaddr_in)) return -EINVAL;
+	if (msg->msg_iov[0].iov_len < sizeof(struct icmp_header)) return -EINVAL;
+
+	struct icmp_header * icmp = msg->msg_iov[0].iov_base;
+	if (icmp->type != 8 || icmp->code != 0) return -EINVAL;
+	if (icmp->identifier != 0) return -EINVAL;
 
 	struct sockaddr_in * name = msg->msg_name;
 	fs_node_t * nic = net_if_route(name->sin_addr.s_addr);
@@ -262,6 +282,11 @@ static long sock_icmp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 	response->checksum = htons(calculate_ipv4_checksum(response));
 
 	memcpy(response->payload, msg->msg_iov[0].iov_base, msg->msg_iov[0].iov_len);
+	struct icmp_header * micmp = (struct icmp_header*)response->payload;
+	micmp->identifier = htons(sock->priv32[0]);
+	micmp->csum = 0;
+	micmp->csum = htons(icmp_checksum(response));
+
 	net_ipv4_send(response,nic);
 	free(response);
 
@@ -269,22 +294,14 @@ static long sock_icmp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 }
 
 static int icmp_socket(void) {
-	printf("icmp socket...\n");
-	if (icmp_handler) return -EINVAL;
+	if (hashmap_has(icmp_sockets, (void*)(uintptr_t)this_core->current_process->id)) return -EINVAL;
 	sock_t * sock = net_sock_create();
 	sock->sock_recv = sock_icmp_recv;
 	sock->sock_send = sock_icmp_send;
 	sock->sock_close = sock_icmp_close;
-	icmp_handler = sock;
+	sock->priv32[0] = this_core->current_process->id;
+	hashmap_set(icmp_sockets, (void*)(uintptr_t)sock->priv32[0], sock);
 	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock);
-}
-
-static hashmap_t * udp_sockets = NULL;
-static hashmap_t * tcp_sockets = NULL;
-
-void ipv4_install(void) {
-	udp_sockets = hashmap_create_int(10);
-	tcp_sockets = hashmap_create_int(10);
 }
 
 #define TCP_FLAGS_FIN (1 << 0)
@@ -1032,5 +1049,17 @@ long net_ipv4_socket(int type, int protocol) {
 			return tcp_socket();
 		default:
 			return -EINVAL;
+	}
+}
+
+long net_so_ipv4_socket(struct SockData * sock, int optname, const void *optval, socklen_t optlen) {
+	switch (optname) {
+		case IP_RECVTTL:
+			if (optlen != sizeof(int)) return -EINVAL;
+			/* TODO ugh bad */
+			sock->priv32[2] = *(int*)optval;
+			return 0;
+		default:
+			return -ENOPROTOOPT;
 	}
 }

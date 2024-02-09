@@ -21,4 +21,7 @@ struct sockaddr_in {
 in_addr_t inet_addr(const char *cp);
 char *inet_ntoa(struct in_addr in);
 
+#define IP_TTL 2
+#define IP_RECVTTL 12
+
 _End_C_Header

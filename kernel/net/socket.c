@@ -215,6 +215,8 @@ long net_so_socket(struct SockData * sock, int optname, const void *optval, sock
 	}
 }
 
+extern long net_so_ipv4_socket(struct SockData * sock, int optname, const void *optval, socklen_t optlen);
+
 static inline int is_socket(int sockfd) {
 	if (!FD_CHECK(sockfd)) return -EBADF;
 	fs_node_t * node = FD_ENTRY(sockfd);
@@ -241,6 +243,8 @@ long net_setsockopt(int sockfd, int level, int optname, const void *optval, sock
 	switch (level) {
 		case SOL_SOCKET:
 			return net_so_socket(node,optname,optval,optlen);
+		case IPPROTO_IP:
+			return net_so_ipv4_socket(node,optname,optval,optlen);
 		default:
 			return -ENOPROTOOPT;
 	}

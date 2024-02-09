@@ -19,7 +19,7 @@ struct icmp_header {
 	uint8_t type;
 	uint8_t code;
 	uint16_t csum;
-	uint16_t rest_of_header;
+	uint16_t identifier;
 	uint8_t data[];
 } __attribute__((packed)) __attribute__((aligned(2)));
 
