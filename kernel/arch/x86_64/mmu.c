@@ -1272,7 +1272,7 @@ int mmu_copy_on_write(uintptr_t address) {
  * @param flags Control what constitutes a failure.
  * @returns 0 on failure, 1 if process has access.
  */
-int mmu_validate_user_pointer(void * addr, size_t size, int flags) {
+int mmu_validate_user_pointer(const void * addr, size_t size, int flags) {
 	if (addr == NULL && !(flags & MMU_PTR_NULL)) return 0;
 	if (size >     0x800000000000) return 0;
 

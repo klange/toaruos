@@ -280,9 +280,27 @@ long net_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 	return node->sock_connect(node,addr,addrlen);
 }
 
+static int validate_msg(const struct msghdr * msg, int readonly) {
+	int flags = readonly ? 0 : MMU_PTR_WRITE;
+	if (!mmu_validate_user_pointer(msg,sizeof(struct msghdr),flags)) return 1;
+	if (msg->msg_iovlen) {
+		/* Check iovec structures */
+		if (!mmu_validate_user_pointer(msg->msg_iov, (size_t)(msg->msg_iovlen * sizeof(struct iovec)),flags)) return 1;
+		/* Check all the buffers in there */
+		for (size_t i = 0; i < msg->msg_iovlen; ++i) {
+			if (!mmu_validate_user_pointer(msg->msg_iov[i].iov_base, (size_t)(msg->msg_iov[i].iov_len), flags)) return 1;
+		}
+	}
+
+	/* Check control message space */
+	if (msg->msg_controllen && !mmu_validate_user_pointer(msg->msg_control, (size_t)(msg->msg_controllen), flags)) return 1;
+	return 0;
+}
+
 long net_recv(int sockfd, struct msghdr * msg, int flags) {
 	CHECK_SOCK(sockfd);
 	PTR_VALIDATE(msg);
+	if (validate_msg(msg,0)) return -EFAULT;
 	sock_t * node = (sock_t*)FD_ENTRY(sockfd);
 	return node->sock_recv(node,msg,flags);
 }
@@ -290,6 +308,7 @@ long net_recv(int sockfd, struct msghdr * msg, int flags) {
 long net_send(int sockfd, const struct msghdr * msg, int flags) {
 	CHECK_SOCK(sockfd);
 	PTR_VALIDATE(msg);
+	if (validate_msg(msg,1)) return -EFAULT;
 	sock_t * node = (sock_t*)FD_ENTRY(sockfd);
 	return node->sock_send(node,msg,flags);
 }

@@ -60,4 +60,4 @@ size_t mmu_used_memory(void);
 void * sbrk(size_t);
 
 union PML * mmu_get_page_other(union PML * root, uintptr_t virtAddr);
-int mmu_validate_user_pointer(void * addr, size_t size, int flags);
+int mmu_validate_user_pointer(const void * addr, size_t size, int flags);
