@@ -162,6 +162,20 @@ int net_ipv4_send(struct ipv4_packet * response, fs_node_t * nic) {
 	return 0;
 }
 
+static void sock_ipv4_control_common(sock_t * sock, struct msghdr * msg, struct ipv4_packet * src, int proto) {
+	/* TODO Other options; priv32[2] should be for flags? */
+	if (sock->priv32[2] && msg->msg_controllen > sizeof(struct cmsghdr) + 1) {
+		struct cmsghdr * out = msg->msg_control;
+		out->cmsg_len = sizeof(struct cmsghdr) + 1;
+		out->cmsg_level = IPPROTO_IP;
+		out->cmsg_type = IP_RECVTTL;
+		out->cmsg_data[0] = src->ttl;
+		msg->msg_controllen = sizeof(struct cmsghdr) + 1;
+	} else {
+		msg->msg_controllen = 0;
+	}
+}
+
 static void icmp_handle(struct ipv4_packet * packet, const char * src, const char * dest, fs_node_t * nic) {
 	struct icmp_header * header = (void*)&packet->payload;
 
@@ -236,17 +250,7 @@ static long sock_icmp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 		}
 	}
 
-	/* TODO should check flag IP_RECVTTL ? Also this should be common to all IPPROTO_IP sockets */
-	if (sock->priv32[2] && msg->msg_controllen > sizeof(struct cmsghdr) + 1) {
-		struct cmsghdr * out = msg->msg_control;
-		out->cmsg_len = sizeof(struct cmsghdr) + 1;
-		out->cmsg_level = IPPROTO_IP;
-		out->cmsg_type = IP_RECVTTL;
-		out->cmsg_data[0] = src->ttl;
-		msg->msg_controllen = sizeof(struct cmsghdr) + 1;
-	} else {
-		msg->msg_controllen = 0;
-	}
+	sock_ipv4_control_common(sock,msg,src,IPPROTO_ICMP);
 
 	memcpy(msg->msg_iov[0].iov_base, src->payload, packet_size);
 	free(packet);
@@ -573,6 +577,8 @@ static long sock_udp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 			((struct sockaddr_in*)msg->msg_name)->sin_addr.s_addr = data->source;
 		}
 	}
+
+	sock_ipv4_control_common(sock,msg,data,IPPROTO_UDP);
 
 	printf("udp: data copied to iov 0, return length?\n");
 
