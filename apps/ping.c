@@ -22,7 +22,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-#define BYTES_TO_SEND 56
+#define BYTES_TO_SEND 64
 
 struct ICMP_Header {
 	uint8_t type, code;
@@ -87,7 +87,7 @@ int main(int argc, char * argv[]) {
 	dest.sin_family = AF_INET;
 	memcpy(&dest.sin_addr.s_addr, host->h_addr, host->h_length);
 
-	printf("PING %s (%s) %d data bytes\n", argv[1], addr, BYTES_TO_SEND);
+	printf("PING %s (%s) %d data bytes\n", argv[1], addr, BYTES_TO_SEND - 8);
 
 	struct ICMP_Header * ping = malloc(BYTES_TO_SEND);
 	ping->type = 8; /* request */
