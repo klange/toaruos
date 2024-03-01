@@ -672,6 +672,11 @@ static int paint_krk_numeral(struct syntax_state * state) {
 			paint(1, FLAG_NUMERAL);
 			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
 		}
+		if (charat() == 'e' || charat() == 'E') {
+			paint(1, FLAG_NUMERAL);
+			if (charat() == '-' || charat() == '+') paint(1, FLAG_NUMERAL);
+			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		}
 	}
 	return 0;
 }
@@ -2017,12 +2022,12 @@ static void set_unbuffered(void) {
 	_EOF  = old.c_cc[VEOF];
 	struct termios new = old;
 	new.c_lflag &= (~ICANON & ~ECHO & ~ISIG);
-	tcsetattr(STDOUT_FILENO, TCSAFLUSH, &new);
+	tcsetattr(STDOUT_FILENO, TCSADRAIN, &new);
 	if (wcwidth(0x3042) != 2) setlocale(LC_CTYPE, "");
 }
 
 static void set_buffered(void) {
-	tcsetattr(STDOUT_FILENO, TCSAFLUSH, &old);
+	tcsetattr(STDOUT_FILENO, TCSADRAIN, &old);
 }
 #else
 static unsigned int _INTR = 3;
