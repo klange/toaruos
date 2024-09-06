@@ -1,8 +1,8 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/*
  * Copyright (c) 2011-2018 K. Lange.  All rights reserved.
  *
  * Developed by:            K. Lange
- *                          http://gitlab.com/klange/nyancat
+ *                          http://github.com/klange/nyancat
  *                          http://nyancat.dakko.us
  *
  * 40-column support by:    Peter Hazenberg
@@ -12,7 +12,7 @@
  * Build tools unified by:  Aaron Peschel
  *                          https://github.com/apeschel
  *
- * For a complete listing of contributers, please see the git commit history.
+ * For a complete listing of contributors, please see the git commit history.
  *
  * This is a simple telnet server / standalone application which renders the
  * classic Nyan Cat (or "poptart cat") to your terminal.
@@ -49,7 +49,11 @@
  * WITH THE SOFTWARE.
  */
 
-#define _XOPEN_SOURCE 500
+#define _XOPEN_SOURCE 700
+#define _DARWIN_C_SOURCE 1
+#define _BSD_SOURCE
+#define _DEFAULT_SOURCE
+#define __BSD_VISIBLE 1
 #include <ctype.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -115,7 +119,7 @@ int show_counter = 1;
 unsigned int frame_count = 0;
 
 /*
- * Clear the screen between frames (as opposed to reseting
+ * Clear the screen between frames (as opposed to resetting
  * the cursor position)
  */
 int clear_screen = 1;
@@ -193,14 +197,12 @@ void SIGINT_handler(int sig){
  * Handle the alarm which breaks us off of options
  * handling if we didn't receive a terminal
  */
-#if 0
 void SIGALRM_handler(int sig) {
 	(void)sig;
 	alarm(0);
 	longjmp(environment, 1);
 	/* Unreachable */
 }
-#endif
 
 /*
  * Handle the loss of stdout, as would be the case when
@@ -241,12 +243,12 @@ void newline(int n) {
 		/* We will send `n` linefeeds to the client */
 		if (telnet) {
 			/* Send the telnet newline sequence */
-			fputc('\r', stdout);
-			fputc(0, stdout);
-			fputc('\n', stdout);
+			putc('\r', stdout);
+			putc(0, stdout);
+			putc('\n', stdout);
 		} else {
 			/* Send a regular line feed */
-			fputc('\n', stdout);
+			putc('\n', stdout);
 		}
 	}
 }
@@ -319,13 +321,6 @@ void send_command(int cmd, int opt) {
 	}
 }
 
-static int _tolower(int c) {
-	if (c >= 'A' && c <= 'Z') {
-		return c - 'A' + 'a';
-	}
-	return c;
-}
-
 /*
  * Print the usage / help text describing options
  */
@@ -340,6 +335,7 @@ void usage(char * argv[]) {
 			" -n --no-counter \033[3mDo not display the timer\033[0m\n"
 			" -s --no-title   \033[3mDo not set the titlebar text\033[0m\n"
 			" -e --no-clear   \033[3mDo not clear the display between frames\033[0m\n"
+			" -d --delay      \033[3mDelay image rendering by anywhere between 10ms and 1000ms\n"
 			" -f --frames     \033[3mDisplay the requested number of frames, then quit\033[0m\n"
 			" -r --min-rows   \033[3mCrop the animation from the top\033[0m\n"
 			" -R --max-rows   \033[3mCrop the animation from the bottom\033[0m\n"
@@ -353,14 +349,16 @@ void usage(char * argv[]) {
 
 int main(int argc, char ** argv) {
 
-	/* The default terminal is ANSI */
-	char term[1024] = {'a','n','s','i', 0};
+	char *term = NULL;
 	unsigned int k;
+
 	int ttype;
-	//uint32_t option = 0, done = 0, sb_mode = 0;
+#if 0
+	uint32_t option = 0, done = 0, sb_mode = 0;
 	/* Various pieces for the telnet communication */
-	//char  sb[1024] = {0};
-	//unsigned short sb_len   = 0;
+	unsigned char  sb[1024] = {0};
+	unsigned short sb_len   = 0;
+#endif
 
 	/* Whether or not to show the MOTD intro */
 	char show_intro = 0;
@@ -375,6 +373,7 @@ int main(int argc, char ** argv) {
 		{"no-counter", no_argument,       0, 'n'},
 		{"no-title",   no_argument,       0, 's'},
 		{"no-clear",   no_argument,       0, 'e'},
+		{"delay",      required_argument, 0, 'd'},
 		{"frames",     required_argument, 0, 'f'},
 		{"min-rows",   required_argument, 0, 'r'},
 		{"max-rows",   required_argument, 0, 'R'},
@@ -385,9 +384,12 @@ int main(int argc, char ** argv) {
 		{0,0,0,0}
 	};
 
+	/* Time delay in milliseconds */
+	int delay_ms = 90; // Default to original value
+
 	/* Process arguments */
 	int index, c;
-	while ((c = getopt_long(argc, argv, "eshiItnf:r:R:c:C:W:H:", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "eshiItnd:f:r:R:c:C:W:H:", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
@@ -415,6 +417,10 @@ int main(int argc, char ** argv) {
 				break;
 			case 'n':
 				show_counter = 0;
+				break;
+			case 'd':
+				if (10 <= atoi(optarg) && atoi(optarg) <= 1000)
+					delay_ms = atoi(optarg);
 				break;
 			case 'f':
 				frame_count = atoi(optarg);
@@ -493,7 +499,7 @@ int main(int argc, char ** argv) {
 								/* This was a response to the TTYPE command, meaning
 								 * that this should be a terminal type */
 								alarm(2);
-								strcpy(term, &sb[2]);
+								term = strndup((char *)&sb[2], sizeof(sb)-2);
 								done++;
 							}
 							else if (sb[0] == NAWS) {
@@ -567,16 +573,12 @@ int main(int argc, char ** argv) {
 			}
 		}
 		alarm(0);
-	} else {
-#else
-	{
+	} else
 #endif
+	{
 		/* We are running standalone, retrieve the
 		 * terminal type from the environment. */
-		char * nterm = getenv("TERM");
-		if (nterm) {
-			strcpy(term, nterm);
-		}
+		term = getenv("TERM");
 
 		/* Also get the number of columns */
 		struct winsize w;
@@ -585,34 +587,41 @@ int main(int argc, char ** argv) {
 		terminal_height = w.ws_row;
 	}
 
-	/* Convert the entire terminal string to lower case */
-	for (k = 0; k < strlen(term); ++k) {
-		term[k] = _tolower(term[k]);
-	}
+	/* Default ttype */
+	ttype = 2;
 
-	/* Do our terminal detection */
-	if (strstr(term, "xterm")) {
-		ttype = 1; /* 256-color, spaces */
-	} else if (strstr(term, "toaru")) {
-		ttype = 1; /* emulates xterm */
-	} else if (strstr(term, "linux")) {
-		ttype = 3; /* Spaces and blink attribute */
-	} else if (strstr(term, "vtnt")) {
-		ttype = 5; /* Extended ASCII fallback == Windows */
-	} else if (strstr(term, "cygwin")) {
-		ttype = 5; /* Extended ASCII fallback == Windows */
-	} else if (strstr(term, "vt220")) {
-		ttype = 6; /* No color support */
-	} else if (strstr(term, "fallback")) {
-		ttype = 4; /* Unicode fallback */
-	} else if (strstr(term, "rxvt")) {
-		ttype = 3; /* Accepts LINUX mode */
-	} else if (strstr(term, "vt100") && terminal_width == 40) {
-		ttype = 7; /* No color support, only 40 columns */
-	} else if (strstr(term, "st") == term) {
-		ttype = 1; /* suckless simple terminal is xterm-256color-compatible */
-	} else {
-		ttype = 2; /* Everything else */
+	if (term) {
+		/* Convert the entire terminal string to lower case */
+		for (k = 0; k < strlen(term); ++k) {
+			term[k] = tolower(term[k]);
+		}
+
+		/* Do our terminal detection */
+		if (strstr(term, "xterm")) {
+			ttype = 1; /* 256-color, spaces */
+		} else if (strstr(term, "toaru")) {
+			ttype = 1; /* emulates xterm */
+		} else if (strstr(term, "linux")) {
+			ttype = 3; /* Spaces and blink attribute */
+		} else if (strstr(term, "vtnt")) {
+			ttype = 5; /* Extended ASCII fallback == Windows */
+		} else if (strstr(term, "cygwin")) {
+			ttype = 5; /* Extended ASCII fallback == Windows */
+		} else if (strstr(term, "vt220")) {
+			ttype = 6; /* No color support */
+		} else if (strstr(term, "fallback")) {
+			ttype = 4; /* Unicode fallback */
+		} else if (strstr(term, "rxvt-256color")) {
+			ttype = 1; /* xterm 256-color compatible */
+		} else if (strstr(term, "rxvt")) {
+			ttype = 3; /* Accepts LINUX mode */
+		} else if (strstr(term, "vt100") && terminal_width == 40) {
+			ttype = 7; /* No color support, only 40 columns */
+		} else if (!strncmp(term, "st", 2)) {
+			ttype = 1; /* suckless simple terminal is xterm-256color-compatible */
+		} else if (!strncmp(term, "truecolor", 9)) {
+			ttype = 8;
+		}
 	}
 
 	int always_escape = 0; /* Used for text mode */
@@ -745,6 +754,22 @@ int main(int argc, char ** argv) {
 			colors['%']  = "o";             /* Pink cheeks */
 			always_escape = 1;
 			terminal_width = 40;
+			break;
+		case 8:
+			colors[',']  = "\033[48;2;0;49;105m";    /* Blue background */
+			colors['.']  = "\033[48;2;255;255;255m"; /* White stars */
+			colors['\''] = "\033[48;2;0;0;0m";       /* Black border */
+			colors['@']  = "\033[48;2;255;205;152m"; /* Tan poptart */
+			colors['$']  = "\033[48;2;255;169;255m"; /* Pink poptart */
+			colors['-']  = "\033[48;2;255;76;152m";  /* Red poptart */
+			colors['>']  = "\033[48;2;255;25;0m";    /* Red rainbow */
+			colors['&']  = "\033[48;2;255;154;0m";   /* Orange rainbow */
+			colors['+']  = "\033[48;2;255;240;0m";   /* Yellow Rainbow */
+			colors['#']  = "\033[48;2;40;220;0m";    /* Green rainbow */
+			colors['=']  = "\033[48;2;0;144;255m";   /* Light blue rainbow */
+			colors[';']  = "\033[48;2;104;68;255m";  /* Dark blue rainbow */
+			colors['*']  = "\033[48;2;153;153;153m"; /* Gray cat face */
+			colors['%']  = "\033[48;2;255;163;152m"; /* Pink cheeks */
 			break;
 		default:
 			break;
@@ -901,7 +926,6 @@ int main(int argc, char ** argv) {
 			 * The \033[0m prevents the Apple ][ from flipping everything, but
 			 * makes the whole nyancat less bright on the vt220
 			 */
-			//printf("\033[1;37mYou have nyaned for %0.0f seconds!\033[J\033[0m", diff);
 			printf("\033[1;37mYou have nyaned for %d seconds!\033[J\033[0m", (int)diff);
 		}
 		/* Reset the last color so that the escape sequences rewrite */
@@ -917,7 +941,7 @@ int main(int argc, char ** argv) {
 			i = 0;
 		}
 		/* Wait */
-		usleep(90000);
+		usleep(1000 * delay_ms);
 	}
 	return 0;
 }
