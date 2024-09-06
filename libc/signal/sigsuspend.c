@@ -4,15 +4,10 @@
 #include <syscall_nums.h>
 #include <errno.h>
 
-DEFN_SYSCALL0(sigsuspend_cur, SYS_SIGSUSPEND);
+DEFN_SYSCALL1(sigsuspend, SYS_SIGSUSPEND,const sigset_t *);
 
 int sigsuspend(const sigset_t * restrict set) {
-	sigset_t old;
-	sigprocmask(SIG_SETMASK, set, &old);
-	int ret = syscall_sigsuspend_cur();
-	if (ret < 0) { errno = -ret; ret = -1; }
-	sigprocmask(SIG_SETMASK, &old, NULL);
-	return ret;
+	__sets_errno(syscall_sigsuspend(set));
 }
 
 DEFN_SYSCALL2(sigwait,SYS_SIGWAIT,const sigset_t *,int *);

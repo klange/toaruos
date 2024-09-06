@@ -90,6 +90,8 @@ struct signal_config {
 #define PROC_FLAG_TRACE_SYSCALLS     0x40
 #define PROC_FLAG_TRACE_SIGNALS      0x80
 
+#define PROC_FLAG_RESTORE_SIGMASK    0x100
+
 typedef struct process {
 	pid_t id;    /* PID */
 	pid_t group; /* thread group */
@@ -159,6 +161,7 @@ typedef struct process {
 
 	/* Syscall restarting */
 	long interrupted_system_call;
+	sigset_t restored_signals;
 } process_t;
 
 typedef struct {

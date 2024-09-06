@@ -94,7 +94,7 @@ static char sig_defaults[] = {
  *
  * @param r Registers after restoration from signal return.
  */
-static void maybe_restart_system_call(struct regs * r, int signum) {
+static void maybe_restart_system_call(struct regs * r, int signum, int no_handler) {
 	if (signum < 0 || signum >= NUMSIGNALS) return;
 	if (this_core->current_process->interrupted_system_call && arch_syscall_number(r) == -ERESTARTSYS) {
 		if (sig_defaults[signum] == SIG_DISP_Cont || (this_core->current_process->signals[signum].flags & SA_RESTART)) {
@@ -104,6 +104,18 @@ static void maybe_restart_system_call(struct regs * r, int signum) {
 		} else {
 			this_core->current_process->interrupted_system_call = 0;
 			arch_syscall_return(r, -EINTR);
+		}
+	} else if (this_core->current_process->interrupted_system_call && arch_syscall_number(r) == -ERESTARTSIGSUSPEND) {
+		arch_syscall_return(r, this_core->current_process->interrupted_system_call);
+		this_core->current_process->interrupted_system_call = 0;
+		if (no_handler) {
+			syscall_handler(r);
+		} else {
+			arch_syscall_return(r, -EINTR);
+		}
+		if (this_core->current_process->flags & PROC_FLAG_RESTORE_SIGMASK) {
+			__sync_and_and_fetch(&this_core->current_process->flags, ~(PROC_FLAG_RESTORE_SIGMASK));
+			this_core->current_process->blocked_signals = this_core->current_process->restored_signals;
 		}
 	}
 }
@@ -186,7 +198,7 @@ int handle_signal(process_t * proc, int signum, struct regs *r) {
 _ignore_signal:
 	/* we still need to check if we need to restart something */
 
-	maybe_restart_system_call(r, signum);
+	maybe_restart_system_call(r, signum, 1);
 
 	return !PENDING;
 }
@@ -337,7 +349,7 @@ void return_from_signal_handler(struct regs *r) {
 	if (PENDING) {
 		process_check_signals(r);
 	}
-	maybe_restart_system_call(r,signum);
+	maybe_restart_system_call(r,signum,0);
 }
 
 /**
@@ -399,3 +411,11 @@ int signal_await(sigset_t awaited, int * sig) {
 	return -EINTR;
 }
 
+/**
+ * @brief Unschedule until a pending signal is delivered.
+ */
+void signal_wait(void) {
+	while (!PENDING) {
+		switch_task(0);
+	}
+}

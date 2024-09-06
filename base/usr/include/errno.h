@@ -134,6 +134,7 @@ _Begin_C_Header
 #define EWOULDBLOCK EAGAIN    /* Operation would block */
 
 #define ERESTARTSYS 512
+#define ERESTARTSIGSUSPEND 511
 
 #ifndef _KERNEL_
 extern int errno;

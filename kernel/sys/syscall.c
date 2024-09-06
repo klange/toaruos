@@ -1042,9 +1042,17 @@ long sys_sigprocmask(int how, sigset_t *restrict set, sigset_t * restrict oset) 
 	return 0;
 }
 
-long sys_sigsuspend_cur(void) {
-	switch_task(0);
-	return -EINTR;
+extern void signal_wait(void);
+long sys_sigsuspend(const sigset_t *set) {
+	PTRCHECK(set,sizeof(sigset_t),0);
+
+	this_core->current_process->restored_signals = this_core->current_process->blocked_signals;
+	this_core->current_process->blocked_signals = *set;
+
+	signal_wait();
+
+	__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_RESTORE_SIGMASK);
+	return -ERESTARTSIGSUSPEND;
 }
 
 long sys_sigwait(sigset_t * set, int * sig) {
@@ -1261,7 +1269,7 @@ static scall_func syscalls[] = {
 	[SYS_SIGACTION]    = (scall_func)(uintptr_t)sys_sigaction,
 	[SYS_SIGPENDING]   = (scall_func)(uintptr_t)sys_sigpending,
 	[SYS_SIGPROCMASK]  = (scall_func)(uintptr_t)sys_sigprocmask,
-	[SYS_SIGSUSPEND]   = (scall_func)(uintptr_t)sys_sigsuspend_cur,
+	[SYS_SIGSUSPEND]   = (scall_func)(uintptr_t)sys_sigsuspend,
 	[SYS_SIGWAIT]      = (scall_func)(uintptr_t)sys_sigwait,
 	[SYS_PREAD]        = (scall_func)(uintptr_t)sys_pread,
 	[SYS_PWRITE]       = (scall_func)(uintptr_t)sys_pwrite,
@@ -1302,7 +1310,7 @@ void syscall_handler(struct regs * r) {
 		arch_syscall_arg0(r), arch_syscall_arg1(r), arch_syscall_arg2(r),
 		arch_syscall_arg3(r), arch_syscall_arg4(r));
 
-	if (result == -ERESTARTSYS) {
+	if (result == -ERESTARTSYS || result == -ERESTARTSIGSUSPEND) {
 		this_core->current_process->interrupted_system_call = arch_syscall_number(r);
 	}
 

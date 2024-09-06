@@ -101,6 +101,7 @@ const char * syscall_names[] = {
 	[SYS_SHUTDOWN]     = "shutdown",
 	[SYS_PREAD]        = "pread",
 	[SYS_PWRITE]       = "pwrite",
+	[SYS_SIGSUSPEND]   = "sigsuspend",
 };
 
 char syscall_mask[] = {
@@ -177,6 +178,7 @@ char syscall_mask[] = {
 	[SYS_SHUTDOWN]     = 1,
 	[SYS_PREAD]        = 1,
 	[SYS_PWRITE]       = 1,
+	[SYS_SIGSUSPEND]   = 1,
 };
 
 #define M(e) [e] = #e

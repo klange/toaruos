@@ -22,4 +22,4 @@ extern int group_send_signal(pid_t group, int signal, int force_root);
 extern void return_from_signal_handler(struct regs*);
 extern void process_check_signals(struct regs*);
 extern int signal_await(sigset_t awaited, int * sig);
-
+extern int handle_signal(process_t * proc, int signum, struct regs *r);
