@@ -2361,6 +2361,12 @@ static int read_line(void) {
 						render_line();
 						insert_char('\n');
 						return 1;
+					case 1: /* ^A */
+						cursor_home();
+						break;
+					case 5: /* ^E */
+						cursor_end();
+						break;
 					case 22: /* ^V */
 						/* Don't bother with unicode, just take the next byte */
 						rline_place_cursor();
