@@ -99,9 +99,13 @@ const char * syscall_names[] = {
 	[SYS_RECV]         = "recv",
 	[SYS_SEND]         = "send",
 	[SYS_SHUTDOWN]     = "shutdown",
+	[SYS_SIGACTION]    = "sigaction",
+	[SYS_SIGPENDING]   = "sigpending",
+	[SYS_SIGPROCMASK]  = "sigprocmask",
+	[SYS_SIGSUSPEND]   = "sigsuspend",
+	[SYS_SIGWAIT]      = "sigwait",
 	[SYS_PREAD]        = "pread",
 	[SYS_PWRITE]       = "pwrite",
-	[SYS_SIGSUSPEND]   = "sigsuspend",
 };
 
 char syscall_mask[] = {
@@ -178,7 +182,11 @@ char syscall_mask[] = {
 	[SYS_SHUTDOWN]     = 1,
 	[SYS_PREAD]        = 1,
 	[SYS_PWRITE]       = 1,
+	[SYS_SIGACTION]    = 1,
+	[SYS_SIGPENDING]   = 1,
+	[SYS_SIGPROCMASK]  = 1,
 	[SYS_SIGSUSPEND]   = 1,
+	[SYS_SIGWAIT]      = 1,
 };
 
 #define M(e) [e] = #e
@@ -299,6 +307,7 @@ const char * errno_names[] = {
 	M(EOWNERDEAD),
 	M(ESTRPIPE),
 	M(ERESTARTSYS),
+	M(ERESTARTSIGSUSPEND),
 };
 
 
@@ -569,6 +578,47 @@ static void signal_arg(int signum) {
 	}
 }
 
+static void sigset_ptr_arg(pid_t pid, uintptr_t ptr) {
+	if (!ptr) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+
+	uint64_t sigset = data_read_ptr(pid, ptr);
+
+	/* handle special cases */
+	if (sigset == 0xFFFFffffFFFFffff) {
+		fprintf(logfile, "sigfillset()");
+		return;
+	} else if (sigset == 0) {
+		fprintf(logfile, "sigemptyset()");
+		return;
+	}
+
+	uint64_t x = (1ULL << NUMSIGNALS) - 2; /* 0 is also unused */
+	sigset &= x;
+
+	fprintf(logfile, "{");
+	for (int i = 1; i < NUMSIGNALS; ++i) {
+		uint64_t s = 1ULL << i;
+		if (sigset & s) {
+			signal_arg(i);
+			sigset &= ~s;
+			if (sigset) {
+				fprintf(logfile, "|");
+			}
+		}
+	}
+	fprintf(logfile, "}");
+}
+
+static void signal_ptr_arg(pid_t pid, uintptr_t ptr) {
+	int i = data_read_int(pid, ptr);
+	fprintf(logfile, "{");
+	signal_arg(i);
+	fprintf(logfile, "}");
+}
+
 static void handle_syscall(pid_t pid, struct URegs * r) {
 	if (uregs_syscall_num(r) >= sizeof(syscall_mask)) return;
 	if (!syscall_mask[uregs_syscall_num(r)]) return;
@@ -629,7 +679,7 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			break;
 		case SYS_KILL:
 			int_arg(uregs_syscall_arg1(r)); COMMA; /* pid_arg? */
-			int_arg(uregs_syscall_arg2(r)); /* TODO signal name */
+			signal_arg(uregs_syscall_arg2(r));
 			break;
 		case SYS_CHDIR:
 			string_arg(pid, uregs_syscall_arg1(r));
@@ -769,7 +819,30 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 		case SYS_GETTIMEOFDAY:
 			/* two output args */
 			break;
-		case SYS_SIGACTION: break;
+		case SYS_SIGACTION:
+			signal_arg(uregs_syscall_arg1(r)); COMMA;
+			pointer_arg(uregs_syscall_arg2(r)); COMMA;
+			pointer_arg(uregs_syscall_arg3(r)); /* sigaction output */
+			break;
+		case SYS_SIGPENDING:
+			/* output only */
+			break;
+		case SYS_SIGPROCMASK:
+			switch (uregs_syscall_arg1(r)) {
+				case SIG_BLOCK:   fprintf(logfile, "SIG_BLOCK"); break;
+				case SIG_UNBLOCK: fprintf(logfile, "SIG_UNBLOCK"); break;
+				case SIG_SETMASK: fprintf(logfile, "SIG_SETMASK"); break;
+				default: int_arg(uregs_syscall_arg1(r)); break;
+			} COMMA;
+			sigset_ptr_arg(pid, uregs_syscall_arg2(r)); COMMA;
+			/* one more after with old set */
+			break;
+		case SYS_SIGSUSPEND:
+			sigset_ptr_arg(pid, uregs_syscall_arg1(r));
+			break;
+		case SYS_SIGWAIT:
+			sigset_ptr_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			break;
 		case SYS_RECV:
 		case SYS_SEND:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
@@ -837,6 +910,14 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 		case SYS_EXECVE:
 			if (r == NULL) fprintf(logfile, ") = 0\n");
 			else maybe_errno(r);
+			break;
+		case SYS_SIGPROCMASK:
+			sigset_ptr_arg(pid, uregs_syscall_arg3(r));
+			maybe_errno(r);
+			break;
+		case SYS_SIGWAIT:
+			signal_ptr_arg(pid, uregs_syscall_arg2(r));
+			maybe_errno(r);
 			break;
 		/* Most things return -errno, or positive valid result */
 		default:
@@ -934,7 +1015,8 @@ int main(int argc, char * argv[]) {
 								}
 							} else if (!strcmp(option+1,"signal")) {
 								int syscalls[] = {
-									SYS_SIGNAL, SYS_KILL,
+									SYS_SIGNAL, SYS_KILL, SYS_SIGACTION, SYS_SIGPENDING, SYS_SIGPROCMASK,
+									SYS_SIGSUSPEND, SYS_SIGWAIT,
 									0
 								};
 								for (int *i = syscalls; *i; i++) {
