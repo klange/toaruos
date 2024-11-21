@@ -20,7 +20,7 @@ jobs:
       - name: Run Builder
         run: docker run -v ${GITHUB_WORKSPACE}:/root/misaka -w /root/misaka -e LANG=C.UTF-8 -t toaruos/build-tools:aarch64 util/build-in-docker-aarch64.sh
       - name: Upload virt Artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: aarch64-virt
           path: |
