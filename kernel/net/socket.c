@@ -284,6 +284,8 @@ static int validate_msg(const struct msghdr * msg, int readonly) {
 	int flags = readonly ? 0 : MMU_PTR_WRITE;
 	if (!mmu_validate_user_pointer(msg,sizeof(struct msghdr),flags)) return 1;
 	if (msg->msg_iovlen) {
+		/* Check msg_name pointer */
+		if (msg->msg_name && !mmu_validate_user_pointer(msg->msg_name, (size_t)(msg->msg_namelen), flags)) return 1;
 		/* Check iovec structures */
 		if (!mmu_validate_user_pointer(msg->msg_iov, (size_t)(msg->msg_iovlen * sizeof(struct iovec)),flags)) return 1;
 		/* Check all the buffers in there */
