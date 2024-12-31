@@ -1300,7 +1300,7 @@ void syscall_handler(struct regs * r) {
 
 	long result;
 
-	if (arch_syscall_number(r) >= num_syscalls) {
+	if (arch_syscall_number(r) < 0 || arch_syscall_number(r) >= num_syscalls) {
 		result = -EINVAL;
 		goto _finish_syscall;
 	}
