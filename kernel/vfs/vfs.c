@@ -392,8 +392,10 @@ int create_file_fs(char *name, mode_t permission) {
 		return -ENOENT;
 	}
 
-	if (!has_permission(parent, 02)) {
-		debug_print(WARNING, "bad permissions");
+	/* Need both exec and write on the parent to create a new entry */
+	if (!has_permission(parent, 02) || !has_permission(parent, 01)) {
+		free(path);
+		close_fs(parent);
 		return -EACCES;
 	}
 
@@ -441,7 +443,7 @@ int unlink_fs(char * name) {
 		return -ENOENT;
 	}
 
-	if (!has_permission(parent, 02)) {
+	if (!has_permission(parent, 02) || !has_permission(parent, 01)) {
 		free(path);
 		close_fs(parent);
 		return -EACCES;
@@ -499,17 +501,18 @@ int mkdir_fs(char *name, mode_t permission) {
 		return -EEXIST;
 	}
 
+	/* TODO do we have a better way to do this than opening it? */
 	fs_node_t * this = kopen(path, 0);
-	int _exists = 0;
-	if (this) { /* We need to do this because permission check stuff... */
+	if (this) {
 		close_fs(this);
-		_exists = 1;
+		return -EEXIST;
 	}
 
-	if (!has_permission(parent, 02)) {
+	/* Need both exec and write on the parent to create a new entry */
+	if (!has_permission(parent, 02) || !has_permission(parent, 01)) {
 		free(path);
 		close_fs(parent);
-		return _exists ? -EEXIST : -EACCES;
+		return -EACCES;
 	}
 
 	int ret = 0;
@@ -562,6 +565,13 @@ int symlink_fs(char * target, char * name) {
 	if (!parent) {
 		free(path);
 		return -ENOENT;
+	}
+
+	/* Need both exec and write on the parent to create a new entry */
+	if (!has_permission(parent, 02) || !has_permission(parent, 01)) {
+		free(path);
+		close_fs(parent);
+		return -EACCES;
 	}
 
 	int ret = 0;
@@ -1095,6 +1105,15 @@ fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_de
 			return node_ptr;
 		}
 		/* We are still searching... */
+		if (!has_permission(node_ptr, 01)) {
+			/*
+			 * TODO: kopen_recur has no way to pass along a failure reason?
+			 *       This will appear as 'ENOENT' instead of 'EACCESS', should fix that...
+			 */
+			free(node_ptr);
+			free((void*)path);
+			return NULL;
+		}
 		debug_print(INFO, "... Searching for %s", path_offset);
 		fs_node_t * node_next = finddir_fs(node_ptr, path_offset);
 		free(node_ptr); /* Always a clone or an unopened thing */
