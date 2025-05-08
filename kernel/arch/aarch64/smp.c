@@ -104,6 +104,10 @@ void smp_bootstrap(void) {
 
 static void start_cpu(uint32_t * node) {
 	uint32_t * cpuid = dtb_node_find_property(node, "reg");
+	if (!cpuid) {
+		dprintf("smp: skipping cpus node without 'reg' parameter\n");
+		return;
+	}
 	uint32_t num = swizzle(cpuid[2]);
 	dprintf("smp: cpu node %d %#zx '%s'\n", num, (uintptr_t)node, (char *)(node));
 	if (num == 0) return;
