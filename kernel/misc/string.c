@@ -489,7 +489,7 @@ int atoi(const char * c) {
 	int sign = 1;
 	long out = 0;
 	if (*c == '-') {
-		sign = '-';
+		sign = -1;
 		c++;
 	}
 
