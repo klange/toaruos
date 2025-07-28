@@ -30,7 +30,7 @@ kernel8.img: ${RPI400_OBJS} kernel/arch/aarch64/rpi400/link.ld
 
 QEMU = qemu-system-aarch64
 
-EMU_MACH = virt-2.12
+EMU_MACH = virt
 EMU_CPU  = cortex-a72
 SMP ?= 4
 RAM ?= 4G
@@ -56,7 +56,6 @@ EMU_KERNEL  = -fw_cfg name=opt/org.toaruos.kernel,file=misaka-kernel
 run: system
 	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session vid=auto" ${EMU_RAMDISK} ${EMU_KERNEL}
 
-hvf: EMU_MACH = virt-2.12
 hvf: EMU_CPU = host -accel hvf
 hvf: system
 	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session vid=auto" ${EMU_RAMDISK} ${EMU_KERNEL}

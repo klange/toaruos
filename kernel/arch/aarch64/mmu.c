@@ -881,7 +881,7 @@ void mmu_init(uintptr_t memaddr, size_t memsize, uintptr_t firstFreePage, uintpt
 	init_page_region[510].raw = k2p(&heap_base_pml) | PTE_VALID | PTE_TABLE | PTE_AF;
 
 	/* "Identity" map at -512GiB */
-	for (size_t i = 0; i < 64; ++i) {
+	for (size_t i = 0; i < 500; ++i) {
 		high_base_pml[i].raw = (i << 30) | PTE_VALID | PTE_AF | (1 << 2);
 	}
 

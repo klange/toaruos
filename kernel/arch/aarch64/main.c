@@ -610,6 +610,9 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 
 		/* Find the cmdline */
 		dtb_locate_cmdline(&_arch_args);
+
+		/* Check for PCIe address? */
+		dtb_pcie_base();
 	}
 
 	gic_map_regs(rpi_tag);
