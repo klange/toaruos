@@ -8,6 +8,7 @@
  * Copyright (C) 2021-2022 K. Lange
  */
 #include <stdint.h>
+#include <kernel/args.h>
 #include <kernel/process.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
@@ -16,6 +17,7 @@
 
 #include <kernel/arch/aarch64/regs.h>
 #include <kernel/arch/aarch64/gic.h>
+#include <kernel/arch/aarch64/dtb.h>
 
 /**
  * @brief Enter userspace.
@@ -366,10 +368,122 @@ void outportb(unsigned short _port, unsigned char _data) {
 void outportsm(unsigned short port, unsigned char * data, unsigned long size) {
 }
 
+/* From DRM sources */
+#define fourcc_code(a, b, c, d) ((uint32_t)(a) | ((uint32_t)(b) << 8) | \
+                                 ((uint32_t)(c) << 16) | ((uint32_t)(d) << 24))
+#define DRM_FORMAT_XRGB8888     fourcc_code('X', 'R', '2', '4') /* [31:0] x:R:G:B 8:8:8:8 little endian */
+
+static void ramfb_init(void) {
+	extern uint8_t * lfb_vid_memory;
+	extern uint16_t lfb_resolution_x;
+	extern uint16_t lfb_resolution_y;
+	extern uint16_t lfb_resolution_b;
+	extern uint32_t lfb_resolution_s;
+	extern size_t lfb_memsize;
+
+	struct ramfbcfg {
+		uint64_t addr;
+		uint32_t fourcc;
+		uint32_t flags;
+		uint32_t width;
+		uint32_t height;
+		uint32_t stride;
+	} __attribute__((packed));
+
+	uint32_t * fw_cfg = dtb_find_node_prefix("fw-cfg");
+	if (!fw_cfg) {
+		dprintf("ramfb: no fw-cfg interface?\n");
+		return;
+	}
+	uint32_t * regs = dtb_node_find_property(fw_cfg, "reg");
+	if (!regs) {
+		dprintf("ramfb: no regs for fw-cfg\n");
+		return;
+	}
+
+	volatile uint8_t * fw_cfg_addr = (volatile uint8_t*)(uintptr_t)(mmu_map_from_physical(swizzle(regs[3])));
+	volatile uint64_t * fw_cfg_data = (volatile uint64_t *)fw_cfg_addr;
+	volatile uint32_t * fw_cfg_32   = (volatile uint32_t *)fw_cfg_addr;
+	volatile uint16_t * fw_cfg_sel  = (volatile uint16_t *)(fw_cfg_addr + 8);
+
+	*fw_cfg_sel = 0;
+
+	uint64_t response = fw_cfg_data[0];
+	(void)response;
+
+	/* Needs to be big-endian */
+	*fw_cfg_sel = swizzle16(0x19);
+
+	/* count response is 32-bit BE */
+	uint32_t count = swizzle(fw_cfg_32[0]);
+
+	struct fw_cfg_file {
+		uint32_t size;
+		uint16_t select;
+		uint16_t reserved;
+		char name[56];
+	};
+
+	struct fw_cfg_file file;
+	uint8_t * tmp = (uint8_t *)&file;
+
+	/* Read count entries */
+	for (unsigned int i = 0; i < count; ++i) {
+		for (unsigned int j = 0; j < sizeof(struct fw_cfg_file); ++j) {
+			tmp[j] = fw_cfg_addr[0];
+		}
+
+		file.size = swizzle(file.size);
+		file.select = swizzle16(file.select);
+
+		if (!strcmp(file.name,"etc/ramfb")) {
+			static volatile struct ramfbcfg tmp;
+			uintptr_t z = mmu_map_to_physical(NULL,(uint64_t)&tmp);
+
+			lfb_resolution_x = 1440;
+			lfb_resolution_y = 900;
+			lfb_resolution_s = lfb_resolution_x*4;
+			lfb_resolution_b = 32;
+			lfb_memsize = lfb_resolution_s * lfb_resolution_y;
+			uint64_t frames = lfb_memsize/4096;
+			uint64_t addr = mmu_allocate_n_frames(frames) << 12;
+			lfb_vid_memory = mmu_map_from_physical(addr);
+			/* Clear it while we're here */
+			memset(lfb_vid_memory, 0, lfb_memsize);
+
+			tmp.addr = swizzle64(addr);
+			tmp.width = swizzle(lfb_resolution_x);
+			tmp.height = swizzle(lfb_resolution_y);
+			tmp.flags = 0;
+			tmp.fourcc = swizzle(DRM_FORMAT_XRGB8888);
+			tmp.stride = swizzle(lfb_resolution_s);
+
+			static volatile struct fwcfg_dma {
+				volatile uint32_t control;
+				volatile uint32_t length;
+				volatile uint64_t address;
+			} dma __attribute__((aligned(4096)));
+
+			dma.control = swizzle((file.select << 16) | (1 << 3) | (1 << 4));
+			dma.length  = swizzle(sizeof(struct ramfbcfg));
+			dma.address = swizzle64(z);
+
+			asm volatile ("isb" ::: "memory");
+			fw_cfg_data[2] = swizzle64(mmu_map_to_physical(NULL,(uint64_t)&dma));
+			asm volatile ("isb" ::: "memory");
+			break;
+		}
+	}
+}
+
+
 void arch_framebuffer_initialize(void) {
 	/* I'm not sure we have any options here...
 	 * lfbvideo calls this expecting it to fill in information
 	 * on a preferred video mode; maybe dtb has that? */
+	if (args_present("ramfb")) {
+		ramfb_init();
+	}
 }
 
 char * _arch_args = NULL;

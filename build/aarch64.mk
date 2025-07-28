@@ -41,7 +41,7 @@ EMU_ARGS += -smp $(SMP)
 EMU_ARGS += -cpu $(EMU_CPU)
 EMU_ARGS += -no-reboot
 EMU_ARGS += -serial mon:stdio
-EMU_ARGS += -device bochs-display
+EMU_ARGS += -device ramfb
 EMU_ARGS += -device virtio-tablet-pci    # Mouse with absolute positioning
 EMU_ARGS += -device virtio-keyboard-pci  # Keyboard
 EMU_ARGS += -device AC97
@@ -54,11 +54,11 @@ EMU_RAMDISK = -fw_cfg name=opt/org.toaruos.initrd,file=ramdisk.igz
 EMU_KERNEL  = -fw_cfg name=opt/org.toaruos.kernel,file=misaka-kernel
 
 run: system
-	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session vid=auto" ${EMU_RAMDISK} ${EMU_KERNEL}
+	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session ramfb vid=preset" ${EMU_RAMDISK} ${EMU_KERNEL}
 
 hvf: EMU_CPU = host -accel hvf
 hvf: system
-	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session vid=auto" ${EMU_RAMDISK} ${EMU_KERNEL}
+	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session ramfb vid=preset" ${EMU_RAMDISK} ${EMU_KERNEL}
 
 debug: system
 	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session vid=auto" ${EMU_RAMDISK} ${EMU_KERNEL} -d int 2>&1
