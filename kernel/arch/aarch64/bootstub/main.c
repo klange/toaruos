@@ -446,6 +446,7 @@ int kmain(void) {
 	uintptr_t kernel_load_addr = (uintptr_t)&end;
 
 	/* Initialize log */
+	*(volatile unsigned int *)(0x09000030) = 0x101;
 	printf_output = &_early_log_write;
 	printf("bootstub: Starting up\n");
 
