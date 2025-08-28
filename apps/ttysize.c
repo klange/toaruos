@@ -35,11 +35,13 @@ static void set_buffered() {
 	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
 }
 
-static int getc_timeout(FILE * f, int timeout) {
-	int fds[1] = {fileno(f)};
+static int getc_timeout(int timeout) {
+	int fds[1] = {STDIN_FILENO};
 	int index = fswait2(1,fds,timeout);
 	if (index == 0) {
-		return fgetc(f);
+		unsigned char buf[1];
+		read(STDIN_FILENO, buf, 1);
+		return buf[0];
 	} else {
 		return -1;
 	}
@@ -57,7 +59,7 @@ static void divine_size(int * width, int * height) {
 	char buf[1024] = {0};
 	size_t i = 0;
 	while (1) {
-		int c = getc_timeout(stdin, 200);
+		int c = getc_timeout(200);
 		if (c == 'R') break;
 		if (c == -1) goto _done;
 		if (c == '\033') continue;
