@@ -1,6 +1,7 @@
 :_
 &accessories,folder,Accessories
 &demos,folder,Demos
+&games,folder,Games
 &settings,folder,Settings
 -
 exec help-browser,help,Help Browser
@@ -19,6 +20,8 @@ exec drawlines,drawlines,Draw Lines
 exec julia,julia,Julia Fractals
 exec mandelbrot,mandelbrot,Mandelbrot Explorer
 exec plasma,plasma,Plasma
+:games
+exec mines.krk,mines,Mines
 :settings
 exec gsudo package-manager,package,Package Manager
 exec wallpaper-picker,wallpaper-picker,Select Wallpaper
