@@ -1118,6 +1118,11 @@ static void redraw_mouse(void) {
 static unsigned int button_state = 0;
 
 void handle_mouse_event(mouse_device_packet_t * packet) {
+	if (mouse_x < 0) mouse_x = 0;
+	if (mouse_y < 0) mouse_y = 0;
+	if (mouse_x >= term_width) mouse_x = term_width - 1;
+	if (mouse_y >= term_height) mouse_y = term_height - 1;
+
 	static uint64_t last_click = 0;
 	if (ansi_state->mouse_on & TERMEMU_MOUSE_ENABLE) {
 		/* TODO: Handle shift */
@@ -1201,10 +1206,6 @@ void handle_mouse(mouse_device_packet_t * packet) {
 	mouse_x = rel_mouse_x / 20;
 	mouse_y = rel_mouse_y / 40;
 
-	if (mouse_x < 0) mouse_x = 0;
-	if (mouse_y < 0) mouse_y = 0;
-	if (mouse_x >= term_width) mouse_x = term_width - 1;
-	if (mouse_y >= term_height) mouse_y = term_height - 1;
 	handle_mouse_event(packet);
 }
 
