@@ -81,8 +81,14 @@ LC = $(BASE)/lib/libc.so $(GCC_SHARED)
 $(BASE)/mod/%.ko: modules/%.c | dirs
 	${CC} -c ${KERNEL_CFLAGS} -fno-pie -mcmodel=large  -o $@ $<
 
-ramdisk.igz: $(wildcard $(BASE)/* $(BASE)/*/* $(BASE)/*/*/* $(BASE)/*/*/*/* $(BASE)/*/*/*/*/*) $(APPS_X) $(LIBS_X) $(KRK_MODS_X) $(BASE)/bin/kuroko $(BASE)/lib/ld.so $(BASE)/lib/libm.so $(APPS_KRK_X) $(KRK_MODS) $(APPS_SH_X) $(MODULES)
+ramdisk.igz: $(wildcard $(BASE)/* $(BASE)/*/* $(BASE)/*/*/* $(BASE)/*/*/*/* $(BASE)/*/*/*/*/*) $(APPS_X) $(LIBS_X) $(KRK_MODS_X) $(BASE)/bin/kuroko $(BASE)/lib/ld.so $(BASE)/lib/libm.so $(APPS_KRK_X) $(KRK_MODS) $(APPS_SH_X) $(MODULES) $(BASE)/etc/issue $(BASE)/etc/os-release
 	python3 util/createramdisk.py
+
+$(BASE)/etc/issue: kernel/sys/version.c util/generate-etc-issue.sh
+	sh util/generate-etc-issue.sh > $@
+
+$(BASE)/etc/os-release: kernel/sys/version.c util/generate-etc-os-release.sh
+	sh util/generate-etc-os-release.sh > $@
 
 KRK_SRC = $(sort $(wildcard kuroko/src/*.c))
 $(BASE)/bin/kuroko: $(KRK_SRC) $(CRTS)  lib/rline.c | $(LC)
