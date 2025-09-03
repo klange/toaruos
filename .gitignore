@@ -23,6 +23,8 @@
 /util/local
 /util/cross
 /base/bin/*
+/base/etc/issue
+/base/etc/os-release
 /base/usr/bin/*
 /base/usr/lib/*
 /base/lib/kuroko/*
