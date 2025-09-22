@@ -136,9 +136,35 @@ static hashmap_t * get_cmdline(void) {
 	return kernel_args_map;
 }
 
+static int root_is_tmpfs(void) {
+	FILE *f = fopen("/proc/mounts", "r");
+	if (!f) return 0;
+
+	char buf[512];
+	while (fgets(buf, sizeof buf, f)) {
+		if (strstr(buf, "[root]") && strstr(buf, "tmpfs")) {
+			fclose(f);
+			return 1;
+		}
+	}
+	fclose(f);
+	return 0;
+}
+
 int main(int argc, char * argv[]) {
 
 	hashmap_t * cmdline = get_cmdline();
+
+	if (root_is_tmpfs()) {
+	    printf("You have already migrated the filesystem.\n");
+		return 1;
+	}
+
+	if (!hashmap_has(cmdline, "migrate")) {
+	    printf("Assuming you are trying to run migrate after the system has booted without migrating, this will break things!\n");
+		printf("Please reboot the system with migrate in the cmdline.\n");
+		return 1;
+	}
 
 	if (hashmap_has(cmdline, "logtoserial")) {
 		_debug = 1;
