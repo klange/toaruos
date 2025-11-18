@@ -262,9 +262,9 @@ int main (int argc, char ** argv) {
 
 	/* Do something with a window */
 	TRACE("Connecting to window server...");
-	yutani_window_t * wina = yutani_window_create(y, width, height);
+	yutani_window_t * wina = yutani_window_create_flags(y, width, height,
+			YUTANI_WINDOW_FLAG_DISALLOW_RESIZE | YUTANI_WINDOW_FLAG_DISALLOW_DRAG);
 	assert(wina);
-	//yutani_set_stack(y, wina, 0);
 	ctx = init_graphics_yutani_double_buffer(wina);
 	draw_fill(ctx, rgba(0,0,0,255));
 	TRACE("... done.");
