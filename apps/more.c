@@ -196,9 +196,9 @@ int main(int argc, char * argv[]) {
 	}
 
 	for (int i = 1; i < argc; ++i) {
-		FILE * f = fopen(argv[1], "r");
-		do_file(argv[1], f);
-		fclose(f);
+		FILE * f = fopen(argv[i], "r");
+		do_file(argv[i], f);
+		if (f) fclose(f);
 	}
 
 	set_buffered();
