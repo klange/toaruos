@@ -24,3 +24,5 @@ global.git(1)
 global.statusbar(1)
 global.autohidetabs(1)
 smartcomplete(1)
+
+let x = wq
