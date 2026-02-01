@@ -18,6 +18,8 @@ static const char usage[] =
 "    -s: Create a symbolic link.\n"
 "    -h: Print this help message and exit.\n";
 
+extern int link(const char *old, const char *new);
+
 int main(int argc, char * argv[]) {
 	int symlink_flag = 0;
 
@@ -50,14 +52,10 @@ int main(int argc, char * argv[]) {
 		exit(EXIT_SUCCESS);
 	}
 
-#ifdef link
 	if (link(target, name) < 0) {
 		fprintf(stderr, "%s: %s: %s\n", argv[0], name, strerror(errno));
 		exit(EXIT_FAILURE);
 	}
-#else
-	fprintf(stderr, "%s: %s: hard link not supported\n", argv[0], name);
-#endif
 
 	exit(EXIT_SUCCESS);
 }
