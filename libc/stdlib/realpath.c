@@ -68,15 +68,17 @@ char *realpath(const char *path, char *resolved_path) {
 
 	char *save;
 	char *tok = strtok_r(working_path,"/",&save);
-	do {
-		if (!strcmp(tok,".")) continue;
-		if (!strcmp(tok,"..")) {
-			_remove_last(resolved_path);
-			continue;
-		} else {
-			_append_dir(resolved_path, tok);
-		}
-	} while ((tok = strtok_r(NULL,"/",&save)));
+	if (tok) {
+		do {
+			if (!strcmp(tok,".")) continue;
+			if (!strcmp(tok,"..")) {
+				_remove_last(resolved_path);
+				continue;
+			} else {
+				_append_dir(resolved_path, tok);
+			}
+		} while ((tok = strtok_r(NULL,"/",&save)));
+	}
 
 	if (resolved_path[0] == '\0') {
 		strcat(resolved_path,"/");
