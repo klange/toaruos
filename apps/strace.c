@@ -753,6 +753,8 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 				C(TOARU_SYS_FUNC_THREADNAME);
 				C(TOARU_SYS_FUNC_SETGSBASE);
 				C(TOARU_SYS_FUNC_NPROC);
+				C(TOARU_SYS_FUNC_CLEARICACHE);
+				C(TOARU_SYS_FUNC_MUNMAP);
 				default: int_arg(uregs_syscall_arg1(r)); break;
 			} COMMA;
 			pointer_arg(uregs_syscall_arg2(r));

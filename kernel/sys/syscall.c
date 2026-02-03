@@ -98,7 +98,7 @@ long sys_sysfunc(long fn, char ** args) {
 			printf("kdebug: not implemented\n");
 			return -EINVAL;
 
-		case 42:
+		case TOARU_SYS_FUNC_CLEARICACHE:
 			#ifdef __aarch64__
 			PTR_VALIDATE(&args[0]);
 			PTR_VALIDATE(&args[1]);
@@ -107,7 +107,7 @@ long sys_sysfunc(long fn, char ** args) {
 			#endif
 			return 0;
 
-		case 43: {
+		case TOARU_SYS_FUNC_MUNMAP: {
 			extern void mmu_unmap_user(uintptr_t addr, size_t size);
 			PTR_VALIDATE(&args[0]);
 			PTR_VALIDATE(&args[1]);
