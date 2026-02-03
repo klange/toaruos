@@ -10,6 +10,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2018 K. Lange
  */
+#include <ctype.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <fcntl.h>
@@ -102,6 +103,9 @@ int main(int argc, char * argv[]) {
 				mode |= calc(S_IXOTH, user_modes | all_users);
 				c++;
 				break;
+			default:
+				fprintf(stderr, "%s: invalid mode '%s'\n", argv[0], argv[1]);
+				return 1;
 		}
 	}
 
