@@ -47,3 +47,15 @@ struct dirent * readdir (DIR * dirp) {
 
 	return &ent;
 }
+
+long telldir(DIR * dirp) {
+	return (long)dirp->cur_entry;
+}
+
+void rewinddir(DIR * dirp) {
+	dirp->cur_entry = -1;
+}
+
+void seekdir(DIR * dirp, long loc) {
+	dirp->cur_entry = loc;
+}
