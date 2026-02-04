@@ -38,6 +38,7 @@ static int rm_directory(char * source) {
 		sprintf(tmp, "%s/%s", source, ent->d_name);
 		int status = rm_thing(tmp);
 		if (status) return status;
+		rewinddir(dirp);
 		ent = readdir(dirp);
 	}
 	closedir(dirp);
