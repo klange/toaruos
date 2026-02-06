@@ -55,13 +55,10 @@ static struct ustar * extract_file(FILE * f) {
 		return NULL;
 	}
 
-	if (_ustar.ustar[0] != 'u' ||
-		_ustar.ustar[1] != 's' ||
-		_ustar.ustar[2] != 't' ||
-		_ustar.ustar[3] != 'a' ||
-		_ustar.ustar[4] != 'r') {
+	if (_ustar.filename[0] == 0) {
 		return NULL;
 	}
+
 	return &_ustar;
 }
 
