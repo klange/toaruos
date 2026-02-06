@@ -115,6 +115,7 @@ int main(int argc, char * argv[]) {
 	ctx.ring = NULL; /* Use the global one */
 
 	if (gzip_decompress(&ctx)) {
+		fprintf(stderr, "%s: unspecified error from inflate\n", argv[0]);
 		return 1;
 	}
 
