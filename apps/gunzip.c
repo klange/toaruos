@@ -72,6 +72,11 @@ int main(int argc, char * argv[]) {
 	FILE * f;
 	if (optind >= argc || !strcmp(argv[optind],"-")) {
 		f = stdin;
+		if (isatty(STDIN_FILENO)) {
+			fprintf(stderr, "%s: stdin is a tty\n", argv[0]);
+			return 1;
+		}
+		to_stdout = 1;
 	} else {
 		f =fopen(argv[optind],"r");
 	}
