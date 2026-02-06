@@ -120,6 +120,22 @@ long sys_sysfunc(long fn, char ** args) {
 			return 0;
 		}
 
+		case TOARU_SYS_FUNC_FCNTL_DUPFD: {
+			/* DUPFD */
+			PTR_VALIDATE(&args[0]);
+			PTR_VALIDATE(&args[1]);
+
+			long oldfd = (long)(uintptr_t)args[0];
+			long newfd = (long)(uintptr_t)args[1];
+
+			if (!FD_CHECK(oldfd)) return -EBADF;
+			if (newfd < 0 || newfd > 256) return -EINVAL; /* We expect a value of, like, 10 from dash. */
+
+			process_t * proc = (process_t*)this_core->current_process;
+			extern long process_fd_dup_least(process_t *, long, long);
+			return process_fd_dup_least(proc, oldfd, newfd);
+		}
+
 		case TOARU_SYS_FUNC_INSMOD:
 			/* Linux has init_module as a system call? */
 			if (this_core->current_process->user != 0) return -EACCES;

@@ -251,6 +251,26 @@ int is_valid_process(process_t * process) {
 }
 
 /**
+ * @brief Grow the FD table for a process by doubling its capacity.
+ */
+static void process_fds_grow(process_t * proc) {
+	proc->fds->capacity *= 2;
+	proc->fds->entries = realloc(proc->fds->entries, sizeof(fs_node_t *) * proc->fds->capacity);
+	proc->fds->modes   = realloc(proc->fds->modes,   sizeof(int) * proc->fds->capacity);
+	proc->fds->offsets = realloc(proc->fds->offsets, sizeof(uint64_t) * proc->fds->capacity);
+}
+
+/**
+ * @brief Duplicate a file descriptor to a new table entry.
+ */
+static void process_fds_copy(process_t * proc, long src, long dest) {
+	proc->fds->entries[dest] = proc->fds->entries[src];
+	proc->fds->modes[dest] = proc->fds->modes[src];
+	proc->fds->offsets[dest] = proc->fds->offsets[src];
+	open_fs(proc->fds->entries[dest], 0);
+}
+
+/**
  * @brief Allocate a new file descriptor.
  *
  * Adds a new entry to the file descriptor table for @p proc
@@ -276,10 +296,7 @@ unsigned long process_append_fd(process_t * proc, fs_node_t * node) {
 	}
 	/* No gaps, expand */
 	if (proc->fds->length == proc->fds->capacity) {
-		proc->fds->capacity *= 2;
-		proc->fds->entries = realloc(proc->fds->entries, sizeof(fs_node_t *) * proc->fds->capacity);
-		proc->fds->modes   = realloc(proc->fds->modes,   sizeof(int) * proc->fds->capacity);
-		proc->fds->offsets = realloc(proc->fds->offsets, sizeof(uint64_t) * proc->fds->capacity);
+		process_fds_grow(proc);
 	}
 	proc->fds->entries[proc->fds->length] = node;
 	/* modes, offsets must be set by caller */
@@ -288,6 +305,59 @@ unsigned long process_append_fd(process_t * proc, fs_node_t * node) {
 	proc->fds->length++;
 	spin_unlock(proc->fds->lock);
 	return proc->fds->length-1;
+}
+
+/**
+ * @brief Duplicate a file descriptor to a minimum value.
+ *
+ * Duplicate the file descriptor at @c oldfd to a new file descriptor
+ * with a number of a least @c newfd - always allocating a new
+ * file descriptor in the process.
+ *
+ * If the current table can not hold @c newfd then the table is
+ * expanded and any unused entries are left empty and will
+ * be filled by @c process_append_fd normally.
+ *
+ * @param proc Process to modify.
+ * @param oldfd File descriptor to copy from.
+ * @param newfd Minimum value of new file descriptor.
+ * @returns The actual newly allocated file descriptor.
+ */
+long process_fd_dup_least(process_t * proc, long oldfd, long newfd) {
+	spin_lock(proc->fds->lock);
+
+	/* Ensure there is at least enough space for for newfd itself */
+	while (proc->fds->capacity <= (unsigned long)newfd) {
+		process_fds_grow(proc);
+	}
+
+	/* Then ensure length is at least newfds */
+	while (proc->fds->length <= (unsigned long)newfd) {
+		proc->fds->entries[proc->fds->length] = NULL;
+		proc->fds->length++;
+	}
+
+	/* Then check if anything is available already */
+	for (size_t i = newfd; i < proc->fds->length; ++i) {
+		if (proc->fds->entries[i] == NULL) {
+			/* Found a hit, copy */
+			process_fds_copy(proc, oldfd, i);
+			spin_unlock(proc->fds->lock);
+			return i;
+		}
+	}
+
+	/* Otherwise we need to keep expanding */
+	if (proc->fds->length == proc->fds->capacity) {
+		process_fds_grow(proc);
+	}
+
+	long i = proc->fds->length;
+	process_fds_copy(proc, oldfd, i);
+	proc->fds->length++;
+	spin_unlock(proc->fds->lock);
+
+	return i;
 }
 
 /**
@@ -936,10 +1006,7 @@ long process_move_fd(process_t * proc, long src, long dest) {
 	}
 	if (proc->fds->entries[dest] != proc->fds->entries[src]) {
 		close_fs(proc->fds->entries[dest]);
-		proc->fds->entries[dest] = proc->fds->entries[src];
-		proc->fds->modes[dest] = proc->fds->modes[src];
-		proc->fds->offsets[dest] = proc->fds->offsets[src];
-		open_fs(proc->fds->entries[dest], 0);
+		process_fds_copy(proc, src, dest);
 	}
 	return dest;
 }
