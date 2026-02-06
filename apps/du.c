@@ -110,7 +110,7 @@ int main(int argc, char * argv[]) {
 				all = 0;
 				break;
 			default:
-				fprintf(stderr, "rm: unrecognized option '%c'\n", opt);
+				fprintf(stderr, "%s: unrecognized option '%c'\n", argv[0], opt);
 				break;
 		}
 	}
