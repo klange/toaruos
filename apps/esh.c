@@ -1174,7 +1174,12 @@ _done:
 		if (quoted || backtick) {
 			backtick = 0;
 			if (shell_interactive == 1) {
+				break_while = 0;
 				read_entry_continued(buffer);
+				if (break_while) {
+					break_while = 0;
+					return 1;
+				}
 				rline_history_append_line(buffer);
 				continue;
 			} else if (shell_interactive == 2) {
