@@ -116,6 +116,53 @@ static size_t print_hex(unsigned long long value, unsigned int width, int (*call
 	return written;
 }
 
+static size_t print_oct(unsigned long long value, unsigned int width, int (*callback)(void*,char), void* userData, int fill_zero, int alt, int caps, int align) {
+	size_t written = 0;
+	int i = width;
+
+	unsigned long long n_width = 1;
+	unsigned long long j = 8;
+	while (value > j && j < UINT64_MAX) {
+		n_width += 1;
+		j *= 8;
+		j += 7;
+	}
+
+	if (!fill_zero && align == 1) {
+		while (i > (long long)n_width + 2*!!alt) {
+			OUT(' ');
+			i--;
+		}
+	}
+
+	if (alt) {
+		OUT('0');
+		OUT(caps ? 'O' : 'o');
+	}
+
+	if (fill_zero && align == 1) {
+		while (i > (long long)n_width + 2*!!alt) {
+			OUT('0');
+			i--;
+		}
+	}
+
+	i = (long long)n_width;
+	while (i-- > 0) {
+		char c = "01234567"[(value>>(i*3))&0x7];
+		OUT(c);
+	}
+
+	if (align == 0) {
+		i = width;
+		while (i > (long long)n_width + 2*!!alt) {
+			OUT(' ');
+			i--;
+		}
+	}
+
+	return written;
+}
 /*
  * vasprintf()
  */
@@ -251,6 +298,20 @@ size_t xvasprintf(int (*callback)(void *, char), void * userData, const char * f
 						val = (unsigned int)va_arg(args, unsigned int);
 					}
 					written += print_hex(val, arg_width, callback, userData, fill_zero, alt, !(*f & 32), align);
+				}
+				break;
+			case 'O':
+			case 'o': /* Octal number */
+				{
+					unsigned long long val;
+					if (big == 2) {
+						val = (unsigned long long)va_arg(args, unsigned long long);
+					} else if (big == 1) {
+						val = (unsigned long)va_arg(args, unsigned long);
+					} else {
+						val = (unsigned int)va_arg(args, unsigned int);
+					}
+					written += print_oct(val, arg_width, callback, userData, fill_zero, alt, !(*f & 32), align);
 				}
 				break;
 			case 'i':
