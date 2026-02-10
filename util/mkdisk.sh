@@ -8,25 +8,15 @@ IN=$2
 OUTDIR=`dirname $1`
 
 # Calculate required space
-SPACE_REQ=$(du -sb "$DIR/../fatbase" | cut -f 1)
-let "SIZE = ($SPACE_REQ / 940000)"
+SPACE_REQ=$(du -s -B 2048 "$DIR/../fatbase" | cut -f 1)
+let "SIZE = (($SPACE_REQ + 20) * 2048)"
+SPC=1
 
-# Minimum size
-if [ $SIZE -lt 4 ]; then
-    SIZE=4
-fi
-
-# Use more sectors-per-cluster for larger disk sizes
-if [ $SIZE -gt 128 ]; then
-    SPC=4
-else
-    SPC=1
-fi
 
 # Create empty FAT image
 rm -f $OUT
 mkdir -p cdrom
-fallocate -l ${SIZE}M $OUT || dd if=/dev/zero bs=1M count=${SIZE} of=$OUT
+fallocate -l ${SIZE} $OUT || dd if=/dev/zero bs=1 count=${SIZE} of=$OUT
 mkfs.fat -s $SPC -S 2048 $OUT
 
 #echo "Turning $IN into $OUT"
@@ -41,10 +31,10 @@ do
     IN_FILE=`echo $i | sed s"/^$IN//"`
     #echo $IN_FILE  $OUT_FILE
     if [ -d "$i" ]; then
-        mmd -i $OUT $IN_FILE
-        mkdir -p $OUT_FILE
+        mmd -i $OUT $IN_FILE || exit 1
+        mkdir -p $OUT_FILE || exit 1
     else
-        mcopy -i $OUT $i '::'$IN_FILE
+        mcopy -i $OUT $i '::'$IN_FILE || exit 1
         touch $OUT_FILE
     fi
 done
