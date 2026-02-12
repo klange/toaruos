@@ -1,3 +1,4 @@
+#!/bin/kuroko
 import os, kuroko
 
 print('Kuroko',kuroko.version, kuroko.buildenv, kuroko.builddate)
