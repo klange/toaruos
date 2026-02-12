@@ -9,7 +9,7 @@ OUTDIR=`dirname $1`
 
 # Calculate required space
 SPACE_REQ=$(du -s -B 2048 "$DIR/../fatbase" | cut -f 1)
-let "SIZE = (($SPACE_REQ + 20) * 2048)"
+let "SIZE = (($SPACE_REQ + 25) * 2048)"
 SPC=1
 
 
