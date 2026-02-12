@@ -26,7 +26,6 @@
 /* Experimental */
 #define TOARU_SYS_FUNC_CLEARICACHE  42
 #define TOARU_SYS_FUNC_MUNMAP       43
-#define TOARU_SYS_FUNC_FCNTL_DUPFD  44
 
 _Begin_C_Header
 extern int sysfunc(int command, char ** args);

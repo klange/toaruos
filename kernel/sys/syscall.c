@@ -120,22 +120,6 @@ long sys_sysfunc(long fn, char ** args) {
 			return 0;
 		}
 
-		case TOARU_SYS_FUNC_FCNTL_DUPFD: {
-			/* DUPFD */
-			PTR_VALIDATE(&args[0]);
-			PTR_VALIDATE(&args[1]);
-
-			long oldfd = (long)(uintptr_t)args[0];
-			long newfd = (long)(uintptr_t)args[1];
-
-			if (!FD_CHECK(oldfd)) return -EBADF;
-			if (newfd < 0 || newfd > 256) return -EINVAL; /* We expect a value of, like, 10 from dash. */
-
-			process_t * proc = (process_t*)this_core->current_process;
-			extern long process_fd_dup_least(process_t *, long, long);
-			return process_fd_dup_least(proc, oldfd, newfd);
-		}
-
 		case TOARU_SYS_FUNC_INSMOD:
 			/* Linux has init_module as a system call? */
 			if (this_core->current_process->user != 0) return -EACCES;
@@ -834,6 +818,40 @@ long sys_dup2(int old, int new) {
 	return process_move_fd((process_t *)this_core->current_process, old, new);
 }
 
+long sys_fcntl(int fd, int cmd, long arg) {
+	if (!FD_CHECK(fd)) return -EBADF;
+
+	switch (cmd) {
+		case F_GETFD:
+			return 0; /* We don't support any flags. CLOEXEC is the only thing in here. */
+		case F_SETFD:
+			return 0; /* We don't support any flags, so can't set any flags. */
+		case F_GETFL: {
+			int mode = 0;
+			if (FD_MODE(fd) & 03) mode = O_RDWR;
+			else if (FD_MODE(fd) & 01) mode = O_RDONLY;
+			else if (FD_MODE(fd) & 02) mode = O_WRONLY;
+			/* TODO we don't persist O_APPEND and there are other flags we don't support */
+			return mode;
+		}
+		case F_SETFL: {
+			return 0; /* TODO NONBLOCK, APPEND, SYNC... */
+		}
+		case F_DUPFD: {
+			if (arg < 0 || arg > 256) return -EINVAL; /* We expect a value of, like, 10 from dash. */
+			extern long process_fd_dup_least(process_t *, long, long);
+			return process_fd_dup_least((process_t*)this_core->current_process, fd, arg);
+		}
+		case F_GETLK:
+		case F_SETLK:
+		case F_SETLKW:
+			/* No lock support */
+			return -EINVAL;
+	}
+
+	return -EINVAL;
+}
+
 long sys_sethostname(char * new_hostname) {
 	if (this_core->current_process->user == USER_ROOT_UID) {
 		PTR_VALIDATE(new_hostname);
@@ -1300,6 +1318,7 @@ static scall_func syscalls[] = {
 	[SYS_PREAD]        = (scall_func)(uintptr_t)sys_pread,
 	[SYS_PWRITE]       = (scall_func)(uintptr_t)sys_pwrite,
 	[SYS_RENAME]       = (scall_func)(uintptr_t)sys_rename,
+	[SYS_FCNTL]        = (scall_func)(uintptr_t)sys_fcntl,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

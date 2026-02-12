@@ -107,6 +107,7 @@ const char * syscall_names[] = {
 	[SYS_PREAD]        = "pread",
 	[SYS_PWRITE]       = "pwrite",
 	[SYS_RENAME]       = "rename",
+	[SYS_FCNTL]        = "fcntl",
 };
 
 char syscall_mask[] = {
@@ -189,6 +190,7 @@ char syscall_mask[] = {
 	[SYS_SIGSUSPEND]   = 1,
 	[SYS_SIGWAIT]      = 1,
 	[SYS_RENAME]       = 1,
+	[SYS_FCNTL]        = 1,
 };
 
 #define M(e) [e] = #e
@@ -351,6 +353,17 @@ const char * signal_names[NSIG] = {
 	M(SIGWINEVENT),
 	M(SIGCAT),
 	M(SIGTTOU),
+};
+
+const char * fcntl_cmd_names[] = {
+	M(F_GETFD),
+	M(F_SETFD),
+	M(F_GETFL),
+	M(F_SETFL),
+	M(F_DUPFD),
+	M(F_GETLK),
+	M(F_SETLK),
+	M(F_SETLKW),
 };
 
 static void open_flags(int flags) {
@@ -523,6 +536,15 @@ static void msghdr_arg(pid_t pid, uintptr_t msghdr) {
 			}
 		}
 		fprintf(logfile,"}");
+	}
+}
+
+static void fcntl_cmd_arg(long cmd) {
+	const char * name = (cmd >= 0 && (size_t)cmd < (sizeof(fcntl_cmd_names) / sizeof(*fcntl_cmd_names))) ? fcntl_cmd_names[cmd] : NULL;
+	if (name) {
+		fprintf(logfile, "%s", name);
+	} else {
+		fprintf(logfile, "%ld", cmd);
 	}
 }
 
@@ -812,6 +834,11 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			fd_arg(pid, uregs_syscall_arg2(r));
 			break;
+		case SYS_FCNTL:
+			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			fcntl_cmd_arg(uregs_syscall_arg2(r)); COMMA;
+			int_arg(uregs_syscall_arg3(r));
+			break;
 		case SYS_MOUNT:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			string_arg(pid, uregs_syscall_arg2(r)); COMMA;
@@ -999,7 +1026,7 @@ int main(int argc, char * argv[]) {
 								int syscalls[] = {
 									SYS_OPEN, SYS_READ, SYS_WRITE, SYS_CLOSE, SYS_STAT, SYS_FSWAIT,
 									SYS_FSWAIT2, SYS_FSWAIT3, SYS_SEEK, SYS_IOCTL, SYS_PIPE, SYS_MKPIPE,
-									SYS_DUP2, SYS_READDIR, SYS_OPENPTY, SYS_PREAD, SYS_PWRITE,
+									SYS_DUP2, SYS_READDIR, SYS_OPENPTY, SYS_PREAD, SYS_PWRITE, SYS_FCNTL,
 									0
 								};
 								for (int *i = syscalls; *i; i++) {

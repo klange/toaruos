@@ -83,3 +83,4 @@
 #define SYS_PREAD 80
 #define SYS_PWRITE 81
 #define SYS_RENAME 82
+#define SYS_FCNTL 83
