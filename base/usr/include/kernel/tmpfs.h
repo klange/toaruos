@@ -11,11 +11,12 @@ struct tmpfs_file {
 	char * name;
 	int    type;
 	int    mask;
-	uid_t    uid;
-	uid_t    gid;
+	uid_t  uid;
+	uid_t  gid;
 	unsigned int atime;
 	unsigned int mtime;
 	unsigned int ctime;
+	fs_node_t * mount;
 	size_t length;
 	size_t block_count;
 	size_t pointers;
@@ -30,12 +31,14 @@ struct tmpfs_dir {
 	char * name;
 	int    type;
 	int    mask;
-	int    uid;
-	int    gid;
+	uid_t  uid;
+	uid_t  gid;
 	unsigned int atime;
 	unsigned int mtime;
 	unsigned int ctime;
+	fs_node_t * mount;
 	list_t * files;
 	struct tmpfs_dir * parent;
+	spin_lock_t nest_lock;
 };
 
