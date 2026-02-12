@@ -446,6 +446,7 @@ static void ramfb_init(void) {
 			lfb_resolution_b = 32;
 			lfb_memsize = lfb_resolution_s * lfb_resolution_y;
 			uint64_t frames = lfb_memsize/4096;
+			if ((lfb_memsize/4096)*4096!=lfb_memsize) frames++;
 			uint64_t addr = mmu_allocate_n_frames(frames) << 12;
 			lfb_vid_memory = mmu_map_from_physical(addr);
 			/* Clear it while we're here */
