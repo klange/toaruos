@@ -106,6 +106,7 @@ const char * syscall_names[] = {
 	[SYS_SIGWAIT]      = "sigwait",
 	[SYS_PREAD]        = "pread",
 	[SYS_PWRITE]       = "pwrite",
+	[SYS_RENAME]       = "rename",
 };
 
 char syscall_mask[] = {
@@ -187,6 +188,7 @@ char syscall_mask[] = {
 	[SYS_SIGPROCMASK]  = 1,
 	[SYS_SIGSUSPEND]   = 1,
 	[SYS_SIGWAIT]      = 1,
+	[SYS_RENAME]       = 1,
 };
 
 #define M(e) [e] = #e
@@ -704,6 +706,10 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			uint_arg(uregs_syscall_arg2(r));
 			break;
+		case SYS_RENAME:
+			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			string_arg(pid, uregs_syscall_arg2(r));
+			break;
 		case SYS_SHUTDOWN:
 			int_arg(uregs_syscall_arg1(r)); COMMA;
 			int_arg(uregs_syscall_arg2(r));
@@ -983,7 +989,7 @@ int main(int argc, char * argv[]) {
 								int syscalls[] = {
 									SYS_OPEN, SYS_STATF, SYS_LSTAT, SYS_ACCESS, SYS_EXECVE,
 									SYS_GETCWD, SYS_CHDIR, SYS_MKDIR, SYS_SYMLINK, SYS_UNLINK,
-									SYS_CHMOD, SYS_CHOWN, SYS_MOUNT, SYS_READLINK,
+									SYS_CHMOD, SYS_CHOWN, SYS_MOUNT, SYS_READLINK, SYS_RENAME,
 									0
 								};
 								for (int *i = syscalls; *i; i++) {

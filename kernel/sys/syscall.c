@@ -557,6 +557,16 @@ long sys_chmod(char * file, long mode) {
 	}
 }
 
+long sys_rename(const char * src, const char * dest) {
+	PTR_VALIDATE(src);
+	if (!src) return -EFAULT;
+	PTR_VALIDATE(dest);
+	if (!dest) return -EFAULT;
+
+	extern int rename_file_fs(const char * src, const char * dest);
+	return rename_file_fs(src, dest);
+}
+
 static int current_group_matches(gid_t gid) {
 	if (gid == this_core->current_process->user_group) return 1;
 	for (int i = 0; i < this_core->current_process->supplementary_group_count; ++i) {
@@ -1289,6 +1299,7 @@ static scall_func syscalls[] = {
 	[SYS_SIGWAIT]      = (scall_func)(uintptr_t)sys_sigwait,
 	[SYS_PREAD]        = (scall_func)(uintptr_t)sys_pread,
 	[SYS_PWRITE]       = (scall_func)(uintptr_t)sys_pwrite,
+	[SYS_RENAME]       = (scall_func)(uintptr_t)sys_rename,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

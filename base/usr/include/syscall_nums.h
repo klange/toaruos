@@ -82,3 +82,4 @@
 #define SYS_GETPEERNAME 79
 #define SYS_PREAD 80
 #define SYS_PWRITE 81
+#define SYS_RENAME 82
