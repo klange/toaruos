@@ -130,7 +130,7 @@ static struct dirent * readdir_mapper(fs_node_t *node, unsigned long index) {
 static fs_node_t * vfs_mapper(void) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
-	fnode->mask = 0555;
+	fnode->mask    = 0555;
 	fnode->flags   = FS_DIRECTORY;
 	fnode->readdir = readdir_mapper;
 	fnode->ctime   = now();
@@ -350,6 +350,57 @@ int ioctl_fs(fs_node_t *node, unsigned long request, void * argp) {
 	} else {
 		return -EINVAL;
 	}
+}
+
+fs_node_t * file_get_parent(const char * path) {
+	char * parent_path = malloc(strlen(path) + 5);
+	snprintf(parent_path, strlen(path) + 4, "%s/..", path);
+	fs_node_t * parent  = kopen(parent_path, 0);
+	free(parent_path);
+	return parent;
+}
+
+static const char * fs_basename(const char * path) {
+	const char * f_path = path + strlen(path) - 1;
+	while (f_path > path) {
+		if (*f_path == '/') {
+			f_path += 1;
+			break;
+		}
+		f_path--;
+	}
+
+	while (*f_path == '/') {
+		f_path++;
+	}
+
+	return f_path;
+}
+
+int rename_file_fs(const char * src, const char * dest) {
+	fs_node_t * src_parent = file_get_parent(src);
+	if (!src_parent) return -ENOENT;
+	fs_node_t * dest_parent = file_get_parent(dest);
+	if (!dest_parent) { close_fs(src_parent); return -ENOENT; }
+
+	int out = 0;
+	if (!src_parent->mount) { out = -EROFS; goto _nope; }
+	if (src_parent->mount != dest_parent->mount) { out = -EXDEV; goto _nope; }
+	if (!src_parent->mount->rename) { out = -ENOTSUP; goto _nope; }
+
+	if (!has_permission(src_parent, 02) || !has_permission(src_parent, 01)) { out = -EACCES; goto _nope; }
+	if (!has_permission(dest_parent, 02) || !has_permission(dest_parent, 01)) { out = -EACCES; goto _nope; }
+
+	/* Get basename of each path component */
+	const char * src_name = fs_basename(src);
+	const char * dest_name = fs_basename(dest);
+
+	out = src_parent->mount->rename(src_parent->mount, src_parent, src_name, dest_parent, dest_name);
+
+_nope:
+	close_fs(dest_parent);
+	close_fs(src_parent);
+	return out;
 }
 
 

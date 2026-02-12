@@ -51,18 +51,23 @@ typedef int (*selectcheck_type_t) (struct fs_node *);
 typedef int (*selectwait_type_t) (struct fs_node *, void * process);
 typedef int (*chown_type_t) (struct fs_node *, uid_t, gid_t);
 typedef int (*truncate_type_t) (struct fs_node *);
+typedef int (*rename_type_t) (struct fs_node *, struct fs_node *, const char *, struct fs_node *, const char *);
 
 typedef struct fs_node {
+	struct fs_node * mount;      /* Root fs_node_t entry of mountpoint. */
 	char name[256];         /* The filename. */
 	void * device;          /* Device object (optional) */
-	mode_t mask;          /* The permissions mask. */
-	uid_t uid;           /* The owning user. */
-	uid_t gid;           /* The owning group. */
+	mode_t mask;            /* The permissions mask. */
+	uid_t uid;              /* The owning user. */
+	uid_t gid;              /* The owning group. */
 	uint64_t flags;         /* Flags (node type, etc). */
 	uint64_t inode;         /* Inode number. */
 	uint64_t length;        /* Size of the file, in byte. */
 	uint64_t impl;          /* Used to keep track which fs it belongs to. */
 	uint64_t open_flags;    /* Flags passed to open (read/write/append, etc.) */
+	struct fs_node *ptr;    /* Alias pointer, for symlinks. */
+	int64_t refcount;       /* Node reference count */
+	uint64_t nlink;         /* Number of links in underlying filesystem */
 
 	/* times */
 	time_t atime;         /* Accessed */
@@ -85,15 +90,10 @@ typedef struct fs_node {
 	symlink_type_t symlink;
 	readlink_type_t readlink;
 	truncate_type_t truncate;
-
-	struct fs_node *ptr;   /* Alias pointer, for symlinks. */
-	int64_t refcount;
-	uint64_t nlink;
-
 	selectcheck_type_t selectcheck;
 	selectwait_type_t selectwait;
-
 	chown_type_t chown;
+	rename_type_t rename;
 } fs_node_t;
 
 struct vfs_entry {
