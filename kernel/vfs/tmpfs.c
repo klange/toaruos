@@ -113,6 +113,7 @@ static ssize_t readlink_tmpfs(fs_node_t * node, char * buf, size_t size) {
 static struct tmpfs_dir * tmpfs_dir_new(char * name, struct tmpfs_dir * parent) {
 	struct tmpfs_dir * d = malloc(sizeof(struct tmpfs_dir));
 	spin_init(d->lock);
+	spin_init(d->nest_lock);
 	d->mount = parent ? parent->mount : NULL;
 	d->name = strdup(name);
 	d->type = TMPFS_TYPE_DIR;
