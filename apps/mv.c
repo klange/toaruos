@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 #include <sys/wait.h>
 
 static int call(char * args[]) {
@@ -38,7 +39,18 @@ int main(int argc, char * argv[]) {
 		fprintf(stderr, "%s: %s and %s are the same file\n", argv[0], argv[1], argv[2]);
 		return 1;
 	}
-	/* TODO stat magic for other ways to reference the same file */
+
+	/* Try to use `rename` */
+	if (rename(argv[1], argv[2]) < 0) {
+		if (errno != EXDEV && errno != ENOTSUP) {
+			fprintf(stderr, "%s: can not rename '%s': %s\n", argv[0], argv[1], strerror(errno));
+			return 1;
+		}
+	} else {
+		return 0;
+	}
+
+	/* Fall back to cp and rm */
 	if (call((char *[]){"/bin/cp","-r",argv[1],argv[2],NULL})) return 1;
 	if (call((char *[]){"/bin/rm","-r",argv[1],NULL})) return 1;
 	return 0;
