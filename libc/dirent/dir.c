@@ -9,7 +9,7 @@
 DEFN_SYSCALL3(readdir, SYS_READDIR, int, int, void *);
 
 DIR * opendir (const char * dirname) {
-	int fd = open(dirname, O_RDONLY);
+	int fd = open(dirname, O_RDONLY|O_DIRECTORY);
 	if (fd < 0) {
 		/* errno was set by open */
 		return NULL;
