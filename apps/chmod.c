@@ -51,8 +51,7 @@ int main(int argc, char * argv[]) {
 
 	while (*c) {
 		switch (*c) {
-			case '0':
-				c++; /* 0 */
+			case '0' ... '7':
 				while (*c >= '0' && *c <= '7') {
 					mode *= 8;
 					mode += (*c - '0');
