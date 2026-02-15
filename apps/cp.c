@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -102,10 +103,10 @@ static int copy_directory(char * source, char * dest, int mode, int uid, int gid
 
 static int copy_thing(char * tmp, char * tmp2) {
 	struct stat statbuf;
-	if (symlinks) {
-		lstat(tmp,&statbuf);
-	} else {
-		stat(tmp,&statbuf);
+	int ret = symlinks ? lstat(tmp, &statbuf) : stat(tmp, &statbuf);
+	if (ret < 0) {
+		fprintf(stderr, "cp: %s: %s\n", tmp, strerror(errno));
+		return 1;
 	}
 	if (S_ISLNK(statbuf.st_mode)) {
 		return copy_link(tmp, tmp2, statbuf.st_mode & 07777, statbuf.st_uid, statbuf.st_gid);
