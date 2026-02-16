@@ -448,7 +448,7 @@ static void int_arg(size_t val) {
 }
 
 static void mode_arg(mode_t val) {
-	fprintf(logfile, "%03o", val);
+	fprintf(logfile, "%#03o", val);
 }
 
 static void fd_arg(pid_t pid, int val) {
