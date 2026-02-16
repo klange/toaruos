@@ -14,6 +14,15 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 		return -1;
 	}
 
+	int print_errors = !!opterr;
+	int was_colon = 0;
+
+	if (*optstring == ':') {
+		print_errors = 0;
+		optstring++;
+		was_colon = 1;
+	}
+
 	do {
 		if (!nextchar) {
 			nextchar = argv[optind];
@@ -56,8 +65,8 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 							if (longindex) {
 								*longindex = -1;
 							}
-							if (opterr) {
-								fprintf(stderr, "unknown long argument: %s\n", tmp);
+							if (print_errors) {
+								fprintf(stderr, "%s: Unknown long argument: %s\n", argv[0], tmp);
 							}
 							nextchar = NULL;
 							optind++;
@@ -95,8 +104,8 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 		}
 
 		if ((*nextchar < 'A' || *nextchar > 'z' || (*nextchar > 'Z' && *nextchar < 'a')) && (*nextchar != '?') && (*nextchar != '-')) {
-			if (opterr) {
-				fprintf(stderr, "Invalid option character: %c\n", *nextchar);
+			if (print_errors) {
+				fprintf(stderr, "%s: Invalid option character: %c\n", argv[0], *nextchar);
 			}
 			optopt = *nextchar;
 			nextchar++;
@@ -106,8 +115,8 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 		char * opt = strchr(optstring, *nextchar);
 
 		if (!opt) {
-			if (opterr) {
-				fprintf(stderr, "Invalid option character: %c\n", *nextchar);
+			if (print_errors) {
+				fprintf(stderr, "%s: Invalid option character: %c\n", argv[0], *nextchar);
 			}
 			optopt = *nextchar;
 			nextchar++;
@@ -122,6 +131,14 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 				nextchar = NULL;
 				optind++;
 			} else {
+				if (optind + 1 == argc) {
+					if (print_errors) {
+						fprintf(stderr, "%s: Option requires an argument: '%c'\n", argv[0], *nextchar);
+					}
+					optopt = *nextchar;
+					nextchar++;
+					return was_colon ? ':' : '?';
+				}
 				optarg = argv[optind+1];
 				optind += 2;
 				nextchar = NULL;
