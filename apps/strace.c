@@ -443,6 +443,10 @@ static void int_arg(size_t val) {
 	fprintf(logfile, "%zd", val);
 }
 
+static void mode_arg(mode_t val) {
+	fprintf(logfile, "%03o", val);
+}
+
 static void fd_arg(pid_t pid, int val) {
 	/* TODO: Look up file in user data? */
 	fprintf(logfile, "%d", val);
@@ -652,6 +656,15 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 		case SYS_OPEN:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			open_flags(uregs_syscall_arg2(r));
+			break;
+		case SYS_CHMOD:
+			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			mode_arg(uregs_syscall_arg2(r));
+			break;
+		case SYS_CHOWN:
+			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			int_arg(uregs_syscall_arg2(r)); COMMA;
+			int_arg(uregs_syscall_arg3(r));
 			break;
 		case SYS_READ:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
