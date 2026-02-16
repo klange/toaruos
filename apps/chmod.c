@@ -121,10 +121,10 @@ int main(int argc, char * argv[]) {
 				actual_mode = mode;
 				break;
 			case MODE_ADD:
-				actual_mode = _stat.st_mode | mode;
+				actual_mode = (_stat.st_mode & 07777) | mode;
 				break;
 			case MODE_REMOVE:
-				actual_mode = _stat.st_mode &= ~(mode);
+				actual_mode = (_stat.st_mode & 07777) & ~(mode);
 				break;
 		}
 
