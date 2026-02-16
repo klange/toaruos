@@ -19,7 +19,10 @@
 
 #define CHUNK_SIZE 4096
 
+#ifndef IS_MV
+#define APP_NAME "cp"
 static int recursive = 0;
+#endif
 static int symlinks = 0;
 static int copy_thing(char * tmp, char * tmp2);
 
@@ -105,23 +108,49 @@ static int copy_thing(char * tmp, char * tmp2) {
 	struct stat statbuf;
 	int ret = symlinks ? lstat(tmp, &statbuf) : stat(tmp, &statbuf);
 	if (ret < 0) {
-		fprintf(stderr, "cp: %s: %s\n", tmp, strerror(errno));
+		fprintf(stderr, APP_NAME ": %s: %s\n", tmp, strerror(errno));
 		return 1;
 	}
 	if (S_ISLNK(statbuf.st_mode)) {
 		return copy_link(tmp, tmp2, statbuf.st_mode & 07777, statbuf.st_uid, statbuf.st_gid);
 	} else if (S_ISDIR(statbuf.st_mode)) {
 		if (!recursive) {
-			fprintf(stderr, "cp: %s: omitting directory\n", tmp);
+			fprintf(stderr, APP_NAME ": %s: omitting directory\n", tmp);
 			return 1;
 		}
 		return copy_directory(tmp, tmp2, statbuf.st_mode & 07777, statbuf.st_uid, statbuf.st_gid);
 	} else if (S_ISREG(statbuf.st_mode)) {
 		return copy_file(tmp, tmp2, statbuf.st_mode & 07777, statbuf.st_uid, statbuf.st_gid);
 	} else {
-		fprintf(stderr, "cp: %s is not any of the required file types?\n", tmp);
+		fprintf(stderr, APP_NAME ": %s is not any of the required file types?\n", tmp);
 		return 1;
 	}
+}
+
+#ifndef IS_MV
+static int copy_top_level(char **argv, int argc, int optind) {
+	char * destination = argv[argc-1];
+
+	struct stat statbuf;
+	stat((destination), &statbuf);
+	if (S_ISDIR(statbuf.st_mode)) {
+		while (optind < argc - 1) {
+			char * source = strrchr(argv[optind], '/');
+			if (!source) source = argv[optind];
+			char output[4096];
+			sprintf(output, "%s/%s", destination, source);
+			copy_thing(argv[optind], output);
+			optind++;
+		}
+	} else {
+		if (optind < argc - 2) {
+			fprintf(stderr, APP_NAME ": target '%s' is not a directory\n", destination);
+			return 1;
+		}
+		copy_thing(argv[optind], destination);
+	}
+
+	return 0;
 }
 
 int main(int argc, char ** argv) {
@@ -144,30 +173,11 @@ int main(int argc, char ** argv) {
 	}
 
 	if (optind < argc - 1) {
-		char * destination = argv[argc-1];
-
-		struct stat statbuf;
-		stat((destination), &statbuf);
-		if (S_ISDIR(statbuf.st_mode)) {
-			while (optind < argc - 1) {
-				char * source = strrchr(argv[optind], '/');
-				if (!source) source = argv[optind];
-				char output[4096];
-				sprintf(output, "%s/%s", destination, source);
-				copy_thing(argv[optind], output);
-				optind++;
-			}
-		} else {
-			if (optind < argc - 2) {
-				fprintf(stderr, "cp: target '%s' is not a directory\n", destination);
-				return 1;
-			}
-			copy_thing(argv[optind], destination);
-		}
+		return copy_top_level(argv, argc, optind);
 	} else {
 		fprintf(stderr, "cp: not enough arguments\n");
 	}
 
 	return 0;
 }
-
+#endif

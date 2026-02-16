@@ -18,7 +18,11 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 
+#ifndef IS_MV
+#define APP_NAME "rm"
 static int recursive = 0;
+#endif
+
 static int rm_thing(char * tmp);
 
 static int rm_directory(char * source) {
@@ -45,7 +49,7 @@ static int rm_directory(char * source) {
 
 	int res = unlink(source);
 	if (res < 0) {
-		fprintf(stderr, "rm: %s: %s\n", source, strerror(errno));
+		fprintf(stderr, APP_NAME ": %s: %s\n", source, strerror(errno));
 		return 1;
 	}
 	return 0;
@@ -56,20 +60,30 @@ static int rm_thing(char * tmp) {
 	lstat(tmp,&statbuf);
 	if (S_ISDIR(statbuf.st_mode)) {
 		if (!recursive) {
-			fprintf(stderr, "rm: %s: is a directory\n", tmp);
+			fprintf(stderr, APP_NAME ": %s: is a directory\n", tmp);
 			return 1;
 		}
 		return rm_directory(tmp);
 	} else {
 		int res = unlink(tmp);
 		if (res < 0) {
-			fprintf(stderr, "rm: %s: %s\n", tmp, strerror(errno));
+			fprintf(stderr, APP_NAME ": %s: %s\n", tmp, strerror(errno));
 			return 1;
 		}
 		return 0;
 	}
 }
 
+#ifndef IS_MV
+static int rm_top_level(char **argv, int argc, int optind) {
+	int ret = 0;
+
+	for (int i = optind; i < argc; ++i) {
+		ret |= rm_thing(argv[i]);
+	}
+
+	return ret;
+}
 
 int main(int argc, char * argv[]) {
 	int opt;
@@ -87,11 +101,6 @@ int main(int argc, char * argv[]) {
 		}
 	}
 
-	int ret = 0;
-
-	for (int i = optind; i < argc; ++i) {
-		ret |= rm_thing(argv[i]);
-	}
-
-	return ret;
+	return rm_top_level(argv, argc, optind);
 }
+#endif
