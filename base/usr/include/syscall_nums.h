@@ -84,3 +84,5 @@
 #define SYS_PWRITE 81
 #define SYS_RENAME 82
 #define SYS_FCNTL 83
+#define SYS_FCHMOD 84
+#define SYS_FCHOWN 85

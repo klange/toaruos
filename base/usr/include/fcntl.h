@@ -48,6 +48,7 @@ struct flock {
 #ifndef __kernel__
 extern int open (const char *, int, ...);
 extern int chmod(const char *path, mode_t mode);
+extern int fchmod(int fd, mode_t mode);
 extern int fcntl(int fd, int cmd, ...);
 #endif
 

@@ -68,6 +68,7 @@ extern int unlink(const char * pathname);
 /* Unimplemented stubs */
 extern int rmdir(const char *pathname); /* TODO  rm probably just works */
 extern int chown(const char * pathname, uid_t owner, gid_t group);
+extern int fchown(int fd, uid_t owner, gid_t group);
 
 extern char * getlogin(void);
 extern char * ttyname(int fd);

@@ -541,6 +541,12 @@ long sys_chmod(char * file, long mode) {
 	}
 }
 
+long sys_fchmod(int fd, long mode) {
+	if (!FD_CHECK(fd)) return -EBADF;
+	if (this_core->current_process->user != 0 && this_core->current_process->user != FD_ENTRY(fd)->uid) return -EACCES;
+	return chmod_fs(FD_ENTRY(fd), mode);
+}
+
 long sys_rename(const char * src, const char * dest) {
 	PTR_VALIDATE(src);
 	if (!src) return -EFAULT;
@@ -598,6 +604,23 @@ long sys_chown(char * file, uid_t uid, uid_t gid) {
 _access:
 	close_fs(fn);
 	return -EACCES;
+}
+
+long sys_fchown(int fd, uid_t uid, uid_t gid) {
+	if (!FD_CHECK(fd)) return -EBADF;
+	if (this_core->current_process->user != USER_ROOT_UID && uid != -1) return -EACCES;
+	if (this_core->current_process->user != USER_ROOT_UID && gid != -1) {
+		if (this_core->current_process->user != FD_ENTRY(fd)->uid) return -EACCES;
+		if (!current_group_matches(gid)) return -EACCES;
+	}
+
+	if ((uid != -1 || gid != -1) && (FD_ENTRY(fd)->mask & 0x800)) {
+		/* Whenever the owner or group of a setuid executable is changed, it
+		 * loses the setuid bit. */
+		 chmod_fs(FD_ENTRY(fd), FD_ENTRY(fd)->mask & (~0x800));
+	}
+
+	return chown_fs(FD_ENTRY(fd), uid, gid);
 }
 
 long sys_gettimeofday(struct timeval * tv, void * tz) {
@@ -1319,6 +1342,8 @@ static scall_func syscalls[] = {
 	[SYS_PWRITE]       = (scall_func)(uintptr_t)sys_pwrite,
 	[SYS_RENAME]       = (scall_func)(uintptr_t)sys_rename,
 	[SYS_FCNTL]        = (scall_func)(uintptr_t)sys_fcntl,
+	[SYS_FCHMOD]       = (scall_func)(uintptr_t)sys_fchmod,
+	[SYS_FCHOWN]       = (scall_func)(uintptr_t)sys_fchown,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,
