@@ -129,7 +129,7 @@ static size_t print_oct(unsigned long long value, unsigned int width, int (*call
 	}
 
 	if (!fill_zero && align == 1) {
-		while (i > (long long)n_width + 2*!!alt) {
+		while (i > (long long)n_width + !!alt) {
 			OUT(' ');
 			i--;
 		}
@@ -137,11 +137,10 @@ static size_t print_oct(unsigned long long value, unsigned int width, int (*call
 
 	if (alt) {
 		OUT('0');
-		OUT(caps ? 'O' : 'o');
 	}
 
 	if (fill_zero && align == 1) {
-		while (i > (long long)n_width + 2*!!alt) {
+		while (i > (long long)n_width + !!alt) {
 			OUT('0');
 			i--;
 		}
@@ -155,7 +154,7 @@ static size_t print_oct(unsigned long long value, unsigned int width, int (*call
 
 	if (align == 0) {
 		i = width;
-		while (i > (long long)n_width + 2*!!alt) {
+		while (i > (long long)n_width + !!alt) {
 			OUT(' ');
 			i--;
 		}
