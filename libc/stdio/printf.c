@@ -121,7 +121,7 @@ static size_t print_oct(unsigned long long value, unsigned int width, int (*call
 	int i = width;
 
 	unsigned long long n_width = 1;
-	unsigned long long j = 8;
+	unsigned long long j = 7;
 	while (value > j && j < UINT64_MAX) {
 		n_width += 1;
 		j *= 8;
