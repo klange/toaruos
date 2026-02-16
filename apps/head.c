@@ -24,6 +24,8 @@ int main(int argc, char * argv[]) {
 			case 'n':
 				n = atoi(optarg);
 				break;
+			default:
+				return 1;
 		}
 	}
 
