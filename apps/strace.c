@@ -676,7 +676,7 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			break;
 		case SYS_TRUNCATE:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			uint_arg(uregs_syscall_arg2(r));
+			int_arg(uregs_syscall_arg2(r));
 			break;
 		case SYS_READ:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
@@ -695,7 +695,7 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			buffer_arg(pid, uregs_syscall_arg2(r), uregs_syscall_arg3(r)); COMMA;
 			uint_arg(uregs_syscall_arg3(r)); COMMA;
-			uint_arg(uregs_syscall_arg4(r));
+			int_arg(uregs_syscall_arg4(r));
 			break;
 		case SYS_CLOSE:
 			fd_arg(pid, uregs_syscall_arg1(r));
@@ -875,7 +875,7 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			break;
 		case SYS_FTRUNCATE:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			uint_arg(uregs_syscall_arg2(r));
+			int_arg(uregs_syscall_arg2(r));
 			break;
 		case SYS_MOUNT:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
@@ -957,7 +957,7 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 		case SYS_PREAD:
 			buffer_arg(pid, uregs_syscall_arg2(r), uregs_syscall_result(r)); COMMA;
 			uint_arg(uregs_syscall_arg3(r)); COMMA;
-			uint_arg(uregs_syscall_arg4(r));
+			int_arg(uregs_syscall_arg4(r));
 			maybe_errno(r);
 			break;
 		case SYS_GETHOSTNAME:
