@@ -86,3 +86,5 @@
 #define SYS_FCNTL 83
 #define SYS_FCHMOD 84
 #define SYS_FCHOWN 85
+#define SYS_TRUNCATE 86
+#define SYS_FTRUNCATE 87

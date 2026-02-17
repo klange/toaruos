@@ -153,6 +153,9 @@ static char * tmpfs_file_getset_block(struct tmpfs_file * t, size_t blockid, int
 		while (blockid >= t->block_count) {
 			uintptr_t index = mmu_allocate_a_frame();
 			tmpfs_total_blocks++;
+			if (create == 2) {
+				memset((char*)mmu_map_from_physical(index << 12), 0, BLOCKSIZE);
+			}
 			t->blocks[t->block_count] = index;
 			t->block_count += 1;
 		}
@@ -276,16 +279,58 @@ static int chown_tmpfs(fs_node_t * node, int uid, int gid) {
 	return 0;
 }
 
-static int truncate_tmpfs(fs_node_t * node) {
+static int truncate_tmpfs(fs_node_t * node, size_t size) {
 	struct tmpfs_file * t = (struct tmpfs_file *)(node->device);
 	spin_lock(t->lock);
-	for (size_t i = 0; i < t->block_count; ++i) {
-		mmu_frame_release((uintptr_t)t->blocks[i] * 0x1000);
-		tmpfs_total_blocks--;
-		t->blocks[i] = 0;
+
+	if (size == t->length) goto _exit_truncate;
+
+	uint64_t old_end_block = (t->length / BLOCKSIZE);
+	uint64_t old_end_size  = t->length - old_end_block * BLOCKSIZE;
+	uint64_t old_blocks = old_end_block + !!old_end_size;
+	uint64_t new_end_block = (size / BLOCKSIZE);
+	uint64_t new_end_size  = size - new_end_block * BLOCKSIZE;
+	uint64_t new_blocks = new_end_block + !!new_end_size;
+
+
+	/* Is the target size bigger or smaller? */
+	if (size > t->length) {
+		if (old_end_block == new_end_block) {
+			char *buf = tmpfs_file_getset_block(t, old_end_block, 0);
+			memset(buf + old_end_size, 0, new_end_size - old_end_size);
+		} else {
+			tmpfs_file_getset_block(t, new_end_block, 2);
+			char *buf = tmpfs_file_getset_block(t, old_end_block, 0);
+			memset(buf + old_end_size, 0, BLOCKSIZE - old_end_size);
+		}
+		t->length = size;
+		goto _exit_truncate;
 	}
-	t->block_count = 0;
-	t->length = 0;
+
+	if (size == 0) {
+		for (size_t i = 0; i < t->block_count; ++i) {
+			mmu_frame_release((uintptr_t)t->blocks[i] * 0x1000);
+			tmpfs_total_blocks--;
+			t->blocks[i] = 0;
+		}
+		t->block_count = 0;
+		t->length = 0;
+		goto _exit_truncate;
+	}
+
+	/* Size is less than current but > 0 */
+	if (new_blocks < old_blocks) {
+		for (uint64_t i = new_blocks; i < old_blocks; ++i) {
+			mmu_frame_release((uintptr_t)t->blocks[i] * 0x1000);
+			tmpfs_total_blocks--;
+			t->blocks[i] = 0;
+		}
+		t->block_count = new_blocks;
+	}
+
+	t->length = size;
+
+_exit_truncate:
 	t->mtime = node->atime;
 	spin_unlock(t->lock);
 	return 0;

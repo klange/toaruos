@@ -50,7 +50,7 @@ typedef ssize_t (*readlink_type_t) (struct fs_node *, char * buf, size_t size);
 typedef int (*selectcheck_type_t) (struct fs_node *);
 typedef int (*selectwait_type_t) (struct fs_node *, void * process);
 typedef int (*chown_type_t) (struct fs_node *, uid_t, gid_t);
-typedef int (*truncate_type_t) (struct fs_node *);
+typedef int (*truncate_type_t) (struct fs_node *, size_t size);
 typedef int (*rename_type_t) (struct fs_node *, struct fs_node *, const char *, struct fs_node *, const char *);
 
 typedef struct fs_node {
@@ -126,7 +126,7 @@ int symlink_fs(char * value, char * name);
 ssize_t readlink_fs(fs_node_t * node, char * buf, size_t size);
 int selectcheck_fs(fs_node_t * node);
 int selectwait_fs(fs_node_t * node, void * process);
-int truncate_fs(fs_node_t * node);
+int truncate_fs(fs_node_t * node, size_t size);
 
 void vfs_install(void);
 void * vfs_mount(const char * path, fs_node_t * local_root);

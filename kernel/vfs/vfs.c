@@ -206,11 +206,11 @@ ssize_t write_fs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
  *
  * @param node File to resize
  */
-int truncate_fs(fs_node_t * node) {
+int truncate_fs(fs_node_t * node, size_t size) {
 	if (!node) return -ENOENT;
 
 	if (node->truncate) {
-		return node->truncate(node);
+		return node->truncate(node, size);
 	}
 
 	return -EINVAL;

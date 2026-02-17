@@ -110,6 +110,8 @@ const char * syscall_names[] = {
 	[SYS_FCNTL]        = "fcntl",
 	[SYS_FCHMOD]       = "fchmod",
 	[SYS_FCHOWN]       = "fchown",
+	[SYS_TRUNCATE]     = "truncate",
+	[SYS_FTRUNCATE]    = "ftruncate",
 };
 
 char syscall_mask[] = {
@@ -195,6 +197,8 @@ char syscall_mask[] = {
 	[SYS_FCNTL]        = 1,
 	[SYS_FCHMOD]       = 1,
 	[SYS_FCHOWN]       = 1,
+	[SYS_TRUNCATE]     = 1,
+	[SYS_FTRUNCATE]    = 1,
 };
 
 #define M(e) [e] = #e
@@ -670,6 +674,10 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			int_arg(uregs_syscall_arg2(r)); COMMA;
 			int_arg(uregs_syscall_arg3(r));
 			break;
+		case SYS_TRUNCATE:
+			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			uint_arg(uregs_syscall_arg2(r));
+			break;
 		case SYS_READ:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			/* Plus two more when done */
@@ -865,6 +873,10 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			int_arg(uregs_syscall_arg2(r)); COMMA;
 			int_arg(uregs_syscall_arg3(r));
 			break;
+		case SYS_FTRUNCATE:
+			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			uint_arg(uregs_syscall_arg2(r));
+			break;
 		case SYS_MOUNT:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			string_arg(pid, uregs_syscall_arg2(r)); COMMA;
@@ -1043,6 +1055,7 @@ int main(int argc, char * argv[]) {
 									SYS_OPEN, SYS_STATF, SYS_LSTAT, SYS_ACCESS, SYS_EXECVE,
 									SYS_GETCWD, SYS_CHDIR, SYS_MKDIR, SYS_SYMLINK, SYS_UNLINK,
 									SYS_CHMOD, SYS_CHOWN, SYS_MOUNT, SYS_READLINK, SYS_RENAME,
+									SYS_TRUNCATE,
 									0
 								};
 								for (int *i = syscalls; *i; i++) {
@@ -1053,7 +1066,7 @@ int main(int argc, char * argv[]) {
 									SYS_OPEN, SYS_READ, SYS_WRITE, SYS_CLOSE, SYS_STAT, SYS_FSWAIT,
 									SYS_FSWAIT2, SYS_FSWAIT3, SYS_SEEK, SYS_IOCTL, SYS_PIPE, SYS_MKPIPE,
 									SYS_DUP2, SYS_READDIR, SYS_OPENPTY, SYS_PREAD, SYS_PWRITE, SYS_FCNTL,
-									SYS_FCHMOD, SYS_FCHOWN,
+									SYS_FCHMOD, SYS_FCHOWN, SYS_FTRUNCATE,
 									0
 								};
 								for (int *i = syscalls; *i; i++) {

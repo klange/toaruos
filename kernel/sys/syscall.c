@@ -416,7 +416,7 @@ long sys_open(const char * file, long flags, long mode) {
 			close_fs(node);
 			return -EINVAL;
 		}
-		truncate_fs(node);
+		truncate_fs(node, 0);
 	}
 
 	if (!node) {
@@ -621,6 +621,39 @@ long sys_fchown(int fd, uid_t uid, uid_t gid) {
 	}
 
 	return chown_fs(FD_ENTRY(fd), uid, gid);
+}
+
+long sys_truncate(char * file, off_t size) {
+	PTR_VALIDATE(file);
+	if (!file) return -EFAULT;
+	if (size < 0) return -EINVAL;
+
+	fs_node_t * fn = kopen(file, 0);
+
+	if (!fn) return -ENOENT;
+
+	/* Need write permission */
+	if (!has_permission(fn, 04)) {
+		close_fs(fn);
+		return -EACCES;
+	}
+
+	if (!fn->truncate) {
+		close_fs(fn);
+		return -ENOTSUP;
+	}
+
+	long out = fn->truncate(fn, size);
+	close_fs(fn);
+	return out;
+}
+
+long sys_ftruncate(int fd, off_t size) {
+	if (!FD_CHECK(fd)) return -EBADF;
+	if (!(FD_MODE(fd) & 2)) return -EACCES;
+	if (size < 0) return -EINVAL;
+	if (!FD_ENTRY(fd)->truncate) return -ENOTSUP;
+	return FD_ENTRY(fd)->truncate(FD_ENTRY(fd), size);
 }
 
 long sys_gettimeofday(struct timeval * tv, void * tz) {
@@ -1344,6 +1377,8 @@ static scall_func syscalls[] = {
 	[SYS_FCNTL]        = (scall_func)(uintptr_t)sys_fcntl,
 	[SYS_FCHMOD]       = (scall_func)(uintptr_t)sys_fchmod,
 	[SYS_FCHOWN]       = (scall_func)(uintptr_t)sys_fchown,
+	[SYS_TRUNCATE]     = (scall_func)(uintptr_t)sys_truncate,
+	[SYS_FTRUNCATE]    = (scall_func)(uintptr_t)sys_ftruncate,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

@@ -101,6 +101,7 @@ extern void *sbrk(intptr_t increment);
 
 extern void sync(void);
 extern int truncate(const char *, off_t);
+extern int ftruncate(int, off_t);
 
 #define _PC_PATH_MAX 1
 extern long pathconf(const char *path, int name);
