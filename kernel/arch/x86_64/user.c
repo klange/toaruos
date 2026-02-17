@@ -255,11 +255,11 @@ void arch_fatal(void) {
 /**
  * @brief Reboot the computer.
  *
- * This tries to do a "keyboard reset". We clear out the IDT
- * so that we can maybe triple fault, and then we try to use
- * the keyboard reset vector... if that doesn't work,
- * then returning from this and letting anything else happen
- * almost certainly will.
+ * This tries to cause a triple fault by clearing out the IDT
+ * and immediately causing an invalid opcode exception by the 
+ * ud2 instruction. If this fails, which is very unlikely,
+ * we try to triple fault by using the keyboard reset vector.
+ * If this also doesn't work, returning absolutely will.
  */
 long arch_reboot(void) {
 	/* load a null page as an IDT */
@@ -270,6 +270,10 @@ long arch_reboot(void) {
 		"lidt (%0)"
 		: : "r"(idt)
 	);
+	/* This should cause a triple fault */
+	asm volatile("ud2");
+
+	/* Keyboard reset fallback method */
 	uint8_t out = 0x02;
 	while ((out & 0x02) != 0) {
 		out = inportb(0x64);
