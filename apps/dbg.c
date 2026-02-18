@@ -678,6 +678,14 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
+	/* Catch one potential mistake early... */
+	struct stat stat_buf;
+	fstat(fileno(binary_obj), &stat_buf);
+	if (stat_buf.st_mode & S_IFDIR) {
+		fprintf(stderr, "%s: %s: Is a directory\n", argv[0], binary_path);
+		return 1;
+	}
+
 	/* Attempt to load symbol information... */
 
 	if (target_pid) {
@@ -696,6 +704,8 @@ int main(int argc, char * argv[]) {
 				return 1;
 			}
 			execv(binary_path, &argv[optind]);
+			/* If we got to this point at all... */
+			fprintf(stderr, "%s: %s: execv: %s\n", argv[0], binary_path, strerror(errno));
 			return 1;
 		}
 
@@ -740,7 +750,7 @@ int main(int argc, char * argv[]) {
 				fprintf(stderr, "Process %d was killed by %s.\n", res, signal_names[WTERMSIG(status)]);
 				return 0;
 			} else if (WIFEXITED(status)) {
-				fprintf(stderr, "Process %d exited normally.\n", res);
+				fprintf(stderr, "Process %d exited normally with status %d.\n", res, WEXITSTATUS(status));
 				return 0;
 			} else {
 				fprintf(stderr, "Unknown state?\n");
