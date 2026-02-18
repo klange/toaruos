@@ -34,7 +34,7 @@ void show_usage(int argc, char * argv[]) {
 	fprintf(stderr,
 			"uname - Print system version information.\n"
 			"\n"
-			"usage: %s [-asnrvmp]\n"
+			"usage: %s [-asnrvmop]\n"
 			"\n"
 			" -a     " _ITALIC "Print the standard uname string we all love" _END
 			" -s     " _ITALIC "Print kernel name" _END
