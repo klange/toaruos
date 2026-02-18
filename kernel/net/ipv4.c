@@ -847,6 +847,10 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 
 	while (!sock->rx_queue->length) {
 		int result = process_wait_nodes((process_t *)this_core->current_process, (fs_node_t*[]){(fs_node_t*)sock,NULL}, 200);
+		if (result == -EINTR) {
+			free(response);
+			return -EINTR;
+		}
 		relative_time(0,0,&ns,&nss);
 		if (sock->priv[1] == 0) {
 			free(response);
