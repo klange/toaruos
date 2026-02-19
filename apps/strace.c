@@ -23,6 +23,8 @@
 #include <sys/socket.h>
 #include <sys/uregs.h>
 #include <syscall_nums.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 
 static FILE * logfile;
 
@@ -112,6 +114,9 @@ const char * syscall_names[] = {
 	[SYS_FCHOWN]       = "fchown",
 	[SYS_TRUNCATE]     = "truncate",
 	[SYS_FTRUNCATE]    = "ftruncate",
+	[SYS_SETTIMEOFDAY] = "settimeofday",
+	[SYS_GETSOCKNAME]  = "getsockname",
+	[SYS_GETPEERNAME]  = "getpeername",
 };
 
 char syscall_mask[] = {
@@ -199,6 +204,9 @@ char syscall_mask[] = {
 	[SYS_FCHOWN]       = 1,
 	[SYS_TRUNCATE]     = 1,
 	[SYS_FTRUNCATE]    = 1,
+	[SYS_SETTIMEOFDAY] = 1,
+	[SYS_GETSOCKNAME]  = 1,
+	[SYS_GETPEERNAME]  = 1,
 };
 
 #define M(e) [e] = #e
@@ -460,6 +468,59 @@ static void fd_arg(pid_t pid, int val) {
 	fprintf(logfile, "%d", val);
 }
 
+static void sock_dom_arg(int domain) {
+	switch (domain) {
+		C(AF_UNSPEC);
+		C(AF_RAW);
+		C(AF_INET);
+		default: fprintf(logfile, "%d", domain); break;
+	}
+}
+
+static void sock_typ_arg(int type) {
+	switch (type) {
+		C(SOCK_DGRAM);
+		C(SOCK_STREAM);
+		C(SOCK_RAW);
+		default: fprintf(logfile, "%d", type); break;
+	}
+}
+
+static void sock_pro_arg(int domain, int type, int proto) {
+	switch (domain) {
+		case AF_INET:
+			switch (proto) {
+				C(IPPROTO_IP);
+				C(IPPROTO_ICMP);
+				C(IPPROTO_TCP);
+				C(IPPROTO_UDP);
+				default:
+					fprintf(logfile, "%d", proto);
+					break;
+			}
+			return;
+	}
+
+	/* Fallback case */
+	fprintf(logfile, "%d", proto);
+}
+
+static void sock_lvl_arg(int level) {
+	switch (level) {
+		C(SOL_SOCKET);
+		default: fprintf(logfile, "%d", level); break;
+	}
+}
+
+static void sock_opt_arg(int opt) {
+	switch (opt) {
+		C(SO_KEEPALIVE);
+		C(SO_REUSEADDR);
+		C(SO_BINDTODEVICE);
+		default: fprintf(logfile, "%d", opt); break;
+	}
+}
+
 static int data_read_bytes(pid_t pid, uintptr_t addr, char * buf, size_t size) {
 	for (unsigned int i = 0; i < size; ++i) {
 		if (ptrace(PTRACE_PEEKDATA, pid, (void*)addr++, &buf[i])) {
@@ -480,6 +541,34 @@ static uintptr_t data_read_ptr(pid_t pid, uintptr_t addr) {
 	data_read_bytes(pid, addr, (char*)&x, sizeof(uintptr_t));
 	return x;
 }
+
+static void sockaddr_arg(pid_t pid, uintptr_t addr, size_t size) {
+	if (addr == 0) {
+		fprintf(logfile, "null");
+		return;
+	}
+
+	struct sockaddr_storage sa = {0};
+	data_read_bytes(pid, addr, (char*)&sa, size < sizeof(struct sockaddr_storage) ? size : sizeof(struct sockaddr_storage));
+
+	fprintf(logfile, "{sa_family=");
+	sock_dom_arg(sa.ss_family);
+
+	if (sa.ss_family == AF_INET && size >= sizeof(struct sockaddr_in)) {
+		struct sockaddr_in addr;
+		memcpy(&addr, &sa, sizeof(struct sockaddr_in));
+		fprintf(logfile, ", sin_port=htons(%d), sin_addr=inet_addr(\"%s\")", ntohs(addr.sin_port), inet_ntoa(addr.sin_addr));
+	}
+
+	fprintf(logfile, "}");
+}
+
+static void sockaddrp_arg(pid_t pid, uintptr_t addr, uintptr_t size_p) {
+	size_t size = 0;
+	data_read_bytes(pid, size_p, (char*)&size, sizeof(size_t));
+	sockaddr_arg(pid,addr,size);
+}
+
 
 static void fds_arg(pid_t pid, size_t ecount, uintptr_t array) {
 	fprintf(logfile, "[");
@@ -707,9 +796,9 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			int_arg(uregs_syscall_arg2(r)); COMMA;
 			switch (uregs_syscall_arg3(r)) {
-				case 0: fprintf(logfile, "SEEK_SET"); break;
-				case 1: fprintf(logfile, "SEEK_CUR"); break;
-				case 2: fprintf(logfile, "SEEK_END"); break;
+				C(SEEK_SET);
+				C(SEEK_CUR);
+				C(SEEK_END);
 				default: int_arg(uregs_syscall_arg3(r)); break;
 			}
 			break;
@@ -756,10 +845,6 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 		case SYS_RENAME:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			string_arg(pid, uregs_syscall_arg2(r));
-			break;
-		case SYS_SHUTDOWN:
-			int_arg(uregs_syscall_arg1(r)); COMMA;
-			int_arg(uregs_syscall_arg2(r));
 			break;
 		case SYS_ACCESS:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
@@ -892,6 +977,10 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 		case SYS_GETTIMEOFDAY:
 			/* two output args */
 			break;
+		case SYS_SETTIMEOFDAY:
+			struct_timeval_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			pointer_arg(uregs_syscall_arg2(r));
+			break;
 		case SYS_SIGACTION:
 			signal_arg(uregs_syscall_arg1(r)); COMMA;
 			pointer_arg(uregs_syscall_arg2(r)); COMMA;
@@ -902,9 +991,9 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			break;
 		case SYS_SIGPROCMASK:
 			switch (uregs_syscall_arg1(r)) {
-				case SIG_BLOCK:   fprintf(logfile, "SIG_BLOCK"); break;
-				case SIG_UNBLOCK: fprintf(logfile, "SIG_UNBLOCK"); break;
-				case SIG_SETMASK: fprintf(logfile, "SIG_SETMASK"); break;
+				C(SIG_BLOCK);
+				C(SIG_UNBLOCK);
+				C(SIG_SETMASK);
 				default: int_arg(uregs_syscall_arg1(r)); break;
 			} COMMA;
 			sigset_ptr_arg(pid, uregs_syscall_arg2(r)); COMMA;
@@ -916,11 +1005,49 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 		case SYS_SIGWAIT:
 			sigset_ptr_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			break;
+		case SYS_SOCKET:
+			sock_dom_arg(uregs_syscall_arg1(r)); COMMA;
+			sock_typ_arg(uregs_syscall_arg2(r)); COMMA;
+			sock_pro_arg(uregs_syscall_arg1(r), uregs_syscall_arg2(r), uregs_syscall_arg3(r));
+			break;
 		case SYS_RECV:
 		case SYS_SEND:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			msghdr_arg(pid, uregs_syscall_arg2(r)); COMMA;
 			int_arg(uregs_syscall_arg3(r));
+			break;
+		case SYS_LISTEN:
+			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			int_arg(uregs_syscall_arg2(r));
+			break;
+		case SYS_CONNECT:
+		case SYS_ACCEPT:
+		case SYS_BIND:
+			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			sockaddr_arg(pid, uregs_syscall_arg2(r), uregs_syscall_arg3(r)); /* Consumes both */
+			break;
+		case SYS_GETSOCKNAME:
+		case SYS_GETPEERNAME:
+			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			/* two output args */
+			break;
+		case SYS_SHUTDOWN:
+			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			int_arg(uregs_syscall_arg2(r)); /* TODO SHUT_... */
+			break;
+		case SYS_SETSOCKOPT:
+			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			sock_lvl_arg(uregs_syscall_arg2(r)); COMMA;
+			sock_opt_arg(uregs_syscall_arg3(r)); COMMA;
+			pointer_arg(uregs_syscall_arg4(r)); COMMA; /* TODO sockaddr in some contexts */
+			uint_arg(uregs_syscall_arg5(r));
+			break;
+		case SYS_GETSOCKOPT:
+			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			sock_lvl_arg(uregs_syscall_arg2(r)); COMMA;
+			sock_opt_arg(uregs_syscall_arg3(r)); COMMA;
+			pointer_arg(uregs_syscall_arg4(r)); COMMA; /* TODO sockaddr in some contexts */
+			pointer_arg(uregs_syscall_arg5(r)); /* Note - differs from set */
 			break;
 		/* These have no arguments: */
 		case SYS_YIELD:
@@ -974,6 +1101,7 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 			break;
 		case SYS_GETTIMEOFDAY:
 			struct_timeval_arg(pid, uregs_syscall_arg1(r));
+			pointer_arg(uregs_syscall_arg2(r));
 			maybe_errno(r);
 			break;
 		/* sbrk() returns an address */
@@ -991,6 +1119,10 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 		case SYS_SIGWAIT:
 			signal_ptr_arg(pid, uregs_syscall_arg2(r));
 			maybe_errno(r);
+			break;
+		case SYS_GETSOCKNAME:
+		case SYS_GETPEERNAME:
+			sockaddrp_arg(pid, uregs_syscall_arg2(r), uregs_syscall_arg3(r)); /* Consumes both */
 			break;
 		/* Most things return -errno, or positive valid result */
 		default:
@@ -1045,6 +1177,7 @@ int main(int argc, char * argv[]) {
 								int syscalls[] = {
 									SYS_SOCKET, SYS_SETSOCKOPT, SYS_BIND, SYS_ACCEPT, SYS_LISTEN,
 									SYS_CONNECT, SYS_GETSOCKOPT, SYS_RECV, SYS_SEND, SYS_SHUTDOWN,
+									SYS_GETPEERNAME, SYS_GETSOCKNAME,
 									0
 								};
 								for (int *i = syscalls; *i; i++) {
@@ -1064,7 +1197,7 @@ int main(int argc, char * argv[]) {
 							} else if (!strcmp(option+1,"desc")) {
 								int syscalls[] = {
 									SYS_OPEN, SYS_READ, SYS_WRITE, SYS_CLOSE, SYS_STAT, SYS_FSWAIT,
-									SYS_FSWAIT2, SYS_FSWAIT3, SYS_SEEK, SYS_IOCTL, SYS_PIPE, SYS_MKPIPE,
+									SYS_FSWAIT2, SYS_FSWAIT3, SYS_SEEK, SYS_IOCTL, SYS_PIPE,
 									SYS_DUP2, SYS_READDIR, SYS_OPENPTY, SYS_PREAD, SYS_PWRITE, SYS_FCNTL,
 									SYS_FCHMOD, SYS_FCHOWN, SYS_FTRUNCATE,
 									0
