@@ -17,32 +17,64 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <getopt.h>
+#include <errno.h>
 
 #include <sys/ioctl.h>
 
+#define DSP_PATH "/dev/dsp"
+
+static int usage(char * argv[]) {
+	fprintf(stderr, "usage: %s [-d dsp_path] /path/to/48ks16le.wav\n", argv[0]);
+	return 1;
+}
+
 int main(int argc, char * argv[]) {
-	int spkr = open("/dev/dsp", O_WRONLY);
-	int song;
-	if (!strcmp(argv[1], "-")) {
-		song = STDIN_FILENO;
-	} else {
-		song = open(argv[1], O_RDONLY);
+	char buf[0x1000];
+	int spkr, song;
+	ssize_t r;
+	int opt;
+	char * dsp_path = DSP_PATH;
+
+	while ((opt = getopt(argc, argv, "d:s:")) != -1) {
+		switch (opt) {
+			case 'd': /* DSP path */
+				dsp_path = optarg;
+				break;
+
+			default:
+				return usage(argv);
+		}
 	}
 
-	if (spkr == -1) {
-		fprintf(stderr, "no dsp\n");
+	if (optind == argc) return usage(argv);
+
+	spkr = open(dsp_path, O_WRONLY);
+	if (spkr < 0) {
+		fprintf(stderr, "%s: %s: %s\n", argv[0], dsp_path, strerror(errno));
 		return 1;
 	}
 
-	if (song == -1) {
-		fprintf(stderr, "audio file not found\n");
-		return 2;
+	if (!strcmp(argv[optind], "-")) {
+		song = STDIN_FILENO;
+	} else {
+		song = open(argv[optind], O_RDONLY);
+		if (song < 0) {
+			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[optind], strerror(errno));
+			return 1;
+		}
 	}
 
-	char buf[0x1000];
-	int r;
-	while ((r = read(song, buf, sizeof(buf)))) {
-		write(spkr, buf, r);
+	while ((r = read(song, buf, sizeof(buf))) > 0) {
+		if (write(spkr, buf, r) < 0) {
+			fprintf(stderr, "%s: %s: %s\n", argv[0], dsp_path, strerror(errno));
+			return 1;
+		}
+	}
+
+	if (r < 0) {
+		fprintf(stderr, "%s: %s: %s\n", argv[0], argv[optind], strerror(errno));
+		return 1;
 	}
 	return 0;
 }
