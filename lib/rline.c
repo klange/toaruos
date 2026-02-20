@@ -2229,6 +2229,9 @@ static int reverse_search(void) {
 		while ((cin = getch(timeout))) {
 			if (cin == -1) continue;
 			if (!decode(&istate, &c, cin)) {
+				if (_INTR && c == _INTR) {
+					goto _done;
+				}
 				switch (c) {
 					case '\033':
 						have_unget = '\033';
