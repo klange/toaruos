@@ -422,6 +422,59 @@ KRK_Method(GraphicsContext,width) { CHECK_GFX(); return INTEGER_VAL(self->ctx->w
 KRK_Method(GraphicsContext,height) { CHECK_GFX(); return INTEGER_VAL(self->ctx->height); }
 KRK_Method(GraphicsContext,isDoubleBuffered) { CHECK_GFX(); return BOOLEAN_VAL(self->doubleBuffered); }
 
+KRK_Method(GraphicsContext,__setitem__) {
+	CHECK_GFX();
+
+	KrkTuple * coord = NULL;
+	uint32_t color = 0;
+
+	if (!krk_parseArgs(
+		".O!I",(const char*[]){"coord","color"},
+		KRK_BASE_CLASS(tuple), &coord, &color)) {
+		return NONE_VAL();
+	}
+
+	if (!coord || coord->values.count != 2 || !IS_INTEGER(coord->values.values[0]) || !IS_INTEGER(coord->values.values[1])) {
+		return krk_runtimeError(vm.exceptions->typeError, "coord must be (int,int)");
+	}
+
+	int x = AS_INTEGER(coord->values.values[0]);
+	int y = AS_INTEGER(coord->values.values[1]);
+
+	if (x < 0 || x >= self->ctx->width || y < 0 || y >= self->ctx->height) {
+		return krk_runtimeError(vm.exceptions->indexError, "coordinate out of bounds");
+	}
+
+	GFX(self->ctx,x,y) = color;
+
+	return INTEGER_VAL(color);
+}
+
+KRK_Method(GraphicsContext,__getitem__) {
+	CHECK_GFX();
+
+	KrkTuple * coord = NULL;
+
+	if (!krk_parseArgs(
+		".O!",(const char*[]){"coord"},
+		KRK_BASE_CLASS(tuple), &coord)) {
+		return NONE_VAL();
+	}
+
+	if (!coord || coord->values.count != 2 || !IS_INTEGER(coord->values.values[0]) || !IS_INTEGER(coord->values.values[1])) {
+		return krk_runtimeError(vm.exceptions->typeError, "coord must be (int,int)");
+	}
+
+	int x = AS_INTEGER(coord->values.values[0]);
+	int y = AS_INTEGER(coord->values.values[1]);
+
+	if (x < 0 || x >= self->ctx->width || y < 0 || y >= self->ctx->height) {
+		return krk_runtimeError(vm.exceptions->indexError, "coordinate out of bounds");
+	}
+
+	return INTEGER_VAL(GFX(self->ctx,x,y));
+}
+
 KRK_Method(GraphicsContext,draw_sprite) {
 	CHECK_GFX();
 
@@ -2004,6 +2057,8 @@ KRK_Module(_yutani2) {
 	BIND_METHOD(GraphicsContext,line);
 	BIND_METHOD(GraphicsContext,rect);
 	BIND_METHOD(GraphicsContext,draw_sprite);
+	BIND_METHOD(GraphicsContext,__setitem__);
+	BIND_METHOD(GraphicsContext,__getitem__);
 	krk_finalizeClass(GraphicsContext);
 
 	/*
