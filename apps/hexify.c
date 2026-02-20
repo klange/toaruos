@@ -65,6 +65,20 @@ static int stoih(int w, char c[w], unsigned int *out) {
 	return 0;
 }
 
+static int usage(char * argv[]) {
+	fprintf(stderr,
+			"heixfy - convert to and from hexadecimal representation\n"
+			"\n"
+			"usage: %s [-w width] [-d] [file]\n"
+			"\n"
+			" -w width  \033[3mdisplay 'width' bytes per line\033[0m\n"
+			"           \033[3m(default is 16, max is 256)\033[0m\n"
+			" -d        \033[3mconvert output from hexify back to binary data\033[0m\n"
+			" -?        \033[3mshow this help text\033[0m\n"
+			"\n", argv[0]);
+	return 1;
+}
+
 int main(int argc, char * argv[]) {
 	unsigned int width = 16; /* TODO make configurable */
 	int opt;
@@ -74,10 +88,14 @@ int main(int argc, char * argv[]) {
 		switch (opt) {
 			default:
 			case '?':
-				fprintf(stderr, "%s: convert to/from hexadecimal dump\n", argv[0]);
-				return 1;
+				return usage(argv);
 			case 'w':
 				width = atoi(optarg);
+				if (width == 0) width = 16;
+				if (width > 256) {
+					fprintf(stderr, "%s: invalid width\n", argv[0]);
+					return 1;
+				}
 				break;
 			case 'd':
 				direction = 1;
