@@ -179,6 +179,7 @@ ssize_t read_fs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	if (node->read) {
 		return node->read(node, offset, size, buffer);
 	} else {
+		if (node->flags & FS_DIRECTORY) return -EISDIR;
 		return -EINVAL;
 	}
 }
@@ -197,6 +198,7 @@ ssize_t write_fs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	if (node->write) {
 		return node->write(node, offset, size, buffer);
 	} else {
+		if (node->flags & FS_DIRECTORY) return -EISDIR;
 		return -EROFS;
 	}
 }
