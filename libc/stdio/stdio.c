@@ -278,6 +278,7 @@ FILE * freopen(const char *path, const char *mode, FILE * stream) {
 
 	if (path) {
 		fflush(stream);
+		free(stream->_name);
 		syscall_close(stream->fd);
 		int flags, mask;
 		parse_mode(mode, &flags, &mask);
@@ -290,11 +291,6 @@ FILE * freopen(const char *path, const char *mode, FILE * stream) {
 		stream->eof = 0;
 		stream->_name = strdup(path);
 		stream->written = 0;
-		if (stream != &_stdin && stream != &_stdout && stream != &_stderr) {
-			stream->next = _head;
-			if (_head) _head->prev = stream;
-			_head = stream;
-		}
 		if (fd < 0) {
 			errno = -fd;
 			return NULL;
