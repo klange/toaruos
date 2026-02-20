@@ -228,6 +228,9 @@ static void parse_mode(const char * mode, int * flags_, int * mask_) {
 			flags |= O_RDWR;
 			flags &= ~(O_APPEND); /* uh... */
 		}
+		if (*x == 'x') {
+			flags |= O_EXCL;
+		}
 		++x;
 	}
 
