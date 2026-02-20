@@ -16,20 +16,9 @@
 
 static int to_stdout = 0;
 static int keep = 0;
-static int progress = 0;
-static off_t total_length = 0;
-static size_t count = 0;
+static int force = 0;
 
 static uint8_t _get(struct inflate_context * ctx) {
-	return fgetc(ctx->input_priv);
-}
-
-static uint8_t _get_progress(struct inflate_context * ctx) {
-	count++;
-	if (!(count & 0x3FF)) {
-		fprintf(stderr, "\r%zu KiB / %zu KiB (%zu%%)", count / 1024, total_length / 1024, 100 * count / total_length);
-		fflush(stderr);
-	}
 	return fgetc(ctx->input_priv);
 }
 
@@ -41,18 +30,94 @@ static int usage(int argc, char * argv[]) {
 	fprintf(stderr,
 			"gunzip - decompress gzip-compressed payloads\n"
 			"\n"
-			"usage: %s [-c] name...\n"
+			"usage: %s [-ckf] name...\n"
 			"\n"
 			" -c     \033[3mwrite to stdout; implies -k\033[0m\n"
 			" -k     \033[3mkeep original files unchanged\033[0m\n"
+			" -f     \033[3mforce decompression (eg. from tty,\033[0m\n"
+			"        \033[3mor to an existing file, etc.)\033[0m\n"
 			"\n", argv[0]);
 	return 1;
+}
+
+static int endswith(char * str, char * suffix) {
+	size_t len_suffix = strlen(suffix);
+	size_t len_str = strlen(str);
+
+	if (len_str < len_suffix) return 0;
+	return !memcmp(str+len_str-len_suffix,suffix,len_suffix);
+}
+
+static int decompress_one(char * argv[], char * file) {
+	FILE * f = strcmp(file, "-") ? fopen(file, "r") : stdin;
+
+	if (!f) {
+		fprintf(stderr, "%s: %s: %s\n", argv[0], file, strerror(errno));
+		return 1;
+	}
+
+	if (!force && isatty(fileno(f))) {
+		fprintf(stderr, "%s: not decompressng from terminal; use -f to override\n", argv[0]);
+		if (f != stdin) fclose(f);
+		return 1;
+	}
+
+	struct inflate_context ctx;
+	ctx.get_input = _get;
+	ctx.write_output = _write;
+	ctx.input_priv = f;
+	ctx.ring = NULL;
+
+	if (f == stdin || to_stdout) {
+		ctx.output_priv = stdout;
+	} else {
+		char * tmp = strdup(file);
+		if (endswith(file,".gz")) {
+			tmp[strlen(tmp)-3] = '\0';
+		} else if (endswith(file,".z") || endswith(file,".Z")) {
+			tmp[strlen(tmp)-2] = '\0';
+		} else if (endswith(file,".tgz")) {
+			tmp[strlen(tmp)-2] = 'a';
+			tmp[strlen(tmp)-1] = 'r';
+		} else {
+			free(tmp);
+			fprintf(stderr, "%s: %s: unreocognized suffix, ignoring\n", argv[0], file);
+			fclose(f);
+			return 1;
+		}
+
+		ctx.output_priv = fopen(tmp,force ? "w" : "wx");
+
+		if (!ctx.output_priv) {
+			fprintf(stderr, "%s: %s: %s\n", argv[0], tmp, strerror(errno));
+			free(tmp);
+			fclose(f);
+			return 1;
+		}
+
+		free(tmp);
+	}
+
+	if (gzip_decompress(&ctx)) {
+		fprintf(stderr, "%s: %s: unspecified error from inflate\n", argv[0], file);
+		if (ctx.output_priv != stdout) fclose(ctx.output_priv);
+		if (f != stdin) fclose(f);
+		return 1;
+	}
+
+	fflush(ctx.output_priv);
+	if (f != stdin) fclose(f);
+
+	if (ctx.output_priv != stdout) fclose(ctx.output_priv);
+	if (f != stdin && !keep) unlink(file); /* Just ignore errors, whatever. */
+
+	return 0;
 }
 
 int main(int argc, char * argv[]) {
 
 	int opt;
-	while ((opt = getopt(argc, argv, "?ck")) != -1) {
+	while ((opt = getopt(argc, argv, "?ckf")) != -1) {
 		switch (opt) {
 			case 'c':
 				to_stdout = 1;
@@ -61,74 +126,24 @@ int main(int argc, char * argv[]) {
 			case 'k':
 				keep = 1;
 				break;
+			case 'f':
+				force = 1;
+				break;
+			default:
 			case '?':
 				return usage(argc, argv);
-			default:
-				fprintf(stderr, "%s: unrecognized option '%c'\n", argv[0], opt);
-				break;
 		}
 	}
 
-	FILE * f;
-	if (optind >= argc || !strcmp(argv[optind],"-")) {
-		f = stdin;
-		if (isatty(STDIN_FILENO)) {
-			fprintf(stderr, "%s: stdin is a tty\n", argv[0]);
-			return 1;
+	/* No argument, read from stdin */
+	if (optind >= argc) {
+		return decompress_one(argv, "-");
+	} else {
+		int ret = 0;
+		for (int i = optind; i < argc; ++i) {
+			ret |= decompress_one(argv, argv[i]);
 		}
-		to_stdout = 1;
-	} else {
-		f =fopen(argv[optind],"r");
+		return ret;
 	}
-
-	if (!f) {
-		fprintf(stderr, "%s: %s: %s\n", argv[0], argv[optind], strerror(errno));
-		return 1;
-	}
-
-	if (!to_stdout && strcmp(&argv[optind][strlen(argv[optind])-3],".gz")) {
-		fprintf(stderr, "%s: %s: Don't know how to interpret file name\n", argv[0], argv[optind]);
-		return 1;
-	}
-
-	char * maybeProgress = getenv("GUNZIP_PROGRESS");
-
-	if (maybeProgress && !strcmp(maybeProgress, "1")) {
-		progress = 1;
-		fseek(f, 0, SEEK_END);
-		total_length = ftell(f);
-		fseek(f, 0, SEEK_SET);
-	}
-
-	struct inflate_context ctx;
-	ctx.input_priv = f;
-	if (to_stdout) {
-		ctx.output_priv = stdout;
-	} else {
-		char * tmp = strdup(argv[optind]);
-		tmp[strlen(argv[optind])-3] = '\0';
-		ctx.output_priv = fopen(tmp,"w");
-		free(tmp);
-	}
-	ctx.get_input = progress ? _get_progress : _get;
-	ctx.write_output = _write;
-	ctx.ring = NULL; /* Use the global one */
-
-	if (gzip_decompress(&ctx)) {
-		fprintf(stderr, "%s: unspecified error from inflate\n", argv[0]);
-		return 1;
-	}
-
-	fflush(ctx.output_priv);
-
-	if (!to_stdout) {
-		fclose(ctx.output_priv);
-	}
-
-	if (!keep) {
-		unlink(argv[optind]);
-	}
-
-	return 0;
 }
 
