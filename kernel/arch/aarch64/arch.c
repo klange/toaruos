@@ -301,6 +301,26 @@ void arch_wakeup_others(void) {
  * do a full shutdown.
  */
 long arch_reboot(void) {
+	arch_fatal_prepare(); /* Ensure other cores stop. */
+
+	/* This semihosting SYS_EXIT interface only works under TCG */
+	if (args_present("semihosting")) {
+		uint64_t payload[2] = {0x20026, 0x0};
+		register uint32_t w0 asm("w0") = 0x18;
+		register uint64_t x1 asm("x1") = (uintptr_t)payload;
+		asm volatile ("hlt #0xF000" :: "r"(w0), "r"(x1) : "memory");
+	}
+
+	uint32_t * psci = dtb_find_node("psci");
+	if (psci) {
+		/* Try to force the QEMU SYSTEM_RESET interface if we have PSCI at all. */
+		register uint64_t x0 asm("x0") = 0x84000009;
+		register uint64_t x1 asm("x1") = 0;
+		asm volatile ("hvc 0" :: "r"(x0), "r"(x1) : "memory");
+	}
+
+	dprintf("aarch64: No reboot method. Halting.\n");
+	arch_fatal();
 	return 0;
 }
 
