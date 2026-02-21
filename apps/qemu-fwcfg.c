@@ -113,6 +113,11 @@ int main(int argc, char * argv[]) {
 	port_fd = open("/dev/port", O_RDWR);
 
 	if (port_fd < 0) {
+		/* Try the special aarch64 interface. */
+		port_fd = open("/dev/fwcfg", O_RDWR);
+	}
+
+	if (port_fd < 0) {
 		fprintf(stderr, "%s: could not open port IO device\n", argv[0]);
 		return 1;
 	}

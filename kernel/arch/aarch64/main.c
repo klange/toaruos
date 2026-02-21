@@ -37,6 +37,7 @@ extern void fbterm_initialize(void);
 extern void mmu_init(size_t memsize, size_t phys, uintptr_t firstFreePage, uintptr_t endOfInitrd);
 extern void aarch64_regs(struct regs *r);
 extern void fwcfg_load_initrd(uintptr_t * ramdisk_phys_base, size_t * ramdisk_size);
+extern void fwcfg_device(void);
 extern void virtio_input(void);
 extern void aarch64_smp_start(void);
 
@@ -649,6 +650,9 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 
 		/* Install drivers that may need to sleep here */
 		virtio_input();
+
+		/* QEMU fwcfg interface */
+		fwcfg_device();
 
 		/* Set up serial input */
 		extern void pl011_start(void);

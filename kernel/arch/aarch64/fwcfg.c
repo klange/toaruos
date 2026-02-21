@@ -12,6 +12,8 @@
 #include <kernel/printf.h>
 #include <kernel/gzip.h>
 #include <kernel/mmu.h>
+#include <kernel/vfs.h>
+#include <errno.h>
 
 #include <kernel/arch/aarch64/dtb.h>
 
@@ -131,3 +133,61 @@ void fwcfg_load_initrd(uintptr_t * ramdisk_phys_base, size_t * ramdisk_size) {
 	}
 }
 
+static ssize_t read_fwcfg(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
+	volatile uint8_t * addr;
+	if (offset == 0x510) {
+		/* Read selector. Must be 16 bit; selector will be byte swapped from big-endian. */
+		addr = (uint8_t*)node->device + 8;
+		if (size != 2) return -EINVAL;
+		uint16_t b = *(volatile uint16_t *)addr;
+		b = (b >> 8) | ((b & 0xFF) << 8);
+		*(uint16_t*)buffer = b;
+	} else if (offset == 0x511) {
+		/* Read one data byte */
+		addr = (uint8_t*)node->device;
+		if (size != 1) return -EINVAL;
+		*buffer = *addr;
+	} else {
+		return -EINVAL;
+	}
+	return size;
+}
+
+static ssize_t write_fwcfg(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
+	volatile uint8_t * addr;
+	if (offset == 0x510) {
+		/* Write selector. Must be 16 bit; selector will be byte swapped to big-endian. */
+		addr = (uint8_t*)node->device + 8;
+		if (size != 2) return -EINVAL;
+		uint16_t b = *(uint16_t *)buffer;
+		b = (b >> 8) | ((b & 0xFF) << 8);
+		*(volatile uint16_t*)addr = b;
+	} else if (offset == 0x511) {
+		/* Write one data byte. */
+		addr = (uint8_t*)node->device;
+		if (size != 1) return -EINVAL;
+		*addr = *buffer;
+	} else {
+		return -EINVAL;
+	}
+	return size;
+}
+
+void fwcfg_device(void) {
+	uint32_t * fw_cfg = dtb_find_node_prefix("fw-cfg");
+	if (!fw_cfg) return;
+	uint32_t * regs = dtb_node_find_property(fw_cfg, "reg");
+	if (!regs) return;
+
+	uint8_t * fw_cfg_addr = (uint8_t*)(uintptr_t)(mmu_map_from_physical(swizzle(regs[3])));
+	fs_node_t * fnode = malloc(sizeof(fs_node_t));
+	memset(fnode, 0, sizeof(fs_node_t));
+	strcpy(fnode->name, "fwcfg");
+	fnode->flags  = FS_BLOCKDEVICE;
+	fnode->mask   = 0660;
+	fnode->read   = read_fwcfg;
+	fnode->write  = write_fwcfg;
+	fnode->device = fw_cfg_addr;
+
+	vfs_mount("/dev/fwcfg", fnode);
+}
