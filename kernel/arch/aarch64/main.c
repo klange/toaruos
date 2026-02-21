@@ -550,7 +550,10 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 
 		fbterm_initialize();
 	} else {
-		early_log_initialize();
+		/* Uncomment to get serial log on startup; otherwise, you can set
+		 * 'qemu-serial-log' in the command line to get it later, which will
+		 * still dump the early log messages. */
+		//early_log_initialize();
 	}
 
 	dprintf("%s %d.%d.%d-%s %s %s\n",
@@ -611,6 +614,10 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 
 		/* Find the cmdline */
 		dtb_locate_cmdline(&_arch_args);
+
+		if (args_present("qemu-serial-log")) {
+			early_log_initialize();
+		}
 
 		/* Check for PCIe address? */
 		dtb_pcie_base();

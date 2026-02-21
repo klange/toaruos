@@ -18,6 +18,7 @@
 #include <kernel/printf.h>
 #include <kernel/elf.h>
 
+//#define BOOTSTUB_LOG_ENABLED
 #define QEMU_DTB_BASE     0x40000000UL
 #define KERNEL_PHYS_BASE  0x41000000UL
 
@@ -214,16 +215,20 @@ static uint32_t * node_find_property(uint32_t * node, const char * property) {
 }
 
 static size_t _early_log_write(size_t size, uint8_t * buffer) {
+#ifdef BOOTSTUB_LOG_ENABLED
 	for (unsigned int i = 0; i < size; ++i) {
 		*(volatile unsigned int *)(0x09000000) = buffer[i];
 	}
+#endif
 	return size;
 }
 
 static size_t _later_log_write(size_t size, uint8_t * buffer) {
+#ifdef BOOTSTUB_LOG_ENABLED
 	for (unsigned int i = 0; i < size; ++i) {
 		*(volatile unsigned int *)(0xffffff8009000000) = buffer[i];
 	}
+#endif
 	return size;
 }
 
