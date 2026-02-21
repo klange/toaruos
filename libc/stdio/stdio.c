@@ -15,6 +15,7 @@ struct _FILE {
 	int read_from;
 	int ungetc;
 	int eof;
+	int error;
 	int bufsiz;
 	long last_read_start;
 	char * _name;
@@ -35,6 +36,7 @@ FILE _stdin = {
 	.read_from = 0,
 	.ungetc = -1,
 	.eof = 0,
+	.error = 0,
 	.last_read_start = 0,
 	.bufsiz = BUFSIZ,
 
@@ -51,6 +53,7 @@ FILE _stdout = {
 	.read_from = 0,
 	.ungetc = -1,
 	.eof = 0,
+	.error = 0,
 	.last_read_start = 0,
 	.bufsiz = BUFSIZ,
 
@@ -67,6 +70,7 @@ FILE _stderr = {
 	.read_from = 0,
 	.ungetc = -1,
 	.eof = 0,
+	.error = 0,
 	.last_read_start = 0,
 	.bufsiz = BUFSIZ,
 
@@ -129,7 +133,11 @@ int setvbuf(FILE * stream, char * buf, int mode, size_t size) {
 int fflush(FILE * stream) {
 	if (!stream->write_buf) return EOF;
 	if (stream->written) {
-		syscall_write(stream->fd, stream->write_buf, stream->written);
+		ssize_t written = syscall_write(stream->fd, stream->write_buf, stream->written);
+		if (written < 0) {
+			stream->error = 1;
+			return EOF;
+		}
 		stream->written = 0;
 	}
 	return 0;
@@ -142,7 +150,7 @@ static size_t write_bytes(FILE * f, char * buf, size_t len) {
 	while (len > 0) {
 		f->write_buf[f->written++] = *buf;
 		if (f->written == (size_t)f->wbufsiz || *buf == '\n') {
-			fflush(f);
+			if (fflush(f) == EOF) return newBytes;
 		}
 		newBytes++;
 		buf++;
@@ -176,6 +184,7 @@ static size_t read_bytes(FILE * f, char * out, size_t len) {
 			ssize_t r = read(fileno(f), &f->read_buf[f->offset], f->bufsiz - f->offset);
 			if (r < 0) {
 				//fprintf(stderr, "error condition\n");
+				f->error = 1;
 				return r_out;
 			} else {
 				f->read_from = f->offset;
@@ -432,12 +441,9 @@ int fsetpos(FILE *stream, const fpos_t *pos) {
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE * stream) {
 	char * tracking = (char*)ptr;
 	for (size_t i = 0; i < nmemb; ++i) {
-		int r = read_bytes(stream, tracking, size);
-		if (r < 0) {
-			return -1;
-		}
+		size_t r = read_bytes(stream, tracking, size);
 		tracking += r;
-		if (r < (int)size) {
+		if (r < size) {
 			return i;
 		}
 	}
@@ -447,12 +453,9 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE * stream) {
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE * stream) {
 	char * tracking = (char*)ptr;
 	for (size_t i = 0; i < nmemb; ++i) {
-		int r = write_bytes(stream, tracking, size);
-		if (r < 0) {
-			return -1;
-		}
+		size_t r = write_bytes(stream, tracking, size);
 		tracking += r;
-		if (r < (int)size) {
+		if (r < size) {
 			return i;
 		}
 	}
@@ -541,8 +544,9 @@ int feof(FILE * stream) {
 
 void clearerr(FILE * stream) {
 	stream->eof = 0;
+	stream->error = 0;
 }
 
 int ferror(FILE * stream) {
-	return 0; /* TODO */
+	return stream->error;
 }
