@@ -331,6 +331,10 @@ int main(int argc, char * argv[]) {
 	fetch_options.out = stdout;
 	if (fetch_options.output_file) {
 		fetch_options.out = fopen(fetch_options.output_file, "w+");
+		if (!fetch_options.out) {
+			perror("fopen");
+			return 1;
+		}
 	}
 
 	int sock = socket(AF_INET, SOCK_STREAM, 0);
