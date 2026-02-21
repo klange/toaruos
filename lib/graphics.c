@@ -455,6 +455,11 @@ int load_sprite_bmp(sprite_t * sprite, const char * filename) {
 	image_size = ftell(image);
 	fseek(image, 0, SEEK_SET);
 
+	if (image_size < 16) {
+		fclose(image);
+		return 1;
+	}
+
 	/* Alright, we have the length */
 	char * bufferb = malloc(image_size);
 	fread(bufferb, image_size, 1, image);
