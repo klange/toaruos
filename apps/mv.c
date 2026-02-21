@@ -64,7 +64,7 @@ int main(int argc, char * argv[]) {
 	}
 
 	int destination_has_trailing_slash = strlen(destination) && destination[strlen(destination)-1] == '/';
-	int multiple_args = optind + 2 > argc;
+	int multiple_args = optind + 2 < argc;
 
 	if (!target_is_dir && (multiple_args || destination_has_trailing_slash)) {
 		fprintf(stderr, "%s: %s: Not a directory\n", argv[0], destination);
