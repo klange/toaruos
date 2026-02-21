@@ -269,6 +269,10 @@ static int list_contains(list_t * list, char * key) {
 }
 
 static int process_package(list_t * pkgs, char * name) {
+	if (!strlen(name)) {
+		fprintf(stderr, "invalid package name\n");
+		return 1;
+	}
 	if (hashmap_has(msk_installed, name)) return 0;
 	if (list_contains(pkgs, name)) return 0;
 
@@ -279,7 +283,7 @@ static int process_package(list_t * pkgs, char * name) {
 
 	/* Gather dependencies */
 	char * tmp  = confreader_get(msk_manifest, name, "dependencies");
-	if (strlen(tmp)) {
+	if (tmp && strlen(tmp)) {
 		char * deps = strdup(tmp);
 		char * save;
 		char * tok = strtok_r(deps, " ", &save);
