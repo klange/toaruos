@@ -501,6 +501,7 @@ int load_sprite_png(sprite_t * sprite, char * filename) {
 		}
 	}
 
+	fclose(f);
 	return 0;
 
 _error:
