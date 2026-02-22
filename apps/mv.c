@@ -57,7 +57,8 @@ int main(int argc, char * argv[]) {
 
 	int target_is_dir = 0;
 	struct stat statbuf;
-	if (!stat(destination, &statbuf)) {
+	int exists = 0;
+	if ((exists = !stat(destination, &statbuf))) {
 		if (S_ISDIR(statbuf.st_mode)) {
 			target_is_dir = 1;
 		}
@@ -66,7 +67,8 @@ int main(int argc, char * argv[]) {
 	int destination_has_trailing_slash = strlen(destination) && destination[strlen(destination)-1] == '/';
 	int multiple_args = optind + 2 < argc;
 
-	if (!target_is_dir && (multiple_args || destination_has_trailing_slash)) {
+	if ((multiple_args && !target_is_dir) ||
+	    (exists && !target_is_dir && destination_has_trailing_slash)) {
 		fprintf(stderr, "%s: %s: Not a directory\n", argv[0], destination);
 		return 1;
 	}
