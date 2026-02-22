@@ -128,6 +128,7 @@ typedef unsigned char cc_t;
 #define NOFLSH  0000200
 #define TOSTOP  0000400
 #define IEXTEN  0001000
+#define ECHOCTL 0002000
 
 /* attributes */
 #define TCSANOW   0x0001

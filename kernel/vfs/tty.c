@@ -128,7 +128,7 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 			pty->canon_buflen++;
 		}
 		if (pty->tios.c_lflag & ECHO) {
-			if (is_control(c)) {
+			if ((pty->tios.c_lflag & ECHOCTL) && is_control(c)) {
 				output_process(pty, '^');
 				output_process(pty, ('@'+c) % 128);
 			} else {
@@ -149,8 +149,12 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 		/* VSUSP */
 		if (sig != -1) {
 			if (pty->tios.c_lflag & ECHO) {
-				output_process(pty, '^');
-				output_process(pty, ('@' + c) % 128);
+				if ((pty->tios.c_lflag & ECHOCTL) && is_control(c)) {
+					output_process(pty, '^');
+					output_process(pty, ('@' + c) % 128);
+				} else {
+					output_process(pty, c);
+				}
 			}
 			clear_input_buffer(pty);
 			if (pty->fg_proc) {
@@ -201,8 +205,12 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 				erase_one(pty, pty->tios.c_lflag & ECHOK);
 			}
 			if ((pty->tios.c_lflag & ECHO) && ! (pty->tios.c_lflag & ECHOK)) {
-				output_process(pty, '^');
-				output_process(pty, ('@' + c) % 128);
+				if ((pty->tios.c_lflag & ECHOCTL) && is_control(c)) {
+					output_process(pty, '^');
+					output_process(pty, ('@' + c) % 128);
+				} else {
+					output_process(pty, c);
+				}
 			}
 			return;
 		}
@@ -210,8 +218,12 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 			/* Backspace */
 			erase_one(pty, pty->tios.c_lflag & ECHOE);
 			if ((pty->tios.c_lflag & ECHO) && ! (pty->tios.c_lflag & ECHOE)) {
-				output_process(pty, '^');
-				output_process(pty, ('@' + c) % 128);
+				if ((pty->tios.c_lflag & ECHOCTL) && is_control(c)) {
+					output_process(pty, '^');
+					output_process(pty, ('@' + c) % 128);
+				} else {
+					output_process(pty, c);
+				}
 			}
 			return;
 		}
@@ -223,8 +235,12 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 				erase_one(pty, pty->tios.c_lflag & ECHOE);
 			}
 			if ((pty->tios.c_lflag & ECHO) && ! (pty->tios.c_lflag & ECHOE)) {
-				output_process(pty, '^');
-				output_process(pty, ('@' + c) % 128);
+				if ((pty->tios.c_lflag & ECHOCTL) && is_control(c)) {
+					output_process(pty, '^');
+					output_process(pty, ('@' + c) % 128);
+				} else {
+					output_process(pty, c);
+				}
 			}
 			return;
 		}
@@ -242,7 +258,7 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 			pty->canon_buflen++;
 		}
 		if (pty->tios.c_lflag & ECHO) {
-			if (is_control(c) && c != '\n') {
+			if ((pty->tios.c_lflag & ECHOCTL) && is_control(c) && c != '\n') {
 				output_process(pty, '^');
 				output_process(pty, ('@' + c) % 128);
 			} else {
@@ -259,7 +275,12 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 		}
 		return;
 	} else if (pty->tios.c_lflag & ECHO) {
-		output_process(pty, c);
+		if ((pty->tios.c_lflag & ECHOCTL) && is_control(c) && c != '\n') {
+			output_process(pty, '^');
+			output_process(pty, ('@' + c) % 128);
+		} else {
+			output_process(pty, c);
+		}
 	}
 	IN(c);
 }
@@ -759,7 +780,7 @@ pty_t * pty_new(struct winsize * size, int index) {
 
 	pty->tios.c_iflag = ICRNL | BRKINT;
 	pty->tios.c_oflag = ONLCR | OPOST;
-	pty->tios.c_lflag = ECHO | ECHOE | ECHOK | ICANON | ISIG | IEXTEN;
+	pty->tios.c_lflag = ECHO | ECHOE | ECHOK | ICANON | ISIG | IEXTEN | ECHOCTL;
 	pty->tios.c_cflag = CREAD | CS8 | B38400;
 	pty->tios.c_cc[VEOF]   =  4; /* ^D */
 	pty->tios.c_cc[VEOL]   =  0; /* Not set */

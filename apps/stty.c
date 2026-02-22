@@ -276,6 +276,7 @@ static int show_settings(int all) {
 	print_lflag("echoe",  ECHOE,  1);
 	print_lflag("echok",  ECHOK,  1);
 	print_lflag("echonl", ECHONL, 0);
+	print_lflag("echoctl",ECHOCTL,1);
 	print_lflag("noflsh", NOFLSH, 0);
 	print_lflag("tostop", TOSTOP, 0);
 	print_lflag("iexten", IEXTEN, 1);
@@ -311,7 +312,7 @@ int main(int argc, char * argv[]) {
 		if (!strcmp(argv[i], "sane")) {
 			t.c_iflag = ICRNL | BRKINT;
 			t.c_oflag = ONLCR | OPOST;
-			t.c_lflag = ECHO | ECHOE | ECHOK | ICANON | ISIG | IEXTEN;
+			t.c_lflag = ECHO | ECHOE | ECHOK | ICANON | ISIG | IEXTEN | ECHOCTL;
 			t.c_cflag |= CREAD;
 			t.c_cc[VEOF]   =  4; /* ^D */
 			t.c_cc[VEOL]   =  0; /* Not set */
@@ -438,6 +439,7 @@ int main(int argc, char * argv[]) {
 		set_lflag("echoe",  ECHOE);
 		set_lflag("echok",  ECHOK);
 		set_lflag("echonl", ECHONL);
+		set_lflag("echoctl",ECHOCTL);
 		set_lflag("noflsh", NOFLSH);
 		set_lflag("tostop", TOSTOP);
 
