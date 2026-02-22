@@ -543,13 +543,24 @@ int load_sprite_bmp(sprite_t * sprite, const char * filename) {
 		struct Header * header = (struct Header *)bufferb;
 
 		if (header->id_length || header->color_map_type || (header->image_type != 2)) {
-			/* Unable to parse */
-			goto _cleanup_sprite;
+			/* Possibly valid but unsupported Targa file */
+			fclose(image);
+			free(bufferb);
+			return 1;
 		}
 
 		sprite->width = header->width;
 		sprite->height = header->height;
-		sprite->bitmap = malloc(sizeof(uint32_t) * sprite->width * sprite->height);
+
+		size_t size = sizeof(uint32_t) * sprite->width * sprite->height;
+		if (size > image_size - sizeof(struct Header)) {
+			/* sus */
+			fclose(image);
+			free(bufferb);
+			return 1;
+		}
+
+		sprite->bitmap = malloc(size);
 		sprite->masks = NULL;
 
 		uint16_t x = 0;
