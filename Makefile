@@ -115,6 +115,8 @@ kernel/sys/version.o: ${KERNEL_SOURCES}
 
 kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/gensym.krk
 	-rm -f kernel/symbols.o
+	which kuroko
+	kuroko --version
 	${NM} -g -f p ${KERNEL_ASMOBJS} ${KERNEL_OBJS} | kuroko util/gensym.krk > kernel/symbols.S
 	${CC} -c kernel/symbols.S -o $@
 
