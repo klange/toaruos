@@ -364,6 +364,10 @@ fs_node_t * file_get_parent(const char * path) {
 
 static const char * fs_basename(const char * path) {
 	const char * f_path = path + strlen(path) - 1;
+	while (f_path > path && *f_path == '/') {
+		/* Trailing slashes */
+		f_path--;
+	}
 	while (f_path > path) {
 		if (*f_path == '/') {
 			f_path += 1;
@@ -380,6 +384,7 @@ static const char * fs_basename(const char * path) {
 }
 
 int rename_file_fs(const char * src, const char * dest) {
+	if (!*src || !*dest) return -ENOENT;
 	fs_node_t * src_parent = file_get_parent(src);
 	if (!src_parent) return -ENOENT;
 	fs_node_t * dest_parent = file_get_parent(dest);
@@ -396,6 +401,9 @@ int rename_file_fs(const char * src, const char * dest) {
 	/* Get basename of each path component */
 	const char * src_name = fs_basename(src);
 	const char * dest_name = fs_basename(dest);
+
+	if (!*src_name || !*dest_name) return -EINVAL;
+	if (*src_name == '/' || *dest_name == '/') return -EINVAL;
 
 	out = src_parent->mount->rename(src_parent->mount, src_parent, src_name, dest_parent, dest_name);
 

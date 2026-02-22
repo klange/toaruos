@@ -557,8 +557,36 @@ static int mkdir_tmpfs(fs_node_t * parent, char * name, mode_t permission) {
 	return 0;
 }
 
+static int path_comp(const char * a, const char * b) {
+	while (*a && *b && *a != '/' && *b != '/') {
+		if (*a != *b) return 1;
+		a++;
+		b++;
+	}
+
+	if ((*a == '/' || !*a) && (*b == '/' || !*b)) return 0;
+	return 1;
+}
+
+static int endswith(const char * str, char ch) {
+	size_t len = strlen(str);
+	if (len > 1 && str[len-1] == ch) return 1;
+	return 0;
+}
+
+static char * path_dup(const char * path) {
+	const char * n = path;
+	while (*n && *n != '/') n++;
+	char * out = malloc(n - path + 1);
+	memcpy(out, path, n - path);
+	out[n-path] = '\0';
+	return out;
+}
+
+
 static int rename_tmpfs(fs_node_t * mount_root, fs_node_t * src_dir, const char * src_name, fs_node_t * dest_dir, const char * dest_name) {
 	/* src_dir and dest_dir are definitely from us, no worries there */
+	int ret = 0;
 
 	struct tmpfs_dir * root = (struct tmpfs_dir*)mount_root->device;
 	spin_lock(root->nest_lock);
@@ -571,7 +599,7 @@ static int rename_tmpfs(fs_node_t * mount_root, fs_node_t * src_dir, const char 
 	node_t * src_node = NULL;
 	foreach(f, ds->files) {
 		struct tmpfs_file * t = (struct tmpfs_file *)f->value;
-		if (!strcmp(src_name, t->name)) {
+		if (!path_comp(src_name, t->name)) {
 			src_file = t;
 			src_node = f;
 			break;
@@ -579,9 +607,14 @@ static int rename_tmpfs(fs_node_t * mount_root, fs_node_t * src_dir, const char 
 	}
 
 	if (!src_file) {
-		spin_unlock(ds->lock);
-		spin_unlock(root->nest_lock);
-		return -ENOENT;
+		ret = -ENOENT;
+		goto _cleanup_src;
+	}
+
+	if (src_file->type != TMPFS_TYPE_DIR && endswith(src_name, '/')) {
+		/* Source ended with trailing slashes, but was not a directory. */
+		ret = -ENOTDIR;
+		goto _cleanup_src;
 	}
 
 	struct tmpfs_dir * dd = (struct tmpfs_dir *)dest_dir->device;
@@ -591,16 +624,27 @@ static int rename_tmpfs(fs_node_t * mount_root, fs_node_t * src_dir, const char 
 	node_t * dest_node = NULL;
 	foreach(f, dd->files) {
 		struct tmpfs_file * t = (struct tmpfs_file *)f->value;
-		if (!strcmp(dest_name, t->name)) {
+		if (!path_comp(dest_name, t->name)) {
 			dest_file = t;
 			dest_node = f;
 			break;
 		}
 	}
 
+	if (dest_file && dest_file->type != TMPFS_TYPE_DIR && endswith(dest_name, '/')) {
+		/* Destination ended with trailing slashes, but was not a directory. */
+		ret = -ENOTDIR;
+		goto _cleanup;
+	}
+
 	if (!dest_file) {
+		if (endswith(dest_name,'/') && src_file->type != TMPFS_TYPE_DIR) {
+			/* Destination did not exist, ended with trailing slashes, but the source was not a directory. */
+			ret = -ENOTDIR;
+			goto _cleanup;
+		}
 		char * old_name = src_file->name;
-		src_file->name = strdup(dest_name);
+		src_file->name = path_dup(dest_name);
 		free(old_name);
 
 		list_insert(dd->files, src_file);
@@ -612,29 +656,23 @@ static int rename_tmpfs(fs_node_t * mount_root, fs_node_t * src_dir, const char 
 			struct tmpfs_dir * dest = (struct tmpfs_dir*)dest_file;
 			if (dest->files && dest->files->length) {
 				/* Destination is not empty */
-				if (dd != ds) spin_unlock(dd->lock);
-				spin_unlock(ds->lock);
-				spin_unlock(root->nest_lock);
-				return -ENOTEMPTY;
+				ret = -ENOTEMPTY;
+				goto _cleanup;
 			}
 			if (src_file->type != TMPFS_TYPE_DIR) {
 				/* Source is not a directory but destination is */
-				if (dd != ds) spin_unlock(dd->lock);
-				spin_unlock(ds->lock);
-				spin_unlock(root->nest_lock);
-				return -EISDIR;
+				ret = -EISDIR;
+				goto _cleanup;
 			}
 		} else if (src_file->type == TMPFS_TYPE_DIR) {
 			/* Source is a directory, but destination is not */
-			if (dd != ds) spin_unlock(dd->lock);
-			spin_unlock(ds->lock);
-			spin_unlock(root->nest_lock);
-			return -ENOTDIR;
+			ret = -ENOTDIR;
+			goto _cleanup;
 		}
 
 		/* Rename src */
 		char * old_name = src_file->name;
-		src_file->name = strdup(dest_name);
+		src_file->name = path_dup(dest_name);
 		free(old_name);
 
 		list_delete(ds->files, src_node);
@@ -648,10 +686,12 @@ static int rename_tmpfs(fs_node_t * mount_root, fs_node_t * src_dir, const char 
 		}
 	}
 
+_cleanup:
 	if (dd != ds) spin_unlock(dd->lock);
+_cleanup_src:
 	spin_unlock(ds->lock);
 	spin_unlock(root->nest_lock);
-	return 0;
+	return ret;
 }
 
 static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d) {
