@@ -14,8 +14,6 @@ struct _FILE {
 	int offset;
 	int read_from;
 	int ungetc;
-	int eof;
-	int error;
 	int bufsiz;
 	long last_read_start;
 	char * _name;
@@ -26,7 +24,14 @@ struct _FILE {
 
 	struct _FILE * prev;
 	struct _FILE * next;
+
+	int flags;
 };
+
+/* Flag values */
+#define STDIO_EOF         0x0001
+#define STDIO_ERROR       0x0002
+#define STDIO_UNSEEKABLE  0x0004
 
 FILE _stdin = {
 	.fd = 0,
@@ -35,14 +40,13 @@ FILE _stdin = {
 	.offset = 0,
 	.read_from = 0,
 	.ungetc = -1,
-	.eof = 0,
-	.error = 0,
 	.last_read_start = 0,
 	.bufsiz = BUFSIZ,
 
 	.wbufsiz = BUFSIZ,
 	.write_buf = NULL,
 	.written = 0,
+	.flags = 0,
 };
 
 FILE _stdout = {
@@ -52,14 +56,13 @@ FILE _stdout = {
 	.offset = 0,
 	.read_from = 0,
 	.ungetc = -1,
-	.eof = 0,
-	.error = 0,
 	.last_read_start = 0,
 	.bufsiz = BUFSIZ,
 
 	.wbufsiz = BUFSIZ,
 	.write_buf = NULL,
 	.written = 0,
+	.flags = 0,
 };
 
 FILE _stderr = {
@@ -69,14 +72,13 @@ FILE _stderr = {
 	.offset = 0,
 	.read_from = 0,
 	.ungetc = -1,
-	.eof = 0,
-	.error = 0,
 	.last_read_start = 0,
 	.bufsiz = BUFSIZ,
 
 	.wbufsiz = BUFSIZ,
 	.write_buf = NULL,
 	.written = 0,
+	.flags = 0,
 };
 
 FILE * stdin = &_stdin;
@@ -135,7 +137,7 @@ int fflush(FILE * stream) {
 	if (stream->written) {
 		ssize_t written = syscall_write(stream->fd, stream->write_buf, stream->written);
 		if (written < 0) {
-			stream->error = 1;
+			stream->flags |= STDIO_ERROR;
 			return EOF;
 		}
 		stream->written = 0;
@@ -180,11 +182,17 @@ static size_t read_bytes(FILE * f, char * out, size_t len) {
 			if (f->offset == f->bufsiz) {
 				f->offset = 0;
 			}
-			f->last_read_start = syscall_seek(f->fd, 0, SEEK_CUR);
+			if (!(f->flags & STDIO_UNSEEKABLE)) {
+				f->last_read_start = syscall_seek(f->fd, 0, SEEK_CUR);
+				if (f->last_read_start == -ESPIPE) {
+					f->last_read_start = -1;
+					f->flags |= STDIO_UNSEEKABLE;
+				}
+			}
 			ssize_t r = read(fileno(f), &f->read_buf[f->offset], f->bufsiz - f->offset);
 			if (r < 0) {
 				//fprintf(stderr, "error condition\n");
-				f->error = 1;
+				f->flags |= STDIO_ERROR;
 				return r_out;
 			} else {
 				f->read_from = f->offset;
@@ -196,7 +204,7 @@ static size_t read_bytes(FILE * f, char * out, size_t len) {
 		if (f->available == 0) {
 			/* EOF condition */
 			//fprintf(stderr, "%s: no bytes available, returning read value of %d\n", _argv_0, r_out);
-			f->eof = 1;
+			f->flags |= STDIO_EOF;
 			return r_out;
 		}
 
@@ -268,7 +276,7 @@ FILE * fopen(const char *path, const char *mode) {
 	out->read_from = 0;
 	out->offset = 0;
 	out->ungetc = -1;
-	out->eof = 0;
+	out->flags = 0;
 	out->_name = strdup(path);
 
 	out->write_buf = malloc(BUFSIZ);
@@ -297,7 +305,7 @@ FILE * freopen(const char *path, const char *mode, FILE * stream) {
 		stream->read_from = 0;
 		stream->offset = 0;
 		stream->ungetc = -1;
-		stream->eof = 0;
+		stream->flags = 0;
 		stream->_name = strdup(path);
 		stream->written = 0;
 		if (fd < 0) {
@@ -326,7 +334,7 @@ FILE * fdopen(int fd, const char *mode){
 	out->read_from = 0;
 	out->offset = 0;
 	out->ungetc = -1;
-	out->eof = 0;
+	out->flags = 0;
 
 	char tmp[30];
 	sprintf(tmp, "fd[%d]", fd);
@@ -393,7 +401,7 @@ int fseek(FILE * stream, long offset, int whence) {
 	stream->read_from = 0;
 	stream->available = 0;
 	stream->ungetc = -1;
-	stream->eof = 0;
+	stream->flags = 0;
 
 	int resp = syscall_seek(stream->fd,offset,whence);
 	if (resp < 0) {
@@ -417,7 +425,7 @@ long ftell(FILE * stream) {
 	stream->read_from = 0;
 	stream->available = 0;
 	stream->ungetc = -1;
-	stream->eof = 0;
+	stream->flags = 0;
 	long resp = syscall_seek(stream->fd, 0, SEEK_CUR);
 	if (resp < 0) {
 		errno = -resp;
@@ -486,10 +494,10 @@ int fgetc(FILE * stream) {
 	int r;
 	r = fread(buf, 1, 1, stream);
 	if (r < 0) {
-		stream->eof = 1;
+		stream->flags |= STDIO_EOF;
 		return EOF;
 	} else if (r == 0) {
-		stream->eof = 1;
+		stream->flags |= STDIO_EOF;
 		return EOF;
 	}
 	return (unsigned char)buf[0];
@@ -516,7 +524,7 @@ char *fgets(char *s, int size, FILE *stream) {
 		}
 	}
 	if (c == EOF) {
-		stream->eof = 1;
+		stream->flags |= STDIO_EOF;
 		if (out == s) {
 			return NULL;
 		} else {
@@ -539,14 +547,13 @@ void setbuf(FILE * stream, char * buf) {
 }
 
 int feof(FILE * stream) {
-	return stream->eof;
+	return !!(stream->flags & STDIO_EOF);
 }
 
 void clearerr(FILE * stream) {
-	stream->eof = 0;
-	stream->error = 0;
+	stream->flags = ~(STDIO_ERROR | STDIO_EOF);
 }
 
 int ferror(FILE * stream) {
-	return stream->error;
+	return !!(stream->flags & STDIO_ERROR);
 }
