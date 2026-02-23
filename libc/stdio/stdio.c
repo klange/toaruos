@@ -510,16 +510,15 @@ int getchar(void) {
 }
 
 char *fgets(char *s, int size, FILE *stream) {
+	if (size == 0) return NULL;
+	if (size == 1) return *s = '\0', s;
 	int c;
 	char * out = s;
-	while ((c = fgetc(stream)) > 0) {
+	while ((c = fgetc(stream)) >= 0) {
 		*s++ = c;
 		size--;
-		if (size == 0) {
-			return out;
-		}
 		*s = '\0';
-		if (c == '\n') {
+		if (size == 1 || c == '\n') {
 			return out;
 		}
 	}
@@ -528,6 +527,7 @@ char *fgets(char *s, int size, FILE *stream) {
 		if (out == s) {
 			return NULL;
 		} else {
+			*s = '\0';
 			return out;
 		}
 	}
