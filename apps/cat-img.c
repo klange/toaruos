@@ -91,9 +91,16 @@ int main (int argc, char * argv[]) {
 
 	if (!w || !h) return 1;
 
+	int ret = 0;
+
 	while (optind < argc) {
 		sprite_t * image = calloc(sizeof(sprite_t),1);
-		load_sprite(image, argv[optind]);
+		if (load_sprite(image, argv[optind])) {
+			free(image);
+			ret |= 1;
+			optind++;
+			continue;
+		}
 
 		sprite_t * source = image;
 
@@ -159,6 +166,6 @@ int main (int argc, char * argv[]) {
 		optind++;
 	}
 
-	return 0;
+	return ret;
 }
  
