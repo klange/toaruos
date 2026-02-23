@@ -449,7 +449,7 @@ int load_sprite_bmp(sprite_t * sprite, const char * filename) {
 
 	if (!image) return 1;
 
-	size_t image_size= 0;
+	long image_size= 0;
 
 	fseek(image, 0, SEEK_END);
 	image_size = ftell(image);
@@ -495,7 +495,7 @@ int load_sprite_bmp(sprite_t * sprite, const char * filename) {
 
 		for (y = 0; y < height; ++y) {
 			for (x = 0; x < width; ++x) {
-				if (i > image_size) goto _cleanup_sprite;
+				if (i > (size_t)image_size) goto _cleanup_sprite;
 				/* Extract the color */
 				uint32_t color;
 				if (bpp == 24) {
