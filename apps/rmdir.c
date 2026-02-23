@@ -20,6 +20,7 @@ static int usage(char * argv[]) {
 		"Deletes empty directories.\n"
 		"\n"
 		"  -p   " _I "Remove parents if also empty" _E
+		"  -v   " _I "Print directory names when they are successfully removed" _E
 		"\n", argv[0]);
 #undef _I
 #undef _E
@@ -28,11 +29,15 @@ static int usage(char * argv[]) {
 
 int main(int argc, char * argv[]) {
 	int parents = 0;
+	int verbose = 0;
 	int opt;
-	while ((opt = getopt(argc, argv, "p")) != -1) {
+	while ((opt = getopt(argc, argv, "pv")) != -1) {
 		switch (opt) {
 			case 'p':
 				parents = 1;
+				break;
+			case 'v':
+				verbose = 1;
 				break;
 			default:
 				return usage(argv);
@@ -46,7 +51,13 @@ int main(int argc, char * argv[]) {
 		if (rmdir(argv[optind]) < 0) {
 			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[optind], strerror(errno));
 			ret |= 1;
-		} else if (parents) {
+			optind++;
+			continue;
+		}
+
+		if (verbose) fprintf(stdout, "%s\n", argv[optind]);
+
+		if (parents) {
 			char * parent = dirname(argv[optind]);
 			while (parent && strcmp(parent,".") && strcmp(parent,"/")) {
 				if (rmdir(parent) < 0) {
@@ -54,6 +65,9 @@ int main(int argc, char * argv[]) {
 					ret |= 1;
 					break;
 				}
+
+				if (verbose) fprintf(stdout, "%s\n", parent);
+
 				parent = dirname(parent);
 			}
 		}
