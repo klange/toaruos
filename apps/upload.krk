@@ -1,29 +1,41 @@
 #!/bin/kuroko
+'''
+Test tool to send file contents over a socket.
 
+$ upload.krk file address:port
+'''
 import socket
 import fileio
-
 import kuroko
 
-let b
-with fileio.open(kuroko.argv[1],'rb') as f:
-    b = f.read()
 
-let endpoint = kuroko.argv[2]
+def usage():
+    print(f'''usage: {kuroko.argv[0]} file address:port
 
-if ':' in endpoint:
+Sends files over a TCP socket to a remote address.
+''', file=fileio.stderr)
+    return 1
+
+if __name__ == '__main__':
+    if len(kuroko.argv) < 3:
+        return usage()
+
+    let path = kuroko.argv[1]
+    let endpoint = kuroko.argv[2]
+
+    if ':' not in endpoint:
+        return usage()
+
     let x = endpoint.split(':')
     endpoint = (x[0], int(x[1]))
 
-print("Uploading",len(b),"byte(s) to",endpoint)
-
-let s = socket.socket()
-
-s.connect(endpoint)
-
-print("Connected...")
-
-s.send(b)
-
-print("Done.")
+    let b
+    with fileio.open(path,'rb') as f:
+        b = f.read()
+    print("Uploading",len(b),"byte(s) to",endpoint)
+    let s = socket.socket()
+    s.connect(endpoint)
+    print("Connected...")
+    s.send(b)
+    print("Done.")
 
