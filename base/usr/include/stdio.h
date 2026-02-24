@@ -2,6 +2,7 @@
 
 #include <_cheader.h>
 #include <stddef.h>
+#include <sys/types.h>
 #include <va_list.h>
 
 _Begin_C_Header
@@ -97,5 +98,8 @@ extern int fsetpos(FILE *stream, const fpos_t *pos);
 
 /* Compatibility */
 #define FILENAME_MAX 1024
+
+extern ssize_t getdelim(char **restrict lineptr, size_t *restrict n, int delimiter, FILE *restrict stream);
+extern ssize_t getline(char **restrict lineptr, size_t *restrict n, FILE *restrict stream);
 
 _End_C_Header;
