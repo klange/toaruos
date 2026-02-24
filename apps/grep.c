@@ -283,7 +283,6 @@ int main(int argc, char ** argv) {
 	if (optind == argc) return usage(argv);
 
 	char * needle = argv[optind];
-	char buf[LINE_SIZE];
 	int ret = 1;
 	int is_tty = isatty(STDOUT_FILENO);
 
@@ -291,6 +290,9 @@ int main(int argc, char ** argv) {
 
 
 	int showFilenames = (optind + 1 < argc);
+	ssize_t lineLength = 0;
+	size_t avail = 0;
+	char * buf = NULL;
 
 	do {
 		FILE * input = stdin;
@@ -304,9 +306,9 @@ int main(int argc, char ** argv) {
 		}
 
 		const char * filename = input == stdin ? "(standard input)" : argv[optind];
+		int isbinary = 0;
 
-		while (fgets(buf, LINE_SIZE, input)) {
-			int lineLength = strlen(buf);
+		while ((lineLength = getline(&buf, &avail, input)) >= 0) {
 			if (lineLength && buf[lineLength-1] == '\n') {
 				lineLength--;
 			}
@@ -314,6 +316,15 @@ int main(int argc, char ** argv) {
 				lineLength,
 				buf
 			};
+
+			if (!isbinary) {
+				for (ssize_t i = 0; i < lineLength; ++i) {
+					if (buf[i] == '\0') {
+						isbinary = 1;
+						break;
+					}
+				}
+			}
 
 			if (!invert) {
 				int lastMatch = 0;
@@ -326,6 +337,10 @@ int main(int argc, char ** argv) {
 							break;
 						}
 						if (quiet) goto _done;
+						if (isbinary) {
+							fprintf(stderr, "%s: %s: binary file matches\n", argv[0], filename);
+							goto _done;
+						}
 						if (only_matching) {
 							if (showFilenames) fprintf(stdout, "%s:", filename);
 							fprintf(stdout, "%.*s\n", len, buf + j);
@@ -364,6 +379,10 @@ int main(int argc, char ** argv) {
 					continue;
 				}
 				if (quiet) goto _done;
+				if (isbinary) {
+					fprintf(stderr, "%s: %s: binary file matches\n", argv[0], filename);
+					goto _done;
+				}
 				if (showFilenames) fprintf(stdout, "%s:", filename);
 				fprintf(stdout, "%s", buf);
 			}
