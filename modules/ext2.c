@@ -844,6 +844,10 @@ static int mkdir_ext2(fs_node_t * parent, char * name, mode_t permission) {
 		return -EEXIST;
 	}
 
+	if (!has_permission(parent, 02) || !has_permission(parent, 01)) {
+		return -EACCES;
+	}
+
 	/* Allocate an inode for it */
 	unsigned int inode_no = allocate_inode(this);
 	ext2_inodetable_t * inode = read_inode(this,inode_no);

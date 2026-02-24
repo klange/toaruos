@@ -562,19 +562,7 @@ int mkdir_fs(char *name, mode_t permission) {
 		return -EEXIST;
 	}
 
-	/* TODO do we have a better way to do this than opening it? */
-	fs_node_t * this = kopen(path, 0);
-	if (this) {
-		close_fs(this);
-		return -EEXIST;
-	}
-
-	/* Need both exec and write on the parent to create a new entry */
-	if (!has_permission(parent, 02) || !has_permission(parent, 01)) {
-		free(path);
-		close_fs(parent);
-		return -EACCES;
-	}
+	/* Permission check was moved into methods for reasons. */
 
 	int ret = 0;
 	if (parent->mkdir) {
