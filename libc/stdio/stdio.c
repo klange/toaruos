@@ -569,13 +569,13 @@ ssize_t getdelim(char **restrict lineptr, size_t *restrict n, int delimiter, FIL
 	while (1) {
 		int i = fgetc(stream);
 
-		if (*n < c + 1) {
+		if (*n <= c + 1) {
 			size_t nn = *n < 120 ? 120 : (*n * 2);
 			/* TODO: We don't define SSIZE_MAX? Anyway, ssize_t is typedefed to long on all both of our supported
 			 * platforms, so use LONG_MAX here as a replacement. size_t should be able to hold SSIZE_MAX * 2, so
 			 * the above calculation should not overflow and we can check here if *n has gotten too big. */
 			if (nn > LONG_MAX) nn = LONG_MAX;
-			if (nn < c + 1) {
+			if (nn <= c + 1) {
 				/* ... and this check should only trip if we've maxed up *n to SSIZE_MAX
 				 *     and it's still not big enought to fit our data. */
 				errno = EOVERFLOW;
