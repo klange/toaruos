@@ -581,9 +581,9 @@ ssize_t getdelim(char **restrict lineptr, size_t *restrict n, int delimiter, FIL
 				errno = EOVERFLOW;
 				return -1;
 			}
-			*n = nn;
-			char * nlineptr = realloc(*lineptr, *n);
+			char * nlineptr = realloc(*lineptr, nn);
 			if (!nlineptr) return -1; /* malloc failure */
+			*n = nn;
 			*lineptr = nlineptr;
 		}
 
