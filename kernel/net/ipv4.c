@@ -502,12 +502,15 @@ static long sock_udp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 		return -EINVAL;
 	}
 
+	struct sockaddr_in * name = msg->msg_name;
+
+	if (!name->sin_port) return -EADDRNOTAVAIL; /* 0 is still 0 in both endians */
+
 	if (sock->priv[0] == 0) {
 		udp_get_port(sock);
 		printf("udp: assigning port %d to socket\n", sock->priv[0]);
 	}
 
-	struct sockaddr_in * name = msg->msg_name;
 
 	char dest[16];
 	ip_ntoa(ntohl(name->sin_addr.s_addr), dest);
@@ -784,6 +787,8 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 		printf("tcp: socket is already connected?\n");
 		return -EINVAL;
 	}
+
+	if (!dest->sin_port) return -EADDRNOTAVAIL; /* 0 is still 0 in both endians */
 
 	/* Get a port */
 	tcp_get_port(sock);
