@@ -107,8 +107,8 @@ void pre_main(int argc, char * argv[], char ** envp, int (*main)(int,char**)) {
 		__argv = argv;
 		/* Run our initializers, because I'm pretty sure the kernel didn't... */
 		if (!__libc_init_called) {
-			extern uintptr_t __init_array_start;
-			extern uintptr_t __init_array_end;
+			extern uintptr_t __init_array_start __attribute__((weak));
+			extern uintptr_t __init_array_end __attribute__((weak));
 			for (uintptr_t * constructor = &__init_array_start; constructor < &__init_array_end; ++constructor) {
 				void (*constr)(void) = (void*)*constructor;
 				constr();
