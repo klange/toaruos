@@ -337,7 +337,10 @@ static void set_focused_window(yutani_globals_t * yg, yutani_server_window_t * w
 		yutani_msg_buildx_window_focus_change(response, yg->focused_window->wid, 0);
 		pex_send(yg->server, yg->focused_window->owner, response->size, (char *)response);
 	}
+
+	if (!w) w = yg->bottom_z;
 	yg->focused_window = w;
+
 	if (w) {
 		/* Send focus change to new focused window */
 		yutani_msg_buildx_window_focus_change_alloc(response);
@@ -345,12 +348,6 @@ static void set_focused_window(yutani_globals_t * yg, yutani_server_window_t * w
 		pex_send(yg->server, w->owner, response->size, (char *)response);
 		make_top(yg, w);
 		mark_window(yg, w);
-	} else {
-		/*
-		 * There is no window to focus (we're unsetting focus);
-		 * default to the bottom window (background)
-		 */
-		yg->focused_window = yg->bottom_z;
 	}
 
 	/* Notify all subscribers of window changes */
@@ -364,6 +361,7 @@ static void set_focused_window(yutani_globals_t * yg, yutani_server_window_t * w
  */
 static yutani_server_window_t * get_focused(yutani_globals_t * yg) {
 	if (yg->focused_window) return yg->focused_window;
+	if (yg->bottom_z) set_focused_window(yg, yg->bottom_z);
 	return yg->bottom_z;
 }
 
@@ -1459,6 +1457,8 @@ static void window_finish_minimize(yutani_globals_t * yg, yutani_server_window_t
 			set_focused_window(yg, yg->menu_zs->tail->value);
 		} else if (yg->mid_zs->tail && yg->mid_zs->tail->value) {
 			set_focused_window(yg, yg->mid_zs->tail->value);
+		} else {
+			set_focused_window(yg, yg->bottom_z);
 		}
 	}
 
@@ -1499,6 +1499,8 @@ static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t 
 			set_focused_window(yg, yg->menu_zs->tail->value);
 		} else if (yg->mid_zs->tail && yg->mid_zs->tail->value) {
 			set_focused_window(yg, yg->mid_zs->tail->value);
+		} else {
+			set_focused_window(yg, yg->bottom_z);
 		}
 	}
 
