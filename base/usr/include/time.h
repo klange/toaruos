@@ -38,10 +38,7 @@ extern char * ctime(const time_t * timep);
 extern clock_t clock(void);
 #define CLOCKS_PER_SEC 1000000
 
-struct timespec {
-    time_t tv_sec;
-    long tv_nsec;
-};
+#include <bits/timespec.h>
 
 typedef int clockid_t;
 

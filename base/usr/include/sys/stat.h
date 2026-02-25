@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <bits/timespec.h>
 
 _Begin_C_Header
 
@@ -18,11 +19,14 @@ struct stat  {
 	gid_t  st_gid;
 	dev_t  st_rdev;
 	off_t  st_size;
-	time_t  st_atime;
-	time_t  st_mtime;
-	time_t  st_ctime;
+	struct timespec st_atim;
+	struct timespec st_mtim;
+	struct timespec st_ctim;
 	blksize_t  st_blksize;
 	blkcnt_t  st_blocks;
+#define st_atime st_atim.tv_sec
+#define st_mtime st_mtim.tv_sec
+#define st_ctime st_ctim.tv_sec
 };
 
 #define _IFMT       0170000 /* type of file */
@@ -75,8 +79,11 @@ struct stat  {
 #define	S_ISSOCK(m)	(((m)&_IFMT) == _IFSOCK)
 
 extern int stat(const char *file, struct stat *st);
+  int stat(const char*, struct stat*) __asm__("__statns");
 extern int lstat(const char *path, struct stat *st);
+  int lstat(const char *, struct stat*) __asm__("__lstatns");
 extern int fstat(int fd, struct stat *st);
+  int fstat(int fd, struct stat*) __asm__("__fstatns");
 extern int mkdir(const char *pathname, mode_t mode);
 extern mode_t umask(mode_t mask);
 
