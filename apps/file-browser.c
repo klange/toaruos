@@ -235,14 +235,16 @@ static void draw_file(struct File * f, int offset) {
 		draw_sprite(contents, icon, center_x_icon + x, y + 2);
 
 		if (f->selected) {
+			tt_set_size(tt_font_thin, 13);
 			/* If this file is selected, paint the icon blue... */
 			if (main_window->focused) {
 				draw_sprite_alpha_paint(contents, icon, center_x_icon + x, y + 2, 0.5, rgb(72,167,255));
+				draw_rounded_rectangle(contents, center_x_text + x - 2, y + 53, name_width + 6, 20, 3, rgb(72,167,255));
+				tt_draw_string(contents, tt_font_thin, center_x_text + x, y + 54 + 13, name, rgb(255,255,255));
+			} else {
+				draw_rounded_rectangle(contents, center_x_text + x - 2, y + 53, name_width + 6, 20, 3, rgb(190,190,190));
+				tt_draw_string(contents, tt_font_thin, center_x_text + x, y + 54 + 13, name, rgb(20,20,20));
 			}
-			/* And draw the name with a blue background and white text */
-			draw_rounded_rectangle(contents, center_x_text + x - 2, y + 54, name_width + 6, 20, 3, rgb(72,167,255));
-			tt_set_size(tt_font_thin, 13);
-			tt_draw_string(contents, tt_font_thin, center_x_text + x, y + 54 + 13, name, rgb(255,255,255));
 		} else {
 			if (is_desktop_background) {
 				/* If this is the desktop view, white text with a drop shadow */
