@@ -20,7 +20,7 @@ useradd -u $NEWUID local
 ln -s /root/gcc_local util/local
 
 # Run make as local
-runuser -u local -- sh -c 'make base/lib/libc.so && make -j4' || exit 1
+runuser -u local -- sh -c 'make util/local/bin/kuroko && make base/lib/libc.so && make -j4' || exit 1
 
 # Remove the build tools
 rm util/local
