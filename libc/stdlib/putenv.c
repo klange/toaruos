@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
 
 extern char ** environ;
 extern int _environ_size;
@@ -18,6 +19,17 @@ int unsetenv(const char * str) {
 	int last_index = -1;
 	int found_index = -1;
 	int len = strlen(str);
+
+	if (!len) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	char *c = strchrnul(str,'=');
+	if (*c) {
+		errno = EINVAL;
+		return -1;
+	}
 
 	for (int i = 0; environ[i]; ++i) {
 		if (found_index == -1 && (strstr(environ[i], str) == environ[i] && environ[i][len] == '=')) {
@@ -43,21 +55,23 @@ int unsetenv(const char * str) {
 	return 0;
 }
 
-
 int putenv(char * string) {
-	char name[strlen(string)+1];
-	strcpy(name, string);
-	char * c = strchr(name, '=');
-	if (!c) {
-		return 1;
-	}
-	*c = NULL;
+	char * c = strchrnul(string, '=');
 
-	int s = strlen(name);
+	if (c == string) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (!*c) {
+		return unsetenv(string);
+	}
+
+	int s = c - string;
 
 	int i;
 	for (i = 0; i < (_environ_size - 1) && environ[i]; ++i) {
-		if (!why_no_strnstr(name, environ[i], s) && environ[i][s] == '=') {
+		if (!why_no_strnstr(string, environ[i], s) && environ[i][s] == '=') {
 			environ[i] = string;
 			return 0;
 		}
