@@ -488,6 +488,11 @@ static int object_relocate(elf_t * object) {
 						x = (uintptr_t)hashmap_get(dumb_symbol_table, symname);
 					} else {
 						/* This isn't fatal, but do log a message if debugging is enabled. */
+						if ((sym->st_info >> 4) != STB_WEAK) {
+							extern char * _argv_0;
+							fprintf(stderr, "%s: undefined symbol %s\n",
+								_argv_0, symname);
+						}
 						TRACE_LD("Symbol not found: %s", symname);
 						x = 0x0;
 					}
