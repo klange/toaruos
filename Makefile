@@ -196,7 +196,7 @@ cdrom:
 	mkdir -p .make
 dirs: $(BASE)/dev $(BASE)/tmp $(BASE)/proc $(BASE)/bin $(BASE)/lib $(BASE)/cdrom $(BASE)/usr/lib $(BASE)/usr/bin $(BASE)/lib/kuroko cdrom $(BASE)/var fatbase/efi/boot .make $(BASE)/mod boot/efi boot/bios
 
-ifeq (,$(findstring clean,$(MAKECMDGOALS)))
+ifeq (,$(findstring clean,$(MAKECMDGOALS))$(findstring $(BUILD_KRK),$(MAKECMDGOALS)))
 -include ${APPS_Y}
 -include ${LIBS_Y}
 -include ${KRK_MODS_Y}
