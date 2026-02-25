@@ -292,9 +292,12 @@ static long stat_node(fs_node_t * fn, uintptr_t st) {
 	f->st_rdev  = 0;
 	f->st_size  = fn->length;
 
-	f->st_atime = fn->atime;
-	f->st_mtime = fn->mtime;
-	f->st_ctime = fn->ctime;
+	f->st_atim.tv_sec = fn->atime;
+	f->st_atim.tv_nsec = 0;
+	f->st_mtim.tv_sec = fn->mtime;
+	f->st_mtim.tv_nsec = 0;
+	f->st_ctim.tv_sec = fn->ctime;
+	f->st_ctim.tv_nsec = 0;
 	f->st_blksize = 512; /* whatever */
 
 	if (fn->get_size) {
