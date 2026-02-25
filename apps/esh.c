@@ -1846,7 +1846,10 @@ uint32_t shell_cmd_history(int argc, char * argv[]) {
 
 uint32_t shell_cmd_export(int argc, char * argv[]) {
 	if (argc > 1) {
-		putenv(argv[1]);
+		if (putenv(argv[1]) < 0) {
+			fprintf(stderr, "%s: putenv: %s\n", argv[0], strerror(errno));
+			return 1;
+		}
 	}
 	return 0;
 }
@@ -2149,7 +2152,12 @@ uint32_t shell_cmd_unset(int argc, char * argv[]) {
 		return 1;
 	}
 
-	return unsetenv(argv[1]);
+	if (unsetenv(argv[1]) < 0) {
+		fprintf(stderr, "%s: unsetenv: %s\n", argv[0], strerror(errno));
+		return 1;
+	}
+
+	return 0;
 }
 
 uint32_t shell_cmd_read(int argc, char * argv[]) {
