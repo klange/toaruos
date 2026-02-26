@@ -1,7 +1,8 @@
 #!/bin/kuroko
 from _yutani2 import (YutaniCtx, Font, rgb, MenuBar, decor_get_bounds, decor_render,
                       MenuList, MenuEntry, decor_handle_event, decor_show_default_menu,
-                      Sprite, TTContour, TransformMatrix, MenuEntrySubmenu, TTShape)
+                      Sprite, TTContour, TransformMatrix, MenuEntrySubmenu, TTShape,
+                      MenuEntryToggle)
 
 from yutani_mainloop import Window, yctx as y, AsyncMainloop, Task, sleep
 import math
@@ -69,8 +70,8 @@ def paint_demo(ctx, cursor):
 
 def set_menu(menu, action):
     for sibling in menu.group:
-        sibling.update_icon(None)
-    menu.update_icon('check')
+        sibling.state = False
+    menu.state = True
     action()
 
 def check_list(entries, default=0):
@@ -78,7 +79,7 @@ def check_list(entries, default=0):
     let group = []
     for i, e in enumerate(entries):
         let name, action = e
-        let me = MenuEntry(name, lambda menu: set_menu(menu, action), "check" if i == default else None)
+        let me = MenuEntryToggle(name, lambda menu: set_menu(menu, action), i == default)
         me.group = group
         group.append(me)
         ml.insert(me)
