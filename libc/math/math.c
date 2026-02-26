@@ -11,7 +11,7 @@ extern char * _argv_0;
 #endif
 
 double exp(double x) {
-	return pow(2.71828182846, x);
+	return pow(M_E, x);
 }
 
 int abs(int j) {
@@ -398,10 +398,10 @@ static double bad_sine_table[] = {
 double sin(double x) {
 	MATH;
 	if (x < 0.0) {
-		x += 3.141592654 * 2.0 * 100.0;
+		x += M_PI * 2.0 * 100.0;
 	}
-	int i = x * 360.0 / (3.141592654 * 2.0);
-	double z = x * 360.0 / (3.141592654 * 2.0);
+	int i = x * 360.0 / (M_PI * 2.0);
+	double z = x * 360.0 / (M_PI * 2.0);
 	z -= i;
 
 	i = i % 360;
@@ -415,7 +415,7 @@ double sin(double x) {
 }
 
 double cos(double x) {
-	return sin(x + 3.141592654 / 2.0);
+	return sin(x + M_PI / 2.0);
 }
 
 double atan(double x) {
