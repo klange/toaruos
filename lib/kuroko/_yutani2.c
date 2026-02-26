@@ -1209,6 +1209,7 @@ WRAP_TYPE(MenuList,struct MenuList, menuList);
 WRAP_TYPE(MenuEntry,struct MenuEntry, menuEntry);
 WRAP_TYPE(MenuEntrySubmenu,struct MenuEntry, menuEntry);
 WRAP_TYPE(MenuEntrySeparator,struct MenuEntry, menuEntry);
+WRAP_TYPE(MenuEntryToggle,struct MenuEntry, menuEntry);
 WRAP_TYPE(MenuEntryCustom,struct MenuEntry, menuEntry);
 
 #define IS_MenuBar(o) (krk_isInstanceOf(o,MenuBar))
@@ -1484,7 +1485,7 @@ KRK_Method(MenuEntry,update_icon) {
 
 KRK_Method(MenuEntrySubmenu,__init__) {
 	const char * title;
-	const char * action = NULL;
+	const char * action;
 	const char * icon = NULL;
 
 	if (!krk_parseArgs(
@@ -1503,6 +1504,53 @@ KRK_Method(MenuEntrySubmenu,__init__) {
 	out->_private = self;
 
 	return NONE_VAL();
+}
+
+#undef CURRENT_CTYPE
+
+#define IS_MenuEntryToggle(o) (krk_isInstanceOf(o,MenuEntryToggle))
+#define AS_MenuEntryToggle(o) ((struct _yutani_MenuEntryToggle*)AS_OBJECT(o))
+#define CURRENT_CTYPE struct _yutani_MenuEntryToggle*
+
+KRK_Method(MenuEntryToggle,__init__) {
+	const char * title;
+	KrkValue callback;
+	int state = 0;
+	const char * action = NULL;
+
+	if (!krk_parseArgs(
+		".sV|ps:MenuEntryToggle", (const char*[]){"title","callback","state","action"},
+		&title,
+		&callback,
+		&state,
+		&action
+	)) {
+		return NONE_VAL();
+	}
+
+	NO_REINIT(MenuEntryToggle);
+
+	struct MenuEntry * out = menu_create_toggle(action, title, state, _MenuEntry_callback_internal);
+	self->menuEntry = out;
+	out->_private = self;
+
+	krk_attachNamedValue(&self->inst.fields, "callback", callback);
+
+	return NONE_VAL();
+}
+
+KRK_Method(MenuEntryToggle,state) {
+	int had_state = 0;
+	int state = 0;
+	if (!krk_parseArgs(".|p?", (const char*[]){"state"}, &had_state, &state)) return NONE_VAL();
+
+	INIT_CHECK(MenuEntryToggle);
+
+	if (had_state) {
+		menu_update_toggle_state(self->menuEntry, state);
+	}
+
+	return BOOLEAN_VAL(((struct MenuEntry_Toggle*)self)->set);
 }
 
 #undef CURRENT_CTYPE
@@ -2221,10 +2269,22 @@ KRK_Module(_yutani2) {
 	krk_finalizeClass(MenuEntry);
 
 	/*
+	 * Toggle subtype
+	 *
+	 * class MenuEntryToggle(MenuEntry):
+	 *     def __init__(self, title: str, callback: function, state: bool = False, action: str = None)
+	 */
+	krk_makeClass(module, &MenuEntryToggle, "MenuEntryToggle", MenuEntry);
+	MenuEntryToggle->allocSize = sizeof(struct _yutani_MenuEntryToggle);
+	BIND_METHOD(MenuEntryToggle,__init__);
+	BIND_PROP(MenuEntryToggle,state);
+	krk_finalizeClass(MenuEntryToggle);
+
+	/*
 	 * Submenu subtype
 	 *
 	 * class MenuEntrySubmenu(MenuEntry):
-	 *     def __init__(self, title: str, icon: str = None, action: str = None)
+	 *     def __init__(self, title: str, action: str, icon: str = None)
 	 */
 	krk_makeClass(module, &MenuEntrySubmenu, "MenuEntrySubmenu", MenuEntry);
 	MenuEntrySubmenu->allocSize = sizeof(struct _yutani_MenuEntrySubmenu);
