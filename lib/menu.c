@@ -152,6 +152,36 @@ struct MenuEntry * menu_create_normal(const char * icon, const char * action, co
 	return (struct MenuEntry *)out;
 }
 
+void _menu_draw_MenuEntry_Toggle(gfx_context_t * ctx, struct MenuEntry * self, int offset) {
+	_menu_draw_MenuEntry_Normal(ctx,self,offset);
+	struct MenuEntry_Toggle * _self = (struct MenuEntry_Toggle *)self;
+
+	if (_self->set) {
+		sprite_t * check_box = icon_get_16("check");
+		draw_sprite_alpha_paint(ctx, check_box, 4, offset + 2, 1.0, _self->hilight ? rgb(255,255,255) : rgb(0,0,0));
+	}
+}
+static struct MenuEntryVTable _menu_vtable_MenuEntry_Toggle = {
+	.methods = 3,
+	.renderer = _menu_draw_MenuEntry_Toggle, /* Only the renderer differs; users must manage toggle state */
+	.focus_change = _menu_focus_MenuEntry_Normal,
+	.activate = _menu_activate_MenuEntry_Normal,
+};
+
+struct MenuEntry * menu_create_toggle(const char * action, const char * title, int set, void (*callback)(struct MenuEntry *)) {
+	/* Reuse the initializer for the normal one, assuming with no icon. */
+	struct MenuEntry_Toggle * out = (struct MenuEntry_Toggle*)menu_create_normal(NULL, action, title, callback);
+	if (!out) return out;
+	out = realloc(out, sizeof(struct MenuEntry_Toggle));
+
+	out->_type = MenuEntry_Toggle;
+	out->vtable = &_menu_vtable_MenuEntry_Toggle;
+
+	/* And just set our status */
+	out->set = set;
+	return out;
+}
+
 void _menu_draw_MenuEntry_Submenu(gfx_context_t * ctx, struct MenuEntry * self, int offset) {
 
 	struct MenuEntry_Submenu * _self = (struct MenuEntry_Submenu *)self;
@@ -283,16 +313,24 @@ void menu_update_title(struct MenuEntry * self, char * new_title) {
 
 void menu_update_icon(struct MenuEntry * self, char * newIcon) {
 	switch (self->_type) {
+		case MenuEntry_Submenu:
 		case MenuEntry_Normal: {
 			struct MenuEntry_Normal * _self = (struct MenuEntry_Normal *)self;
 			if (_self->icon)   free(_self->icon);
 			_self->icon = newIcon ? strdup(newIcon) : NULL;
 			break;
 		}
-		case  MenuEntry_Submenu: {
-			struct MenuEntry_Submenu * _self = (struct MenuEntry_Submenu *)self;
-			if (_self->icon)   free(_self->icon);
-			_self->icon = newIcon ? strdup(newIcon) : NULL;
+		case MenuEntry_Toggle: /* Toggle should not be able to set icon */
+		default:
+			break;
+	}
+}
+
+void menu_update_toggle_state(struct MenuEntry * self, int state) {
+	switch (self->_type) {
+		case MenuEntry_Toggle: {
+			struct MenuEntry_Toggle * _self = (struct MenuEntry_Toggle *)self;
+			_self->set = state;
 			break;
 		}
 		default:
@@ -302,15 +340,10 @@ void menu_update_icon(struct MenuEntry * self, char * newIcon) {
 
 void menu_free_entry(struct MenuEntry * self) {
 	switch (self->_type) {
+		case MenuEntry_Toggle:
+		case  MenuEntry_Submenu:
 		case MenuEntry_Normal: {
 			struct MenuEntry_Normal * _self = (struct MenuEntry_Normal *)self;
-			if (_self->icon)   free(_self->icon);
-			if (_self->title)  free(_self->title);
-			if (_self->action) free(_self->action);
-			break;
-		}
-		case  MenuEntry_Submenu: {
-			struct MenuEntry_Submenu * _self = (struct MenuEntry_Submenu *)self;
 			if (_self->icon)   free(_self->icon);
 			if (_self->title)  free(_self->title);
 			if (_self->action) free(_self->action);

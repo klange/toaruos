@@ -13,6 +13,7 @@ enum MenuEntry_Type {
 	MenuEntry_Normal,
 	MenuEntry_Submenu,
 	MenuEntry_Separator,
+	MenuEntry_Toggle,
 };
 
 struct MenuList;
@@ -48,11 +49,13 @@ struct MenuEntry_Normal {
 	char * action;
 };
 
+struct MenuEntry_Toggle {
+	struct MenuEntry_Normal;
+	int set;
+};
+
 struct MenuEntry_Submenu {
-	struct MenuEntry;
-	char * icon;
-	char * title;
-	char * action;
+	struct MenuEntry_Normal;
 	struct MenuList * _my_child;
 };
 
@@ -78,6 +81,7 @@ struct MenuSet {
 };
 
 extern struct MenuEntry * menu_create_normal(const char * icon, const char * action, const char * title, void (*callback)(struct MenuEntry *));
+extern struct MenuEntry * menu_create_toggle(const char * action, const char * title, int set, void (*callback)(struct MenuEntry *));
 extern struct MenuEntry * menu_create_submenu(const char * icon, const char * action, const char * title);
 extern struct MenuEntry * menu_create_separator(void);
 extern struct MenuList * menu_create(void);
@@ -103,6 +107,7 @@ extern void menu_set_insert(struct MenuSet * set, char * action, struct MenuList
 extern void menu_update_title(struct MenuEntry * self, char * new_title);
 extern void menu_force_redraw(struct MenuList * menu);
 extern void menu_update_icon(struct MenuEntry * self, char * newIcon);
+extern void menu_update_toggle_state(struct MenuEntry * self, int state);
 
 #define MENU_FLAG_BUBBLE_CENTER (1 << 0)
 #define MENU_FLAG_BUBBLE_LEFT   (1 << 1)
