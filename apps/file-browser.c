@@ -1562,7 +1562,7 @@ static void _menu_action_edit(struct MenuEntry * self) {
 /* View > (Show/Hide) Hidden Files */
 static void _menu_action_toggle_hidden(struct MenuEntry * self) {
 	show_hidden = !show_hidden;
-	menu_update_icon(self, show_hidden ? "check" : NULL);
+	menu_update_toggle_state(self, show_hidden);
 	_menu_action_refresh(NULL);
 }
 
@@ -1620,9 +1620,9 @@ static void _menu_action_view_mode(struct MenuEntry * entry) {
 		mode = VIEW_MODE_LIST;
 	}
 	set_view_mode(mode);
-	menu_update_icon(_menu_entry_show_icons, view_mode == VIEW_MODE_ICONS ? "check" : NULL);
-	menu_update_icon(_menu_entry_show_tiles, view_mode == VIEW_MODE_TILES ? "check" : NULL);
-	menu_update_icon(_menu_entry_show_list,  view_mode == VIEW_MODE_LIST  ? "check" : NULL);
+	menu_update_toggle_state(_menu_entry_show_icons, view_mode == VIEW_MODE_ICONS);
+	menu_update_toggle_state(_menu_entry_show_tiles, view_mode == VIEW_MODE_TILES);
+	menu_update_toggle_state(_menu_entry_show_list,  view_mode == VIEW_MODE_LIST);
 	reinitialize_contents();
 	redraw_window();
 }
@@ -1992,11 +1992,11 @@ int main(int argc, char * argv[]) {
 		m = menu_create();
 		menu_insert(m, menu_create_normal("refresh",NULL,"Refresh", _menu_action_refresh));
 		menu_insert(m, menu_create_separator());
-		menu_insert(m, (_menu_entry_show_icons = menu_create_normal(view_mode == VIEW_MODE_ICONS ? "check" : NULL,"icons","Show Icons", _menu_action_view_mode)));
-		menu_insert(m, (_menu_entry_show_tiles = menu_create_normal(view_mode == VIEW_MODE_TILES ? "check" : NULL,"tiles","Show Tiles", _menu_action_view_mode)));
-		menu_insert(m, (_menu_entry_show_list  = menu_create_normal(view_mode == VIEW_MODE_LIST  ? "check" : NULL,"list", "Show List",  _menu_action_view_mode)));
+		menu_insert(m, (_menu_entry_show_icons = menu_create_toggle("icons","Show Icons", view_mode == VIEW_MODE_ICONS, _menu_action_view_mode)));
+		menu_insert(m, (_menu_entry_show_tiles = menu_create_toggle("tiles","Show Tiles", view_mode == VIEW_MODE_TILES, _menu_action_view_mode)));
+		menu_insert(m, (_menu_entry_show_list  = menu_create_toggle("list", "Show List",  view_mode == VIEW_MODE_LIST,  _menu_action_view_mode)));
 		menu_insert(m, menu_create_separator());
-		menu_insert(m, menu_create_normal(NULL,NULL,"Show Hidden Files", _menu_action_toggle_hidden));
+		menu_insert(m, menu_create_toggle(NULL,"Show Hidden Files", 0, _menu_action_toggle_hidden));
 		menu_set_insert(menu_bar.set, "view", m);
 
 		m = menu_create(); /* Go */

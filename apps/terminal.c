@@ -200,6 +200,7 @@ static void cell_redraw_inverted(uint16_t x, uint16_t y);
 static void cell_redraw_offset(uint16_t x, uint16_t y);
 static void cell_redraw_offset_inverted(uint16_t x, uint16_t y);
 static void update_bounds(void);
+static void update_scale_menu(void);
 
 static uint64_t get_ticks(void) {
 	struct timeval now;
@@ -1690,6 +1691,7 @@ static void key_event(int ret, key_event_t * event) {
 			(event->keycode == '0')) {
 			scale_fonts  = 0;
 			font_scaling = 1.0;
+			update_scale_menu();
 			reinit();
 			return;
 		}
@@ -1699,6 +1701,7 @@ static void key_event(int ret, key_event_t * event) {
 			(event->keycode == '=')) {
 			scale_fonts  = 1;
 			font_scaling = font_scaling * 1.2;
+			update_scale_menu();
 			reinit();
 			return;
 		}
@@ -1707,6 +1710,7 @@ static void key_event(int ret, key_event_t * event) {
 			(event->keycode == '-')) {
 			scale_fonts  = 1;
 			font_scaling = font_scaling * 0.8333333;
+			update_scale_menu();
 			reinit();
 			return;
 		}
@@ -2364,8 +2368,9 @@ static void _menu_action_hide_borders(struct MenuEntry * self) {
 	update_bounds();
 	window_width = window->width - decor_width;
 	window_height = window->height - (decor_height + menu_bar_height);
-	menu_update_icon(_menu_toggle_borders_context, _no_frame ? NULL : "check");
-	menu_update_icon(_menu_toggle_borders_bar, _no_frame ? NULL : "check");
+	menu_update_toggle_state(_menu_toggle_borders_context, !_no_frame);
+	menu_update_toggle_state(_menu_toggle_borders_bar, !_no_frame);
+	
 	reinit();
 }
 
@@ -2374,14 +2379,14 @@ static struct MenuEntry * _menu_toggle_bitmap_bar = NULL;
 
 static void _menu_action_toggle_tt(struct MenuEntry * self) {
 	_use_aa = !(_use_aa);
-	menu_update_icon(_menu_toggle_bitmap_context, _use_aa ? NULL : "check");
-	menu_update_icon(_menu_toggle_bitmap_bar, _use_aa ? NULL : "check");
+	menu_update_toggle_state(_menu_toggle_bitmap_context, !_use_aa);
+	menu_update_toggle_state(_menu_toggle_bitmap_bar, !_use_aa);
 	reinit();
 }
 
 static void _menu_action_toggle_free_size(struct MenuEntry * self) {
 	_free_size = !(_free_size);
-	menu_update_icon(self, _free_size ? NULL : "check");
+	menu_update_toggle_state(self, !_free_size);
 }
 
 static void _menu_action_show_about(struct MenuEntry * self) {
@@ -2407,14 +2412,28 @@ static void _menu_action_paste(struct MenuEntry * self) {
 	yutani_special_request(yctx, NULL, YUTANI_SPECIAL_REQUEST_CLIPBOARD);
 }
 
+static struct MenuEntry * _menu_scale_075 = NULL;
+static struct MenuEntry * _menu_scale_100 = NULL;
+static struct MenuEntry * _menu_scale_150 = NULL;
+static struct MenuEntry * _menu_scale_200 = NULL;
+
+static void update_scale_menu(void) {
+	menu_update_toggle_state(_menu_scale_075, font_scaling == 0.75);
+	menu_update_toggle_state(_menu_scale_100, font_scaling == 1.00);
+	menu_update_toggle_state(_menu_scale_150, font_scaling == 1.50);
+	menu_update_toggle_state(_menu_scale_200, font_scaling == 2.00);
+}
+
 static void _menu_action_set_scale(struct MenuEntry * self) {
 	struct MenuEntry_Normal * _self = (struct MenuEntry_Normal *)self;
 	if (!_self->action) {
 		scale_fonts  = 0;
 		font_scaling = 1.0;
+		update_scale_menu();
 	} else {
 		scale_fonts  = 1;
 		font_scaling = atof(_self->action);
+		update_scale_menu();
 	}
 	reinit();
 }
@@ -2588,10 +2607,10 @@ int main(int argc, char ** argv) {
 	menu_insert(menu_right_click, _menu_paste);
 	menu_insert(menu_right_click, menu_create_separator());
 	if (!_fullscreen) {
-		_menu_toggle_borders_context = menu_create_normal(_no_frame ? NULL : "check", NULL, "Show borders", _menu_action_hide_borders);
+		_menu_toggle_borders_context = menu_create_toggle(NULL, "Show borders", !_no_frame, _menu_action_hide_borders);
 		menu_insert(menu_right_click, _menu_toggle_borders_context);
 	}
-	_menu_toggle_bitmap_context = menu_create_normal(_use_aa ? NULL : "check", NULL, "Bitmap font", _menu_action_toggle_tt);
+	_menu_toggle_bitmap_context = menu_create_toggle(NULL, "Bitmap font", !_use_aa, _menu_action_toggle_tt);
 	menu_insert(menu_right_click, _menu_toggle_bitmap_context);
 	menu_insert(menu_right_click, menu_create_separator());
 	menu_insert(menu_right_click, _menu_exit);
@@ -2609,10 +2628,11 @@ int main(int argc, char ** argv) {
 	menu_set_insert(terminal_menu_bar.set, "edit", m);
 
 	m = menu_create();
-	menu_insert(m, menu_create_normal(NULL, "0.75", "75%", _menu_action_set_scale));
-	menu_insert(m, menu_create_normal(NULL, NULL, "100%", _menu_action_set_scale));
-	menu_insert(m, menu_create_normal(NULL, "1.5", "150%", _menu_action_set_scale));
-	menu_insert(m, menu_create_normal(NULL, "2.0", "200%", _menu_action_set_scale));
+	menu_insert(m, (_menu_scale_075 = menu_create_toggle("0.75", "75%", 0, _menu_action_set_scale)));
+	menu_insert(m, (_menu_scale_100 = menu_create_toggle(NULL,  "100%", 0, _menu_action_set_scale)));
+	menu_insert(m, (_menu_scale_150 = menu_create_toggle("1.5", "150%", 0, _menu_action_set_scale)));
+	menu_insert(m, (_menu_scale_200 = menu_create_toggle("2.0", "200%", 0, _menu_action_set_scale)));
+	update_scale_menu();
 	menu_set_insert(terminal_menu_bar.set, "zoom", m);
 
 	m = menu_create();
@@ -2621,12 +2641,12 @@ int main(int argc, char ** argv) {
 	menu_set_insert(terminal_menu_bar.set, "cache", m);
 
 	m = menu_create();
-	_menu_toggle_borders_bar = menu_create_normal(_no_frame ? NULL : "check", NULL, "Show borders", _menu_action_hide_borders);
+	_menu_toggle_borders_bar = menu_create_toggle(NULL, "Show borders", !_no_frame, _menu_action_hide_borders);
 	menu_insert(m, _menu_toggle_borders_bar);
 	menu_insert(m, menu_create_submenu(NULL,"zoom","Set zoom..."));
-	_menu_toggle_bitmap_bar = menu_create_normal(_use_aa ? NULL : "check", NULL, "Bitmap font", _menu_action_toggle_tt);
+	_menu_toggle_bitmap_bar = menu_create_toggle(NULL, "Bitmap font", !_use_aa, _menu_action_toggle_tt);
 	menu_insert(m, _menu_toggle_bitmap_bar);
-	menu_insert(m, menu_create_normal(_free_size ? NULL : "check", NULL, "Snap to Cell Size", _menu_action_toggle_free_size));
+	menu_insert(m, menu_create_toggle(NULL, "Snap to Cell Size", !_free_size, _menu_action_toggle_free_size));
 	menu_insert(m, menu_create_separator());
 	menu_insert(m, menu_create_normal(NULL, NULL, "Redraw", _menu_action_redraw));
 	menu_insert(m, menu_create_submenu(NULL,"cache","Glyph cache..."));
