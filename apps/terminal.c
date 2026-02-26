@@ -2123,7 +2123,7 @@ static void * handle_incoming(void) {
 				{
 					struct yutani_msg_key_event * ke = (void*)m->data;
 					int ret = (ke->event.action == KEY_ACTION_DOWN) && (ke->event.key);
-					key_event(ret, &ke->event);
+					if (ke->wid == window->wid) key_event(ret, &ke->event);
 				}
 				break;
 			case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
