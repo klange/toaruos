@@ -1,7 +1,8 @@
 #!/bin/kuroko
 from _yutani2 import (YutaniCtx, Font, rgb, rgb, MenuBar, decor_get_bounds, decor_render,
                       MenuList, MenuEntry, MenuEntrySeparator, Message, decor_handle_event, decor_show_default_menu,
-                      MenuEntryCustom, Sprite, Subregion, TTContour, TransformMatrix, MenuEntrySubmenu)
+                      MenuEntryCustom, Sprite, Subregion, TTContour, TransformMatrix, MenuEntrySubmenu,
+                      MenuEntryToggle)
 
 from yutani_mainloop import Window, yctx as y, AsyncMainloop, Task, sleep
 import math
@@ -15,7 +16,7 @@ def premul(r,g,b,a):
 let show_ascent = True
 def toggle_ascent(self):
     show_ascent = !show_ascent
-    self.update_icon('check' if show_ascent else None)
+    self.state = show_ascent
 
 let font_size = 16
 
@@ -139,8 +140,8 @@ def layout_and_draw(ctx, text, justify='center'):
 
 def set_menu(menu, action):
     for sibling in menu.group:
-        sibling.update_icon(None)
-    menu.update_icon('check')
+        sibling.state = False
+    menu.state = True
     action()
 
 def check_list(entries, default=0):
@@ -148,7 +149,7 @@ def check_list(entries, default=0):
     let group = []
     for i, e in enumerate(entries):
         let name, action = e
-        let me = MenuEntry(name, lambda menu: set_menu(menu, action), "check" if i == default else None)
+        let me = MenuEntryToggle(name, lambda menu: set_menu(menu, action), i == default)
         me.group = group
         group.append(me)
         ml.insert(me)
@@ -182,7 +183,7 @@ class MyWindow(Window):
         self.mb.insert('view-size', _menu_View_Size)
         _menu_View.insert(MenuEntrySubmenu('Font size', 'view-size'))
 
-        _menu_View.insert(MenuEntry('Show ascent/descent',toggle_ascent,icon='check'))
+        _menu_View.insert(MenuEntryToggle('Show ascent/descent',toggle_ascent,True))
 
         self.mb.insert('view', _menu_View)
         let _menu_Help = MenuList()
