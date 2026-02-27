@@ -207,6 +207,15 @@ static int graphical_callback(char * username, char * password, int fails, char 
 					if (r) redraw(username, password, fails, argv);
 				}
 				break;
+			case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
+				{
+					/* If we ever lose focus, try to get it back. */
+					struct yutani_msg_window_focus_change * fc = (void*)msg->data;
+					if (fc->wid == window->wid && fc->focused == 0) {
+						yutani_focus_window(yctx, window->wid);
+					}
+				}
+				break;
 			case YUTANI_MSG_WINDOW_CLOSE:
 			case YUTANI_MSG_SESSION_END:
 				return 1;
@@ -230,9 +239,15 @@ int main(int argc, char ** argv) {
 	int width = yctx->display_width;
 	int height = yctx->display_height;
 
-	window = yutani_window_create(yctx, width, height);
+	window = yutani_window_create_flags(yctx, width, height,
+		YUTANI_WINDOW_FLAG_DISALLOW_RESIZE |
+		YUTANI_WINDOW_FLAG_DISALLOW_DRAG |
+		YUTANI_WINDOW_FLAG_ALT_ANIMATION);
+
 	yutani_window_move(yctx, window, 0, 0);
-	yutani_window_advertise_icon(yctx, window, "gsudo", "lock");
+
+	yutani_set_stack(yctx, window, YUTANI_ZORDER_OVERLAY);
+
 	tt_font_thin = tt_font_from_shm("sans-serif");
 
 	ctx = init_graphics_yutani_double_buffer(window);
