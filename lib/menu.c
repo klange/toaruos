@@ -35,6 +35,8 @@
 #define HILIGHT_GRADIENT_BOTTOM rgb(56,137,220)
 #define HILIGHT_BORDER_BOTTOM rgb(47,106,167)
 
+#define MENU_ENTRY_FLAGS_DISABLED 0x0001
+
 static hashmap_t * menu_windows = NULL;
 static yutani_t * my_yctx = NULL;
 
@@ -60,13 +62,15 @@ static int draw_string(gfx_context_t * ctx, int x, int y, uint32_t color, const 
 	return markup_draw_string(ctx,x,y+13,s,color);
 }
 
+static int _menu_is_disabled(struct MenuEntry * entry);
+
 void _menu_draw_MenuEntry_Normal(gfx_context_t * ctx, struct MenuEntry * self, int offset) {
 	struct MenuEntry_Normal * _self = (struct MenuEntry_Normal *)self;
 
 	_self->offset = offset;
 
 	/* Background gradient */
-	if (_self->hilight) {
+	if (!_menu_is_disabled(self) && _self->hilight) {
 		draw_line(ctx, 1, _self->width-2, offset, offset, HILIGHT_BORDER_TOP);
 		draw_line(ctx, 1, _self->width-2, offset + _self->height - 1, offset + _self->height - 1, HILIGHT_BORDER_BOTTOM);
 		for (int i = 1; i < self->height-1; ++i) {
@@ -82,14 +86,22 @@ void _menu_draw_MenuEntry_Normal(gfx_context_t * ctx, struct MenuEntry * self, i
 	if (_self->icon) {
 		sprite_t * icon = icon_get_16(_self->icon);
 		if (icon->width == MENU_ICON_SIZE) {
-			draw_sprite(ctx, icon, 4, offset + 2);
+			if (_menu_is_disabled(self)) {
+				draw_sprite_alpha(ctx, icon, 4, offset + 2, 0.5);
+			} else {
+				draw_sprite(ctx, icon, 4, offset + 2);
+			}
 		} else {
-			draw_sprite_scaled(ctx, icon, 4, offset + 2, MENU_ICON_SIZE, MENU_ICON_SIZE);
+			if (_menu_is_disabled(self)) {
+				draw_sprite_scaled_alpha(ctx, icon, 4, offset + 2, MENU_ICON_SIZE, MENU_ICON_SIZE, 0.5);
+			} else {
+				draw_sprite_scaled(ctx, icon, 4, offset + 2, MENU_ICON_SIZE, MENU_ICON_SIZE);
+			}
 		}
 	}
 
 	/* Foreground text color */
-	uint32_t color = _self->hilight ? rgb(255,255,255) : rgb(0,0,0);
+	uint32_t color = _menu_is_disabled(self) ? rgba(0,0,0,127) : (_self->hilight ? rgb(255,255,255) : rgb(0,0,0));
 
 	/* Draw title */
 	draw_string(ctx, 22, offset + 1, color, _self->title);
@@ -106,6 +118,8 @@ void _menu_focus_MenuEntry_Normal(struct MenuEntry * self, int focused) {
 
 void _menu_activate_MenuEntry_Normal(struct MenuEntry * self, int flags) {
 	struct MenuEntry_Normal * _self = (struct MenuEntry_Normal *)self;
+
+	if (_menu_is_disabled(self)) return; /* Do nothing */
 
 	list_t * menu_keys = hashmap_keys(menu_windows);
 	hovered_menu = NULL;
@@ -158,7 +172,8 @@ void _menu_draw_MenuEntry_Toggle(gfx_context_t * ctx, struct MenuEntry * self, i
 
 	if (_self->set) {
 		sprite_t * check_box = icon_get_16("check");
-		draw_sprite_alpha_paint(ctx, check_box, 4, offset + 2, 1.0, _self->hilight ? rgb(255,255,255) : rgb(0,0,0));
+		uint32_t color = _menu_is_disabled(self) ? rgba(0,0,0,127) : (_self->hilight ? rgb(255,255,255) : rgb(0,0,0));
+		draw_sprite_alpha_paint(ctx, check_box, 4, offset + 2, 1.0, color);
 	}
 }
 static struct MenuEntryVTable _menu_vtable_MenuEntry_Toggle = {
@@ -192,7 +207,7 @@ void _menu_draw_MenuEntry_Submenu(gfx_context_t * ctx, struct MenuEntry * self, 
 	_menu_draw_MenuEntry_Normal(ctx,self,offset);
 
 	/* Draw the tick on the right side to indicate this is a submenu */
-	uint32_t color = _self->hilight ? rgb(255,255,255) : rgb(0,0,0);
+	uint32_t color = _menu_is_disabled(self) ? rgba(0,0,0,127) : (_self->hilight ? rgb(255,255,255) : rgb(0,0,0));
 	sprite_t * tick = icon_get_16("menu-tick");
 	draw_sprite_alpha_paint(ctx, tick, _self->width - 16, offset + 2, 1.0, color);
 	_self->hilight = h;
@@ -206,6 +221,8 @@ void _menu_focus_MenuEntry_Submenu(struct MenuEntry * self, int focused) {
 
 void _menu_activate_MenuEntry_Submenu(struct MenuEntry * self, int focused) {
 	struct MenuEntry_Submenu * _self = (struct MenuEntry_Submenu *)self;
+
+	if (_menu_is_disabled(self)) return; /* Do nothing */
 
 	if (_self->_owner && _self->_owner->set) {
 		/* Show a menu */
@@ -331,6 +348,21 @@ void menu_update_toggle_state(struct MenuEntry * self, int state) {
 		case MenuEntry_Toggle: {
 			struct MenuEntry_Toggle * _self = (struct MenuEntry_Toggle *)self;
 			_self->set = state;
+			break;
+		}
+		default:
+			break;
+	}
+}
+
+void menu_update_enabled(struct MenuEntry * self, int state) {
+	switch (self->_type) {
+		case MenuEntry_Toggle:
+		case  MenuEntry_Submenu:
+		case MenuEntry_Normal: {
+			unsigned long flags = ((struct MenuEntry_Normal*)self)->flags & ~MENU_ENTRY_FLAGS_DISABLED;
+			if (!state) flags |= MENU_ENTRY_FLAGS_DISABLED;
+			((struct MenuEntry_Normal*)self)->flags = flags;
 			break;
 		}
 		default:
@@ -733,6 +765,19 @@ int menu_leave(struct MenuList * menu) {
 	return 0;
 }
 
+static int _menu_is_disabled(struct MenuEntry * entry) {
+	switch (entry->_type) {
+		case MenuEntry_Toggle:
+		case MenuEntry_Submenu:
+		case MenuEntry_Normal:
+			return ((struct MenuEntry_Normal*)entry)->flags & MENU_ENTRY_FLAGS_DISABLED;
+		case MenuEntry_Separator:
+			return 1;
+		default:
+			return 0;
+	}
+}
+
 void menu_key_action(struct MenuList * menu, struct yutani_msg_key_event * me) {
 	if (me->event.action != KEY_ACTION_DOWN) return;
 
@@ -745,44 +790,37 @@ void menu_key_action(struct MenuList * menu, struct yutani_msg_key_event * me) {
 	struct MenuEntry * hilighted = NULL;
 	struct MenuEntry * previous = NULL;
 	struct MenuEntry * next = NULL;
-	int got_it = 0;
+	struct MenuEntry * first = NULL;
+	struct MenuEntry * last = NULL;
 	foreach(node, menu->entries) {
 		struct MenuEntry * entry = node->value;
-		if (entry->hilight) {
+		if (!first && !_menu_is_disabled(entry)) {
+			first = entry;
+		}
+		if (!hilighted && entry->hilight) {
 			hilighted = entry;
-			got_it = 1;
 			continue;
 		}
-		if (got_it && entry->_type != MenuEntry_Separator) {
-			next = entry;
-			break;
-		}
-		if (entry->_type != MenuEntry_Separator) {
-			previous = entry;
+		if (!_menu_is_disabled(entry)) {
+			if (!next && hilighted) next = entry;
+			if (!hilighted) previous = entry;
+			last = entry;
 		}
 	}
 
 	if (me->event.keycode == KEY_ARROW_DOWN) {
 		if (hilighted) {
 			hilighted->hilight = 0;
-			hilighted = next;
 		}
-		if (!hilighted) {
-			/* Use the first entry */
-			hilighted = menu->entries->head->value;
-		}
-		hilighted->hilight = 1;
+		hilighted = next ? next : first;
+		if (hilighted) hilighted->hilight = 1;
 		_menu_redraw(window,yctx,menu,1);
 	} else if (me->event.keycode == KEY_ARROW_UP) {
 		if (hilighted) {
 			hilighted->hilight = 0;
-			hilighted = previous;
 		}
-		if (!hilighted) {
-			/* Use the last entry */
-			hilighted = menu->entries->tail->value;
-		}
-		hilighted->hilight = 1;
+		hilighted = previous ? previous : last;
+		if (hilighted) hilighted->hilight = 1;
 		_menu_redraw(window,yctx,menu,1);
 	} else if (me->event.keycode == KEY_ARROW_RIGHT) {
 		if (!hilighted) {

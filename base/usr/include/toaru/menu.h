@@ -47,6 +47,7 @@ struct MenuEntry_Normal {
 	char * icon;
 	char * title;
 	char * action;
+	unsigned long flags;
 };
 
 struct MenuEntry_Toggle {
@@ -108,6 +109,7 @@ extern void menu_update_title(struct MenuEntry * self, char * new_title);
 extern void menu_force_redraw(struct MenuList * menu);
 extern void menu_update_icon(struct MenuEntry * self, char * newIcon);
 extern void menu_update_toggle_state(struct MenuEntry * self, int state);
+extern void menu_update_enabled(struct MenuEntry * self, int state);
 
 #define MENU_FLAG_BUBBLE_CENTER (1 << 0)
 #define MENU_FLAG_BUBBLE_LEFT   (1 << 1)
