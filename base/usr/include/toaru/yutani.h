@@ -264,6 +264,11 @@ struct yutani_msg_window_panel_size {
 	int32_t h;
 };
 
+struct yutani_msg_window_set_parent {
+	yutani_wid_t wid;
+	yutani_wid_t parent_wid;
+};
+
 /* Magic value */
 #define YUTANI_MSG__MAGIC 0xABAD1DEA
 
@@ -290,6 +295,7 @@ struct yutani_msg_window_panel_size {
 #define YUTANI_MSG_RESIZE_DONE         0x00000014
 
 #define YUTANI_MSG_WINDOW_MOVE_RELATIVE 0x00000015
+#define YUTANI_MSG_WINDOW_SET_PARENT    0x00000016
 
 /* Some session management / de stuff */
 #define YUTANI_MSG_WINDOW_ADVERTISE    0x00000020
@@ -536,6 +542,7 @@ extern yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int
 extern void yutani_flip(yutani_t * y, yutani_window_t * win);
 extern void yutani_window_move(yutani_t * yctx, yutani_window_t * window, int x, int y);
 extern void yutani_window_move_relative(yutani_t * yctx, yutani_window_t * window, yutani_window_t * base, int x, int y);
+extern void yutani_window_set_parent(yutani_t * yctx, yutani_window_t * window, yutani_window_t * parent);
 extern void yutani_close(yutani_t * y, yutani_window_t * win);
 extern void yutani_set_stack(yutani_t *, yutani_window_t *, int);
 extern void yutani_flip_region(yutani_t *, yutani_window_t * win, int32_t x, int32_t y, int32_t width, int32_t height);

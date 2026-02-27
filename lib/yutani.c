@@ -280,6 +280,17 @@ void yutani_msg_buildx_window_move_relative(yutani_msg_t * msg, yutani_wid_t wid
 	mw->y = y;
 }
 
+void yutani_msg_buildx_window_set_parent(yutani_msg_t * msg, yutani_wid_t wid, yutani_wid_t wid2) {
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_WINDOW_SET_PARENT;
+	msg->size  = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_set_parent);
+
+	struct yutani_msg_window_set_parent * mw = (void *)msg->data;
+
+	mw->wid = wid;
+	mw->parent_wid = wid2;
+}
+
 void yutani_msg_buildx_window_stack(yutani_msg_t * msg, yutani_wid_t wid, int z) {
 	msg->magic = YUTANI_MSG__MAGIC;
 	msg->type  = YUTANI_MSG_WINDOW_STACK;
@@ -685,6 +696,18 @@ void yutani_window_move(yutani_t * yctx, yutani_window_t * window, int x, int y)
 void yutani_window_move_relative(yutani_t * yctx, yutani_window_t * window, yutani_window_t * base, int x, int y) {
 	yutani_msg_buildx_window_move_relative_alloc(m);
 	yutani_msg_buildx_window_move_relative(m, window->wid, base->wid, x, y);
+	yutani_msg_send(yctx, m);
+}
+
+/**
+ * yutani_window_set_parent
+ *
+ * Tell the compositor that this window has a parent that should inherit its focus state
+ * for advertisements, and certain other properties (tbd.).
+ */
+void yutani_window_set_parent(yutani_t * yctx, yutani_window_t * window, yutani_window_t * parent) {
+	yutani_msg_buildx_window_set_parent_alloc(m);
+	yutani_msg_buildx_window_set_parent(m, window->wid, parent ? parent->wid : 0);
 	yutani_msg_send(yctx, m);
 }
 

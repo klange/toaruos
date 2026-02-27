@@ -175,6 +175,8 @@ typedef struct YutaniServerWindow {
 	int minimized;
 
 	int32_t icon_x, icon_y, icon_w, icon_h;
+
+	yutani_wid_t parent;
 } yutani_server_window_t;
 
 typedef struct YutaniGlobals {

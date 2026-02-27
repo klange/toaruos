@@ -384,7 +384,7 @@ static int yutani_pick_animation(uint32_t flags, int direction) {
  * Initializes a window of the particular size for a given client.
  */
 static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int width, int height, uintptr_t owner, uint32_t flags) {
-	yutani_server_window_t * win = malloc(sizeof(yutani_server_window_t));
+	yutani_server_window_t * win = calloc(sizeof(yutani_server_window_t),1);
 
 	win->wid = next_wid();
 	win->owner = owner;
@@ -1527,7 +1527,7 @@ static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t 
  */
 static uint32_t ad_flags(yutani_globals_t * yg, yutani_server_window_t * win) {
 	uint32_t flags = win->client_flags;
-	if (win == yg->focused_window) {
+	if (win == yg->focused_window || (yg->focused_window && yg->focused_window->parent == win->wid)) {
 		flags |= 1;
 	}
 	if (win->minimized) {
@@ -2790,6 +2790,17 @@ int main(int argc, char * argv[]) {
 
 					/* Match window rotation to base window */
 					movee->rotation = base->rotation;
+				}
+				break;
+			case YUTANI_MSG_WINDOW_SET_PARENT:
+				{
+					struct yutani_msg_window_set_parent * wsp = (void *)m->data;
+					yutani_server_window_t * movee = hashmap_get(yg->wids_to_windows, (void*)(uintptr_t)wsp->wid);
+					if (!movee) break;
+					/* XXX Should we disallow parenting to a window owned by another client?
+					 *     Validate that the window even exists?
+					 *     For now, just accept any wid, whatever. */
+					movee->parent = wsp->parent_wid;
 				}
 				break;
 			case YUTANI_MSG_WINDOW_CLOSE:
