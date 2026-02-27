@@ -46,7 +46,7 @@ extern void yutani_msg_buildx_hello(yutani_msg_t * msg);
 extern void yutani_msg_buildx_flip(yutani_msg_t * msg, yutani_wid_t wid);
 extern void yutani_msg_buildx_welcome(yutani_msg_t * msg, uint32_t width, uint32_t height);
 extern void yutani_msg_buildx_window_new(yutani_msg_t * msg, uint32_t width, uint32_t height);
-extern void yutani_msg_buildx_window_new_flags(yutani_msg_t * msg, uint32_t width, uint32_t height, uint32_t flags);
+extern void yutani_msg_buildx_window_new_flags(yutani_msg_t * msg, uint32_t width, uint32_t height, uint32_t flags, yutani_wid_t parent_wid);
 extern void yutani_msg_buildx_window_init(yutani_msg_t * msg, yutani_wid_t wid, uint32_t width, uint32_t height, uint32_t bufid);
 extern void yutani_msg_buildx_window_close(yutani_msg_t * msg, yutani_wid_t wid);
 extern void yutani_msg_buildx_key_event(yutani_msg_t * msg, yutani_wid_t wid, key_event_t * event, key_event_state_t * state);

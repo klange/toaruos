@@ -113,6 +113,7 @@ struct yutani_msg_window_new_flags {
 	uint32_t width;
 	uint32_t height;
 	uint32_t flags;
+	yutani_wid_t parent_wid;
 };
 
 struct yutani_msg_window_init {
@@ -496,6 +497,7 @@ struct yutani_msg_window_set_parent {
 #define YUTANI_WINDOW_FLAG_DIALOG_ANIMATION (1 << 4)
 #define YUTANI_WINDOW_FLAG_NO_ANIMATION     (1 << 5)
 #define YUTANI_WINDOW_FLAG_BLUR_BEHIND      (1 << 8)
+#define YUTANI_WINDOW_FLAG_PARENT_WID       (1 << 9)
 
 /* YUTANI_SPECIAL_REQUEST
  *
@@ -538,7 +540,7 @@ extern int yutani_msg_send(yutani_t * y, yutani_msg_t * msg);
 extern yutani_t * yutani_context_create(FILE * socket);
 extern yutani_t * yutani_init(void);
 extern yutani_window_t * yutani_window_create(yutani_t * y, int width, int height);
-extern yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int height, uint32_t flags);
+extern yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int height, uint32_t flags, ...);
 extern void yutani_flip(yutani_t * y, yutani_window_t * win);
 extern void yutani_window_move(yutani_t * yctx, yutani_window_t * window, int x, int y);
 extern void yutani_window_move_relative(yutani_t * yctx, yutani_window_t * window, yutani_window_t * base, int x, int y);

@@ -2713,6 +2713,12 @@ int main(int argc, char * argv[]) {
 					struct yutani_msg_window_new_flags * wn = (void *)m->data;
 					TRACE("Client %p requested a new window (%dx%d).", p->source, wn->width, wn->height);
 					yutani_server_window_t * w = server_window_create(yg, wn->width, wn->height, p->source, m->type != YUTANI_MSG_WINDOW_NEW ? wn->flags : 0);
+
+					if (w->server_flags & YUTANI_WINDOW_FLAG_PARENT_WID) {
+						TRACE("Set parent wid of %d to %d\n", w->wid, wn->parent_wid);
+						w->parent = wn->parent_wid;
+					}
+
 					yutani_msg_buildx_window_init_alloc(response);
 					yutani_msg_buildx_window_init(response,w->wid, w->width, w->height, w->bufid);
 					pex_send(server, p->source, response->size, (char *)response);

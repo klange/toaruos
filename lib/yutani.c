@@ -10,6 +10,7 @@
  */
 #include <string.h>
 #include <stdlib.h>
+#include <va_list.h>
 #include <sys/shm.h>
 
 #include <toaru/pex.h>
@@ -191,7 +192,7 @@ void yutani_msg_buildx_window_new(yutani_msg_t * msg, uint32_t width, uint32_t h
 }
 
 
-void yutani_msg_buildx_window_new_flags(yutani_msg_t * msg, uint32_t width, uint32_t height, uint32_t flags) {
+void yutani_msg_buildx_window_new_flags(yutani_msg_t * msg, uint32_t width, uint32_t height, uint32_t flags, yutani_wid_t parent_wid) {
 	msg->magic = YUTANI_MSG__MAGIC;
 	msg->type  = YUTANI_MSG_WINDOW_NEW_FLAGS;
 	msg->size  = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_new_flags);
@@ -201,6 +202,7 @@ void yutani_msg_buildx_window_new_flags(yutani_msg_t * msg, uint32_t width, uint
 	mw->width = width;
 	mw->height = height;
 	mw->flags = flags;
+	mw->parent_wid = parent_wid;
 }
 
 
@@ -590,11 +592,20 @@ yutani_t * yutani_init(void) {
  *
  * Create a window with certain pre-specified properties.
  */
-yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int height, uint32_t flags) {
+yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int height, uint32_t flags, ...) {
+	va_list ap;
+	va_start(ap, flags);
+	yutani_wid_t parent_wid = 0;
+	if (flags & YUTANI_WINDOW_FLAG_PARENT_WID) {
+		yutani_window_t * parent = va_arg(ap, yutani_window_t *);
+		if (parent) parent_wid = parent->wid;
+	}
+	va_end(ap);
+
 	yutani_window_t * win = malloc(sizeof(yutani_window_t));
 
 	yutani_msg_buildx_window_new_flags_alloc(m);
-	yutani_msg_buildx_window_new_flags(m, width, height, flags);
+	yutani_msg_buildx_window_new_flags(m, width, height, flags, parent_wid);
 	yutani_msg_send(y, m);
 
 	yutani_msg_t * mm = yutani_wait_for(y, YUTANI_MSG_WINDOW_INIT);
