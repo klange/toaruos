@@ -200,14 +200,14 @@ static elf_t * open_object(const char * path) {
 
 	/* Initialize a fresh object object. */
 	elf_t * object = malloc(sizeof(elf_t));
-	memset(object, 0, sizeof(elf_t));
-	hashmap_set(objects_map, (void*)path, object);
 
 	/* Really unlikely... */
 	if (!object) {
 		last_error = "Could not allocate space.";
 		return NULL;
 	}
+	memset(object, 0, sizeof(elf_t));
+	hashmap_set(objects_map, (void*)path, object);
 
 	object->file = f;
 
