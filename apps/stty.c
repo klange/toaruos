@@ -355,7 +355,7 @@ int main(int argc, char * argv[]) {
 			continue;
 		}
 
-		if (*argv[i] >= '0' && *argv[i] < '9') {
+		if (*argv[i] >= '0' && *argv[i] <= '9') {
 			if (set_baud_rate(&t, argv[i])) {
 				i++;
 				continue;
