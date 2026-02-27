@@ -191,6 +191,18 @@ struct menu_bar_entries terminal_menu_entries[] = {
 	{NULL, NULL},
 };
 
+/* We need to track these so we can update their states*/
+static struct MenuEntry * _menu_toggle_borders_context = NULL;
+static struct MenuEntry * _menu_toggle_borders_bar = NULL;
+static struct MenuEntry * _menu_exit = NULL;
+static struct MenuEntry * _menu_copy = NULL;
+static struct MenuEntry * _menu_paste = NULL;
+static struct MenuEntry * _menu_scale_075 = NULL;
+static struct MenuEntry * _menu_scale_100 = NULL;
+static struct MenuEntry * _menu_scale_150 = NULL;
+static struct MenuEntry * _menu_scale_200 = NULL;
+static struct MenuEntry * _menu_set_zoom = NULL;
+
 /* Trigger to exit the terminal when the child process dies or
  * we otherwise receive an exit signal */
 static volatile int exit_application = 0;
@@ -2303,6 +2315,7 @@ static void * handle_incoming(void) {
 									selection_end_x++;
 								}
 								selection = 1;
+								if (_menu_copy) menu_update_enabled(_menu_copy, selection);
 							} else {
 								last_click = get_ticks();
 								selection_start_x = new_x;
@@ -2310,6 +2323,7 @@ static void * handle_incoming(void) {
 								selection_end_x = new_x;
 								selection_end_y = new_y;
 								selection = 0;
+								if (_menu_copy) menu_update_enabled(_menu_copy, selection);
 							}
 							redraw_selection();
 						}
@@ -2318,11 +2332,13 @@ static void * handle_incoming(void) {
 							selection_end_x = new_x;
 							selection_end_y = new_y;
 							selection = 1;
+							if (_menu_copy) menu_update_enabled(_menu_copy, selection);
 							flip_selection();
 						}
 						if (me->command == YUTANI_MOUSE_EVENT_RAISE) {
 							if (me->new_x == me->old_x && me->new_y == me->old_y) {
 								selection = 0;
+								if (_menu_copy) menu_update_enabled(_menu_copy, selection);
 								term_redraw_all();
 								redraw_scrollback();
 							} /* else selection */
@@ -2359,10 +2375,6 @@ static void _menu_action_exit(struct MenuEntry * self) {
 	exit_application = 1;
 }
 
-/* We need to track these so we can retitle both of them */
-static struct MenuEntry * _menu_toggle_borders_context = NULL;
-static struct MenuEntry * _menu_toggle_borders_bar = NULL;
-
 static void _menu_action_hide_borders(struct MenuEntry * self) {
 	_no_frame = !(_no_frame);
 	update_bounds();
@@ -2381,6 +2393,7 @@ static void _menu_action_toggle_tt(struct MenuEntry * self) {
 	_use_aa = !(_use_aa);
 	menu_update_toggle_state(_menu_toggle_bitmap_context, !_use_aa);
 	menu_update_toggle_state(_menu_toggle_bitmap_bar, !_use_aa);
+	menu_update_enabled(_menu_set_zoom, _use_aa);
 	reinit();
 }
 
@@ -2411,11 +2424,6 @@ static void _menu_action_copy(struct MenuEntry * self) {
 static void _menu_action_paste(struct MenuEntry * self) {
 	yutani_special_request(yctx, NULL, YUTANI_SPECIAL_REQUEST_CLIPBOARD);
 }
-
-static struct MenuEntry * _menu_scale_075 = NULL;
-static struct MenuEntry * _menu_scale_100 = NULL;
-static struct MenuEntry * _menu_scale_150 = NULL;
-static struct MenuEntry * _menu_scale_200 = NULL;
 
 static void update_scale_menu(void) {
 	menu_update_toggle_state(_menu_scale_075, font_scaling == 0.75);
@@ -2598,9 +2606,11 @@ int main(int argc, char ** argv) {
 	terminal_menu_bar.entries = terminal_menu_entries;
 	terminal_menu_bar.redraw_callback = render_decors_callback;
 
-	struct MenuEntry * _menu_exit = menu_create_normal("exit","exit","Exit", _menu_action_exit);
-	struct MenuEntry * _menu_copy = menu_create_normal(NULL, NULL, "Copy", _menu_action_copy);
-	struct MenuEntry * _menu_paste = menu_create_normal(NULL, NULL, "Paste", _menu_action_paste);
+	_menu_exit = menu_create_normal("exit","exit","Exit", _menu_action_exit);
+	_menu_copy = menu_create_normal(NULL, NULL, "Copy", _menu_action_copy);
+	_menu_paste = menu_create_normal(NULL, NULL, "Paste", _menu_action_paste);
+
+	menu_update_enabled(_menu_copy, selection);
 
 	menu_right_click = menu_create();
 	menu_insert(menu_right_click, _menu_copy);
@@ -2643,7 +2653,8 @@ int main(int argc, char ** argv) {
 	m = menu_create();
 	_menu_toggle_borders_bar = menu_create_toggle(NULL, "Show borders", !_no_frame, _menu_action_hide_borders);
 	menu_insert(m, _menu_toggle_borders_bar);
-	menu_insert(m, menu_create_submenu(NULL,"zoom","Set zoom..."));
+	menu_insert(m, (_menu_set_zoom = menu_create_submenu(NULL,"zoom","Set zoom...")));
+	menu_update_enabled(_menu_set_zoom, _use_aa);
 	_menu_toggle_bitmap_bar = menu_create_toggle(NULL, "Bitmap font", !_use_aa, _menu_action_toggle_tt);
 	menu_insert(m, _menu_toggle_bitmap_bar);
 	menu_insert(m, menu_create_toggle(NULL, "Snap to Cell Size", !_free_size, _menu_action_toggle_free_size));
