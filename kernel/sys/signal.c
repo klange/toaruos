@@ -271,14 +271,14 @@ int send_signal(pid_t process, int signal, int force_root) {
  * @param group The group process ID. Positive PID, not negative.
  * @param signal Signal number to deliver.
  * @param force_root See explanation in @c send_signal
- * @returns 1 if something was signalled, 0 if there were no valid recipients.
+ * @returns 0 if something was killed, -ESRCH otherwise.
  */
 int group_send_signal(pid_t group, int signal, int force_root) {
 
 	int kill_self = 0;
 	int killed_something = 0;
 
-	if (signal < 0) return 0;
+	if (signal >= NUMSIGNALS || signal < 0) return -EINVAL;
 
 	foreach(node, process_list) {
 		process_t * proc = node->value;
@@ -300,7 +300,7 @@ int group_send_signal(pid_t group, int signal, int force_root) {
 		}
 	}
 
-	return !!killed_something;
+	return killed_something ? 0 : -ESRCH;
 }
 
 /**
