@@ -84,6 +84,9 @@ static struct TT_Font * tt_font_bold = NULL;
 static struct MenuEntry * _menu_entry_show_icons = NULL;
 static struct MenuEntry * _menu_entry_show_tiles = NULL;
 static struct MenuEntry * _menu_entry_show_list  = NULL;
+static struct MenuEntry * _menu_entry_up = NULL;
+static struct MenuEntry * _menu_entry_up_ctx_a = NULL;
+static struct MenuEntry * _menu_entry_up_ctx_b = NULL;
 
 /**
  * Navigation input box
@@ -519,6 +522,11 @@ static void load_directory(const char * path, int modifies_history) {
 		set_title(base);
 		free(tmp);
 	}
+
+	extern void menu_update_enabled(struct MenuEntry*, int);
+	if (_menu_entry_up) menu_update_enabled(_menu_entry_up, !_button_disabled[2]);
+	if (_menu_entry_up_ctx_a) menu_update_enabled(_menu_entry_up_ctx_a, !_button_disabled[2]);
+	if (_menu_entry_up_ctx_b) menu_update_enabled(_menu_entry_up_ctx_b, !_button_disabled[2]);
 
 	/* If we ended up in a path with //two/initial/slashes, fix that. */
 	if (path[0] == '/' && path[1] == '/') {
@@ -2002,7 +2010,7 @@ int main(int argc, char * argv[]) {
 		m = menu_create(); /* Go */
 		menu_insert(m, menu_create_normal("home",getenv("HOME"),"Home",_menu_action_navigate));
 		menu_insert(m, menu_create_normal(NULL,"/","File System",_menu_action_navigate));
-		menu_insert(m, menu_create_normal("up",NULL,"Up",_menu_action_up));
+		menu_insert(m, (_menu_entry_up = menu_create_normal("up",NULL,"Up",_menu_action_up)));
 		menu_set_insert(menu_bar.set, "go", m);
 
 		m = menu_create();
@@ -2024,7 +2032,7 @@ int main(int argc, char * argv[]) {
 	menu_insert(context_menu, menu_create_normal(NULL,NULL,"Delete",_menu_action_delete));
 	if (!is_desktop_background) {
 		menu_insert(context_menu, menu_create_separator());
-		menu_insert(context_menu, menu_create_normal("up",NULL,"Up",_menu_action_up));
+		menu_insert(context_menu, (_menu_entry_up_ctx_a = menu_create_normal("up",NULL,"Up",_menu_action_up)));
 	}
 	menu_insert(context_menu, menu_create_normal("refresh",NULL,"Refresh",_menu_action_refresh));
 	menu_insert(context_menu, menu_create_normal("utilities-terminal","terminal","Open Terminal",launch_application_menu));
@@ -2033,7 +2041,7 @@ int main(int argc, char * argv[]) {
 	menu_insert(directory_context_menu, menu_create_normal(NULL,NULL,"Paste",_menu_action_paste));
 	menu_insert(directory_context_menu, menu_create_separator());
 	if (!is_desktop_background) {
-		menu_insert(directory_context_menu, menu_create_normal("up",NULL,"Up",_menu_action_up));
+		menu_insert(directory_context_menu, (_menu_entry_up_ctx_b = menu_create_normal("up",NULL,"Up",_menu_action_up)));
 	}
 	menu_insert(directory_context_menu, menu_create_normal("refresh",NULL,"Refresh",_menu_action_refresh));
 	menu_insert(directory_context_menu, menu_create_normal("utilities-terminal","terminal","Open Terminal",launch_application_menu));
