@@ -2801,6 +2801,7 @@ int main(int argc, char * argv[]) {
 					 *     Validate that the window even exists?
 					 *     For now, just accept any wid, whatever. */
 					movee->parent = wsp->parent_wid;
+					notify_subscribers(yg);
 				}
 				break;
 			case YUTANI_MSG_WINDOW_CLOSE:
