@@ -235,13 +235,12 @@ void _menu_activate_MenuEntry_Submenu(struct MenuEntry * self, int focused) {
 		new_menu->parent->child = new_menu;
 		_self->_my_child = new_menu;
 		if (new_menu->closed) {
+			new_menu->main_window = new_menu->parent->main_window;
 			menu_prepare(new_menu, _self->_owner->window->ctx);
 			int offset_x = _self->_owner->window->width - 2;
 			if (_self->_owner->window->width + _self->_owner->window->x - 2 + new_menu->window->width > _self->_owner->window->ctx->display_width) {
 				offset_x = 2 - new_menu->window->width;
 			}
-			new_menu->main_window = new_menu->parent->main_window;
-			yutani_window_set_parent(_self->_owner->window->ctx, new_menu->window, new_menu->parent->main_window);
 			yutani_window_move_relative(_self->_owner->window->ctx, new_menu->window, _self->_owner->window,
 				offset_x, _self->offset - 4);
 			yutani_flip(_self->_owner->window->ctx, new_menu->window);
@@ -660,8 +659,11 @@ void menu_prepare(struct MenuList * menu, yutani_t * yctx) {
 	/* Create window */
 
 	yutani_window_t * menu_window = yutani_window_create_flags(yctx, width, height,
-		((menu->flags & MENU_FLAG_BUBBLE) ? YUTANI_WINDOW_FLAG_ALT_ANIMATION :
-			YUTANI_WINDOW_FLAG_NO_ANIMATION) | YUTANI_WINDOW_FLAG_DISALLOW_DRAG | YUTANI_WINDOW_FLAG_DISALLOW_RESIZE);
+		((menu->flags & MENU_FLAG_BUBBLE) ? YUTANI_WINDOW_FLAG_ALT_ANIMATION : YUTANI_WINDOW_FLAG_NO_ANIMATION)
+		| YUTANI_WINDOW_FLAG_DISALLOW_DRAG
+		| YUTANI_WINDOW_FLAG_DISALLOW_RESIZE
+		| YUTANI_WINDOW_FLAG_PARENT_WID,
+		menu->main_window);
 	yutani_set_stack(yctx, menu_window, YUTANI_ZORDER_MENU);
 	if (menu->ctx) {
 		reinit_graphics_yutani(menu->ctx, menu_window);
@@ -678,13 +680,12 @@ void menu_prepare(struct MenuList * menu, yutani_t * yctx) {
 }
 
 void menu_show_at(struct MenuList * menu, yutani_window_t * parent, int x, int y) {
+	menu->main_window = parent;
 	menu_prepare(menu, parent->ctx);
 
 	if (parent->x + x + menu->window->width > parent->ctx->display_width) x -= menu->window->width;
 	if (parent->y + y + menu->window->height > parent->ctx->display_height) y -= menu->window->height;
 
-	menu->main_window = parent;
-	yutani_window_set_parent(parent->ctx, menu->window, parent);
 	yutani_window_move_relative(parent->ctx, menu->window, parent, x, y);
 	yutani_flip(parent->ctx, menu->window);
 }
@@ -1080,9 +1081,8 @@ void menu_bar_show_menu(yutani_t * yctx, yutani_window_t * window, struct menu_b
 		}
 	}
 
-	menu_prepare(new_menu, yctx);
 	new_menu->main_window = window;
-	yutani_window_set_parent(yctx, new_menu->window, window);
+	menu_prepare(new_menu, yctx);
 	yutani_window_move_relative(yctx, new_menu->window, window, offset, self->y + MENU_BAR_HEIGHT);
 	yutani_flip(yctx, new_menu->window);
 
