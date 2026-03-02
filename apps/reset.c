@@ -13,9 +13,7 @@
 
 int main(int argc, char * argv[]) {
 	system("stty sane");
-	system("clear");
-	/* Clear scrollback as well */
-	printf("\033[3J");
+	printf("\033c\033[H\033[2J\033[3J");
 	fflush(stdout);
 	return 0;
 }
