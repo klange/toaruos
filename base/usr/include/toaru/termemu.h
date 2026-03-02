@@ -33,6 +33,7 @@ typedef struct {
 	void (*set_csr_on)(int);
 	void (*switch_buffer)(int);
 	void (*insert_delete_lines)(int);
+	void (*full_reset)(void);
 } term_callbacks_t;
 
 typedef struct {

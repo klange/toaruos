@@ -1617,6 +1617,38 @@ static void term_switch_buffer(int buffer) {
 	}
 }
 
+static void full_reset(void) {
+	/* Reset everything */
+	csr_x = 0;
+	csr_y = 0;
+	csr_h = 0;
+
+	/* Huh, why don't we haven't an _orig_h - surely hold should be saved? */
+	_orig_x = 0;
+	_orig_y = 0;
+
+	current_fg = TERM_DEFAULT_FG;
+	current_bg = TERM_DEFAULT_BG;
+	_orig_fg = TERM_DEFAULT_FG;
+	_orig_bg = TERM_DEFAULT_BG;
+
+	active_buffer = 0;
+	term_buffer = term_buffer_a;
+
+	/* Clear both buffers to 0 */
+	memset((void *)term_buffer_a, 0x00, term_width * term_height * sizeof(term_cell_t));
+	memset((void *)term_buffer_b, 0x00, term_width * term_height * sizeof(term_cell_t));
+
+	/* Clear the mirror; do not clear the display buffer */
+	memset((void *)term_mirror, 0x00, term_width * term_height * sizeof(term_cell_t));
+
+	/* Enable cursor */
+	cursor_on = 1;
+
+	/* Clear title */
+	terminal_title_length = 0;
+}
+
 /* ANSI callbacks */
 term_callbacks_t term_callbacks = {
 	term_write,
@@ -1636,6 +1668,7 @@ term_callbacks_t term_callbacks = {
 	term_set_csr_show,
 	term_switch_buffer,
 	insert_delete_lines,
+	full_reset,
 };
 
 static void handle_input(char c) {

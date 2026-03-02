@@ -135,6 +135,22 @@ static void _ansi_put(term_state_t * s, char c) {
 				s->escape = 0;
 				s->buflen = 0;
 				callbacks->set_csr(s->save_x, s->save_y);
+			} else if (c == 'c') {
+				/*
+				 * "Full reset"
+				 * First, reset anything we own. Then call a callback
+				 * to inform the app to reset things it owns (buffers, cursors).
+				 */
+				s->escape = 0;
+				s->buflen = 0;
+				s->mouse_on = 0;
+				s->save_x = 0;
+				s->save_y = 0;
+				s->box = 0;
+				s->fg = TERM_DEFAULT_FG;
+				s->bg = TERM_DEFAULT_BG;
+				s->flags = TERM_DEFAULT_FLAGS;
+				if (callbacks->full_reset) callbacks->full_reset();
 			} else {
 				/* This isn't a bracket, we're not actually escaped!
 				 * Get out of here! */
