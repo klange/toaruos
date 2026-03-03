@@ -375,6 +375,25 @@ long sys_open(const char * file, long flags, long mode) {
 		return -EEXIST;
 	}
 
+	if (!node && (flags & O_CREAT)) {
+		int result = create_file_fs((char *)file, mode);
+		/*
+		 * This still potentially has an issue, particularly with
+		 * O_EXCL, where another process can replace this file,
+		 * or otherwise create a different file, and then the
+		 * file we created above is not the one we are opening.
+		 *
+		 * In the new VFS, creating a file should return an
+		 * inode/dirent representing the new file, so we don't
+		 * have to go and immediately try to open it.
+		 */
+		if (!result) {
+			node = kopen((char *)file, flags);
+		} else {
+			return result;
+		}
+	}
+
 	if (!(flags & O_WRONLY) || (flags & O_RDWR)) {
 		if (node && !has_permission(node, 04)) {
 			close_fs(node);
@@ -395,16 +414,6 @@ long sys_open(const char * file, long flags, long mode) {
 		if ((flags & O_RDWR) || (flags & O_WRONLY)) {
 			/* truncate doesn't grant write permissions */
 			access_bits |= 02;
-		}
-	}
-
-	if (!node && (flags & O_CREAT)) {
-		/* TODO check directory permissions */
-		int result = create_file_fs((char *)file, mode);
-		if (!result) {
-			node = kopen((char *)file, flags);
-		} else {
-			return result;
 		}
 	}
 
