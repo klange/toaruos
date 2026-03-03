@@ -402,7 +402,7 @@ long sys_open(const char * file, long flags, long mode) {
 		/* TODO check directory permissions */
 		int result = create_file_fs((char *)file, mode);
 		if (!result) {
-			node = kopen((char *)file, flags);
+			node = kopen((char *)file, flags | O_NOFOLLOW);
 		} else {
 			return result;
 		}
