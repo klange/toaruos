@@ -65,7 +65,7 @@ static int stat_file(char * file) {
 	printf("  File: %s\n", file);
 	/* TODO: st_blocks is not being set, skip it */
 	printf("  Size: %-10lu %s\n", f->st_size, file_type);
-	printf("Device: %-10u Inode: %-10u  Links: %u\n", f->st_dev, f->st_ino, f->st_nlink);
+	printf("Device: %-10lu Inode: %-10lu  Links: %u\n", f->st_dev, f->st_ino, f->st_nlink);
 	printf("Access: ");
 	/* Copied from apps/ls.c */
 	if (S_ISLNK(f->st_mode))       { printf("l"); }

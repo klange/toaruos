@@ -2,8 +2,8 @@
 #include <sys/stat.h>
 
 struct stat_compat  {
-	dev_t  st_dev;
-	ino_t  st_ino;
+	int  st_dev;
+	int  st_ino;
 	mode_t  st_mode;
 	nlink_t  st_nlink;
 	uid_t  st_uid;
@@ -18,7 +18,15 @@ struct stat_compat  {
 };
 
 static void convert(const struct stat *nst, struct stat_compat *ost) {
-	memcpy(ost, nst, offsetof(struct stat_compat,__st_atime));
+	ost->st_dev = nst->st_dev;
+	ost->st_ino = nst->st_ino;
+	ost->st_mode = nst->st_mode;
+	ost->st_nlink = nst->st_nlink;
+	ost->st_uid = nst->st_uid;
+	ost->st_gid = nst->st_gid;
+	ost->st_rdev = nst->st_rdev;
+	ost->st_size = nst->st_size;
+
 	ost->__st_atime = nst->st_atim.tv_sec;
 	ost->__st_mtime = nst->st_mtim.tv_sec;
 	ost->__st_ctime = nst->st_ctim.tv_sec;

@@ -8,8 +8,6 @@
 
 _Begin_C_Header
 
-typedef int mode_t;
-
 struct stat  {
 	dev_t  st_dev;
 	ino_t  st_ino;

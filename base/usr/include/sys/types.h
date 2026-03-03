@@ -7,8 +7,8 @@ _Begin_C_Header
 
 typedef int gid_t;
 typedef int uid_t;
-typedef int dev_t;
-typedef int ino_t;
+typedef unsigned long dev_t;
+typedef unsigned long ino_t;
 typedef int mode_t;
 typedef int caddr_t;
 
