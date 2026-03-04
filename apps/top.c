@@ -17,9 +17,11 @@
 #include <termios.h>
 #include <poll.h>
 #include <time.h>
+#include <signal.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
+#include <sys/signal.h>
 
 #include <sys/sysfunc.h>
 #include <toaru/list.h>
@@ -733,6 +735,11 @@ void set_buffered(void) {
 	tcsetattr(STDOUT_FILENO, TCSAFLUSH, &old);
 }
 
+void SIGWINCH_handler(int sig) {
+	(void)sig;
+	signal(SIGWINCH, SIGWINCH_handler);
+}
+
 int main (int argc, char * argv[]) {
 	/* Assume CPU count doesn't change... */
 	cpu_count = sysfunc(TOARU_SYS_FUNC_NPROC, NULL);
@@ -740,6 +747,7 @@ int main (int argc, char * argv[]) {
 	/* Initialize terminal for alt screen */
 	get_initial_termios();
 	set_unbuffered();
+	signal(SIGWINCH, SIGWINCH_handler);
 
 	/* Loop */
 	while (do_once());
