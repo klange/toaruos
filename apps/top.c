@@ -585,7 +585,7 @@ static int do_once(void) {
 
 	/* Gather screen size */
 	struct winsize w;
-	ioctl(STDERR_FILENO, TIOCGWINSZ, &w);
+	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 
 	/* Figure out how we're going to lay out widgets */
 	int top_rows = 1 + cpu_count;
