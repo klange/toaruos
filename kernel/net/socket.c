@@ -146,7 +146,10 @@ static long sock_raw_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	char * data = net_sock_get(sock);
 	if (!data) return -EINTR;
 	size_t packet_size = *(size_t*)data;
-	if (msg->msg_iov[0].iov_len < packet_size) return -EINVAL;
+	if (msg->msg_iov[0].iov_len < packet_size) {
+		free(data);
+		return -EINVAL;
+	}
 	memcpy(msg->msg_iov[0].iov_base, data + sizeof(size_t), packet_size);
 	free(data);
 	return 4096;
