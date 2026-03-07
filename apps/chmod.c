@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <sys/stat.h>
 
 enum mode_set {
@@ -108,12 +109,14 @@ int main(int argc, char * argv[]) {
 		}
 	}
 
-	int i = 2;
-	while (i < argc) {
+	int out = 0;
+	for (int i = 2; i < argc; ++i) {
 		int actual_mode = 0;
 		struct stat _stat;
 		if (stat(argv[i], &_stat) < 0) {
-			fprintf(stderr, "%s: %s: error with stat\n", argv[0], argv[i]);
+			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[i], strerror(errno));
+			out |= 1;
+			continue;
 		}
 
 		switch (mode_set) {
@@ -129,11 +132,11 @@ int main(int argc, char * argv[]) {
 		}
 
 		if (chmod(argv[i], actual_mode) < 0) {
-			fprintf(stderr, "%s: %s: error with chmod\n", argv[0], argv[i]);
-			return 1;
+			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[i], strerror(errno));
+			out |= 1;
+			continue;
 		}
-		i++;
 	}
 
-	return 0;
+	return out;
 }
