@@ -71,5 +71,6 @@ with tarfile.open('ramdisk.igz','w:gz') as ramdisk:
     ramdisk.add('kuroko/src/kuroko',arcname='/usr/include/kuroko',filter=file_filter)
     ramdisk.addfile(symlink('bin/sh','esh'))
     ramdisk.addfile(symlink('bin/mandelbrot','julia'))
+    ramdisk.addfile(symlink('bin/fgrep','grep'))
 
 
