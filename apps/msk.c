@@ -187,6 +187,11 @@ static int update_stores(int argc, char * argv[]) {
 	confreader_t * manifest_out = confreader_create_empty();
 	hashmap_t * remotes = hashmap_get(msk_config->sections, "remotes");
 
+	if (!remotes) {
+		fprintf(stderr, "No remotes defined - bad msk.conf?\n");
+		return 1;
+	}
+
 	int one_success = 0;
 
 	char * order = strdup(confreader_getd(msk_config, "", "remote_order", ""));
