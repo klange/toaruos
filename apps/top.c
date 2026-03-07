@@ -534,9 +534,9 @@ static void prev_sort_order(void) {
 }
 
 /**
- * @brief Gather and display one round of data.
+ * @brief Collect information on running processes.
  */
-static int do_once(void) {
+static struct process ** read_processes(size_t * count) {
 	/* Set minimum column widths to titles */
 	reset_column_widths();
 
@@ -559,9 +559,12 @@ static int do_once(void) {
 	}
 	closedir(dirp);
 
+	hashmap_free(process_ents);
+	free(process_ents);
+
 	/* Turn list into an array */
-	size_t count = ents_list->length;
-	struct process ** processList = malloc(sizeof(struct process*) * count);
+	*count = ents_list->length;
+	struct process ** processList = malloc(sizeof(struct process*) * *count);
 	size_t ent = 0;
 	while (ents_list->length) {
 		node_t * node = list_pop(ents_list);
@@ -572,7 +575,17 @@ static int do_once(void) {
 	free(ents_list);
 
 	/* Sort processes with the current sort column */
-	qsort(processList, count, sizeof(struct process*), sort_processes);
+	qsort(processList, *count, sizeof(struct process*), sort_processes);
+
+	return processList;
+}
+
+/**
+ * @brief Gather system information and print one sample.
+ */
+static int do_once(void) {
+	size_t count;
+	struct process ** processList = read_processes(&count);
 
 	/* Gather total memory usage /proc/meminfo */
 	int mem_total = 0, mem_used = 0;
@@ -668,6 +681,7 @@ static int do_once(void) {
 	/* Show column headers */
 	print_header();
 	int i = 0;
+	size_t ent = 0;
 
 	/* Print entries, or help text lines */
 	if (show_help) {
@@ -692,8 +706,6 @@ static int do_once(void) {
 		free_entry(processList[ent]);
 	}
 	free(processList);
-	hashmap_free(process_ents);
-	free(process_ents);
 
 	/* Wait for command or 2 seconds for next refresh... */
 	struct pollfd fds[1];
@@ -709,6 +721,74 @@ static int do_once(void) {
 	}
 
 	return 1;
+}
+
+/**
+ * @brief Gather and print process information once.
+ *
+ * Prints only process information.
+ */
+static int do_log(void) {
+	size_t count;
+	struct process ** processList = read_processes(&count);
+
+	int mem_total = 0, mem_used = 0;
+	get_mem_info(&mem_total, &mem_used);
+
+	size_t mem_tmpfs = 0;
+	get_tmpfs_info(&mem_tmpfs);
+
+	/* Gather per-CPU usage from /proc/idle */
+	int cpus[32];
+	get_cpu_info(cpus);
+
+	/* Hostname */
+	{
+		char tmp[256] = {0};
+		gethostname(tmp, 255);
+		printf("Hostname: %s\n", tmp);
+	}
+
+	/* Current time */
+	{
+		char tmp[256] = {0};
+		char * format = "%a %b %d %T %Y %Z";
+		struct tm * timeinfo;
+		struct timeval now;
+		gettimeofday(&now, NULL);
+		timeinfo = localtime((time_t *)&now.tv_sec);
+		strftime(tmp,255,format,timeinfo);
+		printf("Time: %s\n", tmp);
+	}
+
+	/* Task count and memory usage on one line */
+	printf("Tasks: %-7lu Mem: %dM/%dM (%ldM tmpfs)\n", count, mem_used / 1024, mem_total / 1024, mem_tmpfs/1024);
+
+	/* CPU usage; all on one line; formatted best for small counts and <100% usage */
+	for (int cpu = 0; cpu < cpu_count; ++cpu) {
+		printf("CPU%2d:%3d.%01d%%%s", cpu + 1, cpus[cpu] / 10, cpus[cpu] % 10,
+			(cpu + 1 == cpu_count) ? "\n" : "   ");
+	}
+
+	/* Blank line to separator process table */
+	printf("\n");
+
+	for (int * c = columns; *c; ++c) {
+		printf("%*s ", ColumnDescriptions[*c].width, ColumnDescriptions[*c].title);
+	}
+	printf("CMD\n");
+
+	for (size_t ent = 0; ent < count; ++ent) {
+		struct process * out = processList[ent];
+		for (int * c = columns; *c; ++c) {
+			print_column(out, *c);
+		}
+		printf("%s\n", out->command_line ? out->command_line : out->process);
+		free(out);
+	}
+	free(processList);
+
+	return 0;
 }
 
 struct termios old;
@@ -743,6 +823,14 @@ void SIGWINCH_handler(int sig) {
 int main (int argc, char * argv[]) {
 	/* Assume CPU count doesn't change... */
 	cpu_count = sysfunc(TOARU_SYS_FUNC_NPROC, NULL);
+
+	/*
+	 * If we are writing to a regular file, use the simple log format and
+	 * only output one sample of data before exiting.
+	 */
+	if (!isatty(STDOUT_FILENO)) {
+		return do_log();
+	}
 
 	/* Initialize terminal for alt screen */
 	get_initial_termios();
