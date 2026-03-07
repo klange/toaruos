@@ -16,6 +16,7 @@
 #include <getopt.h>
 #include <ctype.h>
 #include <errno.h>
+#include <libgen.h>
 
 #define LINE_SIZE 4096
 
@@ -24,6 +25,7 @@ static int ignorecase = 0;
 static int quiet = 0;
 static int only_matching = 0;
 static int counts = 0;
+static int is_fgrep = 0;
 
 struct MatchQualifier {
 	int (*matchFunc)(struct MatchQualifier*,char,int);
@@ -212,7 +214,14 @@ int regex_matches(struct Line * line, int j, char * needle, int ignorecase, int 
 	return 0;
 }
 
-int subsearch_matches(struct Line * line, int j, char * needle, int *len) {
+static int subsearch_matches(struct Line * line, int j, char * needle, int *len) {
+	if (is_fgrep) {
+		/* Does 'line' starting at 'j' match 'needle' */
+		const char *n = needle;
+		for (; *n; ++n, ++j) if (j >= line->actual || line->text[j] != *n) return 0;
+		*len = n - needle;
+		return 1;
+	}
 	return regex_matches(line, j, needle, ignorecase, len, NULL, 0, NULL);
 }
 
@@ -229,6 +238,7 @@ int usage(char ** argv) {
 		"  -q     " _I "Exit immediately with 0 when a match (or, with -v,\n"
 		"         non-match) is found, do not print matches." _E
 		"  -v     " _I "Invert match - print lines that do not match pattern." _E
+		"  -F     " _I "Treat PATTERN as a fixed string (acts as 'fgrep')." _E
 		"\n"
 		" Supported regex syntax:\n"
 		"  [abc]  " _I "Match one of a set of characters." _E
@@ -255,9 +265,30 @@ int usage(char ** argv) {
 
 #define LINE_SIZE 4096
 
+/*
+ * POSIX says "The basename() function may modify the string pointed to by path",
+ * and ours definitely does in order to handle trailing slashes. We don't want that,
+ * and we're probably not going to be dealing with trailing slashes because 'path'
+ * here is our argv[0] which should name a binary and trailing slashes would be
+ * wrong there. This "simple_basename" doesn't muck things up.
+ */
+static char * simple_basename(char * path) {
+	char * s = path;
+	char * c = path;
+	do {
+		while (*s == '/') {
+			s++;
+			if (!*s) return c; /* Ends in trailing slashes, shouldn't happen... */
+		}
+		c = s;
+		s = strchr(c,'/');
+	} while (s);
+	return c;
+}
+
 int main(int argc, char ** argv) {
 	int opt;
-	while ((opt = getopt(argc, argv, "?hivqoc")) != -1) {
+	while ((opt = getopt(argc, argv, "?hivqocF")) != -1) {
 		switch (opt) {
 			case 'h':
 			case '?':
@@ -277,7 +308,14 @@ int main(int argc, char ** argv) {
 			case 'c':
 				counts = 1;
 				break;
+			case 'F':
+				is_fgrep = 1;
+				break;
 		}
+	}
+
+	if (!strcmp(simple_basename(argv[0]),"fgrep")) {
+		is_fgrep = 1;
 	}
 
 	if (optind == argc) return usage(argv);
