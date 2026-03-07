@@ -7,6 +7,7 @@
  * Copyright (C) 2021 K. Lange
  */
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>

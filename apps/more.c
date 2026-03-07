@@ -12,6 +12,7 @@
 #include <string.h>
 #include <wchar.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <sys/ioctl.h>
 
 #include <toaru/decodeutf8.h>

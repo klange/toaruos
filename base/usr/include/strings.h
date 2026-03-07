@@ -1,7 +1,7 @@
 #pragma once
 
 #include <_cheader.h>
-#include <stdlib.h>
+#include <stddef.h>
 
 _Begin_C_Header
 extern int strcasecmp(const char *s1, const char *s2);

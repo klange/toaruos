@@ -107,6 +107,7 @@
 #include <stdint.h>
 #include <limits.h>
 #include <string.h>
+#include <stdlib.h>
 /* }}} */
 /* Definitions {{{ */
 

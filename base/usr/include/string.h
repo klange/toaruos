@@ -39,8 +39,6 @@ extern size_t strcspn(const char * s, const char * c);
 extern size_t strspn(const char * s, const char * c);
 extern size_t strlen(const char * s);
 
-extern int atoi(const char * s);
-
 extern char * strcat(char *dest, const char *src);
 extern char * strncat(char *dest, const char *src, size_t n);
 

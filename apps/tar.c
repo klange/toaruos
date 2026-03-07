@@ -11,6 +11,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2018-2020 K. Lange
  */
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>

@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <stdlib.h>
 
 struct device_class {
 	uint16_t id;

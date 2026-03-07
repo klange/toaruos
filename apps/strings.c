@@ -12,6 +12,7 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdlib.h>
 
 static char format = 0;
 static int min_chars = 4;

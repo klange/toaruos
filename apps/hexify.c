@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdlib.h>
 
 void print_line(unsigned char * buf, unsigned int width, unsigned int sizer, unsigned int offset) {
 	fprintf(stdout, "%08x: ", sizer);
