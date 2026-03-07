@@ -490,6 +490,18 @@ static int udp_get_port(sock_t * sock) {
 	return out;
 }
 
+long sock_udp_getsockname(sock_t * sock, struct sockaddr *addr, socklen_t * addrlen) {
+	if (!sock->priv[0]) return -EINVAL;
+	/* TODO do we even record the "bound" address? */
+	struct sockaddr_in out = {
+		AF_INET, htons(sock->priv[0]), { 0 }, {0},
+	};
+
+	memcpy(addr, &out, *addrlen < sizeof(struct sockaddr_in) ? *addrlen : sizeof(struct sockaddr_in));
+	if (*addrlen < sizeof(struct sockaddr_in)) *addrlen = sizeof(struct sockaddr_in);
+	return 0;
+}
+
 static long sock_udp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 	printf("udp: send called\n");
 	if (msg->msg_iovlen > 1) {
@@ -606,6 +618,17 @@ static long sock_udp_bind(sock_t * sock, const struct sockaddr *addr, socklen_t 
 	/* Get port */
 	const struct sockaddr_in * addr_in = (const struct sockaddr_in *)addr;
 	int port = ntohs(addr_in->sin_port);
+
+	if (port == 0) {
+		/* Pick one */
+		spin_lock(udp_port_lock);
+		port = next_port++;
+		spin_unlock(udp_port_lock);
+	} else if (port < 1024 && this_core->current_process->user != 0) {
+		/* Only superuser can bind to lower ports */
+		return -EACCES;
+	}
+
 	spin_lock(udp_port_lock);
 	if (hashmap_has(udp_sockets, (void*)(uintptr_t)port)) {
 		spin_unlock(udp_port_lock);
@@ -627,6 +650,7 @@ static int udp_socket(void) {
 	sock->sock_send = sock_udp_send;
 	sock->sock_close = sock_udp_close;
 	sock->sock_bind = sock_udp_bind;
+	sock->sock_getsockname = sock_udp_getsockname;
 	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock);
 }
 
