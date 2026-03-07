@@ -249,7 +249,7 @@ extern char * _argv_0;
 static int configure_interface(const char * if_name) {
 	/* Open a raw socket. */
 	int sock = socket(AF_RAW, SOCK_RAW, 0);
-	if (!sock) {
+	if (sock < 0) {
 		perror(_argv_0);
 		return 1;
 	}
