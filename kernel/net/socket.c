@@ -177,7 +177,8 @@ static void sock_raw_close(sock_t * sock) {
  * Raw sockets
  */
 long net_raw_socket(int type, int protocol) {
-	if (type != SOCK_RAW) return -EINVAL;
+	if (type != SOCK_RAW) return -ESOCKTNOSUPPORT;
+	if (this_core->current_process->user != 0) return -EACCES;
 
 	/* Make a new raw socket? */
 	sock_t * sock = net_sock_create();
@@ -200,7 +201,7 @@ long net_socket(int domain, int type, int protocol) {
 		case AF_RAW:
 			return net_raw_socket(type, protocol);
 		default:
-			return -EINVAL;
+			return -EAFNOSUPPORT;
 	}
 }
 
