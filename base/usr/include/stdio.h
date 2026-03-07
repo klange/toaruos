@@ -67,8 +67,6 @@ extern int feof(FILE * stream);
 extern void clearerr(FILE * stream);
 extern int ferror(FILE * stream);
 
-extern char * strerror(int errnum);
-
 extern int _fwouldblock(FILE * stream);
 
 extern FILE * tmpfile(void);

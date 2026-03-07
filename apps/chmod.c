@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <string.h>
 #include <sys/stat.h>
 
 enum mode_set {

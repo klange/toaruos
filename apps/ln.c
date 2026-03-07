@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <string.h>
 
 static const char usage[] =
 "Usage: %s [-s] TARGET NAME\n"
