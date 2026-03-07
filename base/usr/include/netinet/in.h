@@ -18,9 +18,6 @@ struct sockaddr_in {
 	char             sin_zero[8];  // zero this if you want to
 };
 
-in_addr_t inet_addr(const char *cp);
-char *inet_ntoa(struct in_addr in);
-
 #define IP_TTL 2
 #define IP_RECVTTL 12
 
