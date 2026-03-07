@@ -219,7 +219,7 @@ static int subsearch_matches(struct Line * line, int j, char * needle, int *len)
 		/* Does 'line' starting at 'j' match 'needle' */
 		const char *n = needle;
 		for (; *n; ++n, ++j) if (j >= line->actual || line->text[j] != *n) return 0;
-		*len = n - needle;
+		if (len) *len = n - needle;
 		return 1;
 	}
 	return regex_matches(line, j, needle, ignorecase, len, NULL, 0, NULL);
