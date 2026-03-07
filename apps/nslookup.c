@@ -14,6 +14,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 
 int main(int argc, char * argv[]) {
 	if (argc < 2) return 1;
