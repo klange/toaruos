@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 static int usage(char * argv[]) {
 	fprintf(stderr, "usage: %s [-l | -s] file1 file2\n", argv[0]);
