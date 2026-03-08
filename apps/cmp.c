@@ -43,18 +43,35 @@ int main(int argc, char * argv[]) {
 
 	const char * file_a = argv[optind];
 	const char * file_b = argv[optind+1];
+	FILE * a;
+	FILE * b;
 
 
-	FILE * a = fopen(file_a, "r");
-	if (!a) {
-		fprintf(stderr, "%s: %s: %s\n", argv[0], file_a, strerror(errno));
-		return 2;
+	if (!strcmp(file_a, "-")) {
+		a = stdin;
+		file_a = "stdin";
+	} else {
+		a = fopen(file_a, "r");
+		if (!a) {
+			fprintf(stderr, "%s: %s: %s\n", argv[0], file_a, strerror(errno));
+			return 2;
+		}
 	}
 
-	FILE * b = fopen(file_b, "r");
-	if (!b) {
-		fprintf(stderr, "%s: %s: %s\n", argv[0], file_b, strerror(errno));
-		fclose(a);
+	if (!strcmp(file_b, "-")) {
+		b = stdin;
+		file_b = "stdin";
+	} else {
+		b = fopen(file_b, "r");
+		if (!b) {
+			fprintf(stderr, "%s: %s: %s\n", argv[0], file_b, strerror(errno));
+			fclose(a);
+			return 2;
+		}
+	}
+
+	if (a == stdin && b == stdin) {
+		fprintf(stderr, "stdin may only be specified for one argument\n");
 		return 2;
 	}
 
@@ -93,7 +110,7 @@ int main(int argc, char * argv[]) {
 	}
 
 finish:
-	fclose(a);
-	fclose(b);
+	if (a != stdin) fclose(a);
+	if (b != stdin) fclose(b);
 	return retval;
 }
