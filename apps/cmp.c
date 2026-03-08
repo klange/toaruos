@@ -63,7 +63,9 @@ int main(int argc, char * argv[]) {
 
 	while (!feof(a) && !feof(b)) {
 		int _a = fgetc(a);
+		if (_a < 0 && ferror(a)) { fprintf(stderr, "%s: %s: %s\n", argv[0], file_a, strerror(errno)); retval = 2; goto finish; }
 		int _b = fgetc(b);
+		if (_b < 0 && ferror(b)) { fprintf(stderr, "%s: %s: %s\n", argv[0], file_b, strerror(errno)); retval = 2; goto finish; }
 
 		if (_a != _b) {
 			if (_a == EOF || _b == EOF) {
