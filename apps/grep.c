@@ -26,6 +26,7 @@ static int quiet = 0;
 static int only_matching = 0;
 static int counts = 0;
 static int is_fgrep = 0;
+static int list_matching = 0;
 
 struct MatchQualifier {
 	int (*matchFunc)(struct MatchQualifier*,char,int);
@@ -231,11 +232,12 @@ static int subsearch_matches(struct Line * line, int j, char * needle, int *len)
 int usage(char ** argv) {
 #define _I "\033[3m"
 #define _E "\033[0m\n"
-	fprintf(stderr, "usage: %s [-ivqoc] PATTERN [FILE...]\n"
+	fprintf(stderr, "usage: %s [-ivqoclF] PATTERN [FILE...]\n"
 		"\n"
 		" Supported options:\n"
 		"  -c     " _I "Instead of printing matches, print counts of matched lines." _E
 		"  -i     " _I "Ignore case in input and pattern." _E
+		"  -l     " _I "Print matching file names instead of printing matches." _E
 		"  -o     " _I "Print only the matching parts of each line, separating\n"
 		"         each match with a line feed." _E
 		"  -q     " _I "Exit immediately with 0 when a match (or, with -v,\n"
@@ -266,8 +268,6 @@ int usage(char ** argv) {
 	return 1;
 }
 
-#define LINE_SIZE 4096
-
 /*
  * POSIX says "The basename() function may modify the string pointed to by path",
  * and ours definitely does in order to handle trailing slashes. We don't want that,
@@ -291,7 +291,7 @@ static char * simple_basename(char * path) {
 
 int main(int argc, char ** argv) {
 	int opt;
-	while ((opt = getopt(argc, argv, "?hivqocF")) != -1) {
+	while ((opt = getopt(argc, argv, "?hivqocFl")) != -1) {
 		switch (opt) {
 			case 'h':
 			case '?':
@@ -314,10 +314,13 @@ int main(int argc, char ** argv) {
 			case 'F':
 				is_fgrep = 1;
 				break;
+			case 'l':
+				list_matching = 1;
+				break;
 		}
 	}
 
-	if (!strcmp(simple_basename(argv[0]),"fgrep")) {
+	if (!is_fgrep && !strcmp(simple_basename(argv[0]), "fgrep")) {
 		is_fgrep = 1;
 	}
 
@@ -373,11 +376,15 @@ int main(int argc, char ** argv) {
 					int len;
 					if (subsearch_matches(&line, j, needle, &len)) {
 						ret = 0;
+						if (quiet) goto _done;
+						if (list_matching) {
+							fprintf(stdout, "%s\n", filename);
+							goto _done; /* one match is enough */
+						}
 						if (counts) {
 							count++;
 							break;
 						}
-						if (quiet) goto _done;
 						if (isbinary) {
 							fprintf(stderr, "%s: %s: binary file matches\n", argv[0], filename);
 							goto _done;
@@ -415,11 +422,11 @@ int main(int argc, char ** argv) {
 				}
 				if (matched) continue;
 				ret = 0;
+				if (quiet) goto _done;
 				if (counts) {
 					count++;
 					continue;
 				}
-				if (quiet) goto _done;
 				if (isbinary) {
 					fprintf(stderr, "%s: %s: binary file matches\n", argv[0], filename);
 					goto _done;
@@ -432,7 +439,7 @@ int main(int argc, char ** argv) {
 _done: (void)0;
 		if (input != stdin) fclose(input);
 
-		if (counts) {
+		if (!quiet && !list_matching && counts) {
 			if (showFilenames) fprintf(stdout, "%s:", filename);
 			fprintf(stdout, "%d\n", count);
 		}
