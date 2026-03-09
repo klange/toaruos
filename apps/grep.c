@@ -218,7 +218,13 @@ static int subsearch_matches(struct Line * line, int j, char * needle, int *len)
 	if (is_fgrep) {
 		/* Does 'line' starting at 'j' match 'needle' */
 		const char *n = needle;
-		for (; *n; ++n, ++j) if (j >= line->actual || line->text[j] != *n) return 0;
+		if (ignorecase) {
+			for (; *n; ++n, ++j)
+				if (j >= line->actual || tolower(line->text[j]) != tolower(*n)) return 0;
+		} else {
+			for (; *n; ++n, ++j)
+				if (j >= line->actual || line->text[j] != *n) return 0;
+		}
 		if (len) *len = n - needle;
 		return 1;
 	}
