@@ -38,16 +38,19 @@ struct MatchQualifier {
 	};
 };
 
+static inline int match_char_internal(char a, char b, int mode) {
+	switch (mode) {
+		case 0: return a == b;
+		case 1: return tolower(a) == tolower(b);
+	}
+	return 0;
+}
+
 /**
  * Helper for handling smart case sensitivity.
  */
 int match_char(struct MatchQualifier * self, char b, int mode) {
-	if (mode == 0) {
-		return self->matchChar == b;
-	} else if (mode == 1) {
-		return tolower(self->matchChar) == tolower(b);
-	}
-	return 0;
+	return match_char_internal(self->matchChar, b, mode);
 }
 
 int match_squares(struct MatchQualifier * self, char c, int mode) {
@@ -218,7 +221,7 @@ static int subsearch_matches(struct Line * line, int j, char * needle, int *len)
 	if (is_fgrep) {
 		/* Does 'line' starting at 'j' match 'needle' */
 		const char *n = needle;
-		for (; *n; ++n, ++j) if (j >= line->actual || line->text[j] != *n) return 0;
+		for (; *n; ++n, ++j) if (j >= line->actual || !match_char_internal(*n, line->text[j], ignorecase)) return 0;
 		if (len) *len = n - needle;
 		return 1;
 	}
