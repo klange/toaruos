@@ -26,6 +26,7 @@ static int quiet = 0;
 static int only_matching = 0;
 static int counts = 0;
 static int is_fgrep = 0;
+static int lflag = 0;
 
 struct MatchQualifier {
 	int (*matchFunc)(struct MatchQualifier*,char,int);
@@ -231,11 +232,12 @@ static int subsearch_matches(struct Line * line, int j, char * needle, int *len)
 int usage(char ** argv) {
 #define _I "\033[3m"
 #define _E "\033[0m\n"
-	fprintf(stderr, "usage: %s [-ivqoc] PATTERN [FILE...]\n"
+	fprintf(stderr, "usage: %s [-ivqoclF] PATTERN [FILE...]\n"
 		"\n"
 		" Supported options:\n"
 		"  -c     " _I "Instead of printing matches, print counts of matched lines." _E
 		"  -i     " _I "Ignore case in input and pattern." _E
+		"  -l     " _I "List names of matching files." _E
 		"  -o     " _I "Print only the matching parts of each line, separating\n"
 		"         each match with a line feed." _E
 		"  -q     " _I "Exit immediately with 0 when a match (or, with -v,\n"
@@ -291,7 +293,7 @@ static char * simple_basename(char * path) {
 
 int main(int argc, char ** argv) {
 	int opt;
-	while ((opt = getopt(argc, argv, "?hivqocF")) != -1) {
+	while ((opt = getopt(argc, argv, "?hivqocFl")) != -1) {
 		switch (opt) {
 			case 'h':
 			case '?':
@@ -314,10 +316,13 @@ int main(int argc, char ** argv) {
 			case 'F':
 				is_fgrep = 1;
 				break;
+			case 'l':
+				lflag = 1;
+				break;
 		}
 	}
 
-	if (!strcmp(simple_basename(argv[0]),"fgrep")) {
+	if (!is_fgrep && !strcmp(simple_basename(argv[0]), "fgrep")) {
 		is_fgrep = 1;
 	}
 
@@ -376,6 +381,10 @@ int main(int argc, char ** argv) {
 						if (counts) {
 							count++;
 							break;
+						}
+						if (lflag) {
+							fprintf(stdout, "%s\n", filename);
+							goto _done; /* one match is enough */
 						}
 						if (quiet) goto _done;
 						if (isbinary) {
