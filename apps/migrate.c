@@ -136,9 +136,34 @@ static hashmap_t * get_cmdline(void) {
 	return kernel_args_map;
 }
 
+static int root_is_tmpfs(void) {
+	FILE *f = fopen("/proc/mounts", "r");
+	if (!f) return 0;
+
+	char *line = NULL;
+	size_t len = 0;
+	int found = 0;
+
+	while (getline(&line, &len, f) != -1) {
+		if (strstr(line, "/ tmpfs ") == line) {
+			found = 1;
+			break;
+		}
+	}
+
+	free(line);
+	fclose(f);
+	return found;
+}
+
 int main(int argc, char * argv[]) {
 
 	hashmap_t * cmdline = get_cmdline();
+
+	if (root_is_tmpfs()) {
+	    fprintf(stderr, "You have already migrated the filesystem.\n");
+		return 1;
+	}
 
 	if (hashmap_has(cmdline, "logtoserial")) {
 		_debug = 1;
