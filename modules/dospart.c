@@ -122,7 +122,7 @@ static fs_node_t * dospart_map(const char * device, const char * mount_path) {
 				fs_node_t * node = dospart_device_create(i, dev, &mbr, i);
 				char tmp[64];
 				snprintf(tmp, 20, "%s%d", device, i);
-				vfs_mount(tmp, node);
+				vfs_mount(tmp, node, "dospart", tmp);
 			}
 		}
 	}

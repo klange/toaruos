@@ -121,7 +121,9 @@ fs_node_t * ramdisk_mount(uintptr_t location, size_t size) {
 	if (ramdisk) {
 		char tmp[64];
 		snprintf(tmp, 63, "/dev/%s", ramdisk->name);
-		vfs_mount(tmp, ramdisk);
+		char addr[64];
+		snprintf(addr, 63, "%p,%zu", (void*)location, size);
+		vfs_mount(tmp, ramdisk, "ramdisk", addr);
 		last_device_number += 1;
 		return ramdisk;
 	}

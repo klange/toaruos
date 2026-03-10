@@ -438,30 +438,34 @@ static void compiler_func(fs_node_t *node) {
 
 extern tree_t * fs_tree; /* kernel/fs/vfs.c */
 
-static void mount_recurse(fs_node_t * pnode, tree_node_t * node, size_t height) {
+static void mount_recurse(fs_node_t * pnode, tree_node_t * node, size_t height, char * prefix, char *p) {
 	/* End recursion on a blank entry */
 	if (!node) return;
-	/* Indent output */
-	for (uint32_t i = 0; i < height; ++i) {
-		procfs_printf(pnode, "  ");
-	}
+
 	/* Get the current process */
 	struct vfs_entry * fnode = (struct vfs_entry *)node->value;
 	/* Print the process name */
-	if (fnode->file) {
-		procfs_printf(pnode, "%s → %s %p (%s, %s)\n", fnode->name, fnode->device, (void*)fnode->file, fnode->fs_type, fnode->file->name);
-	} else {
-		procfs_printf(pnode, "%s → (empty)\n", fnode->name);
+
+	/* Set up name */
+	if (node != fs_tree->root) {
+		*p++ = '/';
+		for (char * n = fnode->name; *n; ++n) {
+			*p++ = *n;
+		}
+		*p = '\0';
 	}
-	/* Linefeed */
+
+	if (fnode->file) procfs_printf(pnode, "%s %s %s\n", prefix, fnode->fs_type, fnode->device);
+
 	foreach(child, node->children) {
 		/* Recursively print the children */
-		mount_recurse(pnode, child->value, height + 1);
+		mount_recurse(pnode, child->value, height + 1, prefix, p);
 	}
 }
 
 static void mounts_func(fs_node_t *node) {
-	mount_recurse(node, fs_tree->root, 0);
+	char prefix[1024] = {'/',0};
+	mount_recurse(node, fs_tree->root, 0, prefix, prefix);
 }
 
 static void modules_func(fs_node_t *node) {
@@ -792,7 +796,7 @@ static fs_node_t * procfs_create(void) {
 
 void procfs_initialize(void) {
 	/* TODO Move this to some sort of config */
-	vfs_mount("/proc", procfs_create());
+	vfs_mount("/proc", procfs_create(), "procfs", "");
 
 	//debug_print_vfs_tree();
 }

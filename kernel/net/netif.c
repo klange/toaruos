@@ -46,7 +46,7 @@ int net_add_interface(const char * name, fs_node_t * deviceNode) {
 
 	char tmp[100];
 	snprintf(tmp,100,"/dev/net/%s", name);
-	vfs_mount(tmp, deviceNode);
+	vfs_mount(tmp, deviceNode, "netif", "");
 
 	if (!_if_first) _if_first = deviceNode;
 

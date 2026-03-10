@@ -553,5 +553,5 @@ static fs_node_t * packetfs_manager(void) {
 
 void packetfs_initialize(void) {
 	fs_node_t * packet_mgr = packetfs_manager();
-	vfs_mount("/dev/pex", packet_mgr);
+	vfs_mount("/dev/pex", packet_mgr, "pex", "");
 }

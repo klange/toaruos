@@ -429,15 +429,15 @@ static void virtio_input_maybe(uint32_t device, uint16_t v, uint16_t d, void * e
 void null_input(void) {
 	mouse_pipe = make_pipe(128);
 	mouse_pipe->flags = FS_CHARDEVICE;
-	vfs_mount("/dev/mouse", mouse_pipe);
+	vfs_mount("/dev/mouse", mouse_pipe, "virtio-mouse", "");
 
 	vmmouse_pipe = make_pipe(4096);
 	vmmouse_pipe->flags = FS_CHARDEVICE;
-	vfs_mount("/dev/vmmouse", vmmouse_pipe);
+	vfs_mount("/dev/vmmouse", vmmouse_pipe, "virtio-tablet", "");
 
 	keyboard_pipe = make_pipe(128);
 	keyboard_pipe->flags = FS_CHARDEVICE;
-	vfs_mount("/dev/kbd", keyboard_pipe);
+	vfs_mount("/dev/kbd", keyboard_pipe, "virtio-kbd", "");
 
 }
 

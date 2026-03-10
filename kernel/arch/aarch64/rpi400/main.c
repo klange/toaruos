@@ -413,7 +413,7 @@ void kmain(uint32_t dtb_address, uint32_t base_addr) {
 
 	bootstub_mmu_init();
 
-	tag_data.phys_addr = lfb_vid_memory;
+	tag_data.phys_addr = (uint32_t)(uintptr_t)lfb_vid_memory;
 	tag_data.x = lfb_resolution_x;
 	tag_data.y = lfb_resolution_y;
 	tag_data.s = lfb_resolution_s;

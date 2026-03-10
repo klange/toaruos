@@ -249,6 +249,6 @@ void dtb_device(void) {
 	fnode->length  = 1048576;
 	fnode->flags   = FS_BLOCKDEVICE;
 	fnode->read    = read_dtb;
-	vfs_mount("/dev/dtb", fnode);
+	vfs_mount("/dev/dtb", fnode, "dtb", "");
 }
 

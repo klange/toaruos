@@ -86,7 +86,7 @@ static fs_node_t * zero_device_create(void) {
 }
 
 void zero_initialize(void) {
-	vfs_mount("/dev/null", null_device_create());
-	vfs_mount("/dev/zero", zero_device_create());
+	vfs_mount("/dev/null", null_device_create(), "null", "");
+	vfs_mount("/dev/zero", zero_device_create(), "zero", "");
 }
 

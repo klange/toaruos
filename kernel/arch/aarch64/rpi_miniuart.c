@@ -129,7 +129,7 @@ static void miniuart_thread(void * arg) {
 	pty->slave->mask = 0660;
 	pty->_private = arg;
 	pty->tios.c_cflag = CREAD | CS8 | B921600;
-	vfs_mount("/dev/ttyUART1", pty->slave);
+	vfs_mount("/dev/ttyUART1", pty->slave, "rpiminiuart", "");
 
 	/* Enable interrupts */
 	mmio_write(uart_mapped + AUX_MU_IER_REG, 1); /* enable receive interrupt */

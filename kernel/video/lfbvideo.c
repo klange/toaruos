@@ -184,7 +184,11 @@ static void finalize_graphics(const char * driver) {
 	lfb_driver_name = driver;
 	lfb_device = lfb_video_device_create();
 	lfb_device->length  = lfb_resolution_s * lfb_resolution_y; /* Size is framebuffer size in bytes */
-	vfs_mount("/dev/fb0", lfb_device);
+
+	char info[100];
+	snprintf(info, 99, "%s,%ux%u", driver, lfb_resolution_x, lfb_resolution_y);
+
+	vfs_mount("/dev/fb0", lfb_device, "lfb", info);
 
 	procfs_install(&framebuffer_entry);
 }
@@ -502,7 +506,7 @@ static void vga_text_init(void) {
 	vga_text_device->flags  = FS_BLOCKDEVICE;
 	vga_text_device->mask   = 0660;
 	vga_text_device->ioctl  = ioctl_vga;
-	vfs_mount("/dev/vga0", vga_text_device);
+	vfs_mount("/dev/vga0", vga_text_device, "vgatext", "");
 }
 
 static int lfb_init(const char * c) {

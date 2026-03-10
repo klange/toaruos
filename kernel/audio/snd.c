@@ -285,7 +285,7 @@ static snd_device_t * snd_main_device(void) {
 }
 
 void snd_install(void) {
-	vfs_mount("/dev/dsp", &_dsp_fnode);
-	vfs_mount("/dev/mixer", &_mixer_fnode);
+	vfs_mount("/dev/dsp", &_dsp_fnode, "dsp", "");
+	vfs_mount("/dev/mixer", &_mixer_fnode, "mixer", "");
 }
 

@@ -50,7 +50,7 @@ static void pl011_thread(void * arg) {
 	pty->slave->gid = 2; /* dialout group */
 	pty->slave->mask = 0660;
 	pty->_private = arg;
-	vfs_mount("/dev/ttyS0", pty->slave);
+	vfs_mount("/dev/ttyS0", pty->slave, "pl011", "");
 
 	/* Set up interrupt callback */
 	gic_assign_interrupt(1, pl011_irq, (void*)uart_mapped);

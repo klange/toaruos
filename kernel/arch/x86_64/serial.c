@@ -224,8 +224,8 @@ void serial_initialize(void) {
 	serial_ac_handler = spawn_worker_thread(process_serial, "[serial ac]", (void*)(uintptr_t)SERIAL_PORT_A);
 	serial_bd_handler = spawn_worker_thread(process_serial, "[serial bd]", (void*)(uintptr_t)SERIAL_PORT_B);
 
-	fs_node_t * ttyS0 = serial_device_create(SERIAL_PORT_A); vfs_mount(DEV_PATH "0", ttyS0);
-	fs_node_t * ttyS1 = serial_device_create(SERIAL_PORT_B); vfs_mount(DEV_PATH "1", ttyS1);
-	fs_node_t * ttyS2 = serial_device_create(SERIAL_PORT_C); vfs_mount(DEV_PATH "2", ttyS2);
-	fs_node_t * ttyS3 = serial_device_create(SERIAL_PORT_D); vfs_mount(DEV_PATH "3", ttyS3);
+	fs_node_t * ttyS0 = serial_device_create(SERIAL_PORT_A); vfs_mount(DEV_PATH "0", ttyS0, "pc-serial", "a");
+	fs_node_t * ttyS1 = serial_device_create(SERIAL_PORT_B); vfs_mount(DEV_PATH "1", ttyS1, "pc-serial", "b");
+	fs_node_t * ttyS2 = serial_device_create(SERIAL_PORT_C); vfs_mount(DEV_PATH "2", ttyS2, "pc-serial", "c");
+	fs_node_t * ttyS3 = serial_device_create(SERIAL_PORT_D); vfs_mount(DEV_PATH "3", ttyS3, "pc-serial", "d");
 }

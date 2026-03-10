@@ -365,7 +365,7 @@ void xhci_thread(void * arg) {
 	fnode->read    = NULL;
 	fnode->write   = xhci_write;
 	fnode->device  = controller;
-	vfs_mount(devName, fnode);
+	vfs_mount(devName, fnode, "xhci", fnode->name);
 
 	int event_deq = 0;
 	uint32_t event_cycle_state = 1;

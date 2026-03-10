@@ -189,5 +189,7 @@ void fwcfg_device(void) {
 	fnode->write  = write_fwcfg;
 	fnode->device = fw_cfg_addr;
 
-	vfs_mount("/dev/fwcfg", fnode);
+	char addr[100];
+	snprintf(addr, 99, "%p", (void*)fw_cfg_addr);
+	vfs_mount("/dev/fwcfg", fnode, "qemu-fwcfg", addr);
 }

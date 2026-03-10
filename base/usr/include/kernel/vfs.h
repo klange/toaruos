@@ -129,7 +129,7 @@ int selectwait_fs(fs_node_t * node, void * process);
 int truncate_fs(fs_node_t * node, size_t size);
 
 void vfs_install(void);
-void * vfs_mount(const char * path, fs_node_t * local_root);
+void * vfs_mount(const char * path, fs_node_t * local_root, const char * type, const char * options);
 typedef fs_node_t * (*vfs_mount_callback)(const char * arg, const char * mount_point);
 int vfs_register(const char * name, vfs_mount_callback callback);
 int vfs_mount_type(const char * type, const char * arg, const char * mountpoint);

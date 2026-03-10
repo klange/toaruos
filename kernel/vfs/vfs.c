@@ -801,12 +801,8 @@ int vfs_mount_type(const char * type, const char * arg, const char * mountpoint)
 
 	if (!n) return -EINVAL;
 
-	tree_node_t * node = vfs_mount(mountpoint, n);
-	if (node && node->value) {
-		struct vfs_entry * ent = (struct vfs_entry *)node->value;
-		ent->fs_type = strdup(type);
-		ent->device  = strdup(arg);
-	}
+	tree_node_t * node = vfs_mount(mountpoint, n, type, arg);
+	if (!node) return -EINVAL;
 
 	debug_print(NOTICE, "Mounted %s[%s] to %s: %p", type, arg, mountpoint, (void*)n);
 	debug_print_vfs_tree();
@@ -827,7 +823,7 @@ static spin_lock_t tmp_vfs_lock = { 0 };
  *
  * Paths here must be absolute.
  */
-void * vfs_mount(const char * path, fs_node_t * local_root) {
+void * vfs_mount(const char * path, fs_node_t * local_root, const char * type, const char * options) {
 	if (!fs_tree) {
 		debug_print(ERROR, "VFS hasn't been initialized, you can't mount things yet!");
 		return NULL;
@@ -869,6 +865,8 @@ void * vfs_mount(const char * path, fs_node_t * local_root) {
 			debug_print(WARNING, "Path %s already mounted, unmount before trying to mount something else.", path);
 		}
 		root->file = local_root;
+		root->device = strdup(options);
+		root->fs_type = strdup(type);
 		/* We also keep a legacy shortcut around for that */
 		fs_root = local_root;
 		ret_val = root_node;
@@ -907,6 +905,8 @@ void * vfs_mount(const char * path, fs_node_t * local_root) {
 			debug_print(WARNING, "Path %s already mounted, unmount before trying to mount something else.", path);
 		}
 		ent->file = local_root;
+		ent->device = strdup(options);
+		ent->fs_type = strdup(type);
 		ret_val = node;
 	}
 
@@ -917,7 +917,7 @@ void * vfs_mount(const char * path, fs_node_t * local_root) {
 
 void map_vfs_directory(const char * c) {
 	fs_node_t * f = vfs_mapper();
-	struct vfs_entry * e = vfs_mount((char*)c, f);
+	tree_node_t * e = vfs_mount((char*)c, f, "vfs_mapper", "");
 	if (!strcmp(c, "/")) {
 		f->device = fs_tree->root;
 	} else {
