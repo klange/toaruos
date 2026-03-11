@@ -1,6 +1,6 @@
 #include <iconv.h>
 #include <errno.h>
-#include <string.h>
+#include <stdlib.h>
 
 struct _iconv_state {
 	char *tocode;

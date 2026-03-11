@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 #define IO_VID_WIDTH  0x5001
 #define IO_VID_HEIGHT 0x5002
 #define IO_VID_DEPTH  0x5003

@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 struct device_class {
 	uint16_t id;

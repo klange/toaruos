@@ -9,6 +9,7 @@
  * Copyright (C) 2018 K. Lange
  */
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>

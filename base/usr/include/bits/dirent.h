@@ -1,12 +1,11 @@
 #pragma once
 
 #include <_cheader.h>
-#include <stdint.h>
 
 _Begin_C_Header
 
 typedef struct dirent {
-	uint32_t d_ino;
+	unsigned int d_ino;
 	char d_name[256];
 } dirent;
 

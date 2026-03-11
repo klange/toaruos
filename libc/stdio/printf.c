@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
+#include <stdlib.h>
 #include <va_list.h>
 
 #define OUT(c) do { callback(userData, (c)); written++; } while (0)

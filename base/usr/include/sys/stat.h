@@ -2,7 +2,6 @@
 
 #include <_cheader.h>
 #include <stddef.h>
-#include <stdint.h>
 #include <sys/types.h>
 #include <bits/timespec.h>
 

@@ -7,6 +7,7 @@
  * @copyright 2018-2021 K. Lange
  */
 #include <string.h>
+#include <stdlib.h>
 #include <toaru/rline.h>
 
 void * rline_exp_for_python(void * _stdin, void * _stdout, char * prompt) {

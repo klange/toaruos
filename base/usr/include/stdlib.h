@@ -12,6 +12,7 @@ extern void *malloc(size_t size);
 extern void free(void *ptr);
 extern void *calloc(size_t nmemb, size_t size);
 extern void *realloc(void *ptr, size_t size);
+extern void *valloc(size_t size);
 
 extern void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void*,const void*));
 extern void qsort_r(void * base, size_t nmemb, size_t size, int (*compar)(const void *, const void *, void *), void * arg);

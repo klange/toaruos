@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
 #include <syscall.h>
 #include <syscall_nums.h>

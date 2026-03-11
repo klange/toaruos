@@ -2,7 +2,6 @@
 
 #include <_cheader.h>
 #include <stddef.h>
-#include <stdint.h>
 #include <sys/types.h>
 
 _Begin_C_Header
@@ -97,6 +96,13 @@ extern pid_t getpgrp(void);
 
 extern unsigned int alarm(unsigned int seconds);
 
+#ifndef intptr_t
+# if defined(__PTRDIFF_TYPE__)
+typedef signed __PTRDIFF_TYPE__ intptr_t;
+# else
+typedef signed long intptr_t;
+# endif
+#endif
 extern void *sbrk(intptr_t increment);
 
 extern void sync(void);
