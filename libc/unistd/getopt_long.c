@@ -2,6 +2,7 @@
 #include <getopt.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 /**
  * getopt / getopt_long
@@ -103,7 +104,7 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 			continue;
 		}
 
-		if ((*nextchar < 'A' || *nextchar > 'z' || (*nextchar > 'Z' && *nextchar < 'a')) && (*nextchar != '?') && (*nextchar != '-')) {
+		if (!isalnum(*nextchar) && *nextchar != '?' && *nextchar != '-') {
 			if (print_errors) {
 				fprintf(stderr, "%s: Invalid option character: %c\n", argv[0], *nextchar);
 			}
