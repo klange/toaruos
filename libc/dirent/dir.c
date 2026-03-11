@@ -60,3 +60,20 @@ void rewinddir(DIR * dirp) {
 void seekdir(DIR * dirp, long loc) {
 	dirp->cur_entry = loc;
 }
+
+struct dirent32 {
+	unsigned int d_ino;
+	char d_name[256];
+};
+
+struct dirent32 * readdir32 (DIR * dirp) {
+	static struct dirent32 ent;
+	struct dirent* big = readdir(dirp);
+	if (!big) return NULL;
+
+	ent.d_ino = big->d_ino;
+	memcpy(ent.d_name,big->d_name,sizeof(ent.d_name));
+	return &ent;
+}
+
+struct dirent32 * readdir32 (DIR * dirp) __asm__("readdir");
