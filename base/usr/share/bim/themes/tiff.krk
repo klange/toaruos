@@ -1,0 +1,37 @@
+from bim import defineTheme
+from themes import ansi
+
+@defineTheme
+def tiff():
+    if checkprop('can_24bit'):
+        colorscheme("ansi")
+        return
+    setcolor("text-fg", "2;255;255;255")
+    setcolor("text-bg", "2;23;0;30")
+    setcolor("alternate-fg", "2;36;22;67")
+    setcolor("alternate-bg", "2;20;0;27")
+    setcolor("number-fg", "2;156;152;178")
+    setcolor("number-bg", "2;23;0;30")
+    setcolor("status-fg", "2;255;255;255")
+    setcolor("status-bg", "2;30;100;190")
+    setcolor("status-alt", "2;230;230;230")
+    setcolor("tabbar-bg", "2;32;0;44")
+    setcolor("tab-bg", "2;53;28;62")
+    setcolor("keyword", "2;254;222;93")
+    setcolor("string", "2;105;206;96")
+    setcolor("comment", "2;130;130;130;3")
+    setcolor("type", "2;97;175;239")
+    setcolor("pragma", "2;105;128;247")
+    setcolor("numeral", "2;213;128;71")
+    setcolor("error-fg", "5;15")
+    setcolor("error-bg", "5;196")
+    setcolor("search-fg", "5;234")
+    setcolor("search-bg", "5;226")
+    setcolor("select-fg", "2;0;43;54")
+    setcolor("select-bg", "2;147;161;161")
+    setcolor("red", "2;213;128;71")
+    setcolor("green", "2;55;167;0")
+    setcolor("bold", "2;230;230;230;1")
+    setcolor("link", "2;51;162;230;4")
+    setcolor("escape", "2;113;203;173")
+

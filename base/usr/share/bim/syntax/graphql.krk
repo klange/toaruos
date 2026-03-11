@@ -3,7 +3,7 @@ from syntax.c import CHighlighter
 
 class GraphqlHighlighter(Highlighter):
     name = 'graphql'
-    extensions = ('.graphql','.gql',)
+    extensions = ('.graphql','.gql','.graphqls')
     keywords = [
         'repeatable','on','implements','extend',
         'enum','scalar','type','union','input','interface','subscription',

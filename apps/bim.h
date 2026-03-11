@@ -484,14 +484,6 @@ extern void pause_for_key(void);
 	(*matches_count)++; \
 } while (0)
 
-#define add_if_match(name,desc) do { \
-	int i = 0; \
-	while (comp[i] && comp[i] == (unsigned char)name[i]) i++; \
-	if (comp[i] == '\0') { \
-		add_match(name,desc,""); \
-	} \
-} while (0)
-
 struct action_map {
 	int key;
 	int options;
@@ -534,14 +526,6 @@ static int match_and_paint(struct syntax_state * state, const char * keyword, in
 static int common_comment_buzzwords(struct syntax_state * state);
 static int paint_comment(struct syntax_state * state);
 static struct syntax_definition * find_syntax_calculator(const char * name);
-
-#define nest(lang, low) \
-	do { \
-		state->state = (state->state < 1 ? 0 : state->state - low); \
-		do { state->state = lang(state); } while (state->state == 0); \
-		if (state->state == -1) return low; \
-		return state->state + low; \
-	} while (0)
 
 /* Hacky workaround for isdigit not really accepting Unicode stuff */
 static __attribute__((used)) int _isdigit(int c) { if (c > 128) return 0; return isdigit(c); }

@@ -27,6 +27,7 @@ def _make_dox():
         '@package':    Highlighter.FLAG_TYPE,
         '@ref':        Highlighter.FLAG_LINK,
         '@typedef':    Highlighter.FLAG_TYPE,
+        '@struct':     Highlighter.FLAG_TYPE,
     }
 
     let doxygen_block_commands = {
