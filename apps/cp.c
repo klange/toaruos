@@ -156,6 +156,7 @@ static int copy_thing(char * tmp, char * tmp2) {
 #ifndef IS_MV
 static int copy_top_level(char **argv, int argc, int optind) {
 	char * destination = argv[argc-1];
+	destination = *destination ? destination : ".";
 
 	int ret = 0;
 
