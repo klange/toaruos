@@ -231,6 +231,8 @@ typedef struct {
 	background_task_t * background_task;
 	background_task_t * tail_task;
 
+	uint32_t * paren_pairs;
+
 } global_config_t;
 
 #define OVERLAY_MODE_NONE     0
