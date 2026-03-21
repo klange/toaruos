@@ -1101,7 +1101,7 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 			maybe_errno(r);
 			break;
 		case SYS_GETTIMEOFDAY:
-			struct_timeval_arg(pid, uregs_syscall_arg1(r));
+			struct_timeval_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			pointer_arg(uregs_syscall_arg2(r));
 			maybe_errno(r);
 			break;
