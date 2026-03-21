@@ -431,7 +431,7 @@ static void string_arg(pid_t pid, uintptr_t ptr) {
 
 		if (buf == '\\') fprintf(logfile, "\\\\");
 		else if (buf == '"') fprintf(logfile, "\\\"");
-		else if (buf >= ' ' && buf < '~') fprintf(logfile, "%c", buf);
+		else if (buf >= ' ' && buf <= '~') fprintf(logfile, "%c", buf);
 		else if (buf == '\r') fprintf(logfile, "\\r");
 		else if (buf == '\n') fprintf(logfile, "\\n");
 		else fprintf(logfile, "\\x%02x", buf);
