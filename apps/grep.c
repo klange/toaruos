@@ -291,7 +291,7 @@ int usage(char ** argv) {
 		argv[0]);
 #undef _I
 #undef _E
-	return 1;
+	return 2;
 }
 
 /*
