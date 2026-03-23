@@ -1,12 +1,14 @@
 # ToaruOS
 
-ToaruOS is a "complete" operating system for x86-64 PCs and experimental support for ARMv8.
+ToaruOS is a "complete" operating system for x86-64 PCs and ARMv8 VM environments.
 
 While many independent, hobby, and research OSes aim to experiment with new designs, ToaruOS is intended as an educational resource, providing a representative microcosm of functionality found in major desktop operating systems.
 
 The OS includes a kernel, bootloader, dynamic shared object linker, C standard library, its own composited windowing system, a dynamic bytecode-compiled programming language, advanced code editor, and dozens of other utilities and example applications.
 
-There are no external runtime dependencies and all required source code, totalling roughly 100k lines of (primarily) C, is included in this repository, save for [Kuroko](https://github.com/kuroko-lang/kuroko), which lives separately.
+There are no external runtime dependencies and all required source code for the core OS, totalling roughly 100k lines of (primarily) C, is included in this repository.
+
+ToaruOS also includes my text editor, [Bim](https://github.com/klange/bim), and my programming language, [Kuroko](https://github.com/kuroko-lang/kuroko), both of which are included as submodules.
 
 ![Screenshot](https://klange.dev/s/Screenshot%20from%202021-12-06%2011-38-12.png)
 *Demonstration of ToaruOS's UI and some applications.*
@@ -38,7 +40,7 @@ There are no external runtime dependencies and all required source code, totalli
 
 - **Misaka** (kernel), [kernel/](kernel/), a hybrid modular kernel, and the core of the operating system.
 - **Yutani** (window compositor), [apps/compositor.c](apps/compositor.c), manages window buffers, layout, and input routing.
-- **Bim** (text editor), [apps/bim.c](apps/bim.c), is a Vim-inspired editor with syntax highlighting.
+- **Bim** (text editor), [bim/](https://github.com/klange/bim/), is a Vim-inspired editor with syntax highlighting.
 - **Terminal**, [apps/terminal.c](apps/terminal.c), xterm-esque terminal emulator with 24-bit color support.
 - **ld.so** (dynamic linker/loader), [linker/linker.c](linker/linker.c), loads dynamically-linked ELF binaries.
 - **Esh** (shell), [apps/esh.c](apps/esh.c), supports pipes, redirections, variables, etc.
@@ -51,7 +53,7 @@ The following projects are currently in progress:
 - **Rewrite the network stack** for greater throughput, stability, and server support.
 - **Improve SMP performance** with better scheduling and smarter userspace synchronization functions.
 - **Support more hardware** with new device drivers for AHCI, USB, virtio devices, etc.
-- **Bring back ports** from ToaruOS "Legacy", like muPDF and Mesa.
+- **Bring back ports** from ToaruOS "Legacy", like muPDF (done), Netsurf (working), and Mesa.
 - **Improve POSIX coverage** especially in regards to signals, synchronization primitives, as well as by providing more common utilities.
 - **Continue to improve the C library** which remains quite incomplete compared to Newlib and is a major source of issues with bringing back old ports.
 - **Replace third-party development tools** to get the OS to a state where it is self-hosting with just the addition of a C compiler.
