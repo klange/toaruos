@@ -7,3 +7,6 @@
 [submodule "kuroko"]
 	path = kuroko
 	url = ../../kuroko-lang/kuroko
+[submodule "bim"]
+	path = bim
+	url = ../bim

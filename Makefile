@@ -63,6 +63,10 @@ KRK_MODS += $(patsubst lib/kuroko/%,$(BASE)/lib/kuroko/%,$(wildcard lib/kuroko/*
 KRK_MODS_X = $(patsubst lib/kuroko/%.c,$(BASE)/lib/kuroko/%.so,$(wildcard lib/kuroko/*.c))
 KRK_MODS_Y = $(patsubst lib/kuroko/%.c,.make/%.kmak,$(wildcard lib/kuroko/*.c))
 
+BIM_FILES  = $(patsubst bim/syntax/%,$(BASE)/usr/share/bim/syntax/%,$(wildcard bim/syntax/*.krk))
+BIM_FILES += $(patsubst bim/themes/%,$(BASE)/usr/share/bim/themes/%,$(wildcard bim/themes/*.krk))
+BIM_FILES += $(patsubst bim/site/%,$(BASE)/usr/share/bim/site/%,$(wildcard bim/site/*.krk))
+
 CFLAGS= -O2 -std=gnu11 -I. -Iapps -fplan9-extensions -Wall -Wextra -Wno-unused-parameter ${ARCH_USER_CFLAGS}
 LIBC_CFLAGS = -O2 -std=gnu11 -ffreestanding -Wall -Wextra -Wno-unused-parameter ${ARCH_USER_CFLAGS}
 
@@ -81,7 +85,7 @@ LC = $(BASE)/lib/libc.so $(GCC_SHARED)
 $(BASE)/mod/%.ko: modules/%.c | dirs
 	${CC} -c ${KERNEL_CFLAGS} -fno-pie -mcmodel=large  -o $@ $<
 
-ramdisk.igz: $(wildcard $(BASE)/* $(BASE)/*/* $(BASE)/*/*/* $(BASE)/*/*/*/* $(BASE)/*/*/*/*/*) $(APPS_X) $(LIBS_X) $(KRK_MODS_X) $(BASE)/bin/kuroko $(BASE)/lib/ld.so $(BASE)/lib/libm.so $(APPS_KRK_X) $(KRK_MODS) $(APPS_SH_X) $(MODULES) $(BASE)/etc/issue $(BASE)/etc/os-release
+ramdisk.igz: $(wildcard $(BASE)/* $(BASE)/*/* $(BASE)/*/*/* $(BASE)/*/*/*/* $(BASE)/*/*/*/*/*) $(APPS_X) $(LIBS_X) $(KRK_MODS_X) $(BASE)/bin/kuroko $(BASE)/bin/bim $(BIM_FILES) $(BASE)/lib/ld.so $(BASE)/lib/libm.so $(APPS_KRK_X) $(KRK_MODS) $(APPS_SH_X) $(MODULES) $(BASE)/etc/issue $(BASE)/etc/os-release
 	python3 util/createramdisk.py
 
 $(BASE)/etc/issue: kernel/sys/version.c util/generate-etc-issue.sh
@@ -89,6 +93,13 @@ $(BASE)/etc/issue: kernel/sys/version.c util/generate-etc-issue.sh
 
 $(BASE)/etc/os-release: kernel/sys/version.c util/generate-etc-os-release.sh
 	sh util/generate-etc-os-release.sh > $@
+
+$(BASE)/usr/share/bim/%.krk: bim/%.krk
+	mkdir -p $(dir $@)
+	cp $< $@
+
+$(BASE)/bin/bim: bim/bim.c bim/bim.h | $(LC) $(BASE)/lib/libkuroko.so
+	$(CC) $(CFLAGS) $(shell cd bim; docs/git-tag) -o $@ -Ibim -Ikuroko/src $< -lkuroko
 
 KRK_SRC = $(sort $(wildcard kuroko/src/*.c))
 $(BASE)/bin/kuroko: $(KRK_SRC) $(CRTS)  lib/rline.c | $(LC)
@@ -133,6 +144,7 @@ clean:
 	-rm -f ramdisk.tar ramdisk.igz 
 	-rm -f $(APPS_Y) $(LIBS_Y) $(KRK_MODS_Y) $(KRK_MODS)
 	-rm -f $(APPS_X) $(LIBS_X) $(KRK_MODS_X) $(APPS_KRK_X) $(APPS_SH_X)
+	-rm -f $(BIM_FILES) $(BASE)/bin/bim
 	-rm -f $(BASE)/lib/crt0.o $(BASE)/lib/crti.o $(BASE)/lib/crtn.o
 	-rm -f $(BASE)/lib/libc.so $(BASE)/lib/libc.a
 	-rm -f $(LIBC_OBJS) $(BASE)/lib/ld.so $(BASE)/lib/libkuroko.so $(BASE)/lib/libm.so

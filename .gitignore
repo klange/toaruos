@@ -38,3 +38,4 @@
 /.arch
 /kernel8.img
 /kernel8.img.elf
+/base/usr/share/bim/*

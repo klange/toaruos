@@ -15,6 +15,8 @@ jobs:
           path: kuroko
       - name: Checkout Kuroko
         run: git submodule update --init kuroko
+      - name: Checkout Bim
+        run: git submodule update --init bim
       - name: Pull Builder Image
         run: docker pull toaruos/build-tools:1.99.x
       - name: Run Builder

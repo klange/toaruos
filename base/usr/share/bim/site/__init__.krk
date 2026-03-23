@@ -1,3 +1,0 @@
-import kuroko
-
-kuroko.module_paths.append('/lib/kuroko/')
