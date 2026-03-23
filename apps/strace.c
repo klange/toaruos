@@ -704,14 +704,7 @@ static void signal_arg(int signum) {
 	}
 }
 
-static void sigset_ptr_arg(pid_t pid, uintptr_t ptr) {
-	if (!ptr) {
-		fprintf(logfile, "NULL");
-		return;
-	}
-
-	uint64_t sigset = data_read_ptr(pid, ptr);
-
+static void sigset_arg(uint64_t sigset) {
 	/* handle special cases */
 	if (sigset == 0xFFFFffffFFFFffff) {
 		fprintf(logfile, "sigfillset()");
@@ -736,6 +729,51 @@ static void sigset_ptr_arg(pid_t pid, uintptr_t ptr) {
 		}
 	}
 	fprintf(logfile, "}");
+}
+
+static void sigset_ptr_arg(pid_t pid, uintptr_t ptr) {
+	if (!ptr) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+
+	uint64_t sigset = data_read_ptr(pid, ptr);
+
+	sigset_arg(sigset);
+}
+
+static void sigaction_ptr_arg(pid_t pid, uintptr_t ptr) {
+	if (!ptr) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+
+	struct sigaction sa = {0};
+	data_read_bytes(pid, ptr, (char*)&sa, sizeof(struct sigaction));
+
+	fprintf(logfile, "{sa_flags=");
+
+	int flags = sa.sa_flags;
+	if (!flags) fprintf(logfile,"0");
+	else {
+		H(SA_NOCLDSTOP);
+		H(SA_SIGINFO);
+		H(SA_NODEFER);
+		H(SA_RESETHAND);
+		H(SA_RESTART);
+		if (flags) fprintf(logfile,"%#x",flags);
+	}
+
+	fprintf(logfile,",sa_mask=");
+	sigset_arg(sa.sa_mask);
+	fprintf(logfile,",sa_handler=");
+
+	if (sa.sa_handler == SIG_DFL) fprintf(logfile,"SIG_DFL");
+	else if (sa.sa_handler == SIG_IGN) fprintf(logfile,"SIG_IGN");
+	else if (sa.sa_handler == SIG_ERR) fprintf(logfile,"SIG_ERR");
+	else pointer_arg((uintptr_t)sa.sa_handler);
+
+	fprintf(logfile,"}");
 }
 
 static void signal_ptr_arg(pid_t pid, uintptr_t ptr) {
@@ -984,8 +1022,8 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			break;
 		case SYS_SIGACTION:
 			signal_arg(uregs_syscall_arg1(r)); COMMA;
-			pointer_arg(uregs_syscall_arg2(r)); COMMA;
-			pointer_arg(uregs_syscall_arg3(r)); /* sigaction output */
+			sigaction_ptr_arg(pid, uregs_syscall_arg2(r)); COMMA;
+			/* one output arg */
 			break;
 		case SYS_SIGPENDING:
 			/* output only */
@@ -1124,6 +1162,11 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 		case SYS_GETSOCKNAME:
 		case SYS_GETPEERNAME:
 			sockaddrp_arg(pid, uregs_syscall_arg2(r), uregs_syscall_arg3(r)); /* Consumes both */
+			maybe_errno(r);
+			break;
+		case SYS_SIGACTION:
+			sigaction_ptr_arg(pid, uregs_syscall_arg3(r));
+			maybe_errno(r);
 			break;
 		/* Most things return -errno, or positive valid result */
 		default:
