@@ -8,6 +8,7 @@
  */
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
 #include <fcntl.h>
