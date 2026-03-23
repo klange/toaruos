@@ -39,15 +39,16 @@
 #include <syscall.h>
 #include <unistd.h>
 #include <wait.h>
+#include <fcntl.h>
 #include <sys/wait.h>
 
 #define INITD_PATH "/etc/startup.d"
 
 /* Initialize fd 0, 1, 2 */
 void set_console(void) {
-	syscall_open("/dev/null", 0, 0);
-	syscall_open("/dev/null", 1, 0);
-	syscall_open("/dev/null", 1, 0);
+	syscall_open("/dev/null", O_RDONLY, 0);
+	syscall_open("/dev/null", O_WRONLY, 0);
+	syscall_open("/dev/null", O_WRONLY, 0);
 }
 
 /* Run a startup script and wait for it to finish */
