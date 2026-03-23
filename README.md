@@ -70,6 +70,7 @@ For those looking to build locally on an appropriately configured Linux host wit
     git clone https://github.com/klange/toaruos
     cd toaruos
     git submodule update --init kuroko
+    git submodule update --init bim
     docker pull toaruos/build-tools:1.99.x
     docker run -v `pwd`:/root/misaka -w /root/misaka -e LANG=C.UTF-8 -t toaruos/build-tools:1.99.x util/build-in-docker.sh
 
