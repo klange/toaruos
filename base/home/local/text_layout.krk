@@ -64,15 +64,26 @@ class Line:
     def __init__(self, x, y, cw, justify='center'):
         self.words = []
         self.x = x
-        self.y = y
+        self._y = y
         self.cw = cw
         self.justify = justify
         self.islast = True
+        self.y = 0
+        self.lh = 0
 
     def add(self, word, w, sw, font):
         self.words.append(Word(self.x, self.y, word, w, sw, font))
 
     def finalize(self):
+        let asc = 0
+        let desc = 0
+        for word in self.words:
+            if word.asc > asc: asc = word.asc
+            if word.desc < desc: desc = word.desc
+        self.lh = int(asc - desc)
+        self.y = self._y + int(asc)
+        for word in self.words:
+            word.y = self.y
         if self.justify == "right":
             let _x = self.x + self.cw
             for word in self.words[::-1]:
@@ -101,6 +112,13 @@ class Line:
         for word in self.words:
             word.draw(ctx)
 
+let font_cache = {}
+def get_cached_font(name, size):
+    if (name,size) in font_cache: return font_cache[name,size]
+    let font = Font(name,size)
+    font_cache[name,size] = font
+    return font
+
 def layout_and_draw(ctx, text, justify='center'):
     let lines = []
     let left_padding = 10
@@ -108,21 +126,25 @@ def layout_and_draw(ctx, text, justify='center'):
     let base_x = left_padding
     let x = base_x
     let cw = ctx.width - left_padding - right_padding
-    let font = Font("sans-serif", font_size)
-    let asc, desc, gap = font.measure()
-    let lh = int(font_size * 1.2)
-    let lb = int((lh - int(asc - desc)) / 2)
-    let y = lb + int(asc)
+    let font_base = "sans-serif"
+    let font_bold = "sans-serif.bold"
+    let font_ital = "sans-serif.italic"
+    let y = 0
     let line = Line(x, y, cw, justify)
+    let c = 0
 
     for word in text.split(' '):
+        let _name = [font_base,font_bold,font_ital][c%3]
+        let _size = font_size * [1.0,0.8,1.2,1.4,0.7][c%5]
+        let font = get_cached_font(_name, _size)
+        c += 1
         let w = font.width(word)
         if w + x >= cw:
             line.islast = False
             line.finalize()
             lines.append(line)
             x = base_x
-            y += lh
+            y += line.lh
             line = Line(x, y, cw, justify)
         let sw = font.width(' ')
         line.add(word, w, sw, font)
