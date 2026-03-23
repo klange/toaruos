@@ -77,3 +77,43 @@ struct dirent32 * readdir32 (DIR * dirp) {
 }
 
 struct dirent32 * readdir32 (DIR * dirp) __asm__("readdir");
+
+int scandir(const char *dirname, struct dirent ***namelist, int (*select)(const struct dirent *), int (*compar)(const struct dirent **, const struct dirent **)) {
+
+	DIR * dirfd = opendir(dirname);
+	if (!dirfd) return -1;
+
+	int avail = 4;
+	int count = 0;
+	struct dirent ** names = malloc(sizeof(struct dirent *) * avail);
+
+	while (1) {
+		struct dirent * ent = readdir(dirfd);
+		if (!ent) break;
+
+		if (!select || select(ent)) {
+			if (count + 1 == avail) {
+				avail *= 2;
+				names = realloc(names, sizeof(struct dirent *) * avail);
+			}
+
+			names[count] = malloc(sizeof(struct dirent));
+			memcpy(names[count], ent, sizeof(struct dirent));
+			count++;
+		}
+	}
+
+	closedir(dirfd);
+
+	if (compar) {
+		qsort(names, count, sizeof(struct dirent *), (int (*)(const void*,const void*))compar);
+	}
+
+	*namelist = names;
+
+	return count;
+}
+
+int alphasort(const struct dirent ** c1, const struct dirent ** c2) {
+	return strcmp((*c1)->d_name, (*c2)->d_name);
+}
