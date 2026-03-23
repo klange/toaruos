@@ -61,16 +61,18 @@ struct sig_def signals[] = {
 	{0,NULL},
 };
 
-void usage(char * argv[]) {
-	printf(
+int usage(char * argv[]) {
+	fprintf(stderr,
 			"%s - send a signal to another process\n"
 			"\n"
 			"usage: %s [-\033[3mx\033[0m] \033[3mprocess\033[0m\n"
 			"\n"
 			" -h --help       \033[3mShow this help message.\033[0m\n"
 			" -\033[3mx\033[0m              \033[3mSignal number to send\033[0m\n"
+			" -\033[3mSIGNAME\033[0m        \033[3mSignal name to send\033[0m\n"
 			"\n",
 			argv[0], argv[0]);
+	return 1;
 }
 
 int main(int argc, char * argv[]) {
@@ -78,12 +80,12 @@ int main(int argc, char * argv[]) {
 	int pid = 0;
 	int i = 1;
 
-	if (argc < 2) {
-		usage(argv);
-		return 1;
-	}
+	if (argc < 2) return usage(argv);
 
 	if (argv[1][0] == '-') {
+		if (argv[1][1] == 'h' || !strcmp(argv[1],"--help")) {
+			return usage(argv);
+		}
 		signum = -1;
 		if (strlen(argv[1]+1) > 3 && strstr(argv[1]+1,"SIG") == (argv[1]+1)) {
 			struct sig_def * s = signals;
@@ -115,10 +117,7 @@ int main(int argc, char * argv[]) {
 		i++;
 	}
 
-	if (i == argc) {
-		usage(argv);
-		return 1;
-	}
+	if (i == argc) return usage(argv);
 
 	int retval = 0;
 
