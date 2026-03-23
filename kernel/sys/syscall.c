@@ -615,7 +615,7 @@ long sys_chown(char * file, uid_t uid, uid_t gid) {
 
 _access:
 	close_fs(fn);
-	return -EACCES;
+	return -EPERM;
 }
 
 long sys_fchown(int fd, uid_t uid, uid_t gid) {
