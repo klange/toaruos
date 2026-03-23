@@ -46,23 +46,23 @@
 
 /* Initialize fd 0, 1, 2 */
 void set_console(void) {
-	syscall_open("/dev/null", O_RDONLY, 0);
-	syscall_open("/dev/null", O_WRONLY, 0);
-	syscall_open("/dev/null", O_WRONLY, 0);
+	open("/dev/null", O_RDONLY);
+	open("/dev/null", O_WRONLY);
+	open("/dev/null", O_WRONLY);
 }
 
 /* Run a startup script and wait for it to finish */
 int start_options(char * args[]) {
 
 	/* Fork child to run script */
-	int cpid = syscall_fork();
+	int cpid = fork();
 
 	/* Child process... */
 	if (!cpid) {
 		/* Pass environment from init to child */
-		syscall_execve(args[0], args, environ);
+		execve(args[0], args, environ);
 		/* exec failed, exit this subprocess */
-		syscall_exit(0);
+		exit(0);
 	}
 
 	/* Wait for the child process to finish */
@@ -90,47 +90,30 @@ int start_options(char * args[]) {
 	return cpid;
 }
 
+static int not_hidden(const struct dirent *ent) {
+	return ent->d_name[0] != '.';
+}
+
 int main(int argc, char * argv[]) {
 	/* Initialize stdin/out/err */
 	set_console();
 
 	/* Get directory listing for /etc/startup.d */
-	int initd_dir = syscall_open(INITD_PATH, 0, 0);
-	if (initd_dir < 0) {
-		/* No init scripts; try to start getty as a fallback */
+	struct dirent ** entries;
+	int count = scandir(INITD_PATH, &entries, not_hidden, alphasort);
+
+	if (count < 0) {
 		start_options((char *[]){"/bin/getty",NULL});
 	} else {
-		int count = 0, i = 0, ret = 0;
-
-		/* Figure out how many entries we have with a dry run */
-		do {
-			struct dirent ent;
-			ret = syscall_readdir(initd_dir, ++count, &ent);
-		} while (ret > 0);
-
-		/* Read each directory entry */
-		struct dirent entries[count];
-		do {
-			syscall_readdir(initd_dir, i, &entries[i]);
-			i++;
-		} while (i < count);
-
-		/* Sort the directory entries */
-		int comparator(const void * c1, const void * c2) {
-			const struct dirent * d1 = c1;
-			const struct dirent * d2 = c2;
-			return strcmp(d1->d_name, d2->d_name);
-		}
-		qsort(entries, count, sizeof(struct dirent), comparator);
-
 		/* Run scripts */
 		for (int i = 0; i < count; ++i) {
-			if (entries[i].d_name[0] != '.') {
-				char path[256];
-				sprintf(path, "/etc/startup.d/%s", entries[i].d_name);
-				start_options((char *[]){path, NULL});
-			}
+			char path[300];
+			sprintf(path, "/etc/startup.d/%s", entries[i]->d_name);
+			start_options((char *[]){path, NULL});
+
+			free(entries[i]);
 		}
+		free(entries);
 	}
 
 	/* Self-explanatory */
