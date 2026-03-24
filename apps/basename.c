@@ -8,24 +8,60 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 #include <libgen.h>
 
+static int usage(char * argv[]) {
+	fprintf(stderr,
+		"usage: %s string [suffix]\n"
+		"       %s string string string...\n"
+		"       %s [-a] [-s suffix] string...\n",
+		argv[0], argv[0], argv[0]);
+	return 1;
+}
+
 int main(int argc, char * argv[]) {
-	if (argc < 2) {
-		fprintf(stderr, "%s: expected argument\n", argv[0]);
-		return 1;
-	}
+	char * suffix = NULL;
+	int all_strings = 0;
+	int opt;
 
-	char * c = basename(argv[1]);
-
-	if (argc > 2) {
-		char * suffix = argv[2];
-		char * found = strstr(c + strlen(c) - strlen(suffix), suffix);
-		if (found && (found - c == (int)(strlen(c)-strlen(suffix)))) {
-			*found = '\0';
+	while ((opt = getopt(argc, argv, "?as:")) != -1) {
+		switch (opt) {
+			case 'a':
+				all_strings = 1;
+				break;
+			case 's':
+				suffix = optarg;
+				break;
+			case '?':
+				return usage(argv);
 		}
 	}
 
-	fprintf(stdout, "%s\n", c);
+	if (optind == argc) {
+		return usage(argv);
+	}
+
+	if (optind + 2 < argc) {
+		/* If there are more than 2 arguments, treat them all as 'string' */
+		all_strings = 1;
+	} else if (!all_strings && !suffix && optind + 2 == argc) {
+		/* If we aren't already treating everything as strings from -a, or from having -s,
+		 * and we have 2 arguments, then the second one is the suffix. */
+		suffix = argv[optind+1];
+		argc--;
+	}
+
+	for (int i = optind; i < argc; ++i) {
+		char * c = basename(argv[i]);
+		if (suffix) {
+			char * found = strstr(c + strlen(c) - strlen(suffix), suffix);
+			/* Only strip the suffix if it wasn't the whole remaining string. */
+			if (found && found != c) *found = '\0';
+		}
+
+		printf("%s\n", c);
+	}
+
 	return 0;
 }
