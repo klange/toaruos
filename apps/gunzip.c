@@ -82,7 +82,7 @@ static int decompress_one(char * argv[], char * file) {
 			tmp[strlen(tmp)-1] = 'r';
 		} else {
 			free(tmp);
-			fprintf(stderr, "%s: %s: unreocognized suffix, ignoring\n", argv[0], file);
+			fprintf(stderr, "%s: %s: unrecognized suffix, ignoring\n", argv[0], file);
 			fclose(f);
 			return 1;
 		}
