@@ -36,6 +36,15 @@ int compare(const char * a, const char * b) {
 	}
 }
 
+static int usage(char * argv[]) {
+	fprintf(stderr,
+		"usage: %s [-r] [file...]\n"
+		"\n"
+		"Reads lines from all of the specified files, sorts them all, and prints the result.\n",
+		argv[0]);
+	return 2;
+}
+
 int main(int argc, char * argv[]) {
 	int reverse = 0;
 	int opt;
@@ -43,11 +52,13 @@ int main(int argc, char * argv[]) {
 	list_t * lines = list_create();
 	list_t * files = list_create();
 
-	while ((opt = getopt(argc, argv, "r")) != -1) {
+	while ((opt = getopt(argc, argv, "?r")) != -1) {
 		switch (opt) {
 			case 'r':
 				reverse = 1;
 				break;
+			case '?':
+				return usage(argv);
 		}
 	}
 
@@ -56,6 +67,11 @@ int main(int argc, char * argv[]) {
 		list_insert(files, stdin);
 	} else {
 		while (optind < argc) {
+			if (!strcmp(argv[optind], "-")) {
+				list_insert(files, stdin);
+				optind++;
+				continue;
+			}
 			FILE * f = fopen(argv[optind], "r");
 			if (!f) {
 				fprintf(stderr, "%s: %s: %s\n", argv[0], argv[optind], strerror(errno));
@@ -66,17 +82,15 @@ int main(int argc, char * argv[]) {
 		}
 	}
 
-	char line_buf[4096] = {0};
 	foreach (node, files) {
 		FILE * f = node->value;
 		while (!feof(f)) {
-			if (!fgets(line_buf, 4096, f)) {
-				break;
-			}
-			if (!strchr(line_buf,'\n')) {
-				fprintf(stderr, "%s: oversized line\n", argv[0]);
-			}
-			char * line = strdup(line_buf);
+			char * line = NULL;
+			size_t avail = 0;
+			ssize_t len;
+
+			if ((len = getline(&line, &avail, f)) < 0) break;
+
 			node_t * next = NULL;
 			foreach (lnode, lines) {
 				char * cmp = lnode->value;
