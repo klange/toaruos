@@ -643,6 +643,18 @@ static int rename_tmpfs(fs_node_t * mount_root, fs_node_t * src_dir, const char 
 		goto _cleanup;
 	}
 
+	/* Check that src_file isn't a parent of dest_file */
+	if (src_file->type == TMPFS_TYPE_DIR) {
+		struct tmpfs_dir * pd = dd;
+		while (pd) {
+			if ((void*)pd == (void*)src_file) {
+				ret = -EINVAL;
+				goto _cleanup;
+			}
+			pd = pd->parent;
+		}
+	}
+
 	if (!dest_file) {
 		if (endswith(dest_name,'/') && src_file->type != TMPFS_TYPE_DIR) {
 			/* Destination did not exist, ended with trailing slashes, but the source was not a directory. */
