@@ -107,6 +107,7 @@ int main (int argc, char ** argv) {
 	yctx = yutani_init();
 	wina = yutani_window_create(yctx, width, height);
 	yutani_window_move(yctx, wina, left, top);
+	yutani_window_advertise(yctx, wina, "yutani-test");
 
 	ctx = init_graphics_yutani(wina);
 
