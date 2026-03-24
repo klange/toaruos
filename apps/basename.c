@@ -13,9 +13,9 @@
 
 static int usage(char * argv[]) {
 	fprintf(stderr,
-		"usage: %s string [suffix]\n"
-		"       %s string string string...\n"
-		"       %s [-a] [-s suffix] string...\n",
+		"usage: %s [-z] string [suffix]\n"
+		"       %s [-z] string string string...\n"
+		"       %s [-z] [-a] [-s suffix] string...\n",
 		argv[0], argv[0], argv[0]);
 	return 1;
 }
@@ -24,14 +24,18 @@ int main(int argc, char * argv[]) {
 	char * suffix = NULL;
 	int all_strings = 0;
 	int opt;
+	int endchr = '\n';
 
-	while ((opt = getopt(argc, argv, "?as:")) != -1) {
+	while ((opt = getopt(argc, argv, "?as:z")) != -1) {
 		switch (opt) {
 			case 'a':
 				all_strings = 1;
 				break;
 			case 's':
 				suffix = optarg;
+				break;
+			case 'z':
+				endchr = '\0';
 				break;
 			case '?':
 				return usage(argv);
@@ -60,7 +64,7 @@ int main(int argc, char * argv[]) {
 			if (found && found != c) *found = '\0';
 		}
 
-		printf("%s\n", c);
+		printf("%s%c", c, endchr);
 	}
 
 	return 0;
