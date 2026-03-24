@@ -22,6 +22,7 @@ static int usage(char * argv[]) {
 
 int main(int argc, char * argv[]) {
 	char * suffix = NULL;
+	size_t suffix_len = 0;
 	int all_strings = 0;
 	int opt;
 	int endchr = '\n';
@@ -56,13 +57,14 @@ int main(int argc, char * argv[]) {
 		argc--;
 	}
 
+	if (suffix) suffix_len = strlen(suffix);
+
 	for (int i = optind; i < argc; ++i) {
 		char * c = basename(argv[i]);
-		if (suffix) {
-			char * found = strstr(c + strlen(c) - strlen(suffix), suffix);
-			/* Only strip the suffix if it wasn't the whole remaining string. */
-			if (found && found != c) *found = '\0';
-		}
+		size_t c_len = strlen(c);
+
+		if (suffix && suffix_len && c_len > suffix_len && !strcmp(c + c_len - suffix_len, suffix))
+			c[c_len-suffix_len] = '\0';
 
 		printf("%s%c", c, endchr);
 	}
