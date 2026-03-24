@@ -8,16 +8,33 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 #include <libgen.h>
 
+static int usage(char * argv[]) {
+	fprintf(stderr, "usage: %s [-z] string...\n", argv[0]);
+	return 1;
+}
+
 int main(int argc, char * argv[]) {
-	if (argc < 2) {
-		fprintf(stderr, "%s: expected argument\n", argv[0]);
-		return 1;
+	int endchr = '\n';
+	int opt;
+	while ((opt = getopt(argc, argv, "?z")) != -1) {
+		switch (opt) {
+			case 'z':
+				endchr = '\0';
+				break;
+			case '?':
+				return usage(argv);
+		}
 	}
 
-	char * c = dirname(argv[1]);
-	fprintf(stdout, "%s\n", c);
+	if (optind == argc) return usage(argv);
+
+	for (int i = optind; i < argc; ++i) {
+		printf("%s%c", dirname(argv[i]), endchr);
+	}
+
 	return 0;
 }
 
