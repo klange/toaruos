@@ -60,7 +60,7 @@ test: system
 		-device qemu-xhci -device usb-tablet -trace "usb*"
 
 shell: system
-	${EMU} -M ${EMU_MACH} -m $(RAM) -smp $(SMP) ${EMU_KVM} -cdrom image.iso \
+	@${EMU} -M ${EMU_MACH} -m $(RAM) -smp $(SMP) ${EMU_KVM} -cdrom image.iso \
 		-nographic -no-reboot -audiodev none,id=id -serial null -serial mon:stdio \
 		-fw_cfg name=opt/org.toaruos.gettyargs,string="-a local /dev/ttyS1 115200 ${TERM}" \
 		-fw_cfg name=opt/org.toaruos.bootmode,string=headless

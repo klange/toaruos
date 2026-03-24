@@ -57,8 +57,17 @@ run: system
 	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session ramfb vid=preset" ${EMU_RAMDISK} ${EMU_KERNEL}
 
 hvf: EMU_CPU = host -accel hvf
-hvf: system
-	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session ramfb vid=preset" ${EMU_RAMDISK} ${EMU_KERNEL}
+hvf: run
+
+shell: system
+	@${QEMU} -M ${EMU_MACH} -m ${RAM} -smp ${SMP} -cpu ${EMU_CPU} -no-reboot -display none -serial mon:stdio -d guest_errors \
+		-net user -netdev hubport,id=u1,hubid=0, -device e1000e,netdev=u1 \
+		-name "ToaruOS ${ARCH}" -kernel bootstub \
+		-append "root=/dev/ram0 migrate start=--headless" ${EMU_RAMDISK} ${EMU_KERNEL} \
+		-fw_cfg name=opt/org.toaruos.gettyargs,string="-a local /dev/ttyS0 115200 ${TERM}"
+
+shell-hvf: EMU_CPU = host -accel hvf
+shell-hvf: shell
 
 debug: system
 	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session vid=auto" ${EMU_RAMDISK} ${EMU_KERNEL} -d int 2>&1
