@@ -26,7 +26,7 @@ struct huff {
  */
 struct huff_ring {
 	size_t pointer;
-	uint8_t data[32768];
+	uint8_t data[0x8000];
 };
 
 /**
@@ -149,7 +149,7 @@ static void build_fixed(void) {
 /**
  * Decode a symbol from the source using a Huffman table.
  */
-static int decode(struct inflate_context * ctx, struct huff * huff) {
+static int decode(struct inflate_context * ctx, const struct huff * huff) {
 	int count = 0, cur = 0;
 	for (int i = 1; cur >= 0; i++) {
 		cur = (cur << 1) | read_bit(ctx); /* Shift */
@@ -165,20 +165,16 @@ static int decode(struct inflate_context * ctx, struct huff * huff) {
  * while keeping output streaming.
  */
 static void emit(struct inflate_context * ctx, unsigned char byte) {
-	if (ctx->ring->pointer == 32768) {
-		ctx->ring->pointer = 0;
-	}
-
 	ctx->ring->data[ctx->ring->pointer] = byte;
 	ctx->write_output(ctx, byte);
-	ctx->ring->pointer++;
+	ctx->ring->pointer = (ctx->ring->pointer + 1) & 0x7FFF;
 }
 
 /**
  * Look backwards in the output ring buffer.
  */
-static uint8_t peek(struct inflate_context * ctx, int offset) {
-	return ctx->ring->data[(ctx->ring->pointer - offset) % 32768];
+static uint8_t peek(const struct inflate_context * ctx, unsigned int offset) {
+	return ctx->ring->data[(ctx->ring->pointer - offset + 0x8000) & 0x7FFF];
 }
 
 /**
@@ -236,10 +232,6 @@ static int inflate(struct inflate_context * ctx, struct huff * huff_len, struct 
 
 	while (1) {
 		int symbol = decode(ctx, huff_len);
-
-		if (symbol == 256) {
-			break;
-		}
 
 		if (symbol < 256) {
 			emit(ctx, symbol);
