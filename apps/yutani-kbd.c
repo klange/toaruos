@@ -50,16 +50,18 @@ void redraw(void) {
 int main (int argc, char ** argv) {
 	left   = 100;
 	top    = 100;
-	width  = 500;
-	height = 500;
+	width  = 50;
+	height = 50;
 
 	yctx = yutani_init();
 	wina = yutani_window_create(yctx, width, height);
 	yutani_window_move(yctx, wina, left, top);
+	yutani_window_advertise(yctx, wina, "yutani-kbd");
 
 	ctx = init_graphics_yutani(wina);
 
 	redraw();
+	yutani_flip(yctx, wina);
 
 	char keys[256] = {0};
 
@@ -76,7 +78,7 @@ int main (int argc, char ** argv) {
 							keys[ke->event.keycode] = (ke->event.action == KEY_ACTION_DOWN);
 						}
 						printf("\033[1;1H");
-						for (int i = 'a'; i < 'z'; ++i) {
+						for (int i = 'a'; i <= 'z'; ++i) {
 							printf("\033[%dm%c ", keys[i] ? 0 : 31, i);
 						}
 						fflush(stdout);
