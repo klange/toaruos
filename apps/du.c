@@ -113,9 +113,8 @@ int main(int argc, char * argv[]) {
 			case 's': /* summary */
 				all = 0;
 				break;
-			default:
-				fprintf(stderr, "%s: unrecognized option '%c'\n", argv[0], opt);
-				break;
+			case '?':
+				return 1;
 		}
 	}
 

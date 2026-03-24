@@ -127,9 +127,8 @@ static int parse_args(int argc, char * argv[], int * out) {
 					}
 				}
 				break;
-			default:
-				fprintf(stderr, "Unrecognized option: %c\n", c);
-				break;
+			case '?':
+				return usage(argv);
 		}
 	}
 	*out = optind;

@@ -484,8 +484,7 @@ int main(int argc, char * argv[]) {
 			case 'r':
 				show_bits |= SHOW_RELOCATIONS;
 				break;
-			default:
-				fprintf(stderr, "Unrecognized option: %c\n", c);
+			case '?':
 				break;
 		}
 	}

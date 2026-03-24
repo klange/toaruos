@@ -192,9 +192,8 @@ int main(int argc, char ** argv) {
 			case 'P':
 				symlinks = 0;
 				break;
-			default:
-				fprintf(stderr, "cp: unrecognized option '%c'\n", opt);
-				break;
+			case '?':
+				return 1;
 		}
 	}
 

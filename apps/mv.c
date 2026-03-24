@@ -42,8 +42,7 @@ int main(int argc, char * argv[]) {
 				force = 1;
 				interactive = 0;
 				break;
-			default:
-				fprintf(stderr, "mv: unrecognized option '%c'\n", opt);
+			case '?':
 				return 1;
 		}
 	}
