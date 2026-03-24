@@ -19,12 +19,25 @@ static int skip_chars  = 0;
 static int suppress_unique = 0;
 static int suppress_nonunique = 0;
 static int show_count = 0;
+static int ignore_case = 0;
 
 static int usage(char * argv[]) {
+#define _I "\033[3m"
+#define _E "\033[0m\n"
 	fprintf(stderr,
-		"usage: %s [-c] [-d] [-f fields] [-s chars] [-u]  [input_file [output_file]]\n"
+		"usage: %s [-i] [-c] [-d] [-f fields] [-s chars] [-u]  [input_file [output_file]]\n"
 		"\n"
-		"Reads lines from all of the specified files, sorts them all, and prints the result.\n",
+		"Filters repeated lines from input.\n"
+		"\n"
+		" Options:\n"
+		"  -c     " _I "Preceed each output line with a count of the times it appeared." _E
+		"  -d     " _I "Supress the output of non-repeated lines." _E
+		"  -u     " _I "Supress the output of repeated lines." _E
+		"  -f N   " _I "Skip N fields for comparison." _E
+		"  -s N   " _I "Skip N characters for comparison." _E
+		"  -i     " _I "Ignore case when comparing lines." _E
+		"  -?     " _I "Display this help text." _E
+		"\n",
 		argv[0]);
 	return 2;
 }
@@ -71,7 +84,7 @@ int main(int argc, char * argv[]) {
 	int opt;
 
 	/* XXX: POSIX says we should also accept + as an alternative for - but we don't do that. */
-	while ((opt = getopt(argc, argv, "?cdf:s:u")) != -1) {
+	while ((opt = getopt(argc, argv, "?cdf:is:u")) != -1) {
 		switch (opt) {
 			case 'c':
 				show_count = 1;
@@ -87,6 +100,9 @@ int main(int argc, char * argv[]) {
 				break;
 			case 's':
 				skip_chars = atoi(optarg);
+				break;
+			case 'i':
+				ignore_case = 1;
 				break;
 			case '?':
 				return usage(argv);
@@ -125,7 +141,7 @@ int main(int argc, char * argv[]) {
 
 		char * ncomp = skip_as_needed(nline);
 
-		if (!strcmp(prev_comp, ncomp)) {
+		if (!(ignore_case ? strcasecmp : strcmp)(prev_comp, ncomp)) {
 			free(nline);
 			count++;
 		} else {
