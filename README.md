@@ -10,7 +10,7 @@ There are no external runtime dependencies and all required source code for the 
 
 ToaruOS also includes my text editor, [Bim](https://github.com/klange/bim), and my programming language, [Kuroko](https://github.com/kuroko-lang/kuroko), both of which are included as submodules.
 
-![Screenshot](https://klange.dev/s/Screenshot%20from%202021-12-06%2011-38-12.png)
+![Screenshot](https://klange.dev/s/screenshot2026_03_24.png)
 *Demonstration of ToaruOS's UI and some applications.*
 
 ## History
