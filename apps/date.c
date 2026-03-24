@@ -24,13 +24,14 @@ static void show_usage(int argc, char * argv[]) {
 	printf(
 			"%s - print the time and day\n"
 			"\n"
-			"usage: %s [-?] +FORMAT\n"
+			"usage: %s +FORMAT\n"
+			"       %s MMDDhhmmCCYY.ss\n"
+			"       %s -?\n"
 			"\n"
-			"    Note: This implementation is not currently capable of\n"
-			"          setting the system time.\n"
+			"Print the time in a given format, or set the current clock time.\n"
 			"\n"
 			" -?     \033[3mshow this help text\033[0m\n"
-			"\n", argv[0], argv[0]);
+			"\n", argv[0], argv[0], argv[0], argv[0]);
 }
 
 int digits(const char * s, int len) {
