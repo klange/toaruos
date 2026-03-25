@@ -1,0 +1,2 @@
+quirk('TERM','toaru-vga','no24bit','no256color')
+theme('ansi')
