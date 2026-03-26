@@ -129,6 +129,9 @@ int usage(char * argv[]) {
 			" -T        " X_S "Hide threads." X_E "\n"
 			" -h        " X_S "Hilight the current process and its ancestors." X_E "\n"
 			" -H " X_S "PID    Like above, but for the given PID." X_E "\n"
+			"\n"
+			"If a " X_S "pid" X_E " argument is provided, the tree will be rooted\n"
+			"in that process; otherwise, the tree will be rooted in " X_S "init" X_E ".\n"
 			"\n",
 			argv[0], argv[0]);
 	return 1;
