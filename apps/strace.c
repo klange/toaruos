@@ -401,47 +401,6 @@ const char * errno_names[] = {
 	M(ERESTARTSIGSUSPEND),
 };
 
-
-const char * signal_names[NSIG] = {
-	M(SIGHUP),
-	M(SIGINT),
-	M(SIGQUIT),
-	M(SIGILL),
-	M(SIGTRAP),
-	M(SIGABRT),
-	M(SIGEMT),
-	M(SIGFPE),
-	M(SIGKILL),
-	M(SIGBUS),
-	M(SIGSEGV),
-	M(SIGSYS),
-	M(SIGPIPE),
-	M(SIGALRM),
-	M(SIGTERM),
-	M(SIGUSR1),
-	M(SIGUSR2),
-	M(SIGCHLD),
-	M(SIGPWR),
-	M(SIGWINCH),
-	M(SIGURG),
-	M(SIGPOLL),
-	M(SIGSTOP),
-	M(SIGTSTP),
-	M(SIGCONT),
-	M(SIGTTIN),
-	M(SIGTTOUT),
-	M(SIGVTALRM),
-	M(SIGPROF),
-	M(SIGXCPU),
-	M(SIGXFSZ),
-	M(SIGWAITING),
-	M(SIGDIAF),
-	M(SIGHATE),
-	M(SIGWINEVENT),
-	M(SIGCAT),
-	M(SIGTTOU),
-};
-
 const char * fcntl_cmd_names[] = {
 	M(F_GETFD),
 	M(F_SETFD),
@@ -767,8 +726,10 @@ static void struct_timeval_arg(pid_t pid, uintptr_t ptr) {
 }
 
 static void signal_arg(int signum) {
-	if (signum >= 0 && signum < NSIG && signal_names[signum]) {
-		fprintf(logfile, "%s", signal_names[signum]);
+	char signame[SIG2STR_MAX] = {0};
+
+	if (signum != 0 && !sig2str(signum, signame)) {
+		fprintf(logfile, "SIG%s", signame);
 	} else {
 		fprintf(logfile, "%d", signum);
 	}
@@ -1396,11 +1357,16 @@ int main(int argc, char * argv[]) {
 					}
 					ptrace(PTRACE_CONT, p, NULL, NULL);
 				} else {
-					fprintf(logfile, "--- %s ---\n", signal_names[WSTOPSIG(status)]);
+					fprintf(logfile, "--- ");
+					signal_arg(WSTOPSIG(status));
+					fprintf(logfile, " ---\n");
+
 					ptrace(PTRACE_CONT, p, NULL, (void*)(uintptr_t)WSTOPSIG(status));
 				}
 			} else if (WIFSIGNALED(status)) {
-				fprintf(logfile, "+++ killed by %s +++\n", signal_names[WTERMSIG(status)]);
+				fprintf(logfile, "+++ killed by ");
+				signal_arg(WTERMSIG(status));
+				fprintf(logfile, " +++\n");
 				return 0;
 			} else if (WIFEXITED(status)) {
 				fprintf(logfile, "+++ exited with %d +++\n", WEXITSTATUS(status));
