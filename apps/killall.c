@@ -18,6 +18,7 @@
 #include <signal.h>
 #include <getopt.h>
 #include <errno.h>
+#include <ctype.h>
 #include <sys/stat.h>
 #include <sys/signal.h>
 
@@ -112,6 +113,9 @@ int main (int argc, char * argv[]) {
 	while ((c = getopt(argc, argv, "s:-:")) != -1) {
 		switch (c) {
 			case 's':
+				for (char *s = optarg; *s; s++) {
+					*s = toupper(*s);
+				}
 				if (str2sig(optarg, &signum)) {
 					fprintf(stderr,"%s: %s: invalid signal specification\n",argv[0],optarg);
 					return 1;
