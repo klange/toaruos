@@ -40,46 +40,6 @@ static void dump_regs(struct URegs * r) {
 
 }
 
-#define M(e) [e] = #e
-const char * signal_names[256] = {
-	M(SIGHUP),
-	M(SIGINT),
-	M(SIGQUIT),
-	M(SIGILL),
-	M(SIGTRAP),
-	M(SIGABRT),
-	M(SIGEMT),
-	M(SIGFPE),
-	M(SIGKILL),
-	M(SIGBUS),
-	M(SIGSEGV),
-	M(SIGSYS),
-	M(SIGPIPE),
-	M(SIGALRM),
-	M(SIGTERM),
-	M(SIGUSR1),
-	M(SIGUSR2),
-	M(SIGCHLD),
-	M(SIGPWR),
-	M(SIGWINCH),
-	M(SIGURG),
-	M(SIGPOLL),
-	M(SIGSTOP),
-	M(SIGTSTP),
-	M(SIGCONT),
-	M(SIGTTIN),
-	M(SIGTTOUT),
-	M(SIGVTALRM),
-	M(SIGPROF),
-	M(SIGXCPU),
-	M(SIGXFSZ),
-	M(SIGWAITING),
-	M(SIGDIAF),
-	M(SIGHATE),
-	M(SIGWINEVENT),
-	M(SIGCAT),
-};
-
 static int data_read_bytes(pid_t pid, uintptr_t addr, char * buf, size_t size) {
 	for (unsigned int i = 0; i < size; ++i) {
 		if (ptrace(PTRACE_PEEKDATA, pid, (void*)addr++, &buf[i])) {
@@ -374,33 +334,6 @@ static void attempt_backtrace(pid_t pid, struct URegs * regs) {
 	}
 }
 
-static int imatch(const char * a, const char * b) {
-	do {
-		if (!*a && !*b) return 1;
-		if (tolower(*a) != tolower(*b)) return 0;
-		a++;
-		b++;
-	} while (1);
-}
-
-static int signal_from_string(const char * str) {
-	if (isdigit(*str)) {
-		return strtoul(str,NULL,0);
-	} else if (str[0] == 'S' && str[1] == 'I' && str[2] == 'G') {
-		for (int i = 0; i < 256; ++i) {
-			if (signal_names[i] && imatch(signal_names[i], str)) return i;
-		}
-		return -1;
-	} else {
-		for (int i = 0; i < 256; ++i) {
-			if (signal_names[i] && imatch(signal_names[i]+3, str)) return i;
-		}
-		return -1;
-	}
-
-	return -1;
-}
-
 static void show_commandline(pid_t pid, int status, struct URegs * regs) {
 
 	fprintf(stderr, "[Process %d, ip=%#zx]\n",
@@ -475,8 +408,11 @@ static void show_commandline(pid_t pid, int status, struct URegs * regs) {
 				fprintf(stderr, "'signal' needs an argument\n");
 				continue;
 			}
-			int signum = signal_from_string(arg);
-			if (signum == -1) {
+			int signum;
+			for (char *s = arg; *s; ++s) {
+				*s = toupper(*s);
+			}
+			if (str2sig(arg, &signum)) {
 				fprintf(stderr, "'%s' is not a recognized signal\n", arg);
 				continue;
 			}
@@ -623,18 +559,6 @@ static char * find_binary(const char * file) {
 	return NULL;
 }
 
-static char * sig_to_str(int signum) {
-	static char _buf[100];
-	if (signum >= 0 && signum <= 255) {
-		char * maybe = (char*)signal_names[signum];
-		if (maybe) {
-			return maybe;
-		}
-	}
-	sprintf(_buf, "%d", signum);
-	return _buf;
-}
-
 static void pass_sig(int sig) {
 	kill(binary_pid, sig);
 	signal(SIGINT, pass_sig);
@@ -739,7 +663,12 @@ int main(int argc, char * argv[]) {
 							break;
 					}
 				} else {
-					printf("Program received signal %s.\n", sig_to_str(WSTOPSIG(status)));
+					char signame[SIG2STR_MAX+3] = {'S','I','G',0};
+					if (sig2str(WSTOPSIG(status), signame+3)) {
+						sprintf(signame, "%d", WSTOPSIG(status));
+					}
+
+					printf("Program received signal %s.\n", signame);
 
 					struct URegs regs;
 					ptrace(PTRACE_GETREGS, res, NULL, &regs);
@@ -747,7 +676,11 @@ int main(int argc, char * argv[]) {
 					show_commandline(res, status, &regs);
 				}
 			} else if (WIFSIGNALED(status)) {
-				fprintf(stderr, "Process %d was killed by %s.\n", res, signal_names[WTERMSIG(status)]);
+					char signame[SIG2STR_MAX+3] = {'S','I','G',0};
+					if (sig2str(WTERMSIG(status), signame+3)) {
+						sprintf(signame, "%d", WTERMSIG(status));
+					}
+				fprintf(stderr, "Process %d was killed by %s.\n", res, signame);
 				return 0;
 			} else if (WIFEXITED(status)) {
 				fprintf(stderr, "Process %d exited normally with status %d.\n", res, WEXITSTATUS(status));
