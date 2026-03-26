@@ -6,6 +6,7 @@ typedef struct process {
 	int pid;
 	int ppid;
 	int tgid;
+	int pgid;
 	int uid, mem, vsz, shm;
 	int cpu[4];
 	unsigned long time;

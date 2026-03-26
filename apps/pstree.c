@@ -40,8 +40,10 @@ struct PstreeContext {
 	size_t lines_size;
 
 	int show_pids;
-	enum ColorMode color_mode;
+	int show_pgids;
 	int hide_threads;
+
+	enum ColorMode color_mode;
 	tree_t * procs;
 };
 
@@ -138,8 +140,12 @@ void print_process_tree_node(struct PstreeContext * ctx, tree_node_t * node, siz
 
 	depth += printf(proc->name);
 
-	if (ctx->show_pids) {
+	if (ctx->show_pids && ctx->show_pgids) {
+		depth += printf("(%d,%d)", proc->pid, proc->pgid);
+	} else if (ctx->show_pids) {
 		depth += printf("(%d)", proc->pid);
+	} else if (ctx->show_pgids) {
+		depth += printf("(%d)", proc->pgid);
 	}
 
 	if (proc->user_data || ctx->color_mode) printf("\033[0m");
@@ -206,6 +212,7 @@ int usage(char * argv[]) {
 			"\n"
 			" --help    " X_S "Show this help message." X_E "\n"
 			" -p        " X_S "Show pids." X_E "\n"
+			" -g        " X_S "Show pgids." X_E "\n"
 			" -T        " X_S "Hide threads." X_E "\n"
 			" -h        " X_S "Hilight the current process and its ancestors." X_E "\n"
 			" -H " X_S "PID    Like above, but for the given PID." X_E "\n"
@@ -231,10 +238,13 @@ int main (int argc, char * argv[]) {
 
 	struct PstreeContext ctx = {0};
 
-	while ((opt = getopt(argc, argv, "TphH:C:-:")) != -1) {
+	while ((opt = getopt(argc, argv, "TpghH:C:-:")) != -1) {
 		switch (opt) {
 			case 'p':
 				ctx.show_pids = 1;
+				break;
+			case 'g':
+				ctx.show_pgids = 1;
 				break;
 			case 'T':
 				ctx.hide_threads = 1;

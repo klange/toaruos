@@ -66,6 +66,8 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 			proc->ppid = atoi(tab);
 		} else if (strstr(line, "Tgid:") == line) {
 			proc->tgid = atoi(tab);
+		} else if (strstr(line, "Pgid:") == line) {
+			proc->pgid = atoi(tab);
 		} else if (strstr(line, "Name:") == line) {
 			proc->name = strdup(tab);
 		} else if (strstr(line, "Path:") == line) {
