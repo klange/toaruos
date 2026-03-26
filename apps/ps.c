@@ -51,7 +51,7 @@ int ps_callback(struct process * proc, void * ctx) {
 	if (!show_threads && proc->tgid != proc->pid) {
 		struct process * parent = process_from_pid(proc->tgid);
 		if (parent) {
-			parent->cpu += proc->cpu;
+			parent->cpu[0] += proc->cpu[0];
 			parent->time =+ proc->time;
 		}
 
@@ -70,7 +70,7 @@ int ps_callback(struct process * proc, void * ctx) {
 	if ((len = sprintf(garbage, "%d", proc->vsz)) > widths[3]) widths[3] = len;
 	if ((len = sprintf(garbage, "%d", proc->shm)) > widths[4]) widths[4] = len;
 	if ((len = sprintf(garbage, "%d.%01d", proc->mem / 10, proc->mem % 10)) > widths[5]) widths[5] = len;
-	if ((len = sprintf(garbage, "%d.%01d", proc->cpu / 10, proc->cpu % 10)) > widths[6]) widths[6] = len;
+	if ((len = sprintf(garbage, "%d.%01d", proc->cpu[0] / 10, proc->cpu[0] % 10)) > widths[6]) widths[6] = len;
 	if ((len = sprintf(garbage, "%lu:%02lu.%02lu",
 		(proc->time / (1000000UL * 60 * 60)),
 		(proc->time / (1000000UL * 60)) % 60,
@@ -132,7 +132,7 @@ void print_entry(struct process * out) {
 	}
 	if (show_cpu) {
 		char tmp[10];
-		sprintf(tmp, "%*d.%01d", widths[6]-2, out->cpu / 10, out->cpu % 10);
+		sprintf(tmp, "%*d.%01d", widths[6]-2, out->cpu[0] / 10, out->cpu[0] % 10);
 		printf("%*s ", widths[6], tmp);
 	}
 	if (show_mem) {

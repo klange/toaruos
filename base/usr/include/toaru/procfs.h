@@ -6,15 +6,18 @@ typedef struct process {
 	int pid;
 	int ppid;
 	int tgid;
+	int uid, mem, vsz, shm;
+	int cpu[4];
+	unsigned long time;
 	char *name;
 	char *path;
+	char * state;
 
-	int user_data;
-
-	int uid, mem, vsz, shm, cpu;
-	unsigned long time;
 	char * cmdline;
 	size_t cmdline_len;
+
+	int user_data;
+	void * user_pdata;
 } p_t;
 
 #define PROCFSLIB_NO_FREE             1

@@ -26,8 +26,7 @@
 #include <sys/sysfunc.h>
 #include <toaru/list.h>
 #include <toaru/hashmap.h>
-
-#define LINE_LEN 4096
+#include <toaru/procfs.h>
 
 enum header_columns {
 	COLUMN_NONE,
@@ -42,10 +41,24 @@ enum header_columns {
 	COLUMN_S
 };
 
+#define T_T "\033[94m"
+#define T_C "\033[0;1m"
+#define T_B "\033[1m"
+#define T_E "\033[0m"
+#define T_K "\033[K"
+#define T_S "\033[97m"
+#define T_R "\033[30m"
+#define T_H "\033[44;30m"
+#define T_CR "\033[H"
+#define T_FC "\033[0;9%dm"
+#define T_BR "\033[90m"
+
 static hashmap_t * process_ents = NULL;
+static list_t * ents_list = NULL;
 static int cpu_count = 1;
 static int sort_column = COLUMN_CPU;
 static int show_help = 0;
+static int combine_threads = 1;
 
 static const char * help_text[] = {
 	"q: quit",
@@ -64,14 +77,6 @@ enum {
 	SORT_DEC
 };
 
-struct process {
-	int uid, pid, tid, mem, vsz, shm, cpu, cpua;
-	char * user;
-	char * process;
-	char * command_line;
-	char * state;
-};
-
 struct columns {
 	const char * title;
 	intptr_t     member;
@@ -80,18 +85,20 @@ struct columns {
 	int          sort_order;
 } ColumnDescriptions[] = {
 	[COLUMN_NONE] = {"", 0, 0, 0, 0},
-	[COLUMN_PID]  = {"PID",  offsetof(struct process, pid),  FORMATTER_DECIMAL, 0, SORT_ASC},
-	[COLUMN_TID]  = {"TID",  offsetof(struct process, tid),  FORMATTER_DECIMAL, 0, SORT_ASC},
-	[COLUMN_VSZ]  = {"VSZ",  offsetof(struct process, vsz),  FORMATTER_DECIMAL, 0, SORT_DEC},
-	[COLUMN_SHM]  = {"SHM",  offsetof(struct process, shm),  FORMATTER_DECIMAL, 0, SORT_DEC},
-	[COLUMN_MEM]  = {"%MEM", offsetof(struct process, mem),  FORMATTER_PERCENT, 0, SORT_DEC},
-	[COLUMN_CPU]  = {"%CPU", offsetof(struct process, cpu),  FORMATTER_PERCENT, 0, SORT_DEC},
-	[COLUMN_CPUA] = {"CPUA", offsetof(struct process, cpua), FORMATTER_PERCENT, 0, SORT_DEC},
-	[COLUMN_USER] = {"USER", offsetof(struct process, user), FORMATTER_STRING,  0, SORT_ASC},
+	[COLUMN_PID]  = {"PID",  offsetof(struct process, tgid),  FORMATTER_DECIMAL, 0, SORT_ASC},
+	[COLUMN_TID]  = {"TID",  offsetof(struct process, pid),   FORMATTER_DECIMAL, 0, SORT_ASC},
+	[COLUMN_VSZ]  = {"VSZ",  offsetof(struct process, vsz),   FORMATTER_DECIMAL, 0, SORT_DEC},
+	[COLUMN_SHM]  = {"SHM",  offsetof(struct process, shm),   FORMATTER_DECIMAL, 0, SORT_DEC},
+	[COLUMN_MEM]  = {"%MEM", offsetof(struct process, mem),   FORMATTER_PERCENT, 0, SORT_DEC},
+	[COLUMN_CPU]  = {"%CPU", offsetof(struct process, cpu),   FORMATTER_PERCENT, 0, SORT_DEC},
+	[COLUMN_CPUA] = {"CPUA", offsetof(struct process, user_data), FORMATTER_PERCENT, 0, SORT_DEC},
+	[COLUMN_USER] = {"USER", offsetof(struct process, user_pdata), FORMATTER_STRING,    0, SORT_ASC},
 	[COLUMN_S]    = {"S",    offsetof(struct process, state),FORMATTER_STRING,  0, SORT_ASC},
 };
 
-static int columns[] = { COLUMN_PID, COLUMN_USER, COLUMN_VSZ, COLUMN_SHM, COLUMN_S, COLUMN_CPU, COLUMN_CPUA, COLUMN_MEM, COLUMN_NONE };
+static int columns_default[] = { COLUMN_PID, COLUMN_USER, COLUMN_VSZ, COLUMN_SHM, COLUMN_S, COLUMN_CPU, COLUMN_CPUA, COLUMN_MEM, COLUMN_NONE };
+static int columns_threads[] = { COLUMN_PID, COLUMN_TID, COLUMN_USER, COLUMN_VSZ, COLUMN_SHM, COLUMN_S, COLUMN_CPU, COLUMN_CPUA, COLUMN_MEM, COLUMN_NONE };
+static int * columns = NULL;
 
 /**
  * @brief Print a single column to stdout with the appropriate formatter.
@@ -150,18 +157,18 @@ static int size_column(struct process * proc, int column_id) {
  * @brief Print the column headings.
  */
 void print_header(void) {
-	printf("\033[44;30m");
+	printf(T_H);
 	for (int * c = columns; *c; ++c) {
-		if (*c == sort_column) printf("\033[97m");
+		if (*c == sort_column) printf(T_S);
 		printf("%*s ", ColumnDescriptions[*c].width, ColumnDescriptions[*c].title);
-		if (*c == sort_column) printf("\033[30m");
+		if (*c == sort_column) printf(T_R);
 	}
 	if (sort_column == COLUMN_NONE) {
-		printf("\033[1;97mCMD\033[30m");
+		printf(T_B T_S "CMD" T_R);
 	} else {
 		printf("CMD");
 	}
-	printf("\033[K\033[0m\n");
+	printf(T_K T_E "\n");
 }
 
 /**
@@ -182,11 +189,14 @@ void reset_column_widths(void) {
 void print_entry(struct process * out, int width) {
 	int used = 0;
 	for (int * c = columns; *c; ++c) {
-		if (*c == sort_column) printf("\033[1m");
+		if (*c == sort_column) printf(T_C);
 		used += print_column(out, *c);
-		if (*c == sort_column) printf("\033[0m");
+		if (*c == sort_column) printf(T_E);
 	}
-	printf("%.*s\033[K\n", width - used, out->command_line ? out->command_line : out->process);
+	const char * color = "";
+	if (out->pid != out->tgid) color = T_T;
+
+	printf("%s%.*s" T_E T_K "\n", color, width - used, out->cmdline ? out->cmdline: out->name);
 }
 
 /**
@@ -206,11 +216,8 @@ void update_column_widths(struct process * out) {
  * as the process struct itself.
  */
 void free_entry(struct process * out) {
-	if (out->command_line) free(out->command_line);
-	if (out->process) free(out->process);
-	if (out->user) free(out->user);
-	if (out->state) free(out->state);
-	free(out);
+	if (out->user_pdata) free(out->user_pdata);
+	procfs_free(out);
 }
 
 /**
@@ -221,15 +228,15 @@ void free_entry(struct process * out) {
  * is formatted as a string for display.
  */
 char * format_username(int uid) {
-	static char tmp[100];
+	static char *tmp;
 	struct passwd * p = getpwuid(uid);
 	if (p) {
-		snprintf(tmp, 100, "%-8s", p->pw_name);
+		asprintf(&tmp, "%-8s", p->pw_name);
 	} else {
-		snprintf(tmp, 100, "%-8d", uid);
+		asprintf(&tmp, "%-8d", uid);
 	}
 	endpwent();
-	return strdup(tmp);
+	return tmp;
 }
 
 /**
@@ -243,111 +250,41 @@ struct process * process_from_pid(pid_t pid) {
 	return hashmap_get(process_ents, (void*)(uintptr_t)pid);
 }
 
-/**
- * @brief Collect information for a process from its procfs entry.
- *
- * @p dent Directory entry from calling readdir on /proc.
- * @returns Process information that must be freed by the caller.
- */
-struct process * process_entry(struct dirent *dent) {
-	char tmp[300];
-	FILE * f;
-	char line[LINE_LEN];
 
-	int pid = 0, uid = 0, tgid = 0, mem = 0, shm = 0, vsz = 0, cpu = 0, cpua = 0;
-	char name[100];
-	char state[10];
-
-	sprintf(tmp, "/proc/%s/status", dent->d_name);
-	f = fopen(tmp, "r");
-
-	if (!f) {
-		return NULL;
-	}
-
-	line[0] = 0;
-
-	while (fgets(line, LINE_LEN, f) != NULL) {
-		char * n = strstr(line,"\n");
-		if (n) { *n = '\0'; }
-		char * tab = strstr(line,"\t");
-		if (tab) {
-			*tab = '\0';
-			tab++;
-		}
-		if (strstr(line, "Pid:") == line) {
-			pid = atoi(tab);
-		} else if (strstr(line, "State:") == line) {
-			strcpy(state, tab);
-		} else if (strstr(line, "Uid:") == line) {
-			uid = atoi(tab);
-		} else if (strstr(line, "Tgid:") == line) {
-			tgid = atoi(tab);
-		} else if (strstr(line, "Name:") == line) {
-			strcpy(name, tab);
-		} else if (strstr(line, "VmSize:") == line) {
-			vsz = atoi(tab);
-		} else if (strstr(line, "RssShmem:") == line) {
-			shm = atoi(tab);
-		} else if (strstr(line, "MemPermille:") == line) {
-			mem = atoi(tab);
-		} else if (strstr(line, "CpuPermille:") == line) {
-			cpu = strtoul(tab, &tab, 10);
-			cpua = cpu;
-			cpua += strtoul(tab, &tab, 10);
-			cpua += strtoul(tab, &tab, 10);
-			cpua += strtoul(tab, &tab, 10);
-			cpua /= 4;
-		}
-	}
-
-	fclose(f);
-
-	if (tgid != pid) {
-		/* Add this thread's CPU usage to the parent */
-		struct process * parent = process_from_pid(tgid);
+int top_callback(struct process * out, void * ctx) {
+	if (out->tgid != out->pid && combine_threads) {
+		struct process * parent = process_from_pid(out->tgid);
 		if (parent) {
-			parent->cpu += cpu;
-			parent->cpua += cpua;
-		}
-		return NULL;
-	}
-
-	struct process * out = malloc(sizeof(struct process));
-	out->uid = uid;
-	out->pid = tgid;
-	out->tid = pid;
-	out->mem = mem;
-	out->shm = shm;
-	out->vsz = vsz;
-	out->cpu = cpu;
-	out->cpua = cpua;
-	out->process = strdup(name);
-	out->state = strdup(state);
-	out->command_line = NULL;
-	out->user = format_username(out->uid);
-
-	hashmap_set(process_ents, (void*)(uintptr_t)pid, out);
-
-	sprintf(tmp, "/proc/%s/cmdline", dent->d_name);
-	f = fopen(tmp, "r");
-	char foo[1024];
-	int s = fread(foo, 1, 1024, f);
-	if (s > 0) {
-		out->command_line = malloc(s + 1);
-		memset(out->command_line, 0, s + 1);
-		memcpy(out->command_line, foo, s);
-		for (int i = 0; i < s; ++i) {
-			if (out->command_line[i] == 30) {
-				out->command_line[i] = ' ';
+			int t = 0;
+			for (int i = 0; i < 4; ++i) {
+				parent->cpu[i] += out->cpu[i];
+				t += out->cpu[i];
 			}
+			parent->user_data = t / 4;
+		}
+		return 0;
+	}
+
+	hashmap_set(process_ents, (void*)(uintptr_t)out->pid, out);
+	list_insert(ents_list, (void *)out);
+
+	out->user_data = 0;
+	for (int i = 0; i < 4; ++i) {
+		out->user_data += out->cpu[i];
+	}
+	out->user_data /= 4;
+
+	out->user_pdata = format_username(out->uid);
+
+	if (out->cmdline) {
+		/* Replace \x1e with spaces */
+		for (size_t i = 0; i < out->cmdline_len; ++i) {
+			if (out->cmdline[i] == 30) out->cmdline[i] = ' ';
 		}
 	}
-	fclose(f);
 
 	update_column_widths(out);
-
-	return out;
+	return 0;
 }
 
 /**
@@ -361,7 +298,7 @@ static int sort_processes(const void * a, const void * b) {
 	struct columns * column = &ColumnDescriptions[sort_column];
 
 	if (sort_column == COLUMN_NONE) {
-		return strcmp(left->command_line, right->command_line);
+		return strcmp(left->cmdline, right->cmdline);
 	}
 
 	switch (column->formatter) {
@@ -482,7 +419,7 @@ static void print_meter(const char * title, const char * label, int width, int c
 
 	int emptSlots = available - fillSlots;
 
-	printf("\033[1m%s [", title);
+	printf(T_B "%s [", title);
 
 	char * fill = malloc(available + 1);
 	size_t j = 0;
@@ -497,13 +434,13 @@ static void print_meter(const char * title, const char * label, int width, int c
 	j = 0;
 
 	for (int c = 0; c < count; ++c) {
-		printf("\033[0;9%dm", fill_colors[c % (sizeof(fill_colors) / sizeof(int))]);
+		printf(T_FC, fill_colors[c % (sizeof(fill_colors) / sizeof(int))]);
 		for (int i = 0; i < filled[c]; ++i, j++) printf("%c",fill[j]);
 	}
-	printf("\033[90m");
+	printf(T_BR);
 	for (int i = 0; i < emptSlots; ++i, j++) printf("%c",fill[j]);
 
-	printf("\033[0;1m]\033[0m ");
+	printf(T_C "]" T_E " ");
 	free(fill);
 }
 
@@ -511,7 +448,9 @@ static void print_meter(const char * title, const char * label, int width, int c
  * @brief Switch sorting to the next column.
  */
 static void next_sort_order(void) {
-	size_t column_count = sizeof(columns)/sizeof(*columns);
+	size_t column_count = 1; /* NONE is always in there */
+	for (int * i = columns; *i; ++i) column_count++;
+
 	for (size_t i = 0; i < column_count; ++i) {
 		if (columns[i] == sort_column) {
 			sort_column = columns[(i + 1) % column_count];
@@ -524,12 +463,25 @@ static void next_sort_order(void) {
  * @brief Switch sorting to the previous column.
  */
 static void prev_sort_order(void) {
-	size_t column_count = sizeof(columns)/sizeof(*columns);
+	size_t column_count = 1; /* NONE is always in there */
+	for (int * i = columns; *i; ++i) column_count++;
+
 	for (size_t i = 0; i < column_count; ++i) {
 		if (columns[i] == sort_column) {
 			sort_column = columns[(i + column_count - 1) % column_count];
 			return;
 		}
+	}
+}
+
+static void toggle_threads(void) {
+	if (combine_threads) {
+		combine_threads = 0;
+		columns = columns_threads;
+	} else {
+		combine_threads = 1;
+		columns = columns_default;
+		if (sort_column == COLUMN_TID) sort_column = COLUMN_PID;
 	}
 }
 
@@ -541,23 +493,10 @@ static struct process ** read_processes(size_t * count) {
 	reset_column_widths();
 
 	/* Read the entries in the directory */
-	list_t * ents_list = list_create();
+	ents_list = list_create();
 	process_ents = hashmap_create_int(10);
 
-	/* Scan /proc entries */
-	DIR * dirp = opendir("/proc");
-	struct dirent * dent = readdir(dirp);
-	while (dent != NULL) {
-		if (dent->d_name[0] >= '0' && dent->d_name[0] <= '9') {
-			struct process * p = process_entry(dent);
-			if (p) {
-				list_insert(ents_list, (void *)p);
-			}
-		}
-
-		dent = readdir(dirp);
-	}
-	closedir(dirp);
+	procfs_iterate(top_callback, NULL, PROCFSLIB_NO_FREE | PROCFSLIB_COLLECT_COMMANDLINE);
 
 	hashmap_free(process_ents);
 	free(process_ents);
@@ -617,9 +556,6 @@ static int do_once(void) {
 		meter_width = w.ws_col;
 		info_width = 0;
 	} else {
-#define T_T "\033[94m"
-#define T_C "\033[0;1m"
-#define T_E "\033[0m"
 		if (top_rows >= 1) {
 			info_rows = 1;
 			char tmp[256] = {0};
@@ -639,12 +575,12 @@ static int do_once(void) {
 		}
 		if (top_rows >= 3) {
 			info_rows = 3;
-			snprintf(info_row[2], 99, T_T "Tasks: " T_C "%lu" T_E, count);
+			snprintf(info_row[2], 99, T_T "%s: " T_C "%lu" T_E, combine_threads ? "Tasks" : "Threads", count);
 		}
 	}
 
 	/* Reset cursor to upper left */
-	printf("\033[H");
+	printf(T_CR);
 
 	/* Display CPU usage widgets */
 	for (int cpu = 0; cpu < cpu_count; ++cpu) {
@@ -654,7 +590,7 @@ static int do_once(void) {
 		print_meter(name, usage, left_side ? meter_width : info_width, 1, (int[]){cpus[cpu]}, 1000);
 
 		if (current_row < info_rows) {
-			printf("%s\033[K\n", info_row[current_row]);
+			printf("%s" T_K "\n", info_row[current_row]);
 			current_row++;
 		} else if (info_rows) {
 			if (left_side) {
@@ -676,7 +612,7 @@ static int do_once(void) {
 		printf("%s", info_row[current_row]);
 	}
 	current_row++;
-	printf("\033[K\n");
+	printf(T_K "\n");
 
 	/* Show column headers */
 	print_header();
@@ -687,7 +623,7 @@ static int do_once(void) {
 	if (show_help) {
 		for (ent = 0; ent < sizeof(help_text) / sizeof(*help_text); ++i, ++ent) {
 			if (i >= w.ws_row - current_row - 2) break;
-			printf("%*s\033[K\n", (int)w.ws_col, help_text[ent]);
+			printf("%*s" T_K "\n", (int)w.ws_col, help_text[ent]);
 		}
 	} else {
 		for (ent = 0; ent < count; ++i, ++ent) {
@@ -698,7 +634,7 @@ static int do_once(void) {
 
 	/* Clear remaining screen lines */
 	for (; i < w.ws_row - current_row - 2; ++i) {
-		printf("\033[K\n");
+		printf(T_K "\n");
 	}
 
 	/* Clean up process data from this round */
@@ -718,6 +654,7 @@ static int do_once(void) {
 		if (c == 'w') next_sort_order();
 		if (c == 'W') prev_sort_order();
 		if (c == 'h') show_help = !show_help;
+		if (c == 'T') toggle_threads();
 	}
 
 	return 1;
@@ -783,7 +720,7 @@ static int do_log(void) {
 		for (int * c = columns; *c; ++c) {
 			print_column(out, *c);
 		}
-		printf("%s\n", out->command_line ? out->command_line : out->process);
+		printf("%s\n", out->cmdline ? out->cmdline : out->name);
 		free(out);
 	}
 	free(processList);
@@ -823,6 +760,7 @@ void SIGWINCH_handler(int sig) {
 int main (int argc, char * argv[]) {
 	/* Assume CPU count doesn't change... */
 	cpu_count = sysfunc(TOARU_SYS_FUNC_NPROC, NULL);
+	columns = columns_default;
 
 	/*
 	 * If we are writing to a regular file, use the simple log format and

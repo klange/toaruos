@@ -78,9 +78,14 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 		} else if (strstr(line, "MemPermille:") == line) {
 			proc->mem = atoi(tab);
 		} else if (strstr(line, "CpuPermille:") == line) {
-			proc->cpu = atoi(tab);
+			proc->cpu[0] = strtoul(tab, &tab, 10);
+			proc->cpu[1] = strtoul(tab, &tab, 10);
+			proc->cpu[2] = strtoul(tab, &tab, 10);
+			proc->cpu[3] = strtoul(tab, &tab, 10);
 		} else if (strstr(line, "TotalTime:") == line) {
 			proc->time = strtoul(tab,NULL,0);
+		} else if (strstr(line, "State:") == line) {
+			proc->state = strdup(tab);
 		}
 	}
 
@@ -89,6 +94,7 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 
 	if (!proc->name) proc->name = strdup("");
 	if (!proc->path) proc->path = strdup("");
+	if (!proc->state) proc->state = strdup("");
 
 	if (proc->tgid != proc->pid) {
 		char * tmp;
@@ -123,6 +129,7 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 void procfs_free(struct process * proc) {
 	free(proc->name);
 	free(proc->path);
+	free(proc->state);
 	if (proc->cmdline) free(proc->cmdline);
 	free(proc);
 }
