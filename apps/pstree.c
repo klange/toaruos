@@ -13,13 +13,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <dirent.h>
 
 #include <toaru/list.h>
 #include <toaru/tree.h>
-
-#define PROCFS_LIB_ONLY 1
-#include "killall.c"
+#include <toaru/procfs.h>
 
 uint8_t find_pid(void * proc_v, void * pid_v) {
 	p_t * p = proc_v;

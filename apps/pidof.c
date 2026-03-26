@@ -13,10 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <dirent.h>
-
-#define PROCFS_LIB_ONLY 1
-#include "killall.c"
+#include <toaru/procfs.h>
 
 struct PidList {
 	int pid;
@@ -110,5 +107,3 @@ int main (int argc, char * argv[]) {
 	if (!ctx.quiet) printf("\n");
 	return 0;
 }
-
-

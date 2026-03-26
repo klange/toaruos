@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <dirent.h>
 #include <signal.h>
 #include <getopt.h>
 #include <errno.h>
@@ -22,95 +21,8 @@
 #include <sys/stat.h>
 #include <sys/signal.h>
 
-typedef struct process {
-	int pid;
-	int ppid;
-	int tgid;
-	char *name;
-	char *path;
+#include <toaru/procfs.h>
 
-	int user_data;
-} p_t;
-
-#define PROCFSLIB_NO_FREE      1
-#define PROCFSLIB_NO_THREADS   2
-
-static p_t * build_entry(struct dirent * dent, int flags) {
-	char *fname;
-	FILE * f;
-	char *line = NULL;
-	size_t avail = NULL;
-	ssize_t len = 0;
-
-	asprintf(&fname, "/proc/%s/status", dent->d_name);
-	f = fopen(fname, "r");
-	free(fname);
-
-	p_t * proc = calloc(sizeof(p_t),1);
-
-	while ((len = getline(&line, &avail, f)) != -1) {
-		if (len && line[len-1] == '\n') line[len-1] = '\0';
-		char * tab = strstr(line,"\t");
-		if (tab) {
-			*tab = '\0';
-			tab++;
-		}
-		if (strstr(line, "Pid:") == line) {
-			proc->pid = atoi(tab);
-		} else if (strstr(line, "PPid:") == line) {
-			proc->ppid = atoi(tab);
-		} else if (strstr(line, "Tgid:") == line) {
-			proc->tgid = atoi(tab);
-		} else if (strstr(line, "Name:") == line) {
-			proc->name = strdup(tab);
-		} else if (strstr(line, "Path:") == line) {
-			proc->path = strdup(tab);
-		}
-	}
-
-	if (!proc->name) proc->name = strdup("");
-	if (!proc->path) proc->path = strdup("");
-
-	if (proc->tgid != proc->pid) {
-		char * tmp;
-		asprintf(&tmp, "{%s}", proc->name);
-		free(proc->name);
-		proc->name = tmp;
-	}
-
-	fclose(f);
-	if (line) free(line);
-
-	return proc;
-}
-
-void procfs_free(struct process * proc) {
-	free(proc->name);
-	free(proc->path);
-	free(proc);
-}
-
-int procfs_iterate(int (*callback)(struct process *,void*), void *ctx, int flags) {
-	int ret = 0;
-	DIR * dirp = opendir("/proc");
-
-	for (struct dirent * ent = readdir(dirp); ent; ent = readdir(dirp)) {
-		if (ent->d_name[0] >= '0' && ent->d_name[0] <= '9') {
-			p_t * proc = build_entry(ent, flags);
-			if ((flags & PROCFSLIB_NO_THREADS) && proc->pid != proc->tgid) {
-				procfs_free(proc);
-				continue;
-			}
-			if (callback(proc,ctx)) ret = 1;
-			if (!(flags & PROCFSLIB_NO_FREE)) procfs_free(proc);
-		}
-		if (ret) break;
-	}
-	closedir(dirp);
-	return ret;
-}
-
-#ifndef PROCFS_LIB_ONLY
 int show_usage(int argc, char * argv[]) {
 #define X_S "\033[3m"
 #define X_E "\033[0m"
@@ -196,4 +108,3 @@ int main (int argc, char * argv[]) {
 
 	return retval;
 }
-#endif
