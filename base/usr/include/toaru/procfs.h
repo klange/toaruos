@@ -12,6 +12,7 @@ typedef struct process {
 	char *name;
 	char *path;
 	char * state;
+	time_t starttime;
 
 	char * cmdline;
 	size_t cmdline_len;
@@ -23,6 +24,7 @@ typedef struct process {
 #define PROCFSLIB_NO_FREE             1
 #define PROCFSLIB_NO_THREADS          2
 #define PROCFSLIB_COLLECT_COMMANDLINE 4
+#define PROCFSLIB_COLLECT_STARTTIME   8
 
 extern  void procfs_free(struct process * proc);
 extern int procfs_iterate(int (*callback)(struct process *,void*), void *ctx, int flags);

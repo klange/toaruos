@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
+#include <sys/stat.h>
 
 #include <toaru/procfs.h>
 
@@ -122,6 +123,15 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 		}
 	}
 
+	if (flags & PROCFSLIB_COLLECT_STARTTIME) {
+		struct stat st;
+		char * tmp;
+		asprintf(&tmp, "/proc/%s", dent->d_name);
+		if (stat(tmp, &st) == 0) {
+			proc->starttime = st.st_ctime;
+		}
+		free(tmp);
+	}
 
 	return proc;
 }
