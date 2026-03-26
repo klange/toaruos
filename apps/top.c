@@ -42,6 +42,7 @@ enum header_columns {
 };
 
 #define T_T "\033[94m"
+#define T_G "\033[92m"
 #define T_C "\033[0;1m"
 #define T_B "\033[1m"
 #define T_E "\033[0m"
@@ -62,7 +63,9 @@ static int combine_threads = 1;
 
 static const char * help_text[] = {
 	"q: quit",
-	"w: switch sort column",
+	"w: switch sort column (forward)",
+	"W: switch sort column (backword)",
+	"T: toggle the separate display of threads",
 	"h: show this help text",
 };
 
@@ -193,10 +196,18 @@ void print_entry(struct process * out, int width) {
 		used += print_column(out, *c);
 		if (*c == sort_column) printf(T_E);
 	}
-	const char * color = "";
-	if (out->pid != out->tgid) color = T_T;
+	const char * color = T_T;
+	if (out->pid != out->tgid) color = T_G;
 
-	printf("%s%.*s" T_E T_K "\n", color, width - used, out->cmdline ? out->cmdline: out->name);
+	if (width > used) {
+		printf("%s", color);
+		used += printf("%.*s", width - used, out->name);
+		printf(T_E);
+		if (width > used && out->cmdline) {
+			printf("%.*s", width - used, out->cmdline);
+		}
+	}
+	printf(T_K "\n");
 }
 
 /**
@@ -277,10 +288,16 @@ int top_callback(struct process * out, void * ctx) {
 	out->user_pdata = format_username(out->uid);
 
 	if (out->cmdline) {
-		/* Replace \x1e with spaces */
-		for (size_t i = 0; i < out->cmdline_len; ++i) {
+		char * args = out->cmdline;
+		while (*args && *args != 30) args++;
+
+		for (size_t i = args - out->cmdline; i < out->cmdline_len; ++i) {
 			if (out->cmdline[i] == 30) out->cmdline[i] = ' ';
 		}
+
+		args = strdup(args);
+		free(out->cmdline);
+		out->cmdline = args;
 	}
 
 	update_column_widths(out);
@@ -298,7 +315,7 @@ static int sort_processes(const void * a, const void * b) {
 	struct columns * column = &ColumnDescriptions[sort_column];
 
 	if (sort_column == COLUMN_NONE) {
-		return strcmp(left->cmdline, right->cmdline);
+		return strcmp(left->name, right->name);
 	}
 
 	switch (column->formatter) {
@@ -496,7 +513,7 @@ static struct process ** read_processes(size_t * count) {
 	ents_list = list_create();
 	process_ents = hashmap_create_int(10);
 
-	procfs_iterate(top_callback, NULL, PROCFSLIB_NO_FREE | PROCFSLIB_COLLECT_COMMANDLINE);
+	procfs_iterate(top_callback, NULL, PROCFSLIB_NO_FREE | PROCFSLIB_COLLECT_COMMANDLINE | PROCFSLIB_NO_CURLY_THREADS);
 
 	hashmap_free(process_ents);
 	free(process_ents);
@@ -522,7 +539,7 @@ static struct process ** read_processes(size_t * count) {
 /**
  * @brief Gather system information and print one sample.
  */
-static int do_once(void) {
+static int do_once(int delay) {
 	size_t count;
 	struct process ** processList = read_processes(&count);
 
@@ -647,7 +664,7 @@ static int do_once(void) {
 	struct pollfd fds[1];
 	fds[0].fd = STDIN_FILENO;
 	fds[0].events = POLLIN;
-	int ret = poll(fds,1,2000);
+	int ret = poll(fds,1,delay * 100);
 	if (ret > 0 && fds[0].revents & POLLIN) {
 		int c = fgetc(stdin);
 		if (c == 'q') return 0;
@@ -720,8 +737,8 @@ static int do_log(void) {
 		for (int * c = columns; *c; ++c) {
 			print_column(out, *c);
 		}
-		printf("%s\n", out->cmdline ? out->cmdline : out->name);
-		free(out);
+		printf("%s%s\n", out->name, out->cmdline);
+		free_entry(out);
 	}
 	free(processList);
 
@@ -757,17 +774,77 @@ void SIGWINCH_handler(int sig) {
 	signal(SIGWINCH, SIGWINCH_handler);
 }
 
+int usage(char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
+			"%s - Display running processes in a TUI.\n"
+			"\n"
+			"usage: %s [-d " X_S "delay" X_E "]\n"
+			"\n"
+			" -h  --help   " X_S "Show this help message." X_E "\n"
+			" -d " X_S "delay     Set the delay between refreshes in tenths of a second." X_E "\n"
+			" -l " X_S "samples   Force 'log mode' and print ." X_E "\n"
+			" -H           " X_S "Display threads separately." X_E "\n"
+			"\n"
+			"When running, the following commands are available:\n\n",
+			argv[0], argv[0]);
+
+	for (size_t ent = 0; ent < sizeof(help_text) / sizeof(*help_text); ++ent) {
+		fprintf(stderr, "  %s\n", help_text[ent]);
+	}
+
+	fprintf(stderr, "\n");
+	return 1;
+}
+
 int main (int argc, char * argv[]) {
-	/* Assume CPU count doesn't change... */
-	cpu_count = sysfunc(TOARU_SYS_FUNC_NPROC, NULL);
+
+	int log_samples = !isatty(STDOUT_FILENO);
+	int delay = 10;
+	int opt;
+
 	columns = columns_default;
 
-	/*
-	 * If we are writing to a regular file, use the simple log format and
-	 * only output one sample of data before exiting.
-	 */
-	if (!isatty(STDOUT_FILENO)) {
-		return do_log();
+	while ((opt = getopt(argc, argv, "hHl:d:-:")) != -1) {
+		switch (opt) {
+			case 'h':
+				usage(argv);
+				return 0;
+			case 'l':
+				log_samples = atoi(optarg);
+				if (log_samples == 0) log_samples = -1;
+				break;
+			case 'd':
+				delay = atoi(optarg);
+				break;
+			case 'H':
+				if (combine_threads) toggle_threads();
+				break;
+			case '-':
+				if (!strcmp(optarg, "help")) {
+					usage(argv);
+					return 0;
+				}
+				fprintf(stderr, "%s: '--%s' is not a recognized long option.\n", argv[0], optarg);
+				/* fallthrough */
+			case '?':
+				return usage(argv);
+		}
+	}
+
+	if (optind != argc) return usage(argv);
+
+	/* Assume CPU count doesn't change... */
+	cpu_count = sysfunc(TOARU_SYS_FUNC_NPROC, NULL);
+
+	/* Simple log format */
+	if (log_samples) {
+		while (log_samples < 0 || log_samples--) {
+			do_log();
+			if (log_samples) usleep(1000 * delay * 100);
+		}
+		return 0;
 	}
 
 	/* Initialize terminal for alt screen */
@@ -776,7 +853,7 @@ int main (int argc, char * argv[]) {
 	signal(SIGWINCH, SIGWINCH_handler);
 
 	/* Loop */
-	while (do_once());
+	while (do_once(delay));
 
 	/* Reset terminal */
 	set_buffered();
