@@ -88,104 +88,44 @@ p_t * build_entry(struct dirent * dent) {
 	return proc;
 }
 
-void show_usage(int argc, char * argv[]) {
-	printf(
-			"killall - send signal to processes with given name\n"
+int show_usage(int argc, char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
+			"%s - send a signal to all process with the given names\n"
 			"\n"
-			"usage: %s [-s SIG] name\n"
+			"usage: %s [-" X_S "name" X_E "] " X_S "procname..." X_E "\n"
 			"\n"
-			" -s     \033[3msignal to send\033[0m\n"
-			" -?     \033[3mshow this help text\033[0m\n"
-			"\n", argv[0]);
+			" --help          " X_S "Show this help message." X_E "\n"
+			" -s " X_S "name         Specify the signal to send." X_E "\n"
+			"\n"
+			"Signals may be named with or without the SIG prefix, or numerically.\n",
+			argv[0], argv[0]);
+	return 1;
 }
-
-struct sig_def {
-	int sig;
-	const char * name;
-};
-
-struct sig_def signals[] = {
-	{SIGHUP,"HUP"},
-	{SIGINT,"INT"},
-	{SIGQUIT,"QUIT"},
-	{SIGILL,"ILL"},
-	{SIGTRAP,"TRAP"},
-	{SIGABRT,"ABRT"},
-	{SIGEMT,"EMT"},
-	{SIGFPE,"FPE"},
-	{SIGKILL,"KILL"},
-	{SIGBUS,"BUS"},
-	{SIGSEGV,"SEGV"},
-	{SIGSYS,"SYS"},
-	{SIGPIPE,"PIPE"},
-	{SIGALRM,"ALRM"},
-	{SIGTERM,"TERM"},
-	{SIGUSR1,"USR1"},
-	{SIGUSR2,"USR2"},
-	{SIGCHLD,"CHLD"},
-	{SIGPWR,"PWR"},
-	{SIGWINCH,"WINCH"},
-	{SIGURG,"URG"},
-	{SIGPOLL,"POLL"},
-	{SIGSTOP,"STOP"},
-	{SIGTSTP,"TSTP"},
-	{SIGCONT,"CONT"},
-	{SIGTTIN,"TTIN"},
-	{SIGTTOUT,"TTOUT"},
-	{SIGVTALRM,"VTALRM"},
-	{SIGPROF,"PROF"},
-	{SIGXCPU,"XCPU"},
-	{SIGXFSZ,"XFSZ"},
-	{SIGWAITING,"WAITING"},
-	{SIGDIAF,"DIAF"},
-	{SIGHATE,"HATE"},
-	{SIGWINEVENT,"WINEVENT"},
-	{SIGCAT,"CAT"},
-	{0,NULL},
-};
 
 int main (int argc, char * argv[]) {
 
 	int signum = SIGTERM;
 
 	int c;
-	while ((c = getopt(argc, argv, "s:?")) != -1) {
+	while ((c = getopt(argc, argv, "s:-:")) != -1) {
 		switch (c) {
 			case 's':
-				{
-					signum = -1;
-					if (strlen(optarg) > 3 && strstr(optarg,"SIG") == (optarg)) {
-						struct sig_def * s = signals;
-						while (s->name) {
-							if (!strcmp(optarg+3,s->name)) {
-								signum = s->sig;
-								break;
-							}
-							s++;
-						}
-					} else {
-						if (optarg[0] < '0' || optarg[0] > '9') {
-							struct sig_def * s = signals;
-							while (s->name) {
-								if (!strcmp(optarg,s->name)) {
-									signum = s->sig;
-									break;
-								}
-								s++;
-							}
-						} else {
-							signum = atoi(optarg);
-						}
-					}
-					if (signum == -1) {
-						fprintf(stderr,"%s: %s: invalid signal specification\n",argv[0],optarg);
-						return 1;
-					}
+				if (str2sig(optarg, &signum)) {
+					fprintf(stderr,"%s: %s: invalid signal specification\n",argv[0],optarg);
+					return 1;
 				}
 				break;
+			case '-':
+				if (!strcmp(optarg, "help")) {
+					show_usage(argc, argv);
+					return 0;
+				}
+				fprintf(stderr, "%s: '--%s' is not a recognized long option.\n", argv[0],optarg);
+				/* fall through */
 			case '?':
-				show_usage(argc, argv);
-				return 0;
+				return show_usage(argc, argv);
 		}
 	}
 
