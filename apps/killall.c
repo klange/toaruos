@@ -28,6 +28,8 @@ typedef struct process {
 	int tgid;
 	char *name;
 	char *path;
+
+	int user_data;
 } p_t;
 
 #define PROCFSLIB_NO_FREE      1
