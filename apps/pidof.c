@@ -58,7 +58,6 @@ int add_omit(struct PidofContext * ctx, char * arg) {
 	int pid = 0;
 	if (!strcmp(arg, "%PPID")) {
 		pid = getppid();
-		fprintf(stderr, "omit %d\n", pid);
 	} else if (*arg < '0' || *arg > '9') {
 		return 1;
 	} else {
