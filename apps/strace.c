@@ -118,6 +118,7 @@ const char * syscall_names[] = {
 	[SYS_SETTIMEOFDAY] = "settimeofday",
 	[SYS_GETSOCKNAME]  = "getsockname",
 	[SYS_GETPEERNAME]  = "getpeername",
+	[SYS_GETPPID]      = "getppid",
 };
 
 char syscall_mask[] = {
@@ -208,6 +209,7 @@ char syscall_mask[] = {
 	[SYS_SETTIMEOFDAY] = 1,
 	[SYS_GETSOCKNAME]  = 1,
 	[SYS_GETPEERNAME]  = 1,
+	[SYS_GETPPID]      = 1,
 };
 
 static const int syscall_set_net[] = {
@@ -1130,6 +1132,7 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 		case SYS_SETSID:
 		case SYS_GETGID:
 		case SYS_GETEGID:
+		case SYS_GETPPID:
 			break;
 		default:
 			fprintf(logfile, "...");
