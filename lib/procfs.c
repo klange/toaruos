@@ -13,6 +13,32 @@
 
 #include <toaru/procfs.h>
 
+static ssize_t read_file(char **restrict data, FILE *restrict f) {
+	size_t c = 0;
+	size_t n = 0;
+
+	while (1) {
+		int i = fgetc(f);
+		if (n <= c + 1) {
+			size_t nn = n < 20 ? 20 : (n * 2);
+			if (nn > LONG_MAX) nn = LONG_MAX;
+			if (nn <= c + 1) {
+				return -1;
+			}
+			char * ndata = realloc(*data, nn);
+			n = nn;
+			*data = ndata;
+		}
+
+		if (i == EOF) {
+			(*data)[c] = '\0';
+			return c;
+		}
+
+		(*data)[c++] = i;
+	}
+}
+
 static p_t * build_entry(struct dirent * dent, int flags) {
 	char *fname;
 	FILE * f;
@@ -43,8 +69,23 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 			proc->name = strdup(tab);
 		} else if (strstr(line, "Path:") == line) {
 			proc->path = strdup(tab);
+		} else if (strstr(line, "Uid:") == line) {
+			proc->uid = atoi(tab);
+		} else if (strstr(line, "VmSize:") == line) {
+			proc->vsz = atoi(tab);
+		} else if (strstr(line, "RssShmem:") == line) {
+			proc->shm = atoi(tab);
+		} else if (strstr(line, "MemPermille:") == line) {
+			proc->mem = atoi(tab);
+		} else if (strstr(line, "CpuPermille:") == line) {
+			proc->cpu = atoi(tab);
+		} else if (strstr(line, "TotalTime:") == line) {
+			proc->time = strtoul(tab,NULL,0);
 		}
 	}
+
+	fclose(f);
+	if (line) free(line);
 
 	if (!proc->name) proc->name = strdup("");
 	if (!proc->path) proc->path = strdup("");
@@ -56,8 +97,25 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 		proc->name = tmp;
 	}
 
-	fclose(f);
-	if (line) free(line);
+	if (flags & PROCFSLIB_COLLECT_COMMANDLINE) {
+		char * tmp;
+		asprintf(&tmp, "/proc/%s/cmdline", dent->d_name);
+		f = fopen(tmp, "r");
+		free(tmp);
+
+		if (f) {
+			char * data = NULL;
+			ssize_t len = read_file(&data, f);
+			if (len >= 0) {
+				proc->cmdline = data;
+				proc->cmdline_len = len;
+			} else if (data) {
+				free(data);
+			}
+			fclose(f);
+		}
+	}
+
 
 	return proc;
 }
@@ -65,6 +123,7 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 void procfs_free(struct process * proc) {
 	free(proc->name);
 	free(proc->path);
+	if (proc->cmdline) free(proc->cmdline);
 	free(proc);
 }
 
