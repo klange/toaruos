@@ -9,7 +9,8 @@ pid_t getpid(void) {
 	return syscall_getpid();
 }
 
+DEFN_SYSCALL0(getppid, SYS_GETPPID);
+
 pid_t getppid(void) {
-	errno = ENOTSUP;
-	return -1;
+	return syscall_getppid();
 }
