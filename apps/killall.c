@@ -26,25 +26,28 @@ typedef struct process {
 	int pid;
 	int ppid;
 	int tgid;
-	char name[100];
-	char path[200];
+	char *name;
+	char *path;
 } p_t;
 
-#define LINE_LEN 4096
+#define PROCFSLIB_NO_FREE      1
+#define PROCFSLIB_NO_THREADS   2
 
-p_t * build_entry(struct dirent * dent) {
-	char tmp[300];
+static p_t * build_entry(struct dirent * dent, int flags) {
+	char *fname;
 	FILE * f;
-	char line[LINE_LEN];
+	char *line = NULL;
+	size_t avail = NULL;
+	ssize_t len = 0;
 
-	sprintf(tmp, "/proc/%s/status", dent->d_name);
-	f = fopen(tmp, "r");
+	asprintf(&fname, "/proc/%s/status", dent->d_name);
+	f = fopen(fname, "r");
+	free(fname);
 
-	p_t * proc = malloc(sizeof(p_t));
+	p_t * proc = calloc(sizeof(p_t),1);
 
-	while (fgets(line, LINE_LEN, f) != NULL) {
-		char * n = strstr(line,"\n");
-		if (n) { *n = '\0'; }
+	while ((len = getline(&line, &avail, f)) != -1) {
+		if (len && line[len-1] == '\n') line[len-1] = '\0';
 		char * tab = strstr(line,"\t");
 		if (tab) {
 			*tab = '\0';
@@ -57,38 +60,55 @@ p_t * build_entry(struct dirent * dent) {
 		} else if (strstr(line, "Tgid:") == line) {
 			proc->tgid = atoi(tab);
 		} else if (strstr(line, "Name:") == line) {
-			strcpy(proc->name, tab);
+			proc->name = strdup(tab);
 		} else if (strstr(line, "Path:") == line) {
-			strcpy(proc->path, tab);
+			proc->path = strdup(tab);
 		}
 	}
 
-	if (strstr(proc->name,"python") == proc->name) {
-		char * name = proc->path + strlen(proc->path) - 1;
-
-		while (1) {
-			if (*name == '/') {
-				name++;
-				break;
-			}
-			if (name == proc->name) break;
-			name--;
-		}
-
-		memcpy(proc->name, name, strlen(name)+1);
-	}
+	if (!proc->name) proc->name = strdup("");
+	if (!proc->path) proc->path = strdup("");
 
 	if (proc->tgid != proc->pid) {
-		char tmp[100] = {0};
-		sprintf(tmp, "{%s}", proc->name);
-		memcpy(proc->name, tmp, strlen(tmp)+1);
+		char * tmp;
+		asprintf(&tmp, "{%s}", proc->name);
+		free(proc->name);
+		proc->name = tmp;
 	}
 
 	fclose(f);
+	if (line) free(line);
 
 	return proc;
 }
 
+void procfs_free(struct process * proc) {
+	free(proc->name);
+	free(proc->path);
+	free(proc);
+}
+
+int procfs_iterate(int (*callback)(struct process *,void*), void *ctx, int flags) {
+	int ret = 0;
+	DIR * dirp = opendir("/proc");
+
+	for (struct dirent * ent = readdir(dirp); ent; ent = readdir(dirp)) {
+		if (ent->d_name[0] >= '0' && ent->d_name[0] <= '9') {
+			p_t * proc = build_entry(ent, flags);
+			if ((flags & PROCFSLIB_NO_THREADS) && proc->pid != proc->tgid) {
+				procfs_free(proc);
+				continue;
+			}
+			if (callback(proc,ctx)) ret = 1;
+			if (!(flags & PROCFSLIB_NO_FREE)) procfs_free(proc);
+		}
+		if (ret) break;
+	}
+	closedir(dirp);
+	return ret;
+}
+
+#ifndef PROCFS_LIB_ONLY
 int show_usage(int argc, char * argv[]) {
 #define X_S "\033[3m"
 #define X_E "\033[0m"
@@ -105,9 +125,30 @@ int show_usage(int argc, char * argv[]) {
 	return 1;
 }
 
+struct KillallContext {
+	char ** argv;
+	int i;
+	int signum;
+	int killed_something;
+};
+
+static int killall_callback(struct process * proc, void * ctx) {
+	struct KillallContext * this = ctx;
+
+	if (!strcmp(proc->name, this->argv[this->i])) {
+		if (kill(proc->pid, this->signum) < 0) {
+			fprintf(stderr, "%s: %s(%d): %s\n", this->argv[0], this->argv[this->i], proc->pid, strerror(errno));
+		} else {
+			this->killed_something = 1;
+		}
+	}
+
+	return 0;
+}
+
 int main (int argc, char * argv[]) {
 
-	int signum = SIGTERM;
+	struct KillallContext ctx = {argv, -1, SIGTERM, 0};
 
 	int c;
 	while ((c = getopt(argc, argv, "s:-:")) != -1) {
@@ -116,7 +157,7 @@ int main (int argc, char * argv[]) {
 				for (char *s = optarg; *s; s++) {
 					*s = toupper(*s);
 				}
-				if (str2sig(optarg, &signum)) {
+				if (str2sig(optarg, &ctx.signum)) {
 					fprintf(stderr,"%s: %s: invalid signal specification\n",argv[0],optarg);
 					return 1;
 				}
@@ -138,37 +179,19 @@ int main (int argc, char * argv[]) {
 		return 1;
 	}
 
-	int killed_something = 0;
 	int retval = 0;
 
 	for (int i = optind; i < argc; ++i) {
-		/* Open the directory */
-		DIR * dirp = opendir("/proc");
+		ctx.killed_something = 0;
+		ctx.i = i;
+		procfs_iterate(killall_callback, &ctx, PROCFSLIB_NO_THREADS);
 
-		struct dirent * ent = readdir(dirp);
-		while (ent != NULL) {
-			if (ent->d_name[0] >= '0' && ent->d_name[0] <= '9') {
-				p_t * proc = build_entry(ent);
-
-				if (!strcmp(proc->name, argv[i])) {
-					if (kill(proc->pid, signum) < 0) {
-						fprintf(stderr, "%s(%d) %s\n", argv[i], proc->pid, strerror(errno));
-					} else {
-						killed_something = 1;
-					}
-				}
-
-				free(proc);
-			}
-			ent = readdir(dirp);
-		}
-		closedir(dirp);
-		if (!killed_something) {
-			fprintf(stderr, "%s: no process found\n", argv[i]);
+		if (!ctx.killed_something) {
+			fprintf(stderr, "%s: %s: no process found\n", argv[0], argv[i]);
 			retval = 1;
 		}
 	}
 
 	return retval;
 }
-
+#endif
