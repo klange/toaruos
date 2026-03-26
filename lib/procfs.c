@@ -99,7 +99,7 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 	if (!proc->path) proc->path = strdup("");
 	if (!proc->state) proc->state = strdup("");
 
-	if (proc->tgid != proc->pid) {
+	if (proc->tgid != proc->pid && !(flags & PROCFSLIB_NO_CURLY_THREADS)) {
 		char * tmp;
 		asprintf(&tmp, "{%s}", proc->name);
 		free(proc->name);
