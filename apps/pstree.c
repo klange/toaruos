@@ -42,6 +42,7 @@ struct PstreeContext {
 	int show_pids;
 	int show_pgids;
 	int hide_threads;
+	int show_cmdline;
 
 	enum ColorMode color_mode;
 	tree_t * procs;
@@ -83,7 +84,7 @@ void print_process_tree_node(struct PstreeContext * ctx, tree_node_t * node, siz
 			printf("───");
 		}
 		depth += 3;
-	} else if (depth) {
+	} else if (indented) {
 		for (int i = 0; i < (int)depth; ++i) {
 			if (lines_get(ctx, i)) {
 				printf("│");
@@ -138,14 +139,34 @@ void print_process_tree_node(struct PstreeContext * ctx, tree_node_t * node, siz
 		}
 	}
 
+	int force_nl = 0;
+
 	depth += printf(proc->name);
 
-	if (ctx->show_pids && ctx->show_pgids) {
-		depth += printf("(%d,%d)", proc->pid, proc->pgid);
-	} else if (ctx->show_pids) {
-		depth += printf("(%d)", proc->pid);
-	} else if (ctx->show_pgids) {
-		depth += printf("(%d)", proc->pgid);
+	int show_cmdline = ctx->show_cmdline && proc->pid == proc->tgid;
+
+	if (show_cmdline && (ctx->show_pids || ctx->show_pgids)) depth += printf(",");
+	if (!show_cmdline && (ctx->show_pids || ctx->show_pgids)) depth += printf("(");
+	if (ctx->show_pids) depth += printf("%d", proc->pid);
+	if (ctx->show_pids && ctx->show_pgids) depth += printf(",");
+	if (ctx->show_pgids) depth += printf("%d", proc->pgid);
+	if (!show_cmdline && (ctx->show_pids || ctx->show_pgids)) depth += printf(")");
+
+	if (show_cmdline && proc->cmdline) {
+		force_nl = 1;
+		depth = depth_in + (indented ? 3 : 0);
+		fputc(' ', stdout);
+
+		/* Skip name */
+		char * cmdline = proc->cmdline;
+		while (*cmdline && *cmdline != 30) cmdline++;
+		if (*cmdline == 30) cmdline++;
+
+		/* Replace record separators with space */
+		while (*cmdline) {
+			fputc(*cmdline == 30 ? ' ' : *cmdline, stdout);
+			cmdline++;
+		}
 	}
 
 	if (proc->user_data || ctx->color_mode) printf("\033[0m");
@@ -153,11 +174,12 @@ void print_process_tree_node(struct PstreeContext * ctx, tree_node_t * node, siz
 	if (!node->children->length) {
 		printf("\n");
 	} else {
-
 		int t = 0;
+		if (force_nl) printf("\n");
+
 		foreach(child, node->children) {
 			/* Recursively print the children */
-			print_process_tree_node(ctx, child->value, depth, !!(t), ((t+1)!=(int)node->children->length) );
+			print_process_tree_node(ctx, child->value, depth, !!(t + force_nl), ((t+1)!=(int)node->children->length) );
 			t++;
 		}
 	}
@@ -211,6 +233,7 @@ int usage(char * argv[]) {
 			"usage: %s [-p] [-T] [" X_S "pid" X_E "]\n"
 			"\n"
 			" --help    " X_S "Show this help message." X_E "\n"
+			" -a        " X_S "Show command lines." X_E "\n"
 			" -p        " X_S "Show pids." X_E "\n"
 			" -g        " X_S "Show pgids." X_E "\n"
 			" -T        " X_S "Hide threads." X_E "\n"
@@ -238,8 +261,11 @@ int main (int argc, char * argv[]) {
 
 	struct PstreeContext ctx = {0};
 
-	while ((opt = getopt(argc, argv, "TpghH:C:-:")) != -1) {
+	while ((opt = getopt(argc, argv, "aTpghH:C:-:")) != -1) {
 		switch (opt) {
+			case 'a':
+				ctx.show_cmdline = 1;
+				break;
 			case 'p':
 				ctx.show_pids = 1;
 				break;
@@ -284,6 +310,7 @@ int main (int argc, char * argv[]) {
 
 	int flags = PROCFSLIB_NO_FREE;
 	if (ctx.color_mode == COLOR_MODE_AGE) flags |= PROCFSLIB_COLLECT_STARTTIME;
+	if (ctx.show_cmdline) flags |= PROCFSLIB_COLLECT_COMMANDLINE;
 
 	procfs_iterate(pstree_callback,&ctx, flags);
 
