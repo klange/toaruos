@@ -18,72 +18,8 @@
 #include <toaru/list.h>
 #include <toaru/tree.h>
 
-typedef struct process {
-	int pid;
-	int ppid;
-	int tgid;
-	char name[100];
-	char path[200];
-} p_t;
-
-#define LINE_LEN 4096
-
-p_t * build_entry(struct dirent * dent) {
-	char tmp[300];
-	FILE * f;
-	char line[LINE_LEN];
-
-	sprintf(tmp, "/proc/%s/status", dent->d_name);
-	f = fopen(tmp, "r");
-
-	p_t * proc = malloc(sizeof(p_t));
-
-	while (fgets(line, LINE_LEN, f) != NULL) {
-		char * n = strstr(line,"\n");
-		if (n) { *n = '\0'; }
-		char * tab = strstr(line,"\t");
-		if (tab) {
-			*tab = '\0';
-			tab++;
-		}
-		if (strstr(line, "Pid:") == line) {
-			proc->pid = atoi(tab);
-		} else if (strstr(line, "PPid:") == line) {
-			proc->ppid = atoi(tab);
-		} else if (strstr(line, "Tgid:") == line) {
-			proc->tgid = atoi(tab);
-		} else if (strstr(line, "Name:") == line) {
-			strcpy(proc->name, tab);
-		} else if (strstr(line, "Path:") == line) {
-			strcpy(proc->path, tab);
-		}
-	}
-
-	if (strstr(proc->name,"python") == proc->name) {
-		char * name = proc->path + strlen(proc->path) - 1;
-
-		while (1) {
-			if (*name == '/') {
-				name++;
-				break;
-			}
-			if (name == proc->name) break;
-			name--;
-		}
-
-		memcpy(proc->name, name, strlen(name)+1);
-	}
-
-	if (proc->tgid != proc->pid) {
-		char tmp[100] = {0};
-		sprintf(tmp, "{%s}", proc->name);
-		memcpy(proc->name, tmp, strlen(tmp)+1);
-	}
-
-	fclose(f);
-
-	return proc;
-}
+#define PROCFS_LIB_ONLY 1
+#include "killall.c"
 
 uint8_t find_pid(void * proc_v, void * pid_v) {
 	p_t * p = proc_v;
@@ -92,25 +28,44 @@ uint8_t find_pid(void * proc_v, void * pid_v) {
 	return (uint8_t)(p->pid == i);
 }
 
-void print_process_tree_node(tree_node_t * node, size_t depth, int indented, int more, char lines[]) {
+void lines_set(char **lines, size_t * lines_size, size_t i) {
+	if (i >= *lines_size) {
+		*lines_size = (*lines_size) * 2;
+		*lines = realloc(*lines, *lines_size);
+	}
+
+	(*lines)[i] = 1;
+}
+
+void lines_clear(char **lines, size_t * lines_size, size_t from, size_t until) {
+	for (; from < *lines_size && from < until; ++from) {
+		(*lines)[from] = 0;
+	}
+}
+
+int lines_get(char ** lines, size_t * lines_size, size_t i) {
+	if (i >= *lines_size) return 0;
+	return (*lines)[i];
+}
+
+void print_process_tree_node(tree_node_t * node, size_t depth, int indented, int more, char ** lines, size_t * lines_size, int show_pids) {
 
 	p_t * proc = node->value;
 
-	for (int i = 0; i < (int)strlen(proc->name)+3; ++i) {
-		lines[depth+i] = 0;
-	}
+	size_t depth_in = depth;
+	lines_clear(lines, lines_size, depth_in, *lines_size);
 
 	if (!indented && depth) {
 		if (more) {
 			printf("─┬─");
-			lines[depth+1] = 1;
+			lines_set(lines,lines_size,depth+1);
 		} else {
 			printf("───");
 		}
 		depth += 3;
 	} else if (depth) {
 		for (int i = 0; i < (int)depth; ++i) {
-			if (lines[i]) {
+			if (lines_get(lines,lines_size,i)) {
 				printf("│");
 			} else {
 				printf(" ");
@@ -118,61 +73,133 @@ void print_process_tree_node(tree_node_t * node, size_t depth, int indented, int
 		}
 		if (more) {
 			printf(" ├─");
-			lines[depth+1] = 1;
+			lines_set(lines,lines_size,depth+1);
 		} else {
 			printf(" └─");
 		}
 		depth += 3;
 	}
 
-	printf(proc->name);
+	if (proc->user_data) printf("\033[1m");
+	depth += printf(proc->name);
+
+	if (show_pids) {
+		depth += printf("(%d)", proc->pid);
+	}
+
+	if (proc->user_data) printf("\033[0m");
 
 	if (!node->children->length) {
 		printf("\n");
 	} else {
-		depth += strlen(proc->name);
 
 		int t = 0;
 		foreach(child, node->children) {
 			/* Recursively print the children */
-			print_process_tree_node(child->value, depth, !!(t), ((t+1)!=(int)node->children->length), lines);
+			print_process_tree_node(child->value, depth, !!(t), ((t+1)!=(int)node->children->length), lines, lines_size, show_pids);
 			t++;
 		}
 	}
 
-	for (int i = 0; i < (int)strlen(proc->name)+3; ++i) {
-		lines[depth+i] = 0;
+	lines_clear(lines, lines_size, depth_in, depth);
+}
+
+int pstree_callback(struct process * proc, void *ctx) {
+	tree_t * procs = ctx;
+
+	if (proc->ppid == 0 && proc->pid == 1) {
+		tree_set_root(procs, proc);
+	} else {
+		tree_node_t * parent = tree_find(procs,(void *)(uintptr_t)proc->ppid,find_pid);
+		if (parent) {
+			tree_node_insert_child(procs, parent, proc);
+		}
 	}
+
+	return 0;
+}
+
+int usage(char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
+			"%s - display a tree of running processes\n"
+			"\n"
+			"usage: %s [-p] [-T] [" X_S "pid" X_E "]\n"
+			"\n"
+			" --help    " X_S "Show this help message." X_E "\n"
+			" -p        " X_S "Show pids." X_E "\n"
+			" -T        " X_S "Hide threads." X_E "\n"
+			" -h        " X_S "Hilight the current process and its ancestors." X_E "\n"
+			" -H " X_S "PID    Like above, but for the given PID." X_E "\n"
+			"\n",
+			argv[0], argv[0]);
+	return 1;
 }
 
 int main (int argc, char * argv[]) {
 
-	/* Open the directory */
-	DIR * dirp = opendir("/proc");
+	int opt;
+	int hide_threads = 0;
+	int show_pids = 0;
+	int root_pid = 1;
+	int hilight_pid = 0;
+
+	while ((opt = getopt(argc, argv, "TphH:-:")) != -1) {
+		switch (opt) {
+			case 'p':
+				show_pids = 1;
+				break;
+			case 'T':
+				hide_threads = 1;
+				break;
+			case 'h':
+				hilight_pid = getpid();
+				break;
+			case 'H':
+				hilight_pid = atoi(optarg);
+				break;
+			case '-':
+				if (!strcmp(optarg,"help")) {
+					usage(argv);
+					return 0;
+				}
+				fprintf(stderr, "%s: '--%s' is not a recognized long option.\n", argv[0],optarg);
+				/* fallthrough */
+			case '?':
+				return usage(argv);
+		}
+	}
+
+	if (optind != argc) {
+		root_pid = atoi(argv[optind]);
+		optind++;
+	}
+
+	if (optind != argc) {
+		return usage(argv);
+	}
 
 	/* Read the entries in the directory */
 	tree_t * procs = tree_create();
 
-	struct dirent * ent = readdir(dirp);
-	while (ent != NULL) {
-		if (ent->d_name[0] >= '0' && ent->d_name[0] <= '9') {
-			p_t * proc = build_entry(ent);
+	procfs_iterate(pstree_callback, procs, PROCFSLIB_NO_FREE | (hide_threads ? PROCFSLIB_NO_THREADS : 0));
 
-			if (proc->ppid == 0 && proc->pid == 1) {
-				tree_set_root(procs, proc);
-			} else {
-				tree_node_t * parent = tree_find(procs,(void *)(uintptr_t)proc->ppid,find_pid);
-				if (parent) {
-					tree_node_insert_child(procs, parent, proc);
-				}
-			}
+	if (hilight_pid) {
+		tree_node_t * proc = tree_find(procs, (void*)(uintptr_t)hilight_pid, find_pid);
+		while (proc) {
+			struct process * p = proc->value;
+			p->user_data = 1;
+			proc = proc->parent;
 		}
-		ent = readdir(dirp);
 	}
-	closedir(dirp);
 
-	char lines[500] = {0};
-	print_process_tree_node(procs->root, 0, 0, 0, lines);
+	size_t lines_size = 100;
+	char * lines = calloc(lines_size,1);
+
+	tree_node_t * root = root_pid == 1 ? procs->root : tree_find(procs,(void *)(uintptr_t)root_pid,find_pid);
+
+	if (root) print_process_tree_node(root, 0, 0, 0, &lines, &lines_size, show_pids);
 
 	return 0;
 }
