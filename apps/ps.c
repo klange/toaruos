@@ -23,8 +23,7 @@
 
 #include <toaru/list.h>
 #include <toaru/hashmap.h>
-
-#define LINE_LEN 4096
+#include <toaru/procfs.h>
 
 static int show_all = 0;
 static int show_threads = 0;
@@ -36,160 +35,63 @@ static int collect_commandline = 0;
 
 static int widths[] = {3,3,4,3,3,4,4,4};
 
-struct process {
-	int uid;
-	int pid;
-	int tid;
-	int mem;
-	int vsz;
-	int shm;
-	int cpu;
-	unsigned long time;
-	char * process;
-	char * command_line;
-};
-
 static hashmap_t * process_ents = NULL;
-
-void print_username(int uid) {
-	struct passwd * p = getpwuid(uid);
-
-	if (p) {
-		printf("%-8s", p->pw_name);
-	} else {
-		printf("%-8d", uid);
-	}
-
-	endpwent();
-}
+static list_t * ents_list = NULL;
 
 struct process * process_from_pid(pid_t pid) {
 	return hashmap_get(process_ents, (void*)(uintptr_t)pid);
 }
 
-struct process * process_entry(struct dirent *dent) {
-	char tmp[300];
-	FILE * f;
-	char line[LINE_LEN];
-
-	int pid = 0, uid = 0, tgid = 0, mem = 0, shm = 0, vsz = 0, cpu = 0;
-	unsigned long ttime = 0;
-	char name[100];
-
-	sprintf(tmp, "/proc/%s/status", dent->d_name);
-	f = fopen(tmp, "r");
-
-	if (!f) {
-		return NULL;
+int ps_callback(struct process * proc, void * ctx) {
+	if (!show_all && proc->uid != getuid()) {
+		procfs_free(proc);
+		return 0;
 	}
 
-	line[0] = 0;
-
-	while (fgets(line, LINE_LEN, f) != NULL) {
-		char * n = strstr(line,"\n");
-		if (n) { *n = '\0'; }
-		char * tab = strstr(line,"\t");
-		if (tab) {
-			*tab = '\0';
-			tab++;
+	if (!show_threads && proc->tgid != proc->pid) {
+		struct process * parent = process_from_pid(proc->tgid);
+		if (parent) {
+			parent->cpu += proc->cpu;
+			parent->time =+ proc->time;
 		}
-		if (strstr(line, "Pid:") == line) {
-			pid = atoi(tab);
-		} else if (strstr(line, "Uid:") == line) {
-			uid = atoi(tab);
-		} else if (strstr(line, "Tgid:") == line) {
-			tgid = atoi(tab);
-		} else if (strstr(line, "Name:") == line) {
-			strcpy(name, tab);
-		} else if (strstr(line, "VmSize:") == line) {
-			vsz = atoi(tab);
-		} else if (strstr(line, "RssShmem:") == line) {
-			shm = atoi(tab);
-		} else if (strstr(line, "MemPermille:") == line) {
-			mem = atoi(tab);
-		} else if (strstr(line, "CpuPermille:") == line) {
-			cpu = atoi(tab);
-		} else if (strstr(line, "TotalTime:") == line) {
-			ttime = strtoul(tab,NULL,0);
-		}
+
+		procfs_free(proc);
+		return 0;
 	}
 
-	fclose(f);
-
-	if (!show_all) {
-		/* Filter not ours */
-		if (uid != getuid()) return NULL;
-	}
-
-	if (!show_threads) {
-		if (tgid != pid) {
-			/* Add this thread's CPU usage to the parent */
-			struct process * parent = process_from_pid(tgid);
-			if (parent) {
-				parent->cpu += cpu;
-				parent->time += ttime;
-			}
-			return NULL;
-		}
-	}
-
-	struct process * out = malloc(sizeof(struct process));
-	out->uid = uid;
-	out->pid = tgid;
-	out->tid = pid;
-	out->mem = mem;
-	out->shm = shm;
-	out->vsz = vsz;
-	out->cpu = cpu;
-	out->time = ttime;
-	out->process = strdup(name);
-	out->command_line = NULL;
-
-	hashmap_set(process_ents, (void*)(uintptr_t)pid, out);
+	hashmap_set(process_ents, (void*)(uintptr_t)proc->pid, proc);
+	list_insert(ents_list, (void *)proc);
 
 	char garbage[1024];
 	int len;
 
-	if ((len = sprintf(garbage, "%d", out->pid)) > widths[0]) widths[0] = len;
-	if ((len = sprintf(garbage, "%d", out->tid)) > widths[1]) widths[1] = len;
-	if ((len = sprintf(garbage, "%d", out->vsz)) > widths[3]) widths[3] = len;
-	if ((len = sprintf(garbage, "%d", out->shm)) > widths[4]) widths[4] = len;
-	if ((len = sprintf(garbage, "%d.%01d", out->mem / 10, out->mem % 10)) > widths[5]) widths[5] = len;
-	if ((len = sprintf(garbage, "%d.%01d", out->cpu / 10, out->cpu % 10)) > widths[6]) widths[6] = len;
+	if ((len = sprintf(garbage, "%d", proc->tgid)) > widths[0]) widths[0] = len;
+	if ((len = sprintf(garbage, "%d", proc->pid)) > widths[1]) widths[1] = len;
+	if ((len = sprintf(garbage, "%d", proc->vsz)) > widths[3]) widths[3] = len;
+	if ((len = sprintf(garbage, "%d", proc->shm)) > widths[4]) widths[4] = len;
+	if ((len = sprintf(garbage, "%d.%01d", proc->mem / 10, proc->mem % 10)) > widths[5]) widths[5] = len;
+	if ((len = sprintf(garbage, "%d.%01d", proc->cpu / 10, proc->cpu % 10)) > widths[6]) widths[6] = len;
 	if ((len = sprintf(garbage, "%lu:%02lu.%02lu",
-		(out->time / (1000000UL * 60 * 60)),
-		(out->time / (1000000UL * 60)) % 60,
-		(out->time / (1000000UL)) % 60)) > widths[7]) widths[7] = len;
+		(proc->time / (1000000UL * 60 * 60)),
+		(proc->time / (1000000UL * 60)) % 60,
+		(proc->time / (1000000UL)) % 60)) > widths[7]) widths[7] = len;
 
-	struct passwd * p = getpwuid(out->uid);
+	struct passwd * p = getpwuid(proc->uid);
 	if (p) {
 		if ((len = strlen(p->pw_name)) > widths[2]) widths[2] = len;
 	} else {
-		if ((len = sprintf(garbage, "%d", out->uid)) > widths[2]) widths[2] = len;
+		if ((len = sprintf(garbage, "%d", proc->uid)) > widths[2]) widths[2] = len;
 	}
 	endpwent();
 
-	if (collect_commandline) {
-		sprintf(tmp, "/proc/%s/cmdline", dent->d_name);
-		f = fopen(tmp, "r");
-		char foo[1024];
-		int s = fread(foo, 1, 1024, f);
-		if (s > 0) {
-			out->command_line = malloc(s + 1);
-			memset(out->command_line, 0, s + 1);
-			memcpy(out->command_line, foo, s);
-
-			for (int i = 0; i < s; ++i) {
-				if (out->command_line[i] == 30) {
-					out->command_line[i] = ' ';
-				}
-			}
-
+	if (collect_commandline && proc->cmdline) {
+		/* Replace \x1e with spaces */
+		for (size_t i = 0; i < proc->cmdline_len; ++i) {
+			if (proc->cmdline[i] == 30) proc->cmdline[i] = ' ';
 		}
-		fclose(f);
 	}
 
-	return out;
+	return 0;
 }
 
 void print_header(void) {
@@ -224,9 +126,9 @@ void print_entry(struct process * out) {
 		}
 		endpwent();
 	}
-	printf("%*d ", widths[0], out->pid);
+	printf("%*d ", widths[0], out->tgid);
 	if (show_threads) {
-		printf("%*d ", widths[1], out->tid);
+		printf("%*d ", widths[1], out->pid);
 	}
 	if (show_cpu) {
 		char tmp[10];
@@ -249,28 +151,31 @@ void print_entry(struct process * out) {
 
 		printf("%*s ", widths[7], tmp);
 	}
-	if (out->command_line) {
-		printf("%s\n", out->command_line);
+	if (out->cmdline) {
+		printf("%s\n", out->cmdline);
 	} else {
-		printf("%s\n", out->process);
+		printf("%s\n", out->name);
 	}
 }
 
-void show_usage(int argc, char * argv[]) {
-	printf(
-			"ps - list running processes\n"
+int show_usage(int argc, char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
+			"%s - list running processes\n"
 			"\n"
-			"usage: %s [-A] [format]\n"
+			"usage: %s [-A] [-T] [" X_S "format" X_E "]\n"
 			"\n"
-			" -A     \033[3mshow other users' processes\033[0m\n"
-			" -T     \033[3mshow threads\033[0m\n"
-			" -?     \033[3mshow this help text\033[0m\n"
+			" -A     " X_S "show other users' processes" X_E "\n"
+			" -T     " X_S "show threads" X_E "\n"
+			" -?     " X_S "show this help text" X_E "\n"
 			"\n"
 			" [format] supports some BSD options:\n"
 			"\n"
-			"  a     \033[3mshow full command line\033[0m\n"
-			"  u     \033[3muse 'user-oriented' format\033[0m\n"
-			"\n", argv[0]);
+			"  a     " X_S "show full command line" X_E "\n"
+			"  u     " X_S "use 'user-oriented' format" X_E "\n"
+			"\n", argv[0], argv[0]);
+	return 1;
 }
 
 int main (int argc, char * argv[]) {
@@ -286,8 +191,7 @@ int main (int argc, char * argv[]) {
 				show_threads = 1;
 				break;
 			case '?':
-				show_usage(argc, argv);
-				return 0;
+				return show_usage(argc, argv);
 		}
 	}
 
@@ -312,25 +216,13 @@ int main (int argc, char * argv[]) {
 	}
 
 	/* Open the directory */
-	DIR * dirp = opendir("/proc");
-
-	/* Read the entries in the directory */
-	list_t * ents_list = list_create();
-
+	ents_list = list_create();
 	process_ents = hashmap_create_int(10);
 
-	struct dirent * ent = readdir(dirp);
-	while (ent != NULL) {
-		if (ent->d_name[0] >= '0' && ent->d_name[0] <= '9') {
-			struct process * p = process_entry(ent);
-			if (p) {
-				list_insert(ents_list, (void *)p);
-			}
-		}
+	int flags = PROCFSLIB_NO_FREE;
+	if (collect_commandline) flags |= PROCFSLIB_COLLECT_COMMANDLINE;
 
-		ent = readdir(dirp);
-	}
-	closedir(dirp);
+	procfs_iterate(ps_callback, NULL, flags);
 
 	print_header();
 	foreach(entry, ents_list) {
