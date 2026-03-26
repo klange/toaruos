@@ -81,7 +81,6 @@ extern void draw_fill(gfx_context_t * ctx, uint32_t color);
 typedef double gfx_matrix_t[2][3];
 
 extern int load_sprite(sprite_t * sprite, const char * filename);
-extern int load_sprite_bmp(sprite_t * sprite, const char * filename);
 extern void draw_sprite(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, int32_t y);
 extern void draw_sprite_scaled(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height);
 extern void draw_sprite_scaled_alpha(gfx_context_t * ctx, const sprite_t * sprite, int32_t x, int32_t y, uint16_t width, uint16_t height, float alpha);

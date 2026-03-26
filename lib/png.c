@@ -371,23 +371,18 @@ static int color_type_has_alpha(int c) {
 	}
 }
 
-int load_sprite_png(sprite_t * sprite, char * filename) {
-	FILE * f = fopen(filename,"r");
-	if (!f) {
-		fprintf(stderr, "Failed to open file %s\n", filename);
-		return 1;
-	}
-
-	/* Read the PNG signature */
+int check_sprite_png(FILE * f) {
 	unsigned char sig[] = {137, 80, 78, 71, 13, 10, 26, 10};
 	for (int i = 0; i < 8; ++i) {
 		unsigned char c = fgetc(f);
 		if (c != sig[i]) {
-			fprintf(stderr, "byte %d (%d) does not match expected (%d)\n", i, c, sig[i]);
-			goto _error;
+			return 0;
 		}
 	}
+	return 1;
+}
 
+int load_sprite_png(sprite_t * sprite, FILE * f) {
 	/* Set up context for future calls to inflate */
 	struct png_ctx c;
 	c.sprite = sprite;
@@ -396,6 +391,8 @@ int load_sprite_png(sprite_t * sprite, char * filename) {
 	c.f = f;
 	c.buf_off = 0;
 	c.seen_ihdr = 0;
+
+	if (!check_sprite_png(f)) return 1; /* Advances through the header */
 
 	while (1) {
 		/* read chunks */
@@ -501,10 +498,5 @@ int load_sprite_png(sprite_t * sprite, char * filename) {
 		}
 	}
 
-	fclose(f);
 	return 0;
-
-_error:
-	fclose(f);
-	return 1;
 }

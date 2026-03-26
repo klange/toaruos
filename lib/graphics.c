@@ -407,25 +407,56 @@ void blur_context_box(gfx_context_t * _src, int radius) {
 }
 
 void blur_from_into(gfx_context_t * _src, gfx_context_t * _dest, int radius) {
-
 	draw_fill(_dest, rgb(255,0,0));
-
 }
 
-static int (*load_sprite_jpg)(sprite_t *, const char *) = NULL;
-static int (*load_sprite_png)(sprite_t *, const char *) = NULL;
+struct SpriteHandler {
+	char * name;
+	int (*load_sprite)(sprite_t *, FILE *);
+	int (*check_sprite)(FILE *);
+	struct SpriteHandler * next;
+};
+
+static struct SpriteHandler *handlers = NULL;
+
+static char * libs[] = {"jpeg", "png", NULL};
+
+static void add_lib(char * name, int (*load_sprite)(sprite_t*,FILE*), int (*check_sprite)(FILE*)) {
+	if (!load_sprite || !check_sprite) return; /* Invalid library... */
+	struct SpriteHandler * nhandler = calloc(1, sizeof(struct SpriteHandler));
+	nhandler->name = name;
+	nhandler->load_sprite = load_sprite;
+	nhandler->check_sprite = check_sprite;
+	nhandler->next = handlers;
+	handlers = nhandler;
+}
+
+int load_sprite_bmp(sprite_t *, FILE*);
+int check_sprite_bmp(FILE*);
+int load_sprite_tiff(sprite_t *, FILE*);
+int check_sprite_tiff(FILE*);
 
 static void _load_format_libraries() {
-	void * _lib_jpeg = dlopen("libtoaru_jpeg.so", 0);
-	if (_lib_jpeg) load_sprite_jpg = dlsym(_lib_jpeg, "load_sprite_jpg");
-	void * _lib_png = dlopen("libtoaru_png.so", 0);
-	if (_lib_png) load_sprite_png = dlsym(_lib_png, "load_sprite_png");
-}
 
-static const char * extension_from_filename(const char * filename) {
-	const char * ext = strrchr(filename, '.');
-	if (ext && *ext == '.') return ext + 1;
-	return "";
+	/* Load the integrated ones so they are checked last */
+	add_lib("tiff", load_sprite_tiff, check_sprite_tiff);
+	add_lib("bmp", load_sprite_bmp, check_sprite_bmp);
+
+	for (char ** l = libs; *l; ++l) {
+		char * lib_name, *load_name, *check_name;
+		asprintf(&lib_name, "libtoaru_%s.so", *l);
+		asprintf(&load_name, "load_sprite_%s", *l);
+		asprintf(&check_name, "check_sprite_%s", *l);
+
+		void * dllib = dlopen(lib_name, 0);
+		if (dllib) {
+			add_lib(*l, dlsym(dllib, load_name), dlsym(dllib, check_name));
+		}
+
+		free(lib_name);
+		free(load_name);
+		free(check_name);
+	}
 }
 
 int load_sprite(sprite_t * sprite, const char * filename) {
@@ -435,21 +466,33 @@ int load_sprite(sprite_t * sprite, const char * filename) {
 		librariesLoaded = 1;
 	}
 
-	const char * ext = extension_from_filename(filename);
+	FILE * f = fopen(filename, "r");
+	if (!f) return 1;
 
-	if (!strcmp(ext,"png") || !strcmp(ext,"sdf")) return load_sprite_png ? load_sprite_png(sprite, filename) : 1;
-	if (!strcmp(ext,"jpg") || !strcmp(ext,"jpeg")) return load_sprite_jpg ? load_sprite_jpg(sprite, filename) : 1;
+	struct SpriteHandler * handler = handlers;
 
-	/* Fall back to bitmap */
-	return load_sprite_bmp(sprite, filename);
+	int ret = 1;
+	while (handler) {
+		fseek(f, 0, SEEK_SET);
+		if (handler->check_sprite(f)) {
+			fseek(f, 0, SEEK_SET);
+			ret = handler->load_sprite(sprite, f);
+			break;
+		}
+		handler = handler->next;
+	}
+
+	fclose(f);
+	return ret;
 }
 
-int load_sprite_bmp(sprite_t * sprite, const char * filename) {
-	/* Open the requested binary */
-	FILE * image = fopen(filename, "r");
+int check_sprite_bmp(FILE *f) {
+	if (fgetc(f) != 'B') return 0;
+	if (fgetc(f) != 'M') return 0;
+	return 1;
+}
 
-	if (!image) return 1;
-
+int load_sprite_bmp(sprite_t * sprite, FILE * image) {
 	long image_size= 0;
 
 	fseek(image, 0, SEEK_END);
@@ -457,7 +500,6 @@ int load_sprite_bmp(sprite_t * sprite, const char * filename) {
 	fseek(image, 0, SEEK_SET);
 
 	if (image_size < 16) {
-		fclose(image);
 		return 1;
 	}
 
@@ -465,138 +507,161 @@ int load_sprite_bmp(sprite_t * sprite, const char * filename) {
 	char * bufferb = malloc(image_size);
 	fread(bufferb, image_size, 1, image);
 
-	if (bufferb[0] == 'B' && bufferb[1] == 'M') {
-		/* Bitmaps */
-		uint16_t x = 0; /* -> 212 */
-		uint16_t y = 0; /* -> 68 */
-		/* Get the width / height of the image */
-		signed int *bufferi = (signed int *)((uintptr_t)bufferb + 2);
-		uint32_t width  = bufferi[4];
-		uint32_t height = bufferi[5];
-		uint16_t bpp    = bufferi[6] / 0x10000;
-		uint32_t row_width = (bpp * width + 31) / 32 * 4;
-		/* Skip right to the important part */
-		size_t i = bufferi[2];
+	/* Bitmaps */
+	uint16_t x = 0; /* -> 212 */
+	uint16_t y = 0; /* -> 68 */
+	/* Get the width / height of the image */
+	signed int *bufferi = (signed int *)((uintptr_t)bufferb + 2);
+	uint32_t width  = bufferi[4];
+	uint32_t height = bufferi[5];
+	uint16_t bpp    = bufferi[6] / 0x10000;
+	uint32_t row_width = (bpp * width + 31) / 32 * 4;
+	/* Skip right to the important part */
+	size_t i = bufferi[2];
 
-		sprite->width = width;
-		sprite->height = height;
-		sprite->bitmap = malloc(sizeof(uint32_t) * width * height);
-		sprite->masks = NULL;
+	sprite->width = width;
+	sprite->height = height;
+	sprite->bitmap = malloc(sizeof(uint32_t) * width * height);
+	sprite->masks = NULL;
 
-		int alpha_after = ((unsigned char *)&bufferi[13])[2] == 0xFF;
+	int alpha_after = ((unsigned char *)&bufferi[13])[2] == 0xFF;
 
-		#define _BMP_A 0x1000000
-		#define _BMP_R 0x1
-		#define _BMP_G 0x100
-		#define _BMP_B 0x10000
+	#define _BMP_A 0x1000000
+	#define _BMP_R 0x1
+	#define _BMP_G 0x100
+	#define _BMP_B 0x10000
 
-		if (bpp == 32) {
-			sprite->alpha = ALPHA_EMBEDDED;
-		}
+	if (bpp == 32) {
+		sprite->alpha = ALPHA_EMBEDDED;
+	}
 
-		for (y = 0; y < height; ++y) {
-			for (x = 0; x < width; ++x) {
-				if (i > (size_t)image_size) goto _cleanup_sprite;
-				/* Extract the color */
-				uint32_t color;
-				if (bpp == 24) {
-					color =	(bufferb[i   + 3 * x] & 0xFF) +
-							(bufferb[i+1 + 3 * x] & 0xFF) * 0x100 +
-							(bufferb[i+2 + 3 * x] & 0xFF) * 0x10000 + 0xFF000000;
-				} else if (bpp == 32 && alpha_after == 0) {
-					color =	(bufferb[i   + 4 * x] & 0xFF) * _BMP_A +
-							(bufferb[i+1 + 4 * x] & 0xFF) * _BMP_R +
-							(bufferb[i+2 + 4 * x] & 0xFF) * _BMP_G +
-							(bufferb[i+3 + 4 * x] & 0xFF) * _BMP_B;
-					color = premultiply(color);
-				} else if (bpp == 32 && alpha_after == 1) {
-					color =	(bufferb[i   + 4 * x] & 0xFF) * _BMP_R +
-							(bufferb[i+1 + 4 * x] & 0xFF) * _BMP_G +
-							(bufferb[i+2 + 4 * x] & 0xFF) * _BMP_B +
-							(bufferb[i+3 + 4 * x] & 0xFF) * _BMP_A;
-					color = premultiply(color);
-				} else {
-					color = rgb(bufferb[i + x],bufferb[i + x],bufferb[i + x]); /* Unsupported */
-				}
-				/* Set our point */
-				sprite->bitmap[(height - y - 1) * width + x] = color;
+	for (y = 0; y < height; ++y) {
+		for (x = 0; x < width; ++x) {
+			if (i > (size_t)image_size) goto _cleanup_sprite;
+			/* Extract the color */
+			uint32_t color;
+			if (bpp == 24) {
+				color =	(bufferb[i   + 3 * x] & 0xFF) +
+						(bufferb[i+1 + 3 * x] & 0xFF) * 0x100 +
+						(bufferb[i+2 + 3 * x] & 0xFF) * 0x10000 + 0xFF000000;
+			} else if (bpp == 32 && alpha_after == 0) {
+				color =	(bufferb[i   + 4 * x] & 0xFF) * _BMP_A +
+						(bufferb[i+1 + 4 * x] & 0xFF) * _BMP_R +
+						(bufferb[i+2 + 4 * x] & 0xFF) * _BMP_G +
+						(bufferb[i+3 + 4 * x] & 0xFF) * _BMP_B;
+				color = premultiply(color);
+			} else if (bpp == 32 && alpha_after == 1) {
+				color =	(bufferb[i   + 4 * x] & 0xFF) * _BMP_R +
+						(bufferb[i+1 + 4 * x] & 0xFF) * _BMP_G +
+						(bufferb[i+2 + 4 * x] & 0xFF) * _BMP_B +
+						(bufferb[i+3 + 4 * x] & 0xFF) * _BMP_A;
+				color = premultiply(color);
+			} else {
+				color = rgb(bufferb[i + x],bufferb[i + x],bufferb[i + x]); /* Unsupported */
 			}
-			i += row_width;
+			/* Set our point */
+			sprite->bitmap[(height - y - 1) * width + x] = color;
 		}
-	} else {
-		/* Assume targa; limited support */
-		struct Header {
-			uint8_t id_length;
-			uint8_t color_map_type;
-			uint8_t image_type;
-
-			uint16_t color_map_first_entry;
-			uint16_t color_map_length;
-			uint8_t color_map_entry_size;
-
-			uint16_t x_origin;
-			uint16_t y_origin;
-			uint16_t width;
-			uint16_t height;
-			uint8_t  depth;
-			uint8_t  descriptor;
-		} __attribute__((packed));
-		struct Header * header = (struct Header *)bufferb;
-
-		if (header->id_length || header->color_map_type || (header->image_type != 2)) {
-			/* Possibly valid but unsupported Targa file */
-			fclose(image);
-			free(bufferb);
-			return 1;
-		}
-
-		sprite->width = header->width;
-		sprite->height = header->height;
-
-		size_t size = sizeof(uint32_t) * sprite->width * sprite->height;
-		if (size > image_size - sizeof(struct Header)) {
-			/* sus */
-			fclose(image);
-			free(bufferb);
-			return 1;
-		}
-
-		sprite->bitmap = malloc(size);
-		sprite->masks = NULL;
-
-		uint16_t x = 0;
-		uint16_t y = 0;
-
-		int i = sizeof(struct Header);
-		if (header->depth == 24) {
-			for (y = 0; y < sprite->height; ++y) {
-				for (x = 0; x < sprite->width; ++x) {
-					uint32_t color = rgb(
-								bufferb[i+2 + 3 * x],
-								bufferb[i+1 + 3 * x],
-								bufferb[i   + 3 * x]);
-					sprite->bitmap[(sprite->height - y - 1) * sprite->width + x] = color;
-				}
-				i += sprite->width * 3;
-			}
-		} else if (header->depth == 32) {
-			for (y = 0; y < sprite->height; ++y) {
-				for (x = 0; x < sprite->width; ++x) {
-					uint32_t color = rgba(
-								bufferb[i+2 + 4 * x],
-								bufferb[i+1 + 4 * x],
-								bufferb[i   + 4 * x],
-								bufferb[i+3 + 4 * x]);
-					sprite->bitmap[(sprite->height - y - 1) * sprite->width + x] = color;
-				}
-				i += sprite->width * 4;
-			}
-		}
-
+		i += row_width;
 	}
 
 _cleanup_sprite:
-	fclose(image);
+	free(bufferb);
+	return 0;
+}
+
+struct TiffHeader {
+	uint8_t id_length;
+	uint8_t color_map_type;
+	uint8_t image_type;
+
+	uint16_t color_map_first_entry;
+	uint16_t color_map_length;
+	uint8_t color_map_entry_size;
+
+	uint16_t x_origin;
+	uint16_t y_origin;
+	uint16_t width;
+	uint16_t height;
+	uint8_t  depth;
+	uint8_t  descriptor;
+} __attribute__((packed));
+
+int check_sprite_tiff(FILE * f) {
+	struct TiffHeader attempt;
+	if (fread(&attempt, 1, sizeof(struct TiffHeader), f) != sizeof(struct TiffHeader)) return 0;
+	if (attempt.id_length) return 0;
+	if (attempt.color_map_type) return 0;
+	if (attempt.image_type != 2) return 0;
+	return 1;
+}
+
+int load_sprite_tiff(sprite_t * sprite, FILE * image) {
+	long image_size= 0;
+
+	fseek(image, 0, SEEK_END);
+	image_size = ftell(image);
+	fseek(image, 0, SEEK_SET);
+
+	if (image_size < 16) {
+		return 1;
+	}
+
+	/* Alright, we have the length */
+	char * bufferb = malloc(image_size);
+	fread(bufferb, image_size, 1, image);
+
+	/* Assume targa; limited support */
+	struct TiffHeader * header = (struct TiffHeader *)bufferb;
+
+	if (header->id_length || header->color_map_type || (header->image_type != 2)) {
+		/* Possibly valid but unsupported Targa file */
+		free(bufferb);
+		return 1;
+	}
+
+	sprite->width = header->width;
+	sprite->height = header->height;
+
+	size_t size = sizeof(uint32_t) * sprite->width * sprite->height;
+	if (size > image_size - sizeof(struct TiffHeader)) {
+		/* sus */
+		free(bufferb);
+		return 1;
+	}
+
+	sprite->bitmap = malloc(size);
+	sprite->masks = NULL;
+
+	uint16_t x = 0;
+	uint16_t y = 0;
+
+	int i = sizeof(struct TiffHeader);
+	if (header->depth == 24) {
+		for (y = 0; y < sprite->height; ++y) {
+			for (x = 0; x < sprite->width; ++x) {
+				uint32_t color = rgb(
+							bufferb[i+2 + 3 * x],
+							bufferb[i+1 + 3 * x],
+							bufferb[i   + 3 * x]);
+				sprite->bitmap[(sprite->height - y - 1) * sprite->width + x] = color;
+			}
+			i += sprite->width * 3;
+		}
+	} else if (header->depth == 32) {
+		for (y = 0; y < sprite->height; ++y) {
+			for (x = 0; x < sprite->width; ++x) {
+				uint32_t color = rgba(
+							bufferb[i+2 + 4 * x],
+							bufferb[i+1 + 4 * x],
+							bufferb[i   + 4 * x],
+							bufferb[i+3 + 4 * x]);
+				sprite->bitmap[(sprite->height - y - 1) * sprite->width + x] = color;
+			}
+			i += sprite->width * 4;
+		}
+	}
+
 	free(bufferb);
 	return 0;
 }

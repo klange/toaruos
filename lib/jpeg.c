@@ -439,12 +439,14 @@ static void start_of_scan(FILE * f, int len) {
 	TRACE("Done.");
 }
 
-int load_sprite_jpg(sprite_t * tsprite, char * filename) {
-	FILE * f = fopen(filename, "r");
-	if (!f) {
-		return 1;
-	}
+int check_sprite_jpeg(FILE * f) {
+	if (fgetc(f) != 0xFF) return 0;
+	if (fgetc(f) != 0xD8) return 0;
+	if (fgetc(f) != 0xFF) return 0;
+	return 1;
+}
 
+int load_sprite_jpeg(sprite_t * tsprite, FILE * f) {
 	sprite = tsprite;
 
 	memset(huffman_tables, 0, sizeof(huffman_tables));
@@ -505,8 +507,6 @@ int load_sprite_jpg(sprite_t * tsprite, char * filename) {
 			}
 		}
 	}
-
-	fclose(f);
 
 	return 0;
 }
