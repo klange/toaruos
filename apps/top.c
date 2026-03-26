@@ -801,7 +801,7 @@ int usage(char * argv[]) {
 int main (int argc, char * argv[]) {
 
 	int log_samples = !isatty(STDOUT_FILENO);
-	int delay = 10;
+	int delay = 20;
 	int opt;
 
 	columns = columns_default;
