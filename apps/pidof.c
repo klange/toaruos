@@ -15,103 +15,100 @@
 #include <unistd.h>
 #include <dirent.h>
 
-typedef struct process {
+#define PROCFS_LIB_ONLY 1
+#include "killall.c"
+
+struct PidList {
 	int pid;
-	int ppid;
-	int tgid;
-	char name[100];
-	char path[200];
-} p_t;
+	struct PidList * next;
+};
 
-#define LINE_LEN 4096
+struct PidofContext {
+	char ** argv;
+	int i;
+	int found_something;
+	int single_shot;
+	int quiet;
+	char * sep;
+	struct PidList * omit;
+};
 
-p_t * build_entry(struct dirent * dent) {
-	char tmp[300];
-	FILE * f;
-	char line[LINE_LEN];
+int pidof_callback(struct process * proc, void * ctx) {
+	struct PidofContext * this= ctx;
 
-	sprintf(tmp, "/proc/%s/status", dent->d_name);
-	f = fopen(tmp, "r");
+	if (this->single_shot && this->found_something) return 1;
 
-	p_t * proc = malloc(sizeof(p_t));
-
-	while (fgets(line, LINE_LEN, f) != NULL) {
-		char * n = strstr(line,"\n");
-		if (n) { *n = '\0'; }
-		char * tab = strstr(line,"\t");
-		if (tab) {
-			*tab = '\0';
-			tab++;
+	if (!strcmp(proc->name, this->argv[this->i])) {
+		struct PidList * omit = this->omit;
+		while (omit) {
+			if (omit->pid == proc->pid) return 0;
+			omit = omit->next;
 		}
-		if (strstr(line, "Pid:") == line) {
-			proc->pid = atoi(tab);
-		} else if (strstr(line, "PPid:") == line) {
-			proc->ppid = atoi(tab);
-		} else if (strstr(line, "Tgid:") == line) {
-			proc->tgid = atoi(tab);
-		} else if (strstr(line, "Name:") == line) {
-			strcpy(proc->name, tab);
-		} else if (strstr(line, "Path:") == line) {
-			strcpy(proc->path, tab);
+		if (this->found_something++) {
+			if (this->quiet) return 1; /* Quiet implies single-shot */
+			printf("%s", this->sep);
 		}
+		printf("%d", proc->pid);
 	}
 
-	if (strstr(proc->name,"python") == proc->name) {
-		char * name = proc->path + strlen(proc->path) - 1;
+	return 0;
+}
 
-		while (1) {
-			if (*name == '/') {
-				name++;
-				break;
-			}
-			if (name == proc->name) break;
-			name--;
-		}
-
-		memcpy(proc->name, name, strlen(name)+1);
+int add_omit(struct PidofContext * ctx, char * arg) {
+	int pid = 0;
+	if (!strcmp(arg, "%PPID")) {
+		pid = getppid();
+		fprintf(stderr, "omit %d\n", pid);
+	} else if (*arg < '0' || *arg > '9') {
+		return 1;
+	} else {
+		pid = atoi(arg);
 	}
 
-	if (proc->tgid != proc->pid) {
-		char tmp[100] = {0};
-		sprintf(tmp, "{%s}", proc->name);
-		memcpy(proc->name, tmp, strlen(tmp)+1);
-	}
+	struct PidList * this = malloc(sizeof(struct PidList));
+	this->pid = pid;
+	this->next = ctx->omit;
+	ctx->omit = this;
+	return 0;
+}
 
-	fclose(f);
+int usage(char * argv[]) {
 
-	return proc;
+	return 1;
 }
 
 int main (int argc, char * argv[]) {
 
-	if (argc < 2) return 1;
+	struct PidofContext ctx = {argv, -1, 0, 0, 0, " ", NULL};
+	int opt;
 
-	int space = 0;
-
-	/* Open the directory */
-	DIR * dirp = opendir("/proc");
-
-	int found_something = 0;
-
-	struct dirent * ent = readdir(dirp);
-	while (ent != NULL) {
-		if (ent->d_name[0] >= '0' && ent->d_name[0] <= '9') {
-			p_t * proc = build_entry(ent);
-
-			if (!strcmp(proc->name, argv[optind])) {
-				if (space++) printf(" ");
-				printf("%d", proc->pid);
-				found_something = 1;
-			}
+	while ((opt = getopt(argc, argv, "sqd:o:")) != -1) {
+		switch (opt) {
+			case 'q':
+				ctx.quiet = 1;
+				/* fallthrough */
+			case 's':
+				ctx.single_shot = 1;
+				break;
+			case 'd':
+				ctx.sep = optarg;
+				break;
+			case 'o':
+				if (add_omit(&ctx, optarg)) return usage(argv);
+				break;
+			case '?':
+				return usage(argv);
 		}
-		ent = readdir(dirp);
 	}
-	closedir(dirp);
 
-	if (!found_something) {
-		return 1;
+	for (int i = optind; i < argc; ++i) {
+		ctx.i = i;
+		if (procfs_iterate(pidof_callback, &ctx, PROCFSLIB_NO_THREADS)) break;
 	}
-	printf("\n");
+
+	if (!ctx.found_something) return 1;
+
+	if (!ctx.quiet) printf("\n");
 	return 0;
 }
 
