@@ -826,6 +826,17 @@ long sys_getpgid(pid_t pid) {
 	return proc->job;
 }
 
+long sys_getppid(void) {
+	process_t * proc = (process_t*)this_core->current_process;
+	if (proc->group != 0) {
+		process_t * thread_owner = process_from_pid(proc->group);
+		proc = thread_owner ? thread_owner : proc;
+	}
+	process_t * parent = process_get_parent(proc);
+	if (!parent) return 0;
+	return parent->id;
+}
+
 long sys_uname(struct utsname * name) {
 	PTR_VALIDATE(name);
 	if (!name) return -EFAULT;
@@ -1391,6 +1402,7 @@ static scall_func syscalls[] = {
 	[SYS_FCHOWN]       = (scall_func)(uintptr_t)sys_fchown,
 	[SYS_TRUNCATE]     = (scall_func)(uintptr_t)sys_truncate,
 	[SYS_FTRUNCATE]    = (scall_func)(uintptr_t)sys_ftruncate,
+	[SYS_GETPPID]      = (scall_func)(uintptr_t)sys_getppid,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,
