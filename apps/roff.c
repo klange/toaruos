@@ -141,6 +141,13 @@ static int skip_escape(char *x, size_t *len) {
 			}
 			return 3;
 
+		/* Comment */
+		case '"': {
+			char *c = x;
+			while (*c) c++;
+			return c - x;
+		}
+
 		/* "Italic correction */
 		case ',':
 		case '/':
@@ -264,6 +271,12 @@ static int do_escape(struct RoffContext * ctx, char *x) {
 			}
 			activate_font(ctx);
 			return x[2] == '(' ? 5 : 3;
+		/* Comment */
+		case '"': {
+			char *c = x;
+			while (*c) c++;
+			return c - x;
+		}
 		case 'e':
 			fputc('\\', stdout);
 			return 2;

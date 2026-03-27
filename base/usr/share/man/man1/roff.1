@@ -30,11 +30,7 @@ and
 Lines starting with a \fB.\fP or, alternatively, a \fB'\fP, introduce macros.
 .TP
 .B .\e"
-A comment. The line will be ignored. This implementation doesn't support comments that
-aren't macros like this because I completely forgot until writing this manual page and
-they didn't show up in the
-.IR less (1)
-manual, so I'm not adding them.
+A comment. The line will be ignored.
 .TP
 .B .TH \fIPAGE\fP \fISECTION\fP \fIDATE\fP
 Set the title of the page, the section it is found in, and the authorship date to show at the bottom.
@@ -145,6 +141,14 @@ Prints a double quote. \(dq
 .TP
 .B \e(bu
 Prints a list bullet (U+2022). \(bu
+.sp
+Useful for making lists like this:
+ \(bu Apples
+ \(bu Bananas
+ \(bu Oranges
+.TP
+.B \e"
+Comment. The rest of the line will be ignored. \" If you're reading this manual's source, you can see an example of this here.
 .SH SEE ALSO
 .IR man (1),
 .IR more (1)
