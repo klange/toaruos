@@ -38,11 +38,9 @@ manual, so I'm not adding them.
 .TP
 .B .TH \fIPAGE\fP \fISECTION\fP \fIDATE\fP
 Set the title of the page, the section it is found in, and the authorship date to show at the bottom.
-Only one of these that actually sets something can appear in a document or \fIroff\fP will die.
-The \fIPAGE\fP and \fISECTION\fP must be a single word and do not support any quoting, but
-the \fIDATE\fP can either be surrounded by quotes or just be the rest of the line. It also doesn't
-have to be a date, you can put whatever there, what do I care. Traditionally, the \fIPAGE\fP is
-capitalized, but if you want it lowercase I respect your decision and will print it that way.
+Only one of this macro that actually sets something can appear in a document or \fIroff\fP will die.
+Any of the three arguments may be surrounded by double quotes to allow them to contain spaces.
+The \fIPAGE\fP is typically capitalized for applications and lowercase for libraries and functions.
 .sp
 If the \fISECTION\fP is a numeric digit from 0 to 9, the section title will be displayed at the
 top of the output.

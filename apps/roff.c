@@ -462,15 +462,38 @@ static int do_file(char ** argv, int i) {
 
 				while (*c && *c == ' ') c++;
 				if (*c) {
+
+					int quoted = 0;
+					if (*c == '"') {
+						c++;
+						quoted = 1;
+					}
 					title = c;
 
-					while (*c && *c != ' ') c++;
+					if (quoted) {
+						while (*c && *c != '"') c++;
+					} else {
+						while (*c && *c != ' ') c++;
+					}
 					if (*c) *c++ = '\0';
+
+					/* Skip whitespace */
 					while (*c && *c == ' ') c++;
 					if (*c) {
+						quoted = 0;
+						if (*c == '"') {
+							c++;
+							quoted = 1;
+						}
 						section = c;
-						while (*c && *c != ' ') c++;
+						if (quoted) {
+							while (*c && *c != '"') c++;
+						} else {
+							while (*c && *c != ' ') c++;
+						}
 						if (*c) *c++ = '\0';
+
+						/* Skip whitespace */
 						while (*c && *c == ' ') c++;
 						if (*c) {
 							date = c;
