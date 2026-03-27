@@ -623,14 +623,16 @@ int load_sprite_tga(sprite_t * sprite, FILE * image) {
 	sprite->width = header->width;
 	sprite->height = header->height;
 
-	size_t size = sizeof(uint32_t) * sprite->width * sprite->height;
-	if (size > image_size - sizeof(struct TgaHeader)) {
+	int pixel_size = header->depth == 24 ? 3 : 4;
+
+	size_t size = sprite->width * sprite->height;
+	if (size * pixel_size > image_size - sizeof(struct TgaHeader)) {
 		/* sus */
 		free(bufferb);
 		return 1;
 	}
 
-	sprite->bitmap = malloc(size);
+	sprite->bitmap = malloc(size * 4);
 	sprite->masks = NULL;
 
 	uint16_t x = 0;
