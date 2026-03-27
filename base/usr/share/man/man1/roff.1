@@ -2,7 +2,7 @@
 .SH NAME
 roff \- terrible, hacked\-together RUNOFF implementation
 .SH SYNOPSIS
-\fBroff\fP \fIfile\fP...
+\fBroff\fP [\fB\-W\fP \fIwidth\fP] \fIfile\fP...
 .br
 \fBroff\fP \fB--help\fP
 .SH DESCRIPTION
@@ -11,8 +11,10 @@ of the \fIRUNOFF\fP text formatter.
 .PP
 This \fIroff\fP was made entirely to process \fIman\fP pages like this one, and
 probably won't work with ones that didn't come with ToaruOS.
-.SH OPTIONS
-None.
+.TP
+.B \-W \fIwidth\fP
+Instead of formatting the output for the width of the terminal, as is the default,
+the output will be formatted for a page width of \fIwidth\fP columns.
 .SH BUGS
 Tons.
 .PP

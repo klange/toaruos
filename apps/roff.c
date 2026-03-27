@@ -561,7 +561,7 @@ static int usage(char * argv[]) {
 #define X_S "\033[3m"
 #define X_E "\033[0m"
 	fprintf(stderr,
-		"usage: %s " X_S "FILE" X_E "...\n"
+		"usage: %s [-W " X_S "width" X_E "] " X_S "FILE" X_E "...\n"
 		"\n"
 		"Parse a very limited subset of ROFF and format it for display on STDOUT, using\n"
 		"STDERR as the basis for sizing, suitable for passing to '|more -r'.\n"
@@ -571,15 +571,22 @@ static int usage(char * argv[]) {
 		"\n"
 		"Options:\n"
 		"\n"
-		" --help   " X_S "Show this help text." X_E "\n"
+		" -W " X_S "width   Format output for the given width, instead of using the" X_E "\n"
+		"            " X_S "width of the terminal." X_E "\n"
+		" --help     " X_S "Show this help text." X_E "\n"
 		"\n", argv[0]);
 	return 1;
 }
 
 int main(int argc, char * argv[]) {
+	if (isatty(STDERR_FILENO)) ioctl(STDERR_FILENO, TIOCGWINSZ, &w);
+
 	int opt;
-	while ((opt = getopt(argc, argv, "?-:")) != -1) {
+	while ((opt = getopt(argc, argv, "?W:-:")) != -1) {
 		switch (opt) {
+			case 'W':
+				w.ws_col = atoi(optarg);
+				break;
 			case '-':
 				if (!strcmp(optarg,"help")) {
 					usage(argv);
@@ -596,8 +603,6 @@ int main(int argc, char * argv[]) {
 		fprintf(stderr, "%s: no files (see `%s --help` for usage)\n", argv[0], argv[0]);
 		return 1;
 	}
-
-	ioctl(STDERR_FILENO, TIOCGWINSZ, &w);
 
 	int ret = 0;
 
