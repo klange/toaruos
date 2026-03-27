@@ -539,7 +539,7 @@ static int usage(char * argv[]) {
 
 int main(int argc, char * argv[]) {
 	int opt;
-	while ((opt = getopt(argc, argv, "-:")) != -1) {
+	while ((opt = getopt(argc, argv, "?-:")) != -1) {
 		switch (opt) {
 			case '-':
 				if (!strcmp(optarg,"help")) {
