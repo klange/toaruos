@@ -42,22 +42,6 @@ static char * interpret_section(char * section) {
 	return section; /* Must be custom. */
 }
 
-static int current_x = 0;
-static int indent = 0;
-static int next_indent = 0;
-static int extra_indent = 0;
-static int printing_table = 0;
-static int squish_line = 0;
-
-static int flush_line(void) {
-	if (current_x != 0) {
-		printf("\033[0m\n");
-		current_x = 0;
-		return 1;
-	}
-	return 0;
-}
-
 static void formatted_title_and_section(char * title, char * section) {
 	if (!title || !section) {
 		printf("??");
@@ -123,40 +107,68 @@ static int skip_escape(char *x, size_t *len) {
 				return 2;
 			}
 			return 3;
+		case ',':
+		case '/':
+			return 2;
+		case '(':
+			(*len)++;
+			if (!x[2]) return 2;
+			if (!x[3]) return 3;
+			return 4;
 		default:
 			(*len)++;
 			return 2;
 	}
 }
 
-static unsigned int previous_font = 'R';
-static unsigned int current_font = 'R';
+struct RoffContext {
+	char * topic_title;
+	char * topic_section;
+	char * topic_date;
+	int current_x;
+	int indent;
+	int next_indent;
+	int extra_indent;
+	int printing_table;
+	int squish_line;
+	unsigned int previous_font;
+	unsigned int current_font;
+};
+
+static int flush_line(struct RoffContext * ctx) {
+	if (ctx->current_x != 0) {
+		printf("\033[0m\n");
+		ctx->current_x = 0;
+		return 1;
+	}
+	return 0;
+}
 
 #define PAIR(a,b) (((unsigned int)a << 8) | (unsigned int)b)
 
-static void switch_font(unsigned int font) {
+static void switch_font(struct RoffContext * ctx, unsigned int font) {
 	if (font == 'P') {
-		current_font = previous_font;
+		ctx->current_font = ctx->previous_font;
 	} else {
-		previous_font = current_font;
-		current_font = font;
+		ctx->previous_font = ctx->current_font;
+		ctx->current_font = font;
 	}
 
 	/* Aliases first */
-	switch (current_font) {
-		case '1': current_font = 'R'; break;
-		case '2': current_font = 'I'; break;
-		case '3': current_font = 'B'; break;
-		case '4': current_font = PAIR('B','I'); break;
-		case PAIR('C','B'): current_font = 'B'; break;
-		case PAIR('C','I'): current_font = 'I'; break;
-		case PAIR('C','R'): current_font = 'R'; break;
-		case PAIR('C','W'): current_font = 'R'; break;
+	switch (ctx->current_font) {
+		case '1': ctx->current_font = 'R'; break;
+		case '2': ctx->current_font = 'I'; break;
+		case '3': ctx->current_font = 'B'; break;
+		case '4': ctx->current_font = PAIR('B','I'); break;
+		case PAIR('C','B'): ctx->current_font = 'B'; break;
+		case PAIR('C','I'): ctx->current_font = 'I'; break;
+		case PAIR('C','R'): ctx->current_font = 'R'; break;
+		case PAIR('C','W'): ctx->current_font = 'R'; break;
 	}
 }
 
-static void activate_font(void) {
-	switch (current_font) {
+static void activate_font(struct RoffContext * ctx) {
+	switch (ctx->current_font) {
 		case 'B': printf("\033[0;1m"); break;
 		case 'R': printf("\033[0m"); break;
 		/* These are actually supposed to be italic, but everyone treats them as underlined (4, rather than 3). */
@@ -165,22 +177,38 @@ static void activate_font(void) {
 	}
 }
 
-static int do_escape(char *x) {
+static int do_escape(struct RoffContext * ctx, char *x) {
 	switch (x[1]) {
 		case 'f': /* Font selection takes a few more characters */
 			if (x[2] == 0) return 2;
 			if (x[2] == '(') {
 				if (x[3] == 0) return 3;
 				if (x[4] == 0) return 4;
-				switch_font(PAIR(x[3],x[4]));
+				switch_font(ctx, PAIR(x[3],x[4]));
 			} else {
-				switch_font((unsigned int)x[2]);
+				switch_font(ctx, (unsigned int)x[2]);
 			}
-			activate_font();
+			activate_font(ctx);
 			return x[2] == '(' ? 5 : 3;
 		case 'e':
 			fputc('\\', stdout);
 			return 2;
+		case ',':
+		case '/':
+			/* "left and right italic correction"; ignored. */
+			return 2;
+		case '(':
+			if (!x[2]) return 2;
+			if (!x[3]) return 3;
+			switch (PAIR(x[2],x[3])) {
+				case PAIR('h','a'): fputc('^', stdout); break;
+				case PAIR('b','u'): printf("•"); break;
+				case PAIR('t','i'): fputc('~', stdout); break;
+				case PAIR('a','q'): fputc('\'', stdout); break;
+				case PAIR('d','q'): fputc('"', stdout); break;
+				default: fputc('?', stdout); break;
+			}
+			return 4;
 		default:
 			fputc(x[1], stdout);
 			return 2;
@@ -197,7 +225,7 @@ static void print_spaces(int indent) {
 	for (int i = 0; i < indent; ++i) fputc(' ', stdout);
 }
 
-static size_t process_word(char * c, int delimited) {
+static size_t process_word(struct RoffContext * ctx, char * c, int delimited) {
 	char * c_in = c;
 	char * last_word = c;
 	size_t last_len = 0;
@@ -219,41 +247,41 @@ static size_t process_word(char * c, int delimited) {
 	}
 
 	/* Word would wrap, continue to next line and print indentant. */
-	if (last_len + current_x > (size_t)w.ws_col - 8) {
-		flush_line();
-		print_spaces(indent);
-		current_x += indent;
-	} else if (current_x == 0) {
-		print_spaces(indent);
-		current_x += indent;
+	if (last_len + ctx->current_x > (size_t)w.ws_col - 8) {
+		flush_line(ctx);
+		print_spaces(ctx->indent);
+		ctx->current_x += ctx->indent;
+	} else if (ctx->current_x == 0) {
+		print_spaces(ctx->indent);
+		ctx->current_x += ctx->indent;
 	}
 
-	activate_font();
+	activate_font(ctx);
 
 	/* Print the word */
 	char *x = last_word;
 	while (*x && x != c) {
 		if (*x == '\\' && x[1]) {
-			x += do_escape(x);
+			x += do_escape(ctx, x);
 		} else {
 			fputc(*x, stdout);
 			x++;
 		}
 	}
-	current_x += last_len;
+	ctx->current_x += last_len;
 
 	if (!*c) printf("\033[0m");
 
-	if (printing_table) {
-		while (*c && *c == ' ' && (size_t)current_x < (size_t)w.ws_col - 8) {
+	if (ctx->printing_table) {
+		while (*c && *c == ' ' && (size_t)ctx->current_x < (size_t)w.ws_col - 8) {
 			printf(" ");
-			current_x++;
+			ctx->current_x++;
 			c++;
 		}
 	} else {
 		if (delimited) {
 			fputc(' ', stdout);
-			current_x += 1;
+			ctx->current_x += 1;
 		}
 	}
 
@@ -282,17 +310,12 @@ static int do_file(char ** argv, int i) {
 	size_t avail = 0;
 	ssize_t len;
 
-	char * topic_title = NULL;
-	char * topic_section = NULL;
-	char * topic_date = NULL;
-	int ret = 0;
+	struct RoffContext ctx = {0};
 
-	current_x = 0;
-	indent = 0;
-	next_indent = 0;
-	extra_indent = 0;
-	printing_table = 0;
-	squish_line = 0;
+	ctx.previous_font = 'R';
+	ctx.current_font = 'R';
+
+	int ret = 0;
 
 	while ((len = getline(&line, &avail, f)) >= 0) {
 
@@ -302,7 +325,7 @@ static int do_file(char ** argv, int i) {
 			len--;
 		}
 
-		if (!*line && !printing_table) continue; /* Skip blank lines entirely? Is that correct? */
+		if (!*line && !ctx.printing_table) continue; /* Skip blank lines entirely? Is that correct? */
 
 		if (*line == '\'') line[0] = '.'; /* single tick is an alias for . at the start of a line. */
 
@@ -319,7 +342,7 @@ static int do_file(char ** argv, int i) {
 			/* Macro directives */
 
 			if (strstr(line,".TH ") == line) {
-				if (topic_title) {
+				if (ctx.topic_title) {
 					fprintf(stderr, "%s: %s: More than one .TH found.\n", argv[0], argv[i]);
 					ret = 1;
 					goto _cleanup;
@@ -349,10 +372,10 @@ static int do_file(char ** argv, int i) {
 				}
 
 				if (title) {
-					topic_title = strdup(title);
+					ctx.topic_title = strdup(title);
 				}
 				if (section) {
-					topic_section = strdup(section);
+					ctx.topic_section = strdup(section);
 				}
 				if (date) {
 					/* Maybe handle quotes */
@@ -361,78 +384,80 @@ static int do_file(char ** argv, int i) {
 						date[datel-1] = '\0';
 						date++;
 					}
-					topic_date = strdup(date);
+					ctx.topic_date = strdup(date);
 				}
 
-				format_title(topic_title, topic_section);
+				format_title(ctx.topic_title, ctx.topic_section);
 				continue;
 			} else if (strstr(line, ".SH ") == line) {
 				/* Section heading */
-				if (flush_line()) printf("\n");
+				if (flush_line(&ctx)) printf("\n");
 				c = line + 4;
 				MAYBE_QUOTES();
 				printf("\033[1m%s\033[0m\n", c);
-				indent = extra_indent + DEFAULT_INDENTATION;
-				next_indent = 0;
+				ctx.indent = ctx.extra_indent + DEFAULT_INDENTATION;
+				ctx.next_indent = 0;
 				continue;
 			} else if (strstr(line, ".PP") == line) {
-				flush_line(); printf("\n");
-				indent = extra_indent + DEFAULT_INDENTATION;
-				next_indent = 0;
+				flush_line(&ctx); printf("\n");
+				ctx.indent = ctx.extra_indent + DEFAULT_INDENTATION;
+				ctx.next_indent = 0;
 				continue;
 			} else if (strstr(line, ".TP") == line) {
-				if (flush_line()) printf("\n");
+				if (flush_line(&ctx)) printf("\n");
 
-				indent = extra_indent + DEFAULT_INDENTATION;
-				next_indent = extra_indent + DEFAULT_INDENTATION * 2;
-				squish_line = 1;
+				ctx.indent = ctx.extra_indent + DEFAULT_INDENTATION;
+				ctx.next_indent = ctx.extra_indent + DEFAULT_INDENTATION * 2;
+				ctx.squish_line = 1;
 				continue;
 			} else if (strstr(line, ".br") == line) {
-				flush_line();
+				flush_line(&ctx);
 				continue;
 			} else if (strstr(line, ".B ") == line) {
-				switch_font('B');
+				switch_font(&ctx, 'B');
 				c = line + 3;
 				MAYBE_QUOTES();
 			} else if (strstr(line, ".I ") == line) {
-				switch_font('I');
+				switch_font(&ctx, 'I');
 				c = line + 3;
 				MAYBE_QUOTES();
 			} else if (strstr(line, ".IR ") == line) {
-				switch_font('I');
+				switch_font(&ctx, 'I');
 				c = line + 4;
-				c += process_word(c, 0);
-				switch_font('R');
+				c += process_word(&ctx, c, 0);
+				switch_font(&ctx, 'R');
 				/* Continue */
 			} else if (strstr(line, ".BR ") == line) {
-				switch_font('B');
+				switch_font(&ctx, 'B');
 				c = line + 4;
-				c += process_word(c, 0);
-				switch_font('R');
+				c += process_word(&ctx, c, 0);
+				switch_font(&ctx, 'R');
 				/* Continue */
 			} else if (strstr(line, ".IP ") == line) {
-				if (flush_line()) printf("\n");
-				indent = extra_indent + DEFAULT_INDENTATION;
-				next_indent = extra_indent + DEFAULT_INDENTATION * 2;
+				if (flush_line(&ctx)) printf("\n");
+				ctx.indent = ctx.extra_indent + DEFAULT_INDENTATION;
+				ctx.next_indent = ctx.extra_indent + DEFAULT_INDENTATION * 2;
 				c = line + 4;
 				MAYBE_QUOTES();
+				ctx.squish_line = 1;
 			} else if (strstr(line, ".IP") == line) {
-				if (flush_line()) printf("\n");
-				indent = extra_indent + DEFAULT_INDENTATION;
-				next_indent = extra_indent + DEFAULT_INDENTATION * 2;
+				if (flush_line(&ctx)) printf("\n");
+				ctx.indent = ctx.extra_indent + DEFAULT_INDENTATION;
+				ctx.next_indent = ctx.extra_indent + DEFAULT_INDENTATION;
 				c = line + 3;
+				ctx.squish_line = 1;
 			} else if (strstr(line, ".sp") == line) {
 				/* Just skip it ? */
-				flush_line();
+				flush_line(&ctx);
 				printf("\n");
 				continue;
 			} else if (strstr(line, ".RS") == line) {
-				extra_indent = DEFAULT_INDENTATION;
-				indent += extra_indent;
+				ctx.extra_indent += DEFAULT_INDENTATION;
+				ctx.indent += DEFAULT_INDENTATION;
 				continue;
 			} else if (strstr(line, ".RE") == line) {
-				indent -= extra_indent;
-				extra_indent = 0;
+				ctx.indent -= DEFAULT_INDENTATION;
+				ctx.extra_indent -= DEFAULT_INDENTATION;
 				continue;
 			} else if (strstr(line, ".nh") == line) {
 				/* TODO disable hyphenation */
@@ -442,23 +467,23 @@ static int do_file(char ** argv, int i) {
 				continue;
 			} else if (strstr(line, ".TS") == line) {
 				/* table start */
-				flush_line();
-				printing_table = 1;
+				flush_line(&ctx);
+				ctx.printing_table = 1;
 				continue;
 			} else if (strstr(line, ".TE") == line) {
 				/* table end */
-				flush_line();
+				flush_line(&ctx);
 				printf("\n");
-				printing_table = 0;
+				ctx.printing_table = 0;
 				continue;
 			} else if (strstr(line, ".nf") == line) {
 				/* Treat this the same as a table; break lines where they are in the input */
-				flush_line();
-				printing_table = 1;
+				flush_line(&ctx);
+				ctx.printing_table = 1;
 				continue;
 			} else if (strstr(line, ".fi") == line) {
-				flush_line();
-				printing_table = 0;
+				flush_line(&ctx);
+				ctx.printing_table = 0;
 				continue;
 			} else {
 				fprintf(stderr, "%s: %s: Found an unrecognized directive on this line: %s\n",
@@ -469,60 +494,61 @@ static int do_file(char ** argv, int i) {
 		}
 
 		if (*c == ' ' || *c == '\t') {
-			flush_line();
-			print_spaces(indent);
-			current_x += indent;
+			flush_line(&ctx);
+			print_spaces(ctx.indent);
+			ctx.current_x += ctx.indent;
 
 
 			while (*c == ' ' || *c == '\t') {
 				if (*c == '\t') {
 					do {
 						fputc(' ', stdout);
-						current_x += 1;
-					} while (current_x % 6);
+						ctx.current_x += 1;
+					} while (ctx.current_x % 6);
 				} else {
 					fputc(' ', stdout);
-					current_x += 1;
+					ctx.current_x += 1;
 				}
 				c++;
 			}
 		}
 
 		while (*c) {
-			c += process_word(c, delimited);
+			c += process_word(&ctx, c, delimited);
 		}
 
 		printf("\033[0m");
 
-		if (printing_table) {
+		if (ctx.printing_table) {
 			printf("\n");
-			current_x = 0;
+			ctx.current_x = 0;
 			continue;
 		}
 
-		current_font = previous_font = 'R';
+		ctx.current_font = ctx.previous_font = 'R';
 
-		if (next_indent) {
-			indent = next_indent;
-			next_indent = 0;
-			if (squish_line && current_x < indent) {
-				while (current_x < indent) {
+		if (ctx.next_indent) {
+			ctx.indent = ctx.next_indent;
+			ctx.next_indent = 0;
+			if (ctx.squish_line && ctx.current_x < ctx.indent) {
+				ctx.squish_line = 0;
+				while (ctx.current_x < ctx.indent) {
 					fputc(' ', stdout);
-					current_x += 1;
+					ctx.current_x += 1;
 				}
 			} else {
-				flush_line();
+				flush_line(&ctx);
 			}
 		}
 	}
 
-	if (flush_line()) printf("\n");
-	format_footer(topic_title, topic_section, topic_date);
+	if (flush_line(&ctx)) printf("\n");
+	format_footer(ctx.topic_title, ctx.topic_section, ctx.topic_date);
 
 _cleanup:
-	if (topic_title) free(topic_title);
-	if (topic_section) free(topic_section);
-	if (topic_date) free(topic_date);
+	if (ctx.topic_title) free(ctx.topic_title);
+	if (ctx.topic_section) free(ctx.topic_section);
+	if (ctx.topic_date) free(ctx.topic_date);
 
 	fclose(f);
 	return ret;
