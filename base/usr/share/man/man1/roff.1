@@ -129,7 +129,24 @@ Supposed to be "italic", but as we all learned earlier it's actually underlined.
 .B \ef(BI
 Bold and italic together.
 .SH OTHER ESCAPES
-This \fIroff\fP doesn't support most escapes, but you have \ee which prints a literal backslash (\e).
+.TP
+.B \ee
+Prints a literal backslash. \e
+.TP
+.B \e(ha
+Prints a caret. \(ha
+.TP
+.B \e(ti
+Prints a tilde. \(ti
+.TP
+.B \e(aq
+Prints a single quote. \(aq
+.TP
+.B \e(dq
+Prints a double quote. \(dq
+.TP
+.B \e(bu
+Prints a list bullet (U+2022). \(bu
 .SH SEE ALSO
 .IR man (1),
 .IR more (1)
