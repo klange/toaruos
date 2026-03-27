@@ -47,6 +47,7 @@ static int indent = 0;
 static int next_indent = 0;
 static int extra_indent = 0;
 static int printing_table = 0;
+static int squish_line = 0;
 
 static int flush_line(void) {
 	if (current_x != 0) {
@@ -291,6 +292,7 @@ static int do_file(char ** argv, int i) {
 	next_indent = 0;
 	extra_indent = 0;
 	printing_table = 0;
+	squish_line = 0;
 
 	while ((len = getline(&line, &avail, f)) >= 0) {
 
@@ -383,6 +385,7 @@ static int do_file(char ** argv, int i) {
 
 				indent = extra_indent + DEFAULT_INDENTATION;
 				next_indent = extra_indent + DEFAULT_INDENTATION * 2;
+				squish_line = 1;
 				continue;
 			} else if (strstr(line, ".br") == line) {
 				flush_line();
@@ -502,7 +505,14 @@ static int do_file(char ** argv, int i) {
 		if (next_indent) {
 			indent = next_indent;
 			next_indent = 0;
-			flush_line();
+			if (squish_line && current_x < indent) {
+				while (current_x < indent) {
+					fputc(' ', stdout);
+					current_x += 1;
+				}
+			} else {
+				flush_line();
+			}
 		}
 	}
 
