@@ -1,0 +1,59 @@
+.TH TERMINAL 1 "March, 2026"
+.SH NAME
+terminal \- graphical terminal emulator
+.SH SYNOPSIS
+\fBterminal\fP [\fIOPTIONS\fP] [\fICOMMAND\fP [\fIARG\fP]...]
+.SH DESCRIPTION
+This is the standard ToaruOS terminal emulator. It supports a wide range of escape sequences,
+TrueType and bitmap fonts, scrollback, text selection, mouse input, 24-bit color, and even
+some basic Unicode if you have the right fonts.
+.TP
+.B \-F \fRor\fP \-\-fullscreen
+Run the terminal as the bottom window of a Yutani session, taking up the whole screen.
+This option is generally used by the startup scripts to run "single user mode" and is not
+recommended for typical users.
+.TP
+.B \-b \fRor\fP \-\-bitmap
+Enable the bitmap font by default. This can also be toggled using menus at runtime.
+.TP
+.B \-s \fRor\fP \-\-scale \f(BISCALE\fP
+Set the font scaling, when using a TrueType font, to the given multiplier.
+.TP
+.B \-x \fRor\fP \-\-grid
+When resizing the terminal, the window size will be rounded to values that
+ensure that the main content is always aligned to cells, with no extra margins.
+.TP
+.B \-n \fRor\fP \-\-no\-frame
+Disables window decorations for the terminal. Window decorations can also be
+toggled from the context menu.
+.TP
+.B \-g \fRor\fP \-\-geometry \f(BIWxH\fP
+Start the terminal with the requested size in columns (\fIW\fP) and rows (\fIH\fP).
+.TP
+.B \-B \fRor\fP \-\-blurred
+Make the entire OS slow to crawl by enabling blur-behind.
+.TP
+.B \-S \fRor\fP \-\-scrollback \f(BILINES\fP
+Set the scrollback buffer size to \fILINES\fP lines, 0 for unlimited.
+.SH KEYBOARD SHORTCUTS
+When the terminal is focused, some keyboard inputs are interpreted specially:
+.TP
+.B Ctrl\-Shift\-C
+Copy the selected text.
+.TP
+.B Ctrl\-Shift\-V
+Paste text from the clipboard into the terminal.
+.TP
+.B Ctrl\-0 \fR(zero)
+Reset font scaling to 1x.
+.TP
+.B Ctrl\-Shift\-= (Ctrl\-+)
+Increase the font scaling size by a factor of 1.2.
+.TP
+.B Ctrl\-\- \fR(minus)
+Reduce the font scaling size by a factor of 0.83333333.
+.SH SEE ALSO
+.IR terminal-vga (1),
+.IR libtoaru_termemu (3)
+.SH AUTHOR
+This terminal emulator was written by K. Lange <klange@toaruos.org>

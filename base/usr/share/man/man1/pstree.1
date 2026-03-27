@@ -1,0 +1,74 @@
+.TH PSTREE 1 "March, 2026"
+.SH NAME
+pstree \- Display running processes as a tree.
+.SH SYNOPSIS
+\fBpstree\fP [\fIOPTIONS\fP] [\fIpid\fP]
+.SH DESCRIPTION
+Displays running proceses as a true, using Unicode box drawing characters.
+
+.TP
+.B \-a
+Display the full command line for each process. This also limits each line to one process.
+
+.TP
+.B \-p
+Show the PIDs of each process next to their names.
+
+.TP
+.B \-g
+Show the process group ID of each process. If this is combined with \fB-p\fP, the PID is shown first.
+
+.TP
+.B \-T
+Hide threads from the tree and combine their resource usage in the the thread group leader.
+
+.TP
+.B \-h
+Hilight the current process (this instance of \fIpstree\fP) and its ancestors by making them all bold.
+
+.TP
+.B \-H \f(BIPID\fP
+Like \fB\-h\fP, but for the given \fIPID\fP instead of the current process.
+
+.TP
+.B \-C \f(BIMODE\fP
+Color processes using the given \fIMODE\fP. The following modes are supported:
+
+.RS
+.TP
+.B age
+New processes (less than 60s) are colored green.
+Slightly older procesess (less than one hour) are colored yellow.
+Older processes are colored red.
+
+.TP
+.B mine
+Processes owned by the calling user are colored green.
+
+.TP
+.B cpu
+Processes are colored based on their most recently sampled CPU usage.
+Processes using greater than 100% of a CPU are colored bright red.
+Processes using greater than 50% of a CPU are colored red.
+Processes using greater than 5% of a CPU are colored yellow.
+Processes using greater than 0.5% of a CPU are colored green.
+Processes using less than that are colored blue.
+
+.TP
+.B mem
+Processes are colored based on their memory usage.
+Processes using more than 66.6% of memory are colored red.
+Processes using more than 33.3% of memory are colored yellow.
+Processes using more than 1% of memory are colored green.
+Other processes are colored blue.
+
+.RE
+.PP
+If a \fIpid\fP argument is given, then \fIpstree\fP will show a tree rooted in that process.
+Otherwise, the tree will be rooted at \fBinit\fP (PID 1).
+.SH SEE ALSO
+.IR libtoaru_procfs (3),
+.IR ps (1),
+.IR top (1)
+.SH AUTHOR
+This \fIpstree\fP was written by K. Lange <klange@toaruos.org>

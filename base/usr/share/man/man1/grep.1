@@ -1,0 +1,106 @@
+.TH GREP 1 "March, 2026"
+.SH NAME
+grep \- Search for patterns in files.
+.SH SYNOPSIS
+\fBgrep\fP  [\fB-cilnoqsvfX\fP] \fIPATTERN\fP [\fIFILE\fP...]
+\fBfgrep\fP [\fB-cilnoqsvfX\fP] \fISTRING\fP [\fIFILE\fP...]
+.SH DESCRIPTION
+Search for \fIPATTERN\fP in each file, or the standard input.
+.PP
+This \fIgrep\fP has a bizarre, non-standard, and rather broken
+regex engine and probably doesn't do what you want for anything
+more complex than a simple matching pattern. It is not at all
+POSIX\-compliant.
+.TP
+.B \-c
+Instead of printing matches, print counts of matched lines.
+.TP
+.B \-i
+Ignore case in input and pattern.
+.TP
+.B \-l
+Instead of printing matches, print the names of files that match.
+This takes precedence over most other options.
+.TP
+.B \-n
+Prefix each printed match with the line number it appeared on.
+.TP
+.B \-o
+Print only the matching parts of a line, separating each match
+with a line feed.
+.TP
+.B \-q
+Exit immediately with a \fB0\fP exit code when a match (or, with \fB\-v\fP,
+a non-match) is found, without printing any matches.
+.TP
+.B \-v
+Invert matching: instead of printing lines that match the pattern,
+prints lines that do not match the pattern.
+.TP
+.B \-x
+Require that \fIPATTERN\fP match the whole line to count as a match.
+.TP
+.B \-F
+Treat \fIPATTERN\fP as a fixed string. This is the default mode when
+invoked as \fIfgrep\fP.
+.TP
+.B \-\-color
+Set the mode for displaying matches using coloring. With no additional
+option, this enables color when the output is a tty and the matching part
+of a line will be highlighted in red. This option can be configured as
+follows:
+.RS
+.TP
+.B \-\-color=auto
+Enable color when the output is a TTY. This is the default.
+.TP
+.B \-\-color=never
+Disable color even if the output is a TTY.
+.TP
+.B \-\-color=always
+Always enable color, even if the output is not a TTY.
+.RE
+.SH PATTERNS
+The pattern engine here was originally built for
+.IR bim (1)
+and was then adapted to be more like the one expected of a \fIgrep\fP.
+.PP
+The following subpatterns are supported to some extent:
+.TP
+.B [abc]
+Matches one of a set of characters.
+.TP
+.B [^abc]
+Matches one character not from the given set.
+.TP
+.B (abc)
+Match a group. This does nothing useful, as groups can not be repeated in this
+implementaiton.
+.TP
+.B .
+Match any single character.
+.TP
+.B ^
+Match the start of a line.
+.TP
+.B $
+Match the end of a line.
+.PP
+Single characters and bracket expressions can be repeated as follows:
+.TP
+.B *
+Match any number of occurances.
+.TP
+.B \e?
+Match zero or one time.
+.TP
+.B \e+
+Match at least one occurance.
+.SH BUGS
+ \- The regex engine is not Unicode-aware.
+ \- Repetitions are not available on groups.
+.SH SEE ALSO
+.IR bim (1)
+.SH AUTHOR
+This \fIgrep\fP was written by K. Lange <klange@toaruos.org>
+

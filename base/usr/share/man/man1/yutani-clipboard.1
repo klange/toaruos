@@ -1,0 +1,34 @@
+.TH YUTANI-CLIPBOARD 1 "March, 2026"
+.SH NAME
+yutani\-clipboard \- Set or print the clipboard contents.
+.SH SYNOPSIS
+\fByutani\-clipboard \-s\fP \fITEXT\fP
+.PP
+\fByutani\-clipboard \-f\fP \fIFILE\fP
+.PP
+\fByutani\-clipboard [\-n] \-g\fP
+.SH DESCRIPTION
+Get or set the contents of the Yutani clipboard.
+
+.TP
+.B \-s \f(BITEXT\fP
+Set the contents of the clipboard to \fITEXT\fP.
+
+.TP
+.B \-f \f(BIFILE\fP
+Set the contents of the clipboard to the contents of \fIFILE\fP.
+
+.TP
+.B \-g
+Get the clipboard contents and print them to stdout.
+
+.TP
+.B \-n
+Force a linefeed to be printed when getting the clipboard contents.
+
+.SH SEE ALSO
+.IR compositor (1),
+.IR yutani-query (1)
+
+.SH AUTHOR
+This utility was written by K. Lange <klange@toaruos.org>

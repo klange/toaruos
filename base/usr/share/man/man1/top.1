@@ -1,0 +1,55 @@
+.TH TOP 1 "March, 2026"
+.SH NAME
+top \- Interactively display running processes.
+.SH SYNOPSIS
+\fBtop\fP [\fIOPTIONS\fP]
+.SH DESCRIPTION
+This \fItop\fP is largely inspired by \fIhtop\fP, though it is not nearly as good or complete.
+
+.TP
+.B \-d \f(BIDELAY\fP
+Set the poll timeout (or, when operating in log mode, the sleep time) to \fIDELAY\fP tenths of a second.
+The default delay is 20 (or 2 seconds).
+
+.TP
+.B \-l \f(BISAMPLES\fP
+Enable log mode, print \fISAMPLES\fP worth of output without color, and then exit.
+If \fISAMPLES\fP is 0 or negative, continue printing indefinitely.
+
+.TP
+.B \-H
+Display threads separately. This can also be toggled at runtime.
+
+.PP
+When running, the following keyboard shortcuts are available:
+
+.TP
+.B q
+Quit \fItop\fP.
+
+.TP
+.B w
+Switch to next (right) sort column.
+
+.TP
+.B W
+Switch to the previous (left) sort column.
+
+.TP
+.B T
+Toggle the separate display of threads.
+
+.TP
+.B h
+Show a help message describing these options.
+
+.PP
+If \fItop\fP is redirected to a non-terminal, logging mode will be enabled by default and one sample will be printed.
+
+.SH SEE ALL
+.IR libtoaru_procfs (3),
+.IR ps (1),
+.IR pstree (1),
+
+.SH AUTHOR
+This \fItop\fP was written by K. Lange <klange@toaruos.org>

@@ -1,0 +1,25 @@
+.TH LS 1 "March, 2026"
+.SH NAME
+ls \- list directory contents
+.SH SYNOPSIS
+\fBls\fP [\fB-l\fP] [\fB-h\fP] [\fB-a\fP] [\fIpath\fP]...
+.SH DESCRIPTION
+List information about the files in a directory, sorted by name.
+.PP
+This \fIls\fP only supports short options:
+.TP
+.B \-a
+Show hidden files (ones starting with .)
+.TP
+.B \-h
+When printing file sizes, use human-readable values like \fB2M\fP.
+.TP
+.B \-l
+Format each file on one line, with details.
+.SH EXIT STATUS
+.IP 0
+Normally.
+.IP 1
+If a requested path could not be accessed.
+.SH AUTHOR
+This \fIls\fP was written by K. Lange <klange@toaruos.org>

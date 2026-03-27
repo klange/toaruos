@@ -1,0 +1,93 @@
+.TH COMPOSITOR 1 "March, 2026"
+.SH NAME
+compositor \- Yutani, the Window Compositor
+.SH SYNOPSIS
+\fBcompositor [-n [-g \fP\fIWxH\fP\fB]]
+.SH DESCRIPTION
+Yutani is the standard ToaruOS system window compositor and manager.
+.PP
+The compositor manages all application windows and keyboard and mouse input during a graphical session.
+
+.TP
+.B \-n \fRor\fP \-\-nested
+Run a nested Yutani compositor as a Yutani application.
+
+.TP
+.B \-g \fRor\fP \-\-geometry \f(BIWxH\fP
+When used with \fB-n\fP, set the size of the nested compositor window.
+
+.SH KEYBOARD SHORTCUTS
+
+.TP
+.B Super-Shift-Z
+Rotate the focused window countercockwise.
+
+.TP
+.B Super-Shift-X
+Rotate the focused window clockwise.
+
+.TP
+.B Super-Shift-C
+Reset the rotation of the focused window.
+
+.TP
+.B Super-Shift-V
+Toggle blur-behind on the focused window. Be warned the blur-behind is very computationally expensive.
+
+.TP
+.B Super-a
+Minimize the focused window to the panel.
+
+.TP
+.B Alt-F10
+Maximize the focused window.
+
+.TP
+.B Alt-F4
+Send the focused window a close request.
+
+.TP
+.B PrtSc
+Take a screenshot. The screenshot will be written as a TGA to \fI/tmp/screenshot_%F_%H_%M_%S.tga\fP.
+
+.TP
+.B Shift+PrtSc
+Take a screenshot of the focused window. The screenshot will be written as a TGA with an alpha channel to \fI/tmp/screenshot_%F_%H_%M_%S.tga\fP.
+
+.TP
+.B Super-Shift-Left
+Tile the focused window to the upper left quadrant.
+
+.TP
+.B Super-Shift-Right
+Tile the focused window to the upper right quadrant.
+
+.TP
+.B Super-Left
+Tile the focused window to the left half of the screen.
+
+.TP
+.B Super-Right
+Tile the focused window to the right half of the screen.
+
+.TP
+.B Super-Ctrl-Left
+Tile the focused window to the lower left quadrant.
+
+.TP
+.B Super-Ctrl-Right
+Tile the focused window to the lower right quadrant.
+
+.TP
+.B Super-Up
+Tile the focused window to the top half of the screen.
+
+.TP
+.B Super-Down
+Tile the focused window to the bottom half of the screen.
+
+.SH SEE ALSO
+.IR libtoaru_yutani (3)
+
+.SH AUTHOR
+Yutani was written by K. Lange <klange@toaruos.org>
