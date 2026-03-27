@@ -4,7 +4,7 @@
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2014-2018 K. Lange
+ * Copyright (C) 2014-2026 K. Lange
  */
 #include <errno.h>
 #include <stdint.h>
@@ -22,6 +22,12 @@ static int term_height = 25;
 
 static int term_x = 0;
 static int term_yish = 1;
+
+static int handle_escapes = 0;
+static int stop_asking = 0;
+static int exit_if_fits = 0;
+static int prompted = 0;
+static char * promptstring = NULL;
 
 static int to_eight(uint32_t codepoint, char * out) {
 	memset(out, 0x00, 7);
@@ -120,13 +126,20 @@ static void set_buffered(void) {
 	tcsetattr(STDOUT_FILENO, TCSAFLUSH, &old);
 }
 
-static void next_line(void) {
+static void clear_line(void) {
+	printf("\r\033[K");
+	fflush(stdout);
+	term_x = 0;
+}
+
+static int next_line(char * title, int forced) {
 	term_yish++;
-	if (term_yish < term_height) {
+	if (!forced && (term_yish < term_height || stop_asking)) {
 		printf("\n");
 		term_x = 0;
 	} else {
-		printf("\n\033[7m--More--\033[0m");
+		prompted = 1;
+		printf("%s\033[7m%s\033[0m", forced ? "" : "\n", title);
 		fflush(stdout);
 		do {
 			char buf[1];
@@ -136,52 +149,162 @@ static void next_line(void) {
 				case ' ':
 					term_yish = 1;
 					/* fallthrough */
+				case 'B': /* Means down generally ends up here */
+				case 'j': /* For the vi users. */
 				case '\n':
 				case '\r':
-					printf("\r\033[K");
-					fflush(stdout);
-					term_x = 0;
-					return;
+					clear_line();
+					return 0;
 				case 'q':
-					printf("\r\033[K");
+					clear_line();
+					return 1;
+				case 'G':
+					clear_line();
+					stop_asking = 1;
+					return 0;
+				default:
+					printf("\r\033[K\033[7munreocgnized command:\033[0m %c", c);
 					fflush(stdout);
-					set_buffered();
-					exit(0);
-					return;
+					break;
 			}
 		} while (1);
 	}
+
+	return 0;
 }
 
-static void do_file(char * name, FILE * f) {
-	if (!f) {
-		printf("\033[7m`%s`: %s\033[0m", name, strerror(errno));
-		next_line();
-		return;
+static int handle_one(int code, char * name) {
+	int width = char_width(code);
+	if (term_x + width > term_width) {
+		if (next_line(promptstring ? promptstring : name, 0)) return 1;
 	}
+	char_draw(code);
+	term_x += width;
+	return 0;
+}
+
+static int do_file(char * name, FILE * f, int opti, int argc) {
+	if (!f) {
+		printf("%s: %s\n", name, strerror(errno));
+		return next_line("Press RETURN to continue, q to exit.", 1);
+	}
+	int is_escaped = 0;
+	int maybe_escaped = 0;
+
+	term_x = 0;
+
 	uint32_t code, state = 0;
 	while (!feof(f)) {
 		int c = fgetc(f);
 		if (c < 0) break;
 		if (!decode(&state, &code, c)) {
-			if (code == '\n') next_line();
-			else {
-				int width = char_width(code);
-				if (term_x + width > term_width) {
-					next_line();
+			if (code == '\n') {
+				if (next_line(promptstring ? promptstring : name, 0)) return 1;
+			} else if (is_escaped) {
+				if (code >= 'A' && code <= 'z') {
+					is_escaped = 0;
 				}
-				char_draw(code);
-				term_x += width;
+				char tmp[8] = {0};
+				to_eight(code,tmp);
+				printf("%s", tmp);
+			} else if (maybe_escaped) {
+				if (code == '[') {
+					maybe_escaped = 0;
+					is_escaped = 1;
+					printf("\033[");
+				} else {
+					handle_one('\033',name);
+					handle_one(code,name);
+				}
+			} else if (handle_escapes) {
+				if (code == '\033') {
+					maybe_escaped = 1;
+				} else {
+					handle_one(code,name);
+				}
+			} else {
+				handle_one(code,name);
 			}
 		} else if (state == UTF8_REJECT) {
 			state = 0;
 		}
 	}
+
+	stop_asking = 0;
+
+	/* If we never prompted, the file fit on the screen. If this is the last (only) file,
+	 * and we had the -F option, we can skip printing the forced END prompt. */
+	if (!prompted && exit_if_fits && opti + 1 >= argc) return 0;
+
+	if (next_line("(END)", 1)) return 1;
+	return 0;
+}
+
+static int usage(char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
+		"usage: %s [-r] [-F] [-P " X_S "str" X_E "] [" X_S "file" X_E "...]\n"
+		"\n"
+		"Print files one screenful at a time. If no files are provided,\n"
+		"attempts to read from stdin only if it is not a terminal.\n"
+		"\n"
+		"Options:\n"
+		"\n"
+		" -r       " X_S "Try to parse some escape sequences to support, eg., color." X_E "\n"
+		"          " X_S "Only 'm' sequences are likely to work; this option is meant" X_E "\n"
+		"          " X_S "for things like manpages or 'bim -c'." X_E "\n"
+		" -F       " X_S "If the file fits on one screen, exit after printing." X_E "\n"
+		"          " X_S "This option only works if there is only one file." X_E "\n"
+		" -P " X_S "str   Instead of showing file names as the command prompt, use the" X_E "\n"
+		"          " X_S "provided string, eg. '-P man' will display the prompt 'man'." X_E "\n"
+		" --help   " X_S "Show this help text." X_E "\n"
+		"\n"
+		"Command input is received on stderr. The following commands are accepted when\n"
+		"prompted during viewing of a file:\n"
+		"\n"
+		" RETURN   " X_S "Proceed to the next line, or the next file if at the end." X_E "\n"
+		"          " X_S "'B' and 'j' are also accepted as aliases." X_E "\n"
+		" SPACE    " X_S "Proceed to the next screenful of text." X_E "\n"
+		" G        " X_S "Continue outputting this file until reaching the end." X_E "\n"
+		" q        " X_S "Quit immediately, ignoring all other files." X_E "\n"
+		"\n", argv[0]);
+	return 1;
 }
 
 int main(int argc, char * argv[]) {
-	if (argc < 2 && isatty(STDIN_FILENO)) {
-		fprintf(stderr, "usage: %s file...\n", argv[0]);
+	int opt;
+
+	while ((opt = getopt(argc, argv, "rFP:-:")) != -1) {
+		switch (opt) {
+			case 'r':
+				handle_escapes = 1;
+				break;
+			case 'F':
+				exit_if_fits = 1;
+				break;
+			case 'P':
+				promptstring = optarg;
+				break;
+			case '-':
+				if (!strcmp(optarg,"help")) {
+					usage(argv);
+					return 0;
+				}
+				fprintf(stderr, "%s: '--%s' is not a recognized long option\n", argv[0], optarg);
+				/* fallthrough */
+			case '?':
+				return usage(argv);
+		}
+	}
+
+	if (optind == argc && isatty(STDIN_FILENO)) {
+		fprintf(stderr, "%s: stdin is a TTY and no file names were provided.\n", argv[0]);
+		return 1;
+	}
+
+	if (!isatty(STDOUT_FILENO)) {
+		fprintf(stderr, "%s: This implementation refuses to write to a non-terminal.\n", argv[0]);
 		return 1;
 	}
 
@@ -192,13 +315,13 @@ int main(int argc, char * argv[]) {
 	get_initial_termios();
 	set_unbuffered();
 
-	if (argc < 2) {
-		do_file("stdin",stdin);
+	if (optind == argc) {
+		do_file("stdin",stdin, optind, argc);
 	}
 
-	for (int i = 1; i < argc; ++i) {
-		FILE * f = fopen(argv[i], "r");
-		do_file(argv[i], f);
+	for (; optind < argc; optind++) {
+		FILE * f = fopen(argv[optind], "r");
+		if (do_file(argv[optind], f, optind, argc)) break;
 		if (f) fclose(f);
 	}
 
