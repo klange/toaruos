@@ -433,13 +433,13 @@ static void add_lib(char * name, int (*load_sprite)(sprite_t*,FILE*), int (*chec
 
 int load_sprite_bmp(sprite_t *, FILE*);
 int check_sprite_bmp(FILE*);
-int load_sprite_tiff(sprite_t *, FILE*);
-int check_sprite_tiff(FILE*);
+int load_sprite_tga(sprite_t *, FILE*);
+int check_sprite_tga(FILE*);
 
 static void _load_format_libraries() {
 
 	/* Load the integrated ones so they are checked last */
-	add_lib("tiff", load_sprite_tiff, check_sprite_tiff);
+	add_lib("tga", load_sprite_tga, check_sprite_tga);
 	add_lib("bmp", load_sprite_bmp, check_sprite_bmp);
 
 	for (char ** l = libs; *l; ++l) {
@@ -570,7 +570,7 @@ _cleanup_sprite:
 	return 0;
 }
 
-struct TiffHeader {
+struct TgaHeader {
 	uint8_t id_length;
 	uint8_t color_map_type;
 	uint8_t image_type;
@@ -587,16 +587,16 @@ struct TiffHeader {
 	uint8_t  descriptor;
 } __attribute__((packed));
 
-int check_sprite_tiff(FILE * f) {
-	struct TiffHeader attempt;
-	if (fread(&attempt, 1, sizeof(struct TiffHeader), f) != sizeof(struct TiffHeader)) return 0;
+int check_sprite_tga(FILE * f) {
+	struct TgaHeader attempt;
+	if (fread(&attempt, 1, sizeof(struct TgaHeader), f) != sizeof(struct TgaHeader)) return 0;
 	if (attempt.id_length) return 0;
 	if (attempt.color_map_type) return 0;
 	if (attempt.image_type != 2) return 0;
 	return 1;
 }
 
-int load_sprite_tiff(sprite_t * sprite, FILE * image) {
+int load_sprite_tga(sprite_t * sprite, FILE * image) {
 	long image_size= 0;
 
 	fseek(image, 0, SEEK_END);
@@ -612,7 +612,7 @@ int load_sprite_tiff(sprite_t * sprite, FILE * image) {
 	fread(bufferb, image_size, 1, image);
 
 	/* Assume targa; limited support */
-	struct TiffHeader * header = (struct TiffHeader *)bufferb;
+	struct TgaHeader * header = (struct TgaHeader *)bufferb;
 
 	if (header->id_length || header->color_map_type || (header->image_type != 2)) {
 		/* Possibly valid but unsupported Targa file */
@@ -624,7 +624,7 @@ int load_sprite_tiff(sprite_t * sprite, FILE * image) {
 	sprite->height = header->height;
 
 	size_t size = sizeof(uint32_t) * sprite->width * sprite->height;
-	if (size > image_size - sizeof(struct TiffHeader)) {
+	if (size > image_size - sizeof(struct TgaHeader)) {
 		/* sus */
 		free(bufferb);
 		return 1;
@@ -636,7 +636,7 @@ int load_sprite_tiff(sprite_t * sprite, FILE * image) {
 	uint16_t x = 0;
 	uint16_t y = 0;
 
-	int i = sizeof(struct TiffHeader);
+	int i = sizeof(struct TgaHeader);
 	if (header->depth == 24) {
 		for (y = 0; y < sprite->height; ++y) {
 			for (x = 0; x < sprite->width; ++x) {
