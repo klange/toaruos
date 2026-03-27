@@ -52,6 +52,13 @@ static int try_section(int i, char * page) {
 		return 1;
 	}
 	free(filename);
+	asprintf(&filename, "/usr/share/man/man%d/%s.%d.gz", i, page, i);
+	if (!stat(filename, &st)) {
+		char * systemcmd;
+		asprintf(&systemcmd, "gunzip -c '%s' | roff - | more -rP'%s(%i)'", filename, page, i);
+		system(systemcmd);
+		return 1;
+	}
 	return 0;
 }
 
