@@ -1,0 +1,71 @@
+.\" Sample manpage for nyancat, modified from the original.
+.TH NYANCAT 1 "February, 2014"
+.SH NAME
+nyancat \- terminal-based Pop Tart Cat animation
+.SH SYNOPSIS
+.B nyancat
+[ \fB\-hitn\fP ] [\-f \fIframes\fP]
+.SH DESCRIPTION
+\fInyancat\fP is an animated, color, ANSI-text program that renders a loop of the classic Nyan Cat animation.
+.PP
+\fInyancat\fP makes use of various ANSI escape sequences to render color, or in the case of a VT220, simply dumps text to the screen.
+.SH OPTIONS
+.TP
+.B \-i, \-\-intro
+Show introduction / about information on startup.
+.TP
+.B \-I, \-\-skip\-intro
+Skip the introduction in telnet mode.
+.TP
+.B \-t, \-\-telnet
+Enable telnet mode.
+.TP
+.B \-n, \-\-no\-counter
+Do not display the timer.
+.TP
+.B \-s, \-\-no\-title
+Do not set the titlebar text.
+.TP
+.B \-e, \-\-no\-clear
+Do not clear the display between frames.
+.TP
+.B \-d, \-\-delay
+Delay image rendering by anywhere between 10ms and 1000ms.
+.br
+Default (90ms) is used if amount is out of range.
+.TP
+.B \-f, \-\-frames
+Display the requested number of frames, then quit.
+.TP
+.B \-r, \-\-min\-rows
+Crop the animation from the top.
+.TP
+.B \-R, \-\-max\-rows
+Crop the animation from the bottom.
+.TP
+.B \-c, \-\-min\-cols
+Crop the animation from the left.
+.TP
+.B \-C, \-\-max\-cols
+Crop the animation from the right.
+.TP
+.B \-W, \-\-width
+Crop the animation to the given width.
+.TP
+.B \-H, \-\-height
+Crop the animation to the given height.
+.TP
+.B \-h, \-\-help
+Show help message and exit.
+.SH HOMEPAGE
+.PP
+.B Homepage:
+http://nyancat.dakko.us/
+.PP
+.B Repository:
+https://github.com/klange/nyancat
+.SH AUTHOR
+nyancat was written by K. Lange <klange@toaruos.org>.
+.PP
+This manual page was written by Jonathan McCrohan <jmccrohan@gmail.com>,
+for the Debian project (and may be used by others).
