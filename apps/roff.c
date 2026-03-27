@@ -452,11 +452,14 @@ static int do_file(char ** argv, int i) {
 				printf("\n");
 				continue;
 			} else if (strstr(line, ".RS") == line) {
+				if (flush_line(&ctx)) printf("\n");
 				ctx.extra_indent += DEFAULT_INDENTATION;
 				ctx.indent += DEFAULT_INDENTATION;
+				ctx.next_indent = ctx.indent;
 				continue;
 			} else if (strstr(line, ".RE") == line) {
 				ctx.indent -= DEFAULT_INDENTATION;
+				ctx.next_indent = ctx.indent;
 				ctx.extra_indent -= DEFAULT_INDENTATION;
 				continue;
 			} else if (strstr(line, ".nh") == line) {
