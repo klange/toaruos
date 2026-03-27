@@ -69,15 +69,18 @@ void print_uptime(void) {
 	print_seconds(seconds);
 }
 
-void show_usage(int argc, char * argv[]) {
-	printf(
-			"uptime - display system uptime information\n"
+int show_usage(int argc, char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
+			"%s - display system uptime information\n"
 			"\n"
 			"usage: %s [-p]\n"
 			"\n"
-			" -p     \033[3mshow just the uptime info\033[0m\n"
-			" -?     \033[3mshow this help text\033[0m\n"
-			"\n", argv[0]);
+			" -p     " X_S "show just the uptime info" X_E "\n"
+			" -?     " X_S "show this help text" X_E" \n"
+			"\n", argv[0], argv[0]);
+	return 1;
 }
 
 int main(int argc, char * argv[]) {
@@ -90,8 +93,7 @@ int main(int argc, char * argv[]) {
 				just_pretty_uptime = 1;
 				break;
 			case '?':
-				show_usage(argc, argv);
-				return 0;
+				return show_usage(argc, argv);
 		}
 	}
 

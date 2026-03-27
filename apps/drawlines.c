@@ -40,15 +40,18 @@ static void draw(void) {
 	yutani_flip(yctx, wina);
 }
 
-static void show_usage(char * argv[]) {
-	printf(
-			"drawlines - graphical demo, draws lines randomly\n"
+static int show_usage(char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
+			"%s - graphical demo, draws lines randomly\n"
 			"\n"
-			"usage: %s [-t thickness]\n"
+			"usage: %s [-t " X_S "thickness" X_E "]\n"
 			"\n"
-			" -t     \033[3mdraw with anti-aliasing and the specified thickness\033[0m\n"
-			" -?     \033[3mshow this help text\033[0m\n"
-			"\n", argv[0]);
+			" -t " X_S "thickness   draw with anti-aliasing and the specified thickness" X_E "\n"
+			" -?             " X_S "show this help text" X_E "\n"
+			"\n", argv[0], argv[0]);
+	return 1;
 }
 
 
@@ -67,8 +70,7 @@ int main (int argc, char ** argv) {
 				thick = atoi(optarg);
 				break;
 			case '?':
-				show_usage(argv);
-				return 0;
+				return show_usage(argv);
 		}
 	}
 

@@ -52,25 +52,28 @@
 #include "terminal-font.h"
 
 /* Show help text */
-static void usage(char * argv[]) {
-	printf(
+static int usage(char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
 			"Terminal Emulator\n"
 			"\n"
-			"usage: %s [-Fbxn] [-s SCALE] [-g WIDTHxHEIGHT] [COMMAND...]\n"
+			"usage: %s [-FbxnB] [-s " X_S "SCALE" X_E "] [-g " X_S "WIDTHxHEIGHT" X_E "] [-S " X_S "LINES" X_E "] [COMMAND...]\n"
 			"\n"
-			" -F --fullscreen \033[3mRun in fullscreen (background) mode.\033[0m\n"
-			" -b --bitmap     \033[3mUse the integrated bitmap font.\033[0m\n"
-			" -s --scale      \033[3mScale the font in antialiased mode by a given amount.\033[0m\n"
-			" -h --help       \033[3mShow this help message.\033[0m\n"
-			" -x --grid       \033[3mMake resizes round to nearest match for character cell size.\033[0m\n"
-			" -n --no-frame   \033[3mDisable decorations.\033[0m\n"
-			" -g --geometry   \033[3mSet requested terminal size WIDTHxHEIGHT\033[0m\n"
-			" -B --blurred    \033[3mBlur background behind terminal.\033[0m\n"
-			" -S --scrollback \033[3mSet the scrollback buffer size, 0 for unlimited.\033[0m\n"
+			" -F --fullscreen        " X_S "Run in fullscreen (background) mode." X_E "\n"
+			" -b --bitmap            " X_S "Use the integrated bitmap font." X_E "\n"
+			" -s --scale " X_S "SCALE       Scale the font in antialiased mode by a given amount." X_E "\n"
+			" -h --help              " X_S "Show this help message." X_E "\n"
+			" -x --grid              " X_S "Make resizes round to nearest match for character cell size." X_E "\n"
+			" -n --no-frame          " X_S "Disable decorations." X_E "\n"
+			" -g --geometry " X_S "WxH      Set requested terminal size WIDTHxHEIGHT" X_E "\n"
+			" -B --blurred           " X_S "Blur background behind terminal." X_E "\n"
+			" -S --scrollback " X_S "LINES  Set the scrollback buffer size, 0 for unlimited." X_E "\n"
 			"\n"
 			" This terminal emulator provides basic support for VT220 escapes and\n"
 			" XTerm extensions, including 256 color support and font effects.\n",
 			argv[0]);
+	return 1;
 }
 
 /* master and slave pty descriptors */
@@ -2550,7 +2553,7 @@ int main(int argc, char ** argv) {
 
 	/* Read some arguments */
 	int index, c;
-	while ((c = getopt_long(argc, argv, "bhxnFls:g:BS:", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "bhxnFs:g:BS:", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
@@ -2573,7 +2576,6 @@ int main(int argc, char ** argv) {
 			case 'h':
 				usage(argv);
 				return 0;
-				break;
 			case 's':
 				scale_fonts = 1;
 				font_scaling = atof(optarg);
@@ -2588,9 +2590,7 @@ int main(int argc, char ** argv) {
 				max_scrollback = strtoull(optarg,NULL,10);
 				break;
 			case '?':
-				break;
-			default:
-				break;
+				return usage(argv);
 		}
 	}
 

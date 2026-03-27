@@ -16,6 +16,7 @@
 #include <string.h>
 #include <termios.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <sys/wait.h>
 #include <sys/fswait.h>
 
@@ -44,49 +45,66 @@ void set_buffered() {
 }
 
 int show_usage(int argc, char * argv[]) {
-	printf(
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
 			"Serial client.\n"
 			"\n"
-			"usage: %s [-e] [-r] [-c] [device path]\n"
+			"usage: %s [-e] [-r] [-c] [" X_S "DEVICE" X_E "]\n"
 			"\n"
-			" -e     \033[3mkeep echo enabled\033[0m\n"
-			" -c     \033[3mkeep canon enabled\033[0m\n"
-			" -r     \033[3mtransform line feeds to \\r\\n\033[0m\n"
-			" -?     \033[3mshow this help text\033[0m\n"
+			" Type ^] to enter command prompt.\n"
+			"\n"
+			" -e     " X_S "keep echo enabled" X_E "\n"
+			" -c     " X_S "keep canon enabled" X_E "\n"
+			" -r     " X_S "transform line feeds to \\r\\n" X_E "\n"
+			" -?     " X_S "show this help text" X_E "\n"
 			"\n", argv[0]);
 	return 1;
 }
 
 int main(int argc, char ** argv) {
 
-	int arg = 1;
-	char * device;
+	char * device = "/dev/ttyS0";
+	int opt;
 
-	while (arg < argc) {
-		if (argv[arg][0] != '-') break;
-		if (!strcmp(argv[arg], "-e")) {
-			keep_echo = 1;
-		} else if (!strcmp(argv[arg], "-r")) {
-			dos_lines = 1;
-		} else if (!strcmp(argv[arg], "-c")) {
-			keep_canon = 1;
-		} else if (!strcmp(argv[arg], "-?")) {
-			return show_usage(argc, argv);
-		} else {
-			fprintf(stderr, "%s: Unrecognized option: %s\n", argv[0], argv[arg]);
+	while ((opt = getopt(argc, argv, "erc?")) != -1) {
+		switch (opt) {
+			case 'e':
+				keep_echo = 1;
+				break;
+			case 'r':
+				dos_lines = 1;
+				break;
+			case 'c':
+				keep_canon = 1;
+				break;
+			case '?':
+				return show_usage(argc, argv);
 		}
-		arg++;
 	}
 
-	if (arg == argc) {
-		device = "/dev/ttyS0";
-	} else {
-		device = argv[arg];
+	if (optind < argc) {
+		device = argv[optind];
+	}
+
+	if (optind + 1 < argc) {
+		/* Too many arguments */
+		return show_usage(argc, argv);
 	}
 
 	set_unbuffered();
 
-	fd = open(device, 0, 0);
+	fd = open(device, O_RDWR);
+
+	if (fd < 0) {
+		fprintf(stderr, "%s: %s: %s\n", argv[0], device, strerror(errno));
+		return 1;
+	}
+
+	if (!isatty(fd)) {
+		fprintf(stderr, "%s: %s: not a tty\n", argv[0], device);
+		return 1;
+	}
 
 	int fds[2] = {STDIN_FILENO, fd};
 
@@ -94,8 +112,8 @@ int main(int argc, char ** argv) {
 		int index = fswait(2, fds);
 
 		if (index == -1) {
-			fprintf(stderr, "serial-console: fswait: erroneous file descriptor\n");
-			fprintf(stderr, "serial-console: (did you try to open a file that isn't a serial console?\n");
+			fprintf(stderr, "%s: fswait: erroneous file descriptor\n", argv[0]);
+			fprintf(stderr, "%s: (did you try to open a file that isn't a serial console?\n", argv[0]);
 			return 1;
 		}
 
@@ -123,6 +141,9 @@ int main(int argc, char ** argv) {
 						set_unbuffered();
 						fflush(stdout);
 						break;
+					} else {
+						fprintf(stderr, "%s: unknown command\n", line);
+						continue;
 					}
 				}
 			} else {

@@ -13,17 +13,25 @@
 #include <toaru/graphics.h>
 #include <toaru/text.h>
 
-static void usage(char * argv[]) {
-	printf(
-			"usage: %s [-n] [FONT]\n"
-			"Print information about TrueType fonts. If FONT is not specified,\n"
+static int usage(char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
+			"usage: %s [-n] [-s] [" X_S "FONT" X_E "]\n"
+			"\n"
+			"Print information about TrueType fonts. If " X_S "FONT" X_E " is not specified,\n"
 			"the system monospace font will be used.\n"
 			"\n"
-			" -n --name       \033[3mPrint the stored name of the font.\033[0m\n"
-			" -s --strings    \033[3mPrint all supported entries in the names table.\033[0m\n"
-			" -h --help       \033[3mShow this help message.\033[0m\n"
+			"If no options are specified, the return status indicates whether the TrueType\n"
+			"library was able to load " X_S "FONT" X_E " (0 means yes). In case of failure,\n"
+			"additional diagnostics may be printed by the library.\n"
+			"\n"
+			" -n --name       " X_S "Print the stored name of the font." X_E "\n"
+			" -s --strings    " X_S "Print all supported entries in the names table." X_E "\n"
+			" -h --help       " X_S "Show this help message." X_E "\n"
 			"\n",
 			argv[0]);
+	return 1;
 }
 
 #define SHOW_NAME    (1 << 0)
@@ -49,17 +57,15 @@ int main(int argc, char * argv[]) {
 			}
 		}
 		switch (c) {
-			case 'h':
-				usage(argv);
-				return 0;
-				break;
 			case 'n':
 				flags |= SHOW_NAME;
 				break;
 			case 's':
 				flags |= SHOW_STRINGS;
-			default:
 				break;
+			case 'h':
+			case '?':
+				return usage(argv);
 		}
 	}
 

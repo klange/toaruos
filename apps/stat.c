@@ -19,16 +19,19 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 
-static void show_usage(int argc, char * argv[]) {
-	printf(
-			"stat - display file status\n"
+static int show_usage(int argc, char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
+			"%s - display file status\n"
 			"\n"
-			"usage: %s [-Lq] PATH\n"
+			"usage: %s [-Lq] " X_S "PATH" X_E "...\n"
 			"\n"
-			" -L     \033[3mdereference symlinks\033[0m\n"
-			" -q     \033[3mdon't print anything, just return 0 if file exists\033[0m\n"
-			" -?     \033[3mshow this help text\033[0m\n"
-			"\n", argv[0]);
+			" -L     " X_S "dereference symlinks" X_E "\n"
+			" -q     " X_S "don't print anything, just return 0 if file exists" X_E "\n"
+			" -?     " X_S "show this help text" X_E "\n"
+			"\n", argv[0], argv[0]);
+	return 1;
 }
 
 static int dereference = 0, quiet = 0;
@@ -108,14 +111,12 @@ int main(int argc, char ** argv) {
 				quiet = 1;
 				break;
 			case '?':
-				show_usage(argc,argv);
-				return 1;
+				return show_usage(argc,argv);
 		}
 	}
 
 	if (optind >= argc) {
-		show_usage(argc, argv);
-		return 1;
+		return show_usage(argc, argv);
 	}
 
 	int ret = 0;

@@ -25,17 +25,24 @@
 
 #include "../kernel/misc/args.c"
 
-void show_usage(int argc, char * argv[]) {
-	printf(
-			"kcmdline - query the kernel command line\n"
+int show_usage(int argc, char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
+			"%s - query the kernel command line\n"
 			"\n"
-			"usage: %s -g ARG...\n"
-			"       %s -q ARG...\n"
+			"usage: %s -g " X_S "ARG" X_E "...\n"
+			"       %s -q " X_S "ARG" X_E "...\n"
+			"       %s -s\n"
 			"\n"
-			" -g     \033[3mprint the value for the requested argument\033[0m\n"
-			" -q     \033[3mquery whether the requested argument is present (0 = yes)\033[0m\n"
-			" -?     \033[3mshow this help text\033[0m\n"
-			"\n", argv[0], argv[0]);
+			" -g " X_S "ARG   print the value for the requested argument" X_E "\n"
+			" -q " X_S "ARG   query whether the requested argument is present (0 = yes)" X_E "\n"
+			" -s       " X_S "query the size of the command line, returned as the" X_E "\n"
+			"          " X_S "exit status (which may overflow, making this not" X_E "\n"
+			"          " X_S "very useful in practice.)" X_E "\n"
+			" -?       " X_S "show this help text" X_E "\n"
+			"\n", argv[0], argv[0], argv[0], argv[0]);
+	return 1;
 }
 
 int main(int argc, char * argv[]) {
@@ -62,10 +69,11 @@ int main(int argc, char * argv[]) {
 			case 's':
 				return strlen(cmdline);
 			case '?':
-				show_usage(argc, argv);
-				return 1;
+				return show_usage(argc, argv);
 		}
 	}
+
+	if (optind != argc) return show_usage(argc, argv);
 
 	fprintf(stdout, "%s\n", cmdline);
 }

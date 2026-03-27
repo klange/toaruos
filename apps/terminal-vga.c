@@ -975,15 +975,21 @@ void key_event(int ret, key_event_t * event) {
 	}
 }
 
-void usage(char * argv[]) {
-	printf(
+int usage(char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
 			"VGA Terminal Emulator\n"
 			"\n"
-			"usage: %s [-b] [-F] [-h]\n"
+			"usage: %s [-l] [" X_S "command..." X_E "]\n"
 			"\n"
-			" -h --help       \033[3mShow this help message.\033[0m\n"
+			" You probably don't want to run this directly.\n"
+			"\n"
+			" -l --login  " X_S "Start a login shell." X_E "\n"
+			" -h --help   " X_S "Show this help message." X_E "\n"
 			"\n",
 			argv[0]);
+	return 1;
 }
 
 int unsupported_int(void) { return 0; }
@@ -1274,18 +1280,17 @@ int main(int argc, char ** argv) {
 				_login_shell = 1;
 				break;
 			case 'h':
-				usage(argv);
-				return 0;
-				break;
 			case '?':
-				break;
-			default:
-				break;
+				return usage(argv);
 		}
 	}
 
-	int vga_text_fd = open("/dev/vga0", 0, 0);
-	if (vga_text_fd < 0) return 1;
+#define TEXT_MODE_DEVICE "/dev/vga0"
+	int vga_text_fd = open(TEXT_MODE_DEVICE, O_RDWR);
+	if (vga_text_fd < 0) {
+		fprintf(stderr, "%s: %s: %s\n", argv[0], TEXT_MODE_DEVICE, strerror(errno));
+		return 1;
+	}
 	ioctl(vga_text_fd, IO_VID_WIDTH,  &term_width);
 	ioctl(vga_text_fd, IO_VID_HEIGHT, &term_height);
 	ioctl(vga_text_fd, IO_VID_ADDR,   &textmemptr);

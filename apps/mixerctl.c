@@ -10,35 +10,50 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/ioctl.h>
 #include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#include <sys/ioctl.h>
 
 #include <kernel/mod/sound.h>
 
-static char usage[] =
-"%s - Control audio mixer settings.\n"
-"\n"
-"Usage  %s [-d device_id] -l\n"
-"       %s [-d device_id] [-k knob_id] -r\n"
-"       %s [-d device_id] [-k knob_id] -w knob_value\n"
-"       %s -h\n"
-"\n"
-" -d: \033[3mDevice id to address. Defaults to the main sound device.\033[0m\n"
-" -l: \033[3mList the knobs on a device.\033[0m\n"
-" -k: \033[3mKnob id to address. Defaults to the device's master knob.\033[0m\n"
-" -r: \033[3mPerform a read on the given device's knob. Defaults to the device's\n"
-"     master knob.\033[0m\n"
-" -w: \033[3mPerform a write on the given device's knob. The value should be a\n"
-"     float from 0.0 to 1.0.\033[0m\n"
-" -h: \033[3mPrint this help message and exit.\033[0m\n";
+#define MIXER_PATH "/dev/mixer"
+
+enum operations {
+	OP_LIST,
+	OP_READ,
+	OP_WRITE,
+};
+
+int show_usage(char *argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
+		"%s - Control audio mixer settings.\n"
+		"\n"
+		"Usage  %s [-d device_id] -l\n"
+		"       %s [-d device_id] [-k knob_id] -r\n"
+		"       %s [-d device_id] [-k knob_id] -w knob_value\n"
+		"       %s -h\n"
+		"\n"
+		" -d " X_S "device_id    Device id to address. Defaults to the main sound device." X_E "\n"
+		" -l              " X_S "List the knobs on a device." X_E "\n"
+		" -k " X_S "knob_id      Knob id to address. Defaults to the device's master knob." X_E "\n"
+		" -r              " X_S "Perform a read on the given device's knob. Defaults to" X_E "\n"
+		"                 " X_S "the device's master knob." X_E "\n"
+		" -w " X_S "knob_value   Perform a write on the given device's knob. The value" X_E "\n"
+		"                 " X_S "should be a float from 0.0 to 1.0." X_E "\n"
+		" -h              " X_S "Print this help message and exit." X_E "\n",
+		argv[0], argv[0], argv[0], argv[0], argv[0]);
+	return EXIT_FAILURE;
+}
 
 int main(int argc, char * argv[]) {
 	uint32_t device_id = SND_DEVICE_MAIN;
 	uint32_t knob_id   = SND_KNOB_MASTER;
-	uint8_t list_flag = 0;
-	uint8_t read_flag  = 0;
-	uint8_t write_flag = 0;
 	double write_value = 0.0;
+
+	enum operations operation = 0;
 
 	int c;
 
@@ -48,16 +63,19 @@ int main(int argc, char * argv[]) {
 				device_id = atoi(optarg);
 				break;
 			case 'l':
-				list_flag = 1;
+				if (operation) return show_usage(argv);
+				operation = OP_LIST;
 				break;
 			case 'k':
 				knob_id = atoi(optarg);
 				break;
 			case 'r':
-				read_flag = 1;
+				if (operation) return show_usage(argv);
+				operation = OP_READ;
 				break;
 			case 'w':
-				write_flag = 1;
+				if (operation) return show_usage(argv);
+				operation = OP_WRITE;
 				write_value = atof(optarg);
 				if (write_value < 0.0 || write_value > 1.0) {
 					fprintf(stderr, "argument -w value must be between 0.0 and 1.0\n");
@@ -67,63 +85,64 @@ int main(int argc, char * argv[]) {
 			case 'h':
 			case '?':
 			default:
-				fprintf(stderr, usage, argv[0], argv[0], argv[0], argv[0], argv[0]);
-				exit(EXIT_FAILURE);
+				return show_usage(argv);
 		}
 	}
 
-	int mixer = open("/dev/mixer", O_RDONLY);
+	int mixer = open(MIXER_PATH, O_RDONLY);
 	if (mixer < 1) {
-		//perror("open");
-		exit(EXIT_FAILURE);
+		fprintf(stderr, "%s: %s: %s\n", argv[0], MIXER_PATH, strerror(errno));
+		return EXIT_FAILURE;
 	}
 
-	if (list_flag) {
-		snd_knob_list_t list = {0};
-		list.device = device_id;
-		if (ioctl(mixer, SND_MIXER_GET_KNOBS, &list) < 0) {
-			perror("ioctl");
-			exit(EXIT_FAILURE);
-		}
-		for (uint32_t i = 0; i < list.num; i++) {
-			snd_knob_info_t info = {0};
-			info.device = device_id;
-			info.id = list.ids[i];
-			if (ioctl(mixer, SND_MIXER_GET_KNOB_INFO, &info) < 0) {
+	switch (operation) {
+		case OP_LIST: {
+			snd_knob_list_t list = {0};
+			list.device = device_id;
+			if (ioctl(mixer, SND_MIXER_GET_KNOBS, &list) < 0) {
 				perror("ioctl");
 				exit(EXIT_FAILURE);
 			}
-			fprintf(stdout, "%d: %s\n", (unsigned int)info.id, info.name);
+			for (uint32_t i = 0; i < list.num; i++) {
+				snd_knob_info_t info = {0};
+				info.device = device_id;
+				info.id = list.ids[i];
+				if (ioctl(mixer, SND_MIXER_GET_KNOB_INFO, &info) < 0) {
+					perror("ioctl");
+					exit(EXIT_FAILURE);
+				}
+				fprintf(stdout, "%d: %s\n", (unsigned int)info.id, info.name);
+			}
+
+			exit(EXIT_SUCCESS);
 		}
 
-		exit(EXIT_SUCCESS);
-	}
-
-	if (read_flag) {
-		snd_knob_value_t value = {0};
-		value.device = device_id;
-		value.id = knob_id;
-		if (ioctl(mixer, SND_MIXER_READ_KNOB, &value) < 0) {
-			perror("ioctl");
+		case OP_READ: {
+			snd_knob_value_t value = {0};
+			value.device = device_id;
+			value.id = knob_id;
+			if (ioctl(mixer, SND_MIXER_READ_KNOB, &value) < 0) {
+				perror("ioctl");
+				exit(EXIT_FAILURE);
+			}
+			double double_val = (double)value.val / SND_KNOB_MAX_VALUE;
+			fprintf(stdout, "%f\n", double_val);
 			exit(EXIT_FAILURE);
 		}
-		double double_val = (double)value.val / SND_KNOB_MAX_VALUE;
-		fprintf(stdout, "%f\n", double_val);
-		exit(EXIT_FAILURE);
-	}
 
-	if (write_flag) {
-		snd_knob_value_t value = {0};
-		value.device = device_id;
-		value.id = knob_id;
-		value.val = (uint32_t)(write_value * SND_KNOB_MAX_VALUE);
-		if (ioctl(mixer, SND_MIXER_WRITE_KNOB, &value) < 0) {
-			perror("ioctl");
-			exit(EXIT_FAILURE);
+		case OP_WRITE: {
+			snd_knob_value_t value = {0};
+			value.device = device_id;
+			value.id = knob_id;
+			value.val = (uint32_t)(write_value * SND_KNOB_MAX_VALUE);
+			if (ioctl(mixer, SND_MIXER_WRITE_KNOB, &value) < 0) {
+				perror("ioctl");
+				exit(EXIT_FAILURE);
+			}
+			exit(EXIT_SUCCESS);
 		}
-		exit(EXIT_SUCCESS);
-	}
 
-	fprintf(stderr, "No operation specified.\n");
-	exit(EXIT_FAILURE);
+		default:
+			return show_usage(argv);
+	}
 }

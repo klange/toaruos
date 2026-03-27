@@ -248,17 +248,20 @@ static void print_entry_long(int * widths, struct tfile * file) {
 	printf("\n");
 }
 
-static void show_usage(int argc, char * argv[]) {
-	printf(
-			"ls - list files\n"
+static int show_usage(int argc, char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
+			"%s - list files\n"
 			"\n"
-			"usage: %s [-lha] [path]\n"
+			"usage: %s [-lha] [" X_S "path" X_E "]\n"
 			"\n"
-			" -a     \033[3mlist all files (including . files)\033[0m\n"
-			" -l     \033[3muse a long listing format\033[0m\n"
-			" -h     \033[3mhuman-readable file sizes\033[0m\n"
-			" -?     \033[3mshow this help text\033[0m\n"
-			"\n", argv[0]);
+			" -a     " X_S "list all files (including . files)" X_E "\n"
+			" -l     " X_S "use a long listing format" X_E "\n"
+			" -h     " X_S "human-readable file sizes" X_E "\n"
+			" -?     " X_S "show this help text" X_E "\n"
+			"\n", argv[0], argv[0]);
+	return 1;
 }
 
 static void display_tfiles(struct tfile ** ents_array, int numents) {
@@ -380,8 +383,7 @@ int main (int argc, char * argv[]) {
 					long_mode = 1;
 					break;
 				case '?':
-					show_usage(argc, argv);
-					return 0;
+					return show_usage(argc, argv);
 			}
 		}
 

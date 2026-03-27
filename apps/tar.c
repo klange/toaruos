@@ -154,15 +154,32 @@ static void _seek_forward(FILE * f, size_t amount) {
 	}
 }
 
-static void usage(char * argv[]) {
+static int usage(char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
 	fprintf(stderr,
-			"tar - extract ustar archives\n"
+			"%s - extract ustar archives\n"
 			"\n"
-			"usage: %s [-ctxvaf] [name]\n"
+			"usage: %s [-ctxvOaf] [" X_S "name" X_E "...]\n"
+			"       %s x[vzOf] [-vzOf] [" X_S "name" X_E "...]\n"
+			"       %s t[vzOf] [-vzOf] [" X_S "name" X_E "...]\n"
 			"\n"
-			" -f     \033[3mfile archive to open\033[0m\n"
-			" -x     \033[3mextract\033[0m\n"
-			"\n", argv[0]);
+			" Actions can be supplied either through flags, or through a leading\n"
+			" argument without a -. Options can be supplied either after actions\n"
+			" or embedded with actions that were specified as flags.\n"
+			"\n"
+			" Actions:\n"
+			" x            " X_S "extract" X_E "\n"
+			" t            " X_S "list" X_E "\n"
+			" c            " X_S "create (unsupported)" X_E "\n"
+			"\n"
+			" Options:\n"
+			" -f " X_S "ARCHIVE   file archive to open" X_E "\n"
+			" -v           " X_S "be verbose" X_E "\n"
+			" -O           " X_S "write to stdout" X_E "\n"
+			" -z           " X_S "decompress archive through gunzip" X_E "\n"
+			"\n", argv[0], argv[0], argv[0], argv[0]);
+	return 1;
 }
 
 static int matches_files(int argc, char * argv[], int optind, char * filename) {
@@ -199,8 +216,7 @@ int main(int argc, char * argv[]) {
 				action = TAR_ACTION_LIST;
 				break;
 			default:
-				usage(argv);
-				return 1;
+				return usage(argv);
 		}
 
 		/* Go through the rest of the argument */
@@ -275,11 +291,7 @@ int main(int argc, char * argv[]) {
 				to_stdout = 1;
 				break;
 			case '?':
-				usage(argv);
-				return 1;
-			default:
-				fprintf(stderr, "%s: unsupported option '%c'\n", argv[0], opt);
-				return 1;
+				return usage(argv);
 		}
 	}
 

@@ -77,14 +77,16 @@ static gfx_context_t * clip_ctx = NULL;
  * Print usage information.
  */
 static int usage(char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
 	fprintf(stderr,
 			"Yutani - Window Compositor\n"
 			"\n"
 			"usage: %s [-n [-g WxH]] [-h]\n"
 			"\n"
-			" -n --nested     \033[3mRun in a window.\033[0m\n"
-			" -h --help       \033[3mShow this help message.\033[0m\n"
-			" -g --geometry   \033[3mSet the size of the server framebuffer.\033[0m\n"
+			" -n --nested           " X_S "Run in a window." X_E "\n"
+			" -h --help             " X_S "Show this help message." X_E "\n"
+			" -g --geometry " X_S "WxH     Set the size of the server framebuffer." X_E "\n"
 			"\n"
 			"  Yutani is the standard system compositor.\n"
 			"\n",

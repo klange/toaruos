@@ -123,22 +123,24 @@ void print_progress(int force) {
 }
 
 int usage(char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
 	fprintf(stderr,
-			"fetch - download files over HTTP\n"
+			"%s - download files over HTTP\n"
 			"\n"
-			"usage: %s [-hOvmp?] [-c cookie] [-o file] [-u file] [-s speed] URL\n"
+			"usage: %s [-hOvmp?] [-c " X_S "cookie " X_E "] [-o " X_S "file" X_E "] [-u " X_S "file" X_E "] [-s " X_S "speed" X_E"] " X_S "URL" X_E "\n"
 			"\n"
-			" -h     \033[3mshow headers\033[0m\n"
-			" -O     \033[3msave the file based on the filename in the URL\033[0m\n"
-			" -v     \033[3mshow progress\033[0m\n"
-			" -m     \033[3mmachine readable output\033[0m\n"
-			" -p     \033[3mprompt for password\033[0m\n"
-			" -c ... \033[3mset cookies\033[0m\n"
-			" -o ... \033[3msave to the specified file\033[0m\n"
-			" -u ... \033[3mupload the specified file\033[0m\n"
-			" -s ... \033[3mspecify the speed for uploading slowly\033[0m\n"
-			" -?     \033[3mshow this help text\033[0m\n"
-			"\n", argv[0]);
+			" -h     " X_S "show headers" X_E "\n"
+			" -O     " X_S "save the file based on the filename in the URL" X_E "\n"
+			" -v     " X_S "show progress" X_E "\n"
+			" -m     " X_S "machine readable output" X_E "\n"
+			" -p     " X_S "prompt for password" X_E "\n"
+			" -c ... " X_S "set cookies" X_E "\n"
+			" -o ... " X_S "save to the specified file" X_E "\n"
+			" -u ... " X_S "upload the specified file" X_E "\n"
+			" -s ... " X_S "specify the speed for uploading slowly" X_E "\n"
+			" -?     " X_S "show this help text" X_E "\n"
+			"\n", argv[0], argv[0]);
 	return 1;
 }
 

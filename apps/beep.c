@@ -52,6 +52,27 @@ void beep(void) {
 
 }
 
+int usage(char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr, "usage: %s BEEP...\n"
+			"Where BEEP consists of:\n"
+			"  -r  " X_S "REPS    Number of repetitions." X_E" \n"
+			"  -f  " X_S "FREQ    Frequency in Hz. 440 is A4. Supports fractional values." X_E" \n"
+			"  -l  " X_S "TIME    Duration in milliseconds." X_E" \n"
+			"  -d  " X_S "TIME    Delay between repetitions in milliseconds." X_E" \n"
+			"  -D  " X_S "TIME    Delay between, and after, repetitions." X_E" \n"
+			"  -n          " X_S "Start a new beep." X_E" \n"
+			"\n"
+			"The default values are:\n"
+			"   -r 1 -l %d -f %.2f -d %d\n"
+			"\n"
+			"A length of -1 will start a sustained beep without blocking.\n"
+			"A length of 0 will stop a currently playing sustained beep.\n",
+			argv[0], DEFAULT_LEN, DEFAULT_FREQ, DEFAULT_DELAY);
+	return 1;
+}
+
 int main(int argc, char * argv[]) {
 
 	spkr = open("/dev/spkr", O_WRONLY);
@@ -64,22 +85,7 @@ int main(int argc, char * argv[]) {
 		switch (opt) {
 			case 'h':
 			case '?':
-				fprintf(stderr, "usage: %s BEEP...\n"
-						"Where BEEP consists of:\n"
-						"  -r  REPS  \033[3mNumber of repetitions.\033[0m\n"
-						"  -f  FREQ  \033[3mFrequency in Hz. 440 is A4. Supports fractional values.\033[0m\n"
-						"  -l  TIME  \033[3mDuration in milliseconds.\033[0m\n"
-						"  -d  TIME  \033[3mDelay between repetitions in milliseconds.\033[0m\n"
-						"  -D  TIME  \033[3mDelay between, and after, repetitions.\033[0m\n"
-						"  -n        \033[3mStart a new beep.\033[0m\n"
-						"\n"
-						"The default values are:\n"
-						"   -r 1 -l %d -f %.2f -d %d\n"
-						"\n"
-						"A length of -1 will start a sustained beep without blocking.\n"
-						"A length of 0 will stop a currently playing sustained beep.\n",
-						argv[0], DEFAULT_LEN, DEFAULT_FREQ, DEFAULT_DELAY);
-				return 1;
+				return usage(argv);
 			case 'r':
 				repetitions = atoi(optarg);
 				break;

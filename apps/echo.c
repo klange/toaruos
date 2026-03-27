@@ -14,16 +14,20 @@
 #include <string.h>
 #include <unistd.h>
 
-void show_usage(char * argv[]) {
-	printf(
-			"echo - print arguments\n"
+int show_usage(char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
+			"%s - print arguments\n"
 			"\n"
-			"usage: %s [-ne] ARG...\n"
+			"usage: %s [-ne] " X_S "ARG" X_E "...\n"
+			"       %s [-h]\n"
 			"\n"
-			" -n     \033[3mdo not output a new line at the end\033[0m\n"
-			" -e     \033[3mprocess escape sequences\033[0m\n"
-			" -?     \033[3mshow this help text\033[0m\n"
-			"\n", argv[0]);
+			" -n     " X_S "do not output a new line at the end" X_E "\n"
+			" -e     " X_S "process escape sequences" X_E "\n"
+			" -?     " X_S "show this help text" X_E "\n"
+			"\n", argv[0], argv[0], argv[0]);
+	return 1;
 }
 
 int main(int argc, char ** argv) {
@@ -35,8 +39,7 @@ int main(int argc, char ** argv) {
 		switch (opt) {
 			case '?':
 			case 'h':
-				show_usage(argv);
-				return 1;
+				return show_usage(argv);
 			case 'n':
 				use_newline = 0;
 				break;

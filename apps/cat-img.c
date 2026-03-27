@@ -44,13 +44,15 @@ void unraw_output(void) {
 }
 
 int usage(char * argv[]) {
-	printf(
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
 			"usage: %s [-?ns] [path]\n"
 			"\n"
-			" -n     \033[3mdon't print a new line after image\033[0m\n"
-			" -s     \033[3mscale to cell height (up or down)\033[0m\n"
-			" -w     \033[3mscale to terminal width (up or down)\033[0m\n"
-			" -?     \033[3mshow this help text\033[0m\n"
+			" -n     " X_S "don't print a new line after image" X_E "\n"
+			" -s     " X_S "scale to cell height (up or down)" X_E "\n"
+			" -w     " X_S "scale to terminal width (up or down)" X_E" \n"
+			" -?     " X_S "show this help text" X_E" \n"
 			"\n", argv[0]);
 	return 1;
 }

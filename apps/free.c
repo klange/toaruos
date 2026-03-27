@@ -10,20 +10,25 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
 
-void show_usage(int argc, char * argv[]) {
-	printf(
+#define MEMINFO_PATH "/proc/meminfo"
+
+int show_usage(int argc, char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
 			"free - show available memory\n"
 			"\n"
 			"usage: %s [-utk?]\n"
 			"\n"
-			" -u     \033[3mshow used instead of free\033[0m\n"
-			" -t     \033[3minclude a total\033[0m\n"
-			" -k     \033[3muse kilobytes instead of megabytes\033[0m\n"
-			" -?     \033[3mshow this help text\033[0m\n"
+			" -u     " X_S "show used instead of free" X_E "\n"
+			" -t     " X_S "include a total" X_E "\n"
+			" -k     " X_S "use kilobytes instead of megabytes" X_E "\n"
+			" -?     " X_S "show this help text" X_E "\n"
 			"\n", argv[0]);
+	return 1;
 }
-
 
 int main(int argc, char * argv[]) {
 	int show_used = 0;
@@ -43,15 +48,19 @@ int main(int argc, char * argv[]) {
 				use_kilobytes = 1;
 				break;
 			case '?':
-				show_usage(argc, argv);
-				return 0;
+				return show_usage(argc, argv);
 		}
 	}
 
+	if (optind != argc) return show_usage(argc, argv);
+
 	const char * unit = "kB";
 
-	FILE * f = fopen("/proc/meminfo", "r");
-	if (!f) return 1;
+	FILE * f = fopen(MEMINFO_PATH, "r");
+	if (!f) {
+		fprintf(stderr, "%s: %s: %s\n", argv[0], MEMINFO_PATH, strerror(errno));
+		return 1;
+	}
 
 	int total, free, used;
 	char buf[1024] = {0};

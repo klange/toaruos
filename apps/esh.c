@@ -1612,18 +1612,23 @@ void show_version(void) {
 	printf("esh 1.10.0\n");
 }
 
-void show_usage(int argc, char * argv[]) {
-	printf(
+int show_usage(int argc, char * argv[]) {
+#define X_S "\033[3m"
+#define X_U "\033[4m"
+#define X_E "\033[0m"
+	fprintf(stderr,
 			"Esh: The Experimental Shell\n"
 			"\n"
-			"usage: %s [-lha] [path]\n"
+			"usage: %s [" X_S "script" X_E " [" X_S "args..." X_E "]]\n"
+			"       %s [-c " X_U "cmd" X_E "]\n"
+			"       %s [-v] [-?]\n"
 			"\n"
-			" -c \033[4mcmd\033[0m \033[3mparse and execute cmd\033[0m\n"
-			//-c cmd \033[...
-			" -R     \033[3mdisable experimental line editor\033[0m\n"
-			" -v     \033[3mshow version information\033[0m\n"
-			" -?     \033[3mshow this help text\033[0m\n"
-			"\n", argv[0]);
+			" -c " X_U "cmd" X_E "  " X_S "parse and execute cmd" X_E "\n"
+			//-c cmd  " X_S "p...
+			" -v      " X_S "show version information" X_E "\n"
+			" -?      " X_S "show this help text" X_E "\n"
+			"\n", argv[0], argv[0], argv[0]);
+	return 1;
 }
 
 void add_path(void) {
@@ -1723,8 +1728,7 @@ int main(int argc, char ** argv) {
 					show_version();
 					return 0;
 				case '?':
-					show_usage(argc, argv);
-					return 0;
+					return show_usage(argc, argv);
 			}
 		}
 	}

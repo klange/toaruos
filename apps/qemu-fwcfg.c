@@ -61,14 +61,16 @@ struct fw_cfg_file {
 };
 
 static int usage(char * argv[]) {
-	printf(
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
 			"Obtain QEMU fw_cfg values\n"
 			"\n"
-			"usage: %s [-?ln] [config name]\n"
+			"usage: %s [-?ln] [" X_S "NAME" X_E "]\n"
 			"\n"
-			" -l     \033[3mlist available config entries\033[0m\n"
-			" -n     \033[3mdon't print a new line after data\033[0m\n"
-			" -?     \033[3mshow this help text\033[0m\n"
+			" -l     " X_S "list available config entries" X_E "\n"
+			" -n     " X_S "don't print a new line after data" X_E "\n"
+			" -?     " X_S "show this help text" X_E "\n"
 			"\n", argv[0]);
 	return 1;
 }

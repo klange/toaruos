@@ -51,14 +51,17 @@ sprite_t img = {0};
 #define APPLICATION_TITLE "Image Viewer"
 static char window_title[1024] = APPLICATION_TITLE;
 
-void usage(char * argv[]) {
-	printf(
+int usage(char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
 			"Image Viewer - Shows images.\n"
 			"\n"
-			"usage: %s \033[3mimage\033[0m\n"
+			"usage: %s " X_S "image" X_E "\n"
 			"\n"
-			" -? --help      \033[3mShow this help message.\033[0m\n",
+			" -? --help      " X_S "Show this help message." X_E "\n",
 			argv[0]);
+	return 1;
 }
 
 static void decors() {
@@ -148,18 +151,14 @@ int main(int argc, char * argv[]) {
 			}
 			switch (c) {
 				case 'h':
-					usage(argv);
-					exit(0);
-					break;
-				default:
-					break;
+				case '?':
+					return usage(argv);
 			}
 		}
 	}
 
 	if (optind >= argc) {
-		usage(argv);
-		return 1;
+		return usage(argv);
 	}
 
 	yctx = yutani_init();

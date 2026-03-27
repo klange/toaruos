@@ -14,20 +14,23 @@
 
 #include <toaru/yutani.h>
 
-void show_usage(int argc, char * argv[]) {
-	printf(
-			"yutani-clipboard - set and obtain clipboard contents\n"
+int show_usage(int argc, char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
+			"%s - set and obtain clipboard contents\n"
 			"\n"
 			"usage: %s -g\n"
-			"       %s -s TEXT...\n"
-			"       %s -f FILE\n"
+			"       %s -s " X_S "TEXT" X_E "...\n"
+			"       %s -f " X_S "FILE" X_E "\n"
 			"\n"
-			" -s     \033[3mset the clipboard text to argument\033[0m\n"
-			" -f     \033[3mset the clibboard text to file\033[0m\n"
-			" -g     \033[3mprint clipboard contents to stdout\033[0m\n"
-			" -n     \033[3mensure a linefeed is printed\033[0m\n"
-			" -?     \033[3mshow this help text\033[0m\n"
-			"\n", argv[0], argv[0], argv[0]);
+			" -s " X_S "TEXT...   set the clipboard text to argument" X_E "\n"
+			" -f " X_S "FILE      set the clibboard text to file" X_E "\n"
+			" -g           " X_S "print clipboard contents to stdout" X_E "\n"
+			" -n           " X_S "ensure a linefeed is printed" X_E "\n"
+			" -?           " X_S "show this help text" X_E "\n"
+			"\n", argv[0], argv[0], argv[0], argv[0]);
+	return 1;
 }
 
 yutani_t * yctx;
@@ -103,8 +106,7 @@ int main(int argc, char * argv[]) {
 				get_clipboard();
 				return 0;
 			case '?':
-				show_usage(argc,argv);
-				return 1;
+				return show_usage(argc,argv);
 		}
 	}
 

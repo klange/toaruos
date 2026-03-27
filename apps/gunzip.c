@@ -28,16 +28,18 @@ static void _write(struct inflate_context * ctx, unsigned int sym) {
 }
 
 static int usage(int argc, char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
 	fprintf(stderr,
-			"gunzip - decompress gzip-compressed payloads\n"
+			"%s - decompress gzip-compressed payloads\n"
 			"\n"
-			"usage: %s [-ckf] name...\n"
+			"usage: %s [-ckf] " X_S "name" X_E "...\n"
 			"\n"
-			" -c     \033[3mwrite to stdout; implies -k\033[0m\n"
-			" -k     \033[3mkeep original files unchanged\033[0m\n"
-			" -f     \033[3mforce decompression (eg. from tty,\033[0m\n"
-			"        \033[3mor to an existing file, etc.)\033[0m\n"
-			"\n", argv[0]);
+			" -c     " X_S "write to stdout; implies -k" X_E "\n"
+			" -k     " X_S "keep original files unchanged" X_E "\n"
+			" -f     " X_S "force decompression (eg. from tty," X_E "\n"
+			"        " X_S "or to an existing file, etc.)" X_E "\n"
+			"\n", argv[0], argv[0]);
 	return 1;
 }
 

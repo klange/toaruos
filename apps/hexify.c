@@ -67,16 +67,18 @@ static int stoih(size_t w, char c[w], size_t *out) {
 }
 
 static int usage(char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
 	fprintf(stderr,
-			"heixfy - convert to and from hexadecimal representation\n"
+			"%s - convert to and from hexadecimal representation\n"
 			"\n"
-			"usage: %s [-w width] [-d] [file]\n"
+			"usage: %s [-w " X_S "width" X_E "] [-d] [" X_S "file" X_E "]\n"
 			"\n"
-			" -w width  \033[3mdisplay 'width' bytes per line\033[0m\n"
-			"           \033[3m(default is 16, max is 256)\033[0m\n"
-			" -d        \033[3mconvert output from hexify back to binary data\033[0m\n"
-			" -?        \033[3mshow this help text\033[0m\n"
-			"\n", argv[0]);
+			" -w " X_S "width    display 'width' bytes per line" X_E "\n"
+			"             " X_S "(default is 16, max is 256)" X_E "\n"
+			" -d          " X_S "convert output from hexify back to binary data" X_E "\n"
+			" -?          " X_S "show this help text" X_E "\n"
+			"\n", argv[0], argv[0]);
 	return 1;
 }
 
