@@ -1,0 +1,49 @@
+.TH libtoaru_procfs 3 "March, 2026"
+.SH NAME
+libtoaru_procfs \- common utilities for dealing with ToaruOS's /procfs
+.SH SYNOPSIS
+ \fB#include <toaru/procfs.h>\fP
+.sp
+ \fB#define PROCFSLIB_NO_FREE\fP
+ \fB#define PROCFSLIB_NO_THREADS\fP
+ \fB#define PROCFSLIB_COLLECT_COMMANDLINE\fP
+ \fB#define PROCFSLIB_COLLECT_STARTTIME\fP
+ \fB#define PROCFSLIB_NO_CURLY_THREADS\fP
+.sp
+ \fIint\fP \fBprocfs_iterate\fP(\fIint\fP (\fI*callback\fP)(\fIstruct process *\fP,\fIvoid\fP), \fIvoid *ctx\fP, \fIint flags\fP);
+.sp
+ \fIint\fP \fBprocfs_free\fP(\fIstruct process*\fP);
+.SH DESCRIPTION
+This library is used by various utilities to facilitate iterating over
+entries in the \fB/procfs\fP virtual directory.
+.PP
+The library provides a callback\-driven interface that collects
+information on each process into a struct, with options to control
+what information is collected.
+.nf
+.sp
+struct process {
+	int pid;                /* The thread ID, despite the name. */
+	int ppid;               /* The parent process ID. */
+	int tgid;               /* "Thread group ID", aka the real PID. */
+	int pgid;               /* Process group ID. */
+	int uid, mem, vsz, shm; /* User, mem%, virtual memory size, shared memory size. */
+	int cpu[4];             /* CPU%, and three previous sample values. */
+	unsigned long time;     /* Process time. */
+	char *name;             /* Simplified process name. */
+	char *path;             /* Process binary path. */
+	char * state;           /* State symbol. */
+	time_t starttime;       /* Start time, if requested. */
+	char * cmdline;         /* Command line, if requested and available. */
+	size_t cmdline_len;     /* Length of the command line, in case it contains NUL. */
+	int user_data;          /* Available for library users. */
+	void * user_pdata;      /* Available for library users. */
+};
+.fi
+.sp
+.SH SEE ALSO
+.IR killall (1),
+.IR pidof (1),
+.IR ps (1),
+.IR top (1)
+

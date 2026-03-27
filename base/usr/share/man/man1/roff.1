@@ -1,0 +1,137 @@
+.TH ROFF 1 "March, 2026"
+.SH NAME
+roff \- terrible, hacked\-together RUNOFF implementation
+.SH SYNOPSIS
+\fBroff\fP \fIfile\fP...
+.br
+\fBroff\fP \fB--help\fP
+.SH DESCRIPTION
+\fIroff\fP is a terrible, no-good, very-bad, horrendously incomplete implementation
+of the \fIRUNOFF\fP text formatter.
+.PP
+This \fIroff\fP was made entirely to process \fIman\fP pages like this one, and
+probably won't work with ones that didn't come with ToaruOS.
+.SH OPTIONS
+None.
+.SH BUGS
+Tons.
+.SH SYNTAX
+This \fIroff\fP supports a hacked-together set of macros based on what was used in
+.IR nyancat (1)
+and
+.IR less (1)
+(even though we don't have that ported).
+.SH MACROS
+Lines starting with a \fB.\fP or, alternatively, a \fB'\fP, introduce macros.
+.TP
+.B .\e"
+A comment. The line will be ignored. This implementation doesn't support comments that
+aren't macros like this because I completely forgot until writing this manual page and
+they didn't show up in the
+.IR less (1)
+manual, so I'm not adding them.
+.TP
+.B .TH \fIPAGE\fP \fISECTION\fP \fIDATE\fP
+Set the title of the page, the section it is found in, and the authorship date to show at the bottom.
+Only one of these that actually sets something can appear in a document or \fIroff\fP will die.
+The \fIPAGE\fP and \fISECTION\fP must be a single word and do not support any quoting, but
+the \fIDATE\fP can either be surrounded by quotes or just be the rest of the line. It also doesn't
+have to be a date, you can put whatever there, what do I care. Traditionally, the \fIPAGE\fP is
+capitalized, but if you want it lowercase I respect your decision and will print it that way.
+.sp
+If the \fISECTION\fP is a numeric digit from 0 to 9, the section title will be displayed at the
+top of the output.
+.sp
+ 1: General Commands Manual
+ 2: System Calls Manual
+ 3: Library Function Names
+ 4: Special Files
+ 5: File Formats
+ 6: Games
+ 7: Miscellaneous (I can never special that right without looking it up)
+ 8: System Administration Manual
+ 9: Kernel Programming Manual
+.sp
+Otherwise, whatever word you put will be used varbatim.
+.TP
+.B .SH \fITITLE\fP
+Displays a section title. Traditionally, these are also capitalized, but again, I respect your decision
+if you want to do something else. If the line is wrapped in quotes, the quotes will be removed.
+.TP
+.B .PP
+Regular paragraph break. Sets up standard indentation.
+.TP
+.B .IP
+Indented paragraph. The paragraph is indented more. I'm pretty sure this is the same as \fB.TP\fP?
+.TP
+.B .TP
+Tagged paragraph. The next line will be indented a bit, and then lines after it will be indented more,
+I guess. These are all \fB.TP\fP paragraphs, for reference, so they're good for options and definitions.
+Better implementations will put the first line next to the rest of the lines if it fits, but we don't
+currently do that. Maybe I'll add it later.
+.TP
+.B .br
+Line break. Forces a line feed.
+.TP
+.B .B
+Bold text. The rest of the line will be bold.
+.TP
+.B .I
+Underlined text. Technically, this is supposed to be \fIitalic\fP text, but literally everyone treats
+it as underlined instead. There's no standard ROFF thing for actual italic text, which is a shame.
+.TP
+.B .IR
+Do one word with the ita\-er, I mean, underlined font, then switch back to the regular font.
+This gets used in some man pages to print the names of manpages, like \fB.IR man (1)\fP or whatever.
+.TP
+.B .BR
+Similar to the above, except with bold instead of underlined. I don't know what you'd want to use this for.
+.TP
+.B .sp
+Insert a vertical space.
+.TP
+.B .RS
+Start a section that has extra indentation. This extra indentation continues until a \fB.RE\fP. This is
+supposedly used for block quotes, but it seems to mostly get used for very nested explanations.
+.TP
+.B .RE
+End a "blockquote" section. Restore the normal indentation level.
+.TP
+.B .nh .hy
+These are ignored for compatibility, but they're supposed to toggle hyphenation.
+.TP
+.B .nf .fi
+Between these macros, line feeds are taken literally. There's probably some other stuff
+I'm supposed to be doing that I'm not, but whatever.
+.TP
+.B .TS .TE
+These are supposed to introduce tables but just treat them the same as \fB.nf/.fi\fP.
+.SH FONT SELECTION
+You can use the various macros like \fB.B\fP above to select fonts, but the \fB\\f\fP escape
+is a lot more flexible. You can use it to select fonts like this:
+.TP
+.B \efP
+Reset the font to the previous one. There is only one level to the stack, so choose wisely.
+.TP
+.B \efR
+"Roman" \- the default font.
+.TP
+.B \efB
+Bold.
+.TP
+.B \efI
+Supposed to be "italic", but as we all learned earlier it's actually underlined.
+.TP
+.B \ef(BI
+Bold and italic together.
+.SH OTHER ESCAPES
+This \fIroff\fP doesn't support most escapes, but you have \ee which prints a literal backslash (\e).
+.SH SEE ALSO
+.IR man (1),
+.IR more (1)
+.SH HOMEPAGE
+.PP
+.B ToaruOS:
+https://toaruos.org/
+.SH AUTHOR
+This \fIroff\fP was written by K. Lange <klange@toaruos.org>.

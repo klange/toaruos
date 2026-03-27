@@ -1,0 +1,26 @@
+.TH MAN 1 "March, 2026"
+.SH NAME
+man \- Find and display manual pages.
+.SH SYNOPSIS
+\fBman\fP [\fIsection\fP] \fIpage\fP
+.br
+\fBman\fp \fB--help\fP
+.SH DESCRIPTION
+Looks for man pages in \fB/usr/share/man/man\f(BIsection\fB/\f(BIpage\fB.\f(BIsection\fR, where \fIsection\fP is a section number
+and \fIpage\fP is the page to look for.
+.PP
+If no \fIsection\fP is specified, then sections 1 through 9 will be searched in order and the first result, if any
+will be shown. If no manual page is found by the requested name, an error is printed.
+.PP
+The manual page is displayed by piping \fIroff\fP to \fImore -rP'page(section)'\fP.
+.SH OPTIONS
+None.
+.SH SEE ALSO
+.IR roff (1),
+.IR more (1)
+.SH HOMEPAGE
+.PP
+.B ToaruOS:
+https://toaruos.org/
+.SH AUTHOR
+This \fIroff\fP was written by K. Lange <klange@toaruos.org>.

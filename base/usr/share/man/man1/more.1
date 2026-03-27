@@ -1,0 +1,49 @@
+.TH MORE 1 "March, 2026"
+.SH NAME
+more \- display text by the screenfull.
+.SH SYNOPSIS
+\fBmore [-r] [-F] [-P \fIstr\fB] [\fIfile\fB...]\fR
+.SH DESCRIPTION
+This is an implementation of the common \fBmore\fP utility, which attempts to present its
+input one "screenfull" at a time by tracking where it thinks the cursor should be as it
+writes to the terminal and waiting for user input when necessary.
+.PP
+This \fBmore\fP is not a \fBless\fP \- it does not support scrolling back through input,
+or searching, or much of anything.
+.SH OPTIONS
+.TP
+.B \-r
+Assume that basic escape sequences \- those starting with \fI\\033[\fP and ending with a
+letter \- do not contribute to the cursor position, ignore them for that purpose, and
+emit them raw. This generally allows basic color output to be piped to \fImore\fP, such
+as the output from
+.IR roff (1)
+or \fIbim \-c\fP.
+.TP
+.B \-F
+If there is only one file, and it fits on the screen without prompting for input,
+then quit after printing it.
+.TP
+.B \-P \fIstr\fP
+Instead of showing the name of the file as the prompt, as is the default, show
+the specified \fIstr\fP. This is useful if you want to use \fImore\fP as a manpage
+viewer as you can use \fImore -P'man(1)'\fP to set the prompt.
+.TP
+.B \-\-help
+Shows help text.
+.SH BUGS
+\- The \fB-r\fP flag treats all escape sequences as being invisible, and does not handle
+ones that are not of the \fBCSI\fP form.
+.PP
+\- The input prompt does not handle special sequences, but as a consolation it accepts
+capital \fB'B'\fP as equivalent to \fB'j'\fP or \fBRETURN\fP so you can use the down key.
+.SH SEE ALSO
+.IR roff (1),
+.IR bim (1)
+.SH HOMEPAGE
+.PP
+.B ToaruOS:
+https://toaruos.org/
+.SH AUTHOR
+This \fImore\fP was written by K. Lange <klange@toaruos.org>.
+
