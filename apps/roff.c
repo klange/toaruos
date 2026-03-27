@@ -300,7 +300,7 @@ static size_t process_word(struct RoffContext * ctx, char * c, int delimited) {
 } while (0)
 
 static int do_file(char ** argv, int i) {
-	FILE * f = fopen(argv[i], "r");
+	FILE * f = (!strcmp(argv[i],"-")) ? stdin : fopen(argv[i], "r");
 	if (!f) {
 		fprintf(stdout, "%s: %s: %s\n", argv[0], argv[i], strerror(errno));
 		return 1;
@@ -550,7 +550,7 @@ _cleanup:
 	if (ctx.topic_section) free(ctx.topic_section);
 	if (ctx.topic_date) free(ctx.topic_date);
 
-	fclose(f);
+	if (f != stdin) fclose(f);
 	return ret;
 }
 
