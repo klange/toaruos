@@ -78,6 +78,7 @@ int usage(char * argv[]) {
 			"\n"
 			" -h        " X_S "Show this help message." X_E "\n"
 			" -q        " X_S "Don't print pids, just return 0 if any are found." X_E "\n"
+			" -s        " X_S "Print only up to one result (single-shot)." X_E "\n"
 			" -d " X_S "sep    Separate pids with this sequence, default is ' '." X_E "\n"
 			" -o " X_S "pid    Omit pid from results. Multiple -o options may be used." X_E "\n"
 			"           " X_S "The special option %%PPID can also be given to exclude" X_E "\n"
