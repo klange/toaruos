@@ -21,6 +21,7 @@
 #include <sys/ioctl.h>
 
 #define DEFAULT_INDENTATION 7
+#define MARGIN_SPACE 5
 static struct winsize w;
 
 /**
@@ -357,7 +358,7 @@ static size_t process_word(struct RoffContext * ctx, char * c, int delimited) {
 	}
 
 	/* Word would wrap, continue to next line and print indentant. */
-	if (last_len + ctx->current_x > (size_t)w.ws_col - 8) {
+	if (last_len + ctx->current_x > (size_t)w.ws_col - MARGIN_SPACE) {
 		flush_line(ctx);
 		print_spaces(ctx->indent);
 		ctx->current_x += ctx->indent;
@@ -383,7 +384,7 @@ static size_t process_word(struct RoffContext * ctx, char * c, int delimited) {
 	if (!*c) printf("\033[0m");
 
 	if (ctx->printing_table) {
-		while (*c && *c == ' ' && (size_t)ctx->current_x < (size_t)w.ws_col - 8) {
+		while (*c && *c == ' ' && (size_t)ctx->current_x < (size_t)w.ws_col - MARGIN_SPACE) {
 			printf(" ");
 			ctx->current_x++;
 			c++;
