@@ -89,6 +89,8 @@ static uint16_t font_size      = 16;   /* Font size according to tt library */
 static uint16_t char_width     = 8;    /* Width of a cell in pixels */
 static uint16_t char_height    = 17;   /* Height of a cell in pixels */
 static uint16_t char_offset    = 0;    /* Offset of the font within the cell */
+static uint16_t extra_right    = 0;    /* Extra pixels on the rightmost column */
+static uint16_t extra_bottom   = 0;    /* Extra pixels on the bottom row */
 static int      csr_x          = 0;    /* Cursor X */
 static int      csr_y          = 0;    /* Cursor Y */
 static int      csr_h          = 0;    /* Cursor last column hold flag */
@@ -364,7 +366,7 @@ static term_cell_t * cell_at(uint16_t x, uint16_t _y) {
 static void mark_cell(uint16_t x, uint16_t y) {
 	term_cell_t * c = cell_at(x,y);
 	if (c) {
-		c->flags |= 0x200;
+		c->flags |= ANSI_MARKED;
 	}
 }
 
@@ -375,10 +377,10 @@ static void mark_selection(void) {
 static void red_cell(uint16_t x, uint16_t y) {
 	term_cell_t * c = cell_at(x,y);
 	if (c) {
-		if (c->flags & 0x200) {
-			c->flags &= ~(0x200);
+		if (c->flags & ANSI_MARKED) {
+			c->flags &= ~(ANSI_MARKED);
 		} else {
-			c->flags |= 0x400;
+			c->flags |= ANSI_RED;
 		}
 	}
 }
@@ -389,9 +391,9 @@ static void flip_selection(void) {
 		for (int x = 0; x < term_width; ++x) {
 			term_cell_t * c = cell_at(x,y);
 			if (c) {
-				if (c->flags & 0x200) cell_redraw_offset(x,y);
-				if (c->flags & 0x400) cell_redraw_offset_inverted(x,y);
-				c->flags &= ~(0x600);
+				if (c->flags & ANSI_MARKED) cell_redraw_offset(x,y);
+				if (c->flags & ANSI_RED) cell_redraw_offset_inverted(x,y);
+				c->flags &= ~(ANSI_MARKED | ANSI_RED);
 			}
 		}
 	}
@@ -758,7 +760,7 @@ static void draw_cached_glyph(gfx_context_t * ctx, struct TT_Font * _font, uint3
 }
 
 /* Write a character to the window. */
-static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, uint32_t bg, uint8_t flags) {
+static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, uint32_t bg, uint32_t flags, uint16_t ax, uint16_t ay) {
 	uint32_t _fg, _bg;
 
 	/* Select foreground color from palette. */
@@ -784,6 +786,14 @@ static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, u
 	if (_fullscreen) {
 		_bg |= 0xFF << 24;
 	}
+
+	int wide = !!(flags & ANSI_WIDE);
+	int exr = (ax + 1 + wide == term_width);
+	int exb = (ay + 1 == term_height);
+	uint32_t fill_color = (flags & ANSI_INVERTED) ? _fg : _bg;
+	if (exr && exb) _fill_region(fill_color, x + char_width * (wide + 1), y + char_height, extra_right, extra_bottom);
+	if (exr) _fill_region(fill_color, x + char_width * (wide + 1), y, extra_right, char_height);
+	if (exb) _fill_region(fill_color, x, y + char_height, char_width * (wide + 1), extra_bottom);
 
 	switch (val) {
 		/* Line drawing */
@@ -831,7 +841,7 @@ static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, u
 				term_set_point(x+j,y+i,_bg);
 			}
 		}
-		if (flags & ANSI_WIDE) {
+		if (wide) {
 			for (uint8_t i = 0; i < char_height; ++i) {
 				for (uint8_t j = char_width; j < 2 * char_width; ++j) {
 					term_set_point(x+j,y+i,_bg);
@@ -917,12 +927,12 @@ _extra_stuff:
 	l_x = min(l_x, decor_left_width + x);
 	l_y = min(l_y, decor_top_height+menu_bar_height + y);
 
-	if (flags & ANSI_WIDE) {
-		r_x = max(r_x, decor_left_width + x + char_width * 2);
-		r_y = max(r_y, decor_top_height+menu_bar_height + y + char_height * 2);
+	if (wide) {
+		r_x = max(r_x, decor_left_width + x + char_width * 2 + (exr ? extra_right : 0));
+		r_y = max(r_y, decor_top_height+menu_bar_height + y + char_height * 2 + (exb ? extra_bottom : 0));
 	} else {
-		r_x = max(r_x, decor_left_width + x + char_width);
-		r_y = max(r_y, decor_top_height+menu_bar_height + y + char_height);
+		r_x = max(r_x, decor_left_width + x + char_width + (exr ? extra_right : 0));
+		r_y = max(r_y, decor_top_height+menu_bar_height + y + char_height + (exb ? extra_bottom : 0));
 	}
 }
 
@@ -955,17 +965,17 @@ static void term_mirror_copy_inverted(uint16_t x, uint16_t y, term_cell_t * from
 		cell->c = ' ';
 		cell->fg = TERM_DEFAULT_BG;
 		cell->bg = TERM_DEFAULT_FG;
-		cell->flags = from->flags;
+		cell->flags = from->flags | ANSI_INVERTED;
 	} else if (from->flags & ANSI_EXT_IMG) {
 		cell->c = ' ';
 		cell->fg = from->fg;
 		cell->bg = from->bg;
-		cell->flags = from->flags | ANSI_SPECBG;
+		cell->flags = from->flags | ANSI_SPECBG | ANSI_INVERTED;
 	} else {
 		cell->c = from->c;
 		cell->fg = from->bg;
 		cell->bg = from->fg;
-		cell->flags = from->flags | ANSI_SPECBG;
+		cell->flags = from->flags | ANSI_SPECBG | ANSI_INVERTED;
 	}
 }
 
@@ -1034,9 +1044,9 @@ static void maybe_flip_display(int force) {
 			if (memcmp(cell_m, cell_d, sizeof(term_cell_t))) {
 				*cell_d = *cell_m;
 				if (cell_m->flags & ANSI_EXT_IMG) {
-					redraw_cell_image(x,y,cell_m,cell_m->flags & ANSI_SPECBG);
+					redraw_cell_image(x,y,cell_m,cell_m->flags & ANSI_INVERTED);
 				} else {
-					term_write_char(cell_m->c, x * char_width, y * char_height, cell_m->fg, cell_m->bg, cell_m->flags);
+					term_write_char(cell_m->c, x * char_width, y * char_height, cell_m->fg, cell_m->bg, cell_m->flags, x, y);
 				}
 			}
 		}
@@ -2014,6 +2024,9 @@ static void reinit(void) {
 	/* Resize the terminal buffer */
 	term_width  = window_width  / char_width;
 	term_height = window_height / char_height;
+
+	extra_right = window_width - (term_width * char_width);
+	extra_bottom = window_height - (term_height * char_height);
 
 	if (term_width == old_width && term_height == old_height) {
 		memset(term_display, 0xFF, sizeof(term_cell_t) * term_width * term_height);

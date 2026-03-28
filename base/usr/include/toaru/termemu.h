@@ -100,6 +100,9 @@ typedef struct {
 #define ANSI_WIDE      0x40 /* Character is double width */
 #define ANSI_CROSS     0x80 /* And that's all I'm going to support (for now) */
 #define ANSI_EXT_IMG   0x100 /* Cell is actually an image, use fg color as pointer */
+#define ANSI_MARKED    0x200 /* Marked for selection update */
+#define ANSI_RED       0x400 /* Marked as red after selection */
+#define ANSI_INVERTED  0x800 /* Cell was inverted */
 
 #define ANSI_EXT_IOCTL 'z'  /* These are special escapes only we support */
 
