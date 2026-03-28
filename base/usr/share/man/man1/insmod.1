@@ -1,0 +1,16 @@
+.TH INSMOD 1 "March, 2026"
+.SH NAME
+\fBinsmod\fP \- load kernel modules
+.SH SYNOPSIS
+\fBinsmod\fP \fImodule\fP [\fIarg\fP]...
+.SH DESCRIPTION
+Load the specified \fImodule\fP into the kernel.
+.PP
+Modules are ELF static objects that extend kernel functionality, generally with new device drivers.
+.SH EXIT STATUS
+.TP
+0
+Successfully loaded module.
+.TP
+1
+An error occurred.
