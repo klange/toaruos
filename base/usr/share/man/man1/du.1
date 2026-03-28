@@ -1,0 +1,31 @@
+.TH DU 1 "March, 2026"
+
+.SH NAME
+\fBdu\fP \- Calculate disk usage
+
+.SH SYNOPSIS
+\fBdu\fP [\fB\-h\fP] [\fB\-c\fP] [\fB\-s\fP] \fIpath\fP...
+
+.SH DESCRIPTION
+Calculates the disk usage of its arguments. The calculated size is the sum
+of the \fBst_size\fP of each file, not including the size of directories themselves,
+or extra padding space, or the sizes of any filesystem structures, so the
+result might not match other implementations of this utility.
+.PP
+Any errors trying to traverse directories or \fBstat\fP individual files is ignored.
+
+.TP
+.B \-h
+Print human\-readable sizes, like "2M". Otherwise, the default is to print unlabeled kibibytes.
+
+.TP
+.B \-c
+Print a total at the end.
+
+.TP
+.B \-s
+Summarize. Print only the sizes of the top\-level arguments, and possibly a total of \fB\-c\fP was
+also specified.
+
+.SH SEE ALSO
+.IR stat (1)

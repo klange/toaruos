@@ -1,0 +1,18 @@
+.TH DHCLIENT 1 "March, 2026"
+
+.SH NAME
+\fBdhclient\fP \- Autoconfigure a network interface with DHCP
+
+.SH SYNOPOSIS
+\fBdhclient\fP [\fIinterface\fP]
+
+.SH DESCRIPTION
+DHCP client. Tries to configure interfaces with DHCP, making a few attempts with backoff before failing.
+.PP
+With no arguments, attempts to configure every interface in \fB/dev/net\fP. Otherwise, only the singular
+interface provided as an argument will be configured.
+.PP
+This utility requires permissions to create \fBRAW\fP sockets.
+
+.SH BUGS
+The DHCP implementation is not very good.

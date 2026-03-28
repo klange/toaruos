@@ -1,0 +1,63 @@
+.TH ECHO 1 "March, 2026"
+
+.SH NAME
+\fBecho\fP \- Print arguments.
+
+.SH SYNOPSIS
+\fBecho\fP [\fB\-n\fP] [\fB\-e\fP] [\fIarg\fP]...
+
+.SH DESCRIPTION
+Prints each argument, separated by a space, and followed by a line feed.
+
+.TP
+.B \-n
+Don't print the line feed after printing the arguments.
+
+.TP
+.B \-e
+Process escape sequences in each argument. The escapes generally align with their C string counterparts.
+
+.RS
+.TP
+.B \e\e
+Print a literal backslash.
+.TP
+.B \ea
+Print the BEL character.
+.TP
+.B \eb
+Print a backspace.
+.TP
+.B \ec
+Halt outut immediately. No further arguments are processed, nor is the rest of this one.
+.TP
+.B \ee
+Print the escape character, otherwise known was \fB\e033\fP. This is a ToaruOS extension
+to the usual escape characters.
+.TP
+.B \ef
+Print a form feed.
+.TP
+.B \en
+Print a line feed.
+.TP
+.B \er
+Print a carriage return.
+.TP
+.B \et
+Print a tab character.
+.TP
+.B \ev
+Print a vertical tab character.
+.TP
+.B \e0\fINNN\fP
+Print the character specified by up to three octal digits.
+
+.RE
+
+.SH HISTORY
+Prior to the writing of this manual, the \fB\er\fP escape was not supported.
+
+.SH STANDARDS
+As with most implementations of \fBecho\fP, this one disregards the POSIX requirement that
+the utility not support arguments.

@@ -1,0 +1,100 @@
+.TH BEEP 1 "March, 2026"
+
+.SH NAME
+\fBbeep\fP \- beep the PC speaker
+
+.SH SYNOPSIS
+\fBbeep\fP \fIBEEP\fP
+
+.SH DESCRIPTION
+The \fBbeep\fP utility produces tones with the PC speaker.
+The tones are specified through a series of arguments that set the
+duration, delay, frequency, and reptitions of the tones.
+
+.TP
+.B \-r \fIreps\fP
+Repeat the next tone \fIreps\fP times. The default reptition count is 1.
+
+.TP
+.B \-f \fIfreq\fP
+Play the next tone at \fIfreq\fP Hz. 440 is A4. Fractional values are supported.
+The default frequency is 440.0Hz.
+
+.TP
+.B \-l \fItime\fP
+Play the next tone for \fItime\fP milliseconds. The default tone length is 200ms.
+
+.TP
+.B \-d \fItime\fP
+Wait for \fItime\fP milliseconds between each repetition of the next tone.
+The default delay between repetitions is 100ms.
+
+.TP
+.B \-D \fItime\fP
+Wait for \fItime\fP milliseconds between each repetition of the next tone,
+and after the last repetition as well. The default is to not delay after the
+last repetition.
+
+.TP
+.B \-n
+Play a tone as previously specified and reset the frequency, length, delay,
+and reptitions to their default values.
+.sp
+A final \fB\-n\fP should be omitted, as the utility will play the currently
+specified tone after all arguments have been processed.
+
+.SH DEVICES
+The \fBbeep\fP utility expects the ToaruOS PC speaker device file to be available at \fB/dev/spkr\fP.
+The utility will not function on systems without a PC speaker.
+
+.PP
+Maybe one day this utility will be augmented with a PCM generator.
+
+.SH FREQUENCY TABLE
+This table was provided with the Linux \fBbeep\fP and should be equally useful to users of this \fBbeep\fP:
+
+.TP
+C
+261.6
+.TP
+C#
+277.2
+.TP
+D
+293.7
+.TP
+D#
+311.1
+.TP
+E
+329.6
+.TP
+F
+349.2
+.TP
+F#
+370.0
+.TP
+G
+392.0
+.TP
+G#
+415.3
+.TP
+A
+440.0
+.TP
+A#
+466.2
+.TP
+B
+493.9
+.TP
+C
+523.2
+
+.SH COMPATIBILITY
+This \fBbeep\fP's argument format is generally compatible with the one commonly
+found in Linux, though it lacks the \fB\-s\fP and \fB\-c\fP flags and support for
+long options. Snippets written for that \fBbeep\fP usually work with this one, so
+long as they only use the short flags.

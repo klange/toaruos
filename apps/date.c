@@ -1,14 +1,6 @@
 /**
  * date - Print the current date and time.
  *
- * TODO: The traditional POSIX version of this tool is supposed
- *       to accept a format *and* allow you to set the time.
- *       We currently lack system calls for setting the time,
- *       but when we add those this should probably be updated.
- *
- *       At the very least, improving this to print the "correct"
- *       default format would be good.
- *
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md

@@ -1,0 +1,31 @@
+.TH CP 1 "March, 2026"
+
+.SH NAME
+\fBcp\fP \- copy files
+
+.SH SYNOPSIS
+\fBcp\fP [\fB\-R\fP] [\fB\-P\fP] \fIsource\fP... \fIdestination\fP
+
+.SH DESCRIPTION
+This is a very poorly\-made implementation of \fBcp\fP, but it mostly does the job.
+If the \fIdestination\fP is a directory, multiple \fIsource\fP files can be
+copied into it. Otherwise, one \fIsource\fP can be copied to the non-directory
+\fIdestination\fP.
+
+.TP
+.B \-R \fRor\fP \-r
+Recursively copy directories, and follow symlinks. Yes, the capital \fB\-R\fP option is supposed
+to disable that. As I said, this is a very poorly\-made implementation.
+
+.TP
+.B \-P
+Don't follow symlinks. This is also the default.
+
+.PP
+No other options are supported.
+
+.SH BUGS
+Too numerous to count.
+
+.SH EXIT STATUS
+\fBcp\fP may return 1 on error, depending on the weather.

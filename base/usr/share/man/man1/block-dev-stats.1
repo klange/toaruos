@@ -1,0 +1,22 @@
+.TH BLOCK-DEV-STATS 1 "March, 2026"
+
+.SH NAME
+\fBblock\-dev\-stats\fP \- display information about a block device
+
+.SH SYNOPSIS
+\fBblock\-dev\-stats\fP \fI/dev/something\fP
+
+.SH DESCRIPTION
+Displays stats about a block device, if it responds to the relevant IOCTL command.
+.PP
+As of writing, only block devices created by the \fBata\fP module support this interface.
+.PP
+The specific information listed by the utility is limited to cache counts.
+.PP
+The utility takes no additional options and does not understand or parse any flags.
+
+.SH NOTE
+This is considered a legacy utility and may be removed in a future ToaruOS release.
+
+.SH SEE ALSO
+.IR ioctl (2)

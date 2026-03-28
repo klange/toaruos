@@ -1,0 +1,52 @@
+.TH CHMOD 1 "March, 2026"
+
+.SH NAME
+\fBchmod\fP \- Change the mode of a file.
+
+.SH SYNOPSIS
+\fBchmod\fP \fImode\-string\fP \fIfile\fP...
+
+.SH DESCRIPTION
+Attempts to change the mode of each \fIfile\fP argument as specified in \fImode-string\fP.
+.PP
+The parsing of \fImode\-string\fP is rather naive and should be thought of as a language operating
+on registers: \fImode\fP starts as 0, \fImode_set\fP starts as \fBMODE_SET\fP, \fIuser_modes\fP
+starts as 0, and \fIall_users\fP starts as 7. Each octal digital (0 through 7) multiples \fImode\fP
+by 8 and then adds the value of the octal digital to it. The characters \fBu\fP, \fBg\fP, and \fBo\fP
+all set \fIall_users\fP to 0 and respectively OR \fIuser_modes\fP with 1, 2, or 4. The character
+\fBa\fP sets \fIall_users\fP to 7 and sets \fIuser_modes\fP to 7. The character \fB+\fP (plus) sets
+\fImode_set\fP to \fBMODE_ADD\fP. The character \fB\-\fP (minus) sets \fImode_set\fP to
+\fBMODE_REMOVE\fP, the character \fB=\fP (equals) sets \fImode_set\fP to \fBMODE_SET\fP,
+and the characters \fBr\fP, \fBw\fP, and \fBx\fP or \fImode\fP with an a value calculated from
+the values of \fIuser_modes\fP, \fIall_users\fP, and the given character's representative bits.
+.PP
+This is all just a long way to say that you can do:
+.sp
+\fBchmod 0777 /some/file\fP
+.sp
+or
+.sp
+\fBchmod u+rw /some/file\fP
+.sp
+like any normal \fBchmod\fP implementation.
+
+.SH EXIT STATUS
+.TP
+0
+All of the files were successfully modified by
+.IR chmod (2)
+.TP
+1
+An error occurred.
+
+.SH STANDARDS
+POSIX specifies a \fB\-R\fP flag that is not supported in this implementation as of writing.
+
+.SH BUGS
+The format of the mode string probably does not fully align with the one specified by POSIX.
+.PP
+There is no symbolic way to modify \fBsetuid\fP bits, but the octal forms should work.
+
+.SH SEE ALSO
+.IR chmod (2)
+

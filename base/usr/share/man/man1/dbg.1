@@ -1,0 +1,85 @@
+.TH DBG 1 "March, 2026"
+
+.SH NAME
+\fBdbg\fP \- Rudimentary interactive debugger.
+
+.SH SYNOPSIS
+\fBdbg\fP \fIcommand\fP [\fIarg\fP]...
+.br
+\fBdbg\fP \fB\-p\fP \fIpid\fP \fIbinary\fP
+
+.SH DESCRIPTION
+Run an application under
+.IR ptrace (2)
+and allow its state to be inspected when a signal arrives.
+.PP
+When the \fB\-p\fP option is used, \fBdbg\fP will attempt to attach to the process identified by \fIpid\fP.
+A path to the \fIbinary\fP must still be provided, which \fBdbg\fP will use to identify symbols.
+
+.SH COMMANDS
+When the debugger traps, a command prompt is displayed. The following commands are supported.
+
+.TP
+.B show regs
+Display the CPU registers of the traced process.
+
+.TP
+.B show libs
+Display loaded dynamic libraries by inspecting the runtime state of the \fBld.so\fP in the traced process.
+
+.TP
+.B backtrace
+Print a stack trace.
+
+.TP
+.B continue
+Resume the program until another signal is raised.
+
+.TP
+.B signal \fIsignum\fP
+Send the signal specified by \fIsignum\fP to the traced program. Any format supported by
+.IR str2sig (3)
+can be supplied to this command, as well as lowercase versions of signal names.
+
+.TP
+.B step
+Set the architecture\-specific single\-step debug flag in the traced process and then resume it.
+This should allow one instruction to execute and then return to the debugger prompt.
+
+.TP
+.B poke \fIaddr\fP \fIbyte\fP
+Load \fIbyte\fP into the address specified by \fIaddr\fP in the traced program.
+
+.TP
+.B print \fIfmt\fP \fIaddr\fP
+Read a value from the traced process at \fIaddr\fP and interpret it using one of the following format options:
+
+.RS
+.TP
+\fIn\fBx\fR
+Read \fIn\fP bytes and display them as two hexadecimal digits.
+
+.TP
+\fIn\fBi\fR
+Read \fIn\fP \fIint\fPs and display them as decimal.
+
+.TP
+\fIn\fBl\fR
+Read \fIn\fP \fIlong\fPs and display them as decimal.
+
+.TP
+\fIn\fBp\fR
+Read \fIn\fP \fIvoid*\fPs and display them using the usual pointer formatting.
+
+.TP
+\fIn\fBs\fR
+Interpret \fIaddr\fP as the address of a string and print up to \fIn\fP characters from it.
+If \fIn\fP is not specified or is set to 1, the max is 30.
+
+.RE
+.PP
+Additionally, \(haD will exit the debugger, killing the tracee if it was started by the debugger.
+
+.SH SEE ALSO
+.IR strace (1),
+.IR ptrace (2)

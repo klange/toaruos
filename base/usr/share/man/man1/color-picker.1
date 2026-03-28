@@ -1,0 +1,25 @@
+.TH COLOR-PICKER 1 "March, 2026"
+
+.SH NAME
+\fBcolor\-picker\fP \- Display a color wheel for picking colors.
+
+.SH DESCRIPTION
+This utility displays a graphical color picker.
+
+.SH NOTES
+Because this utility only displays the selected color as a label
+in its window, it is not very useful unless you want to manually
+copy a hex color value.
+.PP
+A future version of this utility may print the color to standard output,
+which would allow it to be called by other tools...
+
+.SH HISTORY
+This color picker is based on one that was original written in Python for
+an old drawing app for an earlier version of ToaruOS. That implementation
+used the Cairo graphics library. This one was rewritten to use our own
+graphics libraries. It and its predecessor are both based on one of the
+color pickers available in Inkscape.
+
+.SH SEE ALSO
+.IR compositor (1)

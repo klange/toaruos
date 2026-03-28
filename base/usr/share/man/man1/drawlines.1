@@ -1,0 +1,19 @@
+.TH DRAWLINES 1 "March, 2026"
+
+.SH NAME
+\fBdrawlines\fP \- randomly draw colorful lines
+
+.SH SYNOPSIS
+\fBdrawlines\fP [\fB\-t \fIthickness\fP]
+
+.SH DESCRIPTION
+Creates a Yutani window and repeatedly draws random colorful lines in it.
+By default, the lines are drawn with the basic aliased line drawing routine,
+but if the \fB\-t\fP option is used, an anti\-aliased line drawing function
+will be used instead, with the specified \fIthickness\fP.
+.PP
+The utility will draw a line every time it processes an event from the compositor,
+or every time its poll times out. The poll time is set to 20, which is not very long.
+
+.SH HISTORY
+This test utility has been part of ToaruOS for a very long time.

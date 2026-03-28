@@ -1,0 +1,21 @@
+.TH CLEAR 1 "March, 2026"
+
+.SH NAME
+\fBclear\fP \- Clear the terminal.
+
+.SH SYNOPSIS
+\fBclear\fP
+
+.SH DESCRIPTIONS
+Emits an escape sequences to clear a terminal screen.
+
+.SH OPTIONS
+None.
+
+.SH BUGS
+This implementation prints a fixed sequence: \fBCSI\fB H \fBCSI\fP 2J
+.PP
+This does not work on all terminals.
+
+.SH SEE ALSO
+.IR reset (1)

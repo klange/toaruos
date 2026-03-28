@@ -1,0 +1,34 @@
+.TH CAT 1 "March, 2026"
+.SH NAME
+\fBcat\fP \- concatenate files
+
+.SH SYNOPSIS
+\fBcat\fP
+.br
+\fBcat\fP \fIfile\fP...
+
+.SH DESCRIPTION
+This \fBcat\fP does not support any options, but does interpret a \fIfile\fP argument of \(aq\-\(aq as
+the standard input.
+
+.SH STANDARDS
+POSIX specifies a \fB\-u\fP option that we don't support.
+
+.SH EXIT STATUS
+.TP
+0
+All files were output successfully.
+.TP
+1
+An error occurred.
+
+.SH SEE ALSO
+If you want to just look at file contents, either of
+.IR bim (1)
+or
+.IR more (1)
+should suffice.
+
+.SH HISTORY
+Very early versions of ToaruOS shipped with a \fBcat\fP binary that displayed an ASCII
+image of a feline, instead of concatenating files. Meow.

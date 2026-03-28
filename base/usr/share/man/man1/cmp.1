@@ -1,0 +1,36 @@
+.TH CMP 1 "March, 2026"
+
+.SH NAME
+\fBcmp\fP \- compare files
+
+.SH SYNOPSIS
+\fBcmp\fP [\fB\-l\fP | \fB\-s\fP] \fIfile1\fP \fIfile2\fP
+
+.SH DESCRIPTION
+Reads both files simultaneously and compares them. If the two files differ, the byte and line
+number of the difference will be written to standard output.
+
+.TP
+.B \-l
+Writes the byte number (in decimal) and the differing bytes (in octal) for each difference
+found between the two files.
+
+.TP
+.B \-s
+Writes nothing to standard output or standard error and just returns an exit status
+indicating whether the files differed.
+
+.SH EXIT STATUS
+.TP
+0
+The files are the same.
+.TP
+1
+The files are different.
+.TP
+2
+An error occurred.
+
+.SH STANDARDS
+This \fBcmp\fP should satisfy the requirements in POSIX, but does not support options some
+other implementations have.

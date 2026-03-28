@@ -1,0 +1,33 @@
+.TH CAT-IMG 1 "March, 2026"
+
+.SH NAME
+\fBcat\-img\fP \- Display images in the terminal.
+
+.SH SYNOPOSIS
+\fBcat\-img\fP [\fB\-n\fP] [\fB\-s\fP] [\fB\-w\fP] [\fIpath\fP]...
+
+.SH DESCRIPTION
+Uses ToaruOS\-specific escape sequences to display images in the ToaruOS
+.IR terminal (1).
+.PP
+Generally, any image supported by
+.IR libtoaru_graphics (3)
+will work with this utility, but large images may result in undesirable behavior.
+Smaller images work best.
+
+.TP
+.B \-n
+Don't print a new line after each image.
+
+.TP
+.B \-s
+Scale the image, up or down, to the height of one terminal cell.
+
+.TP
+.B \-w
+Scale the image, up or down, to the full width of the terminal.
+
+.SH SEE ALSO
+.IR libtoaru_graphics (3),
+.IR terminal (1),
+.IR imgviewer (1)

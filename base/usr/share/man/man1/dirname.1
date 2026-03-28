@@ -1,0 +1,17 @@
+.TH DIRNAME 1 "March, 2026"
+
+.SH NAME
+\fBdirname\fP \- print the directory name from a path string
+
+.SH SYNOPSIS
+\fBdirname\fP [\fB\-z\fP] \fIstring\fP...
+
+.SH DESCRIPTION
+Uses
+.IR dirname (3)
+to print the directory name of each argument, separated by a line feed unless
+the \fB\-z\fP option is provided, in which case each output will be separated
+by the NUL character instead.
+
+.SH SEE ALSO
+.IR dirname (3)

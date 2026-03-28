@@ -1,0 +1,30 @@
+.TH CHOWN 1 "March, 2026"
+
+.SH NAME
+\fBchown\fP \- Change ownership of files.
+
+.SH SYNOPSIS
+\fBchown\fP \fIowner\fP\fB:\fP[\fIgroup\fP] \fIfile\fP...
+
+.SH DESCRIPTION
+Changes the ownership of each \fIfile\fP. The \fIowner\fP and \fIgroup\fP may be specified
+as either numeric IDs or usernames looked up through
+.IR getpwnam (3).
+
+.SH EXIT STATUS
+.TP
+0
+Ownership was successfully changed on all files.
+.TP
+1
+An error occurred.
+
+.SH STANDARDS
+The \fB\-h\fP option doesn't do what POSIX says and instead prints help information.
+.PP
+None of the \fB\-R\fP, \fB\-H\fP, \fB\-L\fP, or \fB\-P\fP options are supported.
+
+.SH SEE ALSO
+.IR chown (2)
+
+

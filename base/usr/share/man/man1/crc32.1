@@ -1,0 +1,21 @@
+.TH CRC32 1 "March, 2026"
+
+.SH NAME
+\fBcrc32\fP \- Calculate the checksum of a file.
+
+.SH SYNOPSIS
+\fBcrc32\fP \fIfile\fP
+
+.SH DESCRIPTION
+Calculates the CRC32 (Cyclic Redundancy Check) checksum of a file. There are many different
+incompatible definitions of CRC32. This implementation uses the one where the second entry
+in a precalculated \fBcrctab\fP is 0x77073096.
+
+.SH EXIT STATUS
+.TP
+0
+On success
+.TP
+1
+If the wrong number of arguments were provided, or if the file code not be opened, or if
+an error occurred while trying to read the file.

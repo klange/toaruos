@@ -1,0 +1,36 @@
+.TH DATE 1 "March, 2026"
+
+.SH NAME
+\fBdate\fP \- Print or set the current date and time.
+
+.SH SYNOPSIS
+\fBdate\fP
+.br
+\fBdate\fP +\fIFORMAT\fP
+.br
+\fBdate\fP \fIMMDDhhmm\fP
+.br
+\fBdate\fP \fIMMDDhhmm.ss\fP
+.br
+\fBdate\fP \fIMMDDhhmmCCYY\fP
+.br
+\fBdate\fP \fIMMDDhhmmCCYY.ss\fP
+
+.SH DESCRIPTION
+Print or set the current date and time. When a +\fIFORMAT\fP is provided, or when no arguments
+are given, the date and time are printed. Otherwise, \fBdate\fP will attempt to interpret
+the argument using one of the four formats listed above, and set the current date and time
+to the given value.
+.PP
+Only \fBroot\fP can set the time.
+.PP
+For displaying the time, +\fIFORMAT\fP is passed directly to
+.IR strftime (3)
+for processing along with the current time, so you should reference the manual
+page for that function for further details.
+
+.SH BUGS
+No options are supported, and the understood formats for setting the time are limited.
+
+.SH SEE ALSO
+.IR strftime (3)

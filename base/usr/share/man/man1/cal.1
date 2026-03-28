@@ -1,0 +1,26 @@
+.TH CAL 1 "March, 2026"
+
+.SH NAME
+\fBcal\fP \- Show a calendar of the current Gregorian month.
+
+.SH SYNOPSIS
+\fBcal\fP
+
+.SH DESCRIPTION
+Displays a textual calendar of the current month of the Gregorian calendar.
+The current day is highlighted through an escape sequence to invert it.
+.PP
+This implementation does not support any arguments.
+
+.SH BUGS
+Other implementations support displaying the Julian calendar, displaying three months
+at once, displaying a specific month, displaying the date of certain religious holidays,
+display entire years, and so on, but this one does not.
+
+.SH STANDARDS
+\fBcal\fP is specified in the XSI extensions to POSIX and is supposed to support historical
+dates that use the Julian calendar, as well as displaying a specific month and year, which
+we do not support.
+
+.SH SEE ALSO
+.IR date (1)

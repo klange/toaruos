@@ -1,0 +1,28 @@
+.TH BASENAME 1 "March, 2026"
+.SH NAME
+\fBbasename\fP \- return the filename portion of a path
+.SH SYNOPSIS
+\fBbasename\fP [\fB\-z\fP] \fIstring\fP [\fIsuffix\fP]
+.br
+\fBbasename\fP [\fB\-z\fP] \fIstring\fP \fIstring\fP \fIstring\fP...
+.br
+\fBbasename\fP [\fB\-z\fP] [\fB\-a\fP] [\fB\-s\fP \fIsuffix\fP] \fIstring\fP...
+.SH DESCRIPTION
+The \fBbasename\fP utility calls
+.IR basename (3)
+on each \fIstring\fP argument, strips \fIsuffix\fP (if specified and found) from each result,
+and then prints the results, separated by line feeds.
+The \fB\-a\fP option ensures that all arguments are interpreted as \fIstring\fP rather than \fIsuffix\fP,
+in which case the \fB\-s\fP option can be used to set \fIsuffix\fP.
+If the \fB\-z\fP option is used, the results are separated by NUL instead of a line feed.
+.SH EXIT STATUS
+This implementation only returns 1 if unexpected options or insufficient arguments were provided.
+Otherwise, it should always return 0.
+.SH SEE ALSO
+.IR basename (3)
+.IR dirname (1)
+.SH STANDARDS
+The POSIX specification only requires one \fIstring\fP argument followed by an optional \fIsuffix\fP,
+and that form will work with this implementation.
+.SH HISTORY
+Other manuals suggest this utility first appeared in 4.4BSD, so we'll repeat that here.

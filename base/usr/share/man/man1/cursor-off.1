@@ -1,0 +1,21 @@
+.TH CURSOR-OFF 1 "March, 2026"
+
+.SH NAME
+\fBcursor\-off\fP \- Turn off the VGA text mode cursor.
+
+.SH DESCRIPTION
+Attempts to use \fB/dev/port\fP to issue IO commands to disable the VGA text mode cursor
+by putting it at a location that should not be visible.
+.PP
+This requires write access to \fB/dev/port\fP.
+.PP
+This utility is not generally useful as
+.IR terminal-vga (1)
+will turn already call it on startup, so there should be no need
+to manually call it.
+
+.SH HISTORY
+This utility used to be implemented with a special system call.
+
+.SH SEE ALSO
+.IR terminal-vga (1)
