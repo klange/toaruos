@@ -1,0 +1,90 @@
+.TH BIM 1 "March, 2026"
+
+.SH NAME
+bim \- The Standard ToaruOS Text Editor
+
+.SH SYNOPSIS
+\fBbim\fP [\fIOPTIONS\fP] [\fIFILE\fP]
+.br
+\fBbim\fP [\fIOPTIONS\fP] \-\- \-
+
+.SH DESCRIPTION
+\fBBim\fP is a modal code editor inspired by a similar\-sounding one.
+\fBBim\fP has syntax highlighting, autocomplete, tabs, splits, and is scriptable with
+.IR kuroko (1).
+
+.SH COMMAND LINE OPTIONS
+
+.TP
+.B \-R
+Open the initial buffer read\-only.
+
+.TP
+.B \-O \fIoptions\fP
+Set various options. The following list is incomplete.
+
+.RS
+.TP
+.B noaltscreen
+Disables use of the alternative screen buffer.
+
+.TP
+.B nounicode
+Disables Unicode output in most contexts.
+
+.TP
+.B nosyntax
+Disable the automatic configuration of syntax highlighting when loading files.
+
+.TP
+.B nohistory
+Disable the undo/redo stack.
+
+.TP
+.B nomouse
+Disable support for mouse input.
+
+.TP
+.B cansgrmouse
+Enable support for SGR mouse modes.
+
+.RE
+
+.TP
+.B \-c, \-C
+Print a file, with syntax highlighting, to \fBstdout\fP. With \fB\-C\fP, line numbers are printed. With \fB\-c\fP, they are not.
+
+.TP
+.B \-u \fIbimrcpath\fP
+Override the default configuration file (normally \fB\(ti/.bim3rc\fP) with \fIbimrcpath\fP.
+
+.TP
+.B \-\-help
+Show help text.
+
+.TP
+.B \-\-version
+Print version information for the editor, as well as a list of available syntax and theme plugins.
+
+.TP
+.B \-\-dump\-mappings
+Print a Markdown listing of key bindings.
+
+.TP
+.B \-\-dump\-commands
+Print a Markdown listing of available commands and their descriptions.
+
+.TP
+.B \-\-dump-config
+This is a legacy option that prints an old\-format \fBbimrc\fP describing key bindings.
+
+.TP
+.B \-\-html \fIfile\fP
+Read and highlight \fIfile\fP and print the result as an HTML document.
+
+.SH SEE ALSO
+.IR kuroko (1)
+
+.SH AUTHOR
+\fBBim\fP was written by K. Lange <klange@toaruos.org>
+
