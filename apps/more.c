@@ -311,16 +311,19 @@ _reprint_prompt:
 					return 0;
 				case 'A':
 				case 'k':
+					if (no_scrollback) goto _no_scrollback;
 					if (do_history_mode(1, title)) return 1;
 					clear_line();
 					if (forced) goto _reprint_prompt;
 					return 0;
 				case 'H':
+					if (no_scrollback) goto _no_scrollback;
 					if (do_history_mode(2, title)) return 1;
 					clear_line();
 					if (forced) goto _reprint_prompt;
 					return 0;
 				case '5':
+					if (no_scrollback) goto _no_scrollback;
 					if (do_history_mode(3, title)) return 1;
 					clear_line();
 					if (forced) goto _reprint_prompt;
@@ -330,6 +333,12 @@ _reprint_prompt:
 					fflush(stdout);
 					break;
 			}
+
+			continue;
+_no_scrollback:
+			clear_line();
+			printf("\r\033[K\033[7mScrollback is disabled.\033[0m");
+			fflush(stdout);
 		} while (1);
 	}
 
