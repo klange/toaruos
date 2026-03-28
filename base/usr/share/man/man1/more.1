@@ -39,7 +39,7 @@ viewer as you can use \fImore -P'man(1)'\fP to set the prompt.
 .B \-\-stay
 Instead of quitting when the user asks to advance while at the end of a file,
 \fImore\fP will keep running, like \fIless\fP typically does. This is useful if
-you are using \fimore\fP to interactively page through a file or a manual page.
+you are using \fImore\fP to interactively page through a file or a manual page.
 
 .TP
 .B \-\-alt
@@ -47,7 +47,9 @@ Switch to the alternate screen buffer and clear the screen on startup.
 
 .TP
 .B \-\-scroll
-Disable scrollback.
+Disable scrollback. Normally, \fImore\fP keeps an unlimited scrollback buffer,
+so you should set this option if you are piping a large (or unknown) source
+into it, or trying to view a very large file.
 
 .TP
 .B \-\-help
