@@ -1,0 +1,47 @@
+.TH QEMU-FWCFG 1 "March, 2026"
+
+.SH NAME
+\fBqemu\-fwcfg\fP \- tool for getting data from QEMU's fw_cfg interface.
+
+.SH SYNOPSIS
+\fBqemu\-fwcfg\fP \fB\-l\fP
+.br
+\fBqemu\-fwcfg\fP [\fB\-n\fP] [\fB\-q\fP] \fIname\fP
+
+.SH DESCRIPTION
+Query data from QEMU's \fBfw_cfg\fP interface.
+.PP
+With the \fB\-l\fP option, the complete list of "files" advertised by the interface is
+printed to the standard output in the following format:
+.sp
+    \fIselector\fP \fIpath/to.entry.file\fP (\fIsize\fP bytes)
+.sp
+For example:
+.sp
+    0x0029 opt/org.toaruos.gettyargs (41 bytes)
+    0x002a opt/org.toaruos.initrd (415703 bytes)
+    0x002b opt/org.toaruos.kernel (89008 bytes)
+.sp
+Otherwise, an argument is expected with the \fIname\fP of a file to read and print
+to standard output.
+.TP
+.B \-l
+List the available files.
+
+.TP
+.B \-n
+Omit the line feed normally printed after printing a file.
+
+.TP
+.B \-q
+Query quietly. If the requested file exists, return 0, else return 1.
+If this option is provided alongside the \fB\-l\fP flag, the utility
+may exit with a status of 1.
+
+.SH DEVICE FILES
+The utility will first try to access \fB/dev/port\fP to use the x86 port I/O interface
+to read from \fBfw_cfg\fP. If that fails, it will alternatively look for a dedicated
+\fB/dev/fwcfg\fP device file, which is provided on aarch64 targets. Either of these
+device files generally requires \fBroot\fP to access. If neither of the possible
+interfaces worked, an error message will be printed and the tool will exit with a
+non-zero status.

@@ -70,6 +70,7 @@ static int usage(char * argv[]) {
 			"\n"
 			" -l     " X_S "list available config entries" X_E "\n"
 			" -n     " X_S "don't print a new line after data" X_E "\n"
+			" -q     " X_S "query quietly, returning only an exit status" X_E "\n"
 			" -?     " X_S "show this help text" X_E "\n"
 			"\n", argv[0]);
 	return 1;
