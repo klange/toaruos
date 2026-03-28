@@ -13,6 +13,7 @@
 #include <wchar.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <termios.h>
 #include <sys/ioctl.h>
 
 #include <toaru/decodeutf8.h>
