@@ -44,11 +44,11 @@ A final \fB\-n\fP should be omitted, as the utility will play the currently
 specified tone after all arguments have been processed.
 
 .SH DEVICES
-The \fBbeep\fP utility expects the ToaruOS PC speaker device file to be available at \fB/dev/spkr\fP.
-The utility will not function on systems without a PC speaker.
+The \fBbeep\fP utility expects the ToaruOS PC speaker device file to be available at \fB/dev/spkr\fP,
+or for the DSP service to be available at \fB/dev/dsp\fP.
 
 .PP
-Maybe one day this utility will be augmented with a PCM generator.
+When using the DSP backend, \fBbeep\fP will produce its own PCM samples.
 
 .SH FREQUENCY TABLE
 This table was provided with the Linux \fBbeep\fP and should be equally useful to users of this \fBbeep\fP:
