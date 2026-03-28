@@ -1,0 +1,184 @@
+.TH STRACE 1 "March, 2026"
+
+.SH NAME
+\fBstrace\fP \- Trace system calls used by a process.
+
+.SH SYNOPSIS
+\fBstrace\fP [\fB\-o\fP \fIlogfile\fP] [\fB\-e\fP trace=\fIoptions\fP] \fB\-p\fP \fIpid\fP
+.br
+\fBstrace\fP [\fB\-o\fP \fIlogfile\fP] [\fB\-e\fP trace=\fIoptions\fP] \fIcmd\fP [\fIargs\fP]...
+
+.SH DESCRIPTION
+Run a program, or attach to an existing process, and trace the system calls it uses with
+.IR ptrace (2).
+.PP
+Each system call will result in a log line, which is printed to standard output by default.
+The output of this logfile can instead be written to a file with the \fB\-o\fP option.
+.PP
+The set of system calls to print a log line for can be controlled with the \fB\-e\fP option,
+which has a cumbersome interface for compatibility with other implementations of this utility.
+
+.TP
+.B \-p \fIpid\fP
+Attach to an existing process rather than starting a new one.
+
+.TP
+.B \-o \fIlogfile\fP
+Write log output to \fIlogfile\fP instead of the standard output. The \fIlogfile\fP will be truncated
+if it already exists.
+
+.TP
+.B \-e trace=\fIoptions\fP
+Control the set of system calls that will result in a log message. The \fIoptions\fP should be a list
+of system call names, separated by commas. A variety of "groups" of system calls are also supported,
+each prefixed a % symbol:
+
+.RS
+.TP
+.B %net
+Network-related system calls:
+.IR socket ,
+.IR setsockopt ,
+.IR bind ,
+.IR accept ,
+.IR listen ,
+.IR connect ,
+.IR getsockopt ,
+.IR recv ,
+.IR send ,
+.IR shutdown ,
+.IR getpeername ,
+.IR getsockname .
+
+.TP
+.B %file
+System calls which take a file name:
+.IR open ,
+.IR statf ,
+.IR lstat ,
+.IR access ,
+.IR execve ,
+.IR getcwd ,
+.IR chdir ,
+.IR mkdir ,
+.IR symlink ,
+.IR unlink ,
+.IR chmod ,
+.IR chown ,
+.IR mount ,
+.IR readlink ,
+.IR rename ,
+.IR truncate .
+
+.TP
+.B %desc
+System calls dealing with file descriptors:
+.IR open ,
+.IR read ,
+.IR write ,
+.IR close ,
+.IR stat ,
+.IR fswait ,
+.IR fswait2 ,
+.IR fswait3 ,
+.IR seek ,
+.IR ioctl ,
+.IR pipe ,
+.IR dup2 ,
+.IR readdir ,
+.IR openpty ,
+.IR pread ,
+.IR pwrite ,
+.IR fcntl ,
+.IR fchmod ,
+.IR fchown ,
+.IR ftruncate .
+
+.TP
+.B %memory
+Memory\-related system calls:
+.IR sbrk ,
+.IR shm_obtain ,
+.IR shm_release .
+
+.TP
+.B %ipc
+IPC-related system calls:
+.IR shm_obtain ,
+.IR shm_release .
+
+.TP
+.B %signal
+Signal-related system calls:
+.IR signal ,
+.IR kill ,
+.IR sigaction ,
+.IR sigpending ,
+.IR sigprocmask ,
+.IR sigsuspend ,
+.IR sigwait .
+
+.TP
+.B %process
+Process-related system calls.
+.IR exit ,
+.IR execve ,
+.IR fork ,
+.IR clone ,
+.IR waitpid ,
+.IR kill .
+
+.TP
+.B %creds
+Credential-related system calls:
+.IR getuid ,
+.IR getgid ,
+.IR getgroups ,
+.IR getegid ,
+.IR geteuid ,
+.IR setuid ,
+.IR setgid ,
+.IR setgroups .
+
+.TP
+.B %stat
+The \fBstat\fP family of system calls:
+.IR stat ,
+.IR statf ,
+.IR lstat .
+
+.TP
+.B %clock
+System calls related to getting or setting wall clocks:
+.IR gettimeofday ,
+.IR settimeofday .
+
+.RE
+.PP
+Each system call reported in a log line includes extracted information about the arguments.
+Arguments that can be read before the system call is completed will be printed upon entry,
+up until the first argument that requires \fBstrace\fP to wait, then the remaining arguments
+will be printed once the system call has finished, along with its result. For system calls
+whose result may be interpreted as an error number, such an error number is also displayed
+by name. This generally means that \fBstrace\fP will print a comma and then pause while the
+traced process blocks, for example on a \fIread\fP, and then may print more data before
+finally printing a closing parenthesis and a return value.
+.PP
+The format for log lines attempts to replicate the format of C code representative of the
+original call.
+
+.SH NOTES
+This \fBstrace\fP is inspired by the more common one for Linux, however, as the ABI for
+system calls is completely different between the two OSes, this \fBstrace\fP is very much
+specific to ToaruOS/Misaka.
+.PP
+Many more system call arguments could be intepreted for display than are currently handled.
+Several things just print integer values while they could be improved by printing enum names.
+
+.SH SEE ALSO
+.IR ptrace (2),
+.IR dbg (1)
+
+.SH AUTHOR
+This \fBstrace\fP was written by K. Lange <klange@toaruos.org>
+
