@@ -1,0 +1,141 @@
+.TH KUROKO 1 "March, 2026"
+
+.SH NAME
+Kuroko \- A Dynamic, Interpreted Language
+
+.SH SYNOPSIS
+\fBkuroko\fP [ \fB\-d\fP ] [ \fB\-g\fP ] [ \fB\-G\fP ] [ \fB\-i\fP ] [ \fB\-m\fP \fIMODULE\fP ]
+       [ \fB\-r\fP ] [ \fB\-R\fP \fIDEPTH\fP ] [ \fB\-t\fP ] [ \fB\-C\fP \fIFILE\fP ]
+       [ \fB\-M\fP ] [ \fB\-S\fP ] [ \fB\-\-help\fP ] [ \fB\-\-version\fP ]
+       [ \fISCRIPT\fP ] [ \fIARGS\fP... ]
+
+.SH DESCRIPTION
+\fBKuroko\fP is a dynamic, byte\-code compiled, interpreted programming language.
+It is based on, and heavily compatible with, another popular dynamic, byte\-code
+compiled, interpreted programming language named after a comedy troupe and reptile.
+
+.PP
+When started with no arguments, \fIkuroko\fP enters a REPL.
+
+.SH COMMAND LINE OPTIONS
+The following flags control the behavior of the interpreter:
+
+.TP
+.B \-c \fICMD\fP
+Interpret \fICMD\fP as program code.
+
+.TP
+.B \-d
+Print debug output from the compiler. Bytecode disassembly for each function is printed after
+it is successfully compiled.
+
+.TP
+.B \-g
+Run the garbage collector after every allocation. This option is provided mostly for debugging
+of the interpreter itself.
+
+.TP
+.B \-G
+Print a report each time the garbage collector is run. This can be useful for debugging
+unexpected memory usage in programs.
+
+.TP
+.B \-i
+After a script is run from an \fB\-c\fP, \fB\-m\fP, or \fIFILE\fP option, run the REP.
+
+.TP
+.B \-m \fIMODULE\fP
+Run a module as a program. Generally, this means looking for a \fB__main__.krk\fP in a package,
+or otherwise importing \fIMODULE\fP with \fB__name__ = '__main__'\fP.
+
+.TP
+.B \-r
+Disable complex line editing with the \fIrline\fP(3) library. The REPL will instead
+use a basic \fBfgets\fP loop to read input lines.
+
+.TP
+.B \-R \fIDEPTH\fP
+Set the maximum recursion depth to \fIDEPTH\fP.
+
+.TP
+.B \-t
+Trace the VM. A disassembly is printed for each executed instruction. This tends
+to be very slow.
+
+.TP
+.B \-C \fIFILE\fP
+Compile \fIFILE\fP but do not execute it. This can be used to check if a file is
+syntactically valid, or combined with \fB\-d\fP to just see bytecode.
+
+.TP
+.B \-M
+Print the default module import paths (\fBkuroko.module_paths\fP) and then exit.
+
+.TP
+.B \-S
+Enable single\-step debugging. When the single\-step debugging is enabled, each
+instruction will trap the interactive debugger.
+.sp
+The interactive debugger supports various commands such as:
+.RS
+
+.TP
+.B c \fRor\fP continue
+Continue execution until the next breakpoint.
+
+.TP
+.B s \fRor\fP step
+Execute the current instruction and then return to the debugger.
+
+.TP
+.B bt \fRor\fP backtrace
+Print a backtrace.
+
+.TP
+.B q \fRor\fP quit
+Exit the interpreter.
+
+.TP
+.B abort
+Abort the interpreter, which may create a core dump, depending on the host OS configuration.
+
+.TP
+.B b \fRor\fP break ...
+Set a breakpoint.
+
+.TP
+.B e \fRor\fP enable \fBIN\fP
+Enable breakpoint \fIN\fP.
+
+.TP
+.B d \fRor\fP disable \fBIN\fP
+Disable breakpoint \fIN\fP.
+
+.TP
+.B r \fRor\fP remove \fBIN\fP
+Remove breakpoint \fIN\fP.
+
+.TP
+.B i \fRor\fP info ...
+Display information on breakpoints.
+.RE
+
+.TP
+.B \-\-help
+Show help text.
+
+.TP
+.B \-\-version
+Print version information and exit.
+
+.SH HOMEPAGE
+
+https://kuroko-lang.github.io/
+
+.SH AUTHOR
+
+\fBKuroko\fP was written by K. Lange <klange@toaruos.org>
+
+.SH LICENSING
+
+Kuroko is distributed under the MIT license.
