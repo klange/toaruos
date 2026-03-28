@@ -1,0 +1,40 @@
+.TH PIDOF 1 "March, 2026"
+
+.SH NAME
+\fBpidof\fP \- Find processes matching a name.
+
+.SH SYNOPSIS
+\fBpidof [\fB\-q\fP] [\fB\-s\fP] [\fB\-d\fP \fIsep\fP] [\fB\-o\fP \fIpid\fP]... \fIname\fP...
+
+.SH DESCRIPTION
+Print PIDs of processes matching given \fIname\fPs.
+
+.TP
+.B \-q
+Instead of printing PIDs, quit immediately with a status of 0 if any matching processes are found.
+
+.TP
+.B \-s
+Print only a single matching PID from any of the given \fIname\fPs and then exit.
+
+.TP
+.B \-d \fIseparator\fP
+Separate pids with the given \fIseparator\fP. The default is ' '.
+
+.TP
+.B \-o \fIpid\fP
+Omit the given \fIpid\fP from matching. Multiple \fB\-o\fP options may be given.
+\fIpid\fP may also be the string \fB%PPIP\fP to exclude the parent process of this \fBpidof\fP.
+
+.SH EXIT STATUS
+.TP
+0
+If at least one matching process was found.
+.TP
+1
+If no matching processes were found for any \fIname\fP.
+
+.SH SEE ALSO
+.IR libtoaru_procfs (3),
+.IR ps (1).
+.IR killall (1)

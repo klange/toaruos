@@ -1,0 +1,44 @@
+.TH GUNZIP 1 "March, 2026"
+
+.SH NAME
+\fBgunzip\fP \- gzip decompressor
+
+.SH SYNOPSIS
+\fBgunzip\fP [\fB\-c\fP] [\fB\-k\fP] [\fB\-f\fP] [\fIfile\fP]...
+
+.SH DESCRIPTION
+Rudimentary frontend for decompressing \fBgzip\fP\-compressed payloads, backed by
+.IR libtoaru_inflate (3).
+This implementation is not very fast, lacks many options, does not validate its inputs,
+and probably has other bugs.
+.PP
+When \fIfile\fPs are provided as arguments, their suffixes are checked for one of the
+recognized suffixes, which is then removed to form the output file. The recognized
+suffixes are \fB.gz, .z, .Z,\fP and \fB.tgz\fP. If one of these suffixes is not found,
+and the \fB\-c\fP option was not given, \fBgunzip\fP will refuse to proceed with this
+\fIfile\fP, continue to the next one, and ultimately return an error.
+
+.TP
+.B \-c
+Write to standard output. Also implies the \fB\-k\fP option.
+
+.TP
+.B \-k
+Keep the input file rather than removing it.
+
+.TP
+.B \-f
+Force decompression in the case where the input is a TTY, the output file already exists, etc.
+
+.SH EXIT STATUS
+.TP
+0
+If all files were successfully decompressed.
+.TP
+1
+If an error occurred in any file.
+
+.SH SEE ALSO
+.IR libtoaru_inflate (3)
+
+

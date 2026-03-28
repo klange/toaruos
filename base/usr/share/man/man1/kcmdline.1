@@ -1,0 +1,45 @@
+.TH KCMDLINE 1 "March, 2026"
+
+.SH NAME
+\fBkcmdline\fP \- Query the kernel command line
+
+.SH SYNOPSIS
+\fBkcmdline\fP \fB\-g\fP \fBarg\fP
+.br
+\fBkcmdline\fP \fB\-q\fP \fBarg\fP
+.br
+\fBkcmdline\fP \fB\-s\fP
+.br
+\fBkcmdline\fP
+
+.SH DESCRIPTION
+Query the kernel command line using the same parsing logic that the kernel itself provides
+for use in modules.
+.PP
+If no arguments are provided, and none of the options is specified, the whole command line
+is printed to the standard output.
+
+.TP
+.B \-g \fIarg\fP
+Get the value of the \fIarg\fP parameter, if it is present. If the parameter is not present,
+the tool exits with a non-zero status code. Otherwise, it prints the value of the
+parameter to the standard output. If the value is "present" but unset, which is the
+case for simple boolean parameters, the name of the argument will be printed.
+
+.TP
+.B \-q \fIarg\fP
+Query the presence of the \fIarg\fP parameter. As with \fB\-g\fP, the exit status
+indicates the presence of the parameter, however its value is not printed with this option.
+
+.TP
+.B \-s
+Query the size of the command line, which is returned as the exit status. As it
+is very possible for the command line to be longer than the maximum value of
+an exit status, this option is not really very useful. If you want to get the
+size of the kernel command line, you can instead query the size of the
+\fB/proc/cmdline\fP file instead.
+
+.SH SEE ALSO
+.IR args_present (9),
+.IR args_value (9),
+.IR args_parse (9)
