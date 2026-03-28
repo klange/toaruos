@@ -187,9 +187,11 @@ static int do_history_mode(int mode, char * title) {
 			offset = linesLen - term_height + 1;
 		}
 
+		int break_here = 0;
 		if (offset < 0) {
 			term_yish = term_height + offset + 1;
 			offset = 0;
+			break_here = 1;
 		}
 
 		/* We're going to do this the slow way because actually scrolling is a bit scary. */
@@ -199,7 +201,7 @@ static int do_history_mode(int mode, char * title) {
 			if (this >= 0 && this < linesLen) printf("%s\033[K\n",lines[linesLen - term_height - offset + line]);
 		}
 
-		if (offset == 0) {
+		if (offset == 0 && break_here) {
 			printf("\033[J");
 			return 0;
 		}
