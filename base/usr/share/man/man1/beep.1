@@ -4,7 +4,7 @@
 \fBbeep\fP \- beep the PC speaker
 
 .SH SYNOPSIS
-\fBbeep\fP \fIBEEP\fP
+\fBbeep\fP \fIBEEP\fP...
 
 .SH DESCRIPTION
 The \fBbeep\fP utility produces tones with the PC speaker.
@@ -42,6 +42,23 @@ and reptitions to their default values.
 .sp
 A final \fB\-n\fP should be omitted, as the utility will play the currently
 specified tone after all arguments have been processed.
+.PP
+Some other options are also understood by this implementation:
+.TP
+.B \-\-dsp
+Force the use of \fB/dev/dsp\fP even when the beeper was successfully opened.
+.TP
+.B \-\-no-\-envelope
+When generating PCM beeps for the DSP, disable the release envelope that is
+otherwise applied by default. This will probably make crackling and popping
+noises.
+.TP
+.B \-\-volume=\fIpercent\fP
+When generating PCM beeps for the DSP, control the volume of the tone as
+a percentage of the default. The default volume is low enough that
+a \fIpercent\fP greater than 100 can still be provided without clipping.
+.sp
+It may be useful to provide this option between beeps.
 
 .SH DEVICES
 The \fBbeep\fP utility expects the ToaruOS PC speaker device file to be available at \fB/dev/spkr\fP,
