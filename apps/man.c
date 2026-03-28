@@ -41,21 +41,24 @@ static int sanity_check(char * c) {
 	return 1;
 }
 
+#define MORE_CMD "more -rP'%s(%i)' --stay --alt"
+#define MAN_FMT  "/usr/share/man/man%d/%s.%d"
+
 static int try_section(int i, char * page) {
 	char * filename;
-	asprintf(&filename, "/usr/share/man/man%d/%s.%d", i, page, i);
+	asprintf(&filename, MAN_FMT, i, page, i);
 	struct stat st;
 	if (!stat(filename, &st)) {
 		char * systemcmd;
-		asprintf(&systemcmd, "roff '%s' | more -rP'%s(%i)'", filename, page, i);
+		asprintf(&systemcmd, "roff '%s' | " MORE_CMD, filename, page, i);
 		system(systemcmd);
 		return 1;
 	}
 	free(filename);
-	asprintf(&filename, "/usr/share/man/man%d/%s.%d.gz", i, page, i);
+	asprintf(&filename, MAN_FMT ".gz", i, page, i);
 	if (!stat(filename, &st)) {
 		char * systemcmd;
-		asprintf(&systemcmd, "gunzip -c '%s' | roff - | more -rP'%s(%i)'", filename, page, i);
+		asprintf(&systemcmd, "gunzip -c '%s' | roff - | " MORE_CMD, filename, page, i);
 		system(systemcmd);
 		return 1;
 	}

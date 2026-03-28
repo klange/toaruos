@@ -28,6 +28,42 @@ static int stop_asking = 0;
 static int exit_if_fits = 0;
 static int prompted = 0;
 static char * promptstring = NULL;
+static int no_quit = 0;
+static int use_alt_screen = 0;
+static int no_scrollback = 0;
+
+/* Line builder */
+static char * lineBuf = NULL;
+static size_t lineLen = 0;
+static size_t lineCap = 0;
+
+static void line_add_chr(char c) {
+	if (no_scrollback) return;
+	if (lineLen == lineCap) {
+		lineCap = (lineCap < 5) ? 5 : lineCap * 2;
+		lineBuf = realloc(lineBuf, lineCap);
+	}
+	lineBuf[lineLen++] = c;
+}
+
+static void line_add_str(char *s) {
+	while (*s) {
+		line_add_chr(*s);
+		s++;
+	}
+}
+
+static char ** lines = NULL;
+static ssize_t linesLen = 0;
+static ssize_t linesCap = 0;
+
+static void lines_add(char * line) {
+	if (linesLen == linesCap) {
+		linesCap = (linesCap < 5) ? 5 : linesCap * 2;
+		lines = realloc(lines, linesCap * sizeof(char*));
+	}
+	lines[linesLen++] = line;
+}
 
 static int to_eight(uint32_t codepoint, char * out) {
 	memset(out, 0x00, 7);
@@ -65,32 +101,35 @@ static int to_eight(uint32_t codepoint, char * out) {
 }
 
 static void char_draw(int c) {
+	char tmp[32] = {0};
 	if (c == '\t') {
 		int count = 8 - (term_x % 8);
 		for (int i = 0; i < count; ++i) {
 			printf(" ");
+			line_add_chr(' ');
 		}
 	} else if (c < 32 || c == 0x7F) {
-		printf("\033[7m^%c\033[0m", (c < 32) ? ('@' + c) : '?');
+		sprintf(tmp, "\033[7m^%c\033[0m", (c < 32) ? ('@' + c) : '?');
 	} else if (c > 0x7f && c < 0xa0) {
-		printf("\033[7m<%02x>\033[0m", c);
+		sprintf(tmp, "\033[7m<%02x>\033[0m", c);
 	} else if (c == 0xa0) {
-		printf("\033[7m \033[0m");
+		sprintf(tmp, "\033[7m \033[0m");
 	} else if (c > 127) {
 		if (wcwidth(c) >= 1) {
-			char tmp[8] = {0};
 			to_eight(c,tmp);
-			printf("%s", tmp);
 		} else {
 			if (c < 0x10000) {
-				printf("\033[7m[U+%04x]\033[0m", c);
+				sprintf(tmp, "\033[7m[U+%04x]\033[0m", c);
 			} else {
-				printf("\033[7m[U+%06x]\033[0m", c);
+				sprintf(tmp, "\033[7m[U+%06x]\033[0m", c);
 			}
 		}
 	} else {
-		printf("%c", c);
+		sprintf(tmp, "%c", c);
 	}
+
+	line_add_str(tmp);
+	printf("%s", tmp);
 }
 
 static int char_width(int c) {
@@ -132,20 +171,126 @@ static void clear_line(void) {
 	term_x = 0;
 }
 
-static int next_line(char * title, int forced) {
+static int do_history_mode(int mode, char * title) {
+	/* Enter history mode; scroll up one line */
+	ssize_t offset = 1;
+
+	if (mode == 2) {
+		offset = linesLen;
+	} if (mode == 3) {
+		offset = term_height;
+	}
+
+	while (1) {
+		if (linesLen - term_height + 1 < offset) {
+			offset = linesLen - term_height + 1;
+		}
+
+		if (offset < 0) {
+			term_yish = term_height + offset + 1;
+			offset = 0;
+		}
+
+		/* We're going to do this the slow way because actually scrolling is a bit scary. */
+		printf("\033[H");
+		for (ssize_t line = 1; line < term_height; ++line) {
+			ssize_t this = linesLen - term_height - offset + line;
+			if (this >= 0 && this < linesLen) printf("%s\033[K\n",lines[linesLen - term_height - offset + line]);
+		}
+
+		if (offset == 0) {
+			printf("\033[J");
+			return 0;
+		}
+
+		int attop = (offset == linesLen - term_height + 1);
+		printf("\r\033[K\033[7m%s%s\033[0m", title, attop ? " (TOP)" : "");
+		printf("\033[?25h");
+		fflush(stdout);
+
+		char c;
+		read(STDERR_FILENO, &c, 1);
+		printf("\033[?25l");
+		fflush(stdout);
+
+		switch (c) {
+			case '~':
+				/* ignore */
+				break;
+			case 'k':
+			case 'A':
+				clear_line();
+				offset += 1;
+				break;
+			case ' ':
+			case '6':
+				clear_line();
+				offset -= term_height;
+				break;
+			case '5':
+				clear_line();
+				offset += term_height;
+				break;
+			case 'H':
+				clear_line();
+				offset = linesLen;
+				break;
+			case 'F':
+			case 'G':
+				offset = 0;
+				clear_line();
+				stop_asking = 1;
+				break;
+			case 'B':
+			case 'j':
+			case '\n':
+			case '\r':
+				clear_line();
+				offset -= 1;
+				break;
+			case 'q':
+				clear_line();
+				return 1;
+		}
+	}
+
+}
+
+static int next_line(char * title, int forced, int atend) {
 	term_yish++;
+
+	/* Whenever we hit "next_line", store the line we were just building */
+	if (!forced && !no_scrollback) {
+		if (!lineLen) {
+			lines_add(strdup(""));
+		} else {
+			char * c = malloc(lineLen + 1);
+			memcpy(c, lineBuf, lineLen);
+			c[lineLen] = 0;
+			lines_add(c);
+		}
+		lineLen = 0;
+	}
+
 	if (!forced && (term_yish < term_height || stop_asking)) {
 		printf("\n");
 		term_x = 0;
 	} else {
 		prompted = 1;
-		printf("%s\033[7m%s\033[0m", forced ? "" : "\n", title);
-		fflush(stdout);
+_reprint_prompt:
+		printf("%s\033[7m%s%s\033[0m", forced ? "" : "\n", title, atend ? " (END)" : "");
 		do {
-			char buf[1];
-			read(STDERR_FILENO, buf, 1);
-			char c = buf[0];
+			printf("\033[?25h");
+			fflush(stdout);
+			char c;
+			read(STDERR_FILENO, &c, 1);
+			printf("\033[?25l");
+			fflush(stdout);
 			switch (c) {
+				case '~':
+					/* ignore */
+					break;
+				case '6':
 				case ' ':
 					term_yish = 1;
 					/* fallthrough */
@@ -158,9 +303,26 @@ static int next_line(char * title, int forced) {
 				case 'q':
 					clear_line();
 					return 1;
+				case 'F':
 				case 'G':
 					clear_line();
 					stop_asking = 1;
+					return 0;
+				case 'A':
+				case 'k':
+					if (do_history_mode(1, title)) return 1;
+					clear_line();
+					if (forced) goto _reprint_prompt;
+					return 0;
+				case 'H':
+					if (do_history_mode(2, title)) return 1;
+					clear_line();
+					if (forced) goto _reprint_prompt;
+					return 0;
+				case '5':
+					if (do_history_mode(3, title)) return 1;
+					clear_line();
+					if (forced) goto _reprint_prompt;
 					return 0;
 				default:
 					printf("\r\033[K\033[7munreocgnized command:\033[0m %c", c);
@@ -176,7 +338,7 @@ static int next_line(char * title, int forced) {
 static int handle_one(int code, char * name) {
 	int width = char_width(code);
 	if (term_x + width > term_width) {
-		if (next_line(promptstring ? promptstring : name, 0)) return 1;
+		if (next_line(promptstring ? promptstring : name, 0, 0)) return 1;
 	}
 	char_draw(code);
 	term_x += width;
@@ -184,14 +346,18 @@ static int handle_one(int code, char * name) {
 }
 
 static int do_file(char * name, FILE * f, int opti, int argc) {
+	if (linesLen) linesLen = 0;
+	if (lineLen) lineLen = 0;
+
 	if (!f) {
 		printf("%s: %s\n", name, strerror(errno));
-		return next_line("Press RETURN to continue, q to exit.", 1);
+		return next_line("Press RETURN to continue, q to exit.", 1, 0);
 	}
 	int is_escaped = 0;
 	int maybe_escaped = 0;
 
 	term_x = 0;
+
 
 	uint32_t code, state = 0;
 	while (!feof(f)) {
@@ -199,7 +365,7 @@ static int do_file(char * name, FILE * f, int opti, int argc) {
 		if (c < 0) break;
 		if (!decode(&state, &code, c)) {
 			if (code == '\n') {
-				if (next_line(promptstring ? promptstring : name, 0)) return 1;
+				if (next_line(promptstring ? promptstring : name, 0, 0)) return 1;
 			} else if (is_escaped) {
 				if (code >= 'A' && code <= 'z') {
 					is_escaped = 0;
@@ -207,11 +373,13 @@ static int do_file(char * name, FILE * f, int opti, int argc) {
 				char tmp[8] = {0};
 				to_eight(code,tmp);
 				printf("%s", tmp);
+				line_add_str(tmp);
 			} else if (maybe_escaped) {
 				if (code == '[') {
 					maybe_escaped = 0;
 					is_escaped = 1;
 					printf("\033[");
+					line_add_str("\033[");
 				} else {
 					handle_one('\033',name);
 					handle_one(code,name);
@@ -230,13 +398,14 @@ static int do_file(char * name, FILE * f, int opti, int argc) {
 		}
 	}
 
-	stop_asking = 0;
-
 	/* If we never prompted, the file fit on the screen. If this is the last (only) file,
 	 * and we had the -F option, we can skip printing the forced END prompt. */
 	if (!prompted && exit_if_fits && opti + 1 >= argc) return 0;
 
-	if (next_line("(END)", 1)) return 1;
+	do {
+		stop_asking = 0;
+		if (next_line(promptstring ? promptstring : name, 1, 1)) return 1;
+	} while (no_quit);
 	return 0;
 }
 
@@ -258,6 +427,11 @@ static int usage(char * argv[]) {
 		"          " X_S "This option only works if there is only one file." X_E "\n"
 		" -P " X_S "str   Instead of showing file names as the command prompt, use the" X_E "\n"
 		"          " X_S "provided string, eg. '-P man' will display the prompt 'man'." X_E "\n"
+		" --stay   " X_S "Normally, more will quit when asked to advance when at the end" X_E "\n"
+		"          " X_S "of a file, but with this option it will stay running until a" X_E "\n"
+		"          " X_S "more explicit quit command (eg. 'q') is issued." X_E "\n"
+		" --alt    " X_S "Switch to the alternate buffer and clear the screen on startup." X_E "\n"
+		" --scroll " X_S "Disable scrollback." X_E "\n"
 		" --help   " X_S "Show this help text." X_E "\n"
 		"\n"
 		"Command input is received on stderr. The following commands are accepted when\n"
@@ -291,6 +465,18 @@ int main(int argc, char * argv[]) {
 					usage(argv);
 					return 0;
 				}
+				if (!strcmp(optarg,"stay")) {
+					no_quit = 1;
+					break;
+				}
+				if (!strcmp(optarg,"alt")) {
+					use_alt_screen = 1;
+					break;
+				}
+				if (!strcmp(optarg,"scroll")) {
+					no_scrollback = 1;
+					break;
+				}
 				fprintf(stderr, "%s: '--%s' is not a recognized long option\n", argv[0], optarg);
 				/* fallthrough */
 			case '?':
@@ -314,6 +500,9 @@ int main(int argc, char * argv[]) {
 	term_height = w.ws_row;
 	get_initial_termios();
 	set_unbuffered();
+	printf("\033[?25l");
+
+	if (use_alt_screen) printf("\033[?1049h\033[H\033[2J");
 
 	if (optind == argc) {
 		do_file("stdin",stdin, optind, argc);
@@ -325,6 +514,8 @@ int main(int argc, char * argv[]) {
 		if (f) fclose(f);
 	}
 
+	if (use_alt_screen) printf("\033[?1049l");
+	printf("\033[?25h");
 	set_buffered();
 	return 0;
 }
