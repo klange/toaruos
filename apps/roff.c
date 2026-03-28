@@ -24,6 +24,23 @@
 #define MARGIN_SPACE 5
 static struct winsize w;
 
+struct RoffContext {
+	char * topic_title;          /* Storage for the current page title, to be displayed in the footer. */
+	char * topic_section;        /* Storage for the current section title, to be displayed in the footer. */
+	char * topic_date;           /* Storage for the current date string, to be displayed in the footer. */
+	int current_x;               /* Display cursor X offset. */
+	int indent;                  /* How much we should indent lines before printing. */
+	int next_indent;             /* The level of indentation we should switch to after finishing the current line. */
+	int extra_indent;            /* An extra amount of indentation we should add to the above values when we see a new paragraph macro. */
+	int printing_table;          /* Whether we should handle whitespace more directly. */
+	int squish_line;             /* Whether we should try to squish this line into the next one, eg. for a .TP macro. */
+	unsigned int previous_font;  /* The previously set font to act as a one-level undo stack. */
+	unsigned int current_font;   /* The current font, to be set once we start printing. */
+	char * topic_footer;
+	char * topic_header;
+};
+
+
 /**
  * @brief Convert a (string) section number into a section description.
  *
@@ -69,12 +86,15 @@ static void formatted_title_and_section(char * title, char * section) {
  * The title and section are displayed in the upper left and right, and the
  * section description is shown in the top center.
  */
-static void format_title(char * title, char * section) {
+static void format_title(struct RoffContext * ctx) {
+
+	char * title = ctx->topic_title;
+	char * section = ctx->topic_section;
 
 	/* XXX Should use display width, but too lazy. */
 	int title_len = title ? strlen(title) : 0;
 	int section_len = section ? strlen(section) : 0;
-	char * section_name = interpret_section(section);
+	char * section_name = ctx->topic_header ? ctx->topic_header : interpret_section(section);
 	int section_name_len = strlen(section_name);
 
 	int avail = w.ws_col - 1; /* A gutter is fine. */
@@ -104,18 +124,23 @@ static void format_title(char * title, char * section) {
  * The "date" is shown in the center, and the title and section are displayed
  * in the lower right.
  */
-static void format_footer(char * title, char * section, char * date) {
-	int title_len = title ? strlen(title) : 0;
-	int section_len = section ? strlen(section) : 0;
-	int date_len = date ? strlen(date) : 0;
+static void format_footer(struct RoffContext * ctx) {
+	int title_len = ctx->topic_title ? strlen(ctx->topic_title) : 0;
+	int section_len = ctx->topic_section ? strlen(ctx->topic_section) : 0;
+	int date_len = ctx->topic_date ? strlen(ctx->topic_date) : 0;
+	int footer_len = ctx->topic_footer ? strlen(ctx->topic_footer) : 0;
 
 	int avail = w.ws_col - 1; /* A gutter is fine. */
-	int space_left = (avail - date_len) / 2;
-	int space_right = (avail - space_left - date_len - title_len - section_len - 2);
+	int space_used = title_len + section_len + 2 + date_len + footer_len;
+
+	int space_left = (avail - date_len) / 2 - footer_len;
+	int space_right = avail - space_used - space_left;
+
+	printf("%s", ctx->topic_footer ? ctx->topic_footer : "");
 	for (int i = 0; i < space_left; ++i) printf(" ");
-	printf("%s", date ? date : "");
+	printf("%s", ctx->topic_date ? ctx->topic_date : "");
 	for (int i = 0; i < space_right; ++i) printf(" ");
-	formatted_title_and_section(title,section);
+	formatted_title_and_section(ctx->topic_title,ctx->topic_section);
 	printf("\n");
 }
 
@@ -168,20 +193,6 @@ static int skip_escape(char *x, size_t *len) {
 			return 2;
 	}
 }
-
-struct RoffContext {
-	char * topic_title;          /* Storage for the current page title, to be displayed in the footer. */
-	char * topic_section;        /* Storage for the current section title, to be displayed in the footer. */
-	char * topic_date;           /* Storage for the current date string, to be displayed in the footer. */
-	int current_x;               /* Display cursor X offset. */
-	int indent;                  /* How much we should indent lines before printing. */
-	int next_indent;             /* The level of indentation we should switch to after finishing the current line. */
-	int extra_indent;            /* An extra amount of indentation we should add to the above values when we see a new paragraph macro. */
-	int printing_table;          /* Whether we should handle whitespace more directly. */
-	int squish_line;             /* Whether we should try to squish this line into the next one, eg. for a .TP macro. */
-	unsigned int previous_font;  /* The previously set font to act as a one-level undo stack. */
-	unsigned int current_font;   /* The current font, to be set once we start printing. */
-};
 
 /**
  * @brief If the cursor is not at the start of a line, print a line feed.
@@ -410,6 +421,36 @@ static size_t process_word(struct RoffContext * ctx, char * c, int delimited) {
 	} \
 } while (0)
 
+static char * collect_arg(char * c, char **out) {
+	char * value = NULL;
+	*out = NULL;
+	while (*c && *c == ' ') c++;
+	if (*c) {
+
+		int quoted = 0;
+		if (*c == '"') {
+			c++;
+			quoted = 1;
+		}
+
+		value = c;
+
+		if (quoted) {
+			while (*c && *c != '"') c++;
+		} else {
+			while (*c && *c != ' ') c++;
+		}
+		if (*c) *c++ = '\0';
+
+		/* Skip whitespace */
+		while (*c && *c == ' ') c++;
+	}
+
+	if (value) *out = strdup(value);
+
+	return c;
+}
+
 /**
  * @brief Format and display one file.
  *
@@ -470,68 +511,13 @@ static int do_file(char ** argv, int i) {
 				}
 				/* Topic heading */
 				char * c = line + 4;
-				char * title = NULL;
-				char * section = NULL;
-				char * date = NULL;
+				c = collect_arg(c, &ctx.topic_title);
+				c = collect_arg(c, &ctx.topic_section);
+				c = collect_arg(c, &ctx.topic_date);
+				c = collect_arg(c, &ctx.topic_footer);
+				c = collect_arg(c, &ctx.topic_header);
 
-				while (*c && *c == ' ') c++;
-				if (*c) {
-
-					int quoted = 0;
-					if (*c == '"') {
-						c++;
-						quoted = 1;
-					}
-					title = c;
-
-					if (quoted) {
-						while (*c && *c != '"') c++;
-					} else {
-						while (*c && *c != ' ') c++;
-					}
-					if (*c) *c++ = '\0';
-
-					/* Skip whitespace */
-					while (*c && *c == ' ') c++;
-					if (*c) {
-						quoted = 0;
-						if (*c == '"') {
-							c++;
-							quoted = 1;
-						}
-						section = c;
-						if (quoted) {
-							while (*c && *c != '"') c++;
-						} else {
-							while (*c && *c != ' ') c++;
-						}
-						if (*c) *c++ = '\0';
-
-						/* Skip whitespace */
-						while (*c && *c == ' ') c++;
-						if (*c) {
-							date = c;
-						}
-					}
-				}
-
-				if (title) {
-					ctx.topic_title = strdup(title);
-				}
-				if (section) {
-					ctx.topic_section = strdup(section);
-				}
-				if (date) {
-					/* Maybe handle quotes */
-					int datel = strlen(date);
-					if (datel > 1 && date[0] == '"' && date[datel-1] == '"') {
-						date[datel-1] = '\0';
-						date++;
-					}
-					ctx.topic_date = strdup(date);
-				}
-
-				format_title(ctx.topic_title, ctx.topic_section);
+				format_title(&ctx);
 				continue;
 			} else if (strstr(line, ".SH ") == line) {
 				/* Section heading */
@@ -711,7 +697,7 @@ static int do_file(char ** argv, int i) {
 
 	/* End of file, print the footer. We made it! */
 	if (flush_line(&ctx)) printf("\n");
-	format_footer(ctx.topic_title, ctx.topic_section, ctx.topic_date);
+	format_footer(&ctx);
 
 _cleanup:
 	if (ctx.topic_title) free(ctx.topic_title);

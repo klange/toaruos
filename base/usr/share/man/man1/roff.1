@@ -32,14 +32,30 @@ Lines starting with a \fB.\fP or, alternatively, a \fB'\fP, introduce macros.
 .B .\e"
 A comment. The line will be ignored.
 .TP
-.B .TH \fIPAGE\fP \fISECTION\fP \fIDATE\fP
-Set the title of the page, the section it is found in, and the authorship date to show at the bottom.
-Only one of this macro that actually sets something can appear in a document or \fIroff\fP will die.
-Any of the three arguments may be surrounded by double quotes to allow them to contain spaces.
-The \fIPAGE\fP is typically capitalized for applications and lowercase for libraries and functions.
+.B .TH \fItopic\fP \fIsection\fP [\fIfooter-middle\fP] [\fIfooter-left\fP] [\fIheader-middle\fP]
+Configure the header and footer of the page.
 .sp
-If the \fISECTION\fP is a numeric digit from 0 to 9, the section title will be displayed at the
-top of the output.
+The \fItopic\fP is the name of this manual, generally the same as the filename prefix, but for
+applications it is traditionally capitalized.
+.sp
+The \fIsection\fP is a numeric section number, 1 through 9, or an alternative string that will
+be shown in its place; \fBn\fP is sometimes used by some systems.
+.sp
+The \fItopic\fP and \fIsection\fP are combined, with the \fItopic\fP underlined, and shown in
+the upper left, upper right, and lower right of the output.
+.sp
+The \fIfooter-middle\fP is usually an authorship date and will be shown in the middle of the
+bottom of the output, if present.
+.sp
+The \fIfooter-left\fP appears at the left of the bottom of the output, if present, but is
+usually not included in manual pages.
+.sp
+The \fIheader-middle\fP, if present, overrides the descriptive name of the \fIsection\fP to
+be displayed at middle of the top of the output.
+.sp
+If the \fIsection\fP is a numeric digit from 0 to 9, and \fIheader-middle\fP is not provided,
+the section title will be displayed at the top of the output. Otherwise, \fIsection\fP itself
+is displayed.
 .sp
  1: General Commands Manual
  2: System Calls Manual
@@ -50,12 +66,9 @@ top of the output.
  7: Miscellaneous
  8: System Administration Manual
  9: Kernel Programming Manual
-.sp
-Otherwise, whatever word you put will be used varbatim.
 .TP
-.B .SH \fITITLE\fP
-Displays a section title. Traditionally, these are also capitalized, but again, I respect your decision
-if you want to do something else. If the line is wrapped in quotes, the quotes will be removed.
+.B .SH \fItitle\fP
+Displays a section title. Section titles are traditionally capitalized.
 .TP
 .B .PP
 Regular paragraph break. Sets up standard indentation.
