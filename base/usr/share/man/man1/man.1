@@ -1,26 +1,58 @@
 .TH MAN 1 "March, 2026"
+
 .SH NAME
 man \- Find and display manual pages.
+
 .SH SYNOPSIS
-\fBman\fP [\fIsection\fP] \fIpage\fP
+\fBman\fP [\fB\-S\fP \fIsections\fP] [\fIsection\fP] \fIpage\fP...
 .br
 \fBman\fp \fB--help\fP
+
 .SH DESCRIPTION
 Looks for man pages in \fB/usr/share/man/man\f(BIsection\fB/\f(BIpage\fB.\f(BIsection\fR, where \fIsection\fP is a section number
 and \fIpage\fP is the page to look for.
 .PP
-If no \fIsection\fP is specified, then sections 1 through 9 will be searched in order and the first result, if any
-will be shown. If no manual page is found by the requested name, an error is printed.
+If there is more than one argument, and the first argument is a single character, or begins with a digit followed
+by only lowercase letters, it is interpreted as \fIsection\fP. Otherwise, it is assumed to be another \fIpage\fP.
 .PP
-The manual page is displayed by piping \fIroff\fP to \fImore -rP'page(section)'\fP.
+If no \fIsection\fP is specified, then sections specified either by the \fB\-S\fP option, the \fBMANSECT\fP
+environment variable, or the default set of \fB"1:n:l:8:3:0:2:3krk:5:4:9:6:7"\fP will be searched in order
+and the first result, if any will be shown. If no manual page is found by the requested name, an error is printed.
+.PP
+If a \fIpage\fP argument looks like it might be a file (eg. it contains a . or a /), lookup is skipped and
+the file path is tried directly.
+.PP
+The manual page is displayed by piping \fIroff\fP to \fImore -rP'page(section)' --stay --alt\fP.
+.PP
+If a \fIpage\fP argument that was interpreted as a file path ends in \fB.gz\fP, or a manual page located
+through the section lookup described above ends in \fB.gz\fP, it will be decompressed
+by \fIgunzip\fP before being passed to \fIroff\fP.
+.PP
+If multiple \fIpage\fP arguments are provided, each will be searched and displayed in sequence.
+
 .SH OPTIONS
-None.
+.TP
+.B \-a
+Display all matching manual pages, in search order, one after the other, instead of stopping after
+showing the first match.
+
+.TP
+.B \-S \fIsections\fP
+Specify the \fIsections\fP to look in as a colon\-separated list. This option overrides any value
+retrieved from the \fBMANSECT\fP environment variable.
+
+.SH EXIT STATUS
+If any of the requested \fIpage\fP arguments could not be found, or another error was encountered,
+then \fIman\fP will exit with status 1.
+
 .SH SEE ALSO
 .IR roff (1),
 .IR more (1)
+
 .SH HOMEPAGE
 .PP
 .B ToaruOS:
 https://toaruos.org/
+
 .SH AUTHOR
 This \fIroff\fP was written by K. Lange <klange@toaruos.org>.
