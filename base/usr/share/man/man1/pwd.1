@@ -1,0 +1,22 @@
+.TH PWD 1 "March, 2026"
+
+.SH NAME
+\fBpwd\fP \- print the name of the current working directory
+
+.SH SYNOPSIS
+\fBpwd\fP
+
+.SH DESCRIPTION
+Uses
+.IR getcwd (3)
+to obtain the current working directory and prints it, followed by a line feed,
+to the standard output.
+
+.SH NOTES
+.IR esh (1)
+does not have a built\-in \fBpwd\fP, so you're always going to get this one
+unless you use a different shell.
+
+.SH SEE ALSO
+.IR getcwd (3),
+.IR sys_getcwd (9)
