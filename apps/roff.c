@@ -524,10 +524,17 @@ static int do_file(char ** argv, int i) {
 				if (flush_line(&ctx)) printf("\n");
 				c = line + 4;
 				MAYBE_QUOTES();
-				printf("\033[1m%s\033[0m\n", c);
-				ctx.indent = ctx.extra_indent + DEFAULT_INDENTATION;
-				ctx.next_indent = 0;
-				continue;
+				switch_font(&ctx,'B');
+				ctx.indent = 0;
+				ctx.next_indent = ctx.extra_indent + DEFAULT_INDENTATION;
+			} else if (strstr(line, ".SS ") == line) {
+				/* Sub-section heading */
+				if (flush_line(&ctx)) printf("\n");
+				c = line + 4;
+				MAYBE_QUOTES();
+				switch_font(&ctx,'B');
+				ctx.indent = 3;
+				ctx.next_indent = ctx.extra_indent + DEFAULT_INDENTATION;
 			} else if (strstr(line, ".PP") == line) {
 				/* Paragraph */
 				flush_line(&ctx); printf("\n");
