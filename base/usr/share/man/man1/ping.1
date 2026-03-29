@@ -1,0 +1,15 @@
+.TH PING 1 "March, 2026"
+
+.SH NAME
+\fBping\fP \- issue ICMP echo requests
+
+.SH SYNOPSIS
+\fBping\fP \fIhost\fP
+
+.SH DESCRIPTION
+Issue a series of ICMP echo requests to a remote host, waiting for and summarizing replies.
+.PP
+As of writing, this implementation does not accept any options. It will issue echo
+requests (pings) repeatedly until interrupted by \fBSIGINT\fP, and will then print a summary.
+.PP
+Options may be added in the future.

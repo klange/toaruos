@@ -1,0 +1,30 @@
+.TH KILLALL 1 "March, 2026"
+
+.SH NAME
+\fBkillall\fP \- signal processes by name
+
+.SH SYNOPSIS
+\fBkillall\fP [\-\fIsignal\fP] \fIname\fP...
+
+.SH DESCRIPTION
+Send a signal to all processes found to match one of the given \fIname\fPs.
+.PP
+If provided, \fIsignal\fP can be any string understood by the
+.IR str2sig (3)
+routine after conversion to uppercase. ToaruOS's implementation of that routine
+accepts names like \fBSIGTERM\fP as well as just \fBTERM\fP, or numeric values
+like \fB15\fP.
+
+.SH EXIT STATUS
+.TP
+0
+At least one process was found and signalled for each listed \fIname\fP.
+
+.TP
+1
+One of the listed \fIname\fPs did not result in a process being successfully signalled,
+or some other error occurred.
+
+.SH SEE ALSO
+.BR kill (1),
+.BR libtoaru_procfs (3)

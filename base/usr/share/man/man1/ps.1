@@ -1,0 +1,41 @@
+.TH PS 1 "March, 2026"
+
+.SH NAME
+\fBps\fP \- show running processes
+
+.SH SYNOPSIS
+\fBps\fP [\fB\-A\fP] [\fB\-T\fP] [\fIformat\fP]
+
+.SH DESCRIPTION
+Shows a table of information about running processes.
+
+.TP
+.B \-A
+Include other users' processes in the output. By default,
+only processes belonging to the user that invoked \fBps\fP
+will be displayed.
+
+.TP
+.B \-T
+Include threads in the output.
+
+.PP
+The \fIformat\fP option is a string of characters specifying what
+information about the processes to include in the output, and
+supports at least the following characters:
+
+.TP
+.B a
+Show the full command line for each process.
+
+.TP
+.B u
+Show the username of the owner of the process, the memory and CPU usage
+of the process, and the process time.
+
+.PP
+Other option characters are silently ignored.
+
+.SH SEE ALSO
+.BR top (1),
+.BR libtoaru_procfs (3)

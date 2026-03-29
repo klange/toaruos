@@ -1,0 +1,25 @@
+.TH LSPCI 1 "March, 2026"
+
+.SH NAME
+\fBlspci\fP \- List PCI devices
+
+.SH SYNOPSIS
+\fBlspci\fP [\fB\-n\fP]
+\fBlspci\fP \fB\-q\fP \fIvendor\fP:\fIdevice\fP[,\fIvendor\fP:\fIdevice\fP...]
+
+.SH DESCRIPTION
+Lists the installed PCI devices. This implementation is a frontend to
+ToaruOS's \fB/proc/pci\fP procfs virtual file.
+
+.TP
+.B \-n
+List devices numerically, rather than using names.
+
+.TP
+.B \-q \fIvendor:device,vendor:device,...\fP
+Query whether a device matching one of the listed \fIvendor:device\fP codes
+is present. If such a device is found, exit with 0. Otherwise, exit with 1.
+
+.SH NOTES
+This implementation knows a very limited set of device and vendor names,
+collected from hardware the ToaruOS was actually tested on.
