@@ -6,6 +6,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014-2026 K. Lange
  */
+#define _XOPEN_SOURCE 700
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -13,6 +14,7 @@
 #include <wchar.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <locale.h>
 #include <termios.h>
 #include <sys/ioctl.h>
 
@@ -459,6 +461,13 @@ static int usage(char * argv[]) {
 }
 
 int main(int argc, char * argv[]) {
+#ifdef __APPLE__
+	/* TODO figure out a better way to do this; maybe just LC_CTYPE? */
+	setlocale(LC_ALL, "en_US.UTF-8");
+#else
+	setlocale(LC_ALL, "");
+#endif
+
 	int opt;
 
 	while ((opt = getopt(argc, argv, "rFP:-:")) != -1) {
