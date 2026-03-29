@@ -27,6 +27,7 @@ char *getcwd(char *buf, size_t size) {
 
 	if (result < 0) {
 		errno = -result;
+		if (!buf) free(path);
 		return NULL;
 	}
 
