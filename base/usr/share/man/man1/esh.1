@@ -1,0 +1,102 @@
+.TH ESH 1 "March, 2026"
+
+.SH NAME
+\fBesh\fP \- The Experimental SHell.
+
+.SH SYNOPSIS
+\fBesh\fP \fIscript\fP [\fIargs\fP]...
+.br
+\fBesh\fP \fB\-c\fP \fIcmd\fP
+
+.SH DESCRIPTION
+\fBEsh\fP is the default shell in ToaruOS until you install one that's actually good.
+.PP
+\fBEsh\fP is not a POSIX shell, or anything remotely resembling one.
+.PP
+An initial build of ToaruOS ships with \fB/bin/sh\fP symlinked to \fB/bin/esh\fP to
+allow
+.IR system (3)
+to work correctly.
+.PP
+It is not recommended that users put any effort into actually using \fBEsh\fP.
+For a real programming environment, use
+.IR kuroko (1)
+instead. For a real shell,
+.IR dash (1)
+is available from the package repository.
+
+.TP
+.B \-c \fIcmd\fP
+Execute the shell command provided in the argument.
+
+.SH SYNTAX
+\fBEsh\fP parses its input line by line, token by token, and does not support any
+complex syntactic constructs.
+.PP
+Conditionals and loops like \fBif\fP and \fBwhile\fP are implemnted as simple commands.
+Because these commands generally only accept a single "subcommand", and not a full body
+with a sequence of commands, if you wish to perform more complicated tasks within the
+body (or conditional) of one of these constructs, you should use a subshell like
+\fBesh \-c "cmd; cmd; cmd"\fP as the body.
+
+.TP
+.B if
+Conditionally execute a command based on the result of another command.
+.sp
+\fBif\fP \fIcondition_command\fP... \fBthen\fP \fItrue_command\fP... [\fBelse\fP \fIfalse_command\fP...]
+.sp
+The \fBif\fP command will execute \fIcondition_command\fP. If the exit status is 0,
+it will then execute \fItrue_command\fP. Otherwise, if a \fIfalse_command\fP was provided,
+it will be executed instead.
+.sp
+The final return status of the \fBif\fP command is the exit
+status of whichever of the \fItrue_command\fP or \fIfalse_command\fP is executed,
+or 0 if the "else" branch was taken but no \fIfalse_command\fP was provided.
+
+.TP
+.B while
+Conditionally execute a command in a loop, based on the result of another command.
+.sp
+\fBwhile\fP \fIcondition_command\fP... \fBdo\fP \fIbody_command\fP...
+.sp
+The \fBwhile\fP command parses its arguments to find a \fBdo\fP to determine
+the boundaries of \fIcondition_command\fP and \fIbody_command\fP. It will then
+repeatedly run \fIcondition_command\fP, check for a 0 return code, and then
+execute \fIbody_command\fP. If \fIcondition_command\fP has a non-0 exit status,
+the loop terminates.
+.sp
+The final return status of the \fBwhile\fP command is the exit status of the
+the last \fIcondition_command\fP that was non-0.
+.sp
+The \fBwhile\fP command will also try to handle disruptive signals during
+execution of \fIbody_command\fP.
+
+.TP
+.B not
+Return the boolean inverse of the exit status of a subcommand.
+.sp
+\fBnot\fP \fIcondition_command\fP...
+.sp
+The \fBnot\fP command will execute a \fIcondition_command\fP and then return the boolean
+inverse of its exit status. Eg., if the command returned non-0, \fBnot\fP will return 0,
+and if the command returned 0, \fBnot\fP will return 1.
+
+.TP
+.B export\-cmd
+.sp
+\fBexport\-cmd\fP \fIvar\fP \fIcommand\fP...
+.sp
+Runs \fIcommand\fP with its standard output redirected to a pipe, and reads the pipe
+to store the command's output in $\fIvar\fP. As of writing, this command only collects
+up to 1023 bytes to place in the variable, and will then stop reading, but will still
+wait for \fIcommand\fP to finish, which is probably not going to end well.
+
+.SH NOTES
+If you are unfortunate enough to need to write a complex shell script that works
+with a clean installation of ToaruOS, be sure to use \fB/bin/esh\fP in the hash\-bang
+and not \fB/bin/sh\fP as users are encouraged to replace that symlink with one
+pointing to a real shell as soon as they have one.
+
+.SH SEE ALSO
+.BR kuroko (1)
+
