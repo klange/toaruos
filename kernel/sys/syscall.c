@@ -885,13 +885,11 @@ long sys_chdir(char * newdir) {
 }
 
 long sys_getcwd(char * buf, size_t size) {
-	if (buf) {
-		PTR_VALIDATE(buf);
-		size_t len = strlen(this_core->current_process->wd_name) + 1;
-		memcpy(buf, this_core->current_process->wd_name, size < len ? size : len);
-		return 0;
-	}
-	return -EINVAL;
+	PTRCHECK(buf,size,MMU_PTR_NULL|MMU_PTR_WRITE);
+	size_t len = strlen(this_core->current_process->wd_name) + 1;
+	if (size < len) return -ERANGE;
+	memcpy(buf, this_core->current_process->wd_name, len);
+	return len;
 }
 
 long sys_dup2(int old, int new) {
