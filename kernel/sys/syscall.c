@@ -888,9 +888,10 @@ long sys_getcwd(char * buf, size_t size) {
 	if (buf) {
 		PTR_VALIDATE(buf);
 		size_t len = strlen(this_core->current_process->wd_name) + 1;
-		return (long)memcpy(buf, this_core->current_process->wd_name, size < len ? size : len);
+		memcpy(buf, this_core->current_process->wd_name, size < len ? size : len);
+		return 0;
 	}
-	return 0;
+	return -EINVAL;
 }
 
 long sys_dup2(int old, int new) {

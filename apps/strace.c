@@ -896,8 +896,6 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			break;
 		case SYS_GETCWD:
 			/* output is first arg */
-			pointer_arg(uregs_syscall_arg1(r)); COMMA; /* TODO syscall outputs */
-			uint_arg(uregs_syscall_arg2(r));
 			break;
 		case SYS_CLONE:
 			pointer_arg(uregs_syscall_arg1(r)); COMMA;
@@ -1200,6 +1198,11 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 			break;
 		case SYS_SIGACTION:
 			sigaction_ptr_arg(pid, uregs_syscall_arg3(r));
+			maybe_errno(r);
+			break;
+		case SYS_GETCWD:
+			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			uint_arg(uregs_syscall_arg2(r));
 			maybe_errno(r);
 			break;
 		/* Most things return -errno, or positive valid result */
