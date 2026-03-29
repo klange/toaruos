@@ -64,15 +64,19 @@ static fs_node_t _mixer_fnode = {
 	.close = snd_mixer_close,
 };
 static spin_lock_t _buffers_lock;
-static list_t _buffers;
 static uint32_t _next_device_id = SND_DEVICE_MAIN;
+
 
 struct dsp_node {
 	ring_buffer_t * rb;
 	size_t samples;
 	size_t written;
 	int realtime;
+	struct dsp_node *next;
+	int delete;
 };
+
+static struct dsp_node * buffers_head = NULL;
 
 int snd_register(snd_device_t * device) {
 	int rv = 0;
@@ -141,26 +145,46 @@ static void snd_dsp_open(fs_node_t * node, unsigned int flags) {
 	 */
 	/* Allocate a buffer for the node and keep a reference for ourselves */
 
-	struct dsp_node * dsp = malloc(sizeof(struct dsp_node));
+	struct dsp_node * dsp = calloc(sizeof(struct dsp_node),1);
 	dsp->rb = ring_buffer_create(SND_BUF_SIZE);
-	dsp->samples = 0;
-	dsp->written = 0;
-	dsp->realtime = 0;
-	node->device = dsp;
 	spin_lock(_buffers_lock);
-	list_insert(&_buffers, node->device);
+	dsp->next = buffers_head;
+	buffers_head = dsp;
 	spin_unlock(_buffers_lock);
+	node->device = dsp;
+}
+
+static void snd_cleanup_client(struct dsp_node * dsp) {
+	ring_buffer_destroy(dsp->rb);
+	free(dsp->rb);
+	free(dsp);
+}
+
+static void snd_cleanup_slow(struct dsp_node * dsp) {
+	spin_lock(_buffers_lock);
+	if (dsp == buffers_head) {
+		buffers_head = dsp->next;
+	} else {
+		struct dsp_node * prev = buffers_head;
+		while (prev) {
+			if (prev->next == dsp) {
+				prev->next = dsp->next;
+				break;
+			}
+			prev = prev->next;
+		}
+	}
+	spin_lock(_buffers_lock);
+	snd_cleanup_client(dsp);
 }
 
 static void snd_dsp_close(fs_node_t * node) {
 	struct dsp_node * dsp = node->device;
-	spin_lock(_buffers_lock);
-	list_delete(&_buffers, list_find(&_buffers, dsp));
-	spin_unlock(_buffers_lock);
-
-	ring_buffer_destroy(dsp->rb);
-	free(dsp->rb);
-	free(dsp);
+	if (!_devices.length) {
+		snd_cleanup_slow(dsp);
+	} else {
+		dsp->delete = 1;
+	}
 }
 
 static snd_device_t * snd_device_by_id(uint32_t device_id) {
@@ -243,8 +267,9 @@ int snd_request_buf(snd_device_t * device, uint32_t size, uint8_t *buffer) {
 	memset(buffer, 0, size);
 
 	spin_lock(_buffers_lock);
-	foreach(buf_node, &_buffers) {
-		struct dsp_node * dsp = buf_node->value;
+	struct dsp_node * dsp = buffers_head;
+	struct dsp_node * prev = NULL;
+	while (dsp) {
 		ring_buffer_t * buf = dsp->rb;
 		/* ~0x3 is to ensure we don't read partial samples or just a single channel */
 		size_t bytes_left = MIN(ring_buffer_unread(buf) & ~0x3, size);
@@ -267,6 +292,15 @@ int snd_request_buf(snd_device_t * device, uint32_t size, uint8_t *buffer) {
 			adding_ptr += this_read_size / sizeof(*adding_ptr);
 			bytes_left -= this_read_size;
 		}
+		struct dsp_node * next = dsp->next;
+		if (dsp->delete && ring_buffer_unread(buf) < 4) {
+			if (!prev) buffers_head = next;
+			else prev->next = next;
+			snd_cleanup_client(dsp);
+		} else {
+			prev = dsp;
+		}
+		dsp = next;
 	}
 	spin_unlock(_buffers_lock);
 
