@@ -3,16 +3,15 @@
 .SH NAME
 \fBcolor\-picker\fP \- Display a color wheel for picking colors.
 
+.SH SYNOPSIS
+\fBcoolor\-picker\fP [\fB\-\-print\fP]
+
 .SH DESCRIPTION
 This utility displays a graphical color picker.
 
-.SH NOTES
-Because this utility only displays the selected color as a label
-in its window, it is not very useful unless you want to manually
-copy a hex color value.
-.PP
-A future version of this utility may print the color to standard output,
-which would allow it to be called by other tools...
+.TP
+.B \-\-print
+Print the hex color code, eg. \fB#FFFFFF\fP, to standard output on normal exit.
 
 .SH HISTORY
 This color picker is based on one that was original written in Python for

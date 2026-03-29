@@ -10,16 +10,12 @@
  * Copyright (C) 2021 K. Lange
  */
 #include <stdlib.h>
-#include <assert.h>
 #include <math.h>
-#include <wait.h>
-#include <sched.h>
-#include <signal.h>
+#include <getopt.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
-#include <toaru/spinlock.h>
 #include <toaru/menu.h>
 #include <toaru/text.h>
 
@@ -360,6 +356,26 @@ static uint32_t parseColor(const char * c) {
 }
 
 int main (int argc, char ** argv) {
+	int print_on_exit = 0;
+	static struct option long_opts[] = {
+		{"print", no_argument, 0, 'p'},
+		{0,0,0,0}
+	};
+
+	int index, c;
+	while ((c = getopt_long(argc, argv, "p", long_opts, &index)) != -1) {
+		if (!c) {
+			if (long_opts[index].flag == 0) {
+				c = long_opts[index].val;
+			}
+		}
+		switch (c) {
+			case 'p':
+				print_on_exit = 1;
+				break;
+		}
+	}
+
 	yctx = yutani_init();
 	if (!yctx) {
 		fprintf(stderr, "%s: failed to connect to compositor\n", argv[0]);
@@ -461,7 +477,9 @@ int main (int argc, char ** argv) {
 		}
 	}
 
-	wait(NULL);
+	if (print_on_exit) {
+		printf("#%02x%02x%02x\n", _RED(my_color), _GRE(my_color), _BLU(my_color));
+	}
 
 	yutani_close(yctx, wina);
 	return 0;
