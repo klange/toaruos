@@ -111,7 +111,7 @@ snd_unregister_cleanup:
 }
 
 static ssize_t snd_dsp_write(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
-	if (!_devices.length) return -1; /* No sink available. */
+	if (!_devices.length) return -EPIPE; /* No sink available. */
 
 	struct dsp_node * dsp = node->device;
 
