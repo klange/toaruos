@@ -529,9 +529,10 @@ long sys_mkdir(char * path, uint64_t mode) {
 long sys_access(const char * file, long flags) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
+	if (flags < 0 || flags > 7) return -EINVAL;
 	fs_node_t * node = kopen((char *)file, 0);
 	if (!node) return -ENOENT;
-	int ret = flags ? !has_permission(node, flags) : 0;
+	int ret = flags ? (!has_permission(node, flags) ? -EACCES : 0) : 0;
 	close_fs(node);
 	return ret;
 }
