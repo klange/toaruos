@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
+#include <unistd.h>
 
 #define DEFAULT_PATH "/bin:/usr/bin"
 
@@ -28,19 +28,11 @@ int main(int argc, char * argv[]) {
 		i++;
 	}
 
-	if (i == argc) {
-		return 1;
-	}
+	if (i == argc) return 1;
 
 	for (; i < argc; ++i) {
-
 		if (strstr(argv[i], "/")) {
-			struct stat t;
-			if (!stat(argv[i], &t)) {
-				if ((t.st_mode & 0111)) {
-					printf("%s\n", argv[i]);
-				}
-			}
+			if (!access(argv[i], X_OK)) printf("%s\n", argv[i]);
 		} else {
 			char * file = argv[i];
 			char * path = getenv("PATH") ?: DEFAULT_PATH;
@@ -48,26 +40,16 @@ int main(int argc, char * argv[]) {
 			char * p, * last;
 			int found = 0;
 			for ((p = strtok_r(xpath, ":", &last)); p; p = strtok_r(NULL, ":", &last)) {
-				int r;
-				struct stat stat_buf;
 				char * exe = NULL;
 				asprintf(&exe, "%s/%s", p, file);
-
-				r = stat(exe, &stat_buf);
-				if (r != 0) {
+				if (access(exe, X_OK)) {
 					free(exe);
 					continue;
-				}
-				if (!(stat_buf.st_mode & 0111)) {
-					free(exe);
-					continue; /* XXX not technically correct; need to test perms */
 				}
 				found = 1;
 				printf("%s\n", exe);
 				free(exe);
-				if (print_all) {
-					continue;
-				}
+				if (print_all) continue;
 				break;
 			}
 			free(xpath);
