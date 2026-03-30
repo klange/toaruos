@@ -4,8 +4,8 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <errno.h>
-#include <sys/stat.h>
 
 DEFN_SYSCALL3(execve, SYS_EXECVE, char *, char **, char **);
 
@@ -20,28 +20,16 @@ int execve(const char *name, char * const argv[], char * const envp[]) {
 int execvpe(const char *file, char *const argv[], char *const envp[]) {
 	if (file && (!strstr(file, "/"))) {
 		/* We don't quite understand "$PATH", so... */
-		char * path = getenv("PATH");
-		if (!path) {
-			path = DEFAULT_PATH;
-		}
+		char * path = getenv("PATH") ?: DEFAULT_PATH;
 		char * xpath = strdup(path);
 		char * p, * last;
 		for ((p = strtok_r(xpath, ":", &last)); p; p = strtok_r(NULL, ":", &last)) {
-			int r;
-			struct stat stat_buf;
-			char * exe = malloc(strlen(p) + strlen(file) + 2);
-			strcpy(exe, p);
-			strcat(exe, "/");
-			strcat(exe, file);
-
-			r = stat(exe, &stat_buf);
-			if (r != 0) {
+			char *exe;
+			if (asprintf(&exe, "%s/%s", p, file) == -1) continue;
+			if (access(exe, X_OK)) {
+				free(exe);
 				continue;
 			}
-			if (!(stat_buf.st_mode & 0111)) {
-				continue; /* XXX not technically correct; need to test perms */
-			}
-
 			return execve(exe, argv, envp);
 		}
 		free(xpath);
