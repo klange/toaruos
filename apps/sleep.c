@@ -20,10 +20,7 @@ int main(int argc, char ** argv) {
 	char * arg = strdup(argv[1]);
 
 	float time = atof(arg);
-	unsigned int seconds = (unsigned int)time;
-	unsigned int subsecs = (unsigned int)((time - (float)seconds) * 100);
-
-	useconds_t usecs = (seconds * 1000L + subsecs) * 1000L;
+	useconds_t usecs = (useconds_t)(time * 1000000.0);
 
 	if (usleep(usecs) < 0) {
 		perror(argv[0]);
