@@ -41,6 +41,7 @@
 #include <wait.h>
 #include <fcntl.h>
 #include <sys/wait.h>
+#include <sys/reboot.h>
 
 #define INITD_PATH "/etc/startup.d"
 
@@ -117,6 +118,5 @@ int main(int argc, char * argv[]) {
 	}
 
 	/* Self-explanatory */
-	syscall_reboot();
-	return 0;
+	return reboot(0);
 }

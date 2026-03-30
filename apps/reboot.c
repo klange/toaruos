@@ -10,11 +10,13 @@
  * Copyright (C) 2013-2014 K. Lange
  */
 #include <stdio.h>
-#include <syscall.h>
+#include <string.h>
+#include <errno.h>
+#include <sys/reboot.h>
 
 int main(int argc, char ** argv) {
-	if (syscall_reboot() < 0) {
-		printf("%s: permission denied\n", argv[0]);
+	if (reboot(0) < 0) {
+		fprintf(stderr, "%s: %s\n", argv[0], strerror(errno));
 	}
 	return 1;
 }

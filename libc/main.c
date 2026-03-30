@@ -7,7 +7,6 @@
 #include <sys/sysfunc.h>
 
 DEFN_SYSCALL1(exit,  SYS_EXT, int);
-DEFN_SYSCALL2(sleepabs,  SYS_SLEEPABS, unsigned long, unsigned long);
 
 extern void _init();
 extern void _fini();

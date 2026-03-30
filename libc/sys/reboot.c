@@ -1,7 +1,11 @@
 #include <unistd.h>
 #include <syscall.h>
 #include <syscall_nums.h>
+#include <errno.h>
 
-DEFN_SYSCALL0(reboot, SYS_REBOOT);
+DEFN_SYSCALL1(reboot, SYS_REBOOT, int);
 
-/* TODO: define reboot() */
+int reboot(int op) {
+	__sets_errno(syscall_reboot(op));
+}
+

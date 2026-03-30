@@ -187,7 +187,7 @@ DECL_SYSCALL2(dup2, int, int);
 DECL_SYSCALL0(getuid);
 DECL_SYSCALL1(setuid, unsigned int);
 DECL_SYSCALL5(getsockopt,int,int,int,void*,size_t*);
-DECL_SYSCALL0(reboot);
+DECL_SYSCALL1(reboot,int);
 DECL_SYSCALL3(readdir, int, int, void *);
 DECL_SYSCALL1(chdir, char *);
 DECL_SYSCALL2(getcwd, char *, size_t);

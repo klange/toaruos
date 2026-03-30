@@ -1062,17 +1062,13 @@ long sys_yield(void) {
 long sys_sleepabs(unsigned long seconds, unsigned long subseconds) {
 	/* Mark us as asleep until <some time period> */
 	sleep_until((process_t *)this_core->current_process, seconds, subseconds);
-
-	/* Switch without adding us to the queue */
-	//printf("process %p (pid=%d) entering sleep until %ld.%06ld\n", current_process, current_process->id, seconds, subseconds);
 	switch_task(0);
 
 	unsigned long timer_ticks = 0, timer_subticks = 0;
 	relative_time(0,0,&timer_ticks,&timer_subticks);
-	//printf("process %p (pid=%d) resumed from sleep at %ld.%06ld\n", current_process, current_process->id, timer_ticks, timer_subticks);
 
 	if (seconds > timer_ticks || (seconds == timer_ticks && subseconds >= timer_subticks)) {
-		return 1;
+		return seconds - timer_ticks;
 	} else {
 		return 0;
 	}
@@ -1301,7 +1297,8 @@ long sys_kill(pid_t process, int signal) {
 	}
 }
 
-long sys_reboot(void) {
+long sys_reboot(int unused) {
+	(void)unused;
 	if (this_core->current_process->user != USER_ROOT_UID) {
 		return -EPERM;
 	}

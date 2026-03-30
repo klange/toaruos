@@ -1,7 +1,7 @@
 #include <syscall.h>
+#include <errno.h>
 
 unsigned int sleep(unsigned int seconds) {
-	syscall_sleep(seconds, 0);
-	return 0;
+	__sets_errno(syscall_sleep(seconds, 0));
 }
 
