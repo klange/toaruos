@@ -8,12 +8,10 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
-#include <syscall.h>
 #include <string.h>
+#include <unistd.h>
 
 int main(int argc, char ** argv) {
-	int ret = 0;
-
 	if (argc < 2) {
 		fprintf(stderr, "%s: missing operand\n", argv[0]);
 		return 1;
@@ -22,12 +20,16 @@ int main(int argc, char ** argv) {
 	char * arg = strdup(argv[1]);
 
 	float time = atof(arg);
-
 	unsigned int seconds = (unsigned int)time;
 	unsigned int subsecs = (unsigned int)((time - (float)seconds) * 100);
 
-	ret = syscall_sleep(seconds, subsecs);
+	useconds_t usecs = (seconds * 1000L + subsecs) * 1000L;
 
-	return ret;
+	if (usleep(usecs) < 0) {
+		perror(argv[0]);
+		return 1;
+	}
+
+	return 0;
 }
 

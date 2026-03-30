@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <syscall.h>
+#include <fcntl.h>
 #include <sys/time.h>
 #include <sys/utsname.h>
 
@@ -40,9 +41,9 @@ static void redraw(void) {
 }
 
 int main(int argc, char * argv[]) {
-	fprintf(stderr, "open() = %ld\n", syscall_open("/dev/null", 0, 0));
-	fprintf(stderr, "open() = %ld\n", syscall_open("/dev/null", 1, 0));
-	fprintf(stderr, "open() = %ld\n", syscall_open("/dev/null", 1, 0));
+	fprintf(stderr, "open() = %d\n", open("/dev/null", O_RDONLY));
+	fprintf(stderr, "open() = %d\n", open("/dev/null", O_WRONLY));
+	fprintf(stderr, "open() = %d\n", open("/dev/null", O_WRONLY));
 
 	ctx = init_graphics_fullscreen_double_buffer();
 	draw_fill(ctx, rgb(120,120,120));
