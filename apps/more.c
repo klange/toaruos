@@ -36,6 +36,10 @@ static char * promptstring = NULL;
 static int no_quit = 0;
 static int use_alt_screen = 0;
 static int no_scrollback = 0;
+static char * search_string = NULL;
+static ssize_t search_size = 0;
+static size_t search_avail = 0;
+static ssize_t searching = 0;
 
 /* Line builder */
 static char * lineBuf = NULL;
@@ -189,14 +193,136 @@ static void quit_cleanly(int sig) {
 	raise(sig);
 }
 
+static void draw_line(ssize_t line) {
+	if (search_string && *search_string) {
+		char * stop = NULL;
+		for (char * c = lines[line]; *c; ++c) {
+			if (!stop && !strncmp(c,search_string,search_size)) {
+				printf("\033[7m");
+				stop = c + search_size;
+			} else if (c == stop) {
+				printf("\033[27m");
+				stop = NULL;
+			}
+			fputc(*c, stdout);
+		}
+		if (stop) printf("\033[27m");
+	} else {
+		printf("%s",lines[line]);
+	}
+	printf("\033[K\n");
+}
+
+static int lineedit(char **buffer, size_t *bufsize) {
+	size_t c = 0;
+	while (1) {
+		int i;
+		char ch;
+		printf("\033[?25h");
+		fflush(stdout);
+		if (read(STDERR_FILENO, &ch, 1) == 0) {
+			i = EOF;
+		} else {
+			i = ch;
+		}
+		printf("\033[?25l");
+		fflush(stdout);
+
+		if (i == 0x08 || i == 127) {
+			if (c) {
+				(*buffer)[c--] = '\0';
+				printf("\b\033[K");
+				fflush(stdout);
+			} else {
+				return -1;
+			}
+		} else {
+			if (*bufsize <= c + 1) {
+				ssize_t nn = *bufsize < 10 ? 10 : (*bufsize * 2);
+				char * nbuf = realloc(*buffer, nn);
+				*bufsize = nn;
+				*buffer = nbuf;
+			}
+
+			if (i == EOF) {
+				(*buffer)[c] = '\0';
+				if (c) return c;
+				return -1;
+			}
+
+			if (i == '\n' || i == '\r') break; /* unlike getline, we won't include this in the string */
+			fputc(i, stdout);
+			fflush(stdout);
+			(*buffer)[c++] = i;
+		}
+	}
+
+	(*buffer)[c] = '\0';
+	return c;
+}
+
+static ssize_t do_search(ssize_t offset, int direction) {
+	printf("\r/\033[K");
+	fflush(stdout);
+
+	if (direction == 0) {
+		if ((search_size = lineedit(&search_string, &search_avail)) == -1) return offset;
+	}
+
+	if (search_string && *search_string) {
+		/* Find a result */
+		if (direction >= 0) {
+			for (ssize_t i = linesLen - term_height - offset + 1 + direction; i < linesLen; ++i) {
+				if (i < 0) continue;
+				if (strstr(lines[i], search_string)) {
+					return linesLen - i - term_height + 1;
+				}
+			}
+			searching = linesLen - term_height - offset;
+			stop_asking = 1;
+			return -1;
+		} else {
+			for (ssize_t i = linesLen - term_height - offset; i >= 0; --i) {
+				if (strstr(lines[i], search_string)) {
+					return linesLen - i - term_height + 1;
+				}
+			}
+			return offset;
+		}
+	}
+
+	return offset;
+}
+
 static int do_history_mode(int mode, char * title) {
 	/* Enter history mode; scroll up one line */
 	ssize_t offset = 1;
 
 	if (mode == 2) {
+		/* Enter history and scroll to top. */
 		offset = linesLen;
-	} if (mode == 3) {
+	} else if (mode == 3) {
+		/* Enter history and "page up" once. */
 		offset = term_height;
+	} else if (mode == 4) {
+		/* Enter history and begin search with prompt. */
+		offset = do_search(0, 0);
+	} else if (mode == 5) {
+		/* Return to history mode from a successful forward search of fresh content */
+		searching = 0;
+		stop_asking = 0;
+		offset = 0;
+	} else if (mode == 6) {
+		/* Enter history mode from pressing 'n' in non-history mode. (Search next.) */
+		offset = do_search(0, 1);
+	} else if (mode == 7) {
+		/* Enter history mode from pressing 'N' in non-history mode. (Search previous.) */
+		offset = do_search(0, -1);
+	} else if (mode == 8) {
+		/* Enter history mode from failing to find a forward result and hitting EOF. */
+		offset = linesLen - searching - term_height;
+		stop_asking = 0;
+		searching = 0;
 	}
 
 	while (1) {
@@ -206,7 +332,7 @@ static int do_history_mode(int mode, char * title) {
 
 		int break_here = 0;
 		if (offset < 0) {
-			term_yish = term_height + offset + 1;
+			term_yish = term_height + offset;
 			offset = 0;
 			break_here = 1;
 		}
@@ -215,7 +341,7 @@ static int do_history_mode(int mode, char * title) {
 		printf("\033[H");
 		for (ssize_t line = 1; line < term_height; ++line) {
 			ssize_t this = linesLen - term_height - offset + line;
-			if (this >= 0 && this < linesLen) printf("%s\033[K\n",lines[linesLen - term_height - offset + line]);
+			if (this >= 0 && this < linesLen) draw_line(this);
 		}
 
 		if (offset == 0 && break_here) {
@@ -257,7 +383,7 @@ static int do_history_mode(int mode, char * title) {
 				break;
 			case 'F':
 			case 'G':
-				offset = 0;
+				offset = -1;
 				clear_line();
 				stop_asking = 1;
 				break;
@@ -267,6 +393,15 @@ static int do_history_mode(int mode, char * title) {
 			case '\r':
 				clear_line();
 				offset -= 1;
+				break;
+			case '/':
+				offset = do_search(offset, 0);
+				break;
+			case 'n':
+				offset = do_search(offset, 1);
+				break;
+			case 'N':
+				offset = do_search(offset, -1);
 				break;
 			case 'q':
 				clear_line();
@@ -290,6 +425,17 @@ static int next_line(char * title, int forced, int atend) {
 			lines_add(c);
 		}
 		lineLen = 0;
+	}
+
+	if (searching) {
+		if (linesLen && strstr(lines[linesLen-1],search_string)) {
+			/* "Return... from successful forward search..." */
+			if (do_history_mode(5,title)) return 1;
+			return 0;
+		} else if (forced) {
+			/* "failing to find a forward result" */
+			if (do_history_mode(8,title)) return 1;
+		}
 	}
 
 	if (!forced && (term_yish < term_height || stop_asking)) {
@@ -329,21 +475,39 @@ _reprint_prompt:
 					stop_asking = 1;
 					return 0;
 				case 'A':
-				case 'k':
+				case 'k': /* Scroll up one */
 					if (no_scrollback) goto _no_scrollback;
 					if (do_history_mode(1, title)) return 1;
 					clear_line();
 					if (forced) goto _reprint_prompt;
 					return 0;
-				case 'H':
+				case 'H': /* Scroll to top */
 					if (no_scrollback) goto _no_scrollback;
 					if (do_history_mode(2, title)) return 1;
 					clear_line();
 					if (forced) goto _reprint_prompt;
 					return 0;
-				case '5':
+				case '5': /* Page up once */
 					if (no_scrollback) goto _no_scrollback;
 					if (do_history_mode(3, title)) return 1;
+					clear_line();
+					if (forced) goto _reprint_prompt;
+					return 0;
+				case '/': /* Enter search mode, show search prompt */
+					if (no_scrollback) goto _no_scrollback;
+					if (do_history_mode(4, title)) return 1;
+					clear_line();
+					if (forced) goto _reprint_prompt;
+					return 0;
+				case 'n': /* Find next search result */
+					if (no_scrollback) goto _no_scrollback;
+					if (do_history_mode(6, title)) return 1;
+					clear_line();
+					if (forced) goto _reprint_prompt;
+					return 0;
+				case 'N': /* Find previous search result */
+					if (no_scrollback) goto _no_scrollback;
+					if (do_history_mode(7, title)) return 1;
 					clear_line();
 					if (forced) goto _reprint_prompt;
 					return 0;
@@ -386,7 +550,8 @@ static int do_file(char * name, FILE * f, int opti, int argc) {
 	int maybe_escaped = 0;
 
 	term_x = 0;
-
+	searching = 0;
+	stop_asking = 0;
 
 	uint32_t code, state = 0;
 	while (!feof(f)) {
