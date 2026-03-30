@@ -182,6 +182,9 @@ static int skip_escape(char *x, size_t *len) {
 		case '/':
 			return 2;
 
+		case '?':
+			return 2;
+
 		/* Special characters are generally one character, but maybe
 		 * some of them will be wider later. */
 		case '(':
@@ -303,9 +306,9 @@ static int do_escape(struct RoffContext * ctx, char *x) {
 		case 'e':
 			fputc('\\', stdout);
 			return 2;
-		case ',':
+		case ',': /* "left and right italic correction"; ignored. */
 		case '/':
-			/* "left and right italic correction"; ignored. */
+		case '&': /* "Zero width space, which we just don't print. */
 			return 2;
 		case '(':
 			if (!x[2]) return 2;
@@ -325,6 +328,10 @@ static int do_escape(struct RoffContext * ctx, char *x) {
 	}
 }
 
+static int is_tab_or_space(char c) {
+	return (c == ' ' || c == '\t');
+}
+
 /**
  * @brief Helper to determine if a whole string is spaces.
  *
@@ -332,8 +339,8 @@ static int do_escape(struct RoffContext * ctx, char *x) {
  * or at least just use @c isblank() but it's good enough for now.
  */
 static int is_whitespace(char * c) {
-	while (*c && *c == ' ') c++;
-	if (*c && *c != ' ') return 0;
+	while (*c && is_tab_or_space(*c)) c++;
+	if (*c && !is_tab_or_space(*c))  return 0;
 	return 1;
 }
 
@@ -344,6 +351,21 @@ static int is_whitespace(char * c) {
  */
 static void print_spaces(int indent) {
 	for (int i = 0; i < indent; ++i) fputc(' ', stdout);
+}
+
+static void do_tab_or_space(struct RoffContext * ctx, char c) {
+	if (c == '\t') {
+		/* Is this the right tab stop? I have no idea! */
+		fputc(' ', stdout);
+		ctx->current_x += 1;
+		while ((ctx->current_x - ctx->indent) % 5) {
+			fputc(' ', stdout);
+			ctx->current_x += 1;
+		}
+	} else {
+		fputc(' ', stdout);
+		ctx->current_x += 1;
+	}
 }
 
 /**
@@ -364,7 +386,7 @@ static size_t process_word(struct RoffContext * ctx, char * c, int delimited) {
 	size_t last_len = 0;
 
 	/* Collect word */
-	while (*c && *c != ' ') {
+	while (*c && !is_tab_or_space(*c)) {
 		if (*c == '\\' && c[1]) {
 			c += skip_escape(c, &last_len);
 		} else {
@@ -375,7 +397,7 @@ static size_t process_word(struct RoffContext * ctx, char * c, int delimited) {
 
 	/* Word was empty, done with line. */
 	if (!last_len) {
-		while (*c && *c == ' ') c++;
+		while (*c && is_tab_or_space(*c)) c++;
 		return c - c_in;
 	}
 
@@ -407,21 +429,18 @@ static size_t process_word(struct RoffContext * ctx, char * c, int delimited) {
 
 	if (!*c) printf("\033[0m");
 
-	if (ctx->printing_table) {
-		while (*c && *c == ' ' && (size_t)ctx->current_x < (size_t)w.ws_col - MARGIN_SPACE) {
-			printf(" ");
-			ctx->current_x++;
+	if (ctx->printing_table || delimited) {
+		int something = 0;
+		while (*c && is_tab_or_space(*c) && (size_t)ctx->current_x < (size_t)w.ws_col - MARGIN_SPACE) {
+			something = 1;
+			do_tab_or_space(ctx, *c);
 			c++;
 		}
-	} else {
-		if (delimited) {
-			fputc(' ', stdout);
-			ctx->current_x += 1;
-		}
+		if (delimited && !something) do_tab_or_space(ctx, ' ');
 	}
 
 	/* Advance through whitespace */
-	while (*c && *c == ' ') c++;
+	while (*c && is_tab_or_space(*c)) c++;
 
 	return c - c_in;
 }
@@ -437,7 +456,7 @@ static size_t process_word(struct RoffContext * ctx, char * c, int delimited) {
 static char * collect_arg(char * c, char **out) {
 	char * value = NULL;
 	*out = NULL;
-	while (*c && *c == ' ') c++;
+	while (*c && is_tab_or_space(*c)) c++;
 	if (*c) {
 
 		int quoted = 0;
@@ -451,12 +470,12 @@ static char * collect_arg(char * c, char **out) {
 		if (quoted) {
 			while (*c && *c != '"') c++;
 		} else {
-			while (*c && *c != ' ') c++;
+			while (*c && !is_tab_or_space(*c)) c++;
 		}
 		if (*c) *c++ = '\0';
 
 		/* Skip whitespace */
-		while (*c && *c == ' ') c++;
+		while (*c && is_tab_or_space(*c)) c++;
 	}
 
 	if (value) *out = strdup(value);
@@ -528,8 +547,6 @@ static int do_file(char ** argv, int i) {
 			line[len-1] = '\0';
 			len--;
 		}
-
-		if (!*line && !ctx.printing_table) continue; /* Skip blank lines entirely? Is that correct? */
 
 		if (*line == '\'') line[0] = '.'; /* single tick is an alias for . at the start of a line. */
 
@@ -625,7 +642,7 @@ static int do_file(char ** argv, int i) {
 					c += process_arg(&ctx, c, 0);
 				}
 				print_spaces(1);
-				/* Continue */
+				continue;
 			} else if (strstr(line, ".BR ") == line) {
 				/* Bold, then Roman */
 				c = line + 4;
@@ -710,24 +727,19 @@ static int do_file(char ** argv, int i) {
 			}
 		}
 
+		if (!*c && !ctx.printing_table) {
+			flush_line(&ctx, 1);
+		}
+
 		/* If whitespace appears at the start of the line, treat it as a line break
 		 * and display the literal whitespace */
-		if (*c == ' ' || *c == '\t') {
+		if (is_tab_or_space(*c)) {
 			flush_line(&ctx, 0);
 			print_spaces(ctx.indent);
 			ctx.current_x += ctx.indent;
 
-			while (*c == ' ' || *c == '\t') {
-				if (*c == '\t') {
-					/* Is this the right tab stop? I have no idea! */
-					do {
-						fputc(' ', stdout);
-						ctx.current_x += 1;
-					} while (ctx.current_x % 6);
-				} else {
-					fputc(' ', stdout);
-					ctx.current_x += 1;
-				}
+			while (is_tab_or_space(*c)) {
+				do_tab_or_space(&ctx, *c);
 				c++;
 			}
 		}
@@ -756,7 +768,7 @@ static int do_file(char ** argv, int i) {
 		if (ctx.next_indent) {
 			ctx.indent = ctx.next_indent;
 			ctx.next_indent = 0;
-			if (ctx.squish_line && ctx.current_x < ctx.indent) {
+			if (ctx.squish_line && ctx.current_x < (ctx.indent + delimited)) {
 				ctx.squish_line = 0;
 				while (ctx.current_x < ctx.indent) {
 					fputc(' ', stdout);
