@@ -527,6 +527,7 @@ static int do_file(char ** argv, int i) {
 				switch_font(&ctx,'B');
 				ctx.indent = 0;
 				ctx.next_indent = ctx.extra_indent + DEFAULT_INDENTATION;
+				ctx.squish_line = 0;
 			} else if (strstr(line, ".SS ") == line) {
 				/* Sub-section heading */
 				if (flush_line(&ctx)) printf("\n");
@@ -535,6 +536,7 @@ static int do_file(char ** argv, int i) {
 				switch_font(&ctx,'B');
 				ctx.indent = 3;
 				ctx.next_indent = ctx.extra_indent + DEFAULT_INDENTATION;
+				ctx.squish_line = 0;
 			} else if (strstr(line, ".PP") == line) {
 				/* Paragraph */
 				flush_line(&ctx); printf("\n");
