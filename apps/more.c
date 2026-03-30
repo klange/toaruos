@@ -16,6 +16,8 @@
 #include <stdlib.h>
 #include <locale.h>
 #include <termios.h>
+#include <signal.h>
+#include <sys/signal.h>
 #include <sys/ioctl.h>
 
 #include <toaru/decodeutf8.h>
@@ -172,6 +174,19 @@ static void clear_line(void) {
 	printf("\r\033[K");
 	fflush(stdout);
 	term_x = 0;
+}
+
+static void cleanup(void) {
+	if (use_alt_screen) printf("\033[?1049l");
+	printf("\033[?25h");
+	set_buffered();
+	fflush(stdout);
+}
+
+static void quit_cleanly(int sig) {
+	cleanup();
+	signal(sig, SIG_DFL);
+	raise(sig);
 }
 
 static int do_history_mode(int mode, char * title) {
@@ -523,6 +538,9 @@ int main(int argc, char * argv[]) {
 	set_unbuffered();
 	printf("\033[?25l");
 
+	signal(SIGINT, quit_cleanly);
+	signal(SIGQUIT, quit_cleanly);
+
 	if (use_alt_screen) printf("\033[?1049h\033[H\033[2J");
 
 	if (optind == argc) {
@@ -535,8 +553,6 @@ int main(int argc, char * argv[]) {
 		if (f) fclose(f);
 	}
 
-	if (use_alt_screen) printf("\033[?1049l");
-	printf("\033[?25h");
-	set_buffered();
+	cleanup();
 	return 0;
 }
