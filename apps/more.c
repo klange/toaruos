@@ -230,11 +230,11 @@ static int do_history_mode(int mode, char * title) {
 			case ' ':
 			case '6':
 				clear_line();
-				offset -= term_height;
+				offset -= term_height - 1;
 				break;
 			case '5':
 				clear_line();
-				offset += term_height;
+				offset += term_height - 1;
 				break;
 			case 'H':
 				clear_line();
