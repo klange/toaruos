@@ -1,0 +1,599 @@
+.TH errno 3 "March, 2026"
+
+.SH NAME
+\fBerrno\fP \- number of last error
+
+.SH LIBRARY
+Standard C library (\fIlibc\fP, \fI\-lc\fP)
+
+.SH SYNOPSIS
+.B #include <errno.h>
+
+.SH DESCRIPTION
+The \fBerrno\fP value records the last error reported by a system library.
+Usually, this is interpreted from the raw value returned by a system call,
+but some library functions set it manually.
+
+.SS Error names
+
+.TP 16
+.B EPERM
+1
+.I Operation not permitted
+
+.TP 16
+.B ENOENT
+2
+.I No such file or directory
+
+.TP 16
+.B ESRCH
+3
+.I No such process
+
+.TP 16
+.B EINTR
+4
+.I Interrupted system call
+
+.TP 16
+.B EIO
+5
+.I Input/Output error
+
+.TP 16
+.B ENXIO
+6
+.I No such device or address
+
+.TP 16
+.B E2BIG
+7
+.I Argument list too long
+
+.TP 16
+.B ENOEXEC
+8
+.I Exec format error
+
+.TP 16
+.B EBADF
+9
+.I Bad file descriptor
+
+.TP 16
+.B ECHILD
+10
+.I No child processes
+
+.TP 16
+.B EAGAIN
+11
+.I Resource temporarily unavailable
+
+.TP 16
+.B ENOMEM
+12
+.I Cannot allocate memory
+
+.TP 16
+.B EACCES
+13
+.I Permission denied
+
+.TP 16
+.B EFAULT
+14
+.I Bad address
+
+.TP 16
+.B ENOTBLK
+15
+.I Block device required
+
+.TP 16
+.B EBUSY
+16
+.I Device or resource busy
+
+.TP 16
+.B EEXIST
+17
+.I File exists
+
+.TP 16
+.B EXDEV
+18
+.I Invalid cross-device link
+
+.TP 16
+.B ENODEV
+19
+.I No such device
+
+.TP 16
+.B ENOTDIR
+20
+.I Not a directory
+
+.TP 16
+.B EISDIR
+21
+.I Is a directory
+
+.TP 16
+.B EINVAL
+22
+.I Invalid argument
+
+.TP 16
+.B ENFILE
+23
+.I Too many open files in system
+
+.TP 16
+.B EMFILE
+24
+.I Too many open files
+
+.TP 16
+.B ENOTTY
+25
+.I Inappropriate ioctl for device
+
+.TP 16
+.B ETXTBSY
+26
+.I Text file busy
+
+.TP 16
+.B EFBIG
+27
+.I File too large
+
+.TP 16
+.B ENOSPC
+28
+.I No space left on device
+
+.TP 16
+.B ESPIPE
+29
+.I Illegal seek
+
+.TP 16
+.B EROFS
+30
+.I Read only file system
+
+.TP 16
+.B EMLINK
+31
+.I Too many links
+
+.TP 16
+.B EPIPE
+32
+.I Broken pipe
+
+.TP 16
+.B EDOM
+33
+.I Math arg out of domain of func
+
+.TP 16
+.B ERANGE
+34
+.I Math result not representable
+
+.TP 16
+.B ENOMSG
+35
+.I No message of desired type
+
+.TP 16
+.B EIDRM
+36
+.I Identifier removed
+
+.TP 16
+.B ECHRNG
+37
+.I Channel number out of range
+
+.TP 16
+.B EL2NSYNC
+38
+.I Level 2 not synchronized
+
+.TP 16
+.B EL3HLT
+39
+.I Level 3 halted
+
+.TP 16
+.B EL3RST
+40
+.I Level 3 reset
+
+.TP 16
+.B ELNRNG
+41
+.I Link number out of range
+
+.TP 16
+.B EUNATCH
+42
+.I Protocol driver not attached
+
+.TP 16
+.B ENOCSI
+43
+.I No CSI structure available
+
+.TP 16
+.B EL2HLT
+44
+.I Level 2 halted
+
+.TP 16
+.B EDEADLK
+45
+.I Deadlock condition
+
+.TP 16
+.B ENOLCK
+46
+.I No record locks available
+
+.TP 16
+.B EBADE
+50
+.I Invalid exchange
+
+.TP 16
+.B EBADR
+51
+.I Invalid request descriptor
+
+.TP 16
+.B EXFULL
+52
+.I Exchange full
+
+.TP 16
+.B ENOANO
+53
+.I No anode
+
+.TP 16
+.B EBADRQC
+54
+.I Invalid request code
+
+.TP 16
+.B EBADSLT
+55
+.I Invalid slot
+
+.TP 16
+.B EDEADLOCK
+56
+.I File locking deadlock error
+
+.TP 16
+.B EBFONT
+57
+.I Bad font file format
+
+.TP 16
+.B ENOSTR
+60
+.I Device not a stream
+
+.TP 16
+.B ENODATA
+61
+.I No data available
+
+.TP 16
+.B ETIME
+62
+.I Timer expired
+
+.TP 16
+.B ENOSR
+63
+.I Out of streams resources
+
+.TP 16
+.B ENONET
+64
+.I Machine is not on the network
+
+.TP 16
+.B ENOPKG
+65
+.I Package not installed
+
+.TP 16
+.B EREMOTE
+66
+.I The object is remote
+
+.TP 16
+.B ENOLINK
+67
+.I The link has been severed
+
+.TP 16
+.B EADV
+68
+.I Advertise error
+
+.TP 16
+.B ESRMNT
+69
+.I Srmount error
+
+.TP 16
+.B ECOMM
+70
+.I Communication error on send
+
+.TP 16
+.B EPROTO
+71
+.I Protocol error
+
+.TP 16
+.B EMULTIHOP
+74
+.I Multihop attempted
+
+.TP 16
+.B ELBIN
+75
+.I Inode is remote
+
+.TP 16
+.B EDOTDOT
+76
+.I Cross mount point
+
+.TP 16
+.B EBADMSG
+77
+.I Bad message
+
+.TP 16
+.B EFTYPE
+79
+.I Inappropriate file type or format
+
+.TP 16
+.B ENOTUNIQ
+80
+.I Name not unique
+
+.TP 16
+.B EBADFD
+81
+.I File descriptor in bad state
+
+.TP 16
+.B EREMCHG
+82
+.I Remote address changed
+
+.TP 16
+.B ELIBACC
+83
+.I Can not access a needed shared library
+
+.TP 16
+.B ELIBBAD
+84
+.I Accessing a corrupted shared library
+
+.TP 16
+.B ELIBSCN
+85
+.I .lib section in a.out corrupted
+
+.TP 16
+.B ELIBMAX
+86
+.I Attempting to link in too many libraries
+
+.TP 16
+.B ELIBEXEC
+87
+.I Attempting to exec a shared library
+
+.TP 16
+.B ENOSYS
+88
+.I Function not implemented
+
+.TP 16
+.B ENOTEMPTY
+90
+.I Directory not empty
+
+.TP 16
+.B ENAMETOOLONG
+91
+.I File or path name too long
+
+.TP 16
+.B ELOOP
+92
+.I Too many symbolic links
+
+.TP 16
+.B EOPNOTSUPP
+95
+.I Operation not supported on transport endpoint
+
+.TP 16
+.B EPFNOSUPPORT
+96
+.I Protocol family not supported
+
+.TP 16
+.B ECONNRESET
+104
+.I Connection reset by peer
+
+.TP 16
+.B ENOBUFS
+105
+.I No buffer space available
+
+.TP 16
+.B EAFNOSUPPORT
+106
+.I Address family not supported by protocol family
+
+.TP 16
+.B EPROTOTYPE
+107
+.I Protocol wrong type for socket
+
+.TP 16
+.B ENOTSOCK
+108
+.I Socket operation on non-socket
+
+.TP 16
+.B ENOPROTOOPT
+109
+.I Protocol not available
+
+.TP 16
+.B ESHUTDOWN
+110
+.I Can't send after socket shutdown
+
+.TP 16
+.B ECONNREFUSED
+111
+.I Connection refused
+
+.TP 16
+.B EADDRINUSE
+112
+.I Address already in use
+
+.TP 16
+.B ECONNABORTED
+113
+.I Connection aborted
+
+.TP 16
+.B ENETUNREACH
+114
+.I Network is unreachable
+
+.TP 16
+.B ENETDOWN
+115
+.I Network interface is not configured
+
+.TP 16
+.B ETIMEDOUT
+116
+.I Connection timed out
+
+.TP 16
+.B EHOSTDOWN
+117
+.I Host is down
+
+.TP 16
+.B EHOSTUNREACH
+118
+.I No route to host
+
+.TP 16
+.B EINPROGRESS
+119
+.I Connection already in progress
+
+.TP 16
+.B EALREADY
+120
+.I Socket already connected
+
+.TP 16
+.B EDESTADDRREQ
+121
+.I Destination address required
+
+.TP 16
+.B EMSGSIZE
+122
+.I Message too long
+
+.TP 16
+.B EPROTONOSUPPORT
+123
+.I Unknown protocol
+
+.TP 16
+.B ESOCKTNOSUPPORT
+124
+.I Socket type not supported
+
+.TP 16
+.B EADDRNOTAVAIL
+125
+.I Address not available
+
+.TP 16
+.B EISCONN
+127
+.I Socket is already connected
+
+.TP 16
+.B ENOTCONN
+128
+.I Socket is not connected
+
+.TP 16
+.B ENOTSUP
+134
+.I Operation not supported
+
+.TP 16
+.B EOVERFLOW
+139
+.I Value too large for defined data type
+
+.TP 16
+.B ECANCELED
+140
+.I Operation canceled
+
+.TP 16
+.B ENOTRECOVERABLE
+141
+.I State not recoverable
+
+.TP 16
+.B EOWNERDEAD
+142
+.I Previous owner died
+
+.TP 16
+.B ESTRPIPE
+143
+.I Streams pipe error
+
+.SH BUGS
+As of writing, this libc's \fBerrno\fP is not thread-ocal.
+
+.SH SEE ALSO
+.BR strerror (3),
+.BR perror (3)
