@@ -503,7 +503,7 @@ int vasprintf(char ** buf, const char * fmt, va_list args) {
 	xvasprintf(cb_asprintf, &data, fmt, args);
 	cb_asprintf(&data, '\0');
 	*buf = data.str;
-	return 0;
+	return data.written - 1; /* excludes the nul */
 }
 
 int asprintf(char ** ret, const char * fmt, ...) {
