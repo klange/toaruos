@@ -1,0 +1,20 @@
+.TH SLEEP 1 "March, 2026"
+
+.SH NAME
+\fBsleep\fP \- Pause execution
+
+.SH SYNOPSIS
+\fBsleep\fP \fIseconds\fP
+
+.SH DESCRIPTION
+Pauses for some number of \fIseconds\fP, which may be fractional.
+
+.SH NOTES
+While this implementation of \fBsleep\fP uses
+.IR usleep (3),
+it is still limited to microsecond precision, at best,
+due to the underlying system call interface.
+
+.SH SEE ALSO
+.BR sleep (3),
+.BR usleep (3)
