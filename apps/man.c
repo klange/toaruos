@@ -17,6 +17,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <errno.h>
+#include <sys/wait.h>
 #include <sys/stat.h>
 
 #if !defined(TOARU_MAN_CROSS_VIEWER)
@@ -68,7 +69,8 @@ static int try_filename(char * filename, char * page, char * i) {
 			(ROFF_CMD " '%s' | " MORE_CMD) :
 			("gunzip -c '%s' | " ROFF_CMD " -- - | " MORE_CMD),
 			filename, page, i);
-		system(systemcmd);
+		int result = system(systemcmd);
+		if (result) exit(WEXITSTATUS(result));
 		free(systemcmd);
 		return 1;
 	}
