@@ -218,7 +218,7 @@ static int flush_line(struct RoffContext * ctx, int for_vertical_padding) {
 		return 1;
 	}
 
-	ctx->padded = 0;
+	ctx->padded = for_vertical_padding;
 	return 0;
 }
 
@@ -787,6 +787,7 @@ static int do_file(char ** argv, int i) {
 			}
 		}
 
+		if (ctx.current_x) ctx.padded = 0;
 		if (force_padded) ctx.padded = 1;
 	}
 
