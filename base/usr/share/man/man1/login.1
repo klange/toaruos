@@ -1,0 +1,50 @@
+.TH LOGIN 1 "March, 2026"
+
+.SH NAME
+\fBlogin\fP \- prompt for authentication and a run a session
+
+.SH SYNOPSIS
+\fBlogin\fP [\fB\-f\fP \fIuser\fP]
+
+.SH DESCRIPTION
+This utility prompts for a username and password and begins a terminal session.
+.PP
+This should not be confused with tools like
+.IR sudo (1),
+as it does not perform any elevation of privileges.
+Only \fBroot\fP can meaningfully run \fBlogin\fP.
+.PP
+Generally, this is called by other utilities like
+.IR login\-loop "(1) or " getty (1).
+.PP
+\fBlogin\fP will repeatedly prompt for authentication until a user successfully
+authenticates. \fBlogin\fP will then assume the user's identity, configure
+environment variables, display the contents of \fB/etc/motd\fP and finally execute
+the user's configured \fB$SHELL\fP.
+.PP
+If a user enters the string \fBreboot\fP at the username prompt,
+then \fBlogin\fP will call
+.IR reboot (1).
+
+.TP
+.B \-f \fIuser\fP
+Skip prompting for a username and password and immediately begin a login session
+as the given \fIuser\fP. Display of the MOTD will also be skipped.
+
+.SH EXIT STATUS
+.TP
+.B 0
+A login session was initiated and completed.
+
+.TP
+.B 1
+An error occurred trying to start a session after authentication.
+
+.TP
+.B 2
+A user entered the string \fBdisconnect\fP at the username prompt.
+
+.SH SEE ALSO
+.BR login\-loop (1),
+.BR getty (1),
+.BR libtoaru_auth (3)

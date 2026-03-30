@@ -1,0 +1,21 @@
+.TH GSUDO 1 "March, 2026"
+
+.SH NAME
+\fBgsudo\fP \- graphical interface to \fBsudo\fP
+
+.SH SYNOPSIS
+\fBgsudo\fP \fIcmd\fP [\fIargs\fP]...
+\fBgsudo\fP \fB\-s\fP [\fIshell\-args\fP]...
+
+.SH DESCRIPTION
+This is a graphical frontend for
+.IR sudo (1).
+It prompts the user for their password with a graphical UI,
+and otherwise performs identically to \fBsudo\fP.
+
+.TP
+.B \-s
+Run the configured \fB$SHELL\fP once privileges are successfully elevated.
+
+.SH SEE ALSO
+.BR sudo (1)

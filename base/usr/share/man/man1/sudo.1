@@ -1,0 +1,43 @@
+.TH SUDO 1 "March, 2026"
+
+.SH NAME
+\fBsudo\fP \- elevate privileges
+
+.SH SYNOPSIS
+\fBsudo\fP \fIcmd\fP [\fIargs\fP]...
+\fBsudo\fP \fB\-s\fP [\fIshell\-args\fP]...
+
+.SH DESCRIPTION
+Prompt the user to authenticate, and, if they are permitted, execute
+a command using elevated privileges.
+.PP
+This implementation is very naive and should not be expected to offer
+any real security.
+.PP
+A cache is maintained of users who have recently authenticated
+successfully so that they do not have to enter their password again.
+This cache does not differentiate between sessions.
+
+.TP
+.B \-s
+Run the configured \fB$SHELL\fP once priveleges are successfully elevated.
+
+.SH SPECIAL FILES
+\fBsudo\fP stores its configuration of users who are permitted to use it
+in \fB/etc/sudoers\fP. Configuration is limited to specifying the usernames
+of those users. No other options are supported as of writing.
+.PP
+The cache of users who have authenticated is maintained in the directory
+\fB/var/sudoers/\fP, with one file entry for each user, identified
+by their UID.
+
+.SH NOTES
+This implementation of \fBsudo\fP provides a callback\-driven interface
+so that it can be extended with different frontends. One such frontend is
+.IR gsudo (1),
+which provides a graphical interface.
+
+.SH SEE ALSO
+.BR gsudo (1),
+.BR libtoaru_auth (3)
+

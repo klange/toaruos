@@ -1,0 +1,20 @@
+.TH LN 1 "March, 2026"
+
+.SH NAME
+\fBln\fP \- create links
+
+.SH SYNOPSIS
+\fBln\fP [\fB\-s\fP] \fItarget\fP \fIname\fP
+
+.SH DESCRIPTION
+Makes \fIname\fP a link to \fItarget\fP.
+.PP
+Only symlinks are supported by the kernel at the moment, so failing to use the \fB\-s\fP flag will result in an error.
+
+.TP
+.B \-s
+Create a symlink rather than a hard link.
+
+.SH SEE ALSO
+.BR symlink (2),
+.BR link (2)

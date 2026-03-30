@@ -1,0 +1,108 @@
+.TH login-loop 1 "March, 2026"
+
+.SH NAME
+\fBlogin\-loop\fP \- Repeatedly authenticate terminal sessions
+
+.SH DESCRIPTION
+This utility can be run under a TTY to provide the traditional session experience.
+.PP
+It is run by
+.IR terminal\-vga "(1) and " netty (1).
+.PP
+You can also configure the system to launch it from
+.IR terminal (1)
+at boot.
+.PP
+\fBlogin\-loop\fP will format and display \fB/etc/issue\fP and then call
+.IR login (1).
+It will perform these two steps repeatedly until \fBlogin\fP exits
+with a status of 2, which it returns when a user enters \fBdisconnect\fP
+at the username prompt.
+.PP
+When formatting \fB/etc/issue\fP for display, various information is available
+through escape sequences:
+
+.TP
+.B \e\e
+A literal backslash.
+
+.TP
+.B \en
+The \fBnodename\fP value from
+.IR uname (2).
+
+.TP
+.B \es
+The \fBsysname\fP value from
+.IR uname (2).
+
+.TP
+.B \er
+The \fBrelease\fP value from
+.IR uname (2).
+
+.TP
+.B \em
+The \fBmachine\fP value from
+.IR uname (2).
+
+.TP
+.B \ev
+The \fBversion\fP value from
+.IR uname (2).
+
+.TP
+.B \e4
+The IPv4 address of the first available network interface. If no network interface is read, this may print "127.0.0.1" as a fallback.
+
+.TP
+.B \e4{\fIinterface\fP}
+The IPv4 address of the given interface. This might also print "127.0.0.1" as a fallback.
+
+.TP
+.B \el
+The
+.IR ttyname (3)
+of the current terminal.
+
+.TP
+.B \et
+The time and timezone, as formatted with \fB"%T %Z"\fP with
+.IR strftime (3).
+
+.TP
+.B \ed
+The current date, as formatted with \fB"%a %b %d %Y"\fP with
+.IR strftime (3).
+
+.TP
+.B \ee{\fIcolor\fP}
+An escape sequence to change the \fIcolor\fP of the output. Available colors are:
+
+  \- black
+  \- blue
+  \- bold
+  \- brown
+  \- cyan
+  \- darkgray
+  \- gray
+  \- green
+  \- lightblue
+  \- lightcyan
+  \- lightgray
+  \- lightgreen
+  \- lightmagenta
+  \- lightred
+  \- magenta
+  \- red
+  \- reset
+  \- reverse
+  \- yellow
+
+.PP
+Additionally, if a line ends with a \e, the following line feed will be ignored.
+
+.SH SEE ALSO
+.BR login (1),
+.BR uname (2),
+.BR ttyname (3)
