@@ -777,6 +777,7 @@ struct alternative {
 #define ALT_BIM    "bim", "vi-like text editor"
 #define ALT_FETCH  "fetch", "URL downloader"
 #define ALT_NETIF  "ifconfig", "to see network configuration"
+#define ALT_MORE   "more", "the default pager"
 
 static struct alternative cmd_alternatives[] = {
 	/* Propose bim as an alternative for common text editors */
@@ -793,9 +794,8 @@ static struct alternative cmd_alternatives[] = {
 	{"ipconfig", ALT_NETIF},
 	{"ip", ALT_NETIF},
 
-	/* Some random other stuff */
-	{"more", "bim -", "paging to a text editor"},
-	{"less", "bim -", "paging to a text editor"},
+	/* Pager */
+	{"less", ALT_MORE},
 
 	{NULL, NULL, NULL},
 };
