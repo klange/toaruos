@@ -500,10 +500,10 @@ static int cb_asprintf(void * user, char c) {
 
 int vasprintf(char ** buf, const char * fmt, va_list args) {
 	struct CBData data = {NULL,0,0};
-	xvasprintf(cb_asprintf, &data, fmt, args);
+	int out = xvasprintf(cb_asprintf, &data, fmt, args);
 	cb_asprintf(&data, '\0');
 	*buf = data.str;
-	return data.written - 1; /* excludes the nul */
+	return out;
 }
 
 int asprintf(char ** ret, const char * fmt, ...) {
