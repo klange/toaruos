@@ -174,7 +174,7 @@ static void snd_cleanup_slow(struct dsp_node * dsp) {
 			prev = prev->next;
 		}
 	}
-	spin_lock(_buffers_lock);
+	spin_unlock(_buffers_lock);
 	snd_cleanup_client(dsp);
 }
 
