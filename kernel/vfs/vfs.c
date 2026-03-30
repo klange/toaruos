@@ -67,7 +67,7 @@ int fprintf(fs_node_t * f, const char * fmt, ...) {
 int has_permission(fs_node_t * node, int permission_bit) {
 	if (!node) return 0;
 
-	if (this_core->current_process->user == 0 && permission_bit != 01) { /* even root needs exec to exec */
+	if (this_core->current_process->user == 0 && !(permission_bit & 01)) { /* even root needs exec to exec */
 		return 1;
 	}
 
@@ -87,7 +87,7 @@ int has_permission(fs_node_t * node, int permission_bit) {
 		}
 	}
 
-	return (permission_bit & my_permissions);
+	return (permission_bit & my_permissions) == permission_bit;
 }
 
 static struct dirent * readdir_mapper(fs_node_t *node, unsigned long index) {
