@@ -38,6 +38,8 @@ struct RoffContext {
 	unsigned int current_font;   /* The current font, to be set once we start printing. */
 	char * topic_footer;
 	char * topic_header;
+	int padded;
+	int just_did_re;
 };
 
 
@@ -116,6 +118,7 @@ static void format_title(struct RoffContext * ctx) {
 	for (int i = 0; i < space_right; ++i) printf(" ");
 	formatted_title_and_section(title, section);
 	printf("\n\n");
+	ctx->padded = 1;
 }
 
 /**
@@ -199,12 +202,20 @@ static int skip_escape(char *x, size_t *len) {
  *
  * @returns 1 if a line feed was printed. Many callers want to then print another one in this case.
  */
-static int flush_line(struct RoffContext * ctx) {
+static int flush_line(struct RoffContext * ctx, int for_vertical_padding) {
 	if (ctx->current_x != 0) {
-		printf("\033[0m\n");
 		ctx->current_x = 0;
+		printf("\033[0m\n");
+		if (for_vertical_padding) printf("\n");
+		ctx->padded = for_vertical_padding;
+		return 1;
+	} else if (for_vertical_padding && !ctx->padded) {
+		printf("\033[0m\n");
+		ctx->padded = 1;
 		return 1;
 	}
+
+	ctx->padded = 0;
 	return 0;
 }
 
@@ -370,13 +381,15 @@ static size_t process_word(struct RoffContext * ctx, char * c, int delimited) {
 
 	/* Word would wrap, continue to next line and print indentant. */
 	if (last_len + ctx->current_x > (size_t)w.ws_col - MARGIN_SPACE) {
-		flush_line(ctx);
+		flush_line(ctx,0);
 		print_spaces(ctx->indent);
 		ctx->current_x += ctx->indent;
 	} else if (ctx->current_x == 0) {
 		print_spaces(ctx->indent);
 		ctx->current_x += ctx->indent;
 	}
+
+	ctx->padded = 0;
 
 	activate_font(ctx);
 
@@ -451,6 +464,35 @@ static char * collect_arg(char * c, char **out) {
 	return c;
 }
 
+static size_t process_arg(struct RoffContext * ctx, char * c, int delimit_last) {
+	char * c_in = c;
+	char * arg = NULL;
+	c = collect_arg(c, &arg);
+
+	if (arg) {
+		char * ca = arg;
+
+		/* Preserve whitespace within arg */
+		int was_table = ctx->printing_table;
+		ctx->printing_table = 1;
+
+		while (*ca) {
+			ca += process_word(ctx, ca, 0);
+		}
+
+		ctx->printing_table = was_table;
+
+		free(arg);
+	}
+
+	if (delimit_last) {
+		fputc(' ', stdout);
+		ctx->current_x += 1;
+	}
+
+	return c - c_in;
+}
+
 /**
  * @brief Format and display one file.
  *
@@ -499,6 +541,10 @@ static int do_file(char ** argv, int i) {
 
 		char * c = line;
 		int delimited = 1;
+		int force_padded = 0;
+
+		int just_did_re = ctx.just_did_re;
+		ctx.just_did_re = 0;
 
 		if (line[0] == '.') {
 			/* Macro directives */
@@ -521,31 +567,35 @@ static int do_file(char ** argv, int i) {
 				continue;
 			} else if (strstr(line, ".SH ") == line) {
 				/* Section heading */
-				if (flush_line(&ctx)) printf("\n");
+				flush_line(&ctx, 1);
 				c = line + 4;
 				MAYBE_QUOTES();
 				switch_font(&ctx,'B');
 				ctx.indent = 0;
-				ctx.next_indent = ctx.extra_indent + DEFAULT_INDENTATION;
+				ctx.extra_indent = 0;
+				ctx.next_indent = DEFAULT_INDENTATION;
 				ctx.squish_line = 0;
+				force_padded = 1;
 			} else if (strstr(line, ".SS ") == line) {
 				/* Sub-section heading */
-				if (flush_line(&ctx)) printf("\n");
+				flush_line(&ctx, 1);
 				c = line + 4;
 				MAYBE_QUOTES();
 				switch_font(&ctx,'B');
 				ctx.indent = 3;
-				ctx.next_indent = ctx.extra_indent + DEFAULT_INDENTATION;
+				ctx.extra_indent = 0;
+				ctx.next_indent = DEFAULT_INDENTATION;
 				ctx.squish_line = 0;
+				force_padded = 1;
 			} else if (strstr(line, ".PP") == line) {
 				/* Paragraph */
-				flush_line(&ctx); printf("\n");
+				flush_line(&ctx, 1);
 				ctx.indent = ctx.extra_indent + DEFAULT_INDENTATION;
 				ctx.next_indent = 0;
 				continue;
 			} else if (strstr(line, ".TP") == line) {
 				/* Tagged paragraph */
-				if (flush_line(&ctx)) printf("\n");
+				flush_line(&ctx, 1);
 
 				ctx.indent = ctx.extra_indent + DEFAULT_INDENTATION;
 				ctx.next_indent = ctx.extra_indent + DEFAULT_INDENTATION * 2;
@@ -553,7 +603,7 @@ static int do_file(char ** argv, int i) {
 				continue;
 			} else if (strstr(line, ".br") == line) {
 				/* Line break */
-				flush_line(&ctx);
+				flush_line(&ctx, 0);
 				continue;
 			} else if (strstr(line, ".B ") == line) {
 				/* Bold */
@@ -567,50 +617,62 @@ static int do_file(char ** argv, int i) {
 				MAYBE_QUOTES();
 			} else if (strstr(line, ".IR ") == line) {
 				/* Italic (actually underlined), then Roman */
-				switch_font(&ctx, 'I');
 				c = line + 4;
-				c += process_word(&ctx, c, 0);
-				switch_font(&ctx, 'R');
+				while (*c) {
+					switch_font(&ctx, 'I');
+					c += process_arg(&ctx, c, 0);
+					switch_font(&ctx, 'R');
+					c += process_arg(&ctx, c, 0);
+				}
+				print_spaces(1);
 				/* Continue */
 			} else if (strstr(line, ".BR ") == line) {
 				/* Bold, then Roman */
-				switch_font(&ctx, 'B');
 				c = line + 4;
-				c += process_word(&ctx, c, 0);
-				switch_font(&ctx, 'R');
-				/* Continue */
+				while (*c) {
+					switch_font(&ctx, 'B');
+					c += process_arg(&ctx, c, 0);
+					switch_font(&ctx, 'R');
+					c += process_arg(&ctx, c, 0);
+				}
+				print_spaces(1);
+				continue;
 			} else if (strstr(line, ".IP ") == line) {
 				/* Indented paragraph */
-				if (flush_line(&ctx)) printf("\n");
+				flush_line(&ctx, 1);
 				ctx.indent = ctx.extra_indent + DEFAULT_INDENTATION;
 				ctx.next_indent = ctx.extra_indent + DEFAULT_INDENTATION * 2;
 				c = line + 4;
 				MAYBE_QUOTES();
 				ctx.squish_line = 1;
+				force_padded = 1;
 			} else if (strstr(line, ".IP") == line) {
 				/* Indented paragraph but this line is empty */
-				if (flush_line(&ctx)) printf("\n");
+				flush_line(&ctx, 1);
 				ctx.indent = ctx.extra_indent + DEFAULT_INDENTATION;
 				ctx.next_indent = ctx.extra_indent + DEFAULT_INDENTATION;
 				c = line + 3;
 				ctx.squish_line = 1;
 			} else if (strstr(line, ".sp") == line) {
 				/* Vertical space */
-				flush_line(&ctx);
+				flush_line(&ctx, 0);
 				printf("\n");
+				ctx.padded = 1;
 				continue;
 			} else if (strstr(line, ".RS") == line) {
 				/* Block quote start */
-				if (flush_line(&ctx)) printf("\n");
 				ctx.extra_indent += DEFAULT_INDENTATION;
-				ctx.indent += DEFAULT_INDENTATION;
-				ctx.next_indent = ctx.indent;
+				flush_line(&ctx, !ctx.padded && (ctx.indent == ctx.extra_indent + DEFAULT_INDENTATION || just_did_re));
+				ctx.indent = ctx.extra_indent + DEFAULT_INDENTATION;
+				ctx.next_indent = 0;
 				continue;
 			} else if (strstr(line, ".RE") == line) {
 				/* Block quote end */
-				ctx.indent -= DEFAULT_INDENTATION;
-				ctx.next_indent = ctx.indent;
 				ctx.extra_indent -= DEFAULT_INDENTATION;
+				ctx.indent = ctx.extra_indent + DEFAULT_INDENTATION;
+				ctx.next_indent = 0;
+				flush_line(&ctx, 0);
+				ctx.just_did_re = 1;
 				continue;
 			} else if (strstr(line, ".nh") == line) {
 				/* TODO disable hyphenation */
@@ -620,23 +682,24 @@ static int do_file(char ** argv, int i) {
 				continue;
 			} else if (strstr(line, ".nf") == line) {
 				/* Handle whitespace, including linebreaks, until .fi */
-				flush_line(&ctx);
+				flush_line(&ctx, 0);
 				ctx.printing_table = 1;
 				continue;
 			} else if (strstr(line, ".fi") == line) {
 				/* End of raw whitespace handling */
-				flush_line(&ctx);
+				flush_line(&ctx, 0);
 				ctx.printing_table = 0;
 				continue;
 			} else if (strstr(line, ".TS") == line) {
 				/* Table start (treated the same as .nf) */
-				flush_line(&ctx);
+				flush_line(&ctx, 0);
 				ctx.printing_table = 1;
 				continue;
 			} else if (strstr(line, ".TE") == line) {
 				/* Table end (treated the same as .fi, but with an extra line break) */
-				flush_line(&ctx);
+				flush_line(&ctx, 0);
 				printf("\n");
+				ctx.padded = 1;
 				ctx.printing_table = 0;
 				continue;
 			} else {
@@ -650,7 +713,7 @@ static int do_file(char ** argv, int i) {
 		/* If whitespace appears at the start of the line, treat it as a line break
 		 * and display the literal whitespace */
 		if (*c == ' ' || *c == '\t') {
-			flush_line(&ctx);
+			flush_line(&ctx, 0);
 			print_spaces(ctx.indent);
 			ctx.current_x += ctx.indent;
 
@@ -681,6 +744,7 @@ static int do_file(char ** argv, int i) {
 		if (ctx.printing_table) {
 			printf("\n");
 			ctx.current_x = 0;
+			ctx.padded = 0;
 			continue;
 		}
 
@@ -699,13 +763,15 @@ static int do_file(char ** argv, int i) {
 					ctx.current_x += 1;
 				}
 			} else {
-				flush_line(&ctx);
+				flush_line(&ctx,0);
 			}
 		}
+
+		if (force_padded) ctx.padded = 1;
 	}
 
 	/* End of file, print the footer. We made it! */
-	if (flush_line(&ctx)) printf("\n");
+	flush_line(&ctx, 1);
 	format_footer(&ctx);
 
 _cleanup:
