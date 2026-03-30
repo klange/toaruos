@@ -193,6 +193,11 @@ static void quit_cleanly(int sig) {
 	raise(sig);
 }
 
+/**
+ * Redraw a line from scrollback, possibly highlighting
+ * search results, if found. We try to highlight more
+ * than one result in a line, but only if the don't overlap.
+ */
 static void draw_line(ssize_t line) {
 	if (search_string && *search_string) {
 		char * stop = NULL;
@@ -208,11 +213,13 @@ static void draw_line(ssize_t line) {
 		}
 		if (stop) printf("\033[27m");
 	} else {
+		/* No active search, so just print the line */
 		printf("%s",lines[line]);
 	}
 	printf("\033[K\n");
 }
 
+/* Quick dumb line editor. */
 static int lineedit(char **buffer, size_t *bufsize) {
 	size_t c = 0;
 	while (1) {
@@ -221,14 +228,14 @@ static int lineedit(char **buffer, size_t *bufsize) {
 		printf("\033[?25h");
 		fflush(stdout);
 		if (read(STDERR_FILENO, &ch, 1) == 0) {
-			i = EOF;
+			i = 0x04; /* Ctrl-D */
 		} else {
 			i = ch;
 		}
 		printf("\033[?25l");
 		fflush(stdout);
 
-		if (i == 0x08 || i == 127) {
+		if (i == 0x08 || i == 127) { /* Backspace */
 			if (c) {
 				(*buffer)[c--] = '\0';
 				printf("\b\033[K");
@@ -244,7 +251,7 @@ static int lineedit(char **buffer, size_t *bufsize) {
 				*buffer = nbuf;
 			}
 
-			if (i == EOF) {
+			if (i == 0x04) { /* Ctrl-D which we'll treat as EOF */
 				(*buffer)[c] = '\0';
 				if (c) return c;
 				return -1;
@@ -270,23 +277,28 @@ static ssize_t do_search(ssize_t offset, int direction) {
 	}
 
 	if (search_string && *search_string) {
-		/* Find a result */
 		if (direction >= 0) {
+			/* Search forward. */
 			for (ssize_t i = linesLen - term_height - offset + 1 + direction; i < linesLen; ++i) {
 				if (i < 0) continue;
 				if (strstr(lines[i], search_string)) {
 					return linesLen - i - term_height + 1;
 				}
 			}
+			/* No result so set things up so we continue reading input to see
+			 * if the search string appears in a line we haven't processed yet. */
 			searching = linesLen - term_height - offset;
 			stop_asking = 1;
 			return -1;
 		} else {
+			/* Search backwards */
 			for (ssize_t i = linesLen - term_height - offset; i >= 0; --i) {
 				if (strstr(lines[i], search_string)) {
 					return linesLen - i - term_height + 1;
 				}
 			}
+			/* We were already showing the last match; keep the screen
+			 * where it is, rather than scrolling it to the top. */
 			return offset;
 		}
 	}
@@ -408,7 +420,18 @@ static int do_history_mode(int mode, char * title) {
 				return 1;
 		}
 	}
+}
 
+/*
+ * This pattern of checking for scrollback, going to history mode
+ * with a particular mode, returning if that said to, and then
+ * clearing the line to display another prompt is used repeatedly.
+ */
+#define enter_history_mode(n) { \
+	if (no_scrollback) goto _no_scrollback; \
+	if (do_history_mode(n, title)) return 1; \
+	clear_line(); \
+	if (forced) goto _reprint_prompt; \
 }
 
 static int next_line(char * title, int forced, int atend) {
@@ -427,13 +450,19 @@ static int next_line(char * title, int forced, int atend) {
 		lineLen = 0;
 	}
 
+	/* If we were actively searching forward in new data, see
+	 * if this newly printed line was a match. */
 	if (searching) {
 		if (linesLen && strstr(lines[linesLen-1],search_string)) {
-			/* "Return... from successful forward search..." */
+			/* Search did match, go back to history mode so it
+			 * can redraw the new line with highlighting */
 			if (do_history_mode(5,title)) return 1;
 			return 0;
 		} else if (forced) {
-			/* "failing to find a forward result" */
+			/* We reached a forced prompt without a search having matched,
+			 * which means we reached EOF; go back to history mode as a
+			 * failed search. This attempts to restore the scroll
+			 * offset from the last search location. */
 			if (do_history_mode(8,title)) return 1;
 		}
 	}
@@ -476,40 +505,22 @@ _reprint_prompt:
 					return 0;
 				case 'A':
 				case 'k': /* Scroll up one */
-					if (no_scrollback) goto _no_scrollback;
-					if (do_history_mode(1, title)) return 1;
-					clear_line();
-					if (forced) goto _reprint_prompt;
+					enter_history_mode(1);
 					return 0;
 				case 'H': /* Scroll to top */
-					if (no_scrollback) goto _no_scrollback;
-					if (do_history_mode(2, title)) return 1;
-					clear_line();
-					if (forced) goto _reprint_prompt;
+					enter_history_mode(2);
 					return 0;
 				case '5': /* Page up once */
-					if (no_scrollback) goto _no_scrollback;
-					if (do_history_mode(3, title)) return 1;
-					clear_line();
-					if (forced) goto _reprint_prompt;
+					enter_history_mode(3);
 					return 0;
 				case '/': /* Enter search mode, show search prompt */
-					if (no_scrollback) goto _no_scrollback;
-					if (do_history_mode(4, title)) return 1;
-					clear_line();
-					if (forced) goto _reprint_prompt;
+					enter_history_mode(4);
 					return 0;
 				case 'n': /* Find next search result */
-					if (no_scrollback) goto _no_scrollback;
-					if (do_history_mode(6, title)) return 1;
-					clear_line();
-					if (forced) goto _reprint_prompt;
+					enter_history_mode(6);
 					return 0;
 				case 'N': /* Find previous search result */
-					if (no_scrollback) goto _no_scrollback;
-					if (do_history_mode(7, title)) return 1;
-					clear_line();
-					if (forced) goto _reprint_prompt;
+					enter_history_mode(7);
 					return 0;
 				default:
 					printf("\r\033[K\033[7munreocgnized command:\033[0m %c", c);
