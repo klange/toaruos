@@ -614,8 +614,16 @@ static int do_file(char ** argv, int i) {
 				/* Tagged paragraph */
 				flush_line(&ctx, 1);
 
+				/* Incorrectly support indentation hints */
+				int howmuch = DEFAULT_INDENTATION;
+				char * arg;
+				c = collect_arg(c + 3, &arg);
+				if (arg) {
+					howmuch = atoi(arg);
+					free(arg);
+				}
 				ctx.indent = ctx.extra_indent + DEFAULT_INDENTATION;
-				ctx.next_indent = ctx.extra_indent + DEFAULT_INDENTATION * 2;
+				ctx.next_indent = ctx.extra_indent + DEFAULT_INDENTATION + howmuch;
 				ctx.squish_line = 1;
 				continue;
 			} else if (strstr(line, ".br") == line) {
