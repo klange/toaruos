@@ -531,8 +531,9 @@ long sys_access(const char * file, long flags) {
 	if (!file) return -EFAULT;
 	fs_node_t * node = kopen((char *)file, 0);
 	if (!node) return -ENOENT;
+	int ret = flags ? !has_permission(node, flags) : 0;
 	close_fs(node);
-	return 0;
+	return ret;
 }
 
 long sys_chmod(char * file, long mode) {
