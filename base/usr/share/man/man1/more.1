@@ -52,6 +52,15 @@ into it, or trying to view a very large file.
 .B \-\-help
 Shows help text.
 
+.SH SEARCHING
+Rudimentary support for searching is provided. To enter a search string, press \fB/\fP.
+.PP
+Search strings found in processed lines will be highlighted through inverse text.
+.PP
+Pressing \fBn\fP tries to continue searching forward; pressing \fBN\fP searches backwards.
+.PP
+Searching is limited to plain text, case\-sensitive searches.
+
 .SH BUGS
 \- The \fB-r\fP flag treats all escape sequences as being invisible, and does not handle
 ones that are not of the \fBCSI\fP form.
