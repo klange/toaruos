@@ -662,6 +662,30 @@ static int do_file(char ** argv, int i) {
 				}
 				print_spaces(1);
 				continue;
+			} else if (strstr(line, ".RI ") == line) {
+				/* Roman, then underlined. */
+				c = line + 4;
+				while (*c) {
+					switch_font(&ctx, 'R');
+					c += process_arg(&ctx, c, 0);
+					switch_font(&ctx, 'I');
+					c += process_arg(&ctx, c, 0);
+				}
+				switch_font(&ctx, 'R'); /* Always switch back to Roman afterwards */
+				print_spaces(1);
+				continue;
+			} else if (strstr(line, ".RB ") == line) {
+				/* Roman, then bold. */
+				c = line + 4;
+				while (*c) {
+					switch_font(&ctx, 'R');
+					c += process_arg(&ctx, c, 0);
+					switch_font(&ctx, 'B');
+					c += process_arg(&ctx, c, 0);
+				}
+				switch_font(&ctx, 'R'); /* Always switch back to Roman afterwards */
+				print_spaces(1);
+				continue;
 			} else if (strstr(line, ".IP ") == line) {
 				/* Indented paragraph */
 				flush_line(&ctx, 1);
