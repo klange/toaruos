@@ -386,7 +386,7 @@ static size_t process_word(struct RoffContext * ctx, char * c, int delimited) {
 	size_t last_len = 0;
 
 	/* Collect word */
-	while (*c && !is_tab_or_space(*c)) {
+	while (*c && (ctx->printing_table || !is_tab_or_space(*c))) {
 		if (*c == '\\' && c[1]) {
 			c += skip_escape(c, &last_len);
 		} else {
@@ -650,7 +650,8 @@ static int do_file(char ** argv, int i) {
 					c += process_arg(&ctx, c, 0);
 				}
 				print_spaces(1);
-				continue;
+				ctx.current_x++;
+				goto _processed_line;
 			} else if (strstr(line, ".BR ") == line) {
 				/* Bold, then Roman */
 				c = line + 4;
@@ -661,7 +662,8 @@ static int do_file(char ** argv, int i) {
 					c += process_arg(&ctx, c, 0);
 				}
 				print_spaces(1);
-				continue;
+				ctx.current_x++;
+				goto _processed_line;
 			} else if (strstr(line, ".RI ") == line) {
 				/* Roman, then underlined. */
 				c = line + 4;
@@ -673,7 +675,8 @@ static int do_file(char ** argv, int i) {
 				}
 				switch_font(&ctx, 'R'); /* Always switch back to Roman afterwards */
 				print_spaces(1);
-				continue;
+				ctx.current_x++;
+				goto _processed_line;
 			} else if (strstr(line, ".RB ") == line) {
 				/* Roman, then bold. */
 				c = line + 4;
@@ -685,7 +688,8 @@ static int do_file(char ** argv, int i) {
 				}
 				switch_font(&ctx, 'R'); /* Always switch back to Roman afterwards */
 				print_spaces(1);
-				continue;
+				ctx.current_x++;
+				goto _processed_line;
 			} else if (strstr(line, ".IP ") == line) {
 				/* Indented paragraph */
 				flush_line(&ctx, 1);
@@ -781,6 +785,7 @@ static int do_file(char ** argv, int i) {
 			c += process_word(&ctx, c, delimited);
 		}
 
+_processed_line:
 		printf("\033[0m");
 
 		/* When in one of the raw whitespace modes, treat the end of a line
