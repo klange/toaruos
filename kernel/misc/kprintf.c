@@ -357,7 +357,7 @@ int snprintf(char * str, size_t size, const char * format, ...) {
 }
 
 static int cb_printf(void * user, char c) {
-	printf_output(1,(uint8_t*)&c);
+	if (printf_output) printf_output(1,(uint8_t*)&c);
 	return 0;
 }
 
