@@ -12,13 +12,14 @@
 #include <stdint.h>
 #include <kernel/vfs.h>
 #include <kernel/string.h>
+#include <kernel/time.h>
+
+static uint32_t x = 123456789;
+static uint32_t y = 362436069;
+static uint32_t z = 521288629;
+static uint32_t w = 88675123;
 
 uint32_t rand(void) {
-	static uint32_t x = 123456789;
-	static uint32_t y = 362436069;
-	static uint32_t z = 521288629;
-	static uint32_t w = 88675123;
-
 	uint32_t t;
 
 	t = x ^ (x << 11);
@@ -27,10 +28,14 @@ uint32_t rand(void) {
 }
 
 static ssize_t read_random(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	size_t s = 0;
-	while (s < size) {
-		buffer[s] = rand() % 0xFF;
-		s++;
+	size_t remaining = size;
+	size_t written = 0;
+	while (remaining) {
+		uint32_t r = rand();
+		size_t to_write = remaining > 4 ? 4 : remaining;
+		memcpy(&buffer[written], &r, to_write);
+		remaining -= to_write;
+		written += to_write;
 	}
 	return size;
 }
@@ -52,5 +57,7 @@ static fs_node_t * random_device_create(void) {
 void random_initialize(void) {
 	vfs_mount("/dev/random", random_device_create(), "random", "");
 	vfs_mount("/dev/urandom", random_device_create(), "random", "");
+	uint32_t seed = now();
+	x = 123456789  ^ (seed << 16) ^ (seed >> 16);
 }
 
