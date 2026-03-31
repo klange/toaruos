@@ -1,0 +1,64 @@
+.TH UNAME 1 "March, 2026"
+
+.SH NAME
+\fBuname\fP \- print system name and version information
+
+.SH SYNOPSIS
+\fBuname\fP
+.RB [ \-a ]
+.br
+\fBuname\fP
+.RB [ \-s ]
+.RB [ \-n ]
+.RB [ \-r ]
+.RB [ \-v ]
+.RB [ \-m ]
+.RB [ \-o ]
+.RB [ \-p ]
+
+.SH DESCRIPTION
+Displays information primarily sourced from the
+.IR uname (2)
+system call. The OS name listed by the \fB\-o\fP option is hard\-coded.
+.PP
+If no arguments are provided, the default is equivalent to the \fB\-s\fP option.
+.PP
+Regardless of the ordering of the options, the ordering of the printed values
+is always as follows:
+.BR sysname ", "
+.BR nodename ", "
+.BR release ", "
+.BR version ", "
+.BR machine ", "
+.BR osname .
+
+.TP
+.B \-a
+Display all of the available information.
+
+.TP
+.B \-s
+Display the \fBsysname\fP, ie. the kernel name: \fBMisaka\fP.
+
+.TP
+.B \-n
+Displays the \fBnodename\fP, ie. the hostname of the system.
+
+.TP
+.B \-r
+Displays the \fBrelease\fP, ie. the kernel version: \fB2.3.0\fP or similar.
+
+.TP
+.B \-v
+Displays the \fBversion\fP, ie. the kernel codename and build date: \fB"Grow Slowly" Mar 31 2026 12:34:56\fP
+
+.TP
+.B \-m \fIor\fP \-p
+Displays the \fBmachine\fP, ie. the system architecture: \fBx86\-64\fP or \fBaarch64\fP
+.sp
+These options are aliases for eachother in this implementation. On
+other platforms they may show different values. Generally, \fB\-m\fP
+aligns with the value printed with \fB\-a\fP.
+
+.SH SEE ALSO
+.BR uname (2)

@@ -1,0 +1,30 @@
+.TH FONT-TOOL 1 "March, 2026"
+
+.SH NAME
+\fBfont\-tool\fP \- display information about fonts
+
+.SH SYNOPSIS
+\fBfont\-tool\fP [\fB\-n\fP] [\fB\-s\fP] [\fIfont\fP]
+
+.SH DESCRIPTION
+Displays various information about TrueType fonts.
+.PP
+The \fIfont\fP should be the path to a TrueType file.
+.PP
+If no \fIfont\fP argument is provided, information about
+the system \fBmonospace\fP font will be displayed.
+.PP
+If no option flags are provided, the exit status indicates
+whether the system TrueType library was able to load and
+parse the font. An error message may also be printed.
+
+.TP
+.B \-n
+Show the name of the font.
+
+.TP
+.B \-s
+Show the strings stored in the font.
+
+.SH SEE ALSO
+.BR libtoaru_text (3)

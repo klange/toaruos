@@ -1,0 +1,29 @@
+.TH FREE 1 "March, 2026"
+
+.SH NAME
+\fBfree\fP \- show available memory
+
+.SH SYNOPSIS
+\fBfree\fP [\fB\-u\fP] [\fB\-t\fP] [\fB\-k\fP]
+
+.SH DESCRIPTION
+Displays information about available or used system memory.
+
+.TP
+.B \-u
+Display the used memory instead of the available memory.
+
+.TP
+.B \-t
+Also show the total memory in output.
+
+.TP
+.B \-k
+Display the requested values in kibibytes (labeled as \fBkB\fP)
+instead of the default of mebibytes (labeled as \fBM\fP).
+
+.SH SPECIAL FILES
+Memory information is obtained from \fB/proc/meminfo\fP.
+
+.SH SEE ALSO
+.BR top (1)

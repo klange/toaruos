@@ -1,0 +1,41 @@
+.TH SYSINFO 1 "March, 2026"
+
+.SH NAME
+\fBsysinfo\fP \- display system information for screenshots
+
+.SH DESCRIPTION
+Displays a rendition of the OS's logo using ANSI escape sequences
+alongside information collected from various other utilities and
+environment variables.
+
+.SH ENVIRONMENT
+Some information is sourced from environment variables:
+
+.TP 10
+.B USER
+Username to display.
+
+.TP 10
+.B WM_THEME
+Window manager theme.
+
+.TP 10
+.B TERM
+Terminal emulator name.
+
+.SH HISTORY
+\fBsysinfo\fP was first available in 2015 and was inspired by \fBscreenFetch\fP.
+It predates most other similar utilities.
+
+.SH SEE ALSO
+.BR hostname (1),
+.BR uname (1),
+.BR msk (1),
+.BR esh (1),
+.BR yutani\-query (1),
+.BR font\-tool (1),
+.BR cpu\-name (3krk),
+.BR free (1)
+
+.SH AUTHOR
+\fBsysinfo\fP was written by K. Lange <klange@toaruos.org>

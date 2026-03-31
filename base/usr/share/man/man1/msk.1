@@ -1,0 +1,92 @@
+.TH MSK 1 "March, 2026"
+
+.SH NAME
+\fBmsk\fP \- package manager
+
+.SH SYNOPSIS
+.B msk update
+.br
+.B msk install \fIpackage\fP...
+.br
+.B msk list
+.br
+.B msk count
+.br
+.B msk \-\-version
+
+.SH DESCRIPTION
+\fBmsk\fP is the standard package manager for ToaruOS.
+.PP
+As ToaruOS's default environment contains only first\-party software,
+the package manager provides a way to install ports of third\-party
+software from a repository.
+.PP
+The package repository requires \fBroot\fP to operate and should
+generally be called through
+.IR sudo (1).
+.PP
+The following commands are understood by the package manager:
+
+.TP
+.B update
+Retrieve the latest package manifest file from each of the
+configured remotes. This process is generally run automatically
+once at boot time.
+
+.TP
+.B install \fIpackage\fP...
+Download and install \fIpackage\fPs from the repository.
+The package manager will automatically calculate and install
+any dependencies of the requested packages.
+
+.TP
+.B list
+Show a list of all known packages, including ones which
+are not installed. Each package will be listed alongside
+a description, and installed packages will be prefixed by
+the letter \fBI\fP.
+
+.TP
+.B count
+Display a count of installed and available packages. This
+command exists primarily for use with
+.IR sysinfo (1).
+
+.TP
+.B \-\-version
+Display version information about the \fBmsk\fP utility.
+
+.SH REPOSITORIES
+The primary package repository is hosted on a CDN. By default,
+ToaruOS does not include any TLS support, so packages are installed
+over HTTP cleartext. Both the CDN and fallback repository are
+available over HTTPS, but this requires the installation of a
+compatible TLS library and URL fetcher, such as \fBfetch\-tls\fP,
+as well as additional user configuration.
+.PP
+The available packages different between architectures.
+
+.SH SPECIAL FILES
+.TP
+.B /etc/msn.conf
+Remote repository configuration.
+
+.TP
+.B /var/run/msk.lock
+Lock file.
+
+.TP
+.B /var/msk/manifest
+Cached package manifest.
+
+.TP
+.B /var/msk/installed
+Information on which packages have been installed.
+
+.SH NOTES
+This version of \fBmsk\fP is scheduled for replacement with
+one that uses a dedicated single\-file package format.
+
+.SH SEE ALSO
+.BR tar (1),
+.BR fetch (1)

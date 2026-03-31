@@ -1,0 +1,16 @@
+.TH cpu-name.krk 3krk "March, 2026" "" "Kuroko Utilities"
+
+.SH NAME
+\fBcpu\-name.krk\fP \- describes the current CPU
+
+.SH DESCRIPTION
+This utility parses \fB/proc/cpuinfo\fP and attempts to
+display a useful name for the CPU. On x86\-64 platforms,
+this name generally comes from the CPU itself. On aarch64,
+the name comes from a limited table mapping implementer
+and part numbers to names. Since this utility is written
+in \fBKuroko\fP, it can be easily updated by the user to
+include names for new CPUs.
+
+.SH SEE ALSO
+.BR sysinfo (1)

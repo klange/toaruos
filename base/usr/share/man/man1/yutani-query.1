@@ -1,0 +1,27 @@
+.TH YUTANI-QUERY 1 "March, 2026"
+
+.SH NAME
+\fByutani\-query\fP \- display information about the windowing system
+
+.SH SYNOPSIS
+\fByutani\-query\fp [\fB\-q\fP] \fIcommand\fP
+.br
+\fByutani\-query\fp [\fB\-q\fP] \fB\-r\fP
+.br
+\fByutani\-query\fp [\fB\-q\fP] \fB\-e\fP
+
+.SH DESCRIPTION
+Displays information about the windowing system.
+
+.TP
+.B \-r \fRor\fP resolution
+Print the display resolution of the compositor.
+
+.TP
+.B \-e \fRor\fP reload
+Ask the compositor to reload extensions. Currently, the are no
+extensions available for the compositor so this does nothing.
+It used to reload alternate rendering backends.
+
+.SH SEE ALSO
+.BR compositor (1)
