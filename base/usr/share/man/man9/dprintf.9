@@ -1,0 +1,44 @@
+.TH dprintf 9 "April, 2026"
+
+.SH NAME
+\fBdprintf\fP \- print debug messages to the system console
+
+.SH SYNOPSIS
+.B #include <kernel/printf.h>
+.sp
+\fIint\fP \fBdprintf\fP(\fIconst\fP \fIchar\fP *\fIfmt\fP, ...);
+
+.SH DESCRIPTION
+The \fBdprintf\fP function prints a log message to the system console, prefixed by a timestamp.
+The format strings accepted by \fBdprintf\fP are generally the same as
+.IR printf (3),
+though the kernel has some restrictions. When a single call to \fBdprintf\fP prints
+multiple lines, the additional lines after the first one will be indented to match
+the spacing of the timestamp printed for that call. For example, a call like:
+.sp
+	dprinf("hello\enworld\en");
+.sp
+Will result in output like this:
+.sp
+	[  123.456789] hello
+	               world
+.sp
+The leading timestamp can be elided by prefixing the format string with \fB\ea (bell)\fP.
+This special behavior is only applicable to the format string (a bell character
+appearing as the first character as a result of formatting from an argument will
+not exhibit this behavior). Such lines are not subject to indentation adjustment.
+.PP
+Callers should take to always include a line feed at the end of their log entries
+in most circumstances. Without a trailing line feed, the output of the next call
+to \fBdprintf\fP will appear on the same line. This behavior may be desirable in
+combination with the \fB\ea\fP special character described above, as a single
+log line can be formed by multiple calls to \fBdprintf\fP in this way.
+
+.SH NOTES
+There is also a \fBprintf\fP function available in the kernel. That function directly
+outputs to whatever function has been bound as \fBprintf_output\fP and its use is
+strongly discouraged.
+
+.SH SEE ALSO
+.BR console (4),
+.BR printf (3)
