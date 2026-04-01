@@ -1,0 +1,70 @@
+.TH yutani_window_create 3 "April, 2026"
+
+.SH NAME
+\fByutani_window_create\fP, \fByutani_window_create_flags\fP \- open new windows
+
+.SH SYNOPSIS
+.B #include <toaru/yutani.h>
+.sp
+\fIyutani_window_t\fP * \fByutani_window_create\fP(\fIyutani_t\fP * \fIyctx\fP,
+\fIint\fP \fIwidth\fP, \fIint\fP \fIheight\fP);
+.br
+\fIyutani_window_t\fP * \fByutani_window_create_flags\fP(\fIyutani_t\fP * \fIyctx\fP,
+\fIint\fP \fIwidth\fP, \fIint\fP \fIheight\fP, \fIuint32_t\fP \fIflags\fP, ...);
+
+.SH DESCRIPTION
+These function create new windows in the compositor.
+.PP
+By default, new windows will have no content, will animate when shown by
+expanding horizontally and vertically and fading in (and do the inverse when
+closed), acquire focus when shown, be resizing and draggable, and not
+have any parenting relationship. The \fIflags\fP supplied to
+\fByutani_window_create_flags\fP allow these behaviors to be altered.
+
+.SS Flags
+.TP
+.B YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS
+Do not automatically switch focus to this window when it is created.
+
+.TP
+.B YUTANI_WINDOW_FLAG_DISALLOW_DRAG
+Do not allow this window to be moved by the user.
+
+.TP
+.B YUTANI_WINDOW_FLAG_DISALLOW_RESIZE
+Do not allow this window to be resized by the user.
+
+.TP
+.B YUTANI_WINDOW_FLAG_ALT_ANIMATION
+Use an alternate animation mode for this window. The window will fade in and out without scaling.
+
+.TP
+.B YUTANI_WINDOW_FLAG_DIALOG_ANIMATION
+Use an alternate animation mode for this window. The window will expand and shrink vertically.
+For consistent visual styling, this option should be used with modal dialogs.
+
+.TP
+.B YUTANI_WINDOW_FLAG_NO_ANIMATION
+Do not animate this window. The window will appear and disappear immediately when opened and closed.
+
+.TP
+.B YUTANI_WINDOW_FLAG_BLUR_BEHIND
+Render semi\-transparent areas behind this window by blurring them. This option is very slow
+and recommended only for small and short-lived windows.
+
+.TP
+.B YUTANI_WINDOW_FLAG_PARENT_WID
+Set the parent for this window. An additional argument of type \fIyutani_wid_t\fP will be consumed
+from the varargs.
+
+.SH NOTES
+Windows created by these functions will not be displayed until a
+.IR yutani_flip (3)
+or
+.IR yutani_flip_region (3)
+is issued for them. This process is known as "revealing" the window. This allows the client
+to create the window and paint content to its texture before it is animated.
+
+.SH SEE ALSO
+.BR compositor (1),
+.BR yutani_flip (3)

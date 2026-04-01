@@ -1,0 +1,27 @@
+.TH yutani_wait_for 3 "April, 2026"
+
+.SH NAME
+\fByutani_wait_for\fP \- wait for a particular event
+
+.SH SYNOPSIS
+.B #include <toaru/yutani.h>
+.sp
+\fIyutani_msg_t\fP * \fByutani_wait_for\fP(\fIyutani_t\fP * \fIyctx\fP, \fIuint32_t\fP \fItype\fP);
+
+.SH DESCRIPTION
+This function waits for a particular kind of message from the window compositor, placing other
+non\-matching messages into a queue which will be processed by the next call to
+.IR yutani_poll (3).
+.PP
+While most Yutani clients are expected to operate with an event loop, there is sometimes
+a need to perform certain request/response actions synchronously. This function allows
+for that. For example, a client may need to request clipboard data and receive it in the
+same function call.
+.PP
+Clients must refrain from waiting for events they may not receive. The queue of
+unprocessed events is unbounded.
+
+.SH SEE ALSO
+.BR compositor (1),
+.BR yutani_poll (3),
+.BR yutani_query (3)

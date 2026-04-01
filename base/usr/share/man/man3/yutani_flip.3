@@ -1,0 +1,27 @@
+.TH yutani_flip 3 "April, 2026"
+
+.SH NAME
+\fByutani_flip\fP, \fByutani_flip_region\fP \- requested that the compositor repaint a window
+
+.SH SYNOPSIS
+.B #include <toaru/yutani.h>
+.sp
+\fIvoid\fP \fByutani_flip\fP(\fIyutani_t\fP * \fIyctx\fP, \fIyutani_window_t\fP * \fIwin\fP);
+.br
+\fIvoid\fP \fByutani_flip_region\fP(\fIyutani_t\fP * \fIyctx\fP, \fIyutani_window_t\fP * \fIwin\fP,
+\fIint32_t\fP \fIx\fP, \fIint32_t\fP \fIy\fP, \fIint32_t\fP \fIwidth\fP, \fIint32_t\fP \fIheight\fP);
+
+.SH DESCRIPTION
+These functions request that the compositor redraw a window. If the window has not yet been
+revealed, the compositor will also reveal it.
+.PP
+This is not a clipping mechanism, and any updates to the window may be rendered at any time.
+Specifying a region with \fByutani_flip_region\fP is only a hint to the compositor that it
+need not update areas outside of that region, not that it shouldn't do so. Clients that
+do not wish to present changes outside of a particular region should ensure that they
+use double buffering when managing window textures and only expose changes to the true
+window texture when they are ready.
+
+.SH SEE ALSO
+.BR compositor (1)
+

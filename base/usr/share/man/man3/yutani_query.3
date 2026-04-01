@@ -1,0 +1,29 @@
+.TH yutani_query 3 "April, 2026"
+
+.SH NAME
+\fByutani_query\fP \- check whether there are pending compositor messages
+
+.SH SYNOPSIS
+.B #include <toaru/yutani.h>
+.sp
+\fIsize_t\fP \fByutani_query\fP(\fIyutani_t\fP * \fIyctx\fP);
+
+.SH DESCRIPTION
+This function checks whether there are pending compositor messages in either the
+unprocessed queue or the backend IPC mechanism.
+
+.SH RETURN VALUE
+
+.TP
+.B 0
+There areno available messages and polling would block.
+
+.TP
+.B non\-0
+There are pending messages and a call to
+.IR yutani_query (3)
+will not block.
+
+.SH SEE ALSO
+.BR compositor (1),
+.BR yutani_poll (3)

@@ -1,0 +1,26 @@
+.TH yutani_init 3 "April, 2026"
+
+.SH NAME
+\fByutani_init\fP \- connect to compositor
+
+.SH SYNOPSIS
+.B #include <toaru/yutani.h>
+.sp
+\fIyutani_t\fP * \fByutani_init\fP(\fIvoid\fP);
+
+.SH DESCRIPTION
+The \fByutani_init\fP function establishes a connection to the window compositor
+and completes a handshake process.
+.PP
+A \fIHELLO\fP message is sent to the compositor and the function will wait for
+a corresponding \fIWELCOME\fP to be received. After \fByutani_init\fP returns,
+the resulting \fIyutani_ctx\fP can be used to query display size information.
+
+
+.SH RETURN VALUE
+.TP
+.B NULL
+A connection to the window compositor could not be established.
+
+.SH SEE ALSO
+.BR compositor (1)

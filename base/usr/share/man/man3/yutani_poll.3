@@ -1,0 +1,30 @@
+.TH yutani_poll 3 "April, 2026"
+
+.SH NAME
+\fByutani_poll\fP, \fByutani_poll_async\fP \- acquire messages from the compositor
+
+.SH SYNOPSIS
+.B #include <toaru/yutani.h>
+.sp
+\fIyutani_msg_t\fP * \fByutani_poll\fP(\fIyutani_t\fP * \fIyctx\fP);
+.br
+\fIyutani_msg_t\fP * \fByutani_poll_sync\fP(\fIyutani_t\fP * \fIyctx\fP);
+
+.SH DESCRIPTIONS
+These functions acquire messages from the compositor.
+.PP
+The \fByutani_poll\fP function will block until a message arrives, while
+\fByutani_poll_async\fP will return \fBNULL\fP if no message is available.
+.PP
+Both functions will return messages from the unprocessed queue before
+retrieving messages from the underlying IPC mechanism.
+.PP
+The message pointer returned by these functions points to allocated memory
+and it is the responsibility of the client to free it. All message objects
+can be freed with a single call to
+.IR free (3).
+
+.SH SEE ALSO
+.BR compositor (1),
+.BR yutani_query (3),
+.BR yutani_wait_for (3)
