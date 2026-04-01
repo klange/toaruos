@@ -1,0 +1,122 @@
+.TH proc 5 "April, 2026"
+
+.SH NAME
+proc \- virtual directory with files describing the system
+
+.SH DESCRIPTION
+The \fB/proc\fP filesystem is inspired by the one in Linux, though it is not
+a complete recreation.
+
+.SH FILES
+The virtual files available under \fB/proc\fP may vary based on the platform
+and what modules have been loaded, but the default set includes:
+
+.TP
+.IR /proc/ pid
+A directory entry which appears for every running process. Further information
+is available in
+.IR proc_pid (5).
+
+.TP
+.I /proc/cmdline
+The kernel command line. Read\-only.
+
+.TP
+.I /proc/compiler
+A description of the compiler that was used to build the kernel. Generally this
+is \fBgcc\fP followed by the contents of \fB__VERSION__\fP at the time the
+kernel was built.
+
+.TP
+.I /proc/cpuinfo
+Information about the system's processors. The format of this information is
+architecture\-dependent, but should always consist of a set of labels followed
+by a colon, a space, and then a value. These sets will be separated by a blank
+line between individual CPUs, with one set per core. Only cores the kernel has
+been able to bring online will appear.
+
+.TP
+.I /proc/filesystems
+A list of the names available mountable filesystems.
+
+.TP
+.I /proc/framebuffer
+Information on the graphical framebuffer, if a driver has set one up.
+
+.TP
+.I /proc/idle
+CPU non\-usage data. One line is printed for each core consisting of the core
+ID, a colon, a space, and then the 4 latest core usage samples. These values
+represent the inverse of usage. The timing used to generate these numbers is
+subject to variance: Generally, 1000 means fully idle, but the value may be
+slightly more than that. Numbers under 1000 indicate core usage. 0 means a
+core has been fully pegged and not reported any idle time during that sample
+window.
+
+.TP
+.I /proc/kallsyms
+An \fBnm\fP\-style listing of dynamic symbols known to the kernel. These symbols
+come from both the kernel's symbol table and the symbol tables of loaded modules.
+For users other than \fBroot\fP, this listing will show all 0s for the address.
+
+.TP
+.I /proc/loader
+A description of the bootloader that loaded ToaruOS. How this value is obtained
+is platform\-dependent. When booted with a Multiboot or Multiboot2 bootloader,
+the \fBboot_loader_name\fP field or the \fBboot loader name\fP tag will be used.
+This file may be blank if the platform does not supply a name for the loader.
+
+.TP
+.I /proc/meminfo
+Shows information about available memory. \fBMemTotal\fp and \fBMemFree\fP indicate
+system memory, while \fBKHeapUse\fP indicates how much memory the kernel's heap
+is currently consuming.
+
+.TP
+.I /proc/modules
+A listing of loaded kernel modules, their base addresses, file sizes, and size in
+memory. The availability of base addresses for users other than \fBroot\fP is
+subject to change in the future.
+
+.TP
+.I /proc/mounts
+A listing of mounted filesystems, including virtual devices that are directly
+mounted to the VFS tree. The format of this listing is:
+.sp
+  \fI/path/of/mount\fi \fIfs-name\fP [\fIargs...\fP]
+
+.TP
+.I /proc/pci
+A bus scan listing of PCI devices, if PCI is available on the platform. This file
+is read by
+.IR lspci (1)
+to form a more human\-readable output.
+
+.TP
+.I /proc/self
+A dynamic symlink to the directory entry in \fI/proc\fP representing the process that
+opened or executed
+.IR readlink (2)
+on it.
+
+.TP
+.I /proc/tmpfs
+Information on the blocks used by the \fBtmpfs\fP in blocks. The block size is 4K.
+
+.TP
+.I /proc/uptime
+The time since the system booted and obtained an initial clock time, in seconds
+with a fractional part.
+
+.TP
+.I /proc/version
+The version string for the kernel, similar to the output of \fBuname \-srvm\fP.
+
+.SH SEE ALSO
+.BR cpu\-widget (1),
+.BR free (1),
+.BR kcmdline (1),
+.BR lspci (1),
+.BR uptime (1),
+.BR libtoaru_procfs (3)
+

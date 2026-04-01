@@ -1,0 +1,23 @@
+.TH proc_pid 5 "April, 2026"
+
+.SH NAME
+\fI/proc/\fPpid\fI/\fP \- process information
+
+.SH DESCRIPTION
+For each process, a directory entry of this form is available from
+.IR proc (5)
+with its own files describing the process state. These files include:
+
+.TP
+.I /proc/\fRpid\fP/cmdline
+The commmand line arguments for the process. Arguments are separated by
+a \fIrecord separator\fP \- that is, U+1E or 036 octal.
+
+.TP
+.I /proc/\fRpid\fP/status
+A listing of information about the process. Each piece of information
+consists of a label, a colon, a space, and then the information string
+in various formats.
+
+.SH SEE ALSO
+.BR proc (5)

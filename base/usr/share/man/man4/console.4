@@ -1,0 +1,52 @@
+.TH console 4 "April, 2026"
+
+.SH NAME
+\fB/dev/console\fP \- console device
+
+.SH DESCRIPTION
+\fB/dev/console\fP provides an interface for userspace to write messages
+to the kernel log. Those messages may appear on the framebuffer or be
+sent to a serial console, depending on the boot configuration of the kernel.
+.PP
+Normally, \fB/dev/console\fP's access permissions prohibit users other than
+\fBroot\fP from writing to it.
+
+.SH NOTES
+Each write to \fB/dev/console\fP is handled as if passed as the arguments to
+\fBdprintf("%.*s", size, buffer)\fP within the kernel. This means that each
+write will be prefixed by a timestamp, and line feeds within that write will
+result in indented text to match the spacing of the timestamp.
+.PP
+For example, writing the string \fB"hello\enworld\en"\fP in one
+.IR write (2)
+call will result in output like this:
+.sp
+	[  123.456789] hello
+	               world
+.PP
+Users should be sure to end writes with a line feed or the next write \-
+including the timestamp \- will appear on the same output line, which is
+unlikely to be the desired result. This behavior was chosen to make
+.IR echo (1)
+a suitable tool for writing to the console device.
+Users should also ensure that they write a whole log entry in one
+.IR write (2)
+call \- using buffered facilities like \fB<stdio.h>\fP may result in
+more timestamps than desired.
+.PP
+As the buffer is handled as the argument to
+.IR dprintf (9)
+and not the format string, a leading \fB\ea (bell)\fP character is \fInot\fP
+interpreted as disabling the printing of the timestamp.
+.PP
+Other escape sequences may be supported depending on the output. The kernel
+framebuffer text output supports some basic color escapes so that messages
+may be highlighted.
+
+.SH STANDARDS
+\fBPOSIX\fP requires the existence of a \fB/dev/console\fP and also requires
+that it be a TTY of some sort, but this implementation is only a normal
+character special file.
+
+.SH SEE ALSO
+.BR dprintf (9)
