@@ -50,8 +50,10 @@ struct PstreeContext {
 
 void lines_set(struct PstreeContext * ctx, size_t i) {
 	if (i >= ctx->lines_size) {
+		size_t old = ctx->lines_size;
 		ctx->lines_size = (ctx->lines_size) * 2;
 		ctx->lines = realloc(ctx->lines, ctx->lines_size);
+		memset(ctx->lines + old, 0, ctx->lines_size - old);
 	}
 
 	ctx->lines[i] = 1;
