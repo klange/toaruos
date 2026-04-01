@@ -1,0 +1,24 @@
+.TH args_present 9 "April, 2026"
+
+.SH NAME
+\fBargs_present\fP \- check if an argument appears in kernel command line
+
+.SH SYNOPSIS
+.B #include <kernel/args.h>
+.sp
+\fIint\fP \fBargs_present\fP(\fIconst\fP \fIchar\fP * \fIkarg\fP);
+
+.SH DESCRIPTION
+The \fBargs_present\fP function determines if \fIkarg\fP appears in the kernel command line.
+
+.SH RETURN VALUE
+.TP
+1
+If the argument was present.
+.TP
+0
+If the argument was not present, or the kernel command line has not yet been parsed.
+
+.SH SEE ALSO
+.BR args_value (9),
+.BR kcmdline (1)

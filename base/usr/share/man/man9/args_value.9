@@ -1,0 +1,29 @@
+.TH args_value 9 "April, 2026"
+
+.SH NAME
+\fBargs_value\fP \- get the value of an argument from the kernel command line
+
+.SH SYNOPSIS
+.B #include <kernel/args.h>
+.sp
+\fIchar\fP * \fBargs_value\fP(\fIconst\fP \fIchar\fP * \fIkarg\fP);
+
+.SH DESCRIPTION
+The \fBargs_value\fP function obtains the value of the \fIkarg\fP parameter in the kernel command line.
+.PP
+It is important to note that parameters may be present in the command line but have the value of \fBNULL\fP,
+which indicates that parameter had no value - it appeared just as its name in the command line and is "unset".
+If a distinction must be made between non-presence of an argument and being "unset", callers should be sure
+to use
+.IR args_present (9)
+to check for presence before examining the result from \fBargs_value\fP.
+
+.SH RETURN VALUE
+\fBargs_value\fP returns \fBNULL\fP if the command line has not been parsed, the requested \fIkarg\fP
+is not present, or the requested \fIkarg\fP has an unset value. Otherwise, it returns a pointer
+to the value string.
+
+.SH SEE ALSO
+.BR args_value (9),
+.BR kcmdline (1)
+
