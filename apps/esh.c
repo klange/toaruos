@@ -1449,7 +1449,7 @@ _nope:
 				int fd = open(output_files[cmdi], file_args[cmdi], 0666);
 				if (fd < 0) {
 					fprintf(stderr, "sh: %s: %s\n", output_files[cmdi], strerror(errno));
-					return -1;
+					exit(1);
 				} else {
 					dup2(fd, STDOUT_FILENO);
 				}
@@ -1458,7 +1458,7 @@ _nope:
 				int fd = open(err_files[cmdi], err_args[cmdi], 0666);
 				if (fd < 0) {
 					fprintf(stderr, "sh: %s: %s\n", err_files[cmdi], strerror(errno));
-					return -1;
+					exit(1);
 				} else {
 					dup2(fd, STDERR_FILENO);
 				}
@@ -1514,7 +1514,7 @@ _nope:
 					int fd = open(output_files[cmdi], file_args[cmdi], 0666);
 					if (fd < 0) {
 						fprintf(stderr, "sh: %s: %s\n", output_files[cmdi], strerror(errno));
-						return -1;
+						exit(1);
 					} else {
 						dup2(fd, STDOUT_FILENO);
 					}
@@ -1523,7 +1523,7 @@ _nope:
 					int fd = open(err_files[cmdi], err_args[cmdi], 0666);
 					if (fd < 0) {
 						fprintf(stderr, "sh: %s: %s\n", err_files[cmdi], strerror(errno));
-						return -1;
+						exit(1);
 					} else {
 						dup2(fd, STDERR_FILENO);
 					}
