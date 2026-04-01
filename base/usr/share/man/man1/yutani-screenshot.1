@@ -1,0 +1,25 @@
+.TH YUTANI-SCREENSHOT 1 "April, 2026"
+
+.SH NAME
+\fByutani\-screenshot\fP \- make the compositor take a screenshot
+
+.SH SYNOPSIS
+\fByutani\-screenshot\fP [\fB\-w\fP]
+
+.SH DESCRIPTION
+Sends a key event to the compositor to make it take a screenshot.
+Screenshots taken by the compositor are written as TGA images and
+placed in \fB/tmp\fP.
+
+.TP
+.B \-w
+Take a screenshot of the focused window, instead of the whole display.
+
+.SH NOTES
+This utility only works because the compositor accepts key events from clients
+and handles them in the same way as local keyboard events.
+.PP
+This may change in the future.
+
+.SH SEE ALSO
+.BR compositor (1)
