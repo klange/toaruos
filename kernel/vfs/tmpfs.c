@@ -178,6 +178,11 @@ static ssize_t read_tmpfs(fs_node_t *node, off_t offset, size_t size, uint8_t *b
 
 	t->atime = now();
 
+	if ((size_t)offset >= t->length) {
+		spin_unlock(t->lock);
+		return 0;
+	}
+
 	uint64_t end;
 	if ((size_t)offset + size > t->length) {
 		end = t->length;
