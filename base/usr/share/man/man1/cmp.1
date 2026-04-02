@@ -4,11 +4,19 @@
 \fBcmp\fP \- compare files
 
 .SH SYNOPSIS
-\fBcmp\fP [\fB\-l\fP | \fB\-s\fP] \fIfile1\fP \fIfile2\fP
+\fBcmp\fP [\fB\-l\fP | \fB\-s\fP] \fIfile1\fP \fIfile2\fP [\fIskip1\fP [\fIskip2\fP]]
 
 .SH DESCRIPTION
 Reads both files simultaneously and compares them. If the two files differ, the byte and line
 number of the difference will be written to standard output.
+.PP
+If a \fIskip\fP argument is provided, \fBcmp\fP will attempt to skip forward by that amount,
+first by seeking, then by reading and discarding that many characters (or until an error
+is encountered). \fIskip\fP values can be suffixed with K, M, G, etc. (up to Y, but anything
+past P is probably not going to work) for powers of 1024, or KB, MB, GB, etc. for powers
+of 1000 (lowercase 'k' is also accepted for both forms). If the skip value is greater than
+\fBLONG_MAX\fP, then \fBcmp\fP will always take the skip\-and\-discard approach, even if that
+means waiting until the end of the universe.
 
 .TP
 .B \-l
