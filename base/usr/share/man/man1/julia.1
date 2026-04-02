@@ -1,0 +1,99 @@
+.TH JULIA 1 "April, 2026"
+
+.SH NAME
+\fBjulia\fp, \fBmandelbrot\fP \- display fractals
+
+.SH SYNOPSIS
+\fBjulia\fP      [\fB\-i\fP \fIiterations\fP] [\fB\-x\fP \fIx\fP] [\fB\-y\fP \fIy\fP] [\fB\-r\fP \fIrotations\fP] [\fB\-W\fP \fIwidth\fP] [\fB\-H\fP \fIheight\fP] [\fB\-c\fP \fIcreal\fP] [\fB\-C\fP \fIcimag\fP]
+.br
+\fBmandelbrot\fP [\fB\-i\fP \fIiterations\fP] [\fB\-x\fP \fIx\fP] [\fB\-y\fP \fIy\fP] [\fB\-r\fP \fIrotations\fP] [\fB\-W\fP \fIwidth\fP] [\fB\-H\fP \fIheight\fP]
+
+.SH DESCRIPTION
+The \fBjulia\fP and \fBmandelbrot\fP utilities display their respective fractals in a window.
+.PP
+Several options are provided to tune the parameters of the fractal:
+
+.TP
+.B \-o \fIiterations\fP \fRor\fP \-\-iterations \fIiterations\fP
+Set the number of \fIiterations\fP after which calculation for a pixel will terminate. The default is 1000.
+
+.TP
+.B \-x \fIx\fP \fRor\fP \-\-center\-x  \fIx\fP
+Set the horizontal panning for viewing the fractal.
+A negative value pans the viewport left; a positive value pans the viewport right.
+
+.TP
+.B \-y \fIy\fP \fRor\fP \-\-center\-y  \fIy\fP
+Set the vertical panning for viewing the fractal.
+A negative value pans the viewport down; a positive value pans the viewport up.
+
+.TP
+.B \-c \fIcreal\fP \fRor\fP \-\-creal \fIcreal\fP
+Set the real component of \fBc\fP when displaying a Julia fractal.
+
+.TP
+.B \-C \fIcimag\fP \fRor\fP \-\-cimag \fIcimag\fP
+Set the imaginary component of \fBc\fP when displaying a Julia fractal.
+
+.TP
+.B \-r \fIrotation\fP \fRor\fP \-\-rotate \fIrotation\fP
+Rotate the hue of the palette used to render the fractal.
+
+.TP
+.B \-w \fIwidth\fP \fRor\fP \-\-width \fIwidth\fP
+Set the initial width of the window.
+
+.TP
+.B \-h \fIheight\fP \fRor\fP \-\-height \fIheight\fP
+Set the initial height of the window.
+
+.SH KEYBOARD CONTROLS
+Two modes of operation are available. Only \fBExplore\fP mode is relevant when
+viewing a Mandelbrot set, and the \fBmandelbrot\fP utility will start in that
+mode. The \fBControl\fP mode is only relevant when viewing Julia fractals,
+and the \fBjulia\fP utility starts in that mode but may be switched to the
+Explore mode. Pressing \fBe\fP switches between the two modes, regardless
+of which utility was invoked. Pressing \fBp\fP cycles between available color
+palettes. Pressing \fBq\fP will quit the utility.
+.PP
+In both modes, \fBShift\fP and \fBCtrl\fP modifiers will affect the amount
+by which parameters are changed when keys are pressed:
+.TP
+.B Ctrl
+Applies a 5x multiple.
+.TP
+.B Shift
+Applies a 10x multiple.
+.TP
+.B Ctrl+Shift
+Applies a 50x multiple.
+
+.SS Control Mode
+When in \fBControl\fP mode, the arrow keys modify the real and imaginary values
+of the \fBc\fP component of a Julia fractal. Left and right control the real
+component while up and down control the imaginary component.
+
+.SS Explore Mode
+When in \fBExplore\fP mode, the arrow keys control the panning of the viewport.
+Additionally, \fBPage Up\fP and \fBPage Down\fP allow the viewport to be zoomed
+in and out.
+
+.SH NOTES
+These utilities operate on \fBdouble\fPs and their resolution is limited if
+zoomed in too far.
+
+.SH HISTORY
+The \fBjulia\fP utility is the oldest application in ToaruOS. It was the first
+userspace application written for the operating system in April of 2011. Originally,
+it was going to a tileset demo \- which did appear later as \fBgame\fP.
+.PP
+It was ported to the pre\-Yutani windowing environment in February of 2012 as \fBjulia\-win\fP.
+It was then ported to Yutani in April of 2014.
+.PP
+Keyboard interactions, multiple palettes, and the descriptive text label shown
+in the bottom left were all added in September of 2021.
+.PP
+The Mandelbrot set viewer and the Explore mode were added in 2023.
+
+.SH SEE ALSO
+.BR compositor (1)
