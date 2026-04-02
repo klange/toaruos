@@ -195,6 +195,14 @@ static int matches_files(int argc, char * argv[], int optind, char * filename) {
 	return 0;
 }
 
+enum tar_action {
+	TAR_ACTION_EXTRACT = 1,
+	TAR_ACTION_CREATE,
+	TAR_ACTION_LIST,
+	TAR_ACTION_APPEND,
+	TAR_ACTION_UPDATE
+};
+
 int main(int argc, char * argv[]) {
 
 	int opt;
@@ -204,9 +212,6 @@ int main(int argc, char * argv[]) {
 	int compressed = 0;
 	int to_stdout = 0;
 	int only_matches = 0;
-#define TAR_ACTION_EXTRACT 1
-#define TAR_ACTION_CREATE  2
-#define TAR_ACTION_LIST    3
 
 	if (argc > 1 && argv[1][0] != '-') {
 		switch(argv[1][0]) {
@@ -218,6 +223,12 @@ int main(int argc, char * argv[]) {
 				break;
 			case 't':
 				action = TAR_ACTION_LIST;
+				break;
+			case 'r':
+				action = TAR_ACTION_APPEND;
+				break;
+			case 'u':
+				action = TAR_ACTION_UPDATE;
 				break;
 			default:
 				return usage(argv);
@@ -259,31 +270,37 @@ int main(int argc, char * argv[]) {
 		goto _skip_getopt;
 	}
 
-	while ((opt = getopt(argc, argv, "?ctxzvaf:O")) != -1) {
+#define check_action() do { \
+	if (action) { \
+		fprintf(stderr, "%s: %c: already specified action\n", argv[0], opt); \
+		return 1; \
+	} \
+} while (0)
+
+	while ((opt = getopt(argc, argv, "?ctxzvaf:Oru")) != -1) {
 		switch (opt) {
 			case 'c':
-				if (action) {
-					fprintf(stderr, "%s: %c: already specified action\n", argv[0], opt);
-					return 1;
-				}
+				check_action();
 				action = TAR_ACTION_CREATE;
 				break;
 			case 'f':
 				fname = optarg;
 				break;
 			case 'x':
-				if (action) {
-					fprintf(stderr, "%s: %c: already specified action\n", argv[0], opt);
-					return 1;
-				}
+				check_action();
 				action = TAR_ACTION_EXTRACT;
 				break;
 			case 't':
-				if (action) {
-					fprintf(stderr, "%s: %c: already specified action\n", argv[0], opt);
-					return 1;
-				}
+				check_action();
 				action = TAR_ACTION_LIST;
+				break;
+			case 'r':
+				check_action();
+				action = TAR_ACTION_APPEND;
+				break;
+			case 'u':
+				check_action();
+				action = TAR_ACTION_UPDATE;
 				break;
 			case 'v':
 				verbose = 1;
@@ -303,6 +320,10 @@ _skip_getopt:
 	(void)0;
 
 	if (!fname) {
+		if (action == TAR_ACTION_UPDATE || action == TAR_ACTION_APPEND) {
+			fprintf(stderr, "%s: -f is required for this mode\n", argv[0]);
+			return 1;
+		}
 		fname = "-";
 	}
 
@@ -455,6 +476,29 @@ _skip_getopt:
 				_seek_forward(f, 512 - (file_size % 512));
 			}
 		}
+#if 0
+	} else if (action == TAR_ACTION_CREATE) {
+		if (compressed) {
+			fprintf(stderr, "%s: can not created compressed archives\n", argv[0]);
+			return 1;
+		}
+
+		FILE * f;
+		if (!strcmp(fname,"-")) {
+			f = stdout;
+		} else {
+			f = fopen(fname,"w");
+		}
+
+		if (!f) {
+			fprintf(stderr, "%s: %s: %s\n", argv[0], fname, strerror(errno));
+		}
+
+		for (int i = optind; i < argc; ++i) {
+			// ...
+		}
+#endif
+
 	} else {
 		fprintf(stderr, "%s: unsupported action\n", argv[0]);
 		return 1;
