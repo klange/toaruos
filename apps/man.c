@@ -32,6 +32,8 @@
 #define ROFF_CMD TOARU_MAN_TOOL_PREFIX "roff"
 #define MORE_CMD TOARU_MAN_TOOL_PREFIX "more -rP'%s(%s)' --stay --alt"
 
+static int where_is = 0;
+
 static int usage(char * argv[]) {
 #define X_S "\033[3m"
 #define X_E "\033[0m"
@@ -43,6 +45,7 @@ static int usage(char * argv[]) {
 		"Options:\n"
 		"\n"
 		" -a       " X_S "Display all matching manuals." X_E "\n"
+		" -w       " X_S "Print the locations of manual pages." X_E "\n"
 		" -S " X_S "list  Limit search to colon-separated list of sections." X_E "\n"
 		" --help   " X_S "Show this help text." X_E "\n"
 		"\n", argv[0]);
@@ -64,6 +67,10 @@ static int usage(char * argv[]) {
 static int try_filename(char * filename, char * page, char * i) {
 	struct stat st;
 	if (!stat(filename, &st)) {
+		if (where_is) {
+			puts(filename);
+			return 1;
+		}
 		int is_gz = strlen(filename) > 3 && !strcmp(filename + strlen(filename)-3,".gz");
 		char * systemcmd;
 		asprintf(&systemcmd,
@@ -195,10 +202,13 @@ int main(int argc, char * argv[]) {
 
 	int show_all = 0;
 	int opt;
-	while ((opt = getopt(argc, argv, "?aS:-:")) != -1) {
+	while ((opt = getopt(argc, argv, "?awS:-:")) != -1) {
 		switch (opt) {
 			case 'a':
 				show_all = 1;
+				break;
+			case 'w':
+				where_is = 1;
 				break;
 			case 'S':
 				section_list = optarg;

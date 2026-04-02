@@ -4,7 +4,7 @@
 man \- Find and display manual pages.
 
 .SH SYNOPSIS
-\fBman\fP [\fB\-S\fP \fIsections\fP] [\fIsection\fP] \fIpage\fP...
+\fBman\fP [\fB\-a\fP] [\fB\-w\fP] [\fB\-S\fP \fIsections\fP] [\fIsection\fP] \fIpage\fP...
 .br
 \fBman\fp \fB--help\fP
 
@@ -35,6 +35,10 @@ If multiple \fIpage\fP arguments are provided, each will be searched and display
 .B \-a
 Display all matching manual pages, in search order, one after the other, instead of stopping after
 showing the first match.
+
+.TP
+.B \-w
+Instead of displaying the manual page, print its location.
 
 .TP
 .B \-S \fIsections\fP
