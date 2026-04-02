@@ -20,15 +20,17 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 
-#if !defined(TOARU_MAN_CROSS_VIEWER)
-#define MORE_CMD "more -rP'%s(%s)' --stay --alt"
-#define MAN_FMT  "/usr/share/man/man%s/%s.%s"
-#define ROFF_CMD "roff"
-#else
-#define MORE_CMD "toaru-more -rP'%s(%s)' --stay --alt"
-#define MAN_FMT TOARU_MAN_CROSS_DIR "/usr/share/man/man%s/%s.%s"
-#define ROFF_CMD "toaru-roff"
+#if !defined(TOARU_MAN_TOOL_PREFIX)
+#define TOARU_MAN_TOOL_PREFIX ""
 #endif
+
+#if !defined(TOARU_MAN_PATH_PREFIX)
+#define TOARU_MAN_PATH_PREFIX ""
+#endif
+
+#define MAN_FMT  TOARU_MAN_PATH_PREFIX "/usr/share/man/man%s/%s.%s"
+#define ROFF_CMD TOARU_MAN_TOOL_PREFIX "roff"
+#define MORE_CMD TOARU_MAN_TOOL_PREFIX "more -rP'%s(%s)' --stay --alt"
 
 static int usage(char * argv[]) {
 #define X_S "\033[3m"
