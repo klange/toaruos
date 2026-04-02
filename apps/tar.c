@@ -184,7 +184,11 @@ static int usage(char * argv[]) {
 
 static int matches_files(int argc, char * argv[], int optind, char * filename) {
 	while (optind < argc) {
-		if (!strcmp(argv[optind], filename)) return 1;
+		char * maybe = strstr(filename, argv[optind]);
+		if (maybe == filename) {
+			size_t s = strlen(argv[optind]);
+			if (maybe[s] == '\0' || maybe[s] == '/') return 1;
+		}
 		optind++;
 	}
 
@@ -353,25 +357,27 @@ _skip_getopt:
 			if (!file) {
 				break;
 			}
+			char name[1025] = {0};
+			if (last_was_long) {
+				strncat(name, tmpname, 1024);
+				last_was_long = 0;
+			} else {
+				strncat(name, file->prefix, 167);
+				strncat(name, file->filename, 512);
+			}
 
 			if (action == TAR_ACTION_LIST) {
-				if (verbose) {
-					fprintf(stdout, "%10d %c %.155s%.100s\n", interpret_size(file), file->type[0], file->prefix, file->filename);
-				} else {
-					fprintf(stdout, "%.155s%.100s\n", file->prefix, file->filename);
+				if (!only_matches || matches_files(argc,argv,optind,name)) {
+					if (verbose) {
+						fprintf(stdout, "%10d %c %s\n", interpret_size(file), file->type[0], name);
+					} else {
+						fprintf(stdout, "%s\n", name);
+					}
 				}
 				_seek_forward(f, interpret_size(file));
 			} else if (action == TAR_ACTION_EXTRACT) {
 				if (verbose) {
 					fprintf(stdout, "%.155s%.100s\n", file->prefix, file->filename);
-				}
-				char name[1025] = {0};
-				if (last_was_long) {
-					strncat(name, tmpname, 1024);
-					last_was_long = 0;
-				} else {
-					strncat(name, file->prefix, 167);
-					strncat(name, file->filename, 512);
 				}
 
 				if (file->type[0] == '0' || file->type[0] == 0) {
