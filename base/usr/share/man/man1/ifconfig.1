@@ -1,0 +1,55 @@
+.TH IFCONFIG 1 "April, 2026"
+
+.SH NAME
+\fBifconfig\fP \- view and configure network interfaces and routing
+
+.SH SYNOPSIS
+\fBifconfig\fP
+.br
+\fBifconfig\fP \fIinterface\fP
+.br
+\fBifconfig\fP \fIinterface\fP [\fItype\fP] \fIaddress\fP
+
+.SH DESCRIPTION
+The \fBifconfig\fP utility allows the configuration of a network device to be viewed
+and possibly updated.
+.PP
+With no argument, information about all available interfaces is printed. With only
+an \fIinterface\fP, information about that interface is printed. The other forms
+of the command attempt to set a particular address. The options for \fItype\fP are:
+
+.TP
+.B inet
+The main IPv4 address of the interface. If no \fItype\fP is supplied, this is the default.
+
+.TP
+.B gateway \fRor\fP gw
+The IPv4 gateway address. This functionality serves as a stopgap for a lack of route
+management tools or a separate route table in the kernel.
+
+.TP
+.B netmask
+The netmask of the interface.
+
+.SH NOTES
+The utility is capable of accepting multiple addresses in one invocation, for example:
+
+	ifconfig enp0s2 192.168.0.2 gw 192.168.0.1 netmask 255.255.255.0
+
+Each address will be processed in sequence. If an error is encountered while trying
+to set an address, the utility will exit and later addresses will not be processed.
+To avoid mistakes with potentially unknown address types, only one bare address is
+accepted in a command.
+
+.SH BUGS
+Commands like "up" and "down" are not supported. The utility makes very little effort
+to validate addresses. While the utility may be able to print an IPv6 address, if one
+is reported by an interface, it has no support for setting them, and no existing
+network interface drivers support IPv6 addresses as of writing, nor does the IP stack.
+.PP
+As of writing there is no interface to set the MTU, and no way to view the configured
+gateway despite being able to set it.
+
+.SH SEE ALSO
+.BR dhclient (1),
+.BR ioctl (2)
