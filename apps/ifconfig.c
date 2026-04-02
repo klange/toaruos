@@ -202,7 +202,7 @@ static int _set_address(int netdev, const char * cmd, const char * arg, const ch
 }
 
 #define set_address(cmd, arg, itype) _set_address(netdev, cmd, arg, #itype, itype)
-#define command_with_address(cmd, itype) if (!strcmp(argv[i], cmd)) { if (_set_address(netdev, argv[i], argv[i+1], #itype, itype)) { return 1; } continue; }
+#define command_with_address(cmd, itype) if (!strcmp(argv[i], cmd)) { if (_set_address(netdev, argv[i], argv[i+1], #itype, itype)) { return 1; } i++; continue; }
 
 int main(int argc, char * argv[]) {
 	/* Figure out what we're trying to do. */
