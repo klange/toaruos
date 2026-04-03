@@ -414,6 +414,8 @@ void     close_pty_master(fs_node_t * node) {
 	pty_t * pty = (pty_t *)node->device;
 	ring_buffer_interrupt(pty->in);
 	ring_buffer_interrupt(pty->out);
+	ring_buffer_alert_waiters(pty->in);
+	ring_buffer_alert_waiters(pty->out);
 
 	spin_lock(pty->teardown);
 	pty->master_closed = 1;
@@ -454,7 +456,7 @@ ssize_t read_pty_slave(fs_node_t * node, off_t offset, size_t size, uint8_t *buf
 			ssize_t vmin = MIN(pty->tios.c_cc[VMIN], size);
 			while (c < vmin) {
 				ssize_t r = ring_buffer_read(pty->in, size - c, buffer + c);
-				if (r < 0) return c ? c : r;
+				if (r <= 0) return c ? c : r;
 				c += r;
 			}
 			return c;
