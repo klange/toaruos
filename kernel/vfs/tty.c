@@ -42,24 +42,27 @@ static void pty_teardown(pty_t * pty) {
 	free(pty);
 }
 
-static void pty_write_in(pty_t * pty, uint8_t c) {
-	ring_buffer_write(pty->in, 1, &c);
+static ssize_t pty_write_in(pty_t * pty, uint8_t c) {
+	return ring_buffer_write(pty->in, 1, &c);
 }
 
-static void pty_write_out(pty_t * pty, uint8_t c) {
-	ring_buffer_write(pty->out, 1, &c);
+static ssize_t pty_write_out(pty_t * pty, uint8_t c) {
+	return ring_buffer_write(pty->out, 1, &c);
 }
 
-#define IN(character)   pty->write_in(pty, (uint8_t)character)
-#define OUT(character)  pty->write_out(pty, (uint8_t)character)
+#define IN(character)   do { ssize_t written = pty->write_in(pty, (uint8_t)character); if (written < 0) return written; } while (0)
+#define OUT(character)  do { ssize_t written = pty->write_out(pty, (uint8_t)character); if (written < 0) return written; } while (0)
 
-static void dump_input_buffer(pty_t * pty) {
+static ssize_t dump_input_buffer(pty_t * pty) {
 	char * c = pty->canon_buffer;
+	ssize_t written = 0;
 	while (pty->canon_buflen > 0) {
 		IN(*c);
 		pty->canon_buflen--;
 		c++;
+		written++;
 	}
+	return written;
 }
 
 static void clear_input_buffer(pty_t * pty) {
@@ -67,14 +70,10 @@ static void clear_input_buffer(pty_t * pty) {
 	pty->canon_buffer[0] = '\0';
 }
 
-#define output_process_slave tty_output_process_slave
-#define output_process tty_output_process
-#define input_process tty_input_process
-
-void tty_output_process_slave(pty_t * pty, uint8_t c) {
+ssize_t tty_output_process(pty_t * pty, uint8_t c) {
 	if (!(pty->tios.c_oflag & OPOST)) {
 		OUT(c);
-		return;
+		return 1;
 	}
 
 	if (c == '\n' && (pty->tios.c_oflag & ONLCR)) {
@@ -82,31 +81,30 @@ void tty_output_process_slave(pty_t * pty, uint8_t c) {
 		OUT(c);
 		c = '\r';
 		OUT(c);
-		return;
+		return 1;
 	}
 
 	if (c == '\r' && (pty->tios.c_oflag & ONLRET)) {
-		return;
+		return 1;
 	}
 
 	if (c >= 'a' && c <= 'z' && (pty->tios.c_oflag & OLCUC)) {
 		c = c + 'A' - 'a';
 		OUT(c);
-		return;
+		return 1;
 	}
 
 	OUT(c);
+	return 1;
 }
 
-void tty_output_process(pty_t * pty, uint8_t c) {
-	output_process_slave(pty, c);
-}
+#define output_process(pty, chr) do { ssize_t written = tty_output_process(pty, chr); if (written < 0) return written; } while (0)
 
 static int is_control(int c) {
 	return c < ' ' || c == 0x7F;
 }
 
-static void erase_one(pty_t * pty, int erase) {
+static ssize_t tty_erase_one(pty_t * pty, int erase) {
 	if (pty->canon_buflen > 0) {
 		/* How many do we backspace? */
 		int vwidth = 1;
@@ -126,9 +124,12 @@ static void erase_one(pty_t * pty, int erase) {
 			}
 		}
 	}
+	return 0;
 }
 
-void tty_input_process(pty_t * pty, uint8_t c) {
+#define erase_one(pty, erase) do { ssize_t written = tty_erase_one(pty, erase); if (written < 0) return written; } while (0)
+
+ssize_t tty_input_process(pty_t * pty, uint8_t c) {
 	if (pty->next_is_verbatim) {
 		pty->next_is_verbatim = 0;
 		if (pty->canon_buflen < pty->canon_bufsize) {
@@ -143,7 +144,7 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 				output_process(pty, c);
 			}
 		}
-		return;
+		return 1;
 	}
 	if (pty->tios.c_lflag & ISIG) {
 		int sig = -1;
@@ -168,7 +169,7 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 			if (pty->fg_proc) {
 				group_send_signal(pty->fg_proc, sig, 1);
 			}
-			return;
+			return 1;
 		}
 	}
 #if 0
@@ -184,7 +185,7 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 
 	/* IGNCR: Ignore carriage return. */
 	if ((pty->tios.c_iflag & IGNCR) && c == '\r') {
-		return;
+		return 1;
 	}
 
 	if ((pty->tios.c_iflag & INLCR) && c == '\n') {
@@ -205,7 +206,7 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 			pty->next_is_verbatim = 1;
 			output_process(pty, '^');
 			output_process(pty, '\010');
-			return;
+			return 1;
 		}
 
 		if (c == pty->tios.c_cc[VKILL]) {
@@ -220,7 +221,7 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 					output_process(pty, c);
 				}
 			}
-			return;
+			return 1;
 		}
 		if (c == pty->tios.c_cc[VERASE]) {
 			/* Backspace */
@@ -233,7 +234,7 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 					output_process(pty, c);
 				}
 			}
-			return;
+			return 1;
 		}
 		if (c == pty->tios.c_cc[VWERASE] && (pty->tios.c_lflag & IEXTEN)) {
 			while (pty->canon_buflen && pty->canon_buffer[pty->canon_buflen-1] == ' ') {
@@ -250,7 +251,7 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 					output_process(pty, c);
 				}
 			}
-			return;
+			return 1;
 		}
 		if (c == pty->tios.c_cc[VEOF]) {
 			if (pty->canon_buflen) {
@@ -258,7 +259,7 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 			} else {
 				ring_buffer_eof(pty->in);
 			}
-			return;
+			return 1;
 		}
 
 		if (pty->canon_buflen < pty->canon_bufsize) {
@@ -279,9 +280,9 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 			}
 			pty->canon_buffer[pty->canon_buflen-1] = c;
 			dump_input_buffer(pty);
-			return;
+			return 1;
 		}
-		return;
+		return 1;
 	} else if (pty->tios.c_lflag & ECHO) {
 		if ((pty->tios.c_lflag & ECHOCTL) && is_control(c) && c != '\n') {
 			output_process(pty, '^');
@@ -291,6 +292,7 @@ void tty_input_process(pty_t * pty, uint8_t c) {
 		}
 	}
 	IN(c);
+	return 1;
 }
 
 static void tty_fill_name(pty_t * pty, char * out) {
@@ -399,7 +401,8 @@ ssize_t write_pty_master(fs_node_t * node, off_t offset, size_t size, uint8_t *b
 
 	size_t l = 0;
 	for (uint8_t * c = buffer; l < size; ++c, ++l) {
-		input_process(pty, *c);
+		ssize_t o = tty_input_process(pty, *c);
+		if (o < 0 && !l) return o;
 	}
 
 	return l;
@@ -477,7 +480,11 @@ ssize_t write_pty_slave(fs_node_t * node, off_t offset, size_t size, uint8_t *bu
 
 	size_t l = 0;
 	for (uint8_t * c = buffer; l < size; ++c, ++l) {
-		output_process_slave(pty, *c);
+		ssize_t o = tty_output_process(pty, *c);
+		if (o < 0) {
+			if (l) return l;
+			return o;
+		}
 	}
 
 	return l;

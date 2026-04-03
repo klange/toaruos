@@ -37,9 +37,10 @@ static void pl011_fill_name(pty_t * pty, char * name) {
 	snprintf(name, 100, "/dev/ttyS0");
 }
 
-static void pl011_write_out(pty_t * pty, uint8_t c) {
+static ssize_t pl011_write_out(pty_t * pty, uint8_t c) {
 	volatile uint32_t * uart_mapped = (volatile uint32_t *)pty->_private;
 	uart_mapped[0] = c;
+	return 1;
 }
 
 static void pl011_thread(void * arg) {

@@ -176,13 +176,14 @@ static void serial_enable(int port, tcflag_t cflags) {
 static int have_installed_ac = 0;
 static int have_installed_bd = 0;
 
-static void serial_write_out(pty_t * pty, uint8_t c) {
+static ssize_t serial_write_out(pty_t * pty, uint8_t c) {
 	struct serial_port_map * me = pty->_private;
 	if (pty->tios.c_cflag != me->cflags) {
 		me->cflags = pty->tios.c_cflag;
 		serial_enable(me->port, pty->tios.c_cflag);
 	}
 	serial_send(me->port, c);
+	return 1;
 }
 
 #define DEV_PATH "/dev/ttyS"

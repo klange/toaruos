@@ -91,10 +91,11 @@ static void miniuart_fill_name(pty_t * pty, char * name) {
 	snprintf(name, 100, "/dev/ttyUART1");
 }
 
-static void miniuart_write_out(pty_t * pty, uint8_t c) {
+static ssize_t miniuart_write_out(pty_t * pty, uint8_t c) {
 	uintptr_t uart_mapped = (uintptr_t)pty->_private;
 	while (!(mmio_read(uart_mapped + AUX_MU_LSR_REG) & 0x20));
 	mmio_write(uart_mapped + AUX_MU_IO_REG, (uint8_t)c);
+	return 1;
 }
 
 static void miniuart_thread(void * arg) {
