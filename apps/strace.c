@@ -1136,7 +1136,7 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			fprintf(logfile, "...");
 			break;
 	}
-	fflush(stdout);
+	fflush(logfile);
 }
 
 static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
@@ -1233,7 +1233,7 @@ static int usage(char * argv[]) {
 }
 
 int main(int argc, char * argv[]) {
-	logfile = stdout;
+	logfile = stderr;
 
 	pid_t p = 0;
 	int opt;
