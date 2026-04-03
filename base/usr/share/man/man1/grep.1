@@ -1,10 +1,13 @@
 .TH GREP 1 "March, 2026"
+
 .SH NAME
 grep \- Search for patterns in files.
+
 .SH SYNOPSIS
-\fBgrep\fP  [\fB-cilnoqsvfX\fP] \fIPATTERN\fP [\fIFILE\fP...]
+\fBgrep\fP  [\fIOPTION\fP] \fIPATTERN\fP [\fIFILE\fP...]
 .PP
-\fBfgrep\fP [\fB-cilnoqsvfX\fP] \fISTRING\fP [\fIFILE\fP...]
+\fBfgrep\fP [\fIOPTION\fP] \fISTRING\fP [\fIFILE\fP...]
+
 .SH DESCRIPTION
 Search for \fIPATTERN\fP in each file, or the standard input.
 .PP
@@ -45,6 +48,21 @@ Require that \fIPATTERN\fP match the whole line to count as a match.
 Treat \fIPATTERN\fP as a fixed string. This is the default mode when
 invoked as \fIfgrep\fP.
 .TP
+.B \-A \fIn\fP
+Print up to \fIn\fP lines of context after a match.
+Groups of matches will be separated by "\-\-", unless they merge.
+.TP
+.B \-B \fIn\fP
+Print up to \fIn\fP lines of context before a match.
+Groups of matches will be separated by "\-\-", unless they merge.
+.TP
+.B \-C \fIn\fP
+Combined the \fB\-A\fP and \fB\-B\fP options to print up to \fIn\fP
+lines of context both before and after a match. You may also specify
+\fB\-A\fP and \fB\-B\fP separately to get different context on
+either side of a match. As with the other options,
+groups of matches will be separated by "\-\-", unless they merge.
+.TP
 .B \-\-color
 Set the mode for displaying matches using coloring. With no additional
 option, this enables color when the output is a tty and the matching part
@@ -61,6 +79,7 @@ Disable color even if the output is a TTY.
 .B \-\-color=always
 Always enable color, even if the output is not a TTY.
 .RE
+
 .SH PATTERNS
 The pattern engine here was originally built for
 .IR bim (1)
@@ -97,11 +116,14 @@ Match zero or one time.
 .TP
 .B \e+
 Match at least one occurance.
+
 .SH BUGS
  \- The regex engine is not Unicode-aware.
  \- Repetitions are not available on groups.
+
 .SH SEE ALSO
 .BR bim (1)
+
 .SH AUTHOR
 This \fIgrep\fP was written by K. Lange <klange@toaruos.org>
 

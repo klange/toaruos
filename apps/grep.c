@@ -10,6 +10,7 @@
  */
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
@@ -29,6 +30,8 @@ static int list_files = 0;
 static int line_numbers = 0;
 static int use_color = 0;
 static int suppress_errors = 0;
+static size_t print_before = 0;
+static size_t print_after = 0;
 
 /**
  * This regex engine is adapted from bim.
@@ -242,6 +245,62 @@ static int subsearch_matches(struct Line * line, int j, char * needle, int *len)
 	return regex_matches(line, j, needle, ignorecase, len, NULL);
 }
 
+struct ContextLine {
+	struct ContextLine * next;
+	struct ContextLine * prev;
+	char * buf;
+	size_t len;
+	const char * filename;
+	int line;
+};
+
+static void print_dash(const char * dash, int nl) {
+	printf("%s%s%s%s",
+		use_color ? "\033[36m" : "",
+		dash,
+		use_color ? "\033[0m" : "",
+		nl ? "\n" : "");
+}
+
+static void print_filename(const char * filename, char * sep) {
+	printf("%s%s%s",
+		use_color ? "\033[35m" : "",
+		filename,
+		use_color ? "\033[0m" : "");
+	print_dash(sep, 0);
+}
+
+static void print_line_number(int line_number, char * sep) {
+	printf("%s%d%s",
+		use_color ? "\033[32m" : "",
+		line_number,
+		use_color ? "\033[0m" : "");
+	print_dash(sep, 0);
+}
+
+static struct ContextLine * context_head = NULL;
+static struct ContextLine * context_tail = NULL;
+static size_t context_len = 0;
+static int context_overflowed = 0;
+static void dump_context(int printing) {
+	struct ContextLine * ctx = context_tail;
+	while (ctx) {
+			if (printing && ctx != context_head) {
+			if (ctx->filename) print_filename(ctx->filename, "-");
+			if (ctx->line) print_line_number(ctx->line, "-");
+			fprintf(stdout, "%.*s\n", (int)ctx->len, ctx->buf);
+		}
+		struct ContextLine * p = ctx->prev;
+		free(ctx->buf);
+		free(ctx);
+		ctx = p;
+	}
+	context_head = NULL;
+	context_tail = NULL;
+	context_len = 0;
+	context_overflowed = 0;
+}
+
 int usage(char ** argv) {
 #define _I "\033[3m"
 #define _E "\033[0m\n"
@@ -264,6 +323,9 @@ int usage(char ** argv) {
 		"  -v      " _I "Invert match - print lines that do not match pattern." _E
 		"  -x      " _I "PATTERN must match a whole line." _E
 		"  -F      " _I "Treat PATTERN as a fixed string (acts as 'fgrep')." _E
+		"  -A " _I " n   Print up to n non-matching lines after a match." _E
+		"  -B " _I " n   Print up to n non-matching lines before a match." _E
+		"  -C " _I " n   Print up to n non-matching lines each before and after a match." _E
 		"  --help  " _I "Show this help message." _E
 		"  --color " _I "Wrap matches with escapes to highlight them in red.\n"
 		"          The use of color may be controlled as follows:" _E
@@ -317,7 +379,7 @@ static char * simple_basename(char * path) {
 
 int main(int argc, char ** argv) {
 	int opt;
-	while ((opt = getopt(argc, argv, "?hivqocFxlns-:")) != -1) {
+	while ((opt = getopt(argc, argv, "?hivqocFxlnsA:B:C:-:")) != -1) {
 		switch (opt) {
 			case 'h':
 			case '?':
@@ -352,6 +414,24 @@ int main(int argc, char ** argv) {
 			case 's':
 				suppress_errors = 1;
 				break;
+			case 'A': {
+				char * end = NULL;
+				print_after = strtoul(optarg,&end,10);
+				if (*end) return usage(argv);
+				break;
+			}
+			case 'B': {
+				char * end = NULL;
+				print_before = strtoul(optarg,&end,10);
+				if (*end) return usage(argv);
+				break;
+			}
+			case 'C': {
+				char * end = NULL;
+				print_after = print_before = strtoul(optarg,&end,10);
+				if (*end) return usage(argv);
+				break;
+			}
 			case '-':
 				if (!strcmp(optarg,"help")) {
 					return usage(argv);
@@ -396,6 +476,7 @@ int main(int argc, char ** argv) {
 		int count = 0;    /* Count of matching lines. */
 		int isbinary = 0; /* If we have detected any NUL characters in the input. */
 		int ln = 0;       /* Current line number. */
+		size_t after = 0; /* How mines non-matching lines to print anyway */
 
 		/* If there are file arguments, use them, but treat - as standard input. */
 		if (optind < argc && strcmp(argv[optind],"-")) {
@@ -411,6 +492,9 @@ int main(int argc, char ** argv) {
 
 		/* POSIX says we should print '(standard input)' instead of -, so make it happy. */
 		const char * filename = input == stdin ? "(standard input)" : argv[optind];
+
+		/* Clear context */
+		dump_context(0);
 
 		while ((lineLength = getline(&buf, &avail, input)) >= 0) {
 			ln++;
@@ -436,6 +520,37 @@ int main(int argc, char ** argv) {
 				}
 			}
 
+			/* isbinary can change whenever we hit a binary line, so recheck each time */
+			int print_context = !quiet && !isbinary && !list_files && !counts;
+
+			if (!isbinary && print_before) {
+				struct ContextLine * ctx = malloc(sizeof(struct ContextLine));
+				ctx->next = context_head;
+				ctx->prev = NULL;
+				ctx->len = lineLength;
+				ctx->buf = strdup(buf); /* not binary, so this should be fine */
+				ctx->filename = showFilenames ? filename : NULL;
+				ctx->line = line_numbers ? ln : 0;
+				if (context_head) {
+					context_head->prev = ctx;
+				}
+				context_head = ctx;
+
+				if (!context_len) {
+					context_tail = ctx;
+					context_len++;
+				} else if (context_len == print_before + 1) {
+					struct ContextLine * new_tail = context_tail->prev;
+					new_tail->next = NULL;
+					free(context_tail->buf);
+					free(context_tail);
+					context_tail = new_tail;
+					context_overflowed = 1;
+				} else {
+					context_len++;
+				}
+			}
+
 			if (!invert) {
 				int lastMatch = 0; /* End of the last match. */
 				int matched = 0;   /* Whether this line has matched yet. Useful when a degenerate match means lastMatch is still 0. */
@@ -449,7 +564,12 @@ int main(int argc, char ** argv) {
 						if (quiet) return 0;
 
 						/* Increment count of matching lines only if this is the fist match */
-						if (!matched) count++;
+						if (!matched) {
+							if (print_context && context_overflowed && (count || ret == 0)) print_dash("--",1);
+							if (print_before && print_context) dump_context(1);
+
+							count++;
+						}
 
 						/* If anything matched, return code is 0 except for an error. */
 						ret = 0;
@@ -475,8 +595,8 @@ int main(int argc, char ** argv) {
 							/* Prefix this match result as needed. For -o, every match
 							 * is prefixed. Otherwise, we only print the prefix before
 							 * the first match. */
-							if (showFilenames) fprintf(stdout, "%s:", filename);
-							if (line_numbers) fprintf(stdout, "%d:", ln);
+							if (showFilenames) print_filename(filename, ":");
+							if (line_numbers) print_line_number(ln, ":");
 						}
 
 						if (only_matching) {
@@ -510,6 +630,23 @@ int main(int argc, char ** argv) {
 				/* If we are counting matches, don't print anything and go to next line. */
 				if (counts) continue;
 
+				if (print_after && print_context) {
+					if (matched) {
+						after = print_after;
+						if (!print_before) context_overflowed = 0;
+					} else {
+						if (after > 0) {
+							dump_context(0);
+							if (showFilenames) print_filename(filename, "-");
+							if (line_numbers) print_line_number(ln, "-");
+							fprintf(stdout, "%.*s\n", (int)lineLength, buf);
+							after--;
+						} else if (!print_before) {
+							context_overflowed = 1;
+						}
+					}
+				}
+
 				/* If we weren't printing just the matching text and we had a match, there
 				 * may be more of the line left to print, and we must also print a line feed
 				 * ourselves (we ignore any line feed in the actual line, and we print one
@@ -533,11 +670,31 @@ int main(int argc, char ** argv) {
 				}
 
 				/* Do nothing on a matched line. */
-				if (matched) continue;
+				if (matched) {
+					if (print_after && print_context) {
+						if (after > 0) {
+							dump_context(0);
+							if (showFilenames) print_filename(filename, "-");
+							if (line_numbers) print_line_number(ln, "-");
+							fprintf(stdout, "%.*s\n", (int)lineLength, buf);
+							after--;
+						} else if (!print_before) {
+							context_overflowed = 1;
+						}
+					}
+					continue;
+				}
 
 				/* In quiet mode, if anything un-matched, immediately exit with 0,
 				 * ignoring all the other arguments. */
 				if (quiet) return 0;
+
+				if (print_context) {
+					if (context_overflowed && count) print_dash("--",1);
+					if (print_before) dump_context(1);
+					if (print_after) after = print_after;
+					if (!print_before) context_overflowed = 0;
+				}
 
 				/* Otherwise any un-matched line sets our return status to 0 like any
 				 * matched line does in the non-inverse case. */
@@ -560,8 +717,8 @@ int main(int argc, char ** argv) {
 				if (only_matching) continue;
 
 				/* Print relevant prefixes. */
-				if (showFilenames) fprintf(stdout, "%s:", filename);
-				if (line_numbers) fprintf(stdout, "%d:", ln);
+				if (showFilenames) print_filename(filename, ":");
+				if (line_numbers) print_line_number(ln, ":");
 
 				/* And finally, print the un-matched line with a line feed. */
 				fprintf(stdout, "%.*s\n", (int)lineLength, buf);
