@@ -19,6 +19,7 @@
 #include <termios.h>
 #include <time.h>
 #include <pwd.h>
+#include <wchar.h>
 #include <errno.h>
 
 #include <sys/ioctl.h>
@@ -30,8 +31,16 @@
 #define TRACE(...)
 
 #include <toaru/list.h>
+#include <toaru/decodeutf8.h>
 
-#define MIN_COL_SPACING 2
+/*
+ * Minimum padding between columns.
+ *
+ * This used to be 2. If you're building
+ * from source, you can change it back.
+ * 1 makes our output identical to macOS.
+ */
+#define MIN_COL_SPACING 1
 
 #define EXE_COLOR		"1;32"
 #define DIR_COLOR		"1;34"
@@ -58,6 +67,7 @@ static int long_mode   = 0;
 static int print_dir   = 0;
 static int term_width = DEFAULT_TERM_WIDTH;
 static int term_height = DEFAULT_TERM_HEIGHT;
+static int columns = 1;
 
 struct tfile {
 	char * name;
@@ -108,6 +118,16 @@ static int filecmp_notypesort(const void * c1, const void * c2) {
 	return strcmp(d1->name, d2->name);
 }
 
+static int display_width_of_string(const char * str) {
+	int out = 0;
+	uint32_t c, state = 0;
+	for (uint8_t *s = (uint8_t*)str; *s; s++) {
+		if (!decode(&state, &c, *s)) out += wcwidth(c);
+		else if (state == UTF8_REJECT) state = 0;
+	}
+	return out;
+}
+
 static void print_entry(struct tfile * file, int colwidth) {
 	const char * ansi_color_str = color_str(&file->statbuf);
 
@@ -119,7 +139,7 @@ static void print_entry(struct tfile * file, int colwidth) {
 	}
 
 	/* Pad the rest of the column */
-	for (int rem = colwidth - strlen(file->name); rem > 0; rem--) {
+	for (int rem = colwidth - display_width_of_string(file->name); rem > 0; rem--) {
 		printf(" ");
 	}
 }
@@ -259,6 +279,8 @@ static int show_usage(int argc, char * argv[]) {
 			" -a     " X_S "list all files (including . files)" X_E "\n"
 			" -l     " X_S "use a long listing format" X_E "\n"
 			" -h     " X_S "human-readable file sizes" X_E "\n"
+			" -C     " X_S "format output by columns (default)" X_E "\n"
+			" -x     " X_S "format output by line" X_E "\n"
 			" -?     " X_S "show this help text" X_E "\n"
 			"\n", argv[0], argv[0]);
 	return 1;
@@ -279,25 +301,35 @@ static void display_tfiles(struct tfile ** ents_array, int numents) {
 		/* Determine the gridding dimensions */
 		int ent_max_len = 0;
 		for (int i = 0; i < numents; i++) {
-			ent_max_len = MAX(ent_max_len, (int)strlen(ents_array[i]->name));
+			ent_max_len = MAX(ent_max_len, display_width_of_string(ents_array[i]->name));
 		}
 
 		int col_ext = ent_max_len + MIN_COL_SPACING;
-		int cols = ((term_width - ent_max_len) / col_ext) + 1;
+		int cols = ((term_width + MIN_COL_SPACING) / col_ext);
+		if (cols == 0) cols = 1;
 
 		/* Print the entries */
-
-		for (int i = 0; i < numents;) {
-
-			/* Columns */
-			print_entry(ents_array[i++], ent_max_len);
-
-			for (int j = 0; (i < numents) && (j < (cols-1)); j++) {
-				printf("  ");
-				print_entry(ents_array[i++], ent_max_len);
+		if (columns) {
+			int rows = numents / cols;
+			if (rows * cols < numents) rows++;
+			for (int i = 0; i < rows; ++i) {
+				print_entry(ents_array[i], ent_max_len);
+				for (int j = 1; j < cols; ++j) {
+					if (i + j * rows >= numents) break;
+					for (int t = 0; t < MIN_COL_SPACING; ++t) printf(" ");
+					print_entry(ents_array[i + j * rows], ent_max_len);
+				}
+				printf("\n");
 			}
-
-			printf("\n");
+		} else {
+			for (int i = 0; i < numents;) {
+				print_entry(ents_array[i++], ent_max_len);
+				for (int j = 0; (i < numents) && (j < (cols-1)); j++) {
+					for (int t = 0; t < MIN_COL_SPACING; ++t) printf(" ");
+					print_entry(ents_array[i++], ent_max_len);
+				}
+				printf("\n");
+			}
 		}
 	}
 }
@@ -371,7 +403,7 @@ int main (int argc, char * argv[]) {
 
 	if (argc > 1) {
 		int c;
-		while ((c = getopt(argc, argv, "ahl?")) != -1) {
+		while ((c = getopt(argc, argv, "ahlxC?")) != -1) {
 			switch (c) {
 				case 'a':
 					show_hidden = 1;
@@ -381,6 +413,16 @@ int main (int argc, char * argv[]) {
 					break;
 				case 'l':
 					long_mode = 1;
+					break;
+
+				/* TODO These two should also force the multi-column
+				 * display even when stdout is not a TTY...
+				 * They should probably also unset long_mode? */
+				case 'x':
+					columns = 0;
+					break;
+				case 'C':
+					columns = 1;
 					break;
 				case '?':
 					return show_usage(argc, argv);
