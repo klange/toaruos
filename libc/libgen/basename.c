@@ -3,6 +3,7 @@
 #include <string.h>
 
 char * basename(char * path) {
+	if (!path || !*path) return ".";
 	char * s = path;
 	char * c = NULL;
 	do {
