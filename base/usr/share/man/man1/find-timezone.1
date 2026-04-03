@@ -1,0 +1,41 @@
+.TH FIND-TIMEZONE 1 "April, 2026"
+
+.SH NAME
+\fBfind\-timezone\fP \- use a third\-party API to determine the user's location and timezone
+
+.SH SYNOPSIS
+\fBfind\-timezone\fP
+
+.SH DESCRIPTION
+This utility will attempt to load data from \fB/tmp/location\-data.json\fP, or obtain that
+data from a third\-party service, in order to determine the timezone offset for the system.
+.PP
+This utility is generally run during startup, after the network has been brought up,
+to initialize the \fBTZ_OFFSET\fP environment variable. As this initial execution
+normally writes the data file, this is also when the user's location is determined for
+use with the weather forecast tools.
+
+.SH FILES
+The utility will store location data directly from the remote service into \fB/tmp/location\-data.json\fP.
+.PP
+As \fB/tmp\fP is generally world\-readable and world\-writable, this data may be modifiable
+by any user.
+
+.SH THIRD PARTY APIS
+This utility communicates with the following third\-party remote API over the Internet:
+
+.TP
+.B ip\-api.com
+Provides location and timezone data.
+
+.PP
+The information obtained from this API is not shared with the ToaruOS maintainers
+at any point. Users should review the respective service's privacy policy and terms
+before exposing ToaruOS to an Internet connection, and may blackhole or provide
+an alterantive implementation of this API if they desire.
+
+.PP
+The availability of this API is subject to change.
+
+.SH SEE ALSO
+.BR weather\-configurator (1)
