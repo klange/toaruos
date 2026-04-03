@@ -34,6 +34,14 @@ static hashmap_t * _pty_index = NULL;
 static fs_node_t * _pty_dir = NULL;
 static fs_node_t * _dev_tty = NULL;
 
+static void pty_teardown(pty_t * pty) {
+	if (pty->name) hashmap_remove(_pty_index, (void*)pty->name);
+	free(pty->canon_buffer);
+	ring_buffer_destroy(pty->in);
+	ring_buffer_destroy(pty->out);
+	free(pty);
+}
+
 static void pty_write_in(pty_t * pty, uint8_t c) {
 	ring_buffer_write(pty->in, 1, &c);
 }
@@ -400,6 +408,18 @@ void      open_pty_master(fs_node_t * node, unsigned int flags) {
 	return;
 }
 void     close_pty_master(fs_node_t * node) {
+	pty_t * pty = (pty_t *)node->device;
+	ring_buffer_interrupt(pty->in);
+	ring_buffer_interrupt(pty->out);
+
+	spin_lock(pty->teardown);
+	pty->master_closed = 1;
+	if (pty->slave_closed) {
+		pty_teardown(pty);
+		return;
+	}
+	spin_unlock(pty->teardown);
+
 	return;
 }
 
@@ -468,9 +488,13 @@ void      open_pty_slave(fs_node_t * node, unsigned int flags) {
 void     close_pty_slave(fs_node_t * node) {
 	pty_t * pty = (pty_t *)node->device;
 
-	if (pty->name) {
-		hashmap_remove(_pty_index, (void*)pty->name);
+	spin_lock(pty->teardown);
+	pty->slave_closed = 1;
+	if (pty->master_closed) {
+		pty_teardown(pty);
+		return;
 	}
+	spin_unlock(pty->teardown);
 
 	return;
 }
@@ -742,6 +766,10 @@ pty_t * pty_new(struct winsize * size, int index) {
 	}
 
 	pty_t * pty = malloc(sizeof(pty_t));
+
+	spin_init(pty->teardown);
+	pty->master_closed = 0;
+	pty->slave_closed = 0;
 
 	pty->next_is_verbatim = 0;
 

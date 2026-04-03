@@ -2,6 +2,7 @@
 
 #include <kernel/vfs.h>
 #include <kernel/ringbuffer.h>
+#include <kernel/spinlock.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/termios.h>
@@ -39,6 +40,10 @@ typedef struct pty {
 	void (*fill_name)(struct pty *, char *);
 
 	void * _private;
+
+	spin_lock_t teardown;
+	int master_closed;
+	int slave_closed;
 } pty_t;
 
 void tty_output_process_slave(pty_t * pty, uint8_t c);
