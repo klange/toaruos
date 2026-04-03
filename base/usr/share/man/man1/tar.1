@@ -1,0 +1,78 @@
+.TH TAR 1 "April, 2026"
+
+.SH NAME
+\fBtar\fP \- unpack archive files
+
+.SH SYNOPSIS
+\fBtar\fP [\fB\-ctxvOaf\fP] [\fIname\fP]...
+.br
+\fBtar\fP \fBx\fP[\fBvzOf\fP] [\fB\-vzOf\fP] [\fIname\fP]...
+.br
+\fBtar\fP \fBt\fP[\fBvzOf\fP] [\fB\-vzOf\fP] [\fIname\fP]...
+
+.SH DESCRIPTION
+This is an implementation of the standard UStar archive utility.
+This implementation supports a handful of GNU extensions.
+Gzip\-compressed archives are supported via the
+.IR gunzip (1)
+utility.
+.PP
+Both the "traditional" argument style and the "short option"
+argument style are supported, and short options can be supplied
+even after specificing actions or options with the traditional
+style.
+.PP
+Supported actions included:
+.TP
+.B "x  \-x"
+Extract the archive.
+.TP
+.B "t  \-t"
+List the contents of the archive.
+
+.PP
+Recognized, but unsupported, actions include:
+.TP
+.B "c  \-c"
+Create a new archive.
+.TP
+.B "r  \-r"
+Append to an existing archive.
+.TP
+.B "u  \-u"
+Update old files in an archive with new ones.
+
+.PP
+Supported options include:
+
+.TP
+.B "f  \-f \fIfile\fP"
+Specify the archive file to operate one.
+
+.TP
+.B "v  \-v"
+Be verbose.
+
+.TP
+.B "O  \-O"
+Write to standard output rather than writing to files.
+
+.TP
+.B "z  \-z"
+Decompress archives with
+.IR gunzip (1)
+before operating on them. There is no \fB\-a\fP option
+in this implementation.
+
+.SH CAVEATS
+As of writing, this implementation is not capable of creating
+new archives or appending to archives.
+.PP
+This implementation will preserve absolute file names, which is
+generally considered a security issue. This may change \- and
+be put behind an option flag (\fB\-P\fP) in the future.
+
+.SH SEE ALSO
+.BR gunzip (1)
+
+

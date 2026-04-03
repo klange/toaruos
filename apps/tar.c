@@ -266,41 +266,34 @@ int main(int argc, char * argv[]) {
 			optind = 3;
 			fname = argv[2];
 		}
-
-		goto _skip_getopt;
 	}
 
-#define check_action() do { \
-	if (action) { \
-		fprintf(stderr, "%s: %c: already specified action\n", argv[0], opt); \
+#define check_action(new_action) do { \
+	if (action && action != new_action) { \
+		fprintf(stderr, "%s: Only one action may be specified.\n", argv[0]); \
 		return 1; \
-	} \
+	} else { action = new_action; } \
 } while (0)
 
 	while ((opt = getopt(argc, argv, "?ctxzvaf:Oru")) != -1) {
 		switch (opt) {
 			case 'c':
-				check_action();
-				action = TAR_ACTION_CREATE;
+				check_action(TAR_ACTION_CREATE);
 				break;
 			case 'f':
 				fname = optarg;
 				break;
 			case 'x':
-				check_action();
-				action = TAR_ACTION_EXTRACT;
+				check_action(TAR_ACTION_EXTRACT);
 				break;
 			case 't':
-				check_action();
-				action = TAR_ACTION_LIST;
+				check_action(TAR_ACTION_LIST);
 				break;
 			case 'r':
-				check_action();
-				action = TAR_ACTION_APPEND;
+				check_action(TAR_ACTION_APPEND);
 				break;
 			case 'u':
-				check_action();
-				action = TAR_ACTION_UPDATE;
+				check_action(TAR_ACTION_UPDATE);
 				break;
 			case 'v':
 				verbose = 1;
@@ -315,9 +308,6 @@ int main(int argc, char * argv[]) {
 				return usage(argv);
 		}
 	}
-
-_skip_getopt:
-	(void)0;
 
 	if (!fname) {
 		if (action == TAR_ACTION_UPDATE || action == TAR_ACTION_APPEND) {
