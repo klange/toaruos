@@ -227,7 +227,7 @@ long sys_write(int fd, char * ptr, unsigned long len) {
 	if (FD_CHECK(fd)) {
 		PTRCHECK(ptr,len,MMU_PTR_NULL);
 		fs_node_t * node = FD_ENTRY(fd);
-		if (!(FD_MODE(fd) & 2)) return -EACCES;
+		if (!(FD_MODE(fd) & 2)) return -EBADF;
 		if (len && !ptr) {
 			return -EFAULT;
 		}
@@ -245,7 +245,7 @@ long sys_pwrite(int fd, void * ptr, size_t count, off_t offset) {
 		if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ESPIPE;
 		PTRCHECK(ptr,count,MMU_PTR_NULL);
 		fs_node_t * node = FD_ENTRY(fd);
-		if (!(FD_MODE(fd) & 2)) return -EACCES;
+		if (!(FD_MODE(fd) & 2)) return -EBADF;
 		if (count && !ptr) return -EFAULT;
 		return write_fs(node, offset, count, (uint8_t*)ptr);
 	}
@@ -257,7 +257,7 @@ long sys_pread(int fd, void * ptr, size_t count, off_t offset) {
 		if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ESPIPE;
 		PTRCHECK(ptr,count,MMU_PTR_NULL|MMU_PTR_WRITE);
 		fs_node_t * node = FD_ENTRY(fd);
-		if (!(FD_MODE(fd) & 01)) return -EACCES;
+		if (!(FD_MODE(fd) & 01)) return -EBADF;
 		if (count && !ptr) return -EFAULT;
 		return read_fs(node, offset, count, (uint8_t *)ptr);
 	}
@@ -486,9 +486,7 @@ long sys_read(int fd, char * ptr, unsigned long len) {
 		}
 
 		fs_node_t * node = FD_ENTRY(fd);
-		if (!(FD_MODE(fd) & 01)) {
-			return -EACCES;
-		}
+		if (!(FD_MODE(fd) & 01)) return -EBADF;
 		uint64_t out = read_fs(node, FD_OFFSET(fd), len, (uint8_t *)ptr);
 		FD_OFFSET(fd) += out;
 		return out;
@@ -508,7 +506,9 @@ long sys_readdir(int fd, long index, struct dirent * entry) {
 	if (FD_CHECK(fd)) {
 		PTR_VALIDATE(entry);
 		if (!entry) return -EFAULT;
-		struct dirent * kentry = readdir_fs(FD_ENTRY(fd), (uint64_t)index);
+		fs_node_t * node = FD_ENTRY(fd);
+		if (!(FD_MODE(fd) & 01)) return -EBADF;
+		struct dirent * kentry = readdir_fs(node, (uint64_t)index);
 		if (kentry) {
 			memcpy(entry, kentry, sizeof *entry);
 			free(kentry);
@@ -664,7 +664,7 @@ long sys_truncate(char * file, off_t size) {
 
 long sys_ftruncate(int fd, off_t size) {
 	if (!FD_CHECK(fd)) return -EBADF;
-	if (!(FD_MODE(fd) & 2)) return -EACCES;
+	if (!(FD_MODE(fd) & 2)) return -EBADF;
 	if (size < 0) return -EINVAL;
 	if (!FD_ENTRY(fd)->truncate) return -ENOTSUP;
 	return FD_ENTRY(fd)->truncate(FD_ENTRY(fd), size);
