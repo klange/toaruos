@@ -1,0 +1,61 @@
+.TH WEATHER-TOOL 1 "April, 2026"
+
+.SH NAME
+\fBweather\-tool\fP \- update cached weather forecast data
+
+.SH SYNOPSIS
+\fBweather\-tool\fP
+
+.SH DESCRIPTON
+This utility fetches weather forecast data from OpenWeatherMap using a stored configuration,
+parses the JSON data from that API, and creates a plain-text file at \fB/tmp/weather\-parsed.conf\fP
+which can then be read by other utilities such as the panel weather widget.
+
+.SH FILES
+The utility reads configuration data from \fB/etc/weather.json\fP.
+.PP
+It will attempt to read location data from \fB/tmp/location\-data.json\fP, or query
+an API provided by \fBip\-api.com\fP to supply that data. Data queried from this
+third\-party service includes the latitude, longitude, city name, and timezone
+offset associated with the user's IP address in the third\-party's geolocation database.
+.PP
+The utility stores the raw results of weather data queries at \fB/tmp/weather\-data.json\fP.
+Tools that wish to read the JSON data directly may obtain it from that location.
+.PP
+The utility stores its final parsed results in \fB/tmp/weather\-parsed.conf\fP.
+.PP
+This file is formatted with line\-separated data as follows:
+
+    \(bu The formatted temperature, with two decimal points.
+    \(bu The temperature as an integer.
+    \(bu A string describing the weather conditions, such as "Clouds"
+    \(bu An icon identifier for the weather conditins. See upstream docs for more info.
+    \(bu The humidity as integer percentage.
+    \(bu The cloud coverage as an integer percentage.
+    \(bu The city name acquired from \fBip\-api.com\fP.
+    \(bu The date of the last update.
+
+.SH THIRD PARTY APIS
+This utility communicates with two third\-party remote APIs over the Internet:
+
+.TP
+.B OpenWeatherMap
+Provides weather data. This API requires a key, which is provided with the OS.
+
+.TP
+.B ip\-api.com
+Provides location and timezone data.
+
+.PP
+The information obtained from these APIs is not shared with the ToaruOS maintainers
+at any point. Users should review the respective services' privacy policies and terms
+before exposing ToaruOS to an Internet connection, and may blackhole or provide
+alternative implementations of these APIs if they desire.
+
+.PP
+The availability of these APIs is subject to change.
+
+.SH SEE ALSO
+.BR weather\-configurator (1),
+.BR find\-timezone (1),
+.BR panel (1)

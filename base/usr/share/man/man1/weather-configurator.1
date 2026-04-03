@@ -1,0 +1,35 @@
+.TH WEATHER-CONFIGURATOR 1 "April, 2026"
+
+.SH NAME
+\fBweather\-configurator\fP \- configure weather services
+
+.SH SYNOPSIS
+\fBweather\-configurator\fP
+
+.SH DESCRIPTION
+This utility prompts the user to enter information about their location
+and desired units (\fBmetric\fP or \fBimperial\fP), and writes that
+information to \fB/etc/weather.json\fP for use by
+.IR weather\-tool (1).
+If the user specifies their city as \fBguess\fP, location data will
+be obtained from another service.
+.PP
+This utility is launched in a terminal by the
+.IR panel (1)
+weather widget when the "Configure..." menu option is selected, but it
+can also be run manually by a user. Access to write to the file
+\fB/etc/weather.json\fP likely requires root permissions (and the file
+is used by all users), so the panel will launch the utility with
+.IR sudo (1).
+
+.SH NOTES
+Providing an invalid unit specification may result in the third\-party
+weather service API returning temperatures in Kelvin. The panel widget will
+still display these with a degree sign, which is wrong.
+
+.SH FUTURE
+This utility may be supplemented by a GUI in the future. Additionally,
+per\-user configuration may be added.
+
+.SH SEE ALSO
+.BR weather\-tool (1)
