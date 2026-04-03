@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <errno.h>
 
 #include <toaru/inflate.h>
@@ -19,12 +20,25 @@ static int to_stdout = 0;
 static int keep = 0;
 static int force = 0;
 
+struct GunzipCtx {
+	int fd;
+	char buf[32768];
+	size_t written;
+};
+
 static uint8_t _get(struct inflate_context * ctx) {
 	return fgetc(ctx->input_priv);
 }
 
+static void flush_it(struct GunzipCtx * mine) {
+	write(mine->fd, mine->buf, mine->written);
+	mine->written = 0;
+}
+
 static void _write(struct inflate_context * ctx, unsigned int sym) {
-	fputc(sym, ctx->output_priv);
+	struct GunzipCtx * mine = ctx->output_priv;
+	mine->buf[mine->written++] = sym;
+	if (mine->written == 32768) flush_it(mine);
 }
 
 static int usage(int argc, char * argv[]) {
@@ -65,14 +79,17 @@ static int decompress_one(char * argv[], char * file) {
 		return 1;
 	}
 
+	struct GunzipCtx mine = { 0 };
 	struct inflate_context ctx;
 	ctx.get_input = _get;
 	ctx.write_output = _write;
 	ctx.input_priv = f;
 	ctx.ring = NULL;
+	ctx.output_priv = &mine;
+
 
 	if (f == stdin || to_stdout) {
-		ctx.output_priv = stdout;
+		mine.fd = STDOUT_FILENO;
 	} else {
 		char * tmp = strdup(file);
 		if (endswith(file,".gz")) {
@@ -89,9 +106,9 @@ static int decompress_one(char * argv[], char * file) {
 			return 1;
 		}
 
-		ctx.output_priv = fopen(tmp,force ? "w" : "wx");
+		mine.fd = open(tmp,O_WRONLY | O_CREAT | (force ? 0 : O_EXCL));
 
-		if (!ctx.output_priv) {
+		if (mine.fd < 0) {
 			fprintf(stderr, "%s: %s: %s\n", argv[0], tmp, strerror(errno));
 			free(tmp);
 			fclose(f);
@@ -103,15 +120,15 @@ static int decompress_one(char * argv[], char * file) {
 
 	if (gzip_decompress(&ctx)) {
 		fprintf(stderr, "%s: %s: unspecified error from inflate\n", argv[0], file);
-		if (ctx.output_priv != stdout) fclose(ctx.output_priv);
+		if (mine.fd != STDOUT_FILENO) close(mine.fd);
 		if (f != stdin) fclose(f);
 		return 1;
 	}
 
-	fflush(ctx.output_priv);
+	flush_it(&mine);
 	if (f != stdin) fclose(f);
 
-	if (ctx.output_priv != stdout) fclose(ctx.output_priv);
+	if (mine.fd != STDOUT_FILENO) close(mine.fd);
 	if (f != stdin && !keep) unlink(file); /* Just ignore errors, whatever. */
 
 	return 0;
