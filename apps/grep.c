@@ -357,7 +357,7 @@ int main(int argc, char ** argv) {
 					return usage(argv);
 				} else if (!strcmp(optarg,"color=never")) {
 					use_color = 0; /* Overrides previous instances of conflicting option */
-				} else if (!strcmp(optarg,"color") || !strcmp(optarg,"-color=auto")) {
+				} else if (!strcmp(optarg,"color") || !strcmp(optarg,"color=auto")) {
 					use_color = 1; /* treat 1 as maybe */
 				} else if (!strcmp(optarg,"color=always")) {
 					use_color = 2;
