@@ -242,9 +242,9 @@ int send_signal(pid_t process, int signal, int force_root) {
 	if (!awaited && !blocked && ignored) return 0;
 
 	/* Mark the signal for delivery. */
-	spin_lock(sig_lock);
+	spin_lock(receiver->sig_lock);
 	receiver->pending_signals |= shift_signal(signal);
-	spin_unlock(sig_lock);
+	spin_unlock(receiver->sig_lock);
 
 	/* If the signal is blocked and not being awaited, end here. */
 	if (blocked && !awaited) return 0;
@@ -313,8 +313,8 @@ int group_send_signal(pid_t group, int signal, int force_root) {
  */
 void process_check_signals(struct regs * r) {
 _tryagain:
-	spin_lock(sig_lock);
 	if (this_core->current_process && !(this_core->current_process->flags & PROC_FLAG_FINISHED)) {
+		spin_lock(this_core->current_process->sig_lock);
 		/* Set an pending signals that were previously blocked */
 		sigset_t active_signals  = PENDING;
 
@@ -322,15 +322,15 @@ _tryagain:
 		while (active_signals && signal < NUMSIGNALS)  {
 			if (active_signals & 1) {
 				this_core->current_process->pending_signals &= ~shift_signal(signal);
-				spin_unlock(sig_lock);
+				spin_unlock(this_core->current_process->sig_lock);
 				if (handle_signal((process_t*)this_core->current_process, signal, r)) return;
 				goto _tryagain;
 			}
 			active_signals >>= 1;
 			signal++;
 		}
+		spin_unlock(this_core->current_process->sig_lock);
 	}
-	spin_unlock(sig_lock);
 }
 
 /**
@@ -387,10 +387,10 @@ int signal_await(sigset_t awaited, int * sig) {
 			int signal = 0;
 			while (maybe && signal < NUMSIGNALS) {
 				if (maybe & 1) {
-					spin_lock(sig_lock);
+					spin_lock(this_core->current_process->sig_lock);
 					this_core->current_process->pending_signals &= ~shift_signal(signal);
 					*sig = signal;
-					spin_unlock(sig_lock);
+					spin_unlock(this_core->current_process->sig_lock);
 					return 0;
 				}
 				maybe >>= 1;

@@ -162,6 +162,7 @@ typedef struct process {
 	/* Syscall restarting */
 	long interrupted_system_call;
 	sigset_t restored_signals;
+	spin_lock_t sig_lock;
 } process_t;
 
 typedef struct {
