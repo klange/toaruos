@@ -1,0 +1,28 @@
+.TH MIGRATE 1 "April, 2026"
+
+.SH NAME
+\fBmigrate\fP \- turn a read\-only ramdisk session into a read/write one
+
+.SH DESCRIPTION
+This utility is run by startup scripts to convert a ramdisk system operating
+on a read\-only
+.IR tarfs (5)
+filesystem to one running on a writable
+.IR tmpfs (5).
+\fBmigrate\fP remounts the original root filesystem to an alternate directory,
+replaces the root mount with a new \fItmpfs\fP, copies the contents of the
+original filesystem to the new root, and unmounts and frees the original
+filesystem and ramdisk.
+
+.SH NOTES
+\fBmigrate\fP will not attempt to migrate an already migrated environment.
+If \fBmigrate\fP is unable to determine the source of the current root filesystem
+to relocate it, it will fail with an error message.
+.PP
+\fBmigrate\fP will display log messages to the console while operating, reporting
+each file it migrates. These messages are delivered through
+.IR splash-log (1)
+and may only be visible if startup takes a considerable amount of time.
+
+.SH SEE ALSO
+.BR splash\-log (1)

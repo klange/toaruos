@@ -1,0 +1,20 @@
+.TH SET-RESOLUTION 1 "April, 2026"
+
+.SH NAME
+\fBset\-resolution\fP \- set the display resolution
+
+.SH SYNOPSIS
+\fBset\-resolution\fP [\fB\-\-initalize\fP \fIdriver\fP] \fIwidth\fP \fIheight\fP
+
+.SH DESCRIPTION
+Sets the display resolution, if the driver supports runtime mode setting.
+When the \fB\-\-initialize\fP option is used, the display stack will attempt
+to reinitialize with the given driver.
+
+.SH NOTES
+Not all drivers support runtime mode setting. If \fB/proc/framebuffer\fP reports
+that the current driver is "preset", mode setting will fail unless another driver
+is specified and available.
+.PP
+Generally, only root can open \fB/dev/fb0\fP, which is necessary for this utility
+to function.

@@ -1,0 +1,25 @@
+.TH MV 1 "April, 2026"
+
+.SH NAME
+\fBmv\fP \- move files and directories
+
+.SH SYNOPSIS
+\fBmv\fP [\fB\-i\fP] [\fB\-f\fP] \fIsource\fP \fIdestination\fP
+.br
+\fBmv\fP [\fB\-i\fP] [\fB\-f\fP] \fIsource\fP... \fIdestination/\fP
+
+.SH DESCRIPTION
+\fBmv\fP will attempt to move files to new locations. If \fIdestination\fP ends in
+a trailing slash, multiple \fIsource\fP arguments were provided, or \fIdestination\fP
+refers to an existing directory, \fBmv\fP will move each \fIsource\fP into the
+\fIdestination\fP as \fIdestination/source\fP. If only one \fIsource\fP was provided,
+and \fIdestination\fP does not end in a trailing slash and does not refer to
+an existing directory, \fBmv\fP will attempt to rename \fIsource\fP to \fIdestination\fP.
+.PP
+\fBmv\fP will first try to use
+.IR rename (2)
+to move files. If this fails in a way that indicates the rename operation is not supported,
+\fBmv\fP will instead try to recreate files at the destination and remove the originals.
+
+.SH SEE ALSO
+.BR rename (2)

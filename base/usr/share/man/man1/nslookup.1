@@ -1,0 +1,27 @@
+.TH NSLOOKUP 1 "April, 2026"
+
+.SH NAME
+\fBnslookup\fP \- perform DNS queries
+
+.SH SYNOPSIS
+\fBnslookup\fP \fIhost\fP
+
+.SH DESCRIPTION
+Performs a DNS lookup with
+.IR gethostbyname (3)
+and prints a result if one is available.
+
+.SH EXIT STATUS
+.TP
+0
+A result was received and printed
+.TP
+1
+\fIgethostbyname\fP failed, or a \fIhost\fP argument was not provided.
+
+.SH BUGS
+This \fBnslookup\fP does not accept a \fIserver\fP argument and does
+not have an interactive mode.
+
+.SH SEE ALSO
+.BR gethostbyname (3)

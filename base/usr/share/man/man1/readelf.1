@@ -1,0 +1,53 @@
+.TH READELF 1 "April, 2026"
+
+.SH NAME
+\fBreadelf\fP \- print information on ELF binaries
+
+.SH SYNOPSIS
+\fBreadelf\fP [\fB\-a\fP] [\fB\-h\fP] [\fB\-l\fP] [\fB\-S\fP] [\fB\-e\fP] [\fB\-s\fP]
+[\fB\-d\fP] [\fB\-r\fP] \fIfile\fP...
+
+.SH DESCRIPTION
+\fBreadelf\fP prints information about ELF binaries.
+.PP
+Supported options include:
+
+.TP
+.B \-a \fRor\fP \-\-all
+Print all supported information. Equivalent fo \fB\-h \-l \-S \-s \-d \-r\fP.
+
+.TP
+.B \-h \fRor\fP \-\-file\-header
+Print information about the ELF file header.
+
+.TP
+.B \-l \fRor\fP \-\-program\-headers \fRor\fP \-\-segments
+Print information about the program headers.
+
+.TP
+.B \-S \fRor\fP \-\-section\-headers \fRor\fP \-\-sections
+Print information about the section headers.
+
+.TP
+.B \-e \fRor\fP \-\-headers
+Equivalent to \fB\-h \-l \-S\fP.
+
+.TP
+.B \-s \fRor\fP \-\-syms
+Display information from the symbol table.
+
+.TP
+.B \-d \fRor\fP \-\-dynamic
+Display infromation from the dynamic section.
+
+.TP
+.B \-r \fRor\fP \-\-relocs
+Display information about relocations.
+
+.SH NOTES
+This implementation attempts to replicate the format of the \fBbinutils\fP version
+as closely as possible, but does not support all the same features.
+
+.SH BUGS
+This implementation does not have a \-W option and will always print the full
+length of symbol names.

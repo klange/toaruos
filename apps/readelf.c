@@ -403,7 +403,7 @@ static int usage(char * argv[]) {
 		"  -r --relocs          Display relocations\n"
 		"  -H --help            Show this help text\n"
 		" Aliases:\n"
-		"  --segments   Same as --file-header\n"
+		"  --segments   Same as --program-headers\n"
 		"  --sections   Same as --section-headers\n"
 		"  --symbols    Same as --syms\n"
 		, argv[0]);

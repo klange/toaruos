@@ -1,0 +1,26 @@
+.TH MOUNT 1 "April, 2026"
+
+.SH NAME
+\fBmount\fP \- mount filesystems
+
+.SH SYNOPSIS
+\fBmount\fP \fItype\fP \fIdevice\fP \fImountpoint\fP
+
+.SH DESCRIPTION
+Mount a new filesystem of a given \fItype\fP to a \fImountpoint\fP. All arguments are required.
+
+.TP
+.I type
+The filesystem type to be mounted. A list of available types is available from \fB/proc/filesystems\fP.
+
+.TP
+.I device
+An argument to provide to the filesystem, which is typically a path to a device to operate on.
+Some filesystems also take additional options as part of the \fIdevice\fP.
+
+.TP
+.I mountpath
+Where to place the new filesystem.
+
+.SH SEE ALSO
+.BR mount (2)

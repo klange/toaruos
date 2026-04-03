@@ -1,0 +1,22 @@
+.TH QEMU-DISPLAY-HACK 1 "April, 2026"
+
+.SH NAME
+\fBqemu\-display\-hack\fP \- work with a host tool to automatically adjust the display size
+
+.SH DESCRIPTION
+When operating under a "display harness", this utility will communicate over \fB/dev/ttyS1\fP
+expecting to receive messages when the harness detects the QEMU window size has changed,
+informing the utility of the new guest display size. The utility will then perform a
+modeset operation. The utility will do this continuously in a loop.
+
+.SH NOTES
+The relevant display harness is no longer provided with the ToaruOS sources, but this tool
+is still included in the OS for interested users. The last available version of the harness
+was included in ToaruOS 1.14:
+
+	https://github.com/klange/toaruos/blob/v1.14.1/util/qemu-harness.py
+
+The harness should be run on the host.
+
+.SH SEE ALSO
+.BR set-resolution (1)

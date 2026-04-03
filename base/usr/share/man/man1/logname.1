@@ -1,0 +1,23 @@
+.TH LOGNAME 1 "April, 2026"
+
+.SH NAME
+\fBlogname\fP \- print username
+
+.SH DESCRIPTION
+Prints the username of the user associated with the current login session,
+as reported by
+.IR getlogin (3)
+which derives this information from the owner of the current tty. If none
+of stdin, stdout, nor stderr points to a tty, or the UID associated with the
+tty could not be mapped to a username, the utility will print an error message.
+
+.SH EXIT STATUS
+.TP
+0
+If the utility determined and printed a username.
+.TP
+1
+If an error occurred.
+
+.SH SEE ALSO
+.BR getlogin (3)

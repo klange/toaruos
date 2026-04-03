@@ -1,0 +1,28 @@
+.TH NETTY 1 "April, 2026"
+
+.SH NAME
+\fBnetty\fP \- host terminal sessions over remote sockets
+
+.SH SYNOPSIS
+\fBnetty\fP [\fB\-a\fP] \fIremote\fP:\fIport\fP
+
+.SH DESCRIPTION
+\fBnetty\fP connects to a \fIremote\fP TCP socket and then serves a terminal session with
+.IR login\-loop (1),
+providing a "reverse shell".
+.PP
+Configuring the remote server appropriately is left as an exercise to the reader, which is
+to say I've forgotten and it wasn't documented in the tool.
+
+.SH SECRUITY
+The terminal session is served over clear text and should not be used for
+an actual remote system over a network. The intent of this utility is to provide
+a faster shell interface from a host operating system to a virtual machine, as
+serial consoles, even in QEMU, can be very slow.
+.PP
+Only root is allowed to operate \fBnetty\fP, in part because it runs \fIlogin\-loop\fP,
+which will require root anyway.
+
+.SH SEE ALSO
+.BR login\-loop (1),
+.BR getty (1)
