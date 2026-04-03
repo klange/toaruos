@@ -23,6 +23,8 @@ static int show_total = 0;
 static int human = 0;
 static int all = 1;
 static int is_arg = 0;
+static int ret = 0;
+static char * _argv_0;
 
 static uint64_t count_thing(char * tmp);
 
@@ -57,7 +59,8 @@ static void print_size(uint64_t size, char * name) {
 static uint64_t count_directory(char * source) {
 	DIR * dirp = opendir(source);
 	if (dirp == NULL) {
-		//fprintf(stderr, "could not open %s\n", source);
+		fprintf(stderr, "%s: cannot read directory '%s': %s\n", _argv_0, source, strerror(errno));
+		ret = 1;
 		return 0;
 	}
 
@@ -86,9 +89,15 @@ static uint64_t count_directory(char * source) {
 	return total;
 }
 
+extern char * __argv[];
+
 static uint64_t count_thing(char * tmp) {
 	struct stat statbuf;
-	lstat(tmp,&statbuf);
+	if (lstat(tmp,&statbuf)) {
+		fprintf(stderr, "%s: cannot access '%s': %s\n", _argv_0, tmp, strerror(errno));
+		ret = 1;
+		return 0;
+	}
 	if (S_ISDIR(statbuf.st_mode)) {
 		return count_directory(tmp);
 	} else {
@@ -101,6 +110,8 @@ static uint64_t count_thing(char * tmp) {
 
 
 int main(int argc, char * argv[]) {
+	_argv_0 = argv[0];
+
 	int opt;
 	while ((opt = getopt(argc, argv, "hsc")) != -1) {
 		switch (opt) {
@@ -118,8 +129,12 @@ int main(int argc, char * argv[]) {
 		}
 	}
 
-	int ret = 0;
 	uint64_t total = 0;
+
+	if (optind == argc) {
+		is_arg = 1;
+		total += count_thing(".");
+	}
 
 	for (int i = optind; i < argc; ++i) {
 		is_arg = 1;
