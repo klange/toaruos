@@ -356,27 +356,6 @@ int usage(char ** argv) {
 	return 2;
 }
 
-/*
- * POSIX says "The basename() function may modify the string pointed to by path",
- * and ours definitely does in order to handle trailing slashes. We don't want that,
- * and we're probably not going to be dealing with trailing slashes because 'path'
- * here is our argv[0] which should name a binary and trailing slashes would be
- * wrong there. This "simple_basename" doesn't muck things up.
- */
-static char * simple_basename(char * path) {
-	char * s = path;
-	char * c = path;
-	do {
-		while (*s == '/') {
-			s++;
-			if (!*s) return c; /* Ends in trailing slashes, shouldn't happen... */
-		}
-		c = s;
-		s = strchr(c,'/');
-	} while (s);
-	return c;
-}
-
 int main(int argc, char ** argv) {
 	int opt;
 	while ((opt = getopt(argc, argv, "?hivqocFxlnsA:B:C:-:")) != -1) {
@@ -447,7 +426,7 @@ int main(int argc, char ** argv) {
 	}
 
 	/* Detect if we were invoke as 'fgrep'. */
-	if (!strcmp(simple_basename(argv[0]),"fgrep")) {
+	if (!strcmp(basename(argv[0]),"fgrep")) {
 		is_fgrep = 1;
 	}
 

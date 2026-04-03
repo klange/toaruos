@@ -6,9 +6,11 @@ char * basename(char * path) {
 	char * s = path;
 	char * c = NULL;
 	do {
-		while (*s == '/') {
-			*s = '\0'; s++;
-			if (!*s) goto _done;
+		char * maybe_slash = s;
+		while (*s == '/') s++;
+		if (!*s) {
+			while (maybe_slash != s) *maybe_slash++ = '\0';
+			goto _done;
 		}
 		c = s;
 		s = strchr(c,'/');
