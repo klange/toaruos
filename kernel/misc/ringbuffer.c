@@ -92,7 +92,7 @@ void ring_buffer_discard(ring_buffer_t * ring_buffer) {
 	spin_unlock(ring_buffer->lock);
 }
 
-size_t ring_buffer_read(ring_buffer_t * ring_buffer, size_t size, uint8_t * buffer) {
+ssize_t ring_buffer_read(ring_buffer_t * ring_buffer, size_t size, uint8_t * buffer) {
 	size_t collected = 0;
 	while (collected == 0) {
 		spin_lock(ring_buffer->lock);
@@ -119,7 +119,7 @@ size_t ring_buffer_read(ring_buffer_t * ring_buffer, size_t size, uint8_t * buff
 	return collected;
 }
 
-size_t ring_buffer_write(ring_buffer_t * ring_buffer, size_t size, uint8_t * buffer) {
+ssize_t ring_buffer_write(ring_buffer_t * ring_buffer, size_t size, uint8_t * buffer) {
 	size_t written = 0;
 	while (written < size) {
 		spin_lock(ring_buffer->lock);

@@ -22,8 +22,8 @@ typedef struct {
 size_t ring_buffer_unread(ring_buffer_t * ring_buffer);
 size_t ring_buffer_size(fs_node_t * node);
 size_t ring_buffer_available(ring_buffer_t * ring_buffer);
-size_t ring_buffer_read(ring_buffer_t * ring_buffer, size_t size, uint8_t * buffer);
-size_t ring_buffer_write(ring_buffer_t * ring_buffer, size_t size, uint8_t * buffer);
+ssize_t ring_buffer_read(ring_buffer_t * ring_buffer, size_t size, uint8_t * buffer);
+ssize_t ring_buffer_write(ring_buffer_t * ring_buffer, size_t size, uint8_t * buffer);
 
 ring_buffer_t * ring_buffer_create(size_t size);
 void ring_buffer_destroy(ring_buffer_t * ring_buffer);
