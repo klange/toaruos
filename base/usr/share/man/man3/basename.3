@@ -1,0 +1,45 @@
+.TH basename 3 "April, 2026"
+
+.SH NAME
+\fBbasename\fP \- obtain the file portion of a filename
+
+.SH LIBRARY
+Standard C library (\fIlibc\fP, \fI\-lc\fP)
+
+.SH SYNOPSIS
+.B #include <libgen.h>
+.sp
+\fIchar\fP *\fBbasename\fP(\fIchar\fP *\fIpath\fP);
+
+.SH DESCRIPTION
+Returns a pointer to a string representing the file portion of \fIpath\fP.
+This implementation may modify the contents of \fIpath\fP and will do so as follows:
+If \fIpath\fP ends in trailing slashes, all trailing slashes will be replaced with NUL
+characters.
+.PP
+If \fIpath\fP is \fINULL\fP, or if \fIpath\fP points to an empty string, a pointer to
+a constant string "." is returned. If \fIpath\fP points to a string consisting
+entirely of slashes, its contents may be replaced entirely with NUL characters,
+and a pointer to a constant string "/" is returned.
+
+.SH RETURN VALUE
+A pointer to a nul-termnated string, which may be contained within the input
+or point to a constant value.
+
+.SH NOTES
+As \fBbasename\fP, by specification, may modify the string passed to it, you
+must not give \fBbasename\fP a pointer to a constant string, and it is often
+recommended that you use
+.IR strdup (3)
+to always provide basename with something it may modify without affecting
+the original string.
+
+.SH STANDARDS
+POSIX.1\-2024.
+
+.SH HISTORY
+This \fBbasename\fP would previously replace \fIall\fP slashes with NUL characters,
+which was still technically allowable by the spec, but mande it less useful.
+
+.SH SEE ALSO
+.BR basename (1)
