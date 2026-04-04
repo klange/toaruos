@@ -1,0 +1,56 @@
+.TH ABOUT 1 "April, 2026"
+
+.SH NAME
+\fBabout\fP \- display a window with application information
+
+.SH SYNOPSIS
+\fBabout\fP
+.br
+\fBabout\fP \fItitle\fP \fIicon\fP \fIversion\fP \fIdescription\fP [\fIx\fP \fIy\fP]
+
+.SH DESCRIPTION
+The \fBabout\fP utility displays a window describing an application.
+.PP
+With no arguments, the utility will describe the operating system.
+.PP
+With the arguments, the utility is intended to be launched from the
+"Help > About" menu in a graphical application. The agruments should
+describe the application as follows:
+
+.TP
+.I title
+A title to use with the window decorations, such as "About Terminal".
+
+.TP
+.I icon
+The full path to an image loadable by
+.IR load_sprite (3)
+to be displayed as an icon or logo.
+
+.TP
+.I version
+The application's name and version, such as "ToaruOS 2.3.0" or "Terminal 1.0".
+Just the name of the application is also permissible. The version string
+will be drawn in bold text.
+
+.TP
+.I description
+A set of lines describing the application. A line containing only a '-'
+will result in a small vertical gap. A line beginning with '%' (the
+percent symbol) will be drawn in blue text and is suitable for URLs.
+An entirely blank line will halt processing early. Other lines will be
+displayed in black text.
+
+.PP
+Additionally, if provided, \fIx\fP and \fIy\fP describe the display
+coordinate at which the window should be centered. Usually, this is the
+center of some other main application window.
+
+.SH BUGS
+- The window size is not adjusted to fit the displayed content.
+.br
+- Text is not wrapped.
+
+.SH SEE ALSO
+.BR sysinfo (1),
+.BR uname (1)

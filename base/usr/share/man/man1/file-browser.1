@@ -1,0 +1,51 @@
+.TH FILE-BROWSER 1 "April, 2026"
+
+.SH NAME
+\fBfile\-browser\fP \- graphical file manager and desktop provider
+
+.SH SYNOPSIS
+\fBfile\-browser\fP [\fB\-\-wallpaper\fP|\fB\-\-picker\fP] [\fIdirectory\fP]
+
+.SH DESCRIPTION
+The \fBFile Browser\fP application presents a basic graphical file manager.
+The application will default to displaying the current working directory when launched,
+unless another \fIdirectory\fP is provided.
+.PP
+The two long options provide alternative user experiences for the application:
+
+.TP
+.B \-\-wallpaper
+The application will attempt to acquire the "bottom" window slot in the compositor.
+No decorations, menu bars, toolbars, or status bars will be displayed.
+The view will default to "Icons" mode, icons will be aligned to the left rather than
+in rows, and the desktop wallpaper, as configured in \fB~/.wallpaper.conf\fP (and
+defaulting to \fB/usr/share/wallpaper.jpg\fP otherwise), will be rendered behind
+the icons. "Launcher" files will be specially rendered based on their contents,
+and directories will be opened in new windows instead of navigated when opened.
+.sp
+Normally, the application is started in this mode by the user's session manager
+upon login to a graphical session, and manually opening the application in this
+mode is not recommended.
+.sp
+An instance of the application that has been started in this mode may be sent
+the signal \fBSIGUSR1\fP to request that it reacquire its position in the bottom
+window slot. It may be sent \fBSIGUSR2\fP to request that it reload the wallpaper,
+reading the configuration file again.
+
+.TP
+.B \-\-picker
+The application will launch with the window title "Open File", display no
+menu bar, and default to the "List" view mode. Opening any file(s) other than
+a directory will cause the application to print the full path to the file(s)
+to standard output and then exit.
+
+.SH SIGNALS
+Any instance of this application may be sent \fBSIGURG\fP to request that it
+reload the directory it is currently displaying.
+.PP
+The \fB\-\-wallpaper\fP mode may also be sent \fBSIGUSR1\fP or \fBSIGUSR2\fP
+as described above.
+
+.SH SEE ALSO
+.BR ls (1)
+.BR panel (1)

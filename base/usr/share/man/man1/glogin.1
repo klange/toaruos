@@ -1,0 +1,26 @@
+.TH GLOGIN 1 "April, 2026"
+
+.SH NAME
+\fBglogin\fP \- manage graphical login sessions
+
+.SH DESCRIPTION
+The \fBglogin\fP utility acts as a graphical equivalent to
+.IR login\-loop (1)
+by continuously presenting a login prompt to authenticate users,
+allow them to run a session, wait for it to complete, and then
+presenting another login prompt. Only root can run \fBglogin\fP.
+.PP
+\fBglogin\fP acts as the authentication and session manager side
+of this process, while it defers the collection of credentials to
+.IR glogin\-provider (1),
+which presents the actual login UI. \fBglogin\fP communicates with
+\fBglogin\-provider\fP over a pair of pipes.
+.PP
+\fBglogin\fP is normally started either by the compositor, or by
+another session manager such as
+.IR live\-session (1).
+
+.SH SEE ALSO
+.BR login\-loop (1),
+.BR glogin\-provider (1),
+.BR libtoaru_auth (3)

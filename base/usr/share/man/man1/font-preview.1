@@ -1,0 +1,35 @@
+.TH FONT-PREVIEW 1 "April, 2026"
+
+.SH NAME
+\fBfont\-preview\fP \- display sample text in a font
+
+.SH SYNOPSIS
+\fBfont-preview\fP \fIfont\-file\fP [\fIpreview\-string\fP]
+
+.SH DESCRIPTION
+The \fBfont\-preview\fP utility will display a window with sample text
+rendered in the requested font. By default, the utility will attempt
+to show TrueType name string 19, unless a \fIpreview\-string\fP argument
+is provided. If name string 19 is not available in the font, the utility
+will default to \fB"The quick brown fox jumps over the lazy dog."\fP
+as the preview string.
+.PP
+The utility will display the name of the font (from TrueType name string 4) in
+large text (size 48), followed by the lowercase alphabet, uppercase alphabet, numerals,
+and various symbols, all in a medium size (22), and then display the selected
+preview string in a range of sizes from 7 to 92.
+
+.SH EXIT STATUS
+.TP
+0
+Normally
+.TP
+1
+If no \fIfont\-file\fP argument was provided, or the
+.IR libtoaru_text (3)
+library could not load the font, or a connection could not be established
+to the compositor.
+
+.SH SEE ALSO
+.BR font\-tool (1),
+.BR libtoaru_text (3)

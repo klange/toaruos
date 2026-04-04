@@ -1,0 +1,17 @@
+.TH GROUPS 1 "April, 2026"
+
+.SH NAME
+\fBgroups\fP \- show group memberships
+
+.SH DESCRIPTION
+The \fBgroups\fP utility displays the names of groups to which the user is
+currently a member. These groups are based on the effective group ID of the
+\fBgroups\fP process, and the supplemental groups retrieved from
+.IR getgroups (2).
+Group membership is ultimately set by the login session and will be based on
+the memberships listed in \fB/etc/group\fP.
+
+.SH SEE ALSO
+.BR getgroups (2),
+.BR setgroups (2),
+.BR libtoaru_auth (3)

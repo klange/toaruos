@@ -1,0 +1,125 @@
+.TH GLOGIN-PROVIDER 1 "April, 2026"
+
+.SH NAME
+\fBglogin\-provider\fP \- display a graphical login screen
+
+.SH DESCRIPTION
+\fBglogin\-provider\fP is called by
+.IR glogin (1)
+to present a graphical login screen.
+The application must be run by root.
+
+.SH PROTOCOL
+The application will report that it has started by printing "Hello" followed
+by a line feed to standard output. When a user has entered their username and
+password and confirmed them by pressing "Enter", the application will report
+them to standard output as follows:
+
+    USER \fIuser\fP
+    PASS \fIpassword\fP
+    AUTH
+
+The application will then wait for \fBglogin\fP to reply with either \fBFAIL\fP,
+in which case the login prompt will be displayed again with an error message
+indicating the user has failed to authenticate, or \fBSUCC\fP, in which case
+the application will exit.
+
+.SH CONFIGURATION
+The display of the graphical login screen is configurable through
+\fB/etc/glogin.conf\fP. This INI\-style configuration file should have any
+of the following keys to configure the appearance of the login screen:
+
+.SS [style]
+
+.TP
+.B box_width \fR(int)\fP
+The width of the box in which the username and password inputs are shown
+(hereinafter, we will refer to this as the "login box").
+The default is \fI272\fP.
+
+.TP
+.B box_height \fR(int)\fP
+The height of the login box.
+The default is \fI104\fP.
+
+.TP
+.B box_roundness \fR(int)\fP
+The radius of the corners of the login box.
+The default is \fI8\fP.
+
+.TP
+.B center_box_x \fR(0 or 1)\fP
+Whether to center the login box horizontally, or use values specified
+for \fBbox_left\fP and \fBbox_right\fP.
+The default is \fI1\fP.
+
+.TP
+.B box_left \fR(int)\fP
+How far from the left of the screen to show the login box, if
+\fBcenter_box_x\fP was set to 0. If \fBbox_left\fP is set to -1,
+then \fBbox_right\fP will be used instead.
+The default is \fI-1\fP.
+
+.TP
+.B box_right \fR(int)\fP
+How far from the right of the screen to show the login box, if
+\fBcenter_box_x\fP was set to 0 and \fBbox_left\fP was set to -1.
+The default is \fI-1\fP.
+
+.TP
+.B center_box_y \fR(0 or 1)\fP
+Whether to center the login box vertically, or use values specified
+for \fBbox_top\fP and \fBbox_bottom\fP. When enabled, the login box
+is not actually centered vertically, but its top edge is placed
+8 pixels below the center of the screen.
+The default is \fI1\fP.
+
+.TP
+.B box_top \fR(int)\fP
+How far from the top of the screen to show the login box, if
+\fBcenter_box_y\fP was set to 0. If \fBbox_top\fP is set to -1,
+then \fBbox_bottom\fP will be used instead.
+The default is \fI-1\fP.
+
+.TP
+.B box_bottom \fR(int)\fP
+How far from the bottom of the screen to show the login box, if
+\fBcenter_box_y\fP was set to 0 and \fBbox_top\fP was set to -1.
+The default is \fI-1\fP.
+
+.TP
+.B box_color_r, box_color_g, box_color_b, box_color_a \fR(int)\fP
+These four options describe the color of the login box.
+The defaults are all \fI0\fP for \fBr, g, b\fP and \fI127\fP for \fBa\fP.
+This option may be replaced with a single "\fBbox_color\fP" option
+in the future.
+
+.TP
+.B logo_padding \fR(int)\fP
+The vertical distance between the center of the display and the center
+of the logo. A larger value places the logo higher on the display.
+A negative value places the logo further down on the screen, potentially
+below the login box.
+The default is \fI100\fP.
+
+.SS [image]
+
+.TP
+.B wallpaper \fR(string)\fP
+A path to an image, loadable by
+.IR load_sprite (3),
+to display as the background. The image will be blurred with a
+three\-pass box blur of size 20. This may be configurable in
+the future. The default wallpaper is \fI/usr/share/wallpaper.jpg\fP.
+
+.TP
+.B logo \fR(string)\fP
+A path to an image, loadable by
+.IR load_sprite (3),
+to display as the system logo. The default is \fI/usr/share/logo_login.png\fP.
+
+.SH RATIONALE
+I don't remember why \fBglogin\-provider\fP is this configurable.
+
+.SH SEE ALSO
+.BR glogin (1)
