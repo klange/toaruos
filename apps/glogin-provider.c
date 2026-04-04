@@ -352,7 +352,7 @@ redo_everything:
 		if (CENTER_BOX_Y) {
 			box_y = center_y(0) + 8;
 		} else if (BOX_TOP == -1) {
-			box_y = win_width - BOX_BOTTOM - BOX_HEIGHT;
+			box_y = win_height - BOX_BOTTOM - BOX_HEIGHT;
 		} else {
 			box_y = BOX_TOP;
 		}
