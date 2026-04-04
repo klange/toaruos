@@ -1,0 +1,27 @@
+.TH CHECK-IMAGE 1 "April, 2026"
+
+.SH NAME
+\fBcheck\-image\fP \- determine if the graphics library can load an image
+
+.SH SYNOPSIS
+\fBcheck\-image\fP [\fB\-q\fP] [\fIfile\fP]...
+
+.SH DESCRIPTION
+This utility attempts to load each of the listed \fIfile\fPs with the
+.IR load_sprite (3)
+routine. If the \fB\-q\fP option is not given, the utility will report
+invalid images and will list the resolution of valid images.
+
+.SH EXIT STATUS
+.TP
+0
+If all of the provided \fIfile\fP arguments were loaded successfully
+by the graphics library.
+.TP
+1
+If any of the \fIfile\fP arguments could not be loaded, or if
+an unexpected option was provided.
+
+.SH SEE ALSO
+.BR load_sprite (3),
+.BR libtoaru_graphics (3)
