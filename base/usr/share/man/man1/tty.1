@@ -1,0 +1,29 @@
+.TH TTY 1 "April, 2026"
+
+.SH NAME
+\fBtty\fP \- display TTY name
+
+.SH SYNOPSIS
+\fBtty\fP
+
+.SH DESCRIPTION
+The \fBtty\fP utility prints the name of the TTY attached to the standard input,
+or reports "not a tty" if the standard input is not a terminal.
+.PP
+The name of the TTY is obtained with
+.IR ttyname (3).
+All output is to standard output.
+
+.SH EXIT STATUS
+.TP
+1
+If the standard input is not a terminal.
+
+.TP
+0
+If the standard input is a terminal (regardless of whether
+.IR ttyname (3)
+succeeds).
+
+.SH SEE ALSO
+.BR ttyname (3)

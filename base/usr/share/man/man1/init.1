@@ -1,0 +1,40 @@
+.TH INIT 1 "April, 2026"
+
+.SH NAME
+\fBinit\fP \- system startup and root process
+
+.SH DESCRIPTION
+\fBinit\fP is normally the first process run on system startup.
+.PP
+\fBinit\fP will iterate over the files in \fB/etc/startup.d/\fP and
+execute them in sequence, waiting for each to complete. Once all
+startup scripts have been run and completed, \fBinit\fP will reboot
+the system directly with the
+.IR reboot (2)
+system call.
+.PP
+\fBinit\fP collects orphaned processes that were not waited for
+by their parents. \fBinit\fP will wait on these processes, but
+will not consider them as part of the completion of a startup
+script; as such, daemons may be started by startup scripts and
+execution of the next startup script (or rebooting of the system)
+will still proceed.
+
+.SH FILES
+This \fBinit\fP runs all scripts in \fB/etc/startup.d/\fP which do
+not start with a '.' character, in alphanumeric sorted order.
+.PP
+\fBinit\fP does not recurse into directories. Startup scripts may be
+any sort of executable file, but are typically
+.IR esh (1)
+scripts.
+.PP
+If no startup scripts are available or \fB/etc/startup.d/\fP does not
+exist, then \fBinit\fP will attempt to run
+.IR getty (1)
+before proceeding to reboot the system.
+
+.SH SEE ALSO
+.BR esh (1),
+.BR getty (1),
+.BR reboot (2)

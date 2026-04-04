@@ -1,0 +1,45 @@
+.TH GETTY 1 "April, 2026"
+
+.SH NAME
+\fBgetty\fP \- run terminal session over serial
+
+.SH SYNOPSIS
+\fBgetty\fP [\fB\-a\fP \fIuser\fP] [\fIserial_port\fP [\fIspeed\fP] [\fIterm\fP]]
+
+.SH DESCRIPTION
+\fBgetty\fP establishes terminal login sessions on serial ports. The first non\-option
+argument will be treated as the name of a serial port to use; otherwise, \fBgetty\fP
+will attempt to use \fB/dev/ttyS0\fP by default. If the next argument starts with a
+decimal digit (and is less than 30 characters long), it will be interpreted as the speed
+of the serial port, which will be configured with
+.IR stty (1).
+If there is an additional argument, it will be used to set the \fBTERM\fP environment
+variable for the session.
+.PP
+\fBgetty\fP will attempt to open the requested serial port, become a session leader,
+redirect each of standard input, standard output, and standard error to the serial port,
+claim itself as the controlling session for the serial port's TTY, and establish
+a new process group (job). It will then run \fBstty sane\fP, apply the configured speed,
+set the \fBTERM\fP variable as requested, attempt to query the size of the terminal
+with \fBttysize \-q\fP, and then finally run
+.IR login (1).
+.PP
+If the \fB\-a\fPoption is specified, \fBlogin\fP will be called as "\fBlogin \-f\fP \fIuser\fP".
+
+.SH NOTES
+Only root may run \fBgetty\fP. Only root is likely to be able to open the serial ports or
+successfully use
+.IR login (1)
+anyway.
+.PP
+As \fBgetty\fP runs
+.IR login (1)
+and not
+.IR login\-loop (1),
+it will terminate after one user session.
+
+.SH SEE ALSO
+.BR login (1),
+.BR stty (1),
+.BR ttysize (1),
+.BR netty (1)

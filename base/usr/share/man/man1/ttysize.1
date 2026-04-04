@@ -1,0 +1,36 @@
+.TH TTYSIZE 1 "April, 2026"
+
+.SH NAME
+\fBttysize\fP \- determine and print the size of the terminal
+
+.SH SYNOPSIS
+\fBttysize\fP [\fB\-q\fP] [\fIwidth\fP \fIheight\fP]
+
+.SH DESCRIPTION
+The \fBttysize\fP utility attempts to automatically determine, or manual set,
+the terminal size. When operating without a \fIwidth\fP and \fIheight\fP argument,
+\fBttysize\fP will send an escape sequence to the terminal and wait for a brief
+moment for a reponse which may indicate the dimensions of the terminal.
+.PP
+The size will then be stored with \fBTIOCSWINSZ\fP. If automated detection of the
+terminal size was attempted but failed, the size will be set to 80 columns and 24 rows.
+.PP
+When executed without the \fB\-q\fP (quiet) option, the size of the terminal is
+printed to standard error as \fIwidth\fPx\fIheight\fP. Otherwise,
+the utility exits silently.
+
+.SH NOTES
+The sequence sent to automatically determine the size of the terminal is:
+
+	\fICSI\fP s \fICSI\fP 1000;1000H \fICSI\fP 6n \fICSI\fP u
+
+Which means "save the cursor", "place the cursor at column 1000, row 1000", "report the cursor position",
+and "restore the cursor position". The sequence will be written to standard error.
+
+The utility will then wait up to 200ms for a response of the form:
+
+	\fICSI\fP \fIwidth\fP;\fIheight\fPR
+
+.SH SEE ALSO
+.BR stty (1),
+.BR getty (1)

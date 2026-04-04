@@ -1,0 +1,40 @@
+.TH TOGGLE-ABS-MOUSE 1 "April, 2026"
+
+.SH NAME
+\fBtoggle\-abs\-mouse\fP \- set mouse mode
+
+.SH SYNOPSIS
+\fBtoggle\-abs\-mouse\fP relative
+.br
+\fBtoggle\-abs\-mouse\fP absolute
+.br
+\fBtoggle\-abs\-mouse\fP get
+
+.SH DESCRIPTION
+The \fBtoggle\-abs\-mouse\fP utility attempts to configure the operating mode
+of either \fB/dev/absmouse\fP or \fB/dev/vmmouse\fP as requested.
+.PP
+If no valid configurable mouse device is available, the utility will fail.
+.PP
+The available options are:
+
+.TP
+.B relative
+Set the mouse to "relative" movement mode. Each movement of the mouse
+reports a difference from the last position.
+
+.TP
+.B absolute
+Sets the mouse to "absolute" movement mode. Each movement of the mouse
+reports a coordinate.
+
+.TP
+.B get
+Request the current mode from the device. The mode will be printed to
+the standard output.
+
+.SH NOTES
+This utility is useful for VMs for which ToaruOS supports absolute mouse
+modes, such as QEMU, VirtualBox, and VMware. The utility can be used
+to swap between modes, such as when playing games that expect relative
+mouse movements. VMs may "capture" the mouse when it is in relative mode.

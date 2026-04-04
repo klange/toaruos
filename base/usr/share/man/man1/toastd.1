@@ -1,0 +1,49 @@
+.TH TOASTD 1 "April, 2026"
+
+.SH NAME
+\fBtoastd\fP \- toast notification daemon
+
+.SH DESCRIPTION
+The Toast Notificaton Daemon exposes a local
+.IR pex (7)
+endpoint to which applications may send JSON packets to display toast notifications
+in the corner of the screen.
+.PP
+The daemon is generally run as part of a user graphical session.
+
+.SH PEX ENDPOINT
+\fBtoastd\fP will try to bind to the PEX endpoint "\fBtoast\fP".
+
+.SH MESSAGE FORMAT
+Messages sent to \fBtoastd\fP should be JSON objects with the following members:
+
+.TP
+.B body \fR(string)\fP
+The message text to display in the notification. The body text will be parsed with
+.IR markup_draw_string (3)
+to display formatted text.
+
+.TP
+.B duration \fR(number)\fP
+The number of seconds to display the notification for.
+
+.TP
+.B icon \fR(string)\fP
+A path to an image file readable by
+.IR load_sprite (3)
+to display in the notification.
+
+.PP
+Only one message object is accepted. Unexpected members are ignored.
+
+.SS Example
+This example is taken from \fBshow-tasks.krk\fP:
+
+    {
+        "icon": "/usr/share/icons/48/package.png",
+        "body": "<b>Packages available</b><br>11 packages are available from<br>the package repository."
+    }
+
+.SH SEE ALSO
+.BR compositor (1),
+.BR markup_draw_string (3)
