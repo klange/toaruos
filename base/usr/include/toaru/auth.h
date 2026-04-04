@@ -41,6 +41,8 @@ extern void toaru_auth_set_groups(uid_t uid);
 /**
  * Do the above two steps, and setuid, and setgid...
  */
-extern void toaru_set_credentials(uid_t uid);
+extern void toaru_set_credentials(uid_t uid, gid_t gid);
+
+extern gid_t toaru_auth_get_default_group(uid_t uid);
 
 _End_C_Header

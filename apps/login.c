@@ -46,7 +46,7 @@ void sig_segv(int sig) {
 int main(int argc, char ** argv) {
 
 	char * user = NULL;
-	int uid;
+	int uid, gid;
 	pid_t pid, f;
 
 	int opt;
@@ -62,6 +62,7 @@ int main(int argc, char ** argv) {
 		struct passwd * pw = getpwnam(user);
 		if (pw) {
 			uid = pw->pw_uid;
+			gid = pw->pw_gid;
 			goto do_fork;
 		} else {
 			fprintf(stderr, "%s: no such user\n", argv[0]);
@@ -134,6 +135,7 @@ int main(int argc, char ** argv) {
 			continue;
 		}
 
+		gid = toaru_auth_get_default_group(uid);
 		break;
 	}
 
@@ -147,7 +149,7 @@ do_fork:
 		setsid();
 		ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
 		tcsetpgrp(STDIN_FILENO, getpid());
-		toaru_set_credentials(uid);
+		toaru_set_credentials(uid,gid);
 		char * args[] = {
 			getenv("SHELL"),
 			NULL

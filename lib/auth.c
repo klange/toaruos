@@ -21,11 +21,6 @@ extern int setgroups(int size, const gid_t list[]);
 #define MASTER_PASSWD "/etc/master.passwd"
 
 int toaru_auth_check_pass(char * user, char * pass) {
-
-	/* XXX DO something useful */
-
-	/* Open up /etc/master.passwd */
-
 	FILE * master = fopen(MASTER_PASSWD, "r");
 	struct passwd * p;
 
@@ -38,7 +33,19 @@ int toaru_auth_check_pass(char * user, char * pass) {
 
 	fclose(master);
 	return -1;
+}
 
+gid_t toaru_auth_get_default_group(uid_t uid) {
+	FILE * master = fopen(MASTER_PASSWD, "r");
+	struct passwd * p;
+	while ((p = fgetpwent(master))) {
+		if (p->pw_uid == uid) {
+			fclose(master);
+			return p->pw_gid;
+		}
+	}
+	fclose(master);
+	return -1;
 }
 
 void toaru_auth_set_vars(void) {
@@ -129,9 +136,9 @@ no_groups:
 	setgroups(0, NULL);
 }
 
-void toaru_set_credentials(uid_t uid) {
+void toaru_set_credentials(uid_t uid, gid_t gid) {
 	toaru_auth_set_groups(uid);
-	setgid(uid);
+	setgid(gid);
 	setuid(uid);
 	toaru_auth_set_vars();
 }

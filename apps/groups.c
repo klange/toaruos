@@ -14,7 +14,8 @@
 
 int main(int argc, char ** argv) {
 	/* First print our egid group */
-	struct passwd * p = getpwuid(getegid());
+	gid_t egid = getegid();
+	struct passwd * p = getpwuid(egid);
 	if (p) {
 		fprintf(stdout, "%s ", p->pw_name);
 	}
@@ -24,6 +25,7 @@ int main(int argc, char ** argv) {
 		gid_t * myGroups = malloc(sizeof(gid_t) * groupCount);
 		groupCount = getgroups(groupCount, myGroups);
 		for (int i = 0; i < groupCount; ++i) {
+			if (myGroups[i] == egid) continue; /* Don't print the effective group ID twice */
 			p = getpwuid(myGroups[i]);
 			if (p) {
 				fprintf(stdout, "%s ", p->pw_name);
