@@ -1961,6 +1961,7 @@ int main(int argc, char * argv[]) {
 		main_window->decorator_flags |= DECOR_FLAG_NO_MAXIMIZE;
 		yutani_window_move(yctx, main_window, yctx->display_width / 2 - main_window->width / 2, yctx->display_height / 2 - main_window->height / 2);
 		set_view_mode(VIEW_MODE_LIST);
+		arg_ind++;
 	} else {
 		main_window = yutani_window_create(yctx, 800, 600);
 		yutani_window_move(yctx, main_window, yctx->display_width / 2 - main_window->width / 2, yctx->display_height / 2 - main_window->height / 2);
