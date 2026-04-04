@@ -1,0 +1,45 @@
+.TH ID 1 "April, 2026"
+
+.SH NAME
+\fBid\fP \- show user identity
+
+.SH SYNOPSIS
+\fBid\fP [\fIuser\fP]
+.br
+\fBid\fP \fB\-G\fP [\fB\-n\fP] [\fIuser\fP]
+.br
+\fBid\fP \fB\-g\fP [\fB\-nr\fP] [\fIuser\fP]
+.br
+\fBid\fP \fB\-u\fP [\fB\-nr\fP] [\fIuser\fP]
+
+.SH DESCRIPTION
+Print information about the current process's user identity, or identifiers for the named \fIuser\fP.
+.PP
+Options include:
+
+.TP
+.B \-G
+Output all of the different groups. Outputs just the group IDs, or names when used with \fB\-n\fP.
+
+.TP
+.B \-g
+Output just the effective (or real with \fB\-r\fP) group ID (or name with \fB\-n\fP).
+
+.TP
+.B \-u
+Output just the effective (or real with \fB\-r\fP) user ID (or name with \fB\-n\fP).
+
+.SH NOTES
+When operating without a \fIuser\fP argument, all identifiers are based on the actual
+process state, with supplementary groups sourced from
+.IR getgroups (2).
+When operatin with a \fIuser\fP argument, all identifiers are sourced from the public
+\fB/etc/passwd\fP and \fB/etc/groups\fP and may not match values that are specified in
+the root\-only \fB/etc/master.passwd\fP.
+
+.SH STANDARDS
+This utility should conform to its specification in POSIX.1-2024.
+
+.SH SEE ALSO
+.BR groups (1),
+.BR libtoaru_auth (3)

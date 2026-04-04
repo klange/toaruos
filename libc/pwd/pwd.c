@@ -80,19 +80,14 @@ struct passwd * fgetpwent(FILE * stream) {
 }
 
 struct passwd * getpwent(void) {
-	if (!pwdb) {
-		open_it();
-	}
-
-	if (!pwdb) {
-		return NULL;
-	}
-
+	if (!pwdb) open_it();
+	if (!pwdb) return NULL;
 	return fgetpwent(pwdb);
 }
 
 void setpwent(void) {
 	/* Reset stream to beginning */
+	if (!pwdb) open_it();
 	if (pwdb) rewind(pwdb);
 }
 

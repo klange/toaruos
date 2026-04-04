@@ -71,25 +71,25 @@ void toaru_auth_set_vars(void) {
 	chdir(getenv("HOME"));
 }
 
-void toaru_auth_set_groups(uid_t uid) {
+void toaru_auth_get_groups(uid_t uid, int *groupCount, gid_t *groups) {
+
 	/* Get the username for this uid */
 	struct passwd * pwd = getpwuid(uid);
+	*groupCount = 0;
+	memset(groups, 0, sizeof(gid_t) * 32);
 
 	/* No username? No group memberships! */
-	if (!pwd) goto no_groups;
+	if (!pwd) return;
 
 	/* Open the group file */
 	FILE * groupList = fopen("/etc/group","r");
 
 	/* No groups? No membership. */
-	if (!groupList) goto no_groups;
+	if (!groupList) return;
 
 	/* Scan through lines of groups. */
 #define LINE_LEN 2048
 	char * pw_blob = malloc(LINE_LEN);
-
-	int groupCount = 0;
-	gid_t myGroups[32] = {0};
 
 	while (!feof(groupList)) {
 		memset(pw_blob, 0x00, LINE_LEN);
@@ -119,21 +119,25 @@ void toaru_auth_set_groups(uid_t uid) {
 		for ((p = strtok_r(memberlist, ",", &last)); p;
 				(p = strtok_r(NULL, ",", &last))) {
 			if (!strcmp(p, pwd->pw_name)) {
-				if (groupCount < 32) {
-					myGroups[groupCount] = groupNumber;
-					groupCount++;
+				if (*groupCount < 32) {
+					groups[*groupCount] = groupNumber;
+					(*groupCount)++;
 				}
 			}
 		}
 	}
 
-	setgroups(groupCount, myGroups);
 	free(pw_blob);
 	fclose(groupList);
 	return;
+}
 
-no_groups:
-	setgroups(0, NULL);
+void toaru_auth_set_groups(uid_t uid) {
+	int groupCount = 0;
+	gid_t groups[32] = {0};
+	toaru_auth_get_groups(uid, &groupCount, groups);
+
+	setgroups(groupCount, groups);
 }
 
 void toaru_set_credentials(uid_t uid, gid_t gid) {
