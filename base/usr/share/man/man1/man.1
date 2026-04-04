@@ -19,7 +19,7 @@ If no \fIsection\fP is specified, then sections specified either by the \fB\-S\f
 environment variable, or the default set of \fB"1:n:l:8:3:0:2:3krk:5:4:9:6:7"\fP will be searched in order
 and the first result, if any will be shown. If no manual page is found by the requested name, an error is printed.
 .PP
-If a \fIpage\fP argument looks like it might be a file (eg. it contains a . or a /), lookup is skipped and
+If a \fIpage\fP argument looks like it might be a file (eg. it contains a /), lookup is skipped and
 the file path is tried directly.
 .PP
 The manual page is displayed by piping \fIroff\fP to \fImore -rP'page(section)' --stay --alt\fP.

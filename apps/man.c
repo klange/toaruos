@@ -150,14 +150,14 @@ static char ** sections_from_string(char * str) {
 /**
  * @brief Check if a string looks like a filename.
  *
- * Just checks if a path contains a / or a .
+ * Just checks if a path contains a /
  *
  * @param arg Possible filename.
  * @returns 1 if it looks like a filename, else 0.
  */
 static int is_file_name(char * arg) {
 	while (*arg) {
-		if (*arg == '/' || *arg == '.') return 1;
+		if (*arg == '/') return 1;
 		arg++;
 	}
 	return 0;
