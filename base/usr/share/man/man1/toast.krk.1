@@ -1,0 +1,16 @@
+.TH TOAST.KRK 1 "April, 2026"
+
+.SH NAME
+\fBtoast.krk\fP \- utility for showing toast notifications
+
+.SH SYNOPSIS
+\fBtoast.krk\fP [\fB\-\-icon\fP \fIpath\fP] [\fB\-\-duration\fP \fIms\fP] \fIbody\fP
+
+.SH DESCRIPTION
+The \fBtoast.krk\fP utility sends messages to
+.IR toastd (1)
+to display toast notifications. The utility will handle formatting the given
+arguments as a JSON message and send them to the toast daemon.
+
+.SH SEE ALSO
+.BR toastd (1)
