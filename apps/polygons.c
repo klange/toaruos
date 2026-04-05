@@ -34,11 +34,18 @@ static struct TT_Contour * shape = NULL;
 static struct TT_Shape * finalizedShape = NULL;
 static int last_x, last_y;
 static uint32_t myColor = 0;
+static int is_degenerate = 1;
 
 static void draw(void) {
 	draw_fill(ctx, rgba(0,0,0,10));
 
 	if (shape) {
+		if (is_degenerate == 2) {
+			float x1, y1, x2, y2;
+			if (tt_contour_get_edge(shape, -1, &x1, &y1, &x2, &y2) >= 0) {
+				draw_line(ctx, x1, x2, y1, y2, rgb(255,255,255));
+			}
+		}
 		if (finalizedShape) {
 			/* Oh boy */
 			tt_path_paint(ctx, finalizedShape, myColor);
@@ -94,8 +101,11 @@ int main (int argc, char ** argv) {
 							if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
 								if (!shape) {
 									shape = tt_contour_start(x, y);
+									is_degenerate = 1;
 								} else {
 									shape = tt_contour_line_to(shape, x, y);
+									if (is_degenerate == 1) is_degenerate = 2;
+									else is_degenerate = 0;
 								}
 								last_x = x;
 								last_y = y;
@@ -106,6 +116,7 @@ int main (int argc, char ** argv) {
 								finish_draw();
 							} else if (me->buttons & YUTANI_MOUSE_BUTTON_RIGHT) {
 								shape = tt_contour_move_to(shape, x, y);
+								is_degenerate = 1;
 								last_x = x;
 								last_y = y;
 								myColor = rgb(rand() % 255,rand() % 255,rand() % 255);
