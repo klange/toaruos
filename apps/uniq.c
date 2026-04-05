@@ -31,8 +31,8 @@ static int usage(char * argv[]) {
 		"\n"
 		" Options:\n"
 		"  -c     " _I "Preceed each output line with a count of the times it appeared." _E
-		"  -d     " _I "Supress the output of non-repeated lines." _E
-		"  -u     " _I "Supress the output of repeated lines." _E
+		"  -d     " _I "Suppress the output of non-repeated lines." _E
+		"  -u     " _I "Suppress the output of repeated lines." _E
 		"  -f N   " _I "Skip N fields for comparison." _E
 		"  -s N   " _I "Skip N characters for comparison." _E
 		"  -i     " _I "Ignore case when comparing lines." _E

@@ -1,0 +1,28 @@
+.TH TEE 1 "April, 2026"
+
+.SH NAME
+\fBtee\fP \- duplicate standard input
+
+.SH SYNOPSIS
+\fBtee\fP [\fB\-a\fP] [\fI\-i\fP] [\fIfile\fP]...
+
+.SH DESCRIPTION
+The \fBtee\fP utility shall write its input to standard output as well as each \fIfile\fP specified
+in its arguments.
+.PP
+Supported options:
+
+.TP
+.B \-a
+When opening each \fIfile\fP, open them for appending rather than writing.
+
+.TP
+.B \-i
+Ignore the \fBSIGINT\fP signal.
+
+.SH BUGS
+POSIX specifies that this utility should not buffer its output, but this implementation
+uses \fBfputc\fP and does not disable buffering.
+.PP
+This implementation does not check for errors when writing to files or
+reading from standard input.

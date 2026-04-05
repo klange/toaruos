@@ -1,0 +1,46 @@
+.TH WHICH 1 "April, 2026"
+
+.SH NAME
+\fBwhich\fP \- locate program files in PATH
+
+.SH SYNOPSIS
+\fBwhich\fP [\fB\-a\fP] \fIprogram\fP...
+
+.SH DESCRIPTION
+The \fBwhich\fP utility performs the same program lookup as the
+.IR execvp (3)
+family of libc functions, examining entries in \fBPATH\fP to find \fIprogram\fP.
+When an entry is located, its full path is printed.
+.PP
+Supported options:
+.TP
+.B \-a
+Print all matches for each \fIprogram\fP rather than stopping after the first.
+
+.SH ENVIRONMENT
+\fBwhich\fP will search \fBPATH\fP, which is a :\-separated list of directories.
+If \fBPATH\fP is not set, \fBwhich\fP will default to searching \fB/bin:/usr/bin\fP.
+The entries are searched from left to right, so earlier entries take precedence
+over later ones.
+
+.SH EXIT STATUS
+.TP
+0
+If all \fIprogram\fP arguments resulted in a match being located.
+
+.TP
+1
+If any \fIprogram\fP argument did not result in a match, or if no \fIprogram\fP arguments were provided.
+
+.SH STANDARDS
+\fBwhich\fP is not described in POSIX, but is found in most Unix\-like operating systems.
+Other versions of this utility may support additional options.
+
+.SH BUGS
+The default \fBPATH\fP for this tool and the
+.IR execvp (3)
+family should likely be swapped so that \fB/usr/bin\fP appears first, allowing programs
+in that directory to override the system applications.
+
+.SH SEE ALSO
+.BR execvp (3)

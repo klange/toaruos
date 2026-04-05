@@ -1,0 +1,48 @@
+.TH SHOWDIALOG 1 "April, 2026"
+
+.SH NAME
+\fBshowdialog\fP \- show a graphical dialog prompt
+
+.SH SYNOPSIS
+\fBshowdialog\fP [\fItitle\fP \fIicon\fP \fIbody\fP [\fIx\fP \fIy\fP]]
+
+.SH DESCRIPTION
+Similar to
+.IR about (1),
+this utility presents a dialog window; however, with this utility,
+the icon is displayed to the left of the text, the window is wider,
+buttons for "Okay" and "Cancel" are shown and the exit status
+can be checked to determine which button was pressed.
+.PP
+The \fIicon\fP must be a path to an image loadable by
+.IR load_sprite (3).
+.PP
+The \fIbody\fP may be multiple lines.
+No text reflow will be performed, and no inline markup is supported.
+Lines starting with '-' will be skipped and result in a small vertical space.
+Lines beginning with '%' will be drawn in blue.
+.PP
+If the option \fIx\fP and \fIy\fP arguments are provided, the window
+will be centered at those display coordinates.
+
+.SH BUGS
+While up to 20 lines of \fIbody\fP text can be provided, the utility
+will not resize the window to account for them.
+Users should generally limit the number of lines to 3.
+
+.SH EXIT STATUS
+.TP
+0
+The user pressed the "Okay" button.
+.TP
+1
+The user pressed the "Cancel" button.
+.TP
+2
+The user closed the dialog box, or the dialog box was closed by a session end signal.
+.TP
+>2
+The utility was terminated by some other means.
+
+.SH SEE ALSO
+.BR about (1)

@@ -1,0 +1,24 @@
+.TH RESET 1 "April, 2026"
+
+.SH NAME
+\fBreset\fP \- try to reset the terminal to a sensible state
+
+.SH SYNOPSIS
+\fBreset\fP
+
+.SH DESCRIPTION
+The \fBreset\fP utility calls \fBstty sane\fP and prints an escape sequence
+intended to clear and reset the terminal.
+.PP
+The sequence sent by this utility is always:
+
+    \fBESC\fP c \fBCSI\fP H \fBCSI\fP 2J \fBCSI\fP 3J
+
+.PP
+This sequence should reset any configuration, move the cursor to the upper left,
+clear the screen, and also clear the scrollback.
+Not all terminals may support these actions.
+
+.SH SEE ALSO
+.BR stty (1),
+.BR clear (1)

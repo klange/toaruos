@@ -156,6 +156,7 @@ int main(int argc, char * argv[]) {
 				*end = '\0';
 				me = end+1;
 			}
+			if (i >= 20) break;
 		} while (end);
 
 		if (argc > 6) {

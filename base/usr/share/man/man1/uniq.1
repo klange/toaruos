@@ -1,0 +1,62 @@
+.TH UNIQ 1 "April, 2026"
+
+.SH NAME
+\fBuniq\fP \- filter repeated lines from input
+
+.SH SYNOPSIS
+\fBuniq\fP [\fB\-i\fP] [\fB\-c\fP] [\fB\-d\fP] [\fB\-f\fP \fIfields\fP] [\fB\-s\fP \fIchars\fP] [\fB\-u\fP]
+[\fIinput_file\fP [\fIoutput_file\fP]]
+
+.SH DESCRIPTION
+The \fBuniq\fP utility filters repeated lines from its input.
+.PP
+If no \fIinput_file\fP is specified, standard input will be used.
+.PP
+If no \fIoutput_file\fP is specified, results will be written to standard output.
+.PP
+Supported options:
+
+.TP
+.B \-i
+Ignore case when comparing lines.
+
+.TP
+.B \-c
+Preceed each output line with a count of the number of times it appeared.
+This implementation emits the count as \fB"%zu "\fP.
+
+.TP
+.B \-d
+Suppress the output of non-repeated lines. Show only the lines which have been repeated.
+
+.TP
+.B \-u
+Suppress the output of repeated lines. Show only the lines which were not repeated.
+
+.TP
+.B \-f \fIfields\fP
+Skip \fIfields\fP of whitespace\-separated content on each line before comparing.
+
+.TP
+.B \-s \fIchars\fP
+Skip \fIchars\fP bytes on each line before comparing.
+If combined with \fB\-f\fP, fields are skipped first.
+This implementation does not currently skip "characters", though it should.
+
+.SH EXIT STATUS
+.TP
+0
+Normally.
+.TP
+1
+One of \fIinput_file\fP or \fIoutput_file\fP could not be opened.
+.TP
+2
+An unexpected option or argument was encountered.
+
+.SH STANDARDS
+This utility should conform to its specification in POSIX.1-2024.
+It probably doesn't.
+
+.SH SEE ALSO
+.BR sort (1)
