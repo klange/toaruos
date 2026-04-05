@@ -17,10 +17,6 @@ rasterization library for
 and remains in the operating system as a mediocre drawing tool.
 
 .SH NOTES
-This utility uses its own path rasterzation routines, instead of the ones from
-.IR libtoaru_text (3).
-It should probably be written to use the library.
-.PP
 The rasterization technique used by the utility is the \fBnon\-zero winding\fP method.
 Drawing a new polygon within an existing one, in the opposite rotational direction,
 will cut a hole out of the existing polygon.
