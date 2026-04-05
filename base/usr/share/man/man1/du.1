@@ -12,7 +12,8 @@ of the \fBst_size\fP of each file, not including the size of directories themsel
 or extra padding space, or the sizes of any filesystem structures, so the
 result might not match other implementations of this utility.
 .PP
-Any errors trying to traverse directories or \fBstat\fP individual files is ignored.
+Any errors trying to traverse directories or \fBstat\fP individual files may be
+reported in a diagnostic and affect the exit status, but is otherwise ignored.
 
 .TP
 .B \-h
@@ -24,7 +25,7 @@ Print a total at the end.
 
 .TP
 .B \-s
-Summarize. Print only the sizes of the top\-level arguments, and possibly a total of \fB\-c\fP was
+Summarize. Print only the sizes of the top\-level arguments, and possibly a total if \fB\-c\fP was
 also specified.
 
 .SH SEE ALSO
