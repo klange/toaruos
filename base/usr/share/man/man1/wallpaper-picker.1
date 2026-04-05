@@ -1,0 +1,19 @@
+.TH WALLPAPER-PICKER 1 "April, 2026"
+
+.SH NAME
+\fBwallpaper\-picker\fP \- select a desktop wallpaper
+
+.SH DESCRIPTION
+The \fBWallpaper Picker\fP application presents the wallpaper images available
+from the \fB/usr/share/wallpapers\fP directory, allowing a user to select one
+to set as their desktop background.
+When the user has selected a wallpaper, the application saves their selection
+in \fB~/.wallpaper.conf\fP and attempts to inform the instance of
+.IR file\-browser (1)
+managing the current desktop background about this configuration change.
+.PP
+When the application is first opened, it will display the wallpaper currently
+configured, either by the user or by the default \fB/usr/share/wallpaper.jpg\fP.
+
+.SH SEE ALSO
+.BR file\-browser (1)
