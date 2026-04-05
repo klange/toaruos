@@ -6,7 +6,7 @@
 .SH SYNOPSIS
 \fBkill\fP [\-\fIsignal\fP] \fIpid\fP...
 .br
-\fBkill\fP [\-s \fIsignal\fP] \fIpid\fP...
+\fBkill\fP [\fB\-s\fP \fIsignal\fP] \fIpid\fP...
 .br
 \fBkill\fP \fB\-l\fP [\fIexit_status\fP]
 
@@ -14,6 +14,10 @@
 Sends \fBSIGKILL\fP, or the specified \fIsignal\fP, to each specified \fIpid\fP.
 Signals can be specified either with the \fB\-s\fP flag, or by just prefixing them
 with a \-.
+
+.TP
+.B \-s \fIsignal\fP
+Specify the signal to send.
 
 .TP
 .B \-l [\fIexit_status\fP]
