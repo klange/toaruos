@@ -17,10 +17,13 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <termios.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <sys/ioctl.h>
 
 static int hide_defaults = 1;
 static int printed = 0;
+static int use_fd = STDIN_FILENO;
 
 static void print_cc(struct termios * t, const char * lbl, int val, int def) {
 	int c = t->c_cc[val];
@@ -165,13 +168,13 @@ static int print_baud_rate(struct termios * t) {
 
 static int show_settings(int all) {
 	struct termios t;
-	tcgetattr(STDERR_FILENO, &t);
+	tcgetattr(use_fd, &t);
 	print_baud_rate(&t);
 
 	/* Baud rate */
 	/* Size */
 	struct winsize w;
-	ioctl(STDERR_FILENO, TIOCGWINSZ, &w);
+	ioctl(use_fd, TIOCGWINSZ, &w);
 	fprintf(stdout, "rows %d; columns %d; ypixels %d; xpixels %d;\n", w.ws_row, w.ws_col, w.ws_ypixel, w.ws_xpixel);
 	printed = 0;
 
@@ -287,7 +290,7 @@ static int show_settings(int all) {
 
 static void show_size(void) {
 	struct winsize w;
-	ioctl(STDERR_FILENO, TIOCGWINSZ, &w);
+	ioctl(use_fd, TIOCGWINSZ, &w);
 	fprintf(stdout, "%d %d\n", w.ws_row, w.ws_col);
 }
 
@@ -300,12 +303,27 @@ int main(int argc, char * argv[]) {
 		i++;
 	}
 
+	if (i < argc && !strcmp(argv[i], "-f")) {
+		if (i + 1 == argc) {
+			fprintf(stderr, "%s: -f expects an argument\n", argv[0]);
+			return 1;
+		}
+
+		use_fd = open(argv[i+1],O_RDONLY);
+		if (use_fd < 0) {
+			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[i+1], strerror(errno));
+			return 1;
+		}
+
+		i += 2;
+	}
+
 	if (i == argc) {
 		return show_settings(0);
 	}
 
 	struct termios t;
-	tcgetattr(STDERR_FILENO, &t);
+	tcgetattr(use_fd, &t);
 
 	while (i < argc) {
 
@@ -447,6 +465,6 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
-	tcsetattr(STDERR_FILENO, TCSADRAIN, &t);
+	tcsetattr(use_fd, TCSADRAIN, &t);
 	return 0;
 }
