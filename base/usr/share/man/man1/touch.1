@@ -1,0 +1,15 @@
+.TH TOUCH 1 "April, 2026"
+
+.SH NAME
+\fBtouch\fP \- create or update access for files
+
+.SH SYNOPSIS
+\fBtouch\fP \fIfile\fP...
+
+.SH DESCRIPTION
+This utlity creates empty files or attempts to update the access time for existing ones.
+
+.SH BUGS
+This version of this utility attempts to open files with \fBO_APPEND\fP, which is probably not right.
+.PP
+The utility may not actually update access times.

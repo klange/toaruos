@@ -1,0 +1,22 @@
+.TH MINES.KRK 6 "April, 2026"
+
+.SH NAME
+\fBmines.krk\fP \- minesweeper game
+
+.SH DESCRIPTION
+Classic puzzle game.
+Click a tile to reveal it.
+Revealing a mine will result in a loss.
+Revealing a tile that neighbors a mine will show the number of neighboring tiles with a mine.
+Revealing a tile with no neighboring mines will reveal all neighboring tiles, recursively.
+Ctrl-clicking a tile will place a flag on it.
+When all tiles are revealed and the number of flags matches the number of mines, the game is won.
+
+.SH NOTES
+The visual design of this implementation is heavily inspired by the Gnome version.
+.PP
+As is the case in most implementations, if the first click to reveal a tile reveals a mine,
+the game will silently attempt to regenerate a new game board in which that tile did not have a mine.
+.PP
+If the available game configurations options are insufficient, remember that this
+is a Kuroko application and you can modify the source to add your own configurations.

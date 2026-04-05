@@ -1,0 +1,31 @@
+.TH MAYBE-PDFVIEWER.KRK 1 "April, 2026"
+
+.SH NAME
+\fBmaybe\-pdfviewer.krk\fP \- launch Mupdf or ask to install it
+
+.SH SYNOPSIS
+\fBmaybe\-pdfviewer.krk\fP \fIfile\fP
+
+.SH DESCRIPTION
+This utility is run by
+.IR file\-browser (1)
+when a user attempts to open a PDF document.
+If
+.IR pdfviewer (1)
+is installed, it will be used to open the document.
+If it is not installed, the user will be prompted as to whether they wish to install it from the package repository.
+If the user agrees to install \fBpdfviewer\fP, a terminal will start, authenticate the user with
+.IR gsudo (1),
+and then run \fBmsk update; msk install mupdf\fP.
+The utility will then try to run \fBpdfviewer\fP to open the document.
+
+.SH FILES
+The utility stats \fB/usr/bin/pdfviewer\fP to determine if \fBpdfviewer\fP is available.
+
+.SH NOTES
+The source for the utility is shorter than this man page, even without this note about that fact.
+
+.SH SEE ALSO
+.BR file\-browser (1),
+.BR msk (1),
+.BR pdfviewer (1)

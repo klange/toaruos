@@ -1,0 +1,44 @@
+.TH ld.so 3 "April, 2026"
+
+.SH NAME
+\fBld.so\fP \- dynamic binary loader
+
+.SH SYNOPSIS
+\fBld.so\fP \fIbinary\fP [\fIargs\fP]...
+.br
+\fBld.so\fP \fB\-e\fP \fIbinary_path\fP \fBargv0\fP [\fIargs\fP]...
+
+.SH DESCRIPTION
+\fBld.so\fP links and executes dynamic ELF binaries.
+It is normally set as the interpreter for these binaries in ToaruOS, as \fB/lib/ld.so\fP.
+.PP
+Despite its name, this \fBld.so\fP is not a shared object, but rather a static executable.
+
+.SH OPTIONS
+.TP
+.B \-e \fIbinary_path\fP
+Execute \fIbinary_path\fP, but use an alternative name for its \fBargv[0]\fP.
+
+.SH ENVIRONMENT
+.TP
+.B LD_LIBRARY_PATH
+Determines where dynamic libraries will be searched.
+This should be a :\-separated list of paths.
+If unset, the default is \fB/lib:/usr/lib\fP.
+
+.TP
+.B LD_DEBUG
+If set to \fB1\fP or \fByes\fP, logs will be printed to standard error.
+
+.TP
+.B LD_DISABLE_CTORS
+If set to \fB1\fP or \fByes\fP, constructors (\fIinit_array\fP) will not be run in loaded libraries.
+
+.SH CAVEATS
+This \fBld.so\fP is wildly inaccurate to the specifications for just about everything,
+yet it still manages to mostly work.
+.PP
+No actual sharing of shared objects occurs due to a lack of file\-backed \fBmmap\fP functionality
+in the Misaka kernel, as of writing.
+.PP
+There is no \fBLD_PRELOAD\fP support, no lazy binding, and no ability to unload libraries.

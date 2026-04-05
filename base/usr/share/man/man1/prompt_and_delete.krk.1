@@ -1,0 +1,29 @@
+.TH PROMPT_AND_DELETE.KRK 1 "April, 2026"
+
+.SH NAME
+\fBprompt_and_delete.krk\fP \- prompt the user and delete files
+
+.SH SYNOPSIS
+\fBprompt_and_delete.krk\fP \fIpid\fP \fIfile\fP...
+
+.SH DESCRIPTION
+This utility prompts the user to confirm the deletion of a set of files.
+.PP
+If the user agrees, the utility will attempt to delete each \fIfile\fP in order.
+If an error occurs while trying to delete a \fIfile\fP, a dialog box will be displayed.
+If the user selects "Ok", deletion will continue from the next file.
+.PP
+Once all files have been processed (or if deletion is aborted after an error),
+\fBSIGURG\fP will be sent to the specified \fIpid\fP.
+
+.SH NOTES
+This utility is run by
+.IR file\-browser (1)
+when a user chooses to delete selected files.
+\fIfile\-browser\fP will respond to \fBSIGURG\fP by refreshing the current directory.
+.PP
+The utility may fail to delete directories which are not empty.
+
+.SH SEE ALSO
+.BR file\-browser (1),
+.BR showdialog (1)

@@ -1,0 +1,16 @@
+.TH SHOW-TOASTS.KRK 1 "April, 2026"
+
+.SH NAME
+\fBshow\-toasts.krk\fP \- show toast notifications on startup
+
+.SH DESCRIPTION
+This utility may be run as part of a user graphical session to display
+informative messages on login.
+.PP
+There are two potential toast notifications this utility may display:
+
+    - If the system memory is below 1GiB, a warning message is displayed.
+    - If a package manifest is available, the number of available packages is displayed.
+
+.SH SEE ALSO
+.BR toastd (1)

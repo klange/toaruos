@@ -1,0 +1,27 @@
+.TH UPLOAD.KRK 1 "April, 2026"
+
+.SH NAME
+\fBupload.krk\fP \- send files to a remote TCP socket
+
+.SH SYNOPSIS
+\fBupload.krk\fP \fIfile\fP \fIaddress\fP:\fIport\fP
+
+.SH DESCRIPTION
+This utility reads a \fIfile\fP, connects to \fIaddress\fP:\fIport\fP with a TCP socket, and then sends
+the contents of the read file to the socket.
+.PP
+The intent of this utility is mostly to exfiltrate files from a VM guest to a host.
+.PP
+\fIaddress\fP may be a hostname or IP address.
+
+.SH EXAMPLES
+On a host system to which a guest VM has access, one may run:
+
+    nc -l 8080 > some_file
+
+Then, in the ToaruOS guest VM, they may run (assuming the host IP is \fB192.168.0.2\fP):
+
+    upload.krk some_file 192.168.0.2:8080
+
+.SH SEE ALSO
+.BR kuroko (1)
