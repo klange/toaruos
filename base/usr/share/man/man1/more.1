@@ -16,7 +16,7 @@ writes to the terminal and waiting for user input when necessary.
 .B \-r
 Assume that basic escape sequences \- those starting with \fI\\033[\fP and ending with a
 letter \- do not contribute to the cursor position, ignore them for that purpose, and
-emit them raw. This generally allows basic color output to be piped to \fImore\fP, such
+emit them raw. This generally allows basic color output to be piped to \fBmore\fP, such
 as the output from
 .IR roff (1)
 or \fIbim \-c\fP.
@@ -29,14 +29,14 @@ then quit after printing it.
 .TP
 .B \-P \fIstr\fP
 Instead of showing the name of the file as the prompt, as is the default, show
-the specified \fIstr\fP. This is useful if you want to use \fImore\fP as a manpage
+the specified \fIstr\fP. This is useful if you want to use \fBmore\fP as a manpage
 viewer as you can use \fImore -P'man(1)'\fP to set the prompt.
 
 .TP
 .B \-\-stay
 Instead of quitting when the user asks to advance while at the end of a file,
-\fImore\fP will keep running, like \fIless\fP typically does. This is useful if
-you are using \fImore\fP to interactively page through a file or a manual page.
+\fBmore\fP will keep running, like \fBless\fP typically does. This is useful if
+you are using \fBmore\fP to interactively page through a file or a manual page.
 
 .TP
 .B \-\-alt
@@ -44,7 +44,7 @@ Switch to the alternate screen buffer and clear the screen on startup.
 
 .TP
 .B \-\-scroll
-Disable scrollback. Normally, \fImore\fP keeps an unlimited scrollback buffer,
+Disable scrollback. Normally, \fBmore\fP keeps an unlimited scrollback buffer,
 so you should set this option if you are piping a large (or unknown) source
 into it, or trying to view a very large file.
 
@@ -69,7 +69,7 @@ ones that are not of the \fBCSI\fP form.
 things like capital \fB'B'\fP as equivalent to \fB'j'\fP or \fBRETURN\fP so you can use the down key,
 or \fB'5'\fP as page up.
 .PP
-\fBmore\fP does not update the screen size if the terminal is resized.
+\- \fBmore\fP does not update the screen size if the terminal is resized.
 
 .SH SEE ALSO
 .BR roff (1),
