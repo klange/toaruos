@@ -443,7 +443,8 @@ void tab_complete_func(rline_context_t * c) {
 		!strcmp(argv[command_adj], "time") ||
 		/* TODO: Both of these may take additional arguments... */
 		!strcmp(argv[command_adj], "strace") ||
-		!strcmp(argv[command_adj], "dbg")
+		!strcmp(argv[command_adj], "dbg") ||
+		!strcmp(argv[command_adj], "man")
 	)) {
 		cursor_adj -= 1;
 		command_adj += 1;
