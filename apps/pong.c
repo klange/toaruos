@@ -37,7 +37,6 @@
 #define BALL_SIZE     50
 
 static yutani_t * yctx;
-static int spkr = 0;
 
 struct object {
 	double x;
@@ -66,18 +65,10 @@ static int should_exit = 0;
 static int left_score = 0;
 static int right_score = 0;
 
-struct spkr {
-	int length;
-	int frequency;
-};
-
 static void note(int frequency) {
-	struct spkr s = {
-		.length = 2,
-		.frequency = frequency,
-	};
-
-	write(spkr, &s, sizeof(s));
+	char beep[100];
+	sprintf(beep, "beep -f %d -l 200 &", frequency / 10);
+	system(beep);
 }
 
 
@@ -242,8 +233,6 @@ int main (int argc, char ** argv) {
 	update_ball();
 
 	uint32_t last_tick = current_time();
-
-	spkr = open("/dev/spkr", O_WRONLY);
 
 	while (!should_exit) {
 		uint32_t t = current_time();
