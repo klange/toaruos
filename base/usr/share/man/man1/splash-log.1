@@ -1,0 +1,24 @@
+.TH SPLASH-LOG 1 "April, 2026"
+
+.SH NAME
+\fBsplash\-log\fP \- collect and display log messages during system startup
+
+.SH DESCRIPTION
+The \fBsplash\-log\fP utility opens a \fBpex\fP endpoint named \fBsplash\fP
+and accepts messages with log entries to display.
+.PP
+Unless the \fBdebug\fP option was set in the kernel command line, \fBsplash\-log\fP
+will only begin displaying messages from clients if 2 seconds have elapsed since it
+was started.
+.PP
+Messages are displayed by writing them to \fB/dev/console\fP
+
+.SH FORMAT
+Messages must be within 4 to 80 characters.
+.PP
+A leading ":" (colon) in a message will be ignored.
+.PP
+If the utility receives the message beginning with \fB!quit\fP, it will exit.
+
+.SH SEE ALSO
+.BR console (4)

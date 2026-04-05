@@ -1,0 +1,27 @@
+.TH TERMINAL-VGA 1 "April, 2026"
+
+.SH NAME
+\fBterminal\-vga\fP \- terminal emulator for VGA text mode
+
+.SH SYNOPSIS
+\fBterminal\-vga\fP [\fB\-l\fP] [\fIcommand\fP]...
+
+.SH DESCRIPTION
+The \fBterminal\-vga\fP utility hosts a terminal emulator on the VGA text mode display.
+.PP
+If no \fIcommand\fP is given, and \fB\-l\fP option is not specified, \fB/bin/sh\fP will be started.
+.PP
+Input will be read from \fB/dev/kbd\fP and \fB/dev/mouse\fP, as well as
+\fB/dev/absmouse\fP or \fB/dev/vmmouse\fP if they are available.
+
+.SS Options
+.TP
+.B \-l
+Shortcut to start \fB/bin/login-loop\fP as the command.
+
+.SH NOTES
+This terminal does not support as much functionality as the normal graphical
+.IR terminal (1).
+
+.SH SEE ALSO
+.BR terminal (1)

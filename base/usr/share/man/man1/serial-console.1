@@ -1,0 +1,44 @@
+.TH SERIAL-CONSOLE 1 "April, 2026"
+
+.SH NAME
+\fBserial\-console\fP \- attach to a serial port and provide a console
+
+.SH SYNOPSIS
+\fBserial\-console\fP [\fB\-e\fP] [\fB\-c\fP] [\fB\-r\fP] [\fIdevice\fP]
+
+.SH DESCRIPTION
+The \fBserial\-console\fP utility will open a serial port, redirecting input
+to it from standard input, and output from it to standard output.
+.PP
+If no \fIdevice\fP option is specified, \fBserial\-console\fP will default
+to \fB/dev/ttyS0\fP.
+.PP
+If the \fB\(ha[\fP key is received from the user, \fBserial\-console\fP
+will display a prompt and accept commands.
+
+.SS Commands
+.TP
+.B quit
+Exit the serial console.
+.TP
+.B continue
+Exit the command prompt and resume the serial console.
+
+.SS Options
+.TP
+.B \-e
+Keep ECHO enabled on the host terminal.
+
+.TP
+.B \-c
+Keep ICANON mode enabled on the host terminal.
+
+.TP
+.B \-r
+Transform line feeds from "\en" to "\er\en".
+This option is not necessary if the appropriate setting has already
+been configured for the serial port's TTY with
+.IR stty (1)
+
+.SH SEE ALSO
+.BR stty (1)
