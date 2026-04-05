@@ -1,0 +1,43 @@
+.TH HEAD 1 "April, 2026"
+
+.SH NAME
+\fBhead\fP \- print the beginning of files
+
+.SH SYNOPSIS
+\fBhead\fP [\fB\-n\fP \fIlines\fP] [\fIfile\fP]...
+
+.SH DESCRIPTION
+The \fBhead\fP utility prints the first 10 lines of its input.
+.PP
+If no \fIfile\fP arguments are specified, standard input will be used.
+.PP
+If multiple \fIfile\fP arguments are provided, the beginning of each will be printed,
+preceded by a header of the form:
+
+    ==> \fIfile\fP <==
+
+.PP
+If a \fIfile\fP is specified as "-", the standard input will be used. Additionally,
+the header displayed when multiple \fIfile\fP arguments are provided will show
+"standard input".
+.PP
+Supported options:
+
+.TP
+.B \-n \fIlines\fP
+Instead of displayin 10 lines, display \fIlines\fP.
+
+.SH EXIT STATUS
+.TP
+0
+All input files were opened.
+.TP
+1
+An input file could not be opened or an unexpected argument was encountered.
+
+.SH BUGS
+This \fBhead\fP does not check for errors when reading or writing files, beyond
+those encountered when attempting to open input files.
+
+.SH STANDARDS
+This \fBhead\fP is woefully incomplete and does not conform with POSIX specifications.

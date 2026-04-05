@@ -1,0 +1,45 @@
+.TH STAT 1 "April, 2026"
+
+.SH NAME
+\fBstat\fP \- display file status
+
+.SH SYNOPSIS
+\fBstat\fP [\fB\-L\fP] [\fB\-q\fP] \fIpath\fP...
+
+.SH DESCRIPTION
+The \fBstat\fP utility displays information from the
+.IR lstat (2)
+or
+.IR stat (2)
+system calls.
+.PP
+The information displayed by this utility includes the name of each file (as
+given in the argument), its size, device number, inode number, link count,
+special file type (link, character device, block device, directory), access
+permissions, and access/modify/change times.
+
+.SS Options
+.TP
+.B \-L
+Dereference symbolic links (use \fBstat\fP instead of \fBlstat\fP).
+
+.TP
+.B \-q
+Be quiet. Do not print to standard output.
+
+.SH EXIT STATUS
+.TP
+0
+If all requested files could be stat'd.
+
+.TP
+1
+If a file could not be stat'd.
+
+.SH STANDARDS
+\fBstat\fP does not appear in POSIX and the output format of this utility
+differs greatly across platforms.
+
+.SH SEE ALSO
+.BR lstat (2),
+.BR stat (2)

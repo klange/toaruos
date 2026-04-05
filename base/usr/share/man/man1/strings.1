@@ -1,0 +1,32 @@
+.TH STRINGS 1 "April, 2026"
+
+.SH NAME
+\fBstrings\fP \- print runs of printable characters from a file
+
+.SH SYNOPSIS
+\fBstrings\fP [\fB\-a\fP] [\fB\-n\fP \fImin\fP] [\fB\-t\fP \fIformat\fP] [\fIfile\fP]...
+
+.SH DESCRIPTION
+The \fBstrings\fP utility will scan through its inputs and attempt to print
+runs of printable characters it finds.
+.PP
+This implementation of this utility does not parse any binary headers.
+
+.SS Options
+.TP
+.B \-a
+Ignored for compatibility.
+
+.TP
+.B \-n \fImin\fP
+Print only runs that are at least \fImin\fP characters long.
+The default is \fI4\fP.
+
+.TP
+.B \-t \fIformat\fP
+Proceed each printed string with its length in either \fId\fPecimal or he\fIx\fP.
+\fIformat\fP must be either \fId\fP or \fIx\fP.
+
+.SH BUGS
+This implementation may require that runs end in NUL characters or line feeds,
+but it should probably accept runs that simply end in any non\-printable character...

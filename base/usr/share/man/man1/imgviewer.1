@@ -1,0 +1,26 @@
+.TH IMGVIEWER 1 "April, 2026"
+
+.SH NAME
+\fBimgviewer\fP \- display images
+
+.SH SYNOPSIS
+\fBimgviewer\fP \fIfile\fP
+
+.SH DESCRIPTION
+The \fBimgviewer\fP utility will display images loadable by
+.IR load_sprite (3)
+in a graphical window.
+.PP
+Once displayed, the image may be zoomed in or out with the scroll wheel.
+
+.SH EXIT STATUS
+.TP
+0
+Normally
+.TP
+1
+If the utility could not connect to the compositor, or if the requested \fIfile\fP
+could not be loaded.
+
+.SH SEE ALSO
+.BR load_sprite (3)

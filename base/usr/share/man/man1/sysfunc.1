@@ -1,0 +1,27 @@
+.TH SYSFUNC 1 "April, 2026"
+
+.SH NAME
+\fBsysfunc\fP \- perform special system operations (legacy)
+
+.SH SYNOPSIS
+\fBsysfunc\fP \fIsysfunc_number\fP [\fIargs...\fP]
+
+.SH DESCRIPTION
+This legacy utility performs special system operations with the
+.IR sysfunc (2)
+system call.
+The first argument is interpreted as a system function number to execute,
+and the \fBsysfunc\fP call is passed the address of the third argument
+(or the end of the arguments list).
+Whether or not arguments are understood and handled by the system call
+depends on the particular function being executed.
+.PP
+.B This utility should not be used.
+.PP
+All of the useful functionality provided by special system operations
+is available through dedicated utilities.
+This utility only continues to exist to allow for new testing functionality
+to be accessible to kernel developers.
+.PP
+Most special system operations require \fBroot\fP privileges, and the ones
+that don't are not usually useful to be run from a shell utility.

@@ -1,0 +1,51 @@
+.TH IRC 1 "April, 2026"
+
+.SH NAME
+\fBirc\fP \- old, simplistic IRC client
+
+.SH SYNOPSIS
+\fBirc\fP [\fB\-n\fP \fInick\fP] [\fB\-P\fP \fIpassword\fP] [\fB\-p\fP \fIport\fP] \fIhost\fP
+
+.SH DESCRIPTION
+The \fBirc\fP utility provides a rudimentary text\-mode client for Internet Relay Chat networks.
+
+.SS Options
+.TP
+.B \-n \fInick\fP
+Specify the \fInick\fP to use with the network.
+If this option is not provided, the default is \fBtoaru\-user\fP.
+This will be used for both the \fBNICK\fP and \fBUSER\fP identification.
+
+.TP
+.B \-P \fIpassword\fP
+Supply a \fIpassword\fP to send to the network with a \fBPASS\fP message.
+
+.TP
+.B \-p \fIport\fP
+Specify the port to connect to, instead of 6667.
+
+.SS Commands
+.TP
+.B /help
+Display help text. The help text displayed is not very helpful.
+
+.TP
+.B /quit [\fImessage\fP]
+Disconnect and exit the application.
+If a \fImessage\fP is provided, it will be sent as the \fBQUIT\fP message;
+otherwise, the \fBQUIT\fP message will be \fBhttps://github.com/klange/toaruos\fP.
+
+.TP
+.B /part [\fImessage\fP]
+Leave the current channel.
+If a \fImessage\fP is provided, it will be included in the \fBPART\fP command.
+
+.TP
+.B /join \fIchannel\fP
+Join a channel or switch active channels.
+The \fBJOIN\fP is always sent to the server regardless of whether the user
+was already in the channel.
+
+.SH CAVEATS
+This IRC client is very old, not very smart, and unmaintained.
+It does not support advanced features like encrypted connections.

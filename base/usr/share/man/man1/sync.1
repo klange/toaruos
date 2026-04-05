@@ -1,0 +1,25 @@
+.TH SYNC 1 "April, 2026"
+
+.SH NAME
+\fBsync\fP \- attempt to flush disk writes
+
+.SH SYNOPSIS
+\fBsync\fP [\fIfile\fP]
+
+.SH DESCRIPTIONS
+Attempts to issue an \fBioctl\fP to flush writes to a disk.
+.PP
+Most filesystems in ToaruOS do not currently support this.
+.PP
+If no \fIfile\fP argument is provided, the attempt will be made with the current working directory.
+
+.SH EXIT STATUS
+.TP
+0
+The sync was accepted and completed.
+.TP
+1
+The specified \fIfile\fP could not be opened or the sync call was rejected.
+
+.SH SEE ALSO
+.BR ioctl (2)

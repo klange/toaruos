@@ -1,0 +1,22 @@
+.TH UPTIME 1 "April, 2026"
+
+.SH NAME
+\fBuptime\fP \- display system uptime
+
+.SH SYNOPSIS
+\fBuptime\fP [\fB\-p\fP]
+
+.SH DESCRIPTION
+The \fBuptime\fP utility reads the system uptime data from \fB/proc/uptime\fP and format
+its for human readability.
+.PP
+Without the \fB\-p\fP option, the current wall clock time will be printed before the uptime.
+
+.SS Options
+.TP
+.B \-p
+Display only the uptime, and not the current time.
+
+.SH SEE ALSO
+.BR gettimeofday (2),
+.BR strftime (3)

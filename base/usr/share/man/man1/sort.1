@@ -1,0 +1,32 @@
+.TH SORT 1 "April, 2026"
+
+.SH NAME
+\fBsort\fP \- sort input lines
+
+.SH SYNOPSIS
+\fBsort\fP [\fB\-r\fP] [\fIfile\fP]...
+
+.SH DESCRIPTION
+The \fBsort\fP utility reads all of its inputs and then sorts lines with
+a case\-insensitive alphanumeric comparison.
+.PP
+If no \fIfile\fP arguments are provided, \fBsort\fP will sort the standard input.
+.PP
+This implementation uses its own insertion sort algorithm.
+
+.SS Options
+.TP
+.B \-r
+Reverse the sort order.
+
+.SH STANDARDS
+\fBsort\fP is described in POSIX, but this implementation lacks virtually all
+of the expected functionality.
+
+.SH EXIT STATUS
+.TP
+0
+Most of the time.
+.TP
+2
+If an unexpected option was encountered.

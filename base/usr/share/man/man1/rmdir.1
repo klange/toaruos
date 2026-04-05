@@ -1,0 +1,33 @@
+.TH RMDIR 1 "April, 2026"
+
+.SH NAME
+\fBrmdir\fP \- remove directories
+
+.SH SYNOPSIS
+\fBrmdir\fP [\fB\-p\fP] [\fB\-v\fP] \fItarget\fP...
+
+.SH DESCRIPTION
+The \fBrmdir\fP utility removes empty directories.
+
+.SS Options
+.TP
+.B \-p
+Remove parent directories if they are also empty.
+Only parents specifically included in the argument will be removed.
+
+.TP
+.B \-v
+Print each directory that has been removed.
+
+.SH EXIT STATUS
+.TP
+0
+All specified \fItarget\fP directories were removed.
+.TP
+1
+A \fItarget\fP directory or (with \fB\-p\fP) one of its
+parents could not be removed.
+
+.SH SEE ALSO
+.BR rmdir (3),
+.BR unlink (2)

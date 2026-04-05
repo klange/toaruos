@@ -1,0 +1,59 @@
+.TH HEXIFY 1 "April, 2026"
+
+.SH NAME
+\fBhexify\fP \- convert files to and from hexadecimal
+
+.SH SYNOPSIS
+\fBhexify\fP [\fB\-w\fP \fIwidth\fP] [\fB\-d\fP] [\fIfile\fP]
+
+.SH DESCRIPTION
+The \fBhexify\fP utility converts files to and from a hexadecimal plain text format.
+.PP
+This utility is inspired by, but not necessarily compatible with, the \fBxxd\fP utility,
+found on some other platforms.
+.PP
+If no \fIfile\fP argument is provided, the standard input will be used.
+At most one \fIfile\fP argument is accepted.
+.PP
+Supported options:
+
+.TP
+.B \-w \fIwidth\fP
+Specify the width, in bytes (pairs of hexadecimal digits), to display per line when
+converting to the hexadecimal format.
+The last such option will be honored.
+The minimum is 1 and the maximum is arbitrarily 256.
+The default is \fI16\fP.
+Specifying 0 will use the default value, overriding a previously set value.
+
+.TP
+.B \-d
+Convert from the normal output format of this utility back to binary.
+When a malformed input is detected, a diagnostic message will be
+printed to standard error.
+Some malformed inputs will result in the utility halting, while
+others will be ignored after the diagnostic message is printed.
+
+.SH FORMAT
+Each line in the hexadecimal output format consists of an offset of at least 8
+hexadecial digits (0-padded), a colon, a space, up to \fIwidth\fP pairs of
+hexadecimal digits, grouped into sets of 4 digits and separated by spaces, a suitable
+amount of alignment space for lines with fewer than \fIwidth\fP pairs of
+hexadecimal digits, and then a listing of the original bytes appearing on
+that line with non\-printable characters replaced with '.'.
+.PP
+For example:
+
+    echo "hello" | hexify
+
+Will produce:
+
+    00000000: 6865 6c6c 6f0a                           hello.
+
+.SH EXIT STATUS
+.TP
+0
+The input was successfully read and converted.
+.TP
+1
+An error occurred while trying to read the input.

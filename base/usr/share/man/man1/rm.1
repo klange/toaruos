@@ -1,0 +1,35 @@
+.TH RM 1 "April, 2026"
+
+.SH NAME
+\fBrm\fP \- remove files
+
+.SH SYNOPSIS
+\fBrm\fP [\fB\-r\fP] [\fB\-f\fP] [\fItarget\fP]...
+
+.SH DESCRIPTION
+The \fBrm\fP utility will attempt to remove each listed \fItarget\fP file.
+
+.SS Options
+.TP
+.B \-r
+Remove files recursively.
+If a target for removal is a directory, its contents will be removed first.
+
+.TP
+.B \-f
+Currently does nothing.
+
+.SH EXIT STATUS
+.TP
+0
+All requested \fItarget\fP files were removed (or we at least think they were).
+
+.TP
+1
+If any of the requested \fItarget\fP files could not be removed,
+
+.SH BUGS
+This utility prints a diagnostic but otherwise ignores options it does not understand.
+
+.SH SEE ALSO
+.BR unlink (2)
