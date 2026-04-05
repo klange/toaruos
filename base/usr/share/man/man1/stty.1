@@ -1,0 +1,104 @@
+.TH STTY 1 "April, 2026"
+
+.SH NAME
+\fBstty\fP \- configure terminal interface
+
+.SH SYNOPSIS
+\fBstty\fP [\fB\-a\fP] [\fB\-f\fP \fIfile\fP] [\fIcommands\fP]...
+
+.SH DESCRIPTION
+The \fBstty\fP utility displays or sets various terminal configuration options.
+Most of the options relate to the configuration of serial terminals.
+.PP
+With no command arguments, collects and displays the configuration information.
+Otherwise, sets it.
+.PP
+If \fBstty\fP encounters any command it does not understand, a diagnostic
+message is printed and processing stops.
+
+.SS Options
+
+Processing of option flags does not follow the usual format.
+Each option flag must be presented as an isolated argument in the order specified
+in the synopsis section above.
+
+.TP
+.B \-a
+When this appears as the first argument, configuration settings which match
+the defaults are not hidden from output when displaying the configuration.
+
+.TP
+.B \-f \fIfile\fP
+Instead of operating on the terminal connected to standard input, attempt
+to open \fIfile\fP and use that instead.
+
+.SS Shortcuts
+
+.TP
+.B sane
+Configures most of the defaults for the terminal, to restore it to a sane state.
+
+.TP
+.B raw
+Disables \fBICANON\fP and \fBOPOST\fP and a few other things.
+
+.TP
+.B cookied
+Restores \fBICANON\fP and \fBOPOST\fP and a few other things.
+
+.TP
+.B size
+Prints the size of the terminal.
+
+.SS Commands
+
+.TP
+.B [0-9]+
+Sets the baud rate of the terminal.
+
+.PP
+Any of
+.B eof, eol, erase, intr, kill, quit, start, stop, susp, lnext, vwerase
+will interpret its next argument as a character to set for the respective
+\fBc_cc\fP value. If that argument is one byte, it will be taken directly
+as the character to use. If it begins with \(ha, it will be interpreted
+as a control key sequence (eg. \fB\(haC\fP is Ctrl-C). Otherwise, it
+will be treated as a decimal representation of a character value.
+
+.PP
+Any of
+.B parenb, parodd, hupcl, hup, cstopb, cread, clocal,
+.B ignbrk, brkint, ignpar, parmrk, inpck, istrip, inlcr, igncr, icrnl,
+.B ixon, ixoff, iuclc,
+.B olcuc, opost, onlcr, ocrnl, onocr, onlret, ofill, ofdel
+.B isig, icanon, iexten, echo, echoe, echok, echonl, echoctl, noflsh, tostop
+sets (or, when preceded by a '-', unsets) the respective flag bit in the relevant
+flag value.
+
+.PP
+Any of
+.B cs5, cs6, cs7, cs8,
+.B cr0, cr1, cr2, cr3
+.B nl0, nl1
+.B tab0, tab1, tab2, tab3
+.B bs0, bs1
+.B ff0, ff1
+.B vt0, vt1
+sets the respective toggle option.
+
+.PP
+In all cases, where multiple options are specified that would affect the same character,
+bit, or toggle, the last such option shall take effect.
+
+.SH STANDARDS
+\fBstty\fP is specified in POSIX, but this implementation does not fully conform.
+.PP
+No \fB\-g\fP option, or single-argument configuration format, is supported at this time,
+and several individual commands are not understood.
+
+.SH CAVEATS
+While this \fBstty\fP may accept various commands, they may not all be supported
+by the kernel PTY interface or the underlying serial port.
+
+.SH SEE ALSO
+.BR tcsetattr (3)
