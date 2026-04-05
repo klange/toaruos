@@ -1272,6 +1272,22 @@ void tt_contour_transform(struct TT_Contour * cnt, gfx_matrix_t matrix) {
 	}
 }
 
+long tt_contour_get_edge(const struct TT_Contour * cnt, long index, float * x1, float * y1, float * x2, float * y2) {
+	size_t resolved = index;
+	if (index < 0) {
+		if ((size_t)-index > cnt->edgeCount) return -1;
+		resolved = cnt->edgeCount + index;
+	}
+	if (resolved >= cnt->edgeCount) return -1;
+
+	if (x1) *x1 = cnt->edges[resolved].start.x;
+	if (y1) *y1 = cnt->edges[resolved].start.y;
+	if (x2) *x2 = cnt->edges[resolved].end.x;
+	if (y2) *y2 = cnt->edges[resolved].end.y;
+
+	return resolved;
+}
+
 static inline int out_of_bounds(const sprite_t * tex, int x, int y) {
 	return x < 0 || y < 0 || x >= tex->width || y >= tex->height;
 }
