@@ -1,0 +1,27 @@
+.TH LIVE-SESSION 1 "April, 2026"
+
+.SH NAME
+\fBlive\-session\fP \- manage a live CD graphical session
+
+.SH DESCRIPTION
+The \fBlive\-session\fP utility is run as an initial application
+within the compositor, as part of the last step of system startup.
+.PP
+\fBlive\-session\fP will start a graphical user session for user ID 1000 (\fBlocal\fP),
+establish its own connection to the compositor to prevent it from exiting when the
+user logs out, waits for the graphical session to end, and then starts
+.IR glogin (1)
+to allow further graphical user sessions.
+
+.SH NOTES
+If \fBglogin\fP can not be executed, \fBlive\-session\fP will attempt to call
+.IR reboot (1)
+instead.
+.PP
+This utility is normally specified through the kernel command line as the
+\fBstart=\fP option, which is read by \fB/etc/startup.d/99_runstart.sh\fP.
+
+.SH SEE ALSO
+.BR session (1),
+.BR glogin (1),
+.BR compositor (1)

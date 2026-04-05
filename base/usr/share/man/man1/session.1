@@ -1,0 +1,27 @@
+.TH SESSION 1 "April, 2026"
+
+.SH NAME
+\fBsession\fP \- run a graphical user session
+
+.SH DESCRIPTION
+The \fBsession\fP utility is run by
+.IR glogin (1)
+after a user has logged in, to manage their graphical session.
+.PP
+If the user has a \fB~/.yutanirc\fP file and it is executable, the utility
+will attempt replace itself with that script.
+.PP
+Otherwise, \fBsession\fP will default to running
+.IR file\-browser (1)
+with the \fB\-\-wallpaper\fP option from the user's \fB~/Desktop\fP directory
+(or whatever directory it was run from, if it can not \fBchdir\fP), as well as
+.IR panel (1),
+and then wait for them to complete.
+
+.SH ENVIRONMENT
+The home directory of the user is determined from the \fBHOME\fP environment variable.
+
+.SH SEE ALSO
+.BR glogin (1),
+.BR file\-browser (1),
+.BR panel (1)

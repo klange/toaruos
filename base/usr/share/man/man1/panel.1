@@ -1,0 +1,86 @@
+.TH PANEL 1 "April, 2026"
+
+.SH NAME
+\fBpanel\fP \- desktop panel
+
+.SH DESCRIPTION
+The \fBPanel\fP is the primary element of the graphical desktop environment.
+.PP
+In its default configuraton, \fBPanel\fP displays an "Applications" menu,
+a list of open application windows, and various other widgets.
+.PP
+The \fBPanel\fP is also responsible for responding to \fBAlt\-F2\fP and \fBAlt\-Tab\fP
+key presses.
+
+.SH SHORTCUTS
+
+.TP
+.B Alt\-F2
+Pressing this key combination brings up a dialog in which a command can be input.
+Pressing Enter will execute the command.
+
+.TP
+.B Alt\-Tab \fRor\fP Alt\-Shift\-Tab
+Pressing this key combination allows the user to switch the focused window.
+Available windows are displayed with dynamic thumbnails, titles, and icons.
+The focus will switch when the \fBAlt\fP key is released.
+
+.TP
+.B Ctrl\-Alt\-T
+Launches
+.IR terminal (1).
+
+.TP
+.B Ctrl\-F11
+Toggles the visibility of the panel.
+
+.SH WIDGETS
+All components displayed within the panel are provided by loaded widget libraries.
+As of writing, the selected widgets and their ordering are hard\-coded (see GH\-419).
+
+.TP
+.B appmenu
+The "Applications" menu, from which various applications and utilities can be started.
+The menu is built from \fB/etc/panel.menu\fP.
+
+.TP
+.B windowlist
+Displays a list of open application windows.
+Only windows which have been "advertised" by their owners are displayed, so this list
+excludes certain dialog, overlay, background, and menu windows.
+
+.TP
+.B volume
+Displays an icon indicating the current audio output volume.
+Clicking the icon reveals a slider.
+The volume can also be adjusted by scrolling the mouse wheel while this icon is hovered.
+
+.TP
+.B network
+Displays an icon indicating the network connectivity status.
+Clicking the icon reveals the address associated with available interfaces.
+
+.TP
+.B weather
+Displays an icon indicating the current weather status, next to the temperature.
+Data for this widget is sourced by the
+.IR weather\-tool (1)
+utility and is provided by a third\-party service.
+Clicking the icon reveals a menu with further weather forecast details and other options.
+
+.TP
+.B date
+Displays the current date.
+Clicking the data reveals a calendar.
+
+.TP
+.B clock
+Displays the current time.
+Clicking the time reveals an analog clock.
+
+.TP
+.B logout
+Displays a button which opens a menu providing the option to log out.
+
+.SH SEE ALSO
+.BR file\-browser (1)

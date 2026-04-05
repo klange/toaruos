@@ -1,0 +1,21 @@
+.TH PLASMA 1 "April, 2026"
+
+.SH NAME
+\fBplasma\fP \- display a chaotic animation
+
+.SH DESCRIPTION
+The \fBplasma\fP utility consumes considerable CPU resources displaying
+a chaotic and colorful animation.
+.PP
+It may be used to stress test the operating system and inflate the CPU usage
+numbers displayed in tools like
+.IR top (1)
+and
+.IR cpuwidget (1).
+.PP
+The utility will exit of the \fBq\fP key is pressed, or if requested from the window decorations.
+.PP
+The utility renders in a separate thread from the one receiving user input.
+
+.SH SEE ALSO
+.BR julia (1)

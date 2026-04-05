@@ -1,0 +1,45 @@
+.TH HELP-BROWSER 1 "April, 2026"
+
+.SH NAME
+\fBhelp\-browser\fP \- display rudimentary rich text documents.
+
+.SH SYNOPSIS
+\fBhelp\-browser\fP [\fIfile\fP]
+
+.SH DESCRIPTION
+The \fBHelp Browser\fP application displays rudimentary rich text documents with markup.
+.PP
+This utility is generally launched by graphical applications from their "Help > Contents" menu items.
+
+.SS Special Files
+
+If the argument provided to \fBHelp Browser\fP is \fBspecial:contents\fP, it will
+generate a listing of documents found in \fB/usr/share/help\fP.
+
+.SH FORMAT
+The \fBHelp Browser\fP understands a limited HTML\-esque syntax and reflows text.
+
+.SS Supported Tags
+
+.TP
+.B <b>
+Bold text.
+.TP
+.B <i>
+Italic text.
+.TP
+.B <h1>
+A large and heading.
+.TP
+.B <mono>
+Monospaced text.
+.TP
+.B <br>
+A line break.
+
+.PP
+The format accepted by this utility may change in the future.
+It could possibly display ROFF manual pages instead.
+
+.SH SEE ALSO
+.BR man (1)

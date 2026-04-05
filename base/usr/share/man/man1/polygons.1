@@ -1,0 +1,31 @@
+.TH POLYGONS 1 "April, 2026"
+
+.SH NAME
+\fBpolygons\fP \- draw polygons with the mouse
+
+.SH DESCRIPTION
+The \fBpolygons\fP utility creates a fixed\-size, semi\-transparent window and
+accepts mouse input from the user.
+Each click of the mouse contributes a new vertex to a polygonal path which
+is rasterized in a random color.
+.PP
+Right clicking will issue a "move to" command, starting a new polygon.
+.PP
+This utility served as a testing tool during the development of the path
+rasterization library for
+.IR libtoaru_text (3)
+and remains in the operating system as a mediocre drawing tool.
+
+.SH NOTES
+This utility uses its own path rasterzation routines, instead of the ones from
+.IR libtoaru_text (3).
+It should probably be written to use the library.
+.PP
+The rasterization technique used by the utility is the \fBnon\-zero winding\fP method.
+Drawing a new polygon within an existing one, in the opposite rotational direction,
+will cut a hole out of the existing polygon.
+.PP
+All polygons are drawn with the same color, which is randomly selected with each click.
+
+.SH SEE ALSO
+.BR libtoaru_text (3)
