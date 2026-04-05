@@ -1,0 +1,31 @@
+.TH REALPATH 1 "April, 2026"
+
+.SH NAME
+\fBrealpath\fP \- print absolute path
+
+.SH SYNOPSIS
+\fBrealpath\fP [\fB\-e\fP|\fB\-E\fP] \fIpath\fP...
+
+.SH DESCRIPTION
+The \fBrealpath\fP utility prints the canonicalized absolute path for each argument.
+.PP
+Like some other implementations of this utility, this one just defers to the libc
+.IR realpath (3)
+function and makes no efforts to construct paths itself if that fails with \fBENOENT\fP.
+
+.SS Options
+.TP
+.B \-e
+Treat it as an error if the resulting file doesn't exist.
+This implementation provides this functionality by calling
+.IR access (2)
+on the canonicalized path.
+
+.TP
+.B \-E
+Do not treat it as an error if the resulting file doens't exist.
+This implementation will not check any of the parent path elements...
+
+.SH SEE ALSO
+.BR realpath (3)
+
