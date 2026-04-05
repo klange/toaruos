@@ -22,8 +22,12 @@ int main(int argc, char * argv[]) {
 	char * home = getenv("HOME");
 	if (home) {
 		sprintf(path, "%s/.yutanirc", home);
-		char * args[] = {path, NULL};
-		execvp(args[0], args);
+		if (!access(path, X_OK)) {
+			char * args[] = {path, NULL};
+			execvp(args[0], args);
+			/* Still, if this exec fails, ignore it
+			 * so we can run fallbacks. */
+		}
 	}
 
 	/* Fallback */
@@ -32,14 +36,17 @@ int main(int argc, char * argv[]) {
 	if (!_background_pid) {
 		sprintf(path, "%s/Desktop", home);
 		chdir(path);
+		/* Ignore failure to chdir; run desktop wherever we were */
 		char * args[] = {"/bin/file-browser", "--wallpaper", NULL};
 		execvp(args[0], args);
+		return 1;
 	}
 
 	int _panel_pid = fork();
 	if (!_panel_pid) {
 		char * args[] = {"/bin/panel", "--really", NULL};
 		execvp(args[0], args);
+		return 1;
 	}
 
 	wait(NULL);
