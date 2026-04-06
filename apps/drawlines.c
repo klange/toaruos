@@ -40,6 +40,16 @@ static void draw(void) {
 	yutani_flip(yctx, wina);
 }
 
+static void resize_finish(int w, int h) {
+	yutani_window_resize_accept(yctx, wina, w, h);
+	reinit_graphics_yutani(ctx, wina);
+	draw_fill(ctx, rgb(0,0,0));
+	width = w;
+	height = h;
+	yutani_window_resize_done(yctx, wina);
+	yutani_flip(yctx, wina);
+}
+
 static int show_usage(char * argv[]) {
 #define X_S "\033[3m"
 #define X_E "\033[0m"
@@ -108,6 +118,14 @@ int main (int argc, char ** argv) {
 							struct yutani_msg_window_mouse_event * me = (void*)m->data;
 							if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
 								yutani_window_drag_start(yctx, wina);
+							}
+						}
+						break;
+					case YUTANI_MSG_RESIZE_OFFER:
+						{
+							struct yutani_msg_window_resize * wr = (void*)m->data;
+							if (wr->wid == wina->wid) {
+								resize_finish(wr->width, wr->height);
 							}
 						}
 						break;
