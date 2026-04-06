@@ -53,6 +53,12 @@ APPS_SH_X=$(foreach app,$(APPS_SH),$(BASE)/bin/$(app))
 APPS_KRK=$(patsubst apps/%.krk,%.krk,$(wildcard apps/*.krk))
 APPS_KRK_X=$(foreach app,$(APPS_KRK),$(BASE)/bin/$(app))
 
+# These are defined but TESTS_X is not included in the required ramdisk build;
+# if you want to build the tests, use "make tests". Cleaning will remove them.
+TESTS=$(patsubst tests/%.c,%,$(wildcard tests/*.c))
+TESTS_X=$(foreach app,$(TESTS),$(BASE)/bin/$(app))
+TESTS_Y=$(foreach app,$(TESTS),.make/$(app).tmak)
+
 LIBS=$(patsubst lib/%.c,%,$(wildcard lib/*.c))
 LIBS_X=$(foreach lib,$(LIBS),$(BASE)/lib/libtoaru_$(lib).so)
 LIBS_Y=$(foreach lib,$(LIBS),.make/$(lib).lmak)
@@ -142,8 +148,8 @@ clean:
 	-rm -f ${KERNEL_OBJS} $(MODULES)
 	-rm -f kernel/symbols.o kernel/symbols.S misaka-kernel misaka-kernel.64
 	-rm -f ramdisk.tar ramdisk.igz 
-	-rm -f $(APPS_Y) $(LIBS_Y) $(KRK_MODS_Y) $(KRK_MODS)
-	-rm -f $(APPS_X) $(LIBS_X) $(KRK_MODS_X) $(APPS_KRK_X) $(APPS_SH_X)
+	-rm -f $(APPS_Y) $(LIBS_Y) $(KRK_MODS_Y) $(KRK_MODS) $(TESTS_Y)
+	-rm -f $(APPS_X) $(LIBS_X) $(KRK_MODS_X) $(APPS_KRK_X) $(APPS_SH_X) $(TESTS_X)
 	-rm -f $(BIM_FILES) $(BASE)/bin/bim
 	-rm -f $(BASE)/lib/crt0.o $(BASE)/lib/crti.o $(BASE)/lib/crtn.o
 	-rm -f $(BASE)/lib/libc.so $(BASE)/lib/libc.a
@@ -212,12 +218,16 @@ ifeq (,$(findstring clean,$(MAKECMDGOALS))$(findstring $(BUILD_KRK),$(MAKECMDGOA
 -include ${APPS_Y}
 -include ${LIBS_Y}
 -include ${KRK_MODS_Y}
+-include ${TESTS_Y}
 endif
 
 .make/%.lmak: lib/%.c util/auto-dep.krk | dirs $(CRTS)
 	kuroko util/auto-dep.krk --makelib $< > $@
 
 .make/%.mak: apps/%.c util/auto-dep.krk | dirs $(CRTS)
+	kuroko util/auto-dep.krk --make $< > $@
+
+.make/%.tmak: tests/%.c util/auto-dep.krk | dirs $(CRTS)
 	kuroko util/auto-dep.krk --make $< > $@
 
 .make/%.kmak: lib/kuroko/%.c util/auto-dep.krk | dirs
@@ -236,6 +246,9 @@ libs: $(LIBS_X)
 
 .PHONY: apps
 apps: $(APPS_X)
+
+.PHONY: tests
+tests: $(TESTS_X)
 
 SOURCE_FILES  = $(wildcard kernel/*.c kernel/*/*.c kernel/*/*/*.c kernel/*/*/*/*.c)
 SOURCE_FILES += $(wildcard apps/*.c linker/*.c libc/*.c libc/*/*.c lib/*.c lib/kuroko/*.c)
