@@ -323,12 +323,14 @@ void aarch64_sync_enter(struct regs * r) {
 	}
 
 	/* Unexpected fault, eg. page fault. */
-	dprintf("In process %d (%s)\n", this_core->current_process->id, this_core->current_process->name);
-	dprintf("ESR: %#zx FAR: %#zx ELR: %#zx SPSR: %#zx\n", esr, far, elr, spsr);
-	aarch64_regs(r);
-	uint64_t tpidr_el0;
-	asm volatile ("mrs %0, TPIDR_EL0" : "=r"(tpidr_el0));
-	dprintf("  TPIDR_EL0=%#zx\n", tpidr_el0);
+	if (args_present("debug")) {
+		dprintf("In process %d (%s)\n", this_core->current_process->id, this_core->current_process->name);
+		dprintf("ESR: %#zx FAR: %#zx ELR: %#zx SPSR: %#zx\n", esr, far, elr, spsr);
+		aarch64_regs(r);
+		uint64_t tpidr_el0;
+		asm volatile ("mrs %0, TPIDR_EL0" : "=r"(tpidr_el0));
+		dprintf("  TPIDR_EL0=%#zx\n", tpidr_el0);
+	}
 
 	send_signal(this_core->current_process->id, SIGSEGV, 1);
 
