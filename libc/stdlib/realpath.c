@@ -61,9 +61,11 @@ char *realpath(const char *path, char *resolved_path) {
 
 		char *save;
 		char *tok = strtok_r(cwd,"/",&save);
-		do {
-			_append_dir(resolved_path, tok);
-		} while ((tok = strtok_r(NULL,"/",&save)));
+		if (tok) {
+			do {
+				_append_dir(resolved_path, tok);
+			} while ((tok = strtok_r(NULL,"/",&save)));
+		}
 	}
 
 	char *save;
