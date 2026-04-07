@@ -99,7 +99,7 @@ int main(int argc, char * argv[]) {
 	prog_lines[i] = "esh -v";
 	sprintf(data_lines[i++], C_A "Shell: " C_O);
 
-	prog_lines[i] = "yutani-query resolution";
+	prog_lines[i] = "if not yutani-query resolution then echo '(not connected)' 2>/dev/null";
 	sprintf(data_lines[i++], C_A "Resolution: " C_O);
 
 	/* no command */
