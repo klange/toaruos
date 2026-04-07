@@ -26,6 +26,11 @@
 int fd_master, fd_slave, fd_serial;
 volatile int _stop = 0;
 
+static int usage(char * argv[]) {
+	fprintf(stderr, "usage: %s [-a user] remote:port [TERM]\n", argv[0]);
+	return 1;
+}
+
 void * handle_in(void * unused) {
 	while (!_stop) {
 		int index = fswait2(1,&fd_serial,200);
@@ -61,17 +66,15 @@ int main(int argc, char * argv[]) {
 		}
 	}
 
-	if (optind == argc) {
-		fprintf(stderr, "usage: %s remote:port\n", argv[0]);
-		return 1;
+	if (optind == argc) return usage(argv);
+
+	if (optind + 1 < argc) {
+		setenv("TERM", argv[optind+1], 1);
 	}
 
 	char * remotehost = argv[optind];
 	char * colon = strstr(remotehost, ":");
-	if (!colon) {
-		fprintf(stderr, "usage: %s remote:port\n", argv[0]);
-		return 1;
-	}
+	if (!colon) return usage(argv);
 
 	*colon = '\0'; colon++;
 	int remoteport = atoi(colon);
@@ -120,6 +123,7 @@ int main(int argc, char * argv[]) {
 		char * tokens[] = {"/bin/login-loop",NULL,NULL,NULL};
 
 		if (user) {
+			tokens[0] = "/bin/login";
 			tokens[1] = "-f";
 			tokens[2] = user;
 		}

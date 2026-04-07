@@ -4,15 +4,32 @@
 \fBnetty\fP \- host terminal sessions over remote sockets
 
 .SH SYNOPSIS
-\fBnetty\fP [\fB\-a\fP] \fIremote\fP:\fIport\fP
+\fBnetty\fP [\fB\-a\fP \fIuser\fP] \fIremote\fP:\fIport\fP [\fITERM\fP]
 
 .SH DESCRIPTION
 \fBnetty\fP connects to a \fIremote\fP TCP socket and then serves a terminal session with
 .IR login\-loop (1),
 providing a "reverse shell".
 .PP
-Configuring the remote server appropriately is left as an exercise to the reader, which is
-to say I've forgotten and it wasn't documented in the tool.
+If a \fITERM\fP argument is provided, the environment variable will be set.
+
+.SS Options
+.TP
+.B -a \fIuser\fP
+Instead of
+.IR login\-loop (2),
+runs
+.IR login (2)
+with \fB\-f \f(BIuser\fR, which will automatically authenticate as that user.
+
+.SH EXAMPLE
+The remote terminal can be configured with something like:
+
+    stty raw -echo; nc -l 127.0.0.1 8090; stty sane
+
+And then \fBnetty\fP can be run with:
+
+    sudo netty 10.0.2.2:8090 xterm-256color
 
 .SH SECRUITY
 The terminal session is served over clear text and should not be used for
