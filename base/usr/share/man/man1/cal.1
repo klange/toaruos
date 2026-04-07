@@ -1,26 +1,78 @@
 .TH CAL 1 "March, 2026"
 
 .SH NAME
-\fBcal\fP \- Show a calendar of the current Gregorian month.
+\fBcal\fP \- print a calendar
 
 .SH SYNOPSIS
-\fBcal\fP
+\fBcal\fP [\fB\-h\fP] [[\fImonth\fP] \fIyear\fP]
+.br
+\fBcal\fP [\fB\-h\fP] \fB\-3\fP [\fImonth\fP \fIyear\fP]
+.br
+\fBcal\fP [\fB\-h\fP] [\fB\-A\fP \fIafter\fP] [\fB\-B\fP \fIbefore\fP] [\fB\-O\fP] [\fImonth\fP \fIyear\fP]
 
 .SH DESCRIPTION
-Displays a textual calendar of the current month of the Gregorian calendar.
+Displays a textual calendar of the current month, or another month, of the Gregorian calendar.
 The current day is highlighted through an escape sequence to invert it.
 .PP
-This implementation does not support any arguments.
+With no arguments, the current month is displayed.
+With only a \fIyear\fP argument, a full 12 month calendar for that year is displayed.
+If a \fImonth\fP and \fIyear\fP are given, that month of that year will be displayed.
 
-.SH BUGS
-Other implementations support displaying the Julian calendar, displaying three months
-at once, displaying a specific month, displaying the date of certain religious holidays,
-display entire years, and so on, but this one does not.
+.SS Options
+.TP
+.B \-h
+Disable the highlighting of today.
+
+.TP
+.B \-3
+Display three months (one before and one after the requested month).
+Equivalent to \fB\-A 1 \-B 1\fP.
+
+.TP
+.B \-A \fIafter\fP
+Display a number of months \fIafter\fP the selected month.
+
+.TP
+.B \-B \fIbefore\fP
+Display a number of months \fIbefore\fP the selected month.
+
+.TP
+.B \-O
+Display all requested months in one row, rather than breaking them up into groups of three.
+
+.TP
+.I month
+Numeric month to display: 1\-12
+
+.TP
+.I year
+Numeric year to display: 1970\-2099
+
+.SH CAVEATS
+Other implementations of this utility support displaying the date of certain religious
+holidays, but this one does not.
+.PP
+The \fB\-O\fP option is specific to ToaruOS and not found in other implementations.
+.PP
+Using the \fB\-O\fP option with \fB\-A\fP or \fB\-B\fP values that produce too many months
+to display within the screen width will probably not look very good.
+.PP
+Specifying a date that would result in the \fB\-3\fP, \fB\-A\fP, or \fB\-B\fP options
+trying to display a date that is out of range for the system's
+.IR strftime (3)
+and
+.IR mktime (3)
+routines may result in unexpected behavior.
+The tool only safeguards the initial requested date against known limitations.
 
 .SH STANDARDS
 \fBcal\fP is specified in the XSI extensions to POSIX and is supposed to support historical
-dates that use the Julian calendar, as well as displaying a specific month and year, which
-we do not support.
+dates that use the Julian calendar; this implementation does not support historic dates, or
+dates particlarly far in the future, though this is mostly due to limitations in the libc
+.IR strftime (3)
+and
+.IR mktime (3)
+routines.
 
 .SH SEE ALSO
 .BR date (1)
