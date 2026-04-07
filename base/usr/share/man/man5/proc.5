@@ -74,9 +74,8 @@ is currently consuming.
 
 .TP
 .I /proc/modules
-A listing of loaded kernel modules, their base addresses, file sizes, and size in
-memory. The availability of base addresses for users other than \fBroot\fP is
-subject to change in the future.
+A listing of loaded kernel modules, their base addresses, file sizes, and size in memory.
+As with \fI/proc/kallsyms\fP, addresses will show as 0 for non-\fBroot\fP users.
 
 .TP
 .I /proc/mounts

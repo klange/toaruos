@@ -475,7 +475,7 @@ static void modules_func(fs_node_t *node) {
 		char * key = (char *)_key->value;
 		struct LoadedModule * mod_info = hashmap_get(modules_get_list(), key);
 		procfs_printf(node, "%#zx %zu %zu %s\n",
-			mod_info->baseAddress,
+			this_core->current_process->user == USER_ROOT_UID ? mod_info->baseAddress : (uintptr_t)0,
 			mod_info->fileSize,
 			mod_info->loadedSize,
 			key);
