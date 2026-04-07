@@ -64,6 +64,8 @@ char * get_arg(FILE * f) {
 			buf[count] = '\0';
 		} while (count < 31);
 		if (count) return buf;
+	} else {
+		ungetc(n, f);
 	}
 	return NULL;
 }
@@ -76,7 +78,7 @@ char * get_ipv4_address(char * arg) {
 		if (netdev >= 0) {
 			uint32_t ip_addr = 0;
 			if (!ioctl(netdev, SIOCGIFADDR, &ip_addr)) {
-				return inet_ntoa((struct in_addr){ntohl(ip_addr)});
+				return inet_ntoa((struct in_addr){ip_addr});
 			}
 		}
 	} else {
@@ -86,6 +88,7 @@ char * get_ipv4_address(char * arg) {
 			struct dirent * ent;
 			while ((ent = readdir(d))) {
 				if (ent->d_name[0] == '.') continue;
+				if (!strcmp(ent->d_name, "lo")) continue; /* Ignore loopback */
 				closedir(d);
 				return get_ipv4_address(ent->d_name);
 			}
