@@ -1,31 +1,57 @@
 .TH ROFF 1 "March, 2026"
+
 .SH NAME
 roff \- terrible, hacked\-together RUNOFF implementation
+
 .SH SYNOPSIS
-\fBroff\fP [\fB\-W\fP \fIwidth\fP] \fIfile\fP...
+\fBroff\fP [\fB\-W\fP \fIwidth\fP] [\fB\-S\fP \fIsection\fP] [\fB\-E\fP] \fIfile\fP...
 .br
 \fBroff\fP \fB--help\fP
+
 .SH DESCRIPTION
 \fIroff\fP is a terrible, no-good, very-bad, horrendously incomplete implementation
 of the \fIRUNOFF\fP text formatter.
 .PP
 This \fIroff\fP was made entirely to process \fIman\fP pages like this one, and
 probably won't work with ones that didn't come with ToaruOS.
+
+.SS Options
+Note that the options accepted by this \fBroff\fP are not related to options that
+may be supported by other similar tools.
+
 .TP
 .B \-W \fIwidth\fP
 Instead of formatting the output for the width of the terminal, as is the default,
 the output will be formatted for a page width of \fIwidth\fP columns.
+
+.TP
+.B \-S \fIsection\fP
+Print only the contents of \fIsection\fP.
+Other output will be quietly written to \fB/dev/null\fP.
+\fIsection\fP is matched in a case\-sensitive manner.
+The output when using this option when used with the \fBNAME\fP section may be suitable
+for piping to
+.IR grep (1)
+to search the short descriptions of manual pages.
+
+.TP
+.B \-E
+Write error messages to the standard error, rather than the standard output.
+This option is enabled by default when \fB\-S\fP is used.
+
 .SH BUGS
 Tons.
 .PP
 Various macros are not quite correct. Lots of escape sequences are missing.
 Tables are not properly supported.
+
 .SH SYNTAX
 This \fIroff\fP supports a hacked-together set of macros based on what was used in
 .IR nyancat (1)
 and
 .IR less (1)
 (even though we don't have that ported).
+
 .SH MACROS
 Lines starting with a \fB.\fP or, alternatively, a \fB'\fP, introduce macros.
 .TP
@@ -117,6 +143,7 @@ I'm supposed to be doing that I'm not, but whatever.
 .TP
 .B .TS .TE
 These are supposed to introduce tables but just treat them the same as \fB.nf/.fi\fP.
+
 .SH FONT SELECTION
 You can use the various macros like \fB.B\fP above to select fonts, but the \fB\\f\fP escape
 is a lot more flexible. You can use it to select fonts like this:
@@ -135,6 +162,7 @@ Supposed to be "italic", but as we all learned earlier it's actually underlined.
 .TP
 .B \ef(BI
 Bold and italic together.
+
 .SH OTHER ESCAPES
 .TP
 .B \ee
@@ -162,12 +190,15 @@ Useful for making lists like this:
 .TP
 .B \e"
 Comment. The rest of the line will be ignored. \" If you're reading this manual's source, you can see an example of this here.
+
 .SH SEE ALSO
 .BR man (1),
 .BR more (1)
+
 .SH HOMEPAGE
 .PP
 .B ToaruOS:
 https://toaruos.org/
+
 .SH AUTHOR
 This \fIroff\fP was written by K. Lange <klange@toaruos.org>.
