@@ -840,8 +840,7 @@ long sys_getppid(void) {
 }
 
 long sys_uname(struct utsname * name) {
-	PTR_VALIDATE(name);
-	if (!name) return -EFAULT;
+	PTRCHECK(name, sizeof(struct utsname), MMU_PTR_NULL|MMU_PTR_WRITE);
 	char version_number[256];
 	snprintf(version_number, 255, __kernel_version_format,
 			__kernel_version_major,
@@ -932,25 +931,25 @@ long sys_fcntl(int fd, int cmd, long arg) {
 	return -EINVAL;
 }
 
-long sys_sethostname(char * new_hostname) {
+long sys_sethostname(char * new_hostname, size_t len) {
 	if (this_core->current_process->user == USER_ROOT_UID) {
-		PTR_VALIDATE(new_hostname);
-		if (!new_hostname) return -EFAULT;
-		size_t len = strlen(new_hostname) + 1;
-		if (len > 256) {
-			return -ENAMETOOLONG;
-		}
-		hostname_len = len;
+		PTRCHECK(new_hostname, len, MMU_PTR_NULL);
+		/* new_hostname does not need to be nul-terminated with 'len';
+		 * account for adding a trailing nul byte */
+		if (len > 255) return -ENAMETOOLONG;
+		hostname_len = len + 1; /* hostname_len includes the nul */
 		memcpy(hostname, new_hostname, hostname_len);
+		hostname[len] = '\0';
 		return 0;
 	} else {
 		return -EPERM;
 	}
 }
 
-long sys_gethostname(char * buffer) {
-	PTR_VALIDATE(buffer);
-	if (!buffer) return -EFAULT;
+long sys_gethostname(char * buffer, size_t len) {
+	PTRCHECK(buffer, len, MMU_PTR_NULL|MMU_PTR_WRITE);
+	if (len < hostname_len) return -ENAMETOOLONG;
+	/* hostname is nul-terminated; hostname_len includes the nul */
 	memcpy(buffer, hostname, hostname_len);
 	return hostname_len;
 }

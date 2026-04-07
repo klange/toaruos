@@ -903,7 +903,8 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			pointer_arg(uregs_syscall_arg3(r));
 			break;
 		case SYS_SETHOSTNAME:
-			string_arg(pid, uregs_syscall_arg1(r));
+			buffer_arg(pid, uregs_syscall_arg1(r), uregs_syscall_arg2(r)); COMMA; /* not a nul-terminated string in sethostname */
+			uint_arg(uregs_syscall_arg2(r));
 			break;
 		case SYS_GETHOSTNAME:
 			/* plus one more when done */
@@ -1159,7 +1160,8 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 			maybe_errno(r);
 			break;
 		case SYS_GETHOSTNAME:
-			string_arg(pid, uregs_syscall_arg1(r));
+			string_arg(pid, uregs_syscall_arg1(r)); COMMA; /* is a nul-terminated string in gethostname */
+			uint_arg(uregs_syscall_arg2(r));
 			maybe_errno(r);
 			break;
 		case SYS_UNAME:

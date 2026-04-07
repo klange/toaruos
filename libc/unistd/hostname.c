@@ -3,15 +3,13 @@
 #include <syscall_nums.h>
 #include <errno.h>
 
-DEFN_SYSCALL1(sethostname, SYS_SETHOSTNAME, char *);
-DEFN_SYSCALL1(gethostname, SYS_GETHOSTNAME, char *);
+DEFN_SYSCALL2(sethostname, SYS_SETHOSTNAME, char *, size_t);
+DEFN_SYSCALL2(gethostname, SYS_GETHOSTNAME, char *, size_t);
 
 int gethostname(char * name, size_t len) {
-	(void)len; /* TODO */
-	__sets_errno(syscall_gethostname(name));
+	__sets_errno(syscall_gethostname(name, len));
 }
 
 int sethostname(const char * name, size_t len) {
-	(void)len; /* TODO */
-	__sets_errno(syscall_sethostname((char*)name));
+	__sets_errno(syscall_sethostname((char*)name, len));
 }
