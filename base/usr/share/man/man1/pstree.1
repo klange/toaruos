@@ -2,7 +2,7 @@
 .SH NAME
 pstree \- Display running processes as a tree.
 .SH SYNOPSIS
-\fBpstree\fP [\fIOPTIONS\fP] [\fIpid\fP]
+\fBpstree\fP [\fB\-a\fP] [\fB\-p\fP] [\fB\-g\fP] [\fB\-T\fP] [\fB\-h\fP] [\fB\-H\fP \fIpid\fP] [\fB\-C\fP \fImode\fP] [\fIpid\fP]
 .SH DESCRIPTION
 Displays running proceses as a true, using Unicode box drawing characters.
 
@@ -24,16 +24,15 @@ Hide threads from the tree and combine their resource usage in the the thread gr
 
 .TP
 .B \-h
-Hilight the current process (this instance of \fIpstree\fP) and its ancestors by making them all bold.
+Hilight the current process (this instance of \fBpstree\fP) and its ancestors by making them all bold.
 
 .TP
-.B \-H \f(BIPID\fP
-Like \fB\-h\fP, but for the given \fIPID\fP instead of the current process.
+.B \-H \fIpid\fP
+Like \fB\-h\fP, but for the given \fIpid\fP instead of the current process.
 
 .TP
-.B \-C \f(BIMODE\fP
-Color processes using the given \fIMODE\fP. The following modes are supported:
-
+.B \-C \fImode\fP
+Color processes using the given \fImode\fP. The following modes are supported:
 .RS
 .TP
 .B age
