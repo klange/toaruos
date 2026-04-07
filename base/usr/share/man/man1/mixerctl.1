@@ -2,13 +2,17 @@
 .SH NAME
 \fBmixerctl\fP \- Control knobs on audio devices.
 .SH SYNOPSIS
-\fBmixerctl\fP [\fB\-d\fP \fIdevice_id\fP] \fB\-l\fP
+\fBmixerctl\fP [\fB\-m\fP \fImixer\fP] [\fB\-d\fP \fIdevice_id\fP] [\fB\-l\fP]
 .br
-\fBmixerctl\fP [\fB\-d\fP \fIdevice_id\fP] [\fB\-k\fP \fIknob_id\fP] \fB\-r\fP
+\fBmixerctl\fP [\fB\-m\fP \fImixer\fP] [\fB\-d\fP \fIdevice_id\fP] [\fB\-k\fP \fIknob_id\fP] \fB\-r\fP
 .br
-\fBmixerctl\fP [\fB\-d\fP \fIdevice_id\fP] [\fB\-k\fP \fIknob_id\fP] \fB\-w\fP \fIknob_value\fP
+\fBmixerctl\fP [\fB\-m\fP \fImixer\fP] [\fB\-d\fP \fIdevice_id\fP] [\fB\-k\fP \fIknob_id\fP] \fB\-w\fP \fIknob_value\fP
 .SH DESCRIPTION
-Controls "knobs" on audio devices. These knobs generally specify the volume of different inputs or outputs.
+Controls "knobs" on audio devices.
+These knobs generally specify the volume of different inputs or outputs.
+If more than one operation option (\fB\-l\fP, \fB\-r\fP, \fB\-w\fP) is specified, only the last such option will be honored.
+
+.SS Options
 .TP
 .B \-d \fIdevice_id\fP
 Specify the audio device to control, by numeric ID.
@@ -18,21 +22,27 @@ Specify the knob to modify, by numeric ID.
 .TP
 .B \-l
 List the available knobs on the device.
+This is the default operation.
 .TP
 .B \-r
 Read the value of a knob.
 .TP
 .B \-w \fIknob_value\fP
 Set the value of a knob.
-.SH DEVICE FILES
-This utility interfaces with \fB/dev/mixer\fP.
+.TP
+.B \m \fImixer\fP
+Set an alternative path to the mixer device file.
+The default is \fI/dev/mixer\fP.
 .SH EXIT STATUS
 .TP
 0
-Knobs were successfully list, read, or written.
+Knobs were successfully listed, read, or written.
 .TP
 1
 An error occurred.
+.TP
+2
+An invalid argument was specified.
 
 .SH AUTHOR
 This utility was written by Mike Gerow.
