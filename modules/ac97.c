@@ -250,7 +250,7 @@ static int ac97_mixer_read(uint32_t knob_id, uint32_t *val) {
 			break;
 
 		default:
-			return -1;
+			return -ENXIO;
 	}
 
 	return 0;
@@ -289,7 +289,7 @@ static int ac97_mixer_write(uint32_t knob_id, uint32_t val) {
 		}
 
 		default:
-			return -1;
+			return -ENXIO;
 	}
 
 	return 0;

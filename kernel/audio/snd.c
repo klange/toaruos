@@ -135,7 +135,7 @@ static int snd_dsp_ioctl(fs_node_t * node, unsigned long request, void * argp) {
 	} else if (request == 5) {
 		return dsp->samples;
 	}
-	return -1;
+	return -ENOTTY;
 }
 
 static void snd_dsp_open(fs_node_t * node, unsigned int flags) {
@@ -209,7 +209,7 @@ static int snd_mixer_ioctl(fs_node_t * node, unsigned long request, void * argp)
 			snd_knob_list_t * list = argp;
 			snd_device_t * device = snd_device_by_id(list->device);
 			if (!device) {
-				return -EINVAL;
+				return -ENODEV;
 			}
 			list->num = device->num_knobs;
 			for (uint32_t i = 0; i < device->num_knobs; i++) {
@@ -221,7 +221,7 @@ static int snd_mixer_ioctl(fs_node_t * node, unsigned long request, void * argp)
 			snd_knob_info_t * info = argp;
 			snd_device_t * device = snd_device_by_id(info->device);
 			if (!device) {
-				return -EINVAL;
+				return -ENODEV;
 			}
 			for (uint32_t i = 0; i < device->num_knobs; i++) {
 				if (device->knobs[i].id == info->id) {
@@ -235,7 +235,7 @@ static int snd_mixer_ioctl(fs_node_t * node, unsigned long request, void * argp)
 			snd_knob_value_t * value = argp;
 			snd_device_t * device = snd_device_by_id(value->device);
 			if (!device) {
-				return -EINVAL;
+				return -ENODEV;
 			}
 			return device->mixer_read(value->id, &value->val);
 		}
@@ -243,12 +243,12 @@ static int snd_mixer_ioctl(fs_node_t * node, unsigned long request, void * argp)
 			snd_knob_value_t * value = argp;
 			snd_device_t * device = snd_device_by_id(value->device);
 			if (!device) {
-				return -EINVAL;
+				return -ENODEV;
 			}
 			return device->mixer_write(value->id, value->val);
 		}
 		default: {
-			return -EINVAL;
+			return -ENOTTY;
 		}
 	}
 }
