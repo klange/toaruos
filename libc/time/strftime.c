@@ -55,7 +55,7 @@ size_t strftime(char *s, size_t max, const char *fmt, const struct tm *tm) {
 		if (*f == 'E') {
 			_alte = 1;
 			++f;
-		} else if (*f == '0') {
+		} else if (*f == 'O') {
 			_alto = 1;
 			++f;
 		}
