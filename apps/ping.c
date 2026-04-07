@@ -57,15 +57,45 @@ static void sig_break_loop(int sig) {
 	break_from_loop = 1;
 }
 
-int main(int argc, char * argv[]) {
-	if (argc < 2) return 1;
+static int usage(char * argv[]) {
+	fprintf(stderr, "usage: %s [-4|-6] [-c count] target\n", argv[0]);
+	return 1;
+}
 
+int main(int argc, char * argv[]) {
+	int count = 0;
+	int opt;
+
+	while ((opt = getopt(argc,argv,"46c:")) != -1) {
+		switch (opt) {
+			case '4':
+				/* accepted and ignored for compatibility */
+				break;
+			case '6':
+				/* rejected for compatibility */
+				fprintf(stderr, "%s: no ipv6 support\n", argv[0]);
+				return 1;
+			case 'c':
+				count = strtol(optarg,NULL,10);
+				if (count < 1) {
+					fprintf(stderr, "%s: count of '%s' rejected\n", argv[0], optarg);
+					return usage(argv);
+				}
+				break;
+			case '?':
+				return usage(argv);
+		}
+	}
+
+	if (optind == argc) return usage(argv);
+
+	char * target = argv[optind];
 	int pings_sent = 0;
 
-	struct hostent * host = gethostbyname(argv[1]);
+	struct hostent * host = gethostbyname(target);
 
 	if (!host) {
-		fprintf(stderr, "%s: not found\n", argv[1]);
+		fprintf(stderr, "%s: not found\n", target);
 		return 1;
 	}
 
@@ -74,7 +104,7 @@ int main(int argc, char * argv[]) {
 	int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP);
 
 	if (sock < 0) {
-		fprintf(stderr, "%s: No socket: %s\n", argv[1], strerror(errno));
+		fprintf(stderr, "%s: No socket: %s\n", target, strerror(errno));
 		return 1;
 	}
 
@@ -87,7 +117,7 @@ int main(int argc, char * argv[]) {
 	dest.sin_family = AF_INET;
 	memcpy(&dest.sin_addr.s_addr, host->h_addr, host->h_length);
 
-	printf("PING %s (%s) %d data bytes\n", argv[1], addr, BYTES_TO_SEND - 8);
+	printf("PING %s (%s) %d data bytes\n", target, addr, BYTES_TO_SEND - 8);
 
 	struct ICMP_Header * ping = malloc(BYTES_TO_SEND);
 	ping->type = 8; /* request */
@@ -178,12 +208,14 @@ int main(int argc, char * argv[]) {
 			}
 		}
 
+		if (count && pings_sent == count) break_from_loop = 1;
+
 		if (!break_from_loop) {
 			sleep(1);
 		}
 	}
 
-	printf("--- %s statistics ---\n", argv[1]);
+	printf("--- %s statistics ---\n", target);
 	printf("%d packets transmitted, %d received, %d%% packet loss\n",
 		pings_sent, responses_received, 100*(pings_sent-responses_received)/pings_sent);
 

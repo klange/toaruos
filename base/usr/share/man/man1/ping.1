@@ -4,12 +4,27 @@
 \fBping\fP \- issue ICMP echo requests
 
 .SH SYNOPSIS
-\fBping\fP \fIhost\fP
+\fBping\fP [\fB\-4\fP|\fB\-6\fP] \fIhost\fP
 
 .SH DESCRIPTION
 Issue a series of ICMP echo requests to a remote host, waiting for and summarizing replies.
-.PP
-As of writing, this implementation does not accept any options. It will issue echo
-requests (pings) repeatedly until interrupted by \fBSIGINT\fP, and will then print a summary.
-.PP
-Options may be added in the future.
+
+.SS Options
+
+.TP
+.B \-4
+Use IPv4 only.
+This option actually does nothing but is provided for compatibility.
+
+.TP
+.B \-6
+Use IPv6 only.
+This option will always produce an error, as IPv6 support is not available.
+
+.TP
+.B \-c \fIcount\fP
+Send (and wait for) \fIcount\fP pings before exiting.
+The default is to send pings indefinitely.
+
+.SH SEE ALSO
+.BR ifconfig (1)
