@@ -1264,8 +1264,12 @@ int mmu_copy_on_write(uintptr_t address) {
  * Thoroughly examines page table entries to determine if a user process
  * can access the memory at @p addr through @p size bytes.
  *
- * @p flags can be set to @c MMU_PTR_NULL if @c NULL address should trigger
- * a failure, @c MMU_PTR_WRITE if the process must have write access.
+ * @p flags Has two current options:
+ *   @c MMU_PTR_NULL means @p addr can be NULL if @p size is 0.
+ *   @c MMU_PTR_WRITE means the address range must be writable
+ *                    (meaning you should use this whenever userspace
+ *                     wants to READ something, because the kernel will
+ *                     write into the space).
  *
  * @param addr Address to start checking from.
  * @param size Size after @p addr to check.
@@ -1273,7 +1277,10 @@ int mmu_copy_on_write(uintptr_t address) {
  * @returns 0 on failure, 1 if process has access.
  */
 int mmu_validate_user_pointer(const void * addr, size_t size, int flags) {
-	if (addr == NULL && !(flags & MMU_PTR_NULL)) return 0;
+	if (addr == NULL) {
+		if (!(flags & MMU_PTR_NULL) || size != 0) return 0;
+		return 1;
+	}
 	if (size >     0x800000000000) return 0;
 
 	uintptr_t base = (uintptr_t)addr;

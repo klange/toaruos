@@ -824,7 +824,10 @@ int mmu_copy_on_write(uintptr_t address) {
 
 int mmu_validate_user_pointer(const void * addr, size_t size, int flags) {
 	//printf("mmu_validate_user_pointer(%#zx, %lu, %u);\n", (uintptr_t)addr, size, flags);
-	if (addr == NULL && !(flags & MMU_PTR_NULL)) return 0;
+	if (addr == NULL) {
+		if (!(flags & MMU_PTR_NULL) || size != 0) return 0;
+		return 1;
+	}
 	if (size >     0x800000000000) return 0;
 
 	uintptr_t base = (uintptr_t)addr;

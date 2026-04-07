@@ -218,23 +218,13 @@ long sys_exit(long exitcode) {
 }
 
 long sys_write(int fd, char * ptr, unsigned long len) {
-#if 0
-	/* Enable this to force stderr output to always be printed by the kernel. */
-	if (fd == 2) {
-		printf_output(len,ptr);
-	}
-#endif
 	if (FD_CHECK(fd)) {
 		PTRCHECK(ptr,len,MMU_PTR_NULL);
 		fs_node_t * node = FD_ENTRY(fd);
 		if (!(FD_MODE(fd) & 2)) return -EBADF;
-		if (len && !ptr) {
-			return -EFAULT;
-		}
+		if (!len) return 0;
 		int64_t out = write_fs(node, FD_OFFSET(fd), len, (uint8_t*)ptr);
-		if (out > 0) {
-			FD_OFFSET(fd) += out;
-		}
+		if (out > 0) FD_OFFSET(fd) += out;
 		return out;
 	}
 	return -EBADF;
@@ -246,7 +236,7 @@ long sys_pwrite(int fd, void * ptr, size_t count, off_t offset) {
 		PTRCHECK(ptr,count,MMU_PTR_NULL);
 		fs_node_t * node = FD_ENTRY(fd);
 		if (!(FD_MODE(fd) & 2)) return -EBADF;
-		if (count && !ptr) return -EFAULT;
+		if (!count) return 0;
 		return write_fs(node, offset, count, (uint8_t*)ptr);
 	}
 	return -EBADF;
@@ -258,7 +248,7 @@ long sys_pread(int fd, void * ptr, size_t count, off_t offset) {
 		PTRCHECK(ptr,count,MMU_PTR_NULL|MMU_PTR_WRITE);
 		fs_node_t * node = FD_ENTRY(fd);
 		if (!(FD_MODE(fd) & 01)) return -EBADF;
-		if (count && !ptr) return -EFAULT;
+		if (!count) return 0;
 		return read_fs(node, offset, count, (uint8_t *)ptr);
 	}
 	return -EBADF;
@@ -481,14 +471,11 @@ long sys_seek(int fd, long offset, long whence) {
 long sys_read(int fd, char * ptr, unsigned long len) {
 	if (FD_CHECK(fd)) {
 		PTRCHECK(ptr,len,MMU_PTR_NULL|MMU_PTR_WRITE);
-		if (len && !ptr) {
-			return -EFAULT;
-		}
-
 		fs_node_t * node = FD_ENTRY(fd);
 		if (!(FD_MODE(fd) & 01)) return -EBADF;
-		uint64_t out = read_fs(node, FD_OFFSET(fd), len, (uint8_t *)ptr);
-		FD_OFFSET(fd) += out;
+		if (!len) return 0;
+		int64_t out = read_fs(node, FD_OFFSET(fd), len, (uint8_t *)ptr);
+		if (out > 0) FD_OFFSET(fd) += out;
 		return out;
 	}
 	return -EBADF;
@@ -504,8 +491,7 @@ long sys_ioctl(int fd, unsigned long request, void * argp) {
 
 long sys_readdir(int fd, long index, struct dirent * entry) {
 	if (FD_CHECK(fd)) {
-		PTR_VALIDATE(entry);
-		if (!entry) return -EFAULT;
+		PTRCHECK(entry,sizeof(struct dirent),MMU_PTR_WRITE);
 		fs_node_t * node = FD_ENTRY(fd);
 		if (!(FD_MODE(fd) & 01)) return -EBADF;
 		struct dirent * kentry = readdir_fs(node, (uint64_t)index);
@@ -671,16 +657,15 @@ long sys_ftruncate(int fd, off_t size) {
 }
 
 long sys_gettimeofday(struct timeval * tv, void * tz) {
-	PTR_VALIDATE(tv);
+	PTRCHECK(tv,sizeof(struct timeval),MMU_PTR_WRITE);
 	PTR_VALIDATE(tz);
-	if (!tv) return -EFAULT;
 	return gettimeofday(tv, tz);
 }
 
 long sys_settimeofday(struct timeval * tv, void * tz) {
 	extern int settimeofday(struct timeval * t, void *z);
 	if (this_core->current_process->user != USER_ROOT_UID) return -EPERM;
-	PTR_VALIDATE(tv);
+	PTRCHECK(tv,sizeof(struct timeval),0);
 	PTR_VALIDATE(tz);
 	return settimeofday(tv,tz);
 }
@@ -725,10 +710,8 @@ long sys_getgroups(int size, gid_t list[]) {
 	} else if (size < this_core->current_process->supplementary_group_count) {
 		return -EINVAL;
 	} else {
-		PTR_VALIDATE(list);
-		if (!list) return -EFAULT;
+		PTRCHECK(list,sizeof(gid_t)*size,MMU_PTR_WRITE);
 		for (int i = 0; i < this_core->current_process->supplementary_group_count; ++i) {
-			PTR_VALIDATE(list + i);
 			list[i] = this_core->current_process->supplementary_group_list[i];
 		}
 		return this_core->current_process->supplementary_group_count;
@@ -751,11 +734,8 @@ long sys_setgroups(int size, const gid_t list[]) {
 
 	this_core->current_process->supplementary_group_list = malloc(sizeof(gid_t) * size);
 
-	PTR_VALIDATE(list);
-	if (!list) return -EFAULT;
-
+	PTRCHECK(list,sizeof(gid_t)*size,0); /* We already checked for 0 size */
 	for (int i = 0; i < size; ++i) {
-		PTR_VALIDATE(list + i);
 		this_core->current_process->supplementary_group_list[i] = list[i];
 	}
 
@@ -840,7 +820,7 @@ long sys_getppid(void) {
 }
 
 long sys_uname(struct utsname * name) {
-	PTRCHECK(name, sizeof(struct utsname), MMU_PTR_NULL|MMU_PTR_WRITE);
+	PTRCHECK(name, sizeof(struct utsname), MMU_PTR_WRITE);
 	char version_number[256];
 	snprintf(version_number, 255, __kernel_version_format,
 			__kernel_version_major,
@@ -886,7 +866,7 @@ long sys_chdir(char * newdir) {
 }
 
 long sys_getcwd(char * buf, size_t size) {
-	PTRCHECK(buf,size,MMU_PTR_NULL|MMU_PTR_WRITE);
+	PTRCHECK(buf,size,MMU_PTR_WRITE); /* Never allow this to be NULL in the syscall layer */
 	size_t len = strlen(this_core->current_process->wd_name) + 1;
 	if (size < len) return -ERANGE;
 	memcpy(buf, this_core->current_process->wd_name, len);
@@ -933,12 +913,12 @@ long sys_fcntl(int fd, int cmd, long arg) {
 
 long sys_sethostname(char * new_hostname, size_t len) {
 	if (this_core->current_process->user == USER_ROOT_UID) {
-		PTRCHECK(new_hostname, len, MMU_PTR_NULL);
+		PTRCHECK(new_hostname, len, 0); /* Don't accept NULL as an option, regardless */
 		/* new_hostname does not need to be nul-terminated with 'len';
 		 * account for adding a trailing nul byte */
 		if (len > 255) return -ENAMETOOLONG;
+		memcpy(hostname, new_hostname, len);
 		hostname_len = len + 1; /* hostname_len includes the nul */
-		memcpy(hostname, new_hostname, hostname_len);
 		hostname[len] = '\0';
 		return 0;
 	} else {
@@ -947,7 +927,7 @@ long sys_sethostname(char * new_hostname, size_t len) {
 }
 
 long sys_gethostname(char * buffer, size_t len) {
-	PTRCHECK(buffer, len, MMU_PTR_NULL|MMU_PTR_WRITE);
+	PTRCHECK(buffer, len, MMU_PTR_WRITE); /* Don't allow NULL in this syscall interface, regardless */
 	if (len < hostname_len) return -ENAMETOOLONG;
 	/* hostname is nul-terminated; hostname_len includes the nul */
 	memcpy(buffer, hostname, hostname_len);
@@ -1049,7 +1029,7 @@ long sys_clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 }
 
 long sys_waitpid(int pid, int * status, int options) {
-	if (status && !PTR_INRANGE(status)) return -EINVAL;
+	if (status) PTRCHECK(status,sizeof(int),MMU_PTR_WRITE);
 	return waitpid(pid, status, options);
 }
 
@@ -1080,9 +1060,7 @@ long sys_sleep(unsigned long seconds, unsigned long subseconds) {
 }
 
 long sys_pipe(int pipes[2]) {
-	if (!pipes || !PTR_INRANGE(pipes)) {
-		return -EFAULT;
-	}
+	PTRCHECK(pipes, sizeof(int) * 2, MMU_PTR_WRITE);
 
 	fs_node_t * outpipes[2];
 
@@ -1261,10 +1239,9 @@ long sys_shm_release(char * path) {
 
 long sys_openpty(int * master, int * slave, char * name, void * _ign0, void * size) {
 	/* We require a place to put these when we are done. */
-	if (!master || !slave) return -EINVAL;
-	if (master && !PTR_INRANGE(master)) return -EINVAL;
-	if (slave && !PTR_INRANGE(slave)) return -EINVAL;
-	if (size && !PTR_INRANGE(size)) return -EINVAL;
+	PTRCHECK(master,sizeof(int),MMU_PTR_WRITE);
+	PTRCHECK(slave,sizeof(int),MMU_PTR_WRITE);
+	if (size) PTRCHECK(size,sizeof(struct winsize),0);
 
 	/* Create a new pseudo terminal */
 	fs_node_t * fs_master;
