@@ -136,7 +136,7 @@ _end_opt:
 		return usage(argv);
 	}
 
-	int signum = SIGKILL;
+	int signum = SIGTERM;
 	if (signal_name) {
 		/* Convert name to upper case */
 		for (char * s = signal_name; *s; ++s) {

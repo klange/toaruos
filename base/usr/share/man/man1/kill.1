@@ -11,7 +11,7 @@
 \fBkill\fP \fB\-l\fP [\fIexit_status\fP]
 
 .SH DESCRIPTION
-Sends \fBSIGKILL\fP, or the specified \fIsignal\fP, to each specified \fIpid\fP.
+Sends \fBSIGTERM\fP, or the specified \fIsignal\fP, to each specified \fIpid\fP.
 Signals can be specified either with the \fB\-s\fP flag, or by just prefixing them
 with a \-.
 
@@ -37,9 +37,6 @@ or signals were listed successuflly.
 1
 At least one \fIpid\fP failed to be signalled, or no match for an \fIexit_status\fP
 was found, or some other error occurred.
-
-.SH BUGS
-This implementation sends \fBSIGKILL\fP but it should probably send \fBSIGTERM\fP.
 
 .SH SEE ALSO
 .BR kill (2),
