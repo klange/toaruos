@@ -46,6 +46,10 @@ def file_filter(tarinfo):
         if tarinfo.name.endswith('.so') or tarinfo.name.endswith('.o') or tarinfo.name.endswith('.sys'):
             return None
 
+    # Skip the header directory that is already installed to /usr/include
+    if tarinfo.name.startswith('src/kuroko/kuroko'):
+        return None
+
     return tarinfo
 
 def symlink(file,target):
@@ -55,23 +59,26 @@ def symlink(file,target):
     return ti
 
 with tarfile.open('ramdisk.igz','w:gz') as ramdisk:
+    # Core ramdisk
     ramdisk.add('base',arcname='/',filter=file_filter)
 
-    ramdisk.add('.',arcname='/src',filter=file_filter,recursive=False) # Add a src directory
-    ramdisk.add('apps',arcname='/src/apps',filter=file_filter)
-    ramdisk.add('kernel',arcname='/src/kernel',filter=file_filter)
-    ramdisk.add('linker',arcname='/src/linker',filter=file_filter)
-    ramdisk.add('lib',arcname='/src/lib',filter=file_filter)
-    ramdisk.add('libc',arcname='/src/libc',filter=file_filter)
-    ramdisk.add('boot',arcname='/src/boot',filter=file_filter)
-    ramdisk.add('modules',arcname='/src/modules',filter=file_filter)
-    ramdisk.add('tests',arcname='/src/tests',filter=file_filter)
-    if os.path.exists('tags'):
-        ramdisk.add('tags',arcname='/src/tags',filter=file_filter)
-    ramdisk.add('util/auto-dep.krk',arcname='/bin/auto-dep.krk',filter=file_filter)
-    ramdisk.add('kuroko/src/kuroko',arcname='/usr/include/kuroko',filter=file_filter)
+    # Symlinks that are part of normal system distribution
     ramdisk.addfile(symlink('bin/sh','esh'))
     ramdisk.addfile(symlink('bin/mandelbrot','julia'))
     ramdisk.addfile(symlink('bin/fgrep','grep'))
 
+    # Build tools; you'll probably want these.
+    ramdisk.add('util/auto-dep.krk',arcname='/bin/auto-dep.krk',filter=file_filter)
+    ramdisk.add('kuroko/src/kuroko',arcname='/usr/include/kuroko',filter=file_filter)
 
+    if os.getenv('NO_SRC_DIR') != '1':
+        # Everything else is the /src directory, which is optional.
+        for d in ('/src','/src/bim'):
+            ramdisk.add('.',arcname=d,filter=file_filter,recursive=False)
+
+        for s in ('apps','kernel','linker','lib','libc','boot','modules','tests','tags','bim/bim.c','bim/bim.h'):
+            if os.path.exists(s): # mostly to skip 'tags' if it's not been built
+                ramdisk.add(s,arcname=f'/src/{s}',filter=file_filter)
+
+        # Kuroko sources are around ~1M, so disable them if that's too big for you.
+        ramdisk.add('kuroko/src','/src/kuroko',filter=file_filter)
