@@ -252,6 +252,26 @@ void tt_path_paint(gfx_context_t * ctx, const struct TT_Shape * shape, uint32_t 
 	free(crosses);
 }
 
+int tt_path_contains(const struct TT_Shape * shape, float x, float y) {
+	int hit = 0;
+	size_t size = shape->edgeCount;
+	struct TT_Intersection * crosses = malloc(sizeof(struct TT_Intersection) * size);
+	size_t cnt;
+	if ((cnt = prune_edges(size, y, shape->edges, crosses))) {
+		sort_intersections(cnt, crosses);
+		int wind = 0;
+		size_t j = 0;
+		while (j < cnt && x > crosses[j].x) {
+			wind += crosses[j].affect;
+			j++;
+		}
+		hit = (wind != 0);
+	}
+
+	free(crosses);
+	return hit;
+}
+
 struct TT_Contour * tt_contour_line_to(struct TT_Contour * shape, float x, float y) {
 	if (shape->flags & 1) {
 		shape->edges[shape->edgeCount].end.x = x;

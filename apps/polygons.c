@@ -117,13 +117,14 @@ int main (int argc, char ** argv) {
 								draw();
 								finish_draw();
 							} else if (shape) {
+								int inside  = finalizedShape ? tt_path_contains(finalizedShape, x, y) : 0;
 								draw();
 								draw_line(ctx,
 									last_x,
 									x,
 									last_y,
 									y,
-									rgb(0,200,0));
+									inside ? rgb(200,0,0) : rgb(0,200,0));
 								finish_draw();
 							}
 						}
