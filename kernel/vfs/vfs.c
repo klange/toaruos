@@ -641,7 +641,7 @@ int symlink_fs(char * target, char * name) {
 	if (parent->symlink) {
 		ret = parent->symlink(parent, target, f_path);
 	} else {
-		ret = -EINVAL;
+		ret = -EPERM;
 	}
 
 	free(path);
@@ -656,7 +656,7 @@ ssize_t readlink_fs(fs_node_t *node, char * buf, size_t size) {
 	if (node->readlink) {
 		return node->readlink(node, buf, size);
 	} else {
-		return -EINVAL;
+		return -EPERM;
 	}
 }
 
