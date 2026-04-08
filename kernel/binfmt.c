@@ -112,8 +112,9 @@ static int matches(unsigned char * a, unsigned char * b, unsigned int len) {
  * @returns Either never or -ENOEXEC on failure.
  */
 int exec(const char * path, int argc, char *const argv[], char *const env[], int interp_depth) {
-	fs_node_t * file = kopen(path, 0);
-	if (!file) return -ENOENT;
+	int error = 0;
+	fs_node_t * file = kopen_error(path, 0, &error);
+	if (!file) return -error;
 	if (!has_permission(file, 01)) return -EACCES;
 
 	unsigned char head[4];

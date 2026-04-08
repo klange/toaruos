@@ -59,10 +59,10 @@ int elf_module(char ** args) {
 	int error = 0;
 	Elf64_Header header;
 
-	fs_node_t * file = kopen(args[0],0);
+	fs_node_t * file = kopen_error(args[0],0,&error);
 
 	if (!file) {
-		return -ENOENT;
+		return -error;
 	}
 
 	read_fs(file, 0, sizeof(Elf64_Header), (uint8_t*)&header);

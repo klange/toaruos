@@ -256,13 +256,6 @@ long sys_pread(int fd, void * ptr, size_t count, off_t offset) {
 
 static long stat_node(fs_node_t * fn, uintptr_t st) {
 	struct stat * f = (struct stat *)st;
-
-	if (!fn) {
-		/* XXX: Does this need to zero the stat struct when returning -ENOENT? */
-		memset(f, 0x00, sizeof(struct stat));
-		return -ENOENT;
-	}
-
 	f->st_dev   = (uint16_t)(((uint64_t)fn->device & 0xFFFF0) >> 8);
 	f->st_ino   = fn->inode;
 
@@ -313,11 +306,14 @@ long sys_statf(char * file, uintptr_t st) {
 
 	if (!file || !st) return -EFAULT;
 
-	fs_node_t * fn = kopen(file, 0);
-	result = stat_node(fn, st);
-	if (fn) {
-		close_fs(fn);
+	int error = 0;
+	fs_node_t * fn = kopen_error(file, 0, &error);
+	if (!fn) {
+		memset(st, 0, sizeof(struct stat));
+		return -error;
 	}
+	result = stat_node(fn, st);
+	close_fs(fn);
 	return result;
 }
 
@@ -332,10 +328,9 @@ long sys_readlink(const char * file, char * ptr, long len) {
 	PTR_VALIDATE(file);
 	PTRCHECK(ptr,len,0);
 	if (!file) return -EFAULT;
-	fs_node_t * node = kopen((char *) file, O_PATH | O_NOFOLLOW);
-	if (!node) {
-		return -ENOENT;
-	}
+	int error = 0;
+	fs_node_t * node = kopen_error((char *) file, O_PATH | O_NOFOLLOW, &error);
+	if (!node) return -error;
 	long rv = readlink_fs(node, ptr, len);
 	close_fs(node);
 	return rv;
@@ -345,18 +340,22 @@ long sys_lstat(char * file, uintptr_t st) {
 	PTR_VALIDATE(file);
 	PTR_VALIDATE(st);
 	if (!file || !st) return -EFAULT;
-	fs_node_t * fn = kopen(file, O_PATH | O_NOFOLLOW);
-	long result = stat_node(fn, st);
-	if (fn) {
-		close_fs(fn);
+	int error = 0;
+	fs_node_t * fn = kopen_error(file, O_PATH | O_NOFOLLOW, &error);
+	if (!fn) {
+		memset(st, 0, sizeof(struct stat));
+		return -error;
 	}
+	long result = stat_node(fn, st);
+	close_fs(fn);
 	return result;
 }
 
 long sys_open(const char * file, long flags, long mode) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
-	fs_node_t * node = kopen((char *)file, flags);
+	int error = 0;
+	fs_node_t * node = kopen_error((char *)file, flags, &error);
 
 	int access_bits = 0;
 
@@ -378,7 +377,7 @@ long sys_open(const char * file, long flags, long mode) {
 		 * have to go and immediately try to open it.
 		 */
 		if (!result) {
-			node = kopen((char *)file, flags);
+			node = kopen_error((char *)file, flags, &error);
 		} else {
 			return result;
 		}
@@ -422,7 +421,7 @@ long sys_open(const char * file, long flags, long mode) {
 	}
 
 	if (!node) {
-		return -ENOENT;
+		return -error;
 	}
 	if (node && (flags & O_CREAT) && (node->flags & FS_DIRECTORY)) {
 		close_fs(node);
@@ -516,8 +515,9 @@ long sys_access(const char * file, long flags) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
 	if (flags < 0 || flags > 7) return -EINVAL;
-	fs_node_t * node = kopen((char *)file, 0);
-	if (!node) return -ENOENT;
+	int error = 0;
+	fs_node_t * node = kopen_error((char *)file, 0, &error);
+	if (!node) return -error;
 	flags |= 010;
 	int ret = flags ? (!has_permission(node, flags) ? -EACCES : 0) : 0;
 	close_fs(node);
@@ -528,8 +528,9 @@ long sys_eaccess(const char * file, long flags) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
 	if (flags < 0 || flags > 7) return -EINVAL;
-	fs_node_t * node = kopen((char *)file, 0);
-	if (!node) return -ENOENT;
+	int error = 0;
+	fs_node_t * node = kopen_error((char *)file, 0, &error);
+	if (!node) return -error;
 	int ret = flags ? (!has_permission(node, flags) ? -EACCES : 0) : 0;
 	close_fs(node);
 	return ret;
@@ -538,7 +539,8 @@ long sys_eaccess(const char * file, long flags) {
 long sys_chmod(char * file, long mode) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
-	fs_node_t * fn = kopen(file, 0);
+	int error = 0;
+	fs_node_t * fn = kopen_error(file, 0, &error);
 	if (fn) {
 		/* Can group members change bits? I think it's only owners. */
 		if (this_core->current_process->user != 0 && this_core->current_process->user != fn->uid) {
@@ -549,7 +551,7 @@ long sys_chmod(char * file, long mode) {
 		close_fs(fn);
 		return result;
 	} else {
-		return -ENOENT;
+		return -error;
 	}
 }
 
@@ -580,7 +582,8 @@ static int current_group_matches(gid_t gid) {
 long sys_chown(char * file, uid_t uid, uid_t gid) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
-	fs_node_t * fn = kopen(file, 0);
+	int error = 0;
+	fs_node_t * fn = kopen_error(file, 0, &error);
 	if (fn) {
 
 		/* Only a privileged user can change the owner of a file. */
@@ -610,7 +613,7 @@ long sys_chown(char * file, uid_t uid, uid_t gid) {
 		close_fs(fn);
 		return result;
 	} else {
-		return -ENOENT;
+		return -error;
 	}
 
 _access:
@@ -640,9 +643,9 @@ long sys_truncate(char * file, off_t size) {
 	if (!file) return -EFAULT;
 	if (size < 0) return -EINVAL;
 
-	fs_node_t * fn = kopen(file, 0);
-
-	if (!fn) return -ENOENT;
+	int error = 0;
+	fs_node_t * fn = kopen_error(file, 0, &error);
+	if (!fn) return -error;
 
 	/* Need write permission */
 	if (!has_permission(fn, 04)) {
@@ -857,7 +860,8 @@ long sys_chdir(char * newdir) {
 	PTR_VALIDATE(newdir);
 	if (!newdir) return -EFAULT;
 	char * path = canonicalize_path(this_core->current_process->wd_name, newdir);
-	fs_node_t * chd = kopen(path, 0);
+	int error = 0;
+	fs_node_t * chd = kopen_error(path, 0, &error);
 	if (chd) {
 		if ((chd->flags & FS_DIRECTORY) == 0) {
 			close_fs(chd);
@@ -873,7 +877,7 @@ long sys_chdir(char * newdir) {
 		memcpy(this_core->current_process->wd_name, path, strlen(path) + 1);
 		return 0;
 	} else {
-		return -ENOENT;
+		return -error;
 	}
 }
 

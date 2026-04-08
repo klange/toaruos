@@ -116,6 +116,7 @@ fs_node_t *finddir_fs(fs_node_t *node, char *name);
 int mkdir_fs(char *name, mode_t permission);
 int create_file_fs(char *name, mode_t permission);
 fs_node_t *kopen(const char *filename, unsigned int flags);
+fs_node_t *kopen_error(const char *filename, unsigned int flags, int *error);
 char *canonicalize_path(const char *cwd, const char *input);
 fs_node_t *clone_fs(fs_node_t * source);
 int ioctl_fs(fs_node_t *node, unsigned long request, void * argp);

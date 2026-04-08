@@ -363,10 +363,10 @@ int ioctl_fs(fs_node_t *node, unsigned long request, void * argp) {
 	}
 }
 
-fs_node_t * file_get_parent(const char * path) {
+fs_node_t * file_get_parent(const char * path, int *error) {
 	char * parent_path = malloc(strlen(path) + 5);
 	snprintf(parent_path, strlen(path) + 4, "%s/..", path);
-	fs_node_t * parent  = kopen(parent_path, 0);
+	fs_node_t * parent  = kopen_error(parent_path, 0, error);
 	free(parent_path);
 	return parent;
 }
@@ -393,11 +393,12 @@ static const char * fs_basename(const char * path) {
 }
 
 int rename_file_fs(const char * src, const char * dest) {
+	int error = 0;
 	if (!*src || !*dest) return -ENOENT;
-	fs_node_t * src_parent = file_get_parent(src);
-	if (!src_parent) return -ENOENT;
-	fs_node_t * dest_parent = file_get_parent(dest);
-	if (!dest_parent) { close_fs(src_parent); return -ENOENT; }
+	fs_node_t * src_parent = file_get_parent(src, &error);
+	if (!src_parent) return -error;
+	fs_node_t * dest_parent = file_get_parent(dest, &error);
+	if (!dest_parent) { close_fs(src_parent); return -error; }
 
 	int out = 0;
 	if (!src_parent->mount) { out = -EROFS; goto _nope; }
@@ -453,13 +454,14 @@ int create_file_fs(char *name, mode_t permission) {
 
 	debug_print(NOTICE, "creating file %s within %s (hope these strings are good)", f_path, parent_path);
 
-	parent = kopen(parent_path, 0);
+	int error = 0;
+	parent = kopen_error(parent_path, 0, &error);
 	free(parent_path);
 
 	if (!parent) {
 		debug_print(WARNING, "failed to open parent");
 		free(path);
-		return -ENOENT;
+		return -error;
 	}
 
 	/* Need both exec and write on the parent to create a new entry */
@@ -505,12 +507,13 @@ int unlink_fs(char * name) {
 
 	debug_print(WARNING, "unlinking file %s within %s (hope these strings are good)", f_path, parent_path);
 
-	parent = kopen(parent_path, 0);
+	int error = 0;
+	parent = kopen_error(parent_path, 0, &error);
 	free(parent_path);
 
 	if (!parent) {
 		free(path);
-		return -ENOENT;
+		return -error;
 	}
 
 	if (!has_permission(parent, 02) || !has_permission(parent, 01)) {
@@ -558,12 +561,13 @@ int mkdir_fs(char *name, mode_t permission) {
 
 	debug_print(WARNING, "creating directory %s within %s (hope these strings are good)", f_path, parent_path);
 
-	parent = kopen(parent_path, 0);
+	int error = 0;
+	parent = kopen_error(parent_path, 0, &error);
 	free(parent_path);
 
 	if (!parent) {
 		free(path);
-		return -ENOENT;
+		return -error;
 	}
 
 	if (!f_path || !strlen(f_path)) {
@@ -617,12 +621,13 @@ int symlink_fs(char * target, char * name) {
 
 	debug_print(NOTICE, "creating symlink %s within %s", f_path, parent_path);
 
-	parent = kopen(parent_path, 0);
+	int error = 0;
+	parent = kopen_error(parent_path, 0, &error);
 	free(parent_path);
 
 	if (!parent) {
 		free(path);
-		return -ENOENT;
+		return -error;
 	}
 
 	/* Need both exec and write on the parent to create a new entry */
@@ -1025,9 +1030,10 @@ fs_node_t *get_mount_point(char * path, unsigned int path_depth, char **outpath,
 
 
 
-fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_depth, char *relative_to) {
+fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_depth, char *relative_to, int * error) {
 	/* Simple sanity checks that we actually have a file system */
 	if (!filename) {
+		*error = ENOENT;
 		return NULL;
 	}
 
@@ -1082,7 +1088,10 @@ fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_de
 	debug_print(INFO, "path_offset: %s", path_offset);
 	debug_print(INFO, "depth: %d", depth);
 
-	if (!node_ptr) return NULL;
+	if (!node_ptr) {
+		*error = ENOENT;
+		return NULL;
+	}
 
 	do {
 		/* 
@@ -1097,37 +1106,39 @@ fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_de
 			 */
 			debug_print(NOTICE, "resolving symlink at %s", node_ptr->name);
 			if ((flags & O_NOFOLLOW) && depth == path_depth - 1) {
-				/* TODO(gerow): should probably be setting errno from this */
 				debug_print(NOTICE, "Refusing to follow final entry for open with O_NOFOLLOW for %s.", node_ptr->name);
 				free((void *)path);
 				free(node_ptr);
+				*error = ELOOP;
 				return NULL;
 			}
 			if (symlink_depth >= MAX_SYMLINK_DEPTH) {
-				/* TODO(gerow): should probably be setting errno from this */
 				debug_print(WARNING, "Reached max symlink depth on %s.", node_ptr->name);
 				free((void *)path);
 				free(node_ptr);
+				*error = ELOOP;
 				return NULL;
 			}
 			/* 
 			 * This may actually be big enough that we wouldn't want to allocate it on
 			 * the stack, especially considering this function is called recursively
 			 */
-			char symlink_buf[MAX_SYMLINK_SIZE];
-			int len = readlink_fs(node_ptr, symlink_buf, sizeof(symlink_buf));
+			char *symlink_buf = calloc(MAX_SYMLINK_SIZE, 1);
+			int len = readlink_fs(node_ptr, symlink_buf, MAX_SYMLINK_SIZE);
 			if (len < 0) {
-				/* TODO(gerow): should probably be setting errno from this */
 				debug_print(WARNING, "Got error %d from symlink for %s.", len, node_ptr->name);
+				free(symlink_buf);
 				free((void *)path);
 				free(node_ptr);
+				*error = -len; /* assume readlink gave us a good error */
 				return NULL;
 			}
 			if (symlink_buf[len] != '\0') {
-				/* TODO(gerow): should probably be setting errno from this */
 				debug_print(WARNING, "readlink for %s doesn't end in a null pointer. That's weird...", node_ptr->name);
+				free(symlink_buf);
 				free((void *)path);
 				free(node_ptr);
+				*error = ENOENT;
 				return NULL;
 			}
 			fs_node_t * old_node_ptr = node_ptr;
@@ -1141,7 +1152,9 @@ fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_de
 				}
 				*ptr = PATH_SEPARATOR;
 			}
-			node_ptr = kopen_recur(symlink_buf, 0, symlink_depth + 1, relpath);
+			symlink_depth += 1;
+			node_ptr = kopen_recur(symlink_buf, 0, symlink_depth, relpath, error);
+			free(symlink_buf);
 			free(relpath);
 			free(old_node_ptr);
 			if (!node_ptr) {
@@ -1164,10 +1177,7 @@ fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_de
 		}
 		/* We are still searching... */
 		if (!has_permission(node_ptr, 01)) {
-			/*
-			 * TODO: kopen_recur has no way to pass along a failure reason?
-			 *       This will appear as 'ENOENT' instead of 'EACCESS', should fix that...
-			 */
+			*error = EACCES;
 			free(node_ptr);
 			free((void*)path);
 			return NULL;
@@ -1180,6 +1190,7 @@ fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_de
 		if (!node_ptr) {
 			/* We failed to find the requested directory */
 			free((void *)path);
+			*error = ENOENT;
 			return NULL;
 		}
 		path_offset += strlen(path_offset) + 1;
@@ -1187,6 +1198,7 @@ fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_de
 	} while (depth < path_depth + 1);
 	debug_print(INFO, "- Not found.");
 	/* We failed to find the requested file, but our loop terminated. */
+	*error = ENOENT;
 	free((void *)path);
 	return NULL;
 }
@@ -1200,11 +1212,15 @@ fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_de
  *
  * @param filename Filename to open
  * @param flags    Flag bits for read/write mode.
+ * @param error    Where to place an error number, when returning NULL.
  * @returns A file system node element that the caller can free.
  */
-fs_node_t *kopen(const char *filename, unsigned int flags) {
-	debug_print(NOTICE, "kopen(%s)", filename);
-
-	return kopen_recur(filename, flags, 0, (char *)(this_core->current_process->wd_name));
+fs_node_t *kopen_error(const char *filename, unsigned int flags, int *error) {
+	*error = 0;
+	return kopen_recur(filename, flags, 0, (char *)(this_core->current_process->wd_name), error);
 }
 
+fs_node_t *kopen(const char *filename, unsigned int flags) {
+	int error = 0;
+	return kopen_error(filename, flags, &error);
+}
