@@ -4,7 +4,7 @@
 roff \- terrible, hacked\-together RUNOFF implementation
 
 .SH SYNOPSIS
-\fBroff\fP [\fB\-W\fP \fIwidth\fP] [\fB\-S\fP \fIsection\fP] [\fB\-E\fP] \fIfile\fP...
+\fBroff\fP [\fB\-W\fP \fIwidth\fP] [\fB\-S\fP \fIsection\fP] [\fB\-E\fP] [\fB\-P\fP] \fIfile\fP...
 .br
 \fBroff\fP \fB--help\fP
 
@@ -38,6 +38,11 @@ to search the short descriptions of manual pages.
 .B \-E
 Write error messages to the standard error, rather than the standard output.
 This option is enabled by default when \fB\-S\fP is used.
+
+.TP
+.B \-P
+Disable the output of escape sequences to modify the font.
+All output will be plain text.
 
 .SH BUGS
 Tons.

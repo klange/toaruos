@@ -28,6 +28,7 @@ static char * only_section = NULL;    /* Global option to print a specific secti
 static FILE * initial_output = NULL;  /* Where to write output normally; usually stdout, but might be /dev/null if we only want a single section. */
 static FILE * true_output = NULL;     /* Where to write output when we actually want to print. Probably stdout. */
 static FILE * error_output = NULL;    /* Where to write error messages; stdout in most cases when we want them visible in a pager. */
+static int plain_text = 0;            /* Whether to skip output of font escapes. */
 
 struct RoffContext {
 	char * topic_title;          /* Storage for the current page title, to be displayed in the footer. */
@@ -85,9 +86,12 @@ static void formatted_title_and_section(struct RoffContext * ctx, char * title, 
 		fprintf(ctx->output, "??");
 		return;
 	}
-	fprintf(ctx->output, "\033[4m");
-	fprintf(ctx->output, "%s", title);
-	fprintf(ctx->output, "\033[0m(%s)", section);
+	fprintf(ctx->output, "%s%s%s(%s)",
+		plain_text ? "" : "\033[4m",
+		title,
+		plain_text ? "" : "\033[0m",
+		section
+	);
 }
 
 /**
@@ -216,12 +220,13 @@ static int skip_escape(char *x, size_t *len) {
 static int flush_line(struct RoffContext * ctx, int for_vertical_padding) {
 	if (ctx->current_x != 0) {
 		ctx->current_x = 0;
-		fprintf(ctx->output, "\033[0m\n");
-		if (for_vertical_padding) fprintf(ctx->output, "\n");
+		fprintf(ctx->output, "%s\n%s",
+			plain_text ? "" : "\033[0m",
+			for_vertical_padding ? "\n" : "");
 		ctx->padded = for_vertical_padding;
 		return 1;
 	} else if (for_vertical_padding && !ctx->padded) {
-		fprintf(ctx->output, "\033[0m\n");
+		fprintf(ctx->output, "%s\n", plain_text ? "" : "\033[0m");
 		ctx->padded = 1;
 		return 1;
 	}
@@ -272,6 +277,7 @@ static void switch_font(struct RoffContext * ctx, unsigned int font) {
  * of a line.
  */
 static void activate_font(struct RoffContext * ctx) {
+	if (plain_text) return;
 	switch (ctx->current_font) {
 		case 'B': fprintf(ctx->output, "\033[0;1m"); break;
 		case 'R': fprintf(ctx->output, "\033[0m"); break;
@@ -435,7 +441,7 @@ static size_t process_word(struct RoffContext * ctx, char * c, int delimited) {
 	}
 	ctx->current_x += last_len;
 
-	if (!*c) fprintf(ctx->output, "\033[0m");
+	if (!*c && !plain_text) fprintf(ctx->output, "\033[0m");
 
 	if (ctx->printing_table || delimited) {
 		int something = 0;
@@ -804,7 +810,7 @@ static int do_file(char ** argv, int i) {
 		}
 
 _processed_line:
-		fprintf(ctx.output, "\033[0m");
+		if (!plain_text) fprintf(ctx.output, "\033[0m");
 
 		/* When in one of the raw whitespace modes, treat the end of a line
 		 * as a forced line break. */
@@ -876,6 +882,7 @@ static int usage(char * argv[]) {
 		" -E         " X_S "Print error messages about missing files or unknown directives" X_E "\n"
 		"            " X_S "to standard error, rather than standard output. With -S, this" X_E "\n"
 		"            " X_S "is the default behavior." X_E "\n"
+		" -P         " X_S "Do not output escape sequences to change fonts." X_E "\n"
 		" --help     " X_S "Show this help text." X_E "\n"
 		"\n", argv[0]);
 	return 1;
@@ -890,7 +897,7 @@ int main(int argc, char * argv[]) {
 	error_output = stdout; /* These are errors we want to show up in a pager */
 
 	int opt;
-	while ((opt = getopt(argc, argv, "?W:S:E-:")) != -1) {
+	while ((opt = getopt(argc, argv, "?W:S:EP-:")) != -1) {
 		switch (opt) {
 			case 'W':
 				w.ws_col = atoi(optarg);
@@ -902,6 +909,9 @@ int main(int argc, char * argv[]) {
 				break;
 			case 'E':
 				error_output = stderr;
+				break;
+			case 'P':
+				plain_text = 1;
 				break;
 			case '-':
 				if (!strcmp(optarg,"help")) {
