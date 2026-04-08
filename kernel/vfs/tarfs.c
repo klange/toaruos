@@ -107,6 +107,18 @@ static int ustar_from_offset(struct tarfs * self, unsigned int offset, struct us
 static fs_node_t * file_from_ustar(struct tarfs * self, struct ustar * file, unsigned int offset);
 
 #ifndef strncat
+/**
+ * @brief Copy up to n characters from src to the end of dest.
+ *
+ * Since tar filename and prefix fields are not necessarily NUL-terminated,
+ * we need to ensure we only copy up to the relevant field size from each
+ * of those fields. If you tried to naively treat those fields as regular
+ * strings, you could end up including the octal file mode after the
+ * filename, or arbtirary header extension data after the prefix, if a
+ * sufficient long file name is included in the archive. If you actually
+ * want to replace this with an sprintf-family function, be sure to use %.*s
+ * formatters for these fields so you can supply their lengths.
+ */
 static char * strncat(char *dest, const char *src, size_t n) {
 	char * end = dest;
 	while (*end != '\0') {
@@ -303,11 +315,16 @@ static fs_node_t * finddir_tarfs(fs_node_t *node, char *name) {
 	strncat(my_filename, file->prefix, 155);
 	strncat(my_filename, file->filename, 100);
 
+	/* This tarfs driver only supports file names up to 255 characters,
+	 * as it doesn't parse long name entries, so any attempt to
+	 * find a file that would be longer than that is going to fail. */
+	if (strlen(my_filename) + strlen(name) > 255) {
+		free(file);
+		return NULL;
+	}
+
 	/* Append name */
 	strncat(my_filename, name, strlen(name));
-	if (strlen(my_filename) > 255) {
-		printf("tarfs: critical: what?");
-	}
 
 	unsigned int offset = node->inode;
 	while (offset < self->length) {
