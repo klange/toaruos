@@ -1,0 +1,78 @@
+.TH NOHUP 1 "April, 2026"
+
+.SH NAME
+\fBnohup\fP \- invoke a utility while ignoring hangups
+
+.SH SYNOPSIS
+\fBnohup\fP [\-\-] \fIcmd\fP [\fIargs\fP]...
+
+.SH DESCRIPTION
+The \fBnohup\fP utility will ignore \fBSIGHUP\fP and redirect any of standard input, output, and error if they point to terminals.
+.PP
+\- If standard input is a terminal, it is redirected to \fB/dev/null\fP.
+.br
+\- If standard output is a terminal, it is appended to \fBnohup.out\fP, or, failing that, \fB$HOME/nohup.out\fP.
+.br
+\- If standard error is a terminal, it is redirected to standard output.
+.PP
+Once all redirections have been set up, the utility specified by \fIcmd\fP is invoked via
+.IR execvp (3).
+
+.SH ENVIRONMENT
+
+.TP
+.B HOME
+If \fBnohup\fP can not open \fBnohup.out\fP for writing, it will try \fB$HOME/nohup.out\fP.
+
+.TP
+.B PATH
+\fBnohup\fP will use
+.IR execvp (3)
+to invoke \fIcmd\fP, so \fBPATH\fP affects its behavior.
+
+.SH EXIT STATUS
+As per POSIX.1\-2024:
+
+.TP
+126
+We made it to
+.IR execvp (3)
+and got something other than \fBENOENT\fP.
+
+.TP
+127
+Some other failure, including reaching \fBexecvp\fP but getting \fBENOENT\fP.
+
+.SH STANDARDS
+This utility hopefully matches its description in POSIX.1\-2024.
+.PP
+The redirection of standard input is optional in the standard, and not all implementations do it.
+We do it mostly because
+.IR esh (1)
+is not currently capable of redirecting standard input on its own, and also because
+the GNU implementation does.
+.PP
+POSIX stresses that this utility invokes other utilities, not "commands": If you wish to run
+complex pipelines, you can invoke a shell with \fBnohup\fP:
+
+    nohup sh -c "some; complex; thing"
+
+.SH NOTES
+As signal dispositions are inherited by child processes, \fBSIGHUP\fP should remain ignored in
+descendents of \fBnohup\fP until something decides otherwise.
+.IR terminal (1)
+and other PTY\-creating applications will generally ensure their own children restore the default
+disposition of \fBSIGHUP\fP so that when \fItheir\fP terminal session ends, those children are
+still killed correctly.
+
+.SH SEE ALSO
+.BR terminal (1),
+.BR signal (3)
+
+.SH BUGS
+Diagnostic messages printed in the case of
+.IR execvp (3)
+failure may be written to \fBnohup.out\fP if standard error was directed to it.
+As the standard does not specify diagnostic messages for this, but allows them,
+it is not entirely clear whether this is acceptable or not.
+
