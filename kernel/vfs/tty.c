@@ -367,6 +367,8 @@ int pty_ioctl(pty_t * pty, unsigned long request, void * argp) {
 			if (pty->ct_proc && (!argp || (*(int*)argp != 1) || this_core->current_process->user != 0)) {
 				return -EPERM;
 			}
+			/* If there is already a control session and are forcing it to be something else, hangup the old one. */
+			if (pty->ct_proc) session_send_signal(pty->ct_proc, SIGHUP, 1);
 			pty->ct_proc = this_core->current_process->session;
 			return 0;
 		case TCSETS:
