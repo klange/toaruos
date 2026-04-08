@@ -416,6 +416,7 @@ void     close_pty_master(fs_node_t * node) {
 	ring_buffer_interrupt(pty->out);
 	ring_buffer_alert_waiters(pty->in);
 	ring_buffer_alert_waiters(pty->out);
+	if (pty->ct_proc) session_send_signal(pty->ct_proc, SIGHUP, 1);
 
 	spin_lock(pty->teardown);
 	pty->master_closed = 1;
