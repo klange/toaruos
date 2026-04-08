@@ -181,6 +181,13 @@ static void proc_status_func(fs_node_t *node) {
 	long shm_usage = mmu_count_shm(proc->thread.page_directory->directory) * 4;
 	long mem_permille = 1000 * (mem_usage + shm_usage) / mmu_total_memory();
 
+	sigset_t ignored = 0;
+	sigset_t caught = 0;
+	for (int i = 1; i < NUMSIGNALS; ++i) {
+		if (proc->signals[i].handler == 1) ignored |= (1UL << (i-1));
+		else if (proc->signals[i].handler) caught |= (1UL << (i-1));
+	}
+
 	procfs_printf(node,
 			"Name:\t%s\n"  /* name */
 			"State:\t%c\n"
@@ -207,6 +214,10 @@ static void proc_status_func(fs_node_t *node) {
 			"SysTime:\t %ld us\n"
 			"CpuPermille:\t %d %d %d %d\n"
 			"UserBrk:\t%#zx\n"
+			"SigPnd:\t%016zx\n"
+			"SigBlk:\t%016zx\n"
+			"SigIgn:\t%016zx\n"
+			"SigCgt:\t%016zx\n"
 			,
 			name,
 			state,
@@ -230,7 +241,11 @@ static void proc_status_func(fs_node_t *node) {
 			proc->time_total / arch_cpu_mhz(),
 			proc->time_sys / arch_cpu_mhz(),
 			proc->usage[0], proc->usage[1], proc->usage[2], proc->usage[3],
-			proc->image.heap
+			proc->image.heap,
+			proc->pending_signals,
+			proc->blocked_signals,
+			ignored,
+			caught
 			);
 }
 
