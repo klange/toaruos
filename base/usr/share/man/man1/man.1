@@ -6,20 +6,23 @@ man \- Find and display manual pages.
 .SH SYNOPSIS
 \fBman\fP [\fB\-a\fP] [\fB\-w\fP] [\fB\-S\fP \fIsections\fP] [\fIsection\fP] \fIpage\fP...
 .br
+\fBman\fP \fB\-k\fP [\fB\-S\fP \fIsections\fP] \fIkeyword\fP...
+.br
 \fBman\fp \fB--help\fP
 
 .SH DESCRIPTION
-Looks for man pages in \fB/usr/share/man/man\f(BIsection\fB/\f(BIpage\fB.\f(BIsection\fR, where \fIsection\fP is a section number
-and \fIpage\fP is the page to look for.
+\fBman\fP looks for man pages in \fB/usr/share/man/man\f(BIsection\fB/\f(BIpage\fB.\f(BIsection\fR, where
+\fIsection\fP is a section number and \fIpage\fP is the page to look for.
 .PP
 If there is more than one argument, and the first argument is a single character, or begins with a digit followed
 by only lowercase letters, it is interpreted as \fIsection\fP. Otherwise, it is assumed to be another \fIpage\fP.
 .PP
 If no \fIsection\fP is specified, then sections specified either by the \fB\-S\fP option, the \fBMANSECT\fP
 environment variable, or the default set of \fB"1:n:l:8:3:0:2:3krk:5:4:9:6:7"\fP will be searched in order
-and the first result, if any will be shown. If no manual page is found by the requested name, an error is printed.
+and the first result, if any, will be shown. If no manual page is found by the requested name, a diagnostic
+message is printed.
 .PP
-If a \fIpage\fP argument looks like it might be a file (eg. it contains a /), lookup is skipped and
+If a \fIpage\fP argument looks like it might be a file path (eg. it contains a /), lookup is skipped and
 the file path is tried directly.
 .PP
 The manual page is displayed by piping \fIroff\fP to \fImore -rP'page(section)' --stay --alt\fP.
@@ -30,7 +33,7 @@ by \fIgunzip\fP before being passed to \fIroff\fP.
 .PP
 If multiple \fIpage\fP arguments are provided, each will be searched and displayed in sequence.
 
-.SH OPTIONS
+.SS Options
 .TP
 .B \-a
 Display all matching manual pages, in search order, one after the other, instead of stopping after
@@ -45,9 +48,77 @@ Instead of displaying the manual page, print its location.
 Specify the \fIsections\fP to look in as a colon\-separated list. This option overrides any value
 retrieved from the \fBMANSECT\fP environment variable.
 
+.TP
+.B \-k
+Search the available manuals for pages whose \fBNAME\fP section contains \fIkeyword\fP.
+This is a wrapper around \fBroff \-S NAME \-P | grep -i\fP.
+.sp
+Each \fIkeyword\fP will be searched separately.
+Any \fIkeyword\fP for which no matching manual was found will result in a diagnostic message.
+There is no cached database of page summaries, so this search may take a moment.
+
+.SH EXAMPLES
+
+.TP
+.B man man
+View this manual page.
+
+.TP
+.B man -k yutani
+See a list of manual pages related to the windowing system.
+
+.TP
+.B man -a basename
+View the manual pages for the
+.IR basename (1)
+utility and then the
+.IR basename (3)
+library function, in sequence.
+
+.TP
+.B man 3 basename
+View the manual page for the
+.IR basename (3)
+library function (instead of viewing the manual page for the utility).
+
+.TP
+.B man -w man
+Locate the file that provides the source for this manual page.
+
+.TP
+.B man /usr/share/man/man1/man.1
+View this manual page directly from its source.
+
+.SH NOTES
+Be warned that \fBman\fP often passes arguments to
+.IR system (3)
+without any input validation.
+It is the responsibility of the user to not shell inject themselves with a bad input.
+In particular, \fIpage\fP and \fIkeyword\fP arguments will both be passed to various
+utilities in single quotes without any additional escaping.
+
 .SH EXIT STATUS
 If any of the requested \fIpage\fP arguments could not be found, or another error was encountered,
 then \fIman\fP will exit with status 1.
+
+.SH ENVIRONMENT
+.TP
+.B MANSECT
+A colon\-separated list of sections to search in order, which overrides the default.
+
+.SH FILES
+The search path for manual pages if \fB/usr/share/man\fP.
+This implementation will only look for manuals in that directory.
+.PP
+Only a limited \fBroff\fP dialect is supported at this time.
+
+.SH STANDARDS
+\fBman\fP is described in the User Portability section of POSIX.1 in limited detail.
+Only the \fB\-k\fP option is required, and its specific behavior is left largely to the implementation.
+We believe our \fBman\fP conforms sufficiently to the specification, though our definition
+of "sufficiently" may not meet certification requirements.
+.PP
+The \fB\-a\fP, \fB\-w\fP, and \fB\-S\fP options generally match their respective behavior in most other implementations.
 
 .SH SEE ALSO
 .BR roff (1),
@@ -59,4 +130,4 @@ then \fIman\fP will exit with status 1.
 https://toaruos.org/
 
 .SH AUTHOR
-This \fIroff\fP was written by K. Lange <klange@toaruos.org>.
+This \fBman\fP was written by K. Lange <klange@toaruos.org>.
