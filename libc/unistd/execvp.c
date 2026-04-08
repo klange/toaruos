@@ -19,21 +19,29 @@ int execve(const char *name, char * const argv[], char * const envp[]) {
 
 int execvpe(const char *file, char *const argv[], char *const envp[]) {
 	if (file && (!strstr(file, "/"))) {
-		/* We don't quite understand "$PATH", so... */
+		int was_eacces = 0;
 		char * path = getenv("PATH") ?: DEFAULT_PATH;
 		char * xpath = strdup(path);
 		char * p, * last;
 		for ((p = strtok_r(xpath, ":", &last)); p; p = strtok_r(NULL, ":", &last)) {
 			char *exe;
 			if (asprintf(&exe, "%s/%s", p, file) == -1) continue;
-			if (access(exe, X_OK)) {
-				free(exe);
-				continue;
+			execve(exe, argv, envp);
+			switch (errno) {
+				case EACCES:
+					was_eacces = 1;
+					/* fallthrough */
+				case ENOENT:
+				case ENOTDIR:
+					/* Continue search */
+					break;
+				default:
+					/* Other error means stop. */
+					return -1;
 			}
-			return execve(exe, argv, envp);
 		}
 		free(xpath);
-		errno = ENOENT;
+		errno = was_eacces ? EACCES : ENOENT;
 		return -1;
 	} else if (file) {
 		return execve(file, argv, envp);
