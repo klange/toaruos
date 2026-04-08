@@ -32,6 +32,9 @@ def file_filter(tarinfo):
         user = tarinfo.name.split('/')[1]
         tarinfo.uid = users.get(user,0)
         tarinfo.gid = tarinfo.uid
+        if tarinfo.name.count('/') == 1:
+            # Lock down users' home directories as o-rwx
+            tarinfo.mode = tarinfo.mode & ~0o7
     elif tarinfo.name in restricted_files:
         tarinfo.mode = restricted_files[tarinfo.name]
 
