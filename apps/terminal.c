@@ -1004,9 +1004,24 @@ static void redraw_cell_image(uint16_t x, uint16_t y, term_cell_t * cell, int in
 	if (inverted) {
 		for (uint32_t yy = 0; yy < char_height; ++yy) {
 			for (uint32_t xx = 0; xx < char_width; ++xx) {
-				uint32_t alpha = 0xFF000000 & *data;
-				uint32_t color = 0xFFFFFF - (*data & 0xFFFFFF);
-				term_set_point(x * char_width + xx, y * char_height + yy, color | alpha);
+				/* Extract */
+				uint32_t a = _ALP(*data);
+				uint32_t r = _RED(*data);
+				uint32_t g = _GRE(*data);
+				uint32_t b = _BLU(*data);
+				/* Unpremultiply */
+				if (a) {
+					r *= 255 / a;
+					g *= 255 / a;
+					b *= 255 / a;
+				}
+				/* Invert colors */
+				r = 0xFF - r;
+				g = 0xFF - g;
+				b = 0xFF - b;
+				/* Premultiply again */
+				uint32_t color = premultiply(rgba(r,g,b,a));
+				term_set_point(x * char_width + xx, y * char_height + yy, color);
 				data++;
 			}
 		}
