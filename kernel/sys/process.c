@@ -1284,6 +1284,17 @@ process_t * process_get_parent(process_t * process) {
 void task_exit(int retval) {
 	this_core->current_process->status = retval;
 
+	if (this_core->current_process->group == this_core->current_process->id) {
+		/* If is thread leader, kill threads */
+		pid_t * children = NULL;
+		size_t thread_count = process_collect_by(offsetof(process_t,group), sizeof(pid_t), (void*)&this_core->current_process->group, &children, 1);
+		for (size_t i = 0; i < thread_count; ++i) {
+			if (children[i] == this_core->current_process->group) continue;
+			send_signal(children[i], SIGKILL, 1);
+		}
+		if (children) free(children);
+	}
+
 	/* free whatever we can */
 	list_free(this_core->current_process->wait_queue);
 	free(this_core->current_process->wait_queue);
@@ -1546,9 +1557,10 @@ void update_process_usage(uint64_t clock_ticks, uint64_t perf_scale) {
  * @param fieldSize Size of the field to compare against.
  * @param target Field value you want to match.
  * @param into Place you want the resulting array pointer to be stored.
+ * @param threads Whether to include threads.
  * @returns Count of collected PIDs.
  */
-size_t process_collect_by(off_t field, size_t fieldSize, void * target, pid_t ** into) {
+size_t process_collect_by(off_t field, size_t fieldSize, void * target, pid_t ** into, int threads) {
 	size_t count = 0;
 	size_t cap = 0;
 	*into = NULL;
@@ -1556,13 +1568,13 @@ size_t process_collect_by(off_t field, size_t fieldSize, void * target, pid_t **
 	spin_lock(tree_lock);
 	foreach(node, process_list) {
 		process_t * proc = node->value;
-		if (proc->group != proc->id) continue; /* Only collect thread group leaders */
+		if (!threads && proc->group != proc->id) continue; /* Only collect thread group leaders */
 		if (!memcmp((char*)proc + field, target, fieldSize)) {
 			if (count == cap) {
 				cap = cap ? cap * 2 : 16;
 				*into = realloc(*into, cap * sizeof(pid_t));
 			}
-			(*into)[count++] = proc->group;
+			(*into)[count++] = proc->id;
 		}
 	}
 	spin_unlock(tree_lock);
@@ -1588,7 +1600,7 @@ int group_send_signal(pid_t group, int signal, int force_root) {
 
 	/* First collect a list of things to signal */
 	pid_t * pids = NULL;
-	size_t count = process_collect_by(offsetof(process_t,job),sizeof(pid_t),&group,&pids);
+	size_t count = process_collect_by(offsetof(process_t,job),sizeof(pid_t),&group,&pids, 0);
 
 	for (size_t i = 0; i < count; ++i) {
 		if (pids[i] == this_core->current_process->group) kill_self = 1;
@@ -1619,7 +1631,7 @@ int session_send_signal(pid_t session, int signal, int force_root) {
 
 	/* First collect a list of things to signal */
 	pid_t * pids = NULL;
-	size_t count = process_collect_by(offsetof(process_t,session),sizeof(pid_t),&session,&pids);
+	size_t count = process_collect_by(offsetof(process_t,session),sizeof(pid_t),&session,&pids, 0);
 
 	for (size_t i = 0; i < count; ++i) {
 		if (pids[i] == this_core->current_process->group) kill_self = 1;
