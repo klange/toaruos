@@ -9,3 +9,9 @@ int access(const char *pathname, int mode) {
 	__sets_errno(syscall_access((char*)pathname, mode));
 }
 
+DEFN_SYSCALL2(eaccess, SYS_EACCESS, char *, int);
+
+int eaccess(const char *pathname, int mode) {
+	__sets_errno(syscall_eaccess((char*)pathname, mode));
+}
+

@@ -21,7 +21,7 @@
 #define SYS_ACCEPT 18
 #define SYS_LISTEN 19
 #define SYS_CONNECT 20
-/* 21 - unused, was mkpipe */
+#define SYS_EACCESS 21
 #define SYS_DUP2 22
 #define SYS_GETUID 23
 #define SYS_SETUID 24

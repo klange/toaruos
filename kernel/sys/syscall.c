@@ -524,6 +524,17 @@ long sys_access(const char * file, long flags) {
 	return ret;
 }
 
+long sys_eaccess(const char * file, long flags) {
+	PTR_VALIDATE(file);
+	if (!file) return -EFAULT;
+	if (flags < 0 || flags > 7) return -EINVAL;
+	fs_node_t * node = kopen((char *)file, 0);
+	if (!node) return -ENOENT;
+	int ret = flags ? (!has_permission(node, flags) ? -EACCES : 0) : 0;
+	close_fs(node);
+	return ret;
+}
+
 long sys_chmod(char * file, long mode) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
@@ -1326,6 +1337,7 @@ static scall_func syscalls[] = {
 	[SYS_SYSFUNC]      = (scall_func)(uintptr_t)sys_sysfunc,
 	[SYS_IOCTL]        = (scall_func)(uintptr_t)sys_ioctl,
 	[SYS_ACCESS]       = (scall_func)(uintptr_t)sys_access,
+	[SYS_EACCESS]      = (scall_func)(uintptr_t)sys_eaccess,
 	[SYS_STATF]        = (scall_func)(uintptr_t)sys_statf,
 	[SYS_CHMOD]        = (scall_func)(uintptr_t)sys_chmod,
 	[SYS_UMASK]        = (scall_func)(uintptr_t)sys_umask,

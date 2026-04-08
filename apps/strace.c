@@ -55,6 +55,7 @@ const char * syscall_names[] = {
 	[SYS_SYSFUNC]      = "sysfunc",
 	[SYS_IOCTL]        = "ioctl",
 	[SYS_ACCESS]       = "access",
+	[SYS_EACCESS]      = "eaccess",
 	[SYS_STATF]        = "statf",
 	[SYS_CHMOD]        = "chmod",
 	[SYS_UMASK]        = "umask",
@@ -146,6 +147,7 @@ char syscall_mask[] = {
 	[SYS_SYSFUNC]      = 1,
 	[SYS_IOCTL]        = 1,
 	[SYS_ACCESS]       = 1,
+	[SYS_EACCESS]      = 1,
 	[SYS_STATF]        = 1,
 	[SYS_CHMOD]        = 1,
 	[SYS_UMASK]        = 1,
@@ -222,7 +224,7 @@ static const int syscall_set_file[] = {
 	SYS_OPEN, SYS_STATF, SYS_LSTAT, SYS_ACCESS, SYS_EXECVE,
 	SYS_GETCWD, SYS_CHDIR, SYS_MKDIR, SYS_SYMLINK, SYS_UNLINK,
 	SYS_CHMOD, SYS_CHOWN, SYS_MOUNT, SYS_READLINK, SYS_RENAME,
-	SYS_TRUNCATE, 0
+	SYS_TRUNCATE, SYS_EACCESS,
 };
 
 static const int syscall_set_desc[] = {
@@ -918,6 +920,10 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			string_arg(pid, uregs_syscall_arg2(r));
 			break;
 		case SYS_ACCESS:
+			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			int_arg(uregs_syscall_arg2(r));
+			break;
+		case SYS_EACCESS:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			int_arg(uregs_syscall_arg2(r));
 			break;
