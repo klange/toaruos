@@ -1331,6 +1331,7 @@ int main(int argc, char ** argv) {
 		dup2(fd_slave, 2);
 		ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
 		tcsetpgrp(STDIN_FILENO, getpid());
+		signal(SIGHUP, SIG_DFL);
 
 		if (argv[optind] != NULL) {
 			char * tokens[] = {argv[optind], NULL};

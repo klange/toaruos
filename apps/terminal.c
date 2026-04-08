@@ -2776,6 +2776,8 @@ int main(int argc, char ** argv) {
 		ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
 		tcsetpgrp(STDIN_FILENO, getpid());
 
+		signal(SIGHUP, SIG_DFL);
+
 		/* Set the TERM environment variable. */
 		putenv("TERM=toaru");
 

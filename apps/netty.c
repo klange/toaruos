@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <pty.h>
 #include <pthread.h>
+#include <signal.h>
 #include <sys/wait.h>
 #include <sys/fswait.h>
 #include <sys/socket.h>
@@ -117,6 +118,7 @@ int main(int argc, char * argv[]) {
 		dup2(fd_slave, 2);
 		ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
 		tcsetpgrp(STDIN_FILENO, getpid());
+		signal(SIGHUP, SIG_DFL);
 
 		system("ttysize -q");
 
