@@ -67,8 +67,9 @@ int fprintf(fs_node_t * f, const char * fmt, ...) {
 int has_permission(fs_node_t * node, int permission_bit) {
 	if (!node) return 0;
 
-	if (this_core->current_process->user == 0 && !(permission_bit & 01)) { /* even root needs exec to exec */
-		return 1;
+	if (this_core->current_process->user == USER_ROOT_UID) {
+		if (!(permission_bit & 01)) return 1;
+		if (node->flags & FS_DIRECTORY) return 1;
 	}
 
 	uint64_t permissions = node->mask;
