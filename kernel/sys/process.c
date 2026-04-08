@@ -1530,3 +1530,105 @@ void update_process_usage(uint64_t clock_ticks, uint64_t perf_scale) {
 		update_one_process(clock_ticks, perf_scale, proc);
 	}
 }
+
+/**
+ * @brief Collect a list of processes matching a particular value.
+ *
+ * The process list is volatile and must be locked. If you want to
+ * perform an operation on a bunch of pids that may, itself, need
+ * to access the process list, this function might help. It compares
+ * the requested offset of the process struct with the given target
+ * value of all thread group leaders, and collects the PIDs of those
+ * matching processes into a dynamically resized buffer, returning
+ * the number of processes added.
+ *
+ * @param field Offset of the field in procces_t to compare against.
+ * @param fieldSize Size of the field to compare against.
+ * @param target Field value you want to match.
+ * @param into Place you want the resulting array pointer to be stored.
+ * @returns Count of collected PIDs.
+ */
+size_t process_collect_by(off_t field, size_t fieldSize, void * target, pid_t ** into) {
+	size_t count = 0;
+	size_t cap = 0;
+	*into = NULL;
+
+	spin_lock(tree_lock);
+	foreach(node, process_list) {
+		process_t * proc = node->value;
+		if (proc->group != proc->id) continue; /* Only collect thread group leaders */
+		if (!memcmp((char*)proc + field, target, fieldSize)) {
+			if (count == cap) {
+				cap = cap ? cap * 2 : 16;
+				*into = realloc(*into, cap * sizeof(pid_t));
+			}
+			(*into)[count++] = proc->group;
+		}
+	}
+	spin_unlock(tree_lock);
+
+	return count;
+}
+
+/**
+ * @brief Send a signal to multiple processes.
+ *
+ * Similar to @c send_signal but for when a negative PID needs to be used.
+ *
+ * @param group The group process ID. Positive PID, not negative.
+ * @param signal Signal number to deliver.
+ * @param force_root See explanation in @c send_signal
+ * @returns 0 if something was killed, -ESRCH otherwise.
+ */
+int group_send_signal(pid_t group, int signal, int force_root) {
+	int kill_self = 0;
+	int killed_something = 0;
+
+	if (signal >= NUMSIGNALS || signal < 0) return -EINVAL;
+
+	/* First collect a list of things to signal */
+	pid_t * pids = NULL;
+	size_t count = process_collect_by(offsetof(process_t,job),sizeof(pid_t),&group,&pids);
+
+	for (size_t i = 0; i < count; ++i) {
+		if (pids[i] == this_core->current_process->group) kill_self = 1;
+		else if (send_signal(pids[i], signal, force_root) == 0) killed_something = 1;
+	}
+
+	if (pids) free(pids);
+
+	if (kill_self && send_signal(this_core->current_process->group, signal, force_root) == 0) killed_something = 1;
+	return killed_something ? 0 : -ESRCH;
+}
+
+/**
+ * @brief Send a signal to multiple processes, by session ID.
+ *
+ * This is mostly used by the TTY layer to handle hangups.
+ *
+ * @param session The session ID to send to.
+ * @param signal Signal number to deliver.
+ * @param force_root See explanation in @c send_signal
+ * @returns 0 if something was killed, -ESRCH otherwise.
+ */
+int session_send_signal(pid_t session, int signal, int force_root) {
+	int kill_self = 0;
+	int killed_something = 0;
+
+	if (signal >= NUMSIGNALS || signal < 0) return -EINVAL;
+
+	/* First collect a list of things to signal */
+	pid_t * pids = NULL;
+	size_t count = process_collect_by(offsetof(process_t,session),sizeof(pid_t),&session,&pids);
+
+	for (size_t i = 0; i < count; ++i) {
+		if (pids[i] == this_core->current_process->group) kill_self = 1;
+		else if (send_signal(pids[i], signal, force_root) == 0) killed_something = 1;
+	}
+
+	if (pids) free(pids);
+
+	if (kill_self && send_signal(this_core->current_process->group, signal, force_root) == 0) killed_something = 1;
+	return killed_something ? 0 : -ESRCH;
+}
+

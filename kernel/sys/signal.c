@@ -264,46 +264,6 @@ int send_signal(pid_t process, int signal, int force_root) {
 }
 
 /**
- * @brief Send a signal to multiple processes.
- *
- * Similar to @c send_signal but for when a negative PID needs to be used.
- *
- * @param group The group process ID. Positive PID, not negative.
- * @param signal Signal number to deliver.
- * @param force_root See explanation in @c send_signal
- * @returns 0 if something was killed, -ESRCH otherwise.
- */
-int group_send_signal(pid_t group, int signal, int force_root) {
-
-	int kill_self = 0;
-	int killed_something = 0;
-
-	if (signal >= NUMSIGNALS || signal < 0) return -EINVAL;
-
-	foreach(node, process_list) {
-		process_t * proc = node->value;
-		if (proc->group == proc->id && proc->job == group) {
-			/* Only thread group leaders */
-			if (proc->group == this_core->current_process->group) {
-				kill_self = 1;
-			} else {
-				if (send_signal(proc->group, signal, force_root) == 0) {
-					killed_something = 1;
-				}
-			}
-		}
-	}
-
-	if (kill_self) {
-		if (send_signal(this_core->current_process->group, signal, force_root) == 0) {
-			killed_something = 1;
-		}
-	}
-
-	return killed_something ? 0 : -ESRCH;
-}
-
-/**
  * @brief Examine the signal delivery queue of the current process, and handle signals.
  *
  * Should be called before a userspace return would happen. If a signal handler is to be
