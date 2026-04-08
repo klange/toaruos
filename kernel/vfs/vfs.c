@@ -67,7 +67,15 @@ int fprintf(fs_node_t * f, const char * fmt, ...) {
 int has_permission(fs_node_t * node, int permission_bit) {
 	if (!node) return 0;
 
-	if (this_core->current_process->user == USER_ROOT_UID) {
+	uid_t whom  = this_core->current_process->user;
+	gid_t whomg = this_core->current_process->group;
+	if (permission_bit & 010) {
+		whom = this_core->current_process->real_user;
+		whomg = this_core->current_process->real_user_group;
+		permission_bit &= ~010;
+	}
+
+	if (whom == USER_ROOT_UID) {
 		if (!(permission_bit & 01)) return 1;
 		if (node->flags & FS_DIRECTORY) return 1;
 	}
@@ -78,8 +86,8 @@ int has_permission(fs_node_t * node, int permission_bit) {
 	uint8_t user_perm  = (permissions >> 6) & 07;
 	uint8_t group_perm = (permissions >> 3) & 07;
 
-	if (this_core->current_process->user == node->uid) my_permissions |= user_perm;
-	if (this_core->current_process->user_group == node->gid) my_permissions |= group_perm;
+	if (whom  == node->uid) my_permissions |= user_perm;
+	if (whomg == node->gid) my_permissions |= group_perm;
 	else if (this_core->current_process->supplementary_group_count) {
 		for (int i = 0; i < this_core->current_process->supplementary_group_count; ++i) {
 			if (this_core->current_process->supplementary_group_list[i] == node->gid) {
