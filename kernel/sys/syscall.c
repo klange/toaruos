@@ -254,8 +254,7 @@ long sys_pread(int fd, void * ptr, size_t count, off_t offset) {
 	return -EBADF;
 }
 
-static long stat_node(fs_node_t * fn, uintptr_t st) {
-	struct stat * f = (struct stat *)st;
+static long stat_node(fs_node_t * fn, struct stat * f) {
 	f->st_dev   = (uint16_t)(((uint64_t)fn->device & 0xFFFF0) >> 8);
 	f->st_ino   = fn->inode;
 
@@ -290,7 +289,7 @@ static long stat_node(fs_node_t * fn, uintptr_t st) {
 	return 0;
 }
 
-long sys_stat(int fd, uintptr_t st) {
+long sys_stat(int fd, struct stat * st) {
 	PTR_VALIDATE(st);
 	if (!st) return -EFAULT;
 	if (FD_CHECK(fd)) {
@@ -299,7 +298,7 @@ long sys_stat(int fd, uintptr_t st) {
 	return -EBADF;
 }
 
-long sys_statf(char * file, uintptr_t st) {
+long sys_statf(char * file, struct stat * st) {
 	int result;
 	PTR_VALIDATE(file);
 	PTR_VALIDATE(st);
@@ -336,7 +335,7 @@ long sys_readlink(const char * file, char * ptr, long len) {
 	return rv;
 }
 
-long sys_lstat(char * file, uintptr_t st) {
+long sys_lstat(char * file, struct stat * st) {
 	PTR_VALIDATE(file);
 	PTR_VALIDATE(st);
 	if (!file || !st) return -EFAULT;
