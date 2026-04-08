@@ -823,11 +823,11 @@ void run_cmd(char ** args) {
 					}
 				}
 			} else if (errno == ELOOP) {
-				fprintf(stderr, "esh: Bad interpreter (maximum recursion depth reached)\n");
-			} else if (errno == ENOEXEC) {
-				fprintf(stderr, "esh: Bad interpreter\n");
+				fprintf(stderr, "esh: %s: Bad interpreter (maximum recursion depth reached)\n", *args);
+			} else if (errno) {
+				fprintf(stderr, "esh: %s: %s\n", *args, strerror(errno));
 			} else {
-				fprintf(stderr, "esh: Invalid executable\n");
+				fprintf(stderr, "esh: %s: Invalid executable\n", *args);
 			}
 			i = 127;
 		}
