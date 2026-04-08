@@ -2,9 +2,11 @@
 .SH NAME
 top \- Interactively display running processes.
 .SH SYNOPSIS
-\fBtop\fP [\fIOPTIONS\fP]
+\fBtop\fP [\fB\-d\fP \fIdelay\fP] [\fB\-l\fP \fIsamples\fP] [\fB\-H\fP]
 .SH DESCRIPTION
-This \fItop\fP is largely inspired by \fIhtop\fP, though it is not nearly as good or complete.
+This \fBtop\fP is largely inspired by \fIhtop\fP, though it is not nearly as good or complete.
+
+.SS Options
 
 .TP
 .B \-d \fIdelay\fP
@@ -20,12 +22,12 @@ If \fIsamples\fP is 0 or negative, continue printing indefinitely.
 .B \-H
 Display threads separately. This can also be toggled at runtime.
 
-.PP
+.SS Keyboard Shortcuts
 When running, the following keyboard shortcuts are available:
 
 .TP
 .B q
-Quit \fItop\fP.
+Quit \fBtop\fP.
 
 .TP
 .B w
@@ -44,12 +46,14 @@ Toggle the separate display of threads.
 Show a help message describing these options.
 
 .PP
-If \fItop\fP is redirected to a non-terminal, logging mode will be enabled by default and one sample will be printed.
+If \fBtop\fP is redirected to a non-terminal, logging mode will be enabled by default and one sample will be printed.
 
 .SH SEE ALL
-.IR libtoaru_procfs (3),
-.IR ps (1),
-.IR pstree (1),
+.BR libtoaru_procfs (3),
+.BR ps (1),
+.BR pstree (1),
+.BR cpuwidget (1)
+
 
 .SH AUTHOR
-This \fItop\fP was written by K. Lange <klange@toaruos.org>
+This \fBtop\fP was written by K. Lange <klange@toaruos.org>
