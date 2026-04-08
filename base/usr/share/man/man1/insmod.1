@@ -7,6 +7,14 @@
 Load the specified \fImodule\fP into the kernel.
 .PP
 Modules are ELF static objects that extend kernel functionality, generally with new device drivers.
+.SH ARGUMENTS
+Modules accept arguments in much the same way normal executables do.
+.PP
+The underlying system call will be passed the address of the first \fIarg\fP (or the
+end of the of the argument list) and will calculate the number of arguments by
+scanning for \fBNULL\fP.
+.PP
+Modules do not receive an environment or auxiliary vector.
 .SH EXIT STATUS
 .TP
 0
