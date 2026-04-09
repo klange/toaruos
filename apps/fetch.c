@@ -47,6 +47,9 @@ struct {
 	int calculate_output;
 	int slow_upload;
 	int machine_readable;
+	int fail_fast;
+	char * label;
+	struct winsize ws;
 } fetch_options = {0};
 
 int parse_url(char * d, struct http_req * r) {
@@ -93,31 +96,58 @@ void print_progress(int force) {
 	last_size = fetch_options.size;
 	struct timeval now;
 	gettimeofday(&now, NULL);
-	fprintf(stderr,"\033[?25l\033[G%6dkB",(int)fetch_options.size/1024);
-	if (fetch_options.content_length) {
-		int percent = (fetch_options.size * BAR_WIDTH) / (fetch_options.content_length);
-		fprintf(stderr," / %6dkB [%.*s%.*s]", (int)fetch_options.content_length/1024, percent,bar_perc,BAR_WIDTH-percent,bar_spac);
+	fprintf(stderr,"\033[?25l\033[G");
+	ssize_t written = 0;
+	if (fetch_options.label) {
+		written += fprintf(stderr, "%s ", fetch_options.label);
 	}
+	written += fprintf(stderr,"%6dkB",(int)fetch_options.size/1024);
+
+	char * time_remaining = NULL;
 
 	double timediff = (double)(now.tv_sec - fetch_options.start.tv_sec) + (double)(now.tv_usec - fetch_options.start.tv_usec)/1000000.0;
 	if (timediff > 0.0) {
 		double rate = (double)(fetch_options.size) / timediff;
 		double s = rate/(1024.0) * 8.0;
-		if (s > 1024.0) {
-			fprintf(stderr," %.2f Mbps", s/1024.0);
-		} else {
-			fprintf(stderr," %.2f Kbps", s);
-		}
+		int use_mb = s > 1024.0;
+		int show_remaining = (!force && fetch_options.content_length);
+		int show_time = show_remaining ? (rate > 0.0) : 1;
 
-		if (!force && fetch_options.content_length) {
-			if (rate > 0.0) {
-				double remaining = (double)(fetch_options.content_length - fetch_options.size) / rate;
-				fprintf(stderr," (%.2f sec remaining)", remaining);
-			}
+		double remaining = 0;
+		if (show_remaining && show_time) remaining = (double)(fetch_options.content_length - fetch_options.size) / rate;
+
+		if (show_time) {
+			written += asprintf(&time_remaining,
+				" %3.2f %cbps (%3.2f sec %s",
+				use_mb ? s / 1024.0 : s,
+				use_mb ? 'M' : 'K',
+				show_remaining ? remaining : timediff,
+				show_remaining ? "remaining)"
+				               : "elapsed)  ");
 		} else {
-			fprintf(stderr," (%.2f sec elapsed)", timediff);
+			written += asprintf(&time_remaining,
+				" %3.2f %cbps",
+				use_mb ? s / 1024.0 : s,
+				use_mb ? 'M' : 'K');
 		}
 	}
+
+	if (fetch_options.content_length) {
+		written += fprintf(stderr," / %6dkB [", (int)fetch_options.content_length/1024);
+		int screen_width = fetch_options.ws.ws_col ? fetch_options.ws.ws_col : 80;
+		int bar_width = screen_width - written - 2; /* A little padding */
+		int percent = (fetch_options.size * bar_width) / (fetch_options.content_length);
+		int i = 0;
+		for (; i < percent; ++i) fprintf(stderr,"|");
+		for (; i < bar_width; ++i) fprintf(stderr," ");
+		fprintf(stderr, "]");
+	}
+
+	if (time_remaining) {
+		fprintf(stderr, "%s", time_remaining);
+		free(time_remaining);
+	}
+
 	fprintf(stderr,"\033[K\033[?25h");
 	fflush(stderr);
 }
@@ -128,17 +158,19 @@ int usage(char * argv[]) {
 	fprintf(stderr,
 			"%s - download files over HTTP\n"
 			"\n"
-			"usage: %s [-hOvmp?] [-c " X_S "cookie " X_E "] [-o " X_S "file" X_E "] [-u " X_S "file" X_E "] [-s " X_S "speed" X_E"] " X_S "URL" X_E "\n"
+			"usage: %s [-hOvmpf?] [-c " X_S "cookie " X_E "] [-o " X_S "file" X_E "] [-u " X_S "file" X_E "] [-s " X_S "speed" X_E"] [-L " X_S "label" X_E "] " X_S "URL" X_E "\n"
 			"\n"
 			" -h     " X_S "show headers" X_E "\n"
 			" -O     " X_S "save the file based on the filename in the URL" X_E "\n"
 			" -v     " X_S "show progress" X_E "\n"
 			" -m     " X_S "machine readable output" X_E "\n"
 			" -p     " X_S "prompt for password" X_E "\n"
+			" -f     " X_S "fail if response is not 200" X_E "\n"
 			" -c ... " X_S "set cookies" X_E "\n"
 			" -o ... " X_S "save to the specified file" X_E "\n"
 			" -u ... " X_S "upload the specified file" X_E "\n"
 			" -s ... " X_S "specify the speed for uploading slowly" X_E "\n"
+			" -L ... " X_S "provide a label to show before the download progress" X_E "\n"
 			" -?     " X_S "show this help text" X_E "\n"
 			"\n", argv[0], argv[0]);
 	return 1;
@@ -206,8 +238,14 @@ int http_fetch(FILE * f) {
 		*elements[2] = '\0';
 		elements[2]++;
 
-		if (strcmp(elements[1], "200")) {
-			fprintf(stderr, "Bad response code: %s\n", elements[1]);
+		if (strcmp(elements[1], "200") && fetch_options.fail_fast) return 22;
+	}
+
+	fetch_options.out = stdout;
+	if (fetch_options.output_file) {
+		fetch_options.out = fopen(fetch_options.output_file, "w+");
+		if (!fetch_options.out) {
+			perror("fopen");
 			return 1;
 		}
 	}
@@ -272,7 +310,7 @@ int main(int argc, char * argv[]) {
 
 	int opt;
 
-	while ((opt = getopt(argc, argv, "?c:hmo:Opu:vs:")) != -1) {
+	while ((opt = getopt(argc, argv, "?c:hmo:Opu:vs:fL:")) != -1) {
 		switch (opt) {
 			case '?':
 				return usage(argv);
@@ -293,6 +331,7 @@ int main(int argc, char * argv[]) {
 				break;
 			case 'v':
 				fetch_options.show_progress = 1;
+				ioctl(STDERR_FILENO, TIOCGWINSZ, &fetch_options.ws);
 				break;
 			case 'm':
 				fetch_options.machine_readable = 1;
@@ -302,6 +341,12 @@ int main(int argc, char * argv[]) {
 				break;
 			case 's':
 				fetch_options.slow_upload = atoi(optarg);
+				break;
+			case 'f':
+				fetch_options.fail_fast = 1;
+				break;
+			case 'L':
+				fetch_options.label = optarg;
 				break;
 		}
 	}
@@ -328,15 +373,6 @@ int main(int argc, char * argv[]) {
 			tmp = x + 1;
 		}
 		fetch_options.output_file = tmp;
-	}
-
-	fetch_options.out = stdout;
-	if (fetch_options.output_file) {
-		fetch_options.out = fopen(fetch_options.output_file, "w+");
-		if (!fetch_options.out) {
-			perror("fopen");
-			return 1;
-		}
 	}
 
 	int sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -452,7 +488,8 @@ int main(int argc, char * argv[]) {
 			"\r\n", my_req.path, my_req.domain);
 	}
 
-	http_fetch(f);
+	int resp;
+	if ((resp = http_fetch(f))) return resp;
 
 	fflush(fetch_options.out);
 

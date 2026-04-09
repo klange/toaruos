@@ -4,13 +4,16 @@
 \fBfetch\fP \- download files
 
 .SH SYNOPSIS
-\fBfetch\fP [\fB\-hOvmp\fP] [\fB\-c\fP \fIcookies\fP] [\fB\-o\fP \fIfile\fP] [\fB\-u\fP \fIfile\fP]
-[\fB\-s\fP \fIspeed\fP] \fIURL\fP
+\fBfetch\fP [\fB\-hOvmpf\fP] [\fB\-c\fP \fIcookies\fP] [\fB\-o\fP \fIfile\fP] [\fB\-u\fP \fIfile\fP]
+[\fB\-s\fP \fIspeed\fP] [\fB\-L\fP \fIlabel\fP] \fIURL\fP
 
 .SH DESCRIPTION
 The \fBfetch\fP utility downloads files over HTTP.
 .PP
-Supported options include:
+By default, \fBfetch\fP will still download the response bodies of error
+pages. To supress this behavior, use the \fB\-f\fP option.
+
+.SS Options
 
 .TP
 .B \-h
@@ -40,6 +43,10 @@ field called "password". You probably don't want this.
 This does \fInot\fP set an authentication header.
 
 .TP
+.B \-f
+Fail early if the status code in the respons is not 200.
+
+.TP
 .B \-c \fIcookies\fP
 Set the \fIcookies\fP to be sent with the request.
 
@@ -57,15 +64,29 @@ You probably don't want this.
 Sleeps for \fIspeed\fP ms between sending blocks of 1024 bytes when uploading
 a file with the \fB\-u\fP option.
 
+.TP
+.B \-L \fIlabel\fP
+When combined with \fB\-v\fP, prefix the download progress with the given label.
+
+.SH EXIT STATUS
+.TP
+22
+The \fB\-f\fP option was specified and the response from the server was not 200.
+This exit status value is taken from Curl for compatibility.
+
+.TP
+1
+Some other error occurred.
+
+.TP
+0
+Download completed successfully.
+
 .SH NOTES
 This utility does not support TLS connections. An alternative version of this
 utility, called \fBfetch\-tls\fP, may be available from the package repository,
 which does support TLS. Options supported by that utility may differ from this
 one.
-.PP
-This utility will always return 0 when a download has completed "successfully",
-regardless of the response code from the server. That is to say, if the server
-sends a 404 response and the utility downloads it, it will still exit with 0.
 
 .SH SEE ALSO
 .BR fetch\-tls (1)
