@@ -50,4 +50,31 @@ extern int hashmap_string_comp(const void * a, const void * b);
 extern void * hashmap_string_dupe(const void * key);
 extern int hashmap_is_empty(hashmap_t * map);
 
+/*
+ * Hashmap iterator API.
+ *
+ * How to use:
+ *
+ *    hashmap_foreach(iter, my_hashmap) {
+ *        my_key_type * key;
+ *        my_value_type * value;
+ *        hashmap_iter_get(&iter, &key, &value);
+ *        do_stuff_with(key,value);
+ *    }
+ *
+ */
+struct hashmap_iter {
+	hashmap_t * map;
+	size_t n;
+	hashmap_entry_t * cur;
+};
+
+extern struct hashmap_iter hashmap_iter_create(hashmap_t * map);
+extern int hashmap_iter_get(struct hashmap_iter * iter, void * keyout, void * valout);
+extern void hashmap_iter_next(struct hashmap_iter * iter);
+extern int hashmap_iter_valid(struct hashmap_iter * iter);
+
+#define hashmap_foreach(itername, hsh) \
+	for (struct hashmap_iter itername = hashmap_iter_create(hsh); hashmap_iter_valid(&itername); hashmap_iter_next(&itername))
+
 _End_C_Header

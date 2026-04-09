@@ -226,3 +226,43 @@ int hashmap_is_empty(hashmap_t * map) {
 	}
 	return 1;
 }
+
+struct hashmap_iter hashmap_iter_create(hashmap_t * map) {
+	struct hashmap_iter out = {
+		map, 0, NULL
+	};
+	return out;
+}
+
+int hashmap_iter_get(struct hashmap_iter * iter, void * _keyout, void * _valout) {
+	void ** keyout = (void**)_keyout;
+	void ** valout = (void**)_valout;
+	if (!iter->cur) {
+		for (; iter->n < iter->map->size; ++iter->n) {
+			hashmap_entry_t * x = iter->map->entries[iter->n];
+			if (x) {
+				iter->cur = x;
+				*keyout = x->key;
+				*valout = x->value;
+				return 1;
+			}
+		}
+		return 0;
+	} else {
+		*keyout = iter->cur->key;
+		*valout = iter->cur->value;
+		return 1;
+	}
+}
+
+void hashmap_iter_next(struct hashmap_iter * iter) {
+	if (iter->cur) iter->cur = iter->cur->next;
+	if (iter->cur) return;
+	iter->n++;
+}
+
+int hashmap_iter_valid(struct hashmap_iter * iter) {
+	void * garbage_a;
+	void * garbage_b;
+	return hashmap_iter_get(iter, &garbage_a, &garbage_b);
+}
