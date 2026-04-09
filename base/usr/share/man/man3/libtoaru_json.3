@@ -1,0 +1,116 @@
+.TH libtoaru_json 3 "April, 2026"
+
+.SH NAME
+\fBlibtoaru_jpeg\fP \- rudimentary JSON parser and serializer
+
+.SH SYNOPSIS
+.B #include <toaru/json.h>
+.sp
+.B struct JSON_Value * json_parse(const char *\fIjson_str\fP);
+.br
+.B struct JSON_Value * json_parse_file(const char *\fIfilename\fP);
+.br
+.B void json_free(struct JSON_Value *\fIvalue\fP);
+.sp
+.B int json_serialize(FILE *\fIstream\fP, struct JSON_Value *\fIthing\fP, int \fIindent\fP);
+.br
+.B int json_serialize_string(FILE *\fIstream\fP, const char *\fIstr\fP);
+.br
+.B int json_serialize_array(FILE *\fIstream\fP, list_t *\fIarr\fP, int \fIindent\fP);
+.br
+.B int json_serialize_object(FILE *\fIstream\fP, hashmap_t *\fIobj\fP, int \fIindent\fP);
+.br
+.B int json_write_file(const char *\fIfilename\fP, struct JSON_Value *\fIthing\fP);
+.sp
+.B struct JSON_Value * json_create_number(double \fIdbl\fP);
+.br
+.B struct JSON_Value * json_create_string(const char * \fIstr\fp);
+.br
+.B struct JSON_Value * json_create_bool(int \fIval\fP);
+.br
+.B struct JSON_Value * json_create_null(void);
+.br
+.B struct JSON_Value * json_create_empty_object(void);
+.br
+.B struct JSON_Value * json_create_bool(int \fIval\fP);
+.br
+.B struct JSON_Value * json_create_null(void);
+.br
+.B struct JSON_Value * json_create_empty_array(void);
+.sp
+.B struct JSON_Value * json_array_append(struct JSON_Value *\fIarray\fP, struct JSON_Value *\fIval\fP);
+.br
+.B struct JSON_Value * json_object_get(struct JSON_Value *\fIobj\fP, char *\fIkey\fP);
+.br
+.B struct JSON_Value * json_object_set(struct JSON_Value *\fIobj\fP, char *\fIkey\fP, struct JSON_Value *\fIvalue\fP);
+
+.SH DESCRIPTION
+This library provides routines for parsing JSON strings and files.
+.PP
+Most functions in the library deal with a \fBstruct JSON_Value\fP, which is a form of tagged union:
+
+    enum JSON_Type {
+        JSON_TYPE_OBJECT,
+        JSON_TYPE_ARRAY,
+        JSON_TYPE_STRING,
+        JSON_TYPE_NUMBER,
+        JSON_TYPE_BOOL,
+        JSON_TYPE_NULL
+    };
+
+    struct JSON_Value {
+        enum JSON_Type type;
+        union {
+            char * string;
+            double number;
+            list_t * array;
+            hashmap_t * object;
+            int boolean;
+        };
+    };
+
+.SS Parsing
+The \fBjson_parse\fP and \fBjson_parse_file\fP functions will return an allocated value, which
+itself may contain more allocated values if it is an object or array, and so on.
+If parsing failed, these functions will return \fBNULL\fP and will generally try to clean
+up as much as they can.
+Further details may be available from the library through the global variable \fBjson_lib_error\fP,
+but a declaration is not exposed in the header for this value as this API is subject to change.
+.PP
+To access a JSON value, first confirm which union member to use by examining the \fBtype\fP
+of the value, then directly access the necessary member.
+.PP
+When you are done with the objects returned by these functions, calling \fBjson_free\fP on them
+recursively frees all resources associated with them, including any strings, lists, hashmaps,
+and their values and keys.
+
+.SS Serializing
+A \fBstruct JSON_Value\fP may be serialized to a \fBstdio\fP stream with the \fBjson_serialize\fP
+function.
+The \fIindent\fP parameter for this function should generally be 0.
+This value is increased within recursive serialization of arrays and objects to provide
+rudimentary "pretty printing".
+.PP
+The various \fBjson_serialize_*\fP functions allow users to serialize values to a \fBstdio\fP
+stream directly from their native representations; note, however, that you may only serialize
+an array from a \fBlist_t\fP containing \fBstruct JSON_Value\fP, or an object from a \fBhashmap_t\fP
+mapping \fBchar*\fP to \fBstruct JSON_Value\fP.
+.PP
+The \fBjson_write_file\fP function allows a direct interface to serialize a single
+\fBstruct JSON_Value\fP to a file by name.
+
+.SS Constructing
+Users may construct \fBstruct JSON_Value\fP objects on their own, but the various \fBjson_create_*\fP
+functions provide convenient methods to do so while maintaining compatibility with \fBjson_free\fP
+and ensuring full functionality of the serialization functions.
+.PP
+Users should note that values passed to \fBjson_object_set\fP or \fBjson_array_append\fP are considered
+owned by the objects they have been attached to and should not be re\-used with other objects;
+freeing these collection objects with \fBjson_free\fP will also free any values added to them.
+
+.SH NOTES
+This library relies on anonymous unions, so \fB\-fplan9\-extensions\fP is necessary.
+
+.SH SEE ALSO
+.BR libtoaru_list (3),
+.BR libtoaru_hashmap (3)

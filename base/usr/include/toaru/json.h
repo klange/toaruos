@@ -6,15 +6,17 @@
 
 _Begin_C_Header
 
-#define JSON_TYPE_OBJECT 0
-#define JSON_TYPE_ARRAY  1
-#define JSON_TYPE_STRING 2
-#define JSON_TYPE_NUMBER 3
-#define JSON_TYPE_BOOL   4
-#define JSON_TYPE_NULL   5
+enum JSON_Type {
+	JSON_TYPE_OBJECT,
+	JSON_TYPE_ARRAY,
+	JSON_TYPE_STRING,
+	JSON_TYPE_NUMBER,
+	JSON_TYPE_BOOL,
+	JSON_TYPE_NULL
+};
 
 struct JSON_Value {
-	int type;
+	enum JSON_Type type;
 	union {
 		char * string;
 		double number;
@@ -49,5 +51,23 @@ extern struct JSON_Value * json_parse(const char *);
  * (Convenience function)
  */
 extern struct JSON_Value * json_parse_file(const char * filename);
+
+extern int json_serialize(FILE * f, struct JSON_Value * thing, int indent);
+extern int json_serialize_string(FILE * f, const char * str);
+extern int json_serialize_array(FILE * f, list_t * arr, int indent);
+extern int json_serialize_object(FILE * f, hashmap_t * obj, int indent);
+extern int json_write_file(const char * filename, struct JSON_Value * thing);
+
+extern struct JSON_Value * json_create_number(double val);
+extern struct JSON_Value * json_create_string(const char * orig);
+extern struct JSON_Value * json_create_bool(int val);
+extern struct JSON_Value * json_create_null(void);
+extern struct JSON_Value * json_create_empty_object(void);
+extern struct JSON_Value * json_create_bool(int val);
+extern struct JSON_Value * json_create_null(void);
+extern struct JSON_Value * json_object_get(struct JSON_Value * obj, char * key);
+extern struct JSON_Value * json_object_set(struct JSON_Value * obj, char * key, struct JSON_Value * value);
+extern struct JSON_Value * json_create_empty_array(void);
+extern struct JSON_Value * json_array_append(struct JSON_Value * array, struct JSON_Value * val);
 
 _End_C_Header

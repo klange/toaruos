@@ -10,12 +10,16 @@
 #include <stdint.h>
 #include <ctype.h>
 #include <math.h>
+#include <string.h>
+#include <errno.h>
 
 #include <toaru/hashmap.h>
 #include <toaru/list.h>
 #include <toaru/json.h>
 
 typedef struct JSON_Value Value;
+
+const char * json_lib_error = NULL;
 
 /* Internal usage */
 struct JSON_Context {
@@ -406,7 +410,9 @@ Value * json_parse(const char * str) {
 	ctx.string = str;
 	ctx.c = 0;
 	ctx.error = NULL;
+	json_lib_error = NULL; /* No error yet */
 	Value * out = value(&ctx);
+	if (!out) json_lib_error = ctx.error; /* Pointer to static string, so this is fine. */
 #if 0
 	if (!out) {
 		fprintf(stderr, "JSON parse error at %d (%c)\n", ctx.c, ctx.string[ctx.c]);
@@ -422,7 +428,10 @@ Value * json_parse(const char * str) {
 Value * json_parse_file(const char * filename) {
 	FILE * f = fopen(filename, "r");
 
-	if (!f) return NULL;
+	if (!f) {
+		json_lib_error = strerror(errno);
+		return NULL;
+	}
 
 	fseek(f, 0, SEEK_END);
 	size_t size = ftell(f);
@@ -437,4 +446,204 @@ Value * json_parse_file(const char * filename) {
 	Value * out = json_parse(tmp);
 	free(tmp);
 	return out;
+}
+
+int json_serialize(FILE * f, Value * thing, int indent);
+
+int json_serialize_string(FILE * f, const char * str) {
+	fputc('"', f);
+
+	while (*str) {
+		switch (*str) {
+			case '"':
+			case '\\':
+			case '/':
+				fputc('\\', f);
+				fputc(*str, f);
+				break;
+
+			case '\r': fprintf(f, "\\r"); break; 
+			case '\n': fprintf(f, "\\n"); break;
+			case '\b': fprintf(f, "\\b"); break;
+			case '\f': fprintf(f, "\\f"); break;
+			case '\t': fprintf(f, "\\t"); break;
+
+			/* TODO unicode as \u sequences, but whatever, json
+			 * can happily accept utf-8 */
+
+			default:
+				fputc(*str, f);
+				break;
+		}
+		str++;
+	}
+
+	fputc('"', f);
+	return 0;
+}
+
+int json_serialize_array(FILE * f, list_t * arr, int indent) {
+	fprintf(f, "[");
+	size_t c = 0;
+
+	if (arr->length < 2) {
+		foreach(node, arr) {
+			int ret = json_serialize(f, node->value, indent);
+			if (ret) return ret;
+			if (c + 1 < arr->length) fprintf(f, ", ");
+			c++;
+		}
+
+		fprintf(f, "]");
+		return 0;
+	}
+
+	fprintf(f, "\n");
+	foreach(node, arr) {
+		for (int i = 0; i < indent + 1; ++i) fprintf(f, "  ");
+		int ret = json_serialize(f, node->value, indent + 1);
+		if (ret) return ret;
+		if (c + 1 < arr->length) fprintf(f, ",\n");
+		c++;
+	}
+	for (int i = 0; i < indent; ++i) fprintf(f, "  ");
+	fprintf(f, "]");
+
+	return 0;
+}
+
+int json_serialize_object(FILE * f, hashmap_t * obj, int indent) {
+	int ret = 0;
+	int printed = 0;
+	fprintf(f, "{\n");
+
+	list_t * keys = hashmap_keys(obj);
+	foreach (node, keys) {
+		if (printed) fprintf(f, ",\n");
+		for (int i = 0; i < indent + 1; ++i) fprintf(f, "  ");
+		ret = json_serialize_string(f, (char*)node->value);
+		if (ret) goto _bail;
+		fprintf(f, ": ");
+
+		Value * val = hashmap_get(obj, node->value);
+		ret = json_serialize(f, val, indent + 1);
+		printed = 1;
+	}
+
+	if (printed) fprintf(f, "\n");
+
+	list_free(keys);
+	free(keys);
+
+	for (int i = 0; i < indent; ++i) fprintf(f, "  ");
+	fprintf(f, "}");
+	return 0;
+
+_bail:
+	list_free(keys);
+	free(keys);
+	return ret;
+}
+
+int json_serialize(FILE * f, Value * thing, int indent) {
+	switch (thing->type) {
+		case JSON_TYPE_NUMBER:
+			/* Hope your double printing is good enough */
+			fprintf(f, "%f", thing->number);
+			return 0;
+
+		case JSON_TYPE_STRING:
+			return json_serialize_string(f, thing->string);
+
+		case JSON_TYPE_BOOL:
+			fprintf(f, "%s", thing->boolean ? "true" : "false");
+			return 0;
+
+		case JSON_TYPE_NULL:
+			fprintf(f, "null");
+			return 0;
+
+		case JSON_TYPE_ARRAY:
+			return json_serialize_array(f, thing->array, indent);
+
+		case JSON_TYPE_OBJECT:
+			return json_serialize_object(f, thing->object, indent);
+
+		default:
+			json_lib_error = "what";
+			return 1;
+	}
+}
+
+int json_write_file(const char * filename, Value * thing) {
+	FILE * f = fopen(filename, "w");
+	if (!f) {
+		json_lib_error = strerror(errno);
+		return 1;
+	}
+
+	int ret = json_serialize(f, thing, 0);
+
+	fputc('\n', f);
+
+	fclose(f);
+	return ret;
+}
+
+/* For external use */
+Value * json_create_number(double val) {
+	Value * out = malloc(sizeof(Value));
+	out->type = JSON_TYPE_NUMBER;
+	out->number = val;
+	return out;
+}
+
+Value * json_create_string(const char * orig) {
+	Value * out = malloc(sizeof(Value));
+	out->type = JSON_TYPE_STRING;
+	out->string = strdup(orig);
+	return out;
+}
+
+Value * json_create_bool(int val) {
+	Value * out = malloc(sizeof(Value));
+	out->type = JSON_TYPE_BOOL;
+	out->boolean = val;
+	return out;
+}
+
+Value * json_create_null(void) {
+	Value * out = malloc(sizeof(Value));
+	out->type = JSON_TYPE_NULL;
+	return out;
+}
+
+Value * json_create_empty_object(void) {
+	Value * out = malloc(sizeof(Value));
+	out->type = JSON_TYPE_OBJECT;
+	out->object = hashmap_create(10);
+	out->object->hash_val_free = (void (*)(void *))json_free;
+	return out;
+}
+
+/* Casting convenience */
+Value * json_object_get(Value * obj, char * key) {
+	return hashmap_get(obj->object, key);
+}
+
+Value * json_object_set(Value * obj, char * key, Value * value) {
+	hashmap_set(obj->object, key, value);
+	return value;
+}
+
+Value * json_create_empty_array(void) {
+	Value * out = malloc(sizeof(Value));
+	out->type = JSON_TYPE_ARRAY;
+	out->array = list_create();
+	return out;
+}
+
+Value * json_array_append(Value * array, Value * val) {
+	list_insert(array->array, val);
+	return val;
 }
