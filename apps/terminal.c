@@ -2218,14 +2218,12 @@ static void * handle_incoming(void) {
 				{
 					struct yutani_msg_window_close * wc = (void*)m->data;
 					if (wc->wid == window->wid) {
-						kill(child_pid, SIGKILL);
 						exit_application = 1;
 					}
 				}
 				break;
 			case YUTANI_MSG_SESSION_END:
 				{
-					kill(child_pid, SIGKILL);
 					exit_application = 1;
 				}
 				break;
@@ -2271,7 +2269,6 @@ static void * handle_incoming(void) {
 
 						switch (decor_response) {
 							case DECOR_CLOSE:
-								kill(child_pid, SIGKILL);
 								exit_application = 1;
 								break;
 							case DECOR_RIGHT:
@@ -2435,7 +2432,6 @@ static void * handle_incoming(void) {
 
 /* File > Exit */
 static void _menu_action_exit(struct MenuEntry * self) {
-	kill(child_pid, SIGKILL);
 	exit_application = 1;
 }
 
