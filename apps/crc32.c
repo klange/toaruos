@@ -75,7 +75,7 @@ static int calculate(FILE * f, char * name, int print_name) {
 	crc32 ^= final_xor;
 	if (!reflect_output) crc32 = reflectn(crc32,32);
 	if (print_decimal) {
-		fprintf(stdout, "%u %lu %s\n", crc32, size, name);
+		fprintf(stdout, "%u %lu%s%s\n", crc32, size, (*name) ? " " : "", name);
 	} else if (print_name) {
 		fprintf(stdout, "%08x\t%s\n", crc32, name);
 	} else {
@@ -157,21 +157,25 @@ int main(int argc, char * argv[]) {
 	}
 
 	if (optind == argc) {
-		return calculate(stdin,"<stdin>",0);
+		return calculate(stdin,"",0);
 	}
 
 	int ret = 0;
 	int print_names = optind + 1 != argc;
 
 	for (; optind < argc; ++optind) {
-		FILE * f = fopen(argv[optind], "r");
-		if (!f) {
-			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[optind], strerror(errno));
-			ret |= 1;
-			continue;
+		if (!strcmp(argv[optind],"-")) {
+			ret |= calculate(stdin,"-", print_names);
+		} else {
+			FILE * f = fopen(argv[optind], "r");
+			if (!f) {
+				fprintf(stderr, "%s: %s: %s\n", argv[0], argv[optind], strerror(errno));
+				ret |= 1;
+				continue;
+			}
+			ret |= calculate(f, argv[optind], print_names);
+			fclose(f);
 		}
-		ret |= calculate(f, argv[optind], print_names);
-		fclose(f);
 	}
 
 	return ret;
