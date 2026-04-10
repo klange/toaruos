@@ -69,6 +69,7 @@ with tarfile.open('ramdisk.igz','w:gz') as ramdisk:
     ramdisk.addfile(symlink('bin/sh','esh'))
     ramdisk.addfile(symlink('bin/mandelbrot','julia'))
     ramdisk.addfile(symlink('bin/fgrep','grep'))
+    ramdisk.addfile(symlink('bin/cksum','crc32'))
 
     # Build tools; you'll probably want these.
     ramdisk.add('util/auto-dep.krk',arcname='/bin/auto-dep.krk',filter=file_filter)

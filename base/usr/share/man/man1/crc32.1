@@ -1,15 +1,103 @@
 .TH CRC32 1 "March, 2026"
 
 .SH NAME
-\fBcrc32\fP \- Calculate the checksum of a file.
+\fBcrc32\fP, \fBcksum\fP \- Calculate the cyclic redundancy check of a file.
 
 .SH SYNOPSIS
-\fBcrc32\fP \fIfile\fP
+\fBcrc32\fP [\fB\-d\fP] [\fB\-c\fP|\fB\-P\fP] [\fIfile\fP]...
+.br
+\fBcrc32\fP [\fB\-d\fP] [\fB\-p\fP \fIpolynomial\fP] [\fB\-e\fP] [\fB\-r\fP] [\fB\-R\fP] [\fB\-i\fP \fIinitial_value\fP] [\fB\-x\fP \fIfinal_xor\fP] [\fIfile\fP]...
+.br
+\fBcksum\fP [\fIfile\fP]...
 
 .SH DESCRIPTION
-Calculates the CRC32 (Cyclic Redundancy Check) checksum of a file. There are many different
-incompatible definitions of CRC32. This implementation uses the one where the second entry
-in a precalculated \fBcrctab\fP is 0x77073096.
+Calculates and prints the 32-bit \fIcyclic redundancy check\fP value for each of the given files.
+.PP
+If no \fIfile\fP arguments are provided, standard input will be used.
+If multiple \fIfile\fP arguments are provided, each check value will be printed on
+a separate line alongside its associated argument.
+
+.SH DEFAULTS
+When invoked as \fBcrc32\fP, the default configuration of this utility is as follows:
+
+.RS
+- The polynomial is \fB0x04C11DB7\fP, representing exponents of 32, 26, 23, 22, 16, 12, 11, 10, 8, 7, 5, 4, 2, 1, and 0.
+.br
+- The input is reflected.
+.br
+- The output is reflected.
+.br
+- The initial value is \fB0xFFFFFFFF\fP.
+.br
+- The checksum is not extended with the length of the input.
+.br
+- The final value is XORed with \fB0xFFFFFFFF\fP.
+.RE
+
+.PP
+When invoked as \fBcksum\fP, the utility operates as if the options \fB\-d \-P\fP were provided.
+
+.SH OPTIONS
+
+.SS General
+These options control the display format of the output:
+
+.TP
+.B \-d
+Display the output in the \fBcksum\fP decimal format, with the length and filename always included.
+
+.SS Shortcuts
+These options pick particular versions of the CRC\-32 algorithm:
+
+.TP
+.B \-c
+Calculate a CRC\-32C.
+.sp
+This option is equivalent to \fB\-p 0x1EDC6F41\fP.
+
+.TP
+.B \-P
+Calculate a POSIX CRC\-32.
+.sp
+This option is equivalent to \fB\-r \-R \-i 0 \-e\fP.
+
+.PP
+Shortcut options reset all customization options.
+If you wish to alter the behavior from a shortcut, place customization options after the shortcut option.
+
+.SS Customization
+These options allow for the configuration of a custom CRC\-32 algorithm:
+
+.TP
+.B \-p \fIn\fP
+Set the polynomial to use.
+This should be the normal form, such as \fB0x04C11DB7\fP (the default), or \fB0x1EDC6F41\fP.
+
+.TP
+.B \-r
+Unreflected input.
+Input bytes will be read in the opposite order from how they would be in standard CRC\-32.
+
+.TP
+.B \-R
+Unreflected output.
+The final check value will be bit reversed from how it would normally be presented in standard CRC\-32.
+
+.TP
+.B \-i \fIn\fP
+The checksum calculation begins at this value. The default is \fB0xFFFFFFFF\fP.
+
+.TP
+.B \-x \fIn\fP
+The checksum calculation is XORed by this value before being displayed (and before being bit-reversed).
+The default value is \fB0xFFFFFFFF\fP.
+
+.TP
+.B \-e
+Extend with length.
+The length of the input that has been processed will be included, read from least significant byte
+to most significant byte, with bits consumed in the ordered specified by the presence or non\-presence
+of the \fB\-r\fP option, applying the "smallest number of octets capable of representing this integer".
 
 .SH EXIT STATUS
 .TP
@@ -17,5 +105,8 @@ in a precalculated \fBcrctab\fP is 0x77073096.
 On success
 .TP
 1
-If the wrong number of arguments were provided, or if the file could not be opened, or if
-an error occurred while trying to read the file.
+If an unexpected option was provided, an input file could not be opened, or an error was
+encountered while trying to read an input file.
+
+.SH STANDARDS
+When invoked as \fBcksum\fP, this utility should conform to the specification in POSIX.1\-2024.
