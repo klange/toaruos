@@ -8,7 +8,7 @@ const char * arch_get_loader(void);
 
 void arch_pause(void);
 
-void arch_fatal(void);
+void arch_fatal(void) __attribute__((noreturn));
 
 void arch_set_tls_base(uintptr_t tlsbase);
 long arch_reboot(void);
