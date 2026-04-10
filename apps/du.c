@@ -56,6 +56,14 @@ static void print_size(uint64_t size, char * name) {
 	fprintf(stdout, "%7s %s\n", sizes, name);
 }
 
+static int endswith(char * str, char * suffix) {
+	size_t len_suffix = strlen(suffix);
+	size_t len_str = strlen(str);
+
+	if (len_str < len_suffix) return 0;
+	return !memcmp(str+len_str-len_suffix,suffix,len_suffix);
+}
+
 static uint64_t count_directory(char * source) {
 	DIR * dirp = opendir(source);
 	if (dirp == NULL) {
@@ -76,7 +84,7 @@ static uint64_t count_directory(char * source) {
 			continue;
 		}
 		char tmp[strlen(source)+strlen(ent->d_name)+2];
-		sprintf(tmp, "%s/%s", source, ent->d_name);
+		sprintf(tmp, "%s%s%s", source, endswith(source,"/") ? "" : "/", ent->d_name);
 		total += count_thing(tmp);
 		ent = readdir(dirp);
 	}
