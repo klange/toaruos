@@ -58,10 +58,11 @@ static int usage(char * argv[]) {
 	fprintf(stderr,
 			"Terminal Emulator\n"
 			"\n"
-			"usage: %s [-FbxnB] [-s " X_S "SCALE" X_E "] [-g " X_S "WIDTHxHEIGHT" X_E "] [-S " X_S "LINES" X_E "] [COMMAND...]\n"
+			"usage: %s [-FbexnB] [-s " X_S "SCALE" X_E "] [-g " X_S "WIDTHxHEIGHT" X_E "] [-S " X_S "LINES" X_E "] [COMMAND...]\n"
 			"\n"
 			" -F --fullscreen        " X_S "Run in fullscreen (background) mode." X_E "\n"
 			" -b --bitmap            " X_S "Use the integrated bitmap font." X_E "\n"
+			" -e --emulatebold       " X_S "Emulate bold text by double striking bitmap glyphs." X_E "\n"
 			" -s --scale " X_S "SCALE       Scale the font in antialiased mode by a given amount." X_E "\n"
 			" -h --help              " X_S "Show this help message." X_E "\n"
 			" -x --grid              " X_S "Make resizes round to nearest match for character cell size." X_E "\n"
@@ -116,6 +117,7 @@ static bool _fullscreen    = 0;    /* Whether or not we are running in fullscree
 static bool _no_frame      = 0;    /* Whether to disable decorations or not */
 static bool _use_aa        = 1;    /* Whether or not to use best-available anti-aliased renderer */
 static bool _free_size     = 1;    /* Disable rounding when resized */
+static bool emulate_bold   = 0;    /* Emulate bold by double drawing bitmap font. */
 
 static struct TT_Font * _tt_font_normal = NULL;
 static struct TT_Font * _tt_font_bold = NULL;
@@ -889,9 +891,10 @@ static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, u
 		}
 		/* Draw using the bitmap font. */
 		uint8_t * c = large_font[val];
+#define bit_set(i,j) (c[i] & (1 << (LARGE_FONT_MASK-(j))))
 		for (uint8_t i = 0; i < char_height; ++i) {
 			for (uint8_t j = 0; j < char_width; ++j) {
-				if (c[i] & (1 << (LARGE_FONT_MASK-j))) {
+				if (bit_set(i,j) || ((flags & ANSI_BOLD) && emulate_bold && bit_set(i,j+1))) {
 					term_set_point(x+j,y+i,_fg);
 				} else {
 					term_set_point(x+j,y+i,_bg);
@@ -2448,12 +2451,20 @@ static void _menu_action_hide_borders(struct MenuEntry * self) {
 
 static struct MenuEntry * _menu_toggle_bitmap_context = NULL;
 static struct MenuEntry * _menu_toggle_bitmap_bar = NULL;
+static struct MenuEntry * _menu_toggle_bold_bar = NULL;
 
 static void _menu_action_toggle_tt(struct MenuEntry * self) {
 	_use_aa = !(_use_aa);
 	menu_update_toggle_state(_menu_toggle_bitmap_context, !_use_aa);
 	menu_update_toggle_state(_menu_toggle_bitmap_bar, !_use_aa);
 	menu_update_enabled(_menu_set_zoom, _use_aa);
+	menu_update_enabled(_menu_toggle_bold_bar, !_use_aa);
+	reinit();
+}
+
+static void _menu_action_toggle_bold(struct MenuEntry * self) {
+	emulate_bold = !emulate_bold;
+	menu_update_toggle_state(_menu_toggle_bold_bar, emulate_bold);
 	reinit();
 }
 
@@ -2565,6 +2576,7 @@ int main(int argc, char ** argv) {
 	static struct option long_opts[] = {
 		{"fullscreen", no_argument,       0, 'F'},
 		{"bitmap",     no_argument,       0, 'b'},
+		{"emulatebold",no_argument,       0, 'e'},
 		{"scale",      required_argument, 0, 's'},
 		{"help",       no_argument,       0, 'h'},
 		{"grid",       no_argument,       0, 'x'},
@@ -2577,7 +2589,7 @@ int main(int argc, char ** argv) {
 
 	/* Read some arguments */
 	int index, c;
-	while ((c = getopt_long(argc, argv, "bhxnFs:g:BS:", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "behxnFs:g:BS:", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
@@ -2596,6 +2608,9 @@ int main(int argc, char ** argv) {
 				break;
 			case 'b':
 				_use_aa = 0;
+				break;
+			case 'e':
+				emulate_bold = 1;
 				break;
 			case 'h':
 				usage(argv);
@@ -2714,6 +2729,9 @@ int main(int argc, char ** argv) {
 	menu_update_enabled(_menu_set_zoom, _use_aa);
 	_menu_toggle_bitmap_bar = menu_create_toggle(NULL, "Bitmap font", !_use_aa, _menu_action_toggle_tt);
 	menu_insert(m, _menu_toggle_bitmap_bar);
+	_menu_toggle_bold_bar = menu_create_toggle(NULL, "Emulate bold", !_use_aa, _menu_action_toggle_bold);
+	menu_update_enabled(_menu_toggle_bold_bar, !_use_aa);
+	menu_insert(m, _menu_toggle_bold_bar);
 	menu_insert(m, menu_create_toggle(NULL, "Snap to Cell Size", !_free_size, _menu_action_toggle_free_size));
 	menu_insert(m, menu_create_separator());
 	menu_insert(m, menu_create_normal(NULL, NULL, "Redraw", _menu_action_redraw));
