@@ -43,6 +43,8 @@
 .B struct JSON_Value * json_object_get(struct JSON_Value *\fIobj\fP, char *\fIkey\fP);
 .br
 .B struct JSON_Value * json_object_set(struct JSON_Value *\fIobj\fP, char *\fIkey\fP, struct JSON_Value *\fIvalue\fP);
+.br
+.B struct JSON_Value * json_take_string(char *\fIstr\fP);
 
 .SH DESCRIPTION
 This library provides routines for parsing JSON strings and files.

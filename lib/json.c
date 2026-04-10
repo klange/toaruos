@@ -455,9 +455,9 @@ int json_serialize_string(FILE * f, const char * str) {
 
 	while (*str) {
 		switch (*str) {
+			//case '/': /* This is valid in the other direction, but serves little purpose, so we don't do it. */
 			case '"':
 			case '\\':
-			case '/':
 				fputc('\\', f);
 				fputc(*str, f);
 				break;
@@ -602,6 +602,13 @@ Value * json_create_string(const char * orig) {
 	Value * out = malloc(sizeof(Value));
 	out->type = JSON_TYPE_STRING;
 	out->string = strdup(orig);
+	return out;
+}
+
+Value * json_take_string(char *str) {
+	Value * out = malloc(sizeof(Value));
+	out->type = JSON_TYPE_STRING;
+	out->string = str;
 	return out;
 }
 

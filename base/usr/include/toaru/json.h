@@ -69,5 +69,6 @@ extern struct JSON_Value * json_object_get(struct JSON_Value * obj, char * key);
 extern struct JSON_Value * json_object_set(struct JSON_Value * obj, char * key, struct JSON_Value * value);
 extern struct JSON_Value * json_create_empty_array(void);
 extern struct JSON_Value * json_array_append(struct JSON_Value * array, struct JSON_Value * val);
+extern struct JSON_Value * json_take_string(char *str);
 
 _End_C_Header
