@@ -18,6 +18,11 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 	int print_errors = !!opterr;
 	int was_colon = 0;
 
+	if (*optstring == '+') {
+		/* POSIX.1-2024 says ignoring leading + with no change in behavior */
+		optstring++;
+	}
+
 	if (*optstring == ':') {
 		print_errors = 0;
 		optstring++;
