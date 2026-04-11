@@ -1276,22 +1276,16 @@ static void term_shift_region(int top, int height, int how_much) {
 	}
 
 	/* Move from top+how_much to top */
-	if (count) {
-		memmove(term_buffer + destination, term_buffer + source, count * term_width * sizeof(term_cell_t));
-		memmove(term_mirror + destination, term_mirror + source, count * term_width * sizeof(term_cell_t));
-	}
-
-	l_x = 0; l_y = 0;
-	r_x = window->width;
-	r_y = window->height;
+	if (count) memmove(term_buffer + destination, term_buffer + source, count * term_width * sizeof(term_cell_t));
 
 	/* Clear new lines at bottom */
 	for (int i = new_top; i < new_bottom; ++i) {
 		for (uint16_t x = 0; x < term_width; ++x) {
 			cell_set(x, i, ' ', current_fg, current_bg, ansi_state->flags);
-			cell_redraw(x, i);
 		}
 	}
+
+	term_redraw_all();
 }
 
 /* Scroll the terminal up or down. */
