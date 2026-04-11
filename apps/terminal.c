@@ -209,7 +209,14 @@ static struct MenuEntry * _menu_scale_100 = NULL;
 static struct MenuEntry * _menu_scale_150 = NULL;
 static struct MenuEntry * _menu_scale_200 = NULL;
 static struct MenuEntry * _menu_set_zoom = NULL;
+
+/* Terminal state menu */
 static struct MenuEntry * _menu_toggle_altscreen = NULL;
+static struct MenuEntry * _menu_toggle_mouse_reporting = NULL;
+static struct MenuEntry * _menu_toggle_mouse_drag = NULL;
+static struct MenuEntry * _menu_toggle_mouse_sgr = NULL;
+static struct MenuEntry * _menu_toggle_mouse_altscroll = NULL;
+static struct MenuEntry * _menu_toggle_paste_bracketing = NULL;
 
 /* Trigger to exit the terminal when the child process dies or
  * we otherwise receive an exit signal */
@@ -1638,7 +1645,6 @@ static void term_switch_buffer(int buffer) {
 	if (buffer != 0 && buffer != 1) return;
 	if (buffer != active_buffer) {
 		active_buffer = buffer;
-		menu_update_toggle_state(_menu_toggle_altscreen, active_buffer);
 		term_buffer = active_buffer == 0 ? term_buffer_a : term_buffer_b;
 
 		SWAP(int, csr_x, _orig_x);
@@ -1666,7 +1672,6 @@ static void full_reset(void) {
 	_orig_bg = TERM_DEFAULT_BG;
 
 	active_buffer = 0;
-	menu_update_toggle_state(_menu_toggle_altscreen, active_buffer);
 	term_buffer = term_buffer_a;
 
 	/* Clear both buffers to 0 */
@@ -1681,6 +1686,16 @@ static void full_reset(void) {
 
 	/* Clear title */
 	terminal_title_length = 0;
+}
+
+static void term_state_change(term_state_t * state) {
+	/* mouse_on, etc., has possible changed, update things */
+	menu_update_toggle_state(_menu_toggle_altscreen, active_buffer);
+	menu_update_toggle_state(_menu_toggle_mouse_reporting, state->mouse_on & TERMEMU_MOUSE_ENABLE);
+	menu_update_toggle_state(_menu_toggle_mouse_drag, state->mouse_on & TERMEMU_MOUSE_DRAG);
+	menu_update_toggle_state(_menu_toggle_mouse_sgr, state->mouse_on & TERMEMU_MOUSE_SGR);
+	menu_update_toggle_state(_menu_toggle_mouse_altscroll, state->mouse_on & TERMEMU_MOUSE_ALTSCRL);
+	menu_update_toggle_state(_menu_toggle_paste_bracketing, state->paste_mode);
 }
 
 /* ANSI callbacks */
@@ -1703,6 +1718,7 @@ term_callbacks_t term_callbacks = {
 	term_switch_buffer,
 	insert_delete_lines,
 	full_reset,
+	term_state_change,
 };
 
 static void handle_input(char c) {
@@ -2490,7 +2506,48 @@ static void _menu_action_toggle_free_size(struct MenuEntry * self) {
 
 static void _menu_action_toggle_altscreen(struct MenuEntry * self) {
 	term_switch_buffer(!active_buffer);
-	menu_update_toggle_state(_menu_toggle_altscreen, active_buffer);
+	term_state_change(ansi_state);
+}
+
+static void _menu_action_toggle_mouse_reporting(struct MenuEntry * self) {
+	if (ansi_state->mouse_on & TERMEMU_MOUSE_ENABLE) {
+		ansi_state->mouse_on &= ~TERMEMU_MOUSE_ENABLE;
+	} else {
+		ansi_state->mouse_on |= TERMEMU_MOUSE_ENABLE;
+	}
+	term_state_change(ansi_state);
+}
+
+static void _menu_action_toggle_mouse_drag(struct MenuEntry * self) {
+	if (ansi_state->mouse_on & TERMEMU_MOUSE_DRAG) {
+		ansi_state->mouse_on &= ~TERMEMU_MOUSE_DRAG;
+	} else {
+		ansi_state->mouse_on |= TERMEMU_MOUSE_DRAG;
+	}
+	term_state_change(ansi_state);
+}
+
+static void _menu_action_toggle_mouse_sgr(struct MenuEntry * self) {
+	if (ansi_state->mouse_on & TERMEMU_MOUSE_SGR) {
+		ansi_state->mouse_on &= ~TERMEMU_MOUSE_SGR;
+	} else {
+		ansi_state->mouse_on |= TERMEMU_MOUSE_SGR;
+	}
+	term_state_change(ansi_state);
+}
+
+static void _menu_action_toggle_mouse_altscroll(struct MenuEntry * self) {
+	if (ansi_state->mouse_on & TERMEMU_MOUSE_ALTSCRL) {
+		ansi_state->mouse_on &= ~TERMEMU_MOUSE_ALTSCRL;
+	} else {
+		ansi_state->mouse_on |= TERMEMU_MOUSE_ALTSCRL;
+	}
+	term_state_change(ansi_state);
+}
+
+static void _menu_action_toggle_paste_bracketing(struct MenuEntry * self) {
+	ansi_state->paste_mode = !ansi_state->paste_mode;
+	term_state_change(ansi_state);
 }
 
 static void _menu_action_show_about(struct MenuEntry * self) {
@@ -2743,6 +2800,15 @@ int main(int argc, char ** argv) {
 	menu_set_insert(terminal_menu_bar.set, "cache", m);
 
 	m = menu_create();
+	menu_insert(m, (_menu_toggle_altscreen        = menu_create_toggle(NULL, "Alternate screen", 0,        _menu_action_toggle_altscreen)));
+	menu_insert(m, (_menu_toggle_mouse_reporting  = menu_create_toggle(NULL, "Mouse reporting", 0,         _menu_action_toggle_mouse_reporting)));
+	menu_insert(m, (_menu_toggle_mouse_drag       = menu_create_toggle(NULL, "Drag reporting", 0,          _menu_action_toggle_mouse_drag)));
+	menu_insert(m, (_menu_toggle_mouse_sgr        = menu_create_toggle(NULL, "SGR 1006 mouse mode", 0,     _menu_action_toggle_mouse_sgr)));
+	menu_insert(m, (_menu_toggle_mouse_altscroll  = menu_create_toggle(NULL, "Alt. screen scroll mode", 0, _menu_action_toggle_mouse_altscroll)));
+	menu_insert(m, (_menu_toggle_paste_bracketing = menu_create_toggle(NULL, "Paste bracketing", 0,        _menu_action_toggle_paste_bracketing)));
+	menu_set_insert(terminal_menu_bar.set, "termstate", m);
+
+	m = menu_create();
 	_menu_toggle_borders_bar = menu_create_toggle(NULL, "Show borders", !_no_frame, _menu_action_hide_borders);
 	menu_insert(m, _menu_toggle_borders_bar);
 	menu_insert(m, menu_create_toggle(NULL, "Snap to Cell Size", !_free_size, _menu_action_toggle_free_size));
@@ -2756,8 +2822,8 @@ int main(int argc, char ** argv) {
 	_menu_toggle_bold_bar = menu_create_toggle(NULL, "Emulate bold", !_use_aa, _menu_action_toggle_bold);
 	menu_update_enabled(_menu_toggle_bold_bar, !_use_aa);
 	menu_insert(m, _menu_toggle_bold_bar);
-	_menu_toggle_altscreen = menu_create_toggle(NULL, "Alternate screen", active_buffer, _menu_action_toggle_altscreen);
-	menu_insert(m, _menu_toggle_altscreen);
+
+	menu_insert(m, menu_create_submenu(NULL,"termstate","Terminal state..."));
 
 	menu_insert(m, menu_create_separator());
 
