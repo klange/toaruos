@@ -115,8 +115,9 @@ typedef struct {
 #define TERMEMU_MOUSE_ENABLE  0x01
 #define TERMEMU_MOUSE_DRAG    0x02
 #define TERMEMU_MOUSE_SGR     0x04
-/* TODO: _MOUSE_UTF8          0x08 */
-/* TODO: _MOUSE_URXVT         0x10 */
+#define TERMEMU_MOUSE_ALTSCRL 0x80
+/* TODO: _MOUSE_UTF8          0x10 */
+/* TODO: _MOUSE_URXVT         0x80 */
 
 extern term_state_t * ansi_init(term_state_t * s, int w, int y, term_callbacks_t * callbacks_in);
 extern void ansi_put(term_state_t * s, char c);

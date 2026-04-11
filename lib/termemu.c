@@ -329,6 +329,8 @@ static void _ansi_put(term_state_t * s, char c) {
 								s->mouse_on |= TERMEMU_MOUSE_DRAG;
 							} else if (!strcmp(argv[0], "?1006")) {
 								s->mouse_on |= TERMEMU_MOUSE_SGR;
+							} else if (!strcmp(argv[0], "?1007")) {
+								s->mouse_on |= TERMEMU_MOUSE_ALTSCRL;
 							} else if (!strcmp(argv[0], "?25")) {
 								callbacks->set_csr_on(1);
 							} else if (!strcmp(argv[0], "?2004")) {
@@ -346,6 +348,8 @@ static void _ansi_put(term_state_t * s, char c) {
 								s->mouse_on &= ~TERMEMU_MOUSE_DRAG;
 							} else if (!strcmp(argv[0],"?1006")) {
 								s->mouse_on &= ~TERMEMU_MOUSE_SGR;
+							} else if (!strcmp(argv[0], "?1007")) {
+								s->mouse_on &= ~TERMEMU_MOUSE_ALTSCRL;
 							} else if (!strcmp(argv[0], "?25")) {
 								callbacks->set_csr_on(0);
 							} else if (!strcmp(argv[0], "?2004")) {
