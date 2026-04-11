@@ -181,7 +181,7 @@ static void clear_line(void) {
 }
 
 static void cleanup(void) {
-	if (use_alt_screen) printf("\033[?1049l");
+	if (use_alt_screen) printf("\033[?1007l\033[?1049l");
 	printf("\033[?25h");
 	set_buffered();
 	fflush(stdout);
@@ -717,7 +717,7 @@ int main(int argc, char * argv[]) {
 	signal(SIGINT, quit_cleanly);
 	signal(SIGQUIT, quit_cleanly);
 
-	if (use_alt_screen) printf("\033[?1049h\033[H\033[2J");
+	if (use_alt_screen) printf("\033[?1049h\033[?1007h\033[H\033[2J");
 
 	if (optind == argc) {
 		do_file("stdin",stdin, optind, argc);
