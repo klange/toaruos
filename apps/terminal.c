@@ -209,6 +209,7 @@ static struct MenuEntry * _menu_scale_100 = NULL;
 static struct MenuEntry * _menu_scale_150 = NULL;
 static struct MenuEntry * _menu_scale_200 = NULL;
 static struct MenuEntry * _menu_set_zoom = NULL;
+static struct MenuEntry * _menu_toggle_altscreen = NULL;
 
 /* Trigger to exit the terminal when the child process dies or
  * we otherwise receive an exit signal */
@@ -1637,6 +1638,7 @@ static void term_switch_buffer(int buffer) {
 	if (buffer != 0 && buffer != 1) return;
 	if (buffer != active_buffer) {
 		active_buffer = buffer;
+		menu_update_toggle_state(_menu_toggle_altscreen, active_buffer);
 		term_buffer = active_buffer == 0 ? term_buffer_a : term_buffer_b;
 
 		SWAP(int, csr_x, _orig_x);
@@ -1664,6 +1666,7 @@ static void full_reset(void) {
 	_orig_bg = TERM_DEFAULT_BG;
 
 	active_buffer = 0;
+	menu_update_toggle_state(_menu_toggle_altscreen, active_buffer);
 	term_buffer = term_buffer_a;
 
 	/* Clear both buffers to 0 */
@@ -2485,6 +2488,11 @@ static void _menu_action_toggle_free_size(struct MenuEntry * self) {
 	menu_update_toggle_state(self, !_free_size);
 }
 
+static void _menu_action_toggle_altscreen(struct MenuEntry * self) {
+	term_switch_buffer(!active_buffer);
+	menu_update_toggle_state(_menu_toggle_altscreen, active_buffer);
+}
+
 static void _menu_action_show_about(struct MenuEntry * self) {
 	char about_cmd[1024] = "\0";
 	strcat(about_cmd, "about \"About Terminal\" /usr/share/icons/48/utilities-terminal.png \"ToaruOS Terminal\" \"© 2013-2026 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaruos\" ");
@@ -2737,6 +2745,10 @@ int main(int argc, char ** argv) {
 	m = menu_create();
 	_menu_toggle_borders_bar = menu_create_toggle(NULL, "Show borders", !_no_frame, _menu_action_hide_borders);
 	menu_insert(m, _menu_toggle_borders_bar);
+	menu_insert(m, menu_create_toggle(NULL, "Snap to Cell Size", !_free_size, _menu_action_toggle_free_size));
+
+	menu_insert(m, menu_create_separator());
+
 	menu_insert(m, (_menu_set_zoom = menu_create_submenu(NULL,"zoom","Set zoom...")));
 	menu_update_enabled(_menu_set_zoom, _use_aa);
 	_menu_toggle_bitmap_bar = menu_create_toggle(NULL, "Bitmap font", !_use_aa, _menu_action_toggle_tt);
@@ -2744,8 +2756,11 @@ int main(int argc, char ** argv) {
 	_menu_toggle_bold_bar = menu_create_toggle(NULL, "Emulate bold", !_use_aa, _menu_action_toggle_bold);
 	menu_update_enabled(_menu_toggle_bold_bar, !_use_aa);
 	menu_insert(m, _menu_toggle_bold_bar);
-	menu_insert(m, menu_create_toggle(NULL, "Snap to Cell Size", !_free_size, _menu_action_toggle_free_size));
+	_menu_toggle_altscreen = menu_create_toggle(NULL, "Alternate screen", active_buffer, _menu_action_toggle_altscreen);
+	menu_insert(m, _menu_toggle_altscreen);
+
 	menu_insert(m, menu_create_separator());
+
 	menu_insert(m, menu_create_normal(NULL, NULL, "Redraw", _menu_action_redraw));
 	menu_insert(m, menu_create_submenu(NULL,"cache","Glyph cache..."));
 	menu_set_insert(terminal_menu_bar.set, "view", m);
