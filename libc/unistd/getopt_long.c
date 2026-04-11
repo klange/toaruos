@@ -12,20 +12,19 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 	static char * nextchar = NULL;
 	static int optind_expected = 1;
 
-	if (optind != optind_expected) nextchar = NULL;
+	if (optind != optind_expected) nextchar = NULL; /* If optind changed, ensure we process this argument from the start */
+	if (optind == 0) optind = 1; /* If optind was set to 0, accept this as forcing a reset and starting parsing again from 1. */
 	optind_expected = optind;
 
-	if (optind >= argc) {
-		return -1;
-	}
+	/* Argument parsing has ended. */
+	if (optind >= argc) return -1;
 
+	/* POSIX.1-2024 says ignoring leading + with no change in behavior */
+	if (*optstring == '+') optstring++;
+
+	/* Print errors unless opterr was unset, or if start of opstring (after a possible +) was : */
 	int print_errors = !!opterr;
 	int was_colon = 0;
-
-	if (*optstring == '+') {
-		/* POSIX.1-2024 says ignoring leading + with no change in behavior */
-		optstring++;
-	}
 
 	if (*optstring == ':') {
 		print_errors = 0;
@@ -42,7 +41,7 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 				nextchar++;
 
 				if (*nextchar == '\0') {
-					/* Special case - is a non-option argument */
+					/* Special case, '-' is a non-option argument */
 					return -1;
 				}
 
@@ -107,45 +106,41 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 			}
 		}
 
-		if (*nextchar == '\0') {
+		int optout = *nextchar;
+
+		if (!optout) {
+			/* Processing of the current argv has completed, advance to the next. */
 			nextchar = NULL;
 			optind++;
 			continue;
 		}
 
-		if (!isalnum(*nextchar) && *nextchar != '?' && *nextchar != '-') {
-			if (print_errors) {
-				fprintf(stderr, "%s: Invalid option character: %c\n", argv[0], *nextchar);
-			}
-			optopt = *nextchar;
-			nextchar++;
-			return '?';
-		}
-
-		char * opt = strchr(optstring, *nextchar);
+		char * opt = strchr(optstring, optout);
 
 		if (!opt) {
-			if (print_errors) {
-				fprintf(stderr, "%s: Invalid option character: %c\n", argv[0], *nextchar);
-			}
-			optopt = *nextchar;
+			if (print_errors) fprintf(stderr, "%s: Invalid option character: %c\n", argv[0], *nextchar);
+			optopt = optout;
 			nextchar++;
 			return '?';
 		}
-
-		int optout = *nextchar;
 
 		if (opt[1] == ':') {
 			if (nextchar[1] != '\0') {
+				/* Argument comes from the rest of this argv */
 				optarg = &nextchar[1];
 				nextchar = NULL;
 				optind++;
+			} else if (opt[2] == ':') {
+				/* Double colon is a GNU extension: Argument is optional, and only to be read from the same argv element.
+				 * If we didn't find an argument here, optarg is to be set to 0, rather than taking the next argv.  */
+				optarg = 0;
+				nextchar = NULL;
+				optind++;
 			} else {
+				/* Argument is the next argv */
 				if (optind + 1 == argc) {
-					if (print_errors) {
-						fprintf(stderr, "%s: Option requires an argument: '%c'\n", argv[0], *nextchar);
-					}
-					optopt = *nextchar;
+					if (print_errors) fprintf(stderr, "%s: Option requires an argument: '%c'\n", argv[0], *nextchar);
+					optopt = optout;
 					nextchar++;
 					return was_colon ? ':' : '?';
 				}
