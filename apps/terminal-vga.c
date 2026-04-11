@@ -1056,6 +1056,7 @@ term_callbacks_t term_callbacks = {
 	term_switch_buffer,
 	insert_delete_lines,
 	full_reset,
+	NULL,
 };
 
 void reinit(void) {
