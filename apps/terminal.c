@@ -1417,7 +1417,7 @@ static void normalize_x(int setting_lcf) {
 
 static void normalize_y(void) {
 	if (csr_y == term_height) {
-		save_scrollback();
+		if (active_buffer != 1) save_scrollback();
 		term_scroll(1);
 		csr_y = term_height - 1;
 	}
@@ -1929,14 +1929,14 @@ static void key_event(int ret, key_event_t * event) {
 				break;
 			case KEY_PAGE_UP:
 				if (event->modifiers & KEY_MOD_LEFT_SHIFT) {
-					scroll_up(term_height/2);
+					if (active_buffer != 1) scroll_up(term_height/2);
 				} else {
 					handle_input_s("\033[5~");
 				}
 				break;
 			case KEY_PAGE_DOWN:
 				if (event->modifiers & KEY_MOD_LEFT_SHIFT) {
-					scroll_down(term_height/2);
+					if (active_buffer != 1) scroll_down(term_height/2);
 				} else {
 					handle_input_s("\033[6~");
 				}
@@ -2408,9 +2408,21 @@ static void * handle_incoming(void) {
 							} /* else selection */
 						}
 						if (me->buttons & YUTANI_MOUSE_SCROLL_UP) {
-							scroll_up(5);
+							if (active_buffer == 1) {
+								if (ansi_state->mouse_on & TERMEMU_MOUSE_ALTSCRL) {
+									handle_input_s("\033[A");
+								}
+							} else {
+								scroll_up(5);
+							}
 						} else if (me->buttons & YUTANI_MOUSE_SCROLL_DOWN) {
-							scroll_down(5);
+							if (active_buffer == 1) {
+								if (ansi_state->mouse_on & TERMEMU_MOUSE_ALTSCRL) {
+									handle_input_s("\033[B");
+								}
+							} else {
+								scroll_down(5);
+							}
 						} else if (me->buttons & YUTANI_MOUSE_BUTTON_RIGHT) {
 							if (!menu_right_click->window) {
 								menu_show_at(menu_right_click, window, me->new_x, me->new_y);
