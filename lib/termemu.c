@@ -151,6 +151,7 @@ static void _ansi_put(term_state_t * s, char c) {
 				s->bg = TERM_DEFAULT_BG;
 				s->flags = TERM_DEFAULT_FLAGS;
 				if (callbacks->full_reset) callbacks->full_reset();
+				if (callbacks->state_change) callbacks->state_change(s);
 			} else {
 				/* This isn't a bracket, we're not actually escaped!
 				 * Get out of here! */
@@ -336,6 +337,7 @@ static void _ansi_put(term_state_t * s, char c) {
 							} else if (!strcmp(argv[0], "?2004")) {
 								s->paste_mode = 1;
 							}
+							if (callbacks->state_change) callbacks->state_change(s);
 						}
 						break;
 					case ANSI_HIDE:
@@ -355,6 +357,7 @@ static void _ansi_put(term_state_t * s, char c) {
 							} else if (!strcmp(argv[0], "?2004")) {
 								s->paste_mode = 0;
 							}
+							if (callbacks->state_change) callbacks->state_change(s);
 						}
 						break;
 					case ANSI_CUF:

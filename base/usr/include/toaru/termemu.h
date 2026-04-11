@@ -15,6 +15,8 @@ typedef struct {
 	uint32_t flags; /* other flags */
 } term_cell_t;
 
+struct TermemuState;
+
 typedef struct {
 	void (*writer)(char);
 	void (*set_color)(uint32_t, uint32_t);
@@ -34,9 +36,10 @@ typedef struct {
 	void (*switch_buffer)(int);
 	void (*insert_delete_lines)(int);
 	void (*full_reset)(void);
+	void (*state_change)(struct TermemuState *);
 } term_callbacks_t;
 
-typedef struct {
+typedef struct TermemuState {
 	uint16_t x;       /* Current cursor location */
 	uint16_t y;       /*    "      "       "     */
 	uint16_t save_x;  /* Last cursor save */
