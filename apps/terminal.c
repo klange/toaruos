@@ -2480,6 +2480,7 @@ static void _menu_action_hide_borders(struct MenuEntry * self) {
 static struct MenuEntry * _menu_toggle_bitmap_context = NULL;
 static struct MenuEntry * _menu_toggle_bitmap_bar = NULL;
 static struct MenuEntry * _menu_toggle_bold_bar = NULL;
+static struct MenuEntry * _menu_toggle_bold_context = NULL;
 
 static void _menu_action_toggle_tt(struct MenuEntry * self) {
 	_use_aa = !(_use_aa);
@@ -2487,12 +2488,14 @@ static void _menu_action_toggle_tt(struct MenuEntry * self) {
 	menu_update_toggle_state(_menu_toggle_bitmap_bar, !_use_aa);
 	menu_update_enabled(_menu_set_zoom, _use_aa);
 	menu_update_enabled(_menu_toggle_bold_bar, !_use_aa);
+	menu_update_enabled(_menu_toggle_bold_context, !_use_aa);
 	reinit();
 }
 
 static void _menu_action_toggle_bold(struct MenuEntry * self) {
 	emulate_bold = !emulate_bold;
 	menu_update_toggle_state(_menu_toggle_bold_bar, emulate_bold);
+	menu_update_toggle_state(_menu_toggle_bold_context, emulate_bold);
 	reinit();
 }
 
@@ -2768,6 +2771,9 @@ int main(int argc, char ** argv) {
 	}
 	_menu_toggle_bitmap_context = menu_create_toggle(NULL, "Bitmap font", !_use_aa, _menu_action_toggle_tt);
 	menu_insert(menu_right_click, _menu_toggle_bitmap_context);
+	_menu_toggle_bold_context = menu_create_toggle(NULL, "Emulate bold", emulate_bold, _menu_action_toggle_bold);
+	menu_update_enabled(_menu_toggle_bold_context, !_use_aa);
+	menu_insert(menu_right_click, _menu_toggle_bold_context);
 	menu_insert(menu_right_click, menu_create_separator());
 	menu_insert(menu_right_click, _menu_exit);
 
@@ -2816,7 +2822,7 @@ int main(int argc, char ** argv) {
 	menu_update_enabled(_menu_set_zoom, _use_aa);
 	_menu_toggle_bitmap_bar = menu_create_toggle(NULL, "Bitmap font", !_use_aa, _menu_action_toggle_tt);
 	menu_insert(m, _menu_toggle_bitmap_bar);
-	_menu_toggle_bold_bar = menu_create_toggle(NULL, "Emulate bold", !_use_aa, _menu_action_toggle_bold);
+	_menu_toggle_bold_bar = menu_create_toggle(NULL, "Emulate bold", emulate_bold, _menu_action_toggle_bold);
 	menu_update_enabled(_menu_toggle_bold_bar, !_use_aa);
 	menu_insert(m, _menu_toggle_bold_bar);
 
