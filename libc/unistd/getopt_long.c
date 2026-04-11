@@ -10,6 +10,10 @@
 
 int getopt_long(int argc, char * const argv[], const char *optstring, const struct option *longopts, int *longindex) {
 	static char * nextchar = NULL;
+	static int optind_expected = 1;
+
+	if (optind != optind_expected) nextchar = NULL;
+	optind_expected = optind;
 
 	if (optind >= argc) {
 		return -1;
