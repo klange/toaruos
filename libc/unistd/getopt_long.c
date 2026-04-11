@@ -118,7 +118,7 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 		char * opt = strchr(optstring, optout);
 
 		if (!opt) {
-			if (print_errors) fprintf(stderr, "%s: Invalid option character: %c\n", argv[0], *nextchar);
+			if (print_errors) fprintf(stderr, "%s: Invalid option character: %c\n", argv[0], optout);
 			optopt = optout;
 			nextchar++;
 			return '?';
@@ -139,7 +139,7 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 			} else {
 				/* Argument is the next argv */
 				if (optind + 1 == argc) {
-					if (print_errors) fprintf(stderr, "%s: Option requires an argument: '%c'\n", argv[0], *nextchar);
+					if (print_errors) fprintf(stderr, "%s: Option requires an argument: '%c'\n", argv[0], optout);
 					optopt = optout;
 					nextchar++;
 					return was_colon ? ':' : '?';
