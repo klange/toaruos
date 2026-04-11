@@ -73,6 +73,7 @@ static uint64_t mouse_ticks = 0;
 static int selection = 0;
 static int selection_start_x = 0;
 static int selection_start_y = 0;
+static int selection_start_xx = 0;
 static int selection_end_x = 0;
 static int selection_end_y = 0;
 static char * selection_text = NULL;
@@ -217,16 +218,16 @@ void iterate_selection(void (*func)(uint16_t x, uint16_t y)) {
 				func(x, y);
 			}
 		}
-		for (int x = 0; x <= selection_start_x; ++x) {
+		for (int x = 0; x <= selection_start_xx; ++x) {
 			func(x, selection_start_y);
 		}
 	} else if (selection_start_y == selection_end_y) {
 		if (selection_start_x > selection_end_x) {
-			for (int x = selection_end_x; x <= selection_start_x; ++x) {
+			for (int x = selection_end_x; x <= selection_start_xx; ++x) {
 				func(x, selection_start_y);
 			}
 		} else {
-			for (int x = selection_start_x; x <= selection_end_x; ++x) {
+			for (int x = selection_start_x; x <= selection_end_x || x <= selection_start_xx; ++x) {
 				func(x, selection_start_y);
 			}
 		}
@@ -1209,10 +1210,12 @@ void handle_mouse_event(mouse_device_packet_t * packet) {
 					if (!c || c->c == ' ' || !c->c) break;
 					selection_end_x++;
 				}
+				selection_start_xx = selection_end_x;
 				selection = 1;
 			} else {
 				last_click = get_ticks();
 				selection_start_x = mouse_x;
+				selection_start_xx = mouse_x;
 				selection_start_y = mouse_y;
 				selection_end_x = mouse_x;
 				selection_end_y = mouse_y;

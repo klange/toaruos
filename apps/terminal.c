@@ -135,6 +135,7 @@ static int menu_bar_height = 24;
 static int selection = 0;
 static int selection_start_x = 0;
 static int selection_start_y = 0;
+static int selection_start_xx = 0;
 static int selection_end_x = 0;
 static int selection_end_y = 0;
 static char * selection_text = NULL;
@@ -318,16 +319,16 @@ static void iterate_selection(void (*func)(uint16_t x, uint16_t y)) {
 				func(x, y);
 			}
 		}
-		for (int x = 0; x <= selection_start_x; ++x) {
+		for (int x = 0; x <= selection_start_xx; ++x) {
 			func(x, selection_start_y);
 		}
 	} else if (selection_start_y == selection_end_y) {
 		if (selection_start_x > selection_end_x) {
-			for (int x = selection_end_x; x <= selection_start_x; ++x) {
+			for (int x = selection_end_x; x <= selection_start_xx; ++x) {
 				func(x, selection_start_y);
 			}
 		} else {
-			for (int x = selection_start_x; x <= selection_end_x; ++x) {
+			for (int x = selection_start_x; x <= selection_end_x || x <= selection_start_xx; ++x) {
 				func(x, selection_start_y);
 			}
 		}
@@ -2397,11 +2398,13 @@ static void * handle_incoming(void) {
 									if (!c || c->c == ' ' || !c->c) break;
 									selection_end_x++;
 								}
+								selection_start_xx = selection_end_x;
 								selection = 1;
 								if (_menu_copy) menu_update_enabled(_menu_copy, selection);
 							} else {
 								last_click = get_ticks();
 								selection_start_x = new_x;
+								selection_start_xx = new_x;
 								selection_start_y = new_y;
 								selection_end_x = new_x;
 								selection_end_y = new_y;
