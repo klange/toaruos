@@ -57,6 +57,10 @@ extern off_t lseek(int fd, off_t offset, int whence);
 
 extern int access(const char * pathname, int mode);
 
+#if defined(_GNU_SOURCE)
+extern int eaccess(const char * pathname, int mode);
+#endif
+
 extern int getopt(int argc, char * const argv[], const char * optstring);
 
 extern char * optarg;
