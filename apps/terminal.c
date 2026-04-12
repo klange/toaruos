@@ -139,8 +139,10 @@ static int selection_start_xx = 0;
 static int selection_end_x = 0;
 static int selection_end_y = 0;
 static char * selection_text = NULL;
-static int _selection_count = 0;
-static int _selection_i = 0;
+static size_t _selection_count = 0;
+static size_t _selection_space = 0;
+static int _selection_escapes = 0;
+static term_cell_t _selection_state = {0};
 
 /* Mouse state */
 static int last_mouse_x   = -1;
@@ -204,6 +206,7 @@ static struct MenuEntry * _menu_toggle_borders_context = NULL;
 static struct MenuEntry * _menu_toggle_borders_bar = NULL;
 static struct MenuEntry * _menu_exit = NULL;
 static struct MenuEntry * _menu_copy = NULL;
+static struct MenuEntry * _menu_copy_escapes = NULL;
 static struct MenuEntry * _menu_paste = NULL;
 static struct MenuEntry * _menu_scale_075 = NULL;
 static struct MenuEntry * _menu_scale_100 = NULL;
@@ -410,37 +413,90 @@ static void flip_selection(void) {
 	}
 }
 
-/* Figure out how long the UTF-8 selection string should be. */
-static void count_selection(uint16_t x, uint16_t _y) {
-	int y = _y;
-	y -= scrollback_offset;
-	if (y >= 0) {
-		term_cell_t * cell = &term_buffer[y * term_width + x];
-		if (!(cell->flags & ANSI_EXT_IMG)) {
-			if (((uint32_t *)cell)[0] != 0x00000000) {
-				char tmp[7];
-				_selection_count += to_eight(cell->c, tmp);
-			}
-		}
-	} else {
-		node_t * node = scrollback_list->tail;
-		for (; y < -1; y++) {
-			if (!node) break;
-			node = node->prev;
-		}
-		if (node) {
-			struct scrollback_row * row = (struct scrollback_row *)node->value;
-			if (row && x < row->width) {
-				term_cell_t * cell = &row->cells[x];
-				if (cell && ((uint32_t *)cell)[0] != 0x00000000) {
-					char tmp[7];
-					_selection_count += to_eight(cell->c, tmp);
+static void selection_extend(char * str, size_t len) {
+	while (_selection_count + len >= _selection_space) {
+		_selection_space *= 2;
+		selection_text = realloc(selection_text, _selection_space);
+	}
+
+	for (size_t i = 0; i < len; ++i) {
+		selection_text[_selection_count++] = str[i];
+	}
+}
+
+static void selection_write_cell(term_cell_t * cell) {
+	if (!(cell->flags & ANSI_EXT_IMG)) {
+		if (((uint32_t *)cell)[0] != 0x00000000 && cell->c != 0xFFFF) {
+
+			if (_selection_escapes) {
+				if (cell->fg != _selection_state.fg) {
+					char * tmp;
+					if (cell->fg < 8) {
+						asprintf(&tmp, "\033[3%dm", cell->fg);
+					} else if (cell->fg < 16) {
+						asprintf(&tmp, "\033[9%dm", cell->fg - 8);
+					} else if (cell->fg < PALETTE_COLORS) {
+						asprintf(&tmp, "\033[38;5;%dm", cell->fg);
+					} else {
+						int red = _RED(cell->fg);
+						int gre = _GRE(cell->fg);
+						int blu = _BLU(cell->fg);
+						asprintf(&tmp, "\033[38;2;%d;%d;%dm", red, gre, blu);
+					}
+					selection_extend(tmp, strlen(tmp));
+					free(tmp);
+				}
+				if (cell->bg != _selection_state.bg) {
+					char * tmp;
+					if (cell->bg < 8) {
+						asprintf(&tmp, "\033[4%dm", cell->bg);
+					} else if (cell->bg < 16) {
+						asprintf(&tmp, "\033[10%dm", cell->bg - 8);
+					} else if (cell->bg < PALETTE_COLORS) {
+						asprintf(&tmp, "\033[48;5;%dm", cell->bg);
+					} else {
+						int red = _RED(cell->bg);
+						int gre = _GRE(cell->bg);
+						int blu = _BLU(cell->bg);
+						asprintf(&tmp, "\033[48;2;%d;%d;%dm", red, gre, blu);
+					}
+					selection_extend(tmp, strlen(tmp));
+					free(tmp);
+				}
+				if (cell->flags != _selection_state.flags) {
+					uint32_t changed = (cell->flags ^ _selection_state.flags);
+
+					if (changed & ANSI_BOLD) {
+						if (cell->flags & ANSI_BOLD) selection_extend("\033[1m", 4);
+						else selection_extend("\033[22m", 5);
+					}
+
+					if (changed & ANSI_ITALIC) {
+						if (cell->flags & ANSI_ITALIC) selection_extend("\033[3m", 4);
+						else selection_extend("\033[23m", 5);
+					}
+
+					if (changed & ANSI_UNDERLINE) {
+						if (cell->flags & ANSI_UNDERLINE) selection_extend("\033[4m", 4);
+						else selection_extend("\033[24m", 5);
+					}
+
+					if (changed & ANSI_CROSS) {
+						if (cell->flags & ANSI_CROSS) selection_extend("\033[9m", 4);
+						else selection_extend("\033[29m", 5);
+					}
+
 				}
 			}
+
+			char tmp[7];
+			int count = to_eight(cell->c, tmp);
+			selection_extend(tmp, count);
+
+			_selection_state.fg = cell->fg;
+			_selection_state.bg = cell->bg;
+			_selection_state.flags = cell->flags;
 		}
-	}
-	if (x == term_width - 1) {
-		_selection_count++;
 	}
 }
 
@@ -450,16 +506,7 @@ void write_selection(uint16_t x, uint16_t _y) {
 	y -= scrollback_offset;
 	if (y >= 0) {
 		term_cell_t * cell = &term_buffer[y * term_width + x];
-		if (!(cell->flags & ANSI_EXT_IMG)) {
-			if (((uint32_t *)cell)[0] != 0x00000000 && cell->c != 0xFFFF) {
-				char tmp[7];
-				int count = to_eight(cell->c, tmp);
-				for (int i = 0; i < count; ++i) {
-					selection_text[_selection_i] = tmp[i];
-					_selection_i++;
-				}
-			}
-		}
+		selection_write_cell(cell);
 	} else {
 		node_t * node = scrollback_list->tail;
 		for (; y < -1; y++) {
@@ -470,48 +517,34 @@ void write_selection(uint16_t x, uint16_t _y) {
 			struct scrollback_row * row = (struct scrollback_row *)node->value;
 			if (row && x < row->width) {
 				term_cell_t * cell = &row->cells[x];
-				if (cell && ((uint32_t *)cell)[0] != 0x00000000 && cell->c != 0xFFFF) {
-					char tmp[7];
-					int count = to_eight(cell->c, tmp);
-					for (int i = 0; i < count; ++i) {
-						selection_text[_selection_i] = tmp[i];
-						_selection_i++;
-					}
-				}
+				selection_write_cell(cell);
 			}
 		}
 	}
-	if (x == term_width - 1) {
-		selection_text[_selection_i] = '\n';;
-		_selection_i++;
-	}
+
+	if (x == term_width - 1) selection_extend("\n",1);
 }
 
 /* Copy the selection text to the clipboard. */
-static char * copy_selection(void) {
+static char * copy_selection(int with_escapes) {
+	if (selection_text) free(selection_text);
+
 	_selection_count = 0;
-	iterate_selection(count_selection);
+	_selection_space = 10;
+	selection_text = malloc(_selection_space);
 
-	if (selection_text) {
-		free(selection_text);
-	}
-
-	if (_selection_count == 0) {
-		return NULL;
-	}
-
-	selection_text = malloc(_selection_count + 1);
-	selection_text[_selection_count] = '\0';
-	_selection_i = 0;
+	_selection_escapes = with_escapes;
+	memset(&_selection_state, 0, sizeof(term_cell_t));
 	iterate_selection(write_selection);
+	selection_extend("\0",1);
+	_selection_count--;
 
-	if (selection_text[_selection_count-1] == '\n') {
+	if (_selection_count && selection_text[_selection_count-1] == '\n') {
 		/* Don't end on a line feed */
 		selection_text[_selection_count-1] = '\0';
 	}
 
 	yutani_set_clipboard(yctx, selection_text);
-
 	return selection_text;
 }
 
@@ -1763,7 +1796,7 @@ static void key_event(int ret, key_event_t * event) {
 			(event->keycode == 'c')) {
 			if (selection) {
 				/* Copy selection */
-				copy_selection();
+				copy_selection(0);
 			}
 			return;
 		}
@@ -2394,7 +2427,6 @@ static void * handle_incoming(void) {
 								}
 								selection_start_xx = selection_end_x;
 								selection = 1;
-								if (_menu_copy) menu_update_enabled(_menu_copy, selection);
 							} else {
 								last_click = get_ticks();
 								selection_start_x = new_x;
@@ -2403,8 +2435,9 @@ static void * handle_incoming(void) {
 								selection_end_x = new_x;
 								selection_end_y = new_y;
 								selection = 0;
-								if (_menu_copy) menu_update_enabled(_menu_copy, selection);
 							}
+							if (_menu_copy) menu_update_enabled(_menu_copy, selection);
+							if (_menu_copy_escapes) menu_update_enabled(_menu_copy_escapes, selection);
 							redraw_selection();
 						}
 						if (me->command == YUTANI_MOUSE_EVENT_DRAG && me->buttons & YUTANI_MOUSE_BUTTON_LEFT ){
@@ -2413,12 +2446,14 @@ static void * handle_incoming(void) {
 							selection_end_y = new_y;
 							selection = 1;
 							if (_menu_copy) menu_update_enabled(_menu_copy, selection);
+							if (_menu_copy_escapes) menu_update_enabled(_menu_copy_escapes, selection);
 							flip_selection();
 						}
 						if (me->command == YUTANI_MOUSE_EVENT_RAISE) {
 							if (me->new_x == me->old_x && me->new_y == me->old_y) {
 								selection = 0;
 								if (_menu_copy) menu_update_enabled(_menu_copy, selection);
+								if (_menu_copy_escapes) menu_update_enabled(_menu_copy_escapes, selection);
 								term_redraw_all();
 								redraw_scrollback();
 							} /* else selection */
@@ -2566,7 +2601,11 @@ static void _menu_action_show_help(struct MenuEntry * self) {
 }
 
 static void _menu_action_copy(struct MenuEntry * self) {
-	copy_selection();
+	copy_selection(0);
+}
+
+static void _menu_action_copy_escapes(struct MenuEntry * self) {
+	copy_selection(1);
 }
 
 static void _menu_action_paste(struct MenuEntry * self) {
@@ -2757,12 +2796,15 @@ int main(int argc, char ** argv) {
 
 	_menu_exit = menu_create_normal("exit","exit","Exit", _menu_action_exit);
 	_menu_copy = menu_create_normal(NULL, NULL, "Copy", _menu_action_copy);
+	_menu_copy_escapes = menu_create_normal(NULL, NULL, "Copy with escapes", _menu_action_copy_escapes);
 	_menu_paste = menu_create_normal(NULL, NULL, "Paste", _menu_action_paste);
 
 	menu_update_enabled(_menu_copy, selection);
+	menu_update_enabled(_menu_copy_escapes, selection);
 
 	menu_right_click = menu_create();
 	menu_insert(menu_right_click, _menu_copy);
+	menu_insert(menu_right_click, _menu_copy_escapes);
 	menu_insert(menu_right_click, _menu_paste);
 	menu_insert(menu_right_click, menu_create_separator());
 	if (!_fullscreen) {
@@ -2786,6 +2828,7 @@ int main(int argc, char ** argv) {
 
 	m = menu_create();
 	menu_insert(m, _menu_copy);
+	menu_insert(m, _menu_copy_escapes);
 	menu_insert(m, _menu_paste);
 	menu_set_insert(terminal_menu_bar.set, "edit", m);
 
