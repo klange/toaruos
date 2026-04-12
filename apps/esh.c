@@ -378,6 +378,22 @@ void sig_break_loop(int sig) {
 	}
 }
 
+static int probably_mandir(const struct dirent *ent) {
+	return (!strncmp(ent->d_name, "man", 3));
+}
+
+static int probably_manpage(const struct dirent *ent) {
+	if (*ent->d_name == '.') return 0;
+	return 1;
+}
+
+static int comp_completions(const void *p1, const void *p2) {
+	const char **c1 = (const char**)p1;
+	const char **c2 = (const char**)p2;
+
+	return strcmp(*c1,*c2);
+}
+
 void tab_complete_func(rline_context_t * c) {
 	char * dup = malloc(LINE_LEN);
 	
@@ -443,8 +459,7 @@ void tab_complete_func(rline_context_t * c) {
 		!strcmp(argv[command_adj], "time") ||
 		/* TODO: Both of these may take additional arguments... */
 		!strcmp(argv[command_adj], "strace") ||
-		!strcmp(argv[command_adj], "dbg") ||
-		!strcmp(argv[command_adj], "man")
+		!strcmp(argv[command_adj], "dbg")
 	)) {
 		cursor_adj -= 1;
 		command_adj += 1;
@@ -464,6 +479,10 @@ void tab_complete_func(rline_context_t * c) {
 	}
 
 	if (cursor_adj >= 1 && !strcmp(argv[command_adj], "ifconfig")) {
+		complete_mode = COMPLETE_CUSTOM;
+	}
+
+	if (cursor_adj >= 1 && !strcmp(argv[command_adj], "man")) {
 		complete_mode = COMPLETE_CUSTOM;
 	}
 
@@ -621,6 +640,71 @@ void tab_complete_func(rline_context_t * c) {
 				}
 			} else if (cursor_adj > 1) {
 				completions = ifconfig_commands;
+			}
+		} else if (!strcmp(argv[command_adj], "man")) {
+
+			/* Get list of man directories */
+			struct dirent ** entries;
+			int count = scandir("/usr/share/man", &entries, probably_mandir, alphasort);
+
+			if (count == 0) {
+				free(entries);
+			} else if (count >= 0) {
+				struct dirent *** subdirs = calloc(count, sizeof(struct dirent**));
+				int * counts = calloc(count, sizeof(int));
+				size_t total_pages = 0;
+
+				for (int i = 0; i < count; ++i) {
+					char * tmp = NULL;
+					asprintf(&tmp, "/usr/share/man/%s",entries[i]->d_name);
+					int subcount = scandir(tmp, &subdirs[i], probably_manpage, alphasort);
+					if (subcount >= 0) {
+						counts[i] = subcount;
+						total_pages += subcount;
+					}
+					free(tmp);
+				}
+
+				free_matches = 1;
+				completions = calloc(total_pages + 1, sizeof(char *));
+
+				size_t n = 0;
+				for (int i = 0; i < count; ++i) {
+					for (int j = 0; j < counts[i]; ++j) {
+						char * c = strrchr(subdirs[i][j]->d_name,'.');
+						if (c && *c) {
+							*c = '\0';
+							/* This might have been a .gz suffix. */
+							if (c[1] == 'g' && c[2] == 'z') {
+								c = strrchr(subdirs[i][j]->d_name,'.');
+								if (c && *c) {
+									*c = '\0';
+								}
+							}
+						}
+						completions[n++] = strdup(subdirs[i][j]->d_name);
+						free(subdirs[i][j]);
+					}
+					if (subdirs[i]) free(subdirs[i]);
+					free(entries[i]);
+				}
+				completions[n] = NULL;
+				free(entries);
+				free(counts);
+
+				/* Sort completions. */
+				qsort(completions, n, sizeof(char *), comp_completions);
+
+				/* Remove duplicate completions. */
+				for (size_t a = 0, b = 1; b < n; b++) {
+					if (!strcmp(completions[a], completions[b])) {
+						free(completions[b]);
+					} else {
+						a++;
+						completions[a] = completions[b];
+					}
+					if (a != b) completions[b] = NULL;
+				}
 			}
 		}
 
