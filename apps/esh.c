@@ -482,7 +482,7 @@ void tab_complete_func(rline_context_t * c) {
 		complete_mode = COMPLETE_CUSTOM;
 	}
 
-	if (cursor_adj >= 1 && !strcmp(argv[command_adj], "man")) {
+	if (cursor_adj >= 1 && !strcmp(argv[command_adj], "man") && !strchr(prefix,'/')) {
 		complete_mode = COMPLETE_CUSTOM;
 	}
 
