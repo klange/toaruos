@@ -3,6 +3,11 @@ import os, kuroko, fileio
 
 let cflags = "-O2 -g -I. -Iapps -fplan9-extensions -Wall -Wextra -Wno-unused-parameter"
 
+# This isn't strictly correcty for cross-compiling, but these 'cflags'
+# should only be used when running this tool natively anyway.
+if os.uname().get('machine',None) == 'aarch64':
+    cflags += ' -z max-page-size=0x1000 -Wno-psabi'
+
 def basename(path: str) -> str:
     return path.strip('/').split('/')[-1]
 
