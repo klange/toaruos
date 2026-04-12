@@ -248,6 +248,9 @@ static void _ansi_put(term_state_t * s, char c) {
 							} else if (arg == 9) {
 								/* X-OUT */
 								s->flags |= ANSI_CROSS;
+							} else if (arg == 29) {
+								/* not X-OUT */
+								s->flags &= ~ANSI_CROSS;
 							} else if (arg == 7) {
 								/* INVERT: Swap foreground / background */
 								uint32_t temp = s->fg;
