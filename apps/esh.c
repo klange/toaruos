@@ -684,18 +684,40 @@ void tab_complete_func(rline_context_t * c) {
 				c->tabbed = 1;
 			}
 		} else {
-			/* Print matches */
-			fprintf(stderr,"\n\033[0m");
+			char ** match_array = calloc(matches->length, sizeof(char*));
+
+			/* First figure out maximum length */
+			int ent_max_len = 0;
 			size_t j = 0;
 			foreach(node, matches) {
 				char * match = (char *)node->value;
-				fprintf(stderr, "%s", match);
-				++j;
-				if (j < matches->length) {
-					fprintf(stderr, ", ");
-				}
+				int width = display_width_of_string(match);
+				if (width > ent_max_len) ent_max_len = width;
+				match_array[j++] = match;
 			}
-			fprintf(stderr,"\n");
+
+			int col_ext = ent_max_len + 1; /* column spacing */
+			int cols = ((rline_terminal_width + 1) / col_ext);
+			if (cols == 0) cols = 1;
+			int rows = matches->length / cols;
+			if (rows * cols < (int)matches->length) rows++;
+
+			fprintf(stderr,"\n\033[0m");
+			for (int i = 0; i < rows; ++i) {
+				int printed = display_width_of_string(match_array[i]);
+				fprintf(stderr, "%s", match_array[i]);
+				for (int k = printed; k < ent_max_len; k++) fprintf(stderr, " ");
+				for (int j = 1; j < cols; ++j) {
+					if (i + j * rows >= (int)matches->length) break;
+					printed = display_width_of_string(match_array[i + j * rows]);
+					fprintf(stderr, " %s", match_array[i + j * rows]);
+					for (int k = printed; k < ent_max_len; k++) fprintf(stderr, " ");
+				}
+				fprintf(stderr,"\n");
+			}
+
+			free(match_array);
+
 			c->callbacks->redraw_prompt(c);
 			fprintf(stderr, "\033[s");
 			rline_redraw(c);
