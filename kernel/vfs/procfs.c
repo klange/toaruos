@@ -485,7 +485,7 @@ static void mounts_func(fs_node_t *node) {
 
 static void modules_func(fs_node_t *node) {
 	list_t * hash_keys = hashmap_keys(modules_get_list());
-	if (!hash_keys || !hash_keys->length) return;
+	if (!hash_keys) return;
 	foreach(_key, hash_keys) {
 		char * key = (char *)_key->value;
 		struct LoadedModule * mod_info = hashmap_get(modules_get_list(), key);
@@ -502,7 +502,7 @@ extern hashmap_t * fs_types; /* from kernel/fs/vfs.c */
 
 static void filesystems_func(fs_node_t *node) {
 	list_t * hash_keys = hashmap_keys(fs_types);
-	if (!hash_keys || !hash_keys->length) return;
+	if (!hash_keys) return;
 	foreach(_key, hash_keys) {
 		char * key = (char *)_key->value;
 		procfs_printf(node, "%s\n", key);
