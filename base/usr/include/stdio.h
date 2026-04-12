@@ -100,4 +100,7 @@ extern int fsetpos(FILE *stream, const fpos_t *pos);
 extern ssize_t getdelim(char **restrict lineptr, size_t *restrict n, int delimiter, FILE *restrict stream);
 extern ssize_t getline(char **restrict lineptr, size_t *restrict n, FILE *restrict stream);
 
+extern FILE * popen(const char * command, const char * type);
+extern int pclose(FILE * stream);
+
 _End_C_Header;
