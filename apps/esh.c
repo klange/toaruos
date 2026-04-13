@@ -78,6 +78,10 @@ int my_pgid;
 
 int is_subshell = 0;
 
+/* Set options */
+static int esh_complete_color = 0;
+static int esh_complete_hints = 0;
+
 struct semaphore {
 	int fds[2];
 };
@@ -394,6 +398,91 @@ static int comp_completions(const void *p1, const void *p2) {
 	return strcmp(*c1,*c2);
 }
 
+/**
+ * @brief Get the actual fillable content of a match.
+ *
+ * Match strings may be prefixed with special sequences
+ * that customize their display. This function gets
+ * the actual fillable content of the match, which is
+ * always at the end, so a pointer to some offset into
+ * the @p match is always returned.
+ *
+ * @param match Match string with special prefix.
+ * @returns A pointer into @p match
+ */
+static const char * match_content(const char *match) {
+	/* Prefixed with SOH - BS (1 through 8): Color this match */
+	if (*match && *match < 9) match++;
+
+	/* Tab character: Man page section, read until another tab. */
+	if (*match == 9) {
+		match++;
+		while (*match && *match != 9) match++;
+		if (*match == 9) match++;
+	}
+
+	return match;
+}
+
+/**
+ * @brief Print match with formatting.
+ *
+ * Applies the special formatting in a match and prints
+ * it to standard error.
+ *
+ * @param match Match string with special prefix.
+ */
+static void match_format(const char * match) {
+	if (*match && *match < 9) {
+		if (esh_complete_color) fprintf(stderr, "\033[9%cm", *match + '0');
+		match++;
+	}
+
+	if (*match == 9) {
+		match++;
+		const char * section = match;
+		while (*match && *match != 9) match++;
+		if (*match == 9) {
+			match++;
+			if (esh_complete_hints) {
+				fprintf(stderr, "%s\033[90m (%.*s)\033[0m", match, (int)(match - section - 1), section);
+				return;
+			}
+		}
+	}
+
+	fprintf(stderr, "%s", match);
+	if (esh_complete_color) fprintf(stderr, "\033[0m");
+}
+
+/**
+ * @brief Get the displayed width of a match.
+ *
+ * This includes any extra printable parts from the
+ * special formatting, plus the width of the normal
+ * match content, but excludes color escapes.
+ *
+ * @param match Match string with special prefix.
+ * @returns Display width in cells.
+ */
+static int match_display_width(const char * match) {
+	int out = 0;
+	if (*match && *match < 9) match++; /* color doesn't impact display width */
+
+	if (*match == 9) {
+		match++;
+		/* Man page section does impact display width */
+		if (esh_complete_hints) out = 3; /* for parens and space */
+		while (*match && *match != 9) {
+			if (esh_complete_hints) out++;
+			match++;
+		}
+		if (*match == 9) match++;
+	}
+
+	return out + display_width_of_string(match);
+}
+
 void tab_complete_func(rline_context_t * c) {
 	char * dup = malloc(LINE_LEN);
 	
@@ -432,7 +521,6 @@ void tab_complete_func(rline_context_t * c) {
 
 	/* Complete file path */
 	list_t * matches = list_create();
-	char * match = NULL;
 	int free_matches = 0;
 	int no_space_if_only = 0;
 
@@ -490,6 +578,10 @@ void tab_complete_func(rline_context_t * c) {
 		complete_mode = COMPLETE_VARIABLE;
 	}
 
+	if (cursor_adj >= 1 && !strcmp(argv[command_adj], "set")) {
+		complete_mode = COMPLETE_CUSTOM;
+	}
+
 	/* complete variable names */
 	if (*prefix == '$') {
 		complete_mode = COMPLETE_VARIABLE;
@@ -498,11 +590,16 @@ void tab_complete_func(rline_context_t * c) {
 
 	if (complete_mode == COMPLETE_COMMAND) {
 		/* Complete a command name */
-
+		free_matches = 1;
 		for (int i = 0; i < shell_commands_len; ++i) {
 			if (strstr(shell_commands[i], prefix) == shell_commands[i]) {
-				list_insert(matches, shell_commands[i]);
-				match = shell_commands[i];
+				char * s;
+				if (shell_descript[i]) {
+					asprintf(&s, "\t%s\t%s", "builtin", shell_commands[i]);
+				} else {
+					s = strdup(shell_commands[i]);
+				}
+				list_insert(matches, s); /* will be freed later */
 			}
 		}
 	} else if (complete_mode == COMPLETE_FILE) {
@@ -523,8 +620,8 @@ void tab_complete_func(rline_context_t * c) {
 			} else {
 				char * home;
 				if (*tmp == '~' && (home = getenv("HOME"))) {
-					char * t = malloc(strlen(tmp) + strlen(home) + 4);
-					sprintf(t, "%s%s",home,tmp+1);
+					char * t;
+					asprintf(&t, "%s%s",home,tmp+1);
 					dirp = opendir(t);
 					free(t);
 				} else {
@@ -563,14 +660,13 @@ void tab_complete_func(rline_context_t * c) {
 					}
 					char * s;
 					if (S_ISDIR(statbuf.st_mode)) {
-						s = malloc(strlen(ent->d_name) + 2);
-						sprintf(s,"%s/", ent->d_name);
+						/* Directories are blue, like in ls. */
+						asprintf(&s,"%c%s/", 4, ent->d_name);
 						no_space_if_only = 1;
 					} else {
 						s = strdup(ent->d_name);
 					}
 					list_insert(matches, s);
-					match = s;
 				}
 			}
 			ent = readdir(dirp);
@@ -585,6 +681,8 @@ void tab_complete_func(rline_context_t * c) {
 		char * toggle_abs_mouse_completions[] = {"relative","absolute",NULL};
 		char * msk_commands[] = {"update","install","list","count","--version",NULL};
 		char * ifconfig_commands[] = {"inet","netmask","gateway",NULL};
+		char * set_args[] = {"-o", NULL};
+		char * set_o_options[] = {"complete-color", "no-complete-color", "complete-hints", "no-complete-hints", NULL};
 
 		if (!strcmp(argv[command_adj],"toggle-abs-mouse")) {
 			completions = toggle_abs_mouse_completions;
@@ -682,7 +780,10 @@ void tab_complete_func(rline_context_t * c) {
 								}
 							}
 						}
-						completions[n++] = strdup(subdirs[i][j]->d_name);
+						char * s;
+						/* Man page matches are formatted with with the section surrounded by tabs. */
+						asprintf(&s, "\t%s\t%s", entries[i]->d_name + 3, subdirs[i][j]->d_name);
+						completions[n++] = s;
 						free(subdirs[i][j]);
 					}
 					if (subdirs[i]) free(subdirs[i]);
@@ -706,15 +807,26 @@ void tab_complete_func(rline_context_t * c) {
 					if (a != b) completions[b] = NULL;
 				}
 			}
+		} else if (!strcmp(argv[command_adj], "set")) {
+			if (cursor_adj == 1) {
+				completions = set_args;
+			} else if (cursor_adj == 2 && !strcmp(argv[command_adj+1],"-o")) {
+				completions = set_o_options;
+			}
 		}
 
-		while (*completions) {
-			if (strstr(*completions, prefix) == *completions) {
-				list_insert(matches, *completions);
-				match = *completions;
+		for (char **c = completions; *c; ++c) {
+			if (strstr(match_content(*c), prefix) == match_content(*c)) {
+				list_insert(matches, *c);
+			} else if (free_matches) {
+				/* We need to make sure anything that didn't make it into matches
+				 * still gets freed, so do that here. */
+				free(*c);
 			}
-			completions++;
 		}
+
+		/* We're done with any allocated completions array. */
+		if (free_matches) free(completions);
 
 	} else if (complete_mode == COMPLETE_VARIABLE) {
 
@@ -729,7 +841,6 @@ void tab_complete_func(rline_context_t * c) {
 				char * m = malloc(strlen(tmp)+1+with_dollar);
 				sprintf(m, "%s%s", with_dollar ? "$" : "", tmp);
 				list_insert(matches, m);
-				match = m;
 			}
 			free(tmp);
 			envvar++;
@@ -739,12 +850,14 @@ void tab_complete_func(rline_context_t * c) {
 
 	if (matches->length == 1) {
 		/* Insert */
+		const char * match = match_content(matches->head->value);
 		rline_insert(c, &match[word_offset]);
 		if (word && word_offset == (int)strlen(word) && !no_space_if_only) {
 			rline_insert(c, " ");
 		}
 		rline_redraw(c);
 	} else if (matches->length > 1) {
+		const char * match = match_content(matches->head->value);
 		if (!c->tabbed) {
 			/* see if there is a minimum subset we can fill in */
 			size_t j = word_offset;
@@ -752,7 +865,7 @@ void tab_complete_func(rline_context_t * c) {
 				char d = match[j];
 				int diff = 0;
 				foreach(node, matches) {
-					char * match = (char *)node->value;
+					const char * match = match_content((char *)node->value);
 					if (match[j] != d || match[j] == '\0') diff = 1;
 				}
 				if (diff) break;
@@ -770,31 +883,35 @@ void tab_complete_func(rline_context_t * c) {
 		} else {
 			char ** match_array = calloc(matches->length, sizeof(char*));
 
-			/* First figure out maximum length */
+			/* First figure out maximum length, and turn the matches list
+			 * back into an array so that we can do column/row lookups */
 			int ent_max_len = 0;
 			size_t j = 0;
 			foreach(node, matches) {
 				char * match = (char *)node->value;
-				int width = display_width_of_string(match);
+				int width = match_display_width(match);
 				if (width > ent_max_len) ent_max_len = width;
 				match_array[j++] = match;
 			}
 
+			/* Now figure out how many rows and columns we want to display. */
 			int col_ext = ent_max_len + 1; /* column spacing */
 			int cols = ((rline_terminal_width + 1) / col_ext);
 			if (cols == 0) cols = 1;
 			int rows = matches->length / cols;
 			if (rows * cols < (int)matches->length) rows++;
 
+			/* The rest of this is largely derived from our new column layout in 'ls' */
 			fprintf(stderr,"\n\033[0m");
 			for (int i = 0; i < rows; ++i) {
-				int printed = display_width_of_string(match_array[i]);
-				fprintf(stderr, "%s", match_array[i]);
+				int printed = match_display_width(match_array[i]);
+				match_format(match_array[i]);
 				for (int k = printed; k < ent_max_len; k++) fprintf(stderr, " ");
 				for (int j = 1; j < cols; ++j) {
 					if (i + j * rows >= (int)matches->length) break;
-					printed = display_width_of_string(match_array[i + j * rows]);
-					fprintf(stderr, " %s", match_array[i + j * rows]);
+					printed = match_display_width(match_array[i + j * rows]);
+					fprintf(stderr, " ");
+					match_format(match_array[i + j * rows]);
 					for (int k = printed; k < ent_max_len; k++) fprintf(stderr, " ");
 				}
 				fprintf(stderr,"\n");
@@ -2473,6 +2590,35 @@ uint32_t shell_cmd_time(int argc, char * argv[]) {
 	return WEXITSTATUS(ret_code);
 }
 
+uint32_t shell_cmd_set(int argc, char * argv[]) {
+	if (argc < 3 || strcmp(argv[1],"-o")) {
+		fprintf(stderr,
+			"set -o [option]\n"
+			"  options:\n"
+			"    complete-color      Use color in tab completion results.\n"
+			"    no-complete-color   Don't use color in tab completion results.\n"
+			"    complete-hints      Show hints in tab completion results.\n"
+			"    no-complete-hints   Don't show hints in tab completion results.\n"
+			"\n");
+		return 1;
+	}
+
+	if (!strcmp(argv[2], "complete-color")) {
+		esh_complete_color = 1;
+	} else if (!strcmp(argv[2], "no-complete-color")) {
+		esh_complete_color = 0;
+	} else if (!strcmp(argv[2], "complete-hints")) {
+		esh_complete_hints = 1;
+	} else if (!strcmp(argv[2], "no-complete-hints")) {
+		esh_complete_hints = 0;
+	} else {
+		fprintf(stderr, "'%s' is not a recognized option\n", argv[2]);
+		return 2;
+	}
+
+	return 0;
+}
+
 void install_commands() {
 	shell_commands = malloc(sizeof(char *) * SHELL_COMMANDS);
 	shell_pointers = malloc(sizeof(shell_command_t) * SHELL_COMMANDS);
@@ -2500,4 +2646,5 @@ void install_commands() {
 	shell_install_command("bg",      shell_cmd_bg, "restart suspended job in the background");
 	shell_install_command("rehash",  shell_cmd_rehash, "reset shell command memory");
 	shell_install_command("time",    shell_cmd_time, "time a command");
+	shell_install_command("set",     shell_cmd_set, "set shell options");
 }
