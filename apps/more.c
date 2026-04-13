@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <locale.h>
+#include <ctype.h>
 #include <termios.h>
 #include <signal.h>
 #include <sys/signal.h>
@@ -193,6 +194,43 @@ static void quit_cleanly(int sig) {
 	raise(sig);
 }
 
+static const char * escape_skipping_search(const char * haystack, const char * needle, size_t needle_len, const char ** end) {
+	const char * start = haystack;
+	const char * h = haystack;
+	const char * n = needle;
+	size_t c = 0;
+
+	int is_escaped = 0;
+	int maybe_escaped = 0;
+	for (; *h && c < needle_len; ++h) {
+		if (is_escaped) {
+			if (*h >= 'A' && *h <= 'z') is_escaped = 0;
+		} else if (maybe_escaped) {
+			if (*h == '[') {
+				maybe_escaped = 0;
+				is_escaped = 1;
+			}
+		} else if (*h == '\033') {
+			maybe_escaped = 1;
+		} else if (tolower(*h) != tolower(*n)) {
+				start = h;
+				c = 0;
+				n = needle;
+		} else {
+			if (c == 0) start = h;
+			n++;
+			c++;
+		}
+	}
+
+	if (c == needle_len) {
+		if (end) *end = h;
+		return start;
+	}
+
+	return NULL;
+}
+
 /**
  * Redraw a line from scrollback, possibly highlighting
  * search results, if found. We try to highlight more
@@ -200,18 +238,20 @@ static void quit_cleanly(int sig) {
  */
 static void draw_line(ssize_t line) {
 	if (search_string && *search_string) {
-		char * stop = NULL;
-		for (char * c = lines[line]; *c; ++c) {
-			if (!stop && !strncmp(c,search_string,search_size)) {
+		const char * c = lines[line];
+		do {
+			const char * stop = NULL;
+			const char * start = escape_skipping_search(c,search_string,search_size,&stop);
+			if (start) {
+				while (c != start) fputc(*(c++), stdout);
 				printf("\033[7m");
-				stop = c + search_size;
-			} else if (c == stop) {
+				while (c != stop) fputc(*(c++), stdout);
 				printf("\033[27m");
-				stop = NULL;
+			} else {
+				while (*c) fputc(*(c++), stdout);
+				break;
 			}
-			fputc(*c, stdout);
-		}
-		if (stop) printf("\033[27m");
+		} while (1);
 	} else {
 		/* No active search, so just print the line */
 		printf("%s",lines[line]);
@@ -281,7 +321,8 @@ static ssize_t do_search(ssize_t offset, int direction) {
 			/* Search forward. */
 			for (ssize_t i = linesLen - term_height - offset + 1 + direction; i < linesLen; ++i) {
 				if (i < 0) continue;
-				if (strstr(lines[i], search_string)) {
+				if (escape_skipping_search(lines[i], search_string,search_size,NULL)) {
+					fprintf(stderr, "what\n");
 					return linesLen - i - term_height + 1;
 				}
 			}
@@ -293,7 +334,7 @@ static ssize_t do_search(ssize_t offset, int direction) {
 		} else {
 			/* Search backwards */
 			for (ssize_t i = linesLen - term_height - offset; i >= 0; --i) {
-				if (strstr(lines[i], search_string)) {
+				if (escape_skipping_search(lines[i], search_string, search_size,NULL)) {
 					return linesLen - i - term_height + 1;
 				}
 			}
@@ -453,7 +494,7 @@ static int next_line(char * title, int forced, int atend) {
 	/* If we were actively searching forward in new data, see
 	 * if this newly printed line was a match. */
 	if (searching) {
-		if (linesLen && strstr(lines[linesLen-1],search_string)) {
+		if (linesLen && escape_skipping_search(lines[linesLen-1],search_string,search_size,NULL)) {
 			/* Search did match, go back to history mode so it
 			 * can redraw the new line with highlighting */
 			if (do_history_mode(5,title)) return 1;
