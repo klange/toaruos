@@ -253,9 +253,9 @@ static void _ansi_put(term_state_t * s, char c) {
 								s->flags &= ~ANSI_CROSS;
 							} else if (arg == 7) {
 								/* INVERT: Swap foreground / background */
-								uint32_t temp = s->fg;
-								s->fg = s->bg;
-								s->bg = temp;
+								s->flags |= ANSI_INVERT;
+							} else if (arg == 27) {
+								s->flags &= ~ANSI_INVERT;
 							} else if (arg == 6) {
 								/* proprietary RGBA color support */
 								if (i == 0) { break; }

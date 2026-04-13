@@ -48,7 +48,7 @@ typedef struct TermemuState {
 	uint32_t height;  /*     "    height */
 	uint32_t fg;      /* Current foreground color */
 	uint32_t bg;      /* Current background color */
-	uint8_t  flags;   /* Bright, etc. */
+	uint32_t flags;   /* Bright, etc. */
 	uint8_t  escape;  /* Escape status */
 	uint8_t  box;
 	uint8_t  buflen;  /* Buffer Length */
@@ -105,7 +105,8 @@ typedef struct TermemuState {
 #define ANSI_EXT_IMG   0x100 /* Cell is actually an image, use fg color as pointer */
 #define ANSI_MARKED    0x200 /* Marked for selection update */
 #define ANSI_RED       0x400 /* Marked as red after selection */
-#define ANSI_INVERTED  0x800 /* Cell was inverted */
+#define ANSI_INVERTED  0x800 /* Cell was inverted (by us, for special rendering) */
+#define ANSI_INVERT    0x1000 /* The inverted flag, like the bold or italic or underline flag. */
 
 #define ANSI_EXT_IOCTL 'z'  /* These are special escapes only we support */
 

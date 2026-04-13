@@ -258,7 +258,7 @@ static term_cell_t * cell_at(uint16_t x, uint16_t y) {
 static void mark_cell(uint16_t x, uint16_t y) {
 	term_cell_t * c = cell_at(x,y);
 	if (c) {
-		c->flags |= 0x200;
+		c->flags |= ANSI_MARKED;
 	}
 }
 
@@ -269,10 +269,10 @@ static void mark_selection(void) {
 static void red_cell(uint16_t x, uint16_t y) {
 	term_cell_t * c = cell_at(x,y);
 	if (c) {
-		if (c->flags & 0x200) {
-			c->flags &= ~(0x200);
+		if (c->flags & ANSI_MARKED) {
+			c->flags &= ~(ANSI_MARKED);
 		} else {
-			c->flags |= 0x400;
+			c->flags |= ANSI_RED;
 		}
 	}
 }
@@ -283,9 +283,9 @@ static void flip_selection(void) {
 		for (int x = 0; x < term_width; ++x) {
 			term_cell_t * c = cell_at(x,y);
 			if (c) {
-				if (c->flags & 0x200) cell_redraw(x,y);
-				if (c->flags & 0x400) cell_redraw_inverted(x,y);
-				c->flags &= ~(0x600);
+				if (c->flags & ANSI_MARKED) cell_redraw(x,y);
+				if (c->flags & ANSI_RED) cell_redraw_inverted(x,y);
+				c->flags &= ~(ANSI_MARKED | ANSI_RED);
 			}
 		}
 	}
@@ -475,8 +475,15 @@ term_write_char(
 		uint16_t y,
 		uint32_t fg,
 		uint32_t bg,
-		uint8_t flags
+		uint32_t flags
 		) {
+
+	if (flags & ANSI_INVERT) {
+		uint32_t tmp = fg;
+		fg = bg;
+		bg = tmp;
+	}
+
 	if (val == L'▏') val = 179;
 	else if (val > 128) val = ununicode(val);
 	if (fg > 256) {
@@ -496,7 +503,7 @@ term_write_char(
 	placech(val, x, y, (vga_to_ansi[fg] & 0xF) | (vga_to_ansi[bg] << 4));
 }
 
-static void cell_set(uint16_t x, uint16_t y, uint32_t c, uint32_t fg, uint32_t bg, uint8_t flags) {
+static void cell_set(uint16_t x, uint16_t y, uint32_t c, uint32_t fg, uint32_t bg, uint32_t flags) {
 	if (x >= term_width || y >= term_height) return;
 	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
 	cell->c     = c;
@@ -685,7 +692,7 @@ void term_write(char c) {
 
 			default: {
 				int wide = is_wide(o);
-				uint8_t flags = ansi_state->flags;
+				uint32_t flags = ansi_state->flags;
 
 				undraw_cursor();
 

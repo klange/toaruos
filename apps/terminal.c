@@ -486,6 +486,11 @@ static void selection_write_cell(term_cell_t * cell) {
 						else selection_extend("\033[29m", 5);
 					}
 
+					if (changed & ANSI_INVERT) {
+						if (cell->flags & ANSI_INVERT) selection_extend("\033[7m", 4);
+						else selection_extend("\033[27m", 5);
+					}
+
 				}
 			}
 
@@ -807,6 +812,13 @@ static void draw_cached_glyph(gfx_context_t * ctx, struct TT_Font * _font, uint3
 static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, uint32_t bg, uint32_t flags, uint16_t ax, uint16_t ay) {
 	uint32_t _fg, _bg;
 
+	if (flags & ANSI_INVERT) {
+		uint32_t _tmp = fg;
+		fg = bg;
+		bg = _tmp;
+		flags |= ANSI_SPECBG; /* The background is modified, so it can't be default. */
+	}
+
 	/* Select foreground color from palette. */
 	if (fg < PALETTE_COLORS) {
 		_fg = term_colors[fg];
@@ -981,7 +993,7 @@ _extra_stuff:
 	}
 }
 
-static void term_mirror_set(uint16_t x, uint16_t y, uint32_t val, uint32_t fg, uint32_t bg, uint8_t flags) {
+static void term_mirror_set(uint16_t x, uint16_t y, uint32_t val, uint32_t fg, uint32_t bg, uint32_t flags) {
 	if (x >= term_width || y >= term_height) return;
 	term_cell_t * cell = &term_mirror[y * term_width + x];
 	cell->c = val;
@@ -1511,7 +1523,7 @@ static void term_write(char c) {
 
 			default: {
 				int wide = is_wide(o);
-				uint8_t flags = ansi_state->flags;
+				uint32_t flags = ansi_state->flags;
 
 				undraw_cursor();
 
