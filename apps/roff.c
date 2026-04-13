@@ -89,7 +89,7 @@ static void formatted_title_and_section(struct RoffContext * ctx, char * title, 
 	fprintf(ctx->output, "%s%s%s(%s)",
 		plain_text ? "" : "\033[4m",
 		title,
-		plain_text ? "" : "\033[0m",
+		plain_text ? "" : "\033[24m",
 		section
 	);
 }
@@ -279,11 +279,11 @@ static void switch_font(struct RoffContext * ctx, unsigned int font) {
 static void activate_font(struct RoffContext * ctx) {
 	if (plain_text) return;
 	switch (ctx->current_font) {
-		case 'B': fprintf(ctx->output, "\033[0;1m"); break;
-		case 'R': fprintf(ctx->output, "\033[0m"); break;
+		case 'B': fprintf(ctx->output, "\033[1;24m"); break;
+		case 'R': fprintf(ctx->output, "\033[22;24m"); break;
 		/* These are actually supposed to be italic, but everyone treats them as underlined (4, rather than 3). */
-		case 'I': fprintf(ctx->output, "\033[0;4m"); break;
-		case PAIR('B','I'): fprintf(ctx->output, "\033[0;1;4m"); break;
+		case 'I': fprintf(ctx->output, "\033[22;4m"); break;
+		case PAIR('B','I'): fprintf(ctx->output, "\033[1;4m"); break;
 	}
 }
 
@@ -441,7 +441,7 @@ static size_t process_word(struct RoffContext * ctx, char * c, int delimited) {
 	}
 	ctx->current_x += last_len;
 
-	if (!*c && !plain_text) fprintf(ctx->output, "\033[0m");
+	if (!*c && !plain_text) fprintf(ctx->output, "\033[22;24m");
 
 	if (ctx->printing_table || delimited) {
 		int something = 0;
@@ -810,7 +810,7 @@ static int do_file(char ** argv, int i) {
 		}
 
 _processed_line:
-		if (!plain_text) fprintf(ctx.output, "\033[0m");
+		if (!plain_text) fprintf(ctx.output, "\033[22;23m");
 
 		/* When in one of the raw whitespace modes, treat the end of a line
 		 * as a forced line break. */
