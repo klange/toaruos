@@ -91,6 +91,106 @@ to store the command's output in $\fIvar\fP. As of writing, this command only co
 up to 1023 bytes to place in the variable, and will then stop reading, but will still
 wait for \fIcommand\fP to finish, which is probably not going to end well.
 
+.SH CONFIGURATION
+As terrible as \fBEsh\fP may be, it does have some special features.
+.SS Interactive Line Editing
+\fBEsh\fP uses
+.IR rline (3)
+for interactive line editing, which provides some basic syntax highlighting and
+tab completion.
+
+.SS Prompt
+The prompt is split into a \fB$PS1_LEFT\fP and \fB$PS1_RIGHT\fP, both of which
+support various escape sequences:
+
+.TP
+.B \e[
+Disables calculation of display width until a matching \fB\e]\fP.
+Use these sequences to wrap terminal escapes and other content which will not
+move the cursor.
+
+.TP
+.B \e\f(BIOOO\fP
+Where \fIOOO\fP is up to three octal digits, emits the byte with that value.
+
+.TP
+.B \ee
+Emits an escape byte (equivalent to \fB\e033\fP).
+
+.TP
+.B \ed
+Emits the date, as generated with \fBstrftime\fP using the format \fB%m/%d\fP.
+
+.TP
+.B \et
+Emits the time, as generated with \fBstrftime\fP using the format \fB%H:%M:%S\fP.
+
+.TP
+.B \eh
+Emits the system hostname.
+
+.TP
+.B \eu
+Emits the current user's name.
+
+.TP
+.B \ew
+Emits the current working directory.
+If this directory is within \fB$HOME\fP, then the part of it equivalent to \fB$HOME\fP
+will be replaced with a single \(ti character.
+
+.TP
+.B \e$
+Emits either a \fB$\fP for regular users or \fB#\fP if the current user is \fBroot\fP.
+
+.TP
+.B \eU
+Emits a terminal escape sequence appropriate for coloring the symbol produced by \fB\e$\fP
+in either a green or red shade.
+This escape is automatically processed as if it were inside of a \fB\e[\fP...\fB\e]\fP pair.
+
+.TP
+.B \er
+If the exit status of the previous command was non-zero, this will emit its decimal
+representation followed by a space.
+
+.PP
+If any other character follows a \e then the \e will result in a literal \e character.
+.PP
+As of writing, the secondary promppt ("\fBPS2\fP") can not be configured.
+
+.SS Syntax Highlighting
+The colorscheme used for highlighting can be configured with the \fB$RLINE_THEME\fP
+environment variable.
+Syntax highlighting is enabled by default, but can be disabled:
+
+.TP
+.B set \-o no\-syntax\-color
+Disables syntax highlighting. Re\-enable with \fBsyntax\-color\fP.
+
+.SS Tab Completion
+The \fBset\fP command can be used to enable some special features during tab
+completion:
+
+.TP
+.B set \-o complete\-hints
+Some completions will display hints next to them, such as indicating builtin
+commands, or the sections of manual pages.
+Disable with \fBno\-complete\-hints\fP.
+
+.TP
+.B set \-o complete\-color
+Some completions will be shown in color to indicate special properties, such as
+directories being shown in blue.
+Disable with \fBno\-complete\-color\fP.
+
+.SS Shell RC
+When running interactively, \fBEsh\fP will automatically source the file
+\fB~/.eshrc\fP, if available, on startup.
+.PP
+For users of the ToaruOS live environment, the \fBlocal\fP user already has
+such a file with some configuration in place.
+
 .SH NOTES
 If you are unfortunate enough to need to write a complex shell script that works
 with a clean installation of ToaruOS, be sure to use \fB/bin/esh\fP in the hash\-bang
