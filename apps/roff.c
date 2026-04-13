@@ -49,6 +49,7 @@ struct RoffContext {
 	FILE * output;               /* Where we're going to write. Can change as we process the document. */
 	FILE * error_output;         /* Where we write errors, as this can be configured. */
 	FILE * next_output;          /* When next_indent is set and we switch indents, also switches outputs. */
+	unsigned int active_font;    /* Font we think we have the terminal set for. */
 };
 
 
@@ -212,6 +213,22 @@ static int skip_escape(char *x, size_t *len) {
 	}
 }
 
+#define PAIR(a,b) (((unsigned int)a << 8) | (unsigned int)b)
+static void real_activate_font(struct RoffContext * ctx, unsigned int desired_font) {
+	if (plain_text) return;
+	if (ctx->active_font == desired_font) return;
+	int want = (desired_font == 'B' ? 1 : 0) | (desired_font == 'I' ? 2 : 0) | (desired_font == PAIR('B','I') ? 3 : 0);
+	int have = (ctx->active_font == 'B' ? 1 : 0) | (ctx->active_font == 'I' ? 2 : 0) | (ctx->active_font == PAIR('B','I') ? 3 : 0);
+	int changed = want ^ have;
+	if (changed) {
+		fprintf(ctx->output, "\033[%s%s%sm",
+			(changed & 1) ? ((want & 1) ? "1" : "22") : "",
+			(changed == 3) ? ";" : "",
+			(changed & 2) ? ((want & 2) ? "4" : "24") : "");
+	}
+	ctx->active_font = desired_font;
+}
+
 /**
  * @brief If the cursor is not at the start of a line, print a line feed.
  *
@@ -220,13 +237,14 @@ static int skip_escape(char *x, size_t *len) {
 static int flush_line(struct RoffContext * ctx, int for_vertical_padding) {
 	if (ctx->current_x != 0) {
 		ctx->current_x = 0;
-		fprintf(ctx->output, "%s\n%s",
-			plain_text ? "" : "\033[0m",
+		real_activate_font(ctx, 0);
+		fprintf(ctx->output, "\n%s",
 			for_vertical_padding ? "\n" : "");
 		ctx->padded = for_vertical_padding;
 		return 1;
 	} else if (for_vertical_padding && !ctx->padded) {
-		fprintf(ctx->output, "%s\n", plain_text ? "" : "\033[0m");
+		real_activate_font(ctx, 0);
+		fprintf(ctx->output, "\n");
 		ctx->padded = 1;
 		return 1;
 	}
@@ -234,8 +252,6 @@ static int flush_line(struct RoffContext * ctx, int for_vertical_padding) {
 	ctx->padded = for_vertical_padding;
 	return 0;
 }
-
-#define PAIR(a,b) (((unsigned int)a << 8) | (unsigned int)b)
 
 /**
  * @brief Switch the active font.
@@ -277,14 +293,7 @@ static void switch_font(struct RoffContext * ctx, unsigned int font) {
  * of a line.
  */
 static void activate_font(struct RoffContext * ctx) {
-	if (plain_text) return;
-	switch (ctx->current_font) {
-		case 'B': fprintf(ctx->output, "\033[1;24m"); break;
-		case 'R': fprintf(ctx->output, "\033[22;24m"); break;
-		/* These are actually supposed to be italic, but everyone treats them as underlined (4, rather than 3). */
-		case 'I': fprintf(ctx->output, "\033[22;4m"); break;
-		case PAIR('B','I'): fprintf(ctx->output, "\033[1;4m"); break;
-	}
+	real_activate_font(ctx, ctx->current_font);
 }
 
 /**
@@ -441,7 +450,7 @@ static size_t process_word(struct RoffContext * ctx, char * c, int delimited) {
 	}
 	ctx->current_x += last_len;
 
-	if (!*c && !plain_text) fprintf(ctx->output, "\033[22;24m");
+	if (!*c && !plain_text) real_activate_font(ctx, 0);
 
 	if (ctx->printing_table || delimited) {
 		int something = 0;
@@ -810,7 +819,7 @@ static int do_file(char ** argv, int i) {
 		}
 
 _processed_line:
-		if (!plain_text) fprintf(ctx.output, "\033[22;23m");
+		if (!plain_text) real_activate_font(&ctx, 0);
 
 		/* When in one of the raw whitespace modes, treat the end of a line
 		 * as a forced line break. */
