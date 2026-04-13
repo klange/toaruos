@@ -5,3 +5,5 @@ export PS1_LEFT="${PS1_TITLE}\[\e[1m\e[38;5;221m\]\u\[\e[38;5;59m\]@\[\e[38;5;81
 if equals? "$TERM" "toaru-vga" then export RLINE_THEME="default" else export RLINE_THEME="sunsmoke"
 
 if stat -Lq /usr/local/bin then export PATH="/usr/local/bin:$PATH"
+
+set -o complete-hints
