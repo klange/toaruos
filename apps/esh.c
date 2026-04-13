@@ -81,6 +81,7 @@ int is_subshell = 0;
 /* Set options */
 static int esh_complete_color = 0;
 static int esh_complete_hints = 0;
+static int esh_syntax_color = 1;
 
 struct semaphore {
 	int fds[2];
@@ -682,7 +683,12 @@ void tab_complete_func(rline_context_t * c) {
 		char * msk_commands[] = {"update","install","list","count","--version",NULL};
 		char * ifconfig_commands[] = {"inet","netmask","gateway",NULL};
 		char * set_args[] = {"-o", NULL};
-		char * set_o_options[] = {"complete-color", "no-complete-color", "complete-hints", "no-complete-hints", NULL};
+		char * set_o_options[] = {
+			"complete-color", "no-complete-color",
+			"complete-hints", "no-complete-hints",
+			"syntax-color", "no-syntax-color",
+			NULL
+		};
 
 		if (!strcmp(argv[command_adj],"toggle-abs-mouse")) {
 			completions = toggle_abs_mouse_completions;
@@ -961,7 +967,7 @@ int read_entry(char * buffer) {
 	print_extended_ps(ps1r ? ps1r : "", rprompt, &rwidth);
 
 	rline_exit_string="exit";
-	rline_exp_set_syntax("esh");
+	rline_exp_set_syntax(esh_syntax_color ? "esh" : NULL);
 	rline_exp_set_prompts(lprompt, rprompt, lwidth, rwidth);
 	rline_exp_set_shell_commands(shell_commands, shell_commands_len);
 	rline_exp_set_tab_complete_func(tab_complete_func);
@@ -970,7 +976,7 @@ int read_entry(char * buffer) {
 
 int read_entry_continued(char * buffer) {
 	rline_exit_string="exit";
-	rline_exp_set_syntax("esh");
+	rline_exp_set_syntax(esh_syntax_color ? "esh" : NULL);
 	rline_exp_set_prompts("> ", "", 2, 0);
 	rline_exp_set_shell_commands(shell_commands, shell_commands_len);
 	rline_exp_set_tab_complete_func(tab_complete_func);
@@ -2599,6 +2605,8 @@ uint32_t shell_cmd_set(int argc, char * argv[]) {
 			"    no-complete-color   Don't use color in tab completion results.\n"
 			"    complete-hints      Show hints in tab completion results.\n"
 			"    no-complete-hints   Don't show hints in tab completion results.\n"
+			"    syntax-color        Enable syntax highlighting.\n"
+			"    no-syntax-color     Disable syntax highlighting.\n"
 			"\n");
 		return 1;
 	}
@@ -2611,6 +2619,10 @@ uint32_t shell_cmd_set(int argc, char * argv[]) {
 		esh_complete_hints = 1;
 	} else if (!strcmp(argv[2], "no-complete-hints")) {
 		esh_complete_hints = 0;
+	} else if (!strcmp(argv[2], "syntax-color")) {
+		esh_syntax_color = 1;
+	} else if (!strcmp(argv[2], "no-syntax-color")) {
+		esh_syntax_color = 0;
 	} else {
 		fprintf(stderr, "'%s' is not a recognized option\n", argv[2]);
 		return 2;
