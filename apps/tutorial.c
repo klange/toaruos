@@ -135,18 +135,6 @@ static void circle(int x, int y, int r) {
 	invert_background_alpha();
 }
 
-static char * randomly_select_begging(void) {
-	char * options[] = {
-		"You can help support ToaruOS by donating:",
-		"Your donation helps us continue developing ToaruOS:",
-		"You can sponsor ToaruOS development on Github:",
-		"Please give me money:",
-	};
-
-	return options[rand() % (sizeof(options) / sizeof(*options))];
-
-}
-
 static void load_page(int page) {
 
 	int i = 0;
@@ -171,8 +159,8 @@ static void load_page(int page) {
 			body_text[i++] = "ToaruOS is free software, released under the terms of the";
 			body_text[i++] = "NCSA/University of Illinois license.";
 			body_text[i++] = "";
-			body_text[i++] = randomly_select_begging();
-			body_text[i++] = "%https://github.com/sponsors/klange";
+			body_text[i++] = "";
+			body_text[i++] = "";
 			body_text[i++] = NULL;
 			break;
 		case 1:
@@ -181,11 +169,11 @@ static void load_page(int page) {
 			body_text[i++] = "were written by the ToaruOS development team over the course of";
 			body_text[i++] = "many years, but that development team is very small. Some features";
 			body_text[i++] = "may be missing, incomplete, or unstable. Contributions in the form";
-			body_text[i++] = "of bug reports and new ports are welcome. You can join our community";
-			body_text[i++] = "through IRC by joining the #toaruos channel on Libera.chat.";
+			body_text[i++] = "of bug reports and new ports are welcome.";
 			body_text[i++] = "";
-			body_text[i++] = "You can help support ToaruOS by donating:";
-			body_text[i++] = "%https://github.com/sponsors/klange";
+			body_text[i++] = "";
+			body_text[i++] = "";
+			body_text[i++] = "";
 			body_text[i++] = NULL;
 			break;
 		case 2:
