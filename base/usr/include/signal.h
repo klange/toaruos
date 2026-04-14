@@ -28,7 +28,7 @@ extern int sigsuspend(const sigset_t * set);
 extern int sigwait(const sigset_t * set, int * sig);
 
 extern int sig2str(int signum, char *str);
-extern int str2sig(const char *restrict str, int *restrict pnum);
+extern int str2sig(const char *__restrict str, int *__restrict pnum);
 
 #define SIG2STR_MAX 16 /* Could be smaller with our signal names, but let's future proof a bit. */
 
