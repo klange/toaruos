@@ -42,8 +42,15 @@ int tcflush(int fd, int arg) {
 }
 
 pid_t tcgetsid(int fd) {
-	//DEBUG_STUB("tcgetsid(%d)\n", fd);
-	return getpid();
+	pid_t sid;
+	if (ioctl(fd, TIOCGSID, &sid) < 0) return -1;
+	return sid;
+}
+
+pid_t tcgetpgrp(int fd) {
+	pid_t pgrp;
+	if (ioctl(fd, TIOCGPGRP, &pgrp) < 0) return -1;
+	return pgrp;
 }
 
 int tcsendbreak(int fd, int arg) {
@@ -69,11 +76,5 @@ int tcsetattr(int fd, int actions, struct termios * tio) {
 
 int tcsetpgrp(int fd, pid_t pgrp) {
 	return ioctl(fd, TIOCSPGRP, &pgrp);
-}
-
-pid_t tcgetpgrp(int fd) {
-	pid_t pgrp;
-	ioctl(fd, TIOCGPGRP, &pgrp);
-	return pgrp;
 }
 
