@@ -71,17 +71,53 @@ int vsscanf(const char *str, const char *format, va_list ap) {
 
 int vfscanf(FILE * stream, const char *format, va_list ap) {
 	if (__libc_debug) fprintf(stderr, "%s: fscanf(%d, format=%s, ...);\n", _argv_0, fileno(stream), format);
+	int count = 0;
 	while (*format) {
 		if (*format == ' ') {
 			/* Handle whitespace */
+			int c = fgetc(stream);
+			do {
+				if (c == EOF) break;
+				if (!isspace(c)) {
+					ungetc(c, stream);
+					break;
+				}
+				c = fgetc(stream);
+			} while (1);
 		} else if (*format == '%') {
 			/* Parse */
+			format++;
+
+			int _fieldwidth = 0;
+			while (*format >= '0' && *format <= '9') {
+				_fieldwidth *= 10;
+				_fieldwidth += *format++;
+			}
+
+			if (*format == 's') {
+				char * out = (char *)va_arg(ap, char*);
+				ssize_t r = 0;
+
+				do {
+					int c = fgetc(stream);
+					if (c == EOF) break;
+					if (c == '\0') break;
+
+					*out++ = c;
+					*out = '\0';
+
+					if (_fieldwidth && r == _fieldwidth) break;
+				} while (1);
+
+				count += 1;
+			}
+
 		} else {
 			/* Expect exact character? */
 		}
 		format++;
 	}
-	return 0;
+	return count;
 }
 
 int sscanf(const char *str, const char *format, ...) {
