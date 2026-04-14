@@ -9,7 +9,7 @@ int volatile __atexit_lock = 0;
 void (*__atexit_handlers[32])(void) = {NULL};
 int __atexit_count = 0;
 
-void _handle_atexit(void) {
+void __atexit_run(void) {
 	spin_lock(&__atexit_lock);
 	if (__atexit_count) {
 		/* atexit handlers can very well call atexit() themselves,
