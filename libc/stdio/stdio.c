@@ -467,12 +467,8 @@ int putc(int c, FILE *stream) __attribute__((weak, alias("fputc")));
 
 int fgetc(FILE * stream) {
 	char buf[1];
-	int r;
-	r = fread(buf, 1, 1, stream);
-	if (r < 0) {
-		stream->flags |= STDIO_EOF;
-		return EOF;
-	} else if (r == 0) {
+	size_t r = read_bytes(stream, buf, 1);
+	if (!r) {
 		stream->flags |= STDIO_EOF;
 		return EOF;
 	}
