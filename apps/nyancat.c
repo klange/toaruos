@@ -599,8 +599,10 @@ int main(int argc, char ** argv) {
 		/* Do our terminal detection */
 		if (strstr(term, "xterm")) {
 			ttype = 1; /* 256-color, spaces */
+		} else if (strstr(term, "toaru-vga")) {
+			ttype = 2; /* best results from fallback */
 		} else if (strstr(term, "toaru")) {
-			ttype = 1; /* emulates xterm */
+			ttype = 8; /* use truecolor */
 		} else if (strstr(term, "linux")) {
 			ttype = 3; /* Spaces and blink attribute */
 		} else if (strstr(term, "vtnt")) {
