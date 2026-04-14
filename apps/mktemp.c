@@ -4,7 +4,7 @@
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2018 K. Lange
+ * Copyright (C) 2018-2026 K. Lange
  */
 #include <stdlib.h>
 #include <stdio.h>
@@ -31,43 +31,34 @@ int main(int argc, char * argv[]) {
 			case 'q':
 				quiet = 1;
 				break;
+			case '?':
+				fprintf(stderr, "usage: %s [-d] [-u] [-q] [template]\n", argv[0]);
+				return 1;
 		}
 	}
 
-	char * template;
-	int i = optind;
+	char * template = strdup(optind == argc ? "/tmp/tmp.XXXXXX" : argv[optind]);
 
-	if (i == argc) {
-		template = strdup("/tmp/tmp.XXXXXX");
+	if (dry_run) {
+		char * res = mktemp(template);
+		if (*res) {
+			if (!quiet) fprintf(stdout, "%s\n", res);
+			return 0;
+		}
+	} else if (directory) {
+		char * res = mkdtemp(template);
+		if (res) {
+			if (!quiet) fprintf(stdout, "%s\n", res);
+			return 0;
+		}
 	} else {
-		template = strdup(argv[i]);
-	}
-
-	char * result = mktemp(template);
-
-	if (!result) {
-		fprintf(stderr, "%s: %s\n", argv[0], strerror(errno));
-		return 1;
-	}
-
-	if (!quiet) {
-		fprintf(stdout, "%s\n", result);
-	}
-
-	if (!dry_run) {
-		if (directory) {
-			if (mkdir(result,0777) < 0) {
-				fprintf(stderr, "%s: mkdir: %s: %s\n", argv[0], result, strerror(errno));
-				return 1;
-			}
-		} else {
-			FILE * f = fopen(result,"w");
-			if (!f) {
-				fprintf(stderr, "%s: open: %s: %s\n", argv[0], result, strerror(errno));
-				return 1;
-			}
+		int fd = mkstemp(template);
+		if (fd != -1) {
+			if (!quiet) fprintf(stdout, "%s\n", template);
+			return 0;
 		}
 	}
 
-	return 0;
+	fprintf(stderr, "%s: %s\n", argv[0], strerror(errno));
+	return 1;
 }
