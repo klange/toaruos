@@ -32,7 +32,7 @@ int main(int argc, char * argv[]) {
 				quiet = 1;
 				break;
 			case '?':
-				fprintf(stderr, "usage: %s [-d] [-u] [-q] [template]\n", argv[0]);
+				if (!quiet) fprintf(stderr, "usage: %s [-d] [-u] [-q] [template]\n", argv[0]);
 				return 1;
 		}
 	}
@@ -41,24 +41,15 @@ int main(int argc, char * argv[]) {
 
 	if (dry_run) {
 		char * res = mktemp(template);
-		if (*res) {
-			if (!quiet) fprintf(stdout, "%s\n", res);
-			return 0;
-		}
+		if (*res) return fprintf(stdout, "%s\n", res), 0;
 	} else if (directory) {
 		char * res = mkdtemp(template);
-		if (res) {
-			if (!quiet) fprintf(stdout, "%s\n", res);
-			return 0;
-		}
+		if (res) return fprintf(stdout, "%s\n", res), 0;
 	} else {
 		int fd = mkstemp(template);
-		if (fd != -1) {
-			if (!quiet) fprintf(stdout, "%s\n", template);
-			return 0;
-		}
+		if (fd != -1) return fprintf(stdout, "%s\n", template), 0;
 	}
 
-	fprintf(stderr, "%s: %s\n", argv[0], strerror(errno));
+	if (!quiet) fprintf(stderr, "%s: %s\n", argv[0], strerror(errno));
 	return 1;
 }

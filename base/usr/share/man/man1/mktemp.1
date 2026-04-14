@@ -8,8 +8,8 @@
 
 .SH DESCRIPTION
 Creates a temporary file or directory and prints its name.
-.PP
-Supported options:
+
+.SS Options
 .TP
 .B \-d
 Create a directory rather than a file.
@@ -20,19 +20,36 @@ Dry\-run: Print the name, but do not create the file.
 
 .TP
 .B \-q
-Quiet: Do not print the generated filename. In combination with \fB\-u\fP, the
-exit status can be used to determine if \fItemplate\fP was an accepted
-template for
-.IR mktemp (3).
+Do not print diagnostic messages in the case of a failure.
 
 .SH EXIT STATUS
 .TP
 1
-\fItemplate\fP was not a permissible template string, or another error occurred.
+\fItemplate\fP was not a permissible template string, a unique filename could not
+be generated, or some other error occurred.
 
 .TP
 0
 A temporary filename was generated and, without \fB\-u\fP, created successfully.
 
+.SH NOTES
+When provided, the \fItemplate\fP must be a path ending in six \fBX\fP characters.
+Any additional \fBX\fP characters will not be replaced.
+.PP
+In normal operation, this utility will call
+.IR mkstemp (3)
+to create the temporary file, or
+.IR mkdtemp (3)
+to create a directory.
+With the \fB\-u\fP option,
+.IR mktemp (3)
+is used and no files are created.
+.PP
+Use of the \fB\-u\fP option for anything other than checking if a \fItemplate\fP
+string is accepted is not recommended, as the filename may no longer be unique
+by the time you go to use it.
+
 .SH SEE ALSO
-.BR mktemp (3)
+.BR mktemp (3),
+.BR mkstemp (3),
+.BR mkdtemp (3)
