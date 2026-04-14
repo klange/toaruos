@@ -351,6 +351,11 @@ int pty_ioctl(pty_t * pty, unsigned long request, void * argp) {
 			validate(argp);
 			*(pid_t *)argp = pty->fg_proc;
 			return 0;
+		case TIOCGSID:
+			if (!argp) return -EINVAL;
+			validate(argp);
+			*(pid_t *)argp = pty->ct_proc;
+			return 0;
 		case TIOCSCTTY:
 			/* If this is already the control session, quietly ignore. */
 			if (this_core->current_process->session == this_core->current_process->id &&

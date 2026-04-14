@@ -185,6 +185,7 @@ struct termios {
 #define TIOCMSET     0x4013
 #define TIOCGSOFTCAR 0x4014
 #define TIOCSSOFTCAR 0x4015
+#define TIOCGSID     0x4016
 
 /* termios functions */
 #ifndef _KERNEL_
