@@ -25,26 +25,6 @@ double ldexp(double a, int exp) {
 	return out;
 }
 
-double log(double x) {
-	BAD;
-	return 0.0;
-}
-
-double log10(double x) {
-	BAD;
-	return 0.0;
-}
-
-double log2(double x) {
-	BAD;
-	return 0.0;
-}
-
-double log1p(double x) {
-	BAD;
-	return log(x+1.0);
-}
-
 double expm1(double x) {
 	BAD;
 	return exp(x) - 1.0;

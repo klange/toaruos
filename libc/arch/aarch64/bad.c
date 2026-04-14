@@ -41,13 +41,6 @@ double atan2(double y, double x) {
 	return 0.0;
 }
 
-double pow(double x, double y) {
-	if (getenv("LIBM_DEBUG")) {
-		fprintf(stderr, "pow(%f, %f)\n", x, y);
-	}
-	return x;
-}
-
 double fmod(double x, double y) {
 	int _x = fpclassify(x);
 	int _y = fpclassify(y);

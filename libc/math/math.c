@@ -10,9 +10,71 @@ extern char * _argv_0;
 #define MATH (void)0
 #endif
 
+double log(double x) {
+	if (x == 0.0) return -__builtin_inf();
+	if (x < 0.0) return __builtin_nanf("");
+	static const double ln_2  = 0.693147180559945309417232121458;
+	static const double two_m = 67108864.0;
+	static const double m_ln2 = 18.02182669455857804484803515791;
+
+	/* x = m * 2 ** p */
+	int p;
+	x = frexp(x,&p) * 2.0;
+	p -= 1;
+	double s = x * two_m;
+	double a = 1.0;
+	double g = 4.0 / s;
+
+	for (int i = 0; i < 10; ++i) {
+		double t = (a + g) / 2.0;
+		g = sqrt(a*g);
+		a = t;
+	}
+
+	return (double)p * ln_2 + M_PI / (a + g) - m_ln2;
+}
+
+double log10(double x) {
+	return log(x) / 2.3025850929940456840179914546843642076;
+}
+
+double log2(double x) {
+	return log(x) / 0.693147180559945309417232121458;
+}
+
+double log1p(double x) {
+	return log(x+1.0);
+}
+
+#ifdef __x86_64__
 double exp(double x) {
 	return pow(M_E, x);
 }
+#else
+
+double exp(double x) {
+	size_t counter = 0;
+	while (fabs(x) > 2.0) {
+		counter++;
+		x /= 2.0;
+	}
+	double s = 1.0;
+	double b = 1.0;
+	double d = 1.0;
+	for (int i = 1; i < 32; ++i) {
+		b *= x;
+		d *= i;
+		s += b / d;
+	}
+	while (counter--) s *= s;
+	return s;
+}
+
+double pow(double x, double y) {
+	return exp(y * log(x));
+}
+
+#endif
 
 int abs(int j) {
 	return (j < 0 ? -j : j);
