@@ -324,13 +324,24 @@ size_t fbterm_write(size_t size, uint8_t *buffer) {
 
 static fs_node_t * vga_text_device = NULL;
 
+static int vga_width_override = 0;
+static int vga_height_override = 0;
+
+static int vga_width(void) {
+	return vga_width_override ? vga_width_override : get_width();
+}
+
+static int vga_height(void) {
+	return vga_height_override ? vga_height_override : get_height();
+}
+
 static ssize_t write_vga_emul(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
 	if (offset < 0) return -EIO;
 	if (size % 2 || offset % 2) return -EIO;
 	size_t written = 0;
 
-	int width  = get_width();
-	int height = get_height();
+	int width  = vga_width();
+	int height = vga_height();
 
 	while (size >= 2) {
 		if (offset >= (long)sizeof(unsigned short) * width * height - 1) break;
@@ -357,12 +368,12 @@ static int ioctl_vga_emul(fs_node_t * node, unsigned long request, void * argp) 
 		case IO_VID_WIDTH:
 			/* Get framebuffer width */
 			validate(argp);
-			*((size_t *)argp) = get_width();
+			*((size_t *)argp) = vga_width();
 			return 0;
 		case IO_VID_HEIGHT:
 			/* Get framebuffer height */
 			validate(argp);
-			*((size_t *)argp) = get_height();
+			*((size_t *)argp) = vga_height();
 			return 0;
 		case IO_VGA_MOUSE_ADJ:
 			validate(argp);
@@ -391,7 +402,18 @@ void fbterm_initialize(void) {
 			fbterm_scroll = 1;
 		}
 		fbterm_init_framebuffer();
-		if (args_present("emulvga")) vga_text_init();
+		if (args_present("emulvga")) {
+			char * arg = args_value("emulvga");
+			if (arg) {
+				char * x = strchr(arg,'x');
+				if (x) {
+					*x = '\0';
+					vga_width_override = atoi(arg);
+					vga_height_override = atoi(x+1);
+				}
+			}
+			vga_text_init();
+		}
 	} else {
 #ifdef __x86_64__
 		fbterm_scroll = 1;
