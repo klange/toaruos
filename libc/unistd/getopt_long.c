@@ -4,9 +4,10 @@
 #include <string.h>
 #include <ctype.h>
 
-/**
- * getopt / getopt_long
- */
+char * optarg = NULL;
+int optind = 1;
+int opterr = 1;
+int optopt = 0;
 
 int getopt_long(int argc, char * const argv[], const char *optstring, const struct option *longopts, int *longindex) {
 	static char * nextchar = NULL;
@@ -19,7 +20,7 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 	/* Argument parsing has ended. */
 	if (optind >= argc) return -1;
 
-	/* POSIX.1-2024 says ignoring leading + with no change in behavior */
+	/* POSIX.1-2024 says ignore leading + with no change in behavior */
 	if (*optstring == '+') optstring++;
 
 	/* Print errors unless opterr was unset, or if start of opstring (after a possible +) was : */
@@ -35,67 +36,89 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 	do {
 		if (!nextchar) {
 			nextchar = argv[optind];
-			if (*nextchar != '-') {
+
+			/* No leading - means not-option argument, stop processing. */
+			if (*nextchar != '-') return -1;
+			nextchar++;
+
+			/* Just a single dash is also a non-option argument, stop processing. */
+			if (*nextchar == '\0') return -1;
+
+			/* Just two dashes ends processing, consumes this argument. */
+			if (*nextchar == '-' && !nextchar[1]) {
+				optind++;
 				return -1;
-			} else {
+			}
+
+			/* If long options are enabled, -- starts a long option. */
+			if (*nextchar == '-' && longopts) {
+				/* Scan through options */
 				nextchar++;
+				char * eq = strchrnul(nextchar, '=');
+				optarg = *eq ? eq + 1 : NULL;
 
-				if (*nextchar == '\0') {
-					/* Special case, '-' is a non-option argument */
-					return -1;
-				}
+				int found = -1;
+				int ambiguous = 0;
+				int ret = '?';
 
-				if (*nextchar == '-') {
-					if (nextchar[1] == '\0') {
-						/* End of arguments */
-						optind++;
-						return -1;
-					} else if (longopts) {
-						/* Scan through options */
-						nextchar++;
-						char * eq = strchrnul(nextchar, '=');
-						optarg = *eq ? eq + 1 : NULL;
-
-						int found = -1;
-						for (int index = 0; longopts[index].name; ++index) {
-							if (!strncmp(longopts[index].name, nextchar, eq - nextchar)) {
-								found = index;
-							}
+				/* Try for a prefix match */
+				for (int index = 0; longopts[index].name; ++index) {
+					if (!strncmp(longopts[index].name, nextchar, eq - nextchar)) {
+						if (strlen(longopts[index].name) == (size_t)(eq - nextchar)) {
+							/* An exact match is an exact match, take it. */
+							found = index;
+							ambiguous = 0;
+							break;
 						}
-
-						if (found == -1) {
-							if (longindex) {
-								*longindex = -1;
-							}
-							if (print_errors) {
-								fprintf(stderr, "%s: Unknown long argument: %.*s\n", argv[0], (int)(eq - nextchar), nextchar);
-							}
-							nextchar = NULL;
-							optind++;
-							optopt = '\0';
-							return '?';
-						} else {
-							if (longindex) {
-								*longindex = found;
-							}
-							if (longopts[found].has_arg == required_argument) {
-								if (!optarg) {
-									optarg = argv[optind+1];
-									optind++;
-								}
-							}
-							nextchar = NULL;
-							optind++;
-							if (!longopts[found].flag) {
-								return longopts[found].val;
-							} else {
-								*longopts[found].flag = longopts[found].val;
-								return 0;
-							}
-						}
+						if (found != -1) ambiguous = 1;
+						found = index;
 					}
-					/* else: --foo but not long, see if -: is set, otherwise continue as if - was an option */
 				}
+
+				if (ambiguous) {
+					if (print_errors) fprintf(stderr, "%s: Ambiguous option: '--%.*s'\n", argv[0], (int)(eq - nextchar), nextchar);
+					optopt = '\0';
+					goto _erroneous_longopt;
+				} else if (found == -1) {
+					if (print_errors) fprintf(stderr, "%s: Unrecognized option: '--%.*s'\n", argv[0], (int)(eq - nextchar), nextchar);
+					optopt = '\0';
+					goto _erroneous_longopt;
+				}
+
+				if (found != -1) {
+					if (longindex) *longindex = found;
+
+					if (longopts[found].has_arg == required_argument) {
+						if (!optarg) {
+							if (optind + 1 == argc) {
+								if (print_errors) fprintf(stderr, "%s: Option requires an argument: '%s'\n", argv[0], longopts[found].name);
+								optopt = longopts[found].val;
+								ret = was_colon ? ':' : '?'; /* Just for missing required argument, if caller asked, they get a colon. */
+								goto _erroneous_longopt;
+							}
+							optarg = argv[optind+1];
+							optind++;
+						}
+					} else if (longopts[found].has_arg == no_argument && optarg) {
+						if (print_errors) fprintf(stderr, "%s: Option does not accept an argument: '%s'\n", argv[0], longopts[found].name);
+						optopt = longopts[found].val;
+						goto _erroneous_longopt;
+					}
+					nextchar = NULL;
+					optind++;
+					if (!longopts[found].flag) {
+						return longopts[found].val;
+					} else {
+						*longopts[found].flag = longopts[found].val;
+						return 0;
+					}
+				}
+
+_erroneous_longopt:
+				if (longindex) *longindex = -1;
+				nextchar = NULL;
+				optind++;
+				return ret;
 			}
 		}
 
@@ -111,7 +134,7 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 		char * opt = strchr(optstring, optout);
 
 		if (!opt) {
-			if (print_errors) fprintf(stderr, "%s: Invalid option character: %c\n", argv[0], optout);
+			if (print_errors) fprintf(stderr, "%s: Unrecognized option character: '%c'\n", argv[0], optout);
 			optopt = optout;
 			nextchar++;
 			return '?';
@@ -150,4 +173,8 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 	} while (optind < argc);
 
 	return -1;
+}
+
+int getopt(int argc, char * const argv[], const char * optstring) {
+	return getopt_long(argc, argv, optstring, NULL, 0);
 }
