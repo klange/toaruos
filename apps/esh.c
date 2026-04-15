@@ -1839,7 +1839,7 @@ void sort_commands() {
 }
 
 void show_version(void) {
-	printf("esh 1.10.0\n");
+	printf("esh 1.11.0\n");
 }
 
 int show_usage(int argc, char * argv[]) {
