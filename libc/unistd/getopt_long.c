@@ -53,19 +53,12 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 					} else if (longopts) {
 						/* Scan through options */
 						nextchar++;
-						char tmp[strlen(nextchar)+1];
-						strcpy(tmp, nextchar);
-						char * eq = strchr(tmp, '=');
-						if (eq) {
-							*eq = '\0';
-							optarg = nextchar + (eq - tmp + 1);
-						} else {
-							optarg = NULL;
-						}
+						char * eq = strchrnul(nextchar, '=');
+						optarg = *eq ? eq + 1 : NULL;
 
 						int found = -1;
 						for (int index = 0; longopts[index].name; ++index) {
-							if (!strcmp(longopts[index].name, tmp)) {
+							if (!strncmp(longopts[index].name, nextchar, eq - nextchar)) {
 								found = index;
 							}
 						}
@@ -75,7 +68,7 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 								*longindex = -1;
 							}
 							if (print_errors) {
-								fprintf(stderr, "%s: Unknown long argument: %s\n", argv[0], tmp);
+								fprintf(stderr, "%s: Unknown long argument: %.*s\n", argv[0], (int)(eq - nextchar), nextchar);
 							}
 							nextchar = NULL;
 							optind++;
