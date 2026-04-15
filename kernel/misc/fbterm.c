@@ -360,23 +360,20 @@ static ssize_t write_vga_emul(fs_node_t * node, off_t offset, size_t size, uint8
 	return written;
 }
 
-extern void ptr_validate(void * ptr, const char * syscall);
-#define validate(o) ptr_validate(o,"ioctl")
-
 static int ioctl_vga_emul(fs_node_t * node, unsigned long request, void * argp) {
 	switch (request) {
 		case IO_VID_WIDTH:
 			/* Get framebuffer width */
-			validate(argp);
+			if (!mmu_validate_user_pointer(argp, sizeof(size_t), MMU_PTR_WRITE)) return -EFAULT;
 			*((size_t *)argp) = vga_width();
 			return 0;
 		case IO_VID_HEIGHT:
 			/* Get framebuffer height */
-			validate(argp);
+			if (!mmu_validate_user_pointer(argp, sizeof(size_t), MMU_PTR_WRITE)) return -EFAULT;
 			*((size_t *)argp) = vga_height();
 			return 0;
 		case IO_VGA_MOUSE_ADJ:
-			validate(argp);
+			if (!mmu_validate_user_pointer(argp, sizeof(int) * 2, MMU_PTR_WRITE)) return -EFAULT;
 			get_cursor_adj(&((int*)argp)[0], &((int*)argp)[1]);
 			return 0;
 		default:

@@ -68,9 +68,6 @@ void lfb_set_resolution(uint16_t x, uint16_t y) {
 	}
 }
 
-extern void ptr_validate(void * ptr, const char * syscall);
-#define validate(o) ptr_validate(o,"ioctl")
-
 /**
  * Framebuffer control ioctls.
  * Used by the compositor to get display sizes and by the
@@ -80,34 +77,33 @@ static int ioctl_vid(fs_node_t * node, unsigned long request, void * argp) {
 	switch (request) {
 		case IO_VID_WIDTH:
 			/* Get framebuffer width */
-			validate(argp);
+			if (!mmu_validate_user_pointer(argp, sizeof(size_t), MMU_PTR_WRITE)) return -EFAULT;
 			*((size_t *)argp) = lfb_resolution_x;
 			return 0;
 		case IO_VID_HEIGHT:
 			/* Get framebuffer height */
-			validate(argp);
+			if (!mmu_validate_user_pointer(argp, sizeof(size_t), MMU_PTR_WRITE)) return -EFAULT;
 			*((size_t *)argp) = lfb_resolution_y;
 			return 0;
 		case IO_VID_DEPTH:
 			/* Get framebuffer bit depth */
-			validate(argp);
+			if (!mmu_validate_user_pointer(argp, sizeof(size_t), MMU_PTR_WRITE)) return -EFAULT;
 			*((size_t *)argp) = lfb_resolution_b;
 			return 0;
 		case IO_VID_STRIDE:
 			/* Get framebuffer scanline stride */
-			validate(argp);
+			if (!mmu_validate_user_pointer(argp, sizeof(size_t), MMU_PTR_WRITE)) return -EFAULT;
 			*((size_t *)argp) = lfb_resolution_s;
 			return 0;
 		case IO_VID_ADDR:
 			/* Map framebuffer into userspace process */
-			validate(argp);
 			{
+				if (!mmu_validate_user_pointer(argp, sizeof(uintptr_t), MMU_PTR_WRITE)) return -EFAULT;
 				uintptr_t lfb_user_offset;
 				if (*(uintptr_t*)argp == 0) {
 					/* Pick an address and map it */
 					lfb_user_offset = USER_DEVICE_MAP;
 				} else {
-					validate((void*)(*(uintptr_t*)argp));
 					lfb_user_offset = *(uintptr_t*)argp;
 				}
 				for (uintptr_t i = 0; i < lfb_memsize; i += 0x1000) {
@@ -123,19 +119,15 @@ static int ioctl_vid(fs_node_t * node, unsigned long request, void * argp) {
 			return 0;
 		case IO_VID_SET:
 			/* Initiate mode setting */
-			validate(argp);
+			if (!mmu_validate_user_pointer(argp, sizeof(struct vid_size), 0)) return -EFAULT;
 			lfb_set_resolution(((struct vid_size *)argp)->width, ((struct vid_size *)argp)->height);
 			return 0;
-		case IO_VID_DRIVER:
-			validate(argp);
-			memcpy(argp, lfb_driver_name, strlen(lfb_driver_name));
-			return 0;
 		case IO_VID_REINIT:
-			if (this_core->current_process->user != 0) {
-				return -EPERM;
-			}
-			validate(argp);
-			return lfb_init(argp);
+			/* Try to switch to a different driver. */
+			if (!mmu_validate_user_pointer(argp, 100, 0)) return -EFAULT; /* XXX this is a string; userspace app has a 100 byte buffer */
+			if (lfb_init(argp)) return -EINVAL;
+			if (display_change_recipient) send_signal(display_change_recipient, SIGWINEVENT, 1);
+			return 0;
 		default:
 			return -ENOTTY;
 	}
