@@ -57,7 +57,7 @@ static inline void set_point(int x, int y, uint32_t value) {
 }
 
 static void fb_write_char(int _x, int _y, int val, uint32_t color) {
-	if (val > 128) {
+	if (val > 255) {
 		val = 4;
 	}
 
