@@ -19,6 +19,7 @@
 #include <kernel/process.h>
 #include <kernel/signal.h>
 #include <kernel/time.h>
+#include <kernel/mmu.h>
 #include <sys/ioctl.h>
 #include <sys/termios.h>
 #include <sys/signal_defs.h>
@@ -26,8 +27,6 @@
 #define TTY_BUFFER_SIZE 4096
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
-extern void ptr_validate(void * ptr, const char * syscall);
-#define validate(o) ptr_validate(o,"ioctl")
 
 static int _pty_counter = 0;
 static hashmap_t * _pty_index = NULL;
@@ -295,29 +294,31 @@ ssize_t tty_input_process(pty_t * pty, uint8_t c) {
 	return 1;
 }
 
-static void tty_fill_name(pty_t * pty, char * out) {
-	((char*)out)[0] = '\0';
-	snprintf((char*)out, 100, "/dev/pts/%zd", pty->name);
+static ssize_t tty_fill_name(pty_t * pty, size_t len, char * out) {
+	return snprintf((char*)out, len, "/dev/pts/%zd", pty->name);
 }
 
 int pty_ioctl(pty_t * pty, unsigned long request, void * argp) {
 	switch (request) {
-		case IOCTLTTYNAME:
+		case IOCTLTTYNAME: {
 			if (!argp) return -EINVAL;
-			validate(argp);
-			pty->fill_name(pty, argp);
+			if (!mmu_validate_user_pointer(argp,sizeof(struct __tty_name),0)) return -EFAULT;
+			struct __tty_name * data = argp;
+			if (!mmu_validate_user_pointer(data->buf,data->len,MMU_PTR_WRITE)) return -EFAULT;
+			if ((unsigned int)pty->fill_name(pty, data->len, data->buf) >= data->len) return -ERANGE;
 			return 0;
+		}
 		case IOCTLTTYLOGIN:
 			/* Set the user id of the login user */
 			if (this_core->current_process->user != 0) return -EPERM;
 			if (!argp) return -EINVAL;
-			validate(argp);
+			if (!mmu_validate_user_pointer(argp,sizeof(int),0)) return -EFAULT;
 			pty->slave->uid = *(int*)argp;
 			pty->master->uid = *(int*)argp;
 			return 0;
 		case TIOCSWINSZ:
 			if (!argp) return -EINVAL;
-			validate(argp);
+			if (!mmu_validate_user_pointer(argp, sizeof(struct winsize), 0)) return -EFAULT;
 			memcpy(&pty->size, argp, sizeof(struct winsize));
 			if (pty->fg_proc) {
 				group_send_signal(pty->fg_proc, SIGWINCH, 1);
@@ -325,27 +326,27 @@ int pty_ioctl(pty_t * pty, unsigned long request, void * argp) {
 			return 0;
 		case TIOCGWINSZ:
 			if (!argp) return -EINVAL;
-			validate(argp);
+			if (!mmu_validate_user_pointer(argp, sizeof(struct winsize), MMU_PTR_WRITE)) return -EFAULT;
 			memcpy(argp, &pty->size, sizeof(struct winsize));
 			return 0;
 		case TCGETS:
 			if (!argp) return -EINVAL;
-			validate(argp);
+			if (!mmu_validate_user_pointer(argp, sizeof(struct termios), MMU_PTR_WRITE)) return -EFAULT;
 			memcpy(argp, &pty->tios, sizeof(struct termios));
 			return 0;
 		case TIOCSPGRP:
 			if (!argp) return -EINVAL;
-			validate(argp);
+			if (!mmu_validate_user_pointer(argp, sizeof(pid_t), 0)) return -EFAULT;
 			pty->fg_proc = *(pid_t *)argp;
 			return 0;
 		case TIOCGPGRP:
 			if (!argp) return -EINVAL;
-			validate(argp);
+			if (!mmu_validate_user_pointer(argp, sizeof(pid_t), MMU_PTR_WRITE)) return -EFAULT;
 			*(pid_t *)argp = pty->fg_proc;
 			return 0;
 		case TIOCGSID:
 			if (!argp) return -EINVAL;
-			validate(argp);
+			if (!mmu_validate_user_pointer(argp, sizeof(pid_t), MMU_PTR_WRITE)) return -EFAULT;
 			*(pid_t *)argp = pty->ct_proc;
 			return 0;
 		case TIOCSCTTY:
@@ -361,7 +362,7 @@ int pty_ioctl(pty_t * pty, unsigned long request, void * argp) {
 			/* If there's already a control session, only root can steal control, and only if *argp is 1
 			 * (on Linux, that's "if argp is 1", but we kinda messed this up by checking ioctl argp stuff
 			 * for bounds validity in the system call layer, so instead we use a pointer to 1... */
-			if (pty->ct_proc && (!argp || (*(int*)argp != 1) || this_core->current_process->user != 0)) {
+			if (pty->ct_proc && (!argp || this_core->current_process->user != 0 || (*(int*)argp != 1))) {
 				return -EPERM;
 			}
 			pty->ct_proc = this_core->current_process->session;
@@ -369,7 +370,7 @@ int pty_ioctl(pty_t * pty, unsigned long request, void * argp) {
 		case TCSETS:
 		case TCSETSW:
 			if (!argp) return -EINVAL;
-			validate(argp);
+			if (!mmu_validate_user_pointer(argp, sizeof(struct termios), 0)) return -EFAULT;
 			/* TODO wait on output for SETSW */
 			if (!(((struct termios *)argp)->c_lflag & ICANON) && (pty->tios.c_lflag & ICANON)) {
 				/* Switch out of canonical mode, the dump the input buffer */
@@ -630,12 +631,12 @@ static ssize_t readlink_dev_tty(fs_node_t * node, char * buf, size_t size) {
 		}
 	}
 
-	char tmp[30];
+	char tmp[100];
 	size_t req;
 	if (!pty) {
 		snprintf(tmp, 100, "/dev/null");
 	} else {
-		pty->fill_name(pty, tmp);
+		pty->fill_name(pty, 100, tmp);
 	}
 
 	req = strlen(tmp) + 1;

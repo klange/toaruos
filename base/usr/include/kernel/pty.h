@@ -37,7 +37,7 @@ typedef struct pty {
 
 	int next_is_verbatim;
 
-	void (*fill_name)(struct pty *, char *);
+	ssize_t (*fill_name)(struct pty *, size_t len, char *);
 
 	void * _private;
 

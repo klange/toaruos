@@ -188,8 +188,8 @@ static ssize_t serial_write_out(pty_t * pty, uint8_t c) {
 
 #define DEV_PATH "/dev/ttyS"
 
-static void serial_fill_name(pty_t * pty, char * name) {
-	snprintf(name, 100, DEV_PATH "%d", ((struct serial_port_map *)pty->_private)->index);
+static ssize_t serial_fill_name(pty_t * pty, size_t len, char * name) {
+	return snprintf(name, len, DEV_PATH "%d", ((struct serial_port_map *)pty->_private)->index);
 }
 
 static fs_node_t * serial_device_create(int port) {

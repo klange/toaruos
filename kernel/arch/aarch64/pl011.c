@@ -33,8 +33,8 @@ static int pl011_irq(process_t * this, int irq, void * data) {
 	return 0;
 }
 
-static void pl011_fill_name(pty_t * pty, char * name) {
-	snprintf(name, 100, "/dev/ttyS0");
+static ssize_t pl011_fill_name(pty_t * pty, size_t len, char * name) {
+	return snprintf(name, len, "/dev/ttyS0");
 }
 
 static ssize_t pl011_write_out(pty_t * pty, uint8_t c) {

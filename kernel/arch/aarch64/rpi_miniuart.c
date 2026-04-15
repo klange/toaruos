@@ -87,8 +87,8 @@ static int miniuart_irq(process_t * this, int irq, void * data) {
 	return 0;
 }
 
-static void miniuart_fill_name(pty_t * pty, char * name) {
-	snprintf(name, 100, "/dev/ttyUART1");
+static void miniuart_fill_name(pty_t * pty, size_t len, char * name) {
+	return snprintf(name, len, "/dev/ttyUART1");
 }
 
 static ssize_t miniuart_write_out(pty_t * pty, uint8_t c) {

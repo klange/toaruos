@@ -7,6 +7,7 @@
  * Copyright (C) 2018 K. Lange
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 int main(int argc, char * argv[]) {
@@ -14,6 +15,15 @@ int main(int argc, char * argv[]) {
 		fprintf(stdout, "not a tty\n");
 		return 1;
 	}
-	fprintf(stdout,"%s\n",ttyname(STDIN_FILENO));
+
+	char buf[PATH_MAX];
+
+	if (ttyname_r(STDIN_FILENO, buf, PATH_MAX) == -1) {
+		perror(argv[0]);
+		return 2;
+	}
+
+	fprintf(stdout, "%s\n", buf);
+
 	return 0;
 }
