@@ -76,7 +76,15 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 				}
 
 				if (ambiguous) {
-					if (print_errors) fprintf(stderr, "%s: Ambiguous option: '--%.*s'\n", argv[0], (int)(eq - nextchar), nextchar);
+					if (print_errors) {
+						fprintf(stderr, "%s: Ambiguous option: '--%.*s'; possibilities:", argv[0], (int)(eq - nextchar), nextchar);
+						for (int index = 0; longopts[index].name; ++index) {
+							if (!strncmp(longopts[index].name, nextchar, eq - nextchar)) {
+								fprintf(stderr, " '--%s'", longopts[index].name);
+							}
+						}
+						fprintf(stderr,"\n");
+					}
 					optopt = '\0';
 					goto _erroneous_longopt;
 				} else if (found == -1) {
