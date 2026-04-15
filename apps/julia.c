@@ -211,13 +211,17 @@ uint32_t (*function)(int,int) = julia;
 
 #define T_I "\033[3m"
 #define T_N "\033[0m"
-void usage(char * argv[]) {
+
+#define USAGE_STRING \
+	"usage: %s [-i " T_I "iterations" T_N "] [-x " T_I "minx" T_N "]\n" \
+	"          [-X " T_I "maxx" T_N "] [-c " T_I "real" T_N "] [-C " T_I "imag" T_N "]\n" \
+	"          [-W " T_I "width" T_N "] [-H " T_I "height" T_N "] [-h]\n"
+
+static int full_help(char * argv[]) {
 	printf(
 			"%s.\n"
 			"\n"
-			"usage: %s [-i " T_I "iterations" T_N "] [-x " T_I "minx" T_N "]\n"
-			"          [-X " T_I "maxx" T_N "] [-c " T_I "real" T_N "] [-C " T_I "imag" T_N "]\n"
-			"          [-W " T_I "width" T_N "] [-H " T_I "height" T_N "] [-h]\n"
+			USAGE_STRING
 			"\n"
 			" -i --iterations  " T_I "Number of iterations to run" T_N "\n"
 			" -x --center-x    " T_I "Center X" T_N "\n"
@@ -230,6 +234,12 @@ void usage(char * argv[]) {
 			" -h --help        " T_I "Show this help message." T_N "\n",
 			app_desc,
 			argv[0]);
+	return 0;
+}
+
+static int usage(char * argv[]) {
+	fprintf(stderr, USAGE_STRING, argv[0]);
+	return 1;
 }
 
 static void decors() {
@@ -455,11 +465,9 @@ int main(int argc, char * argv[]) {
 					height = atoi(optarg);
 					break;
 				case 'h':
-					usage(argv);
-					exit(0);
-					break;
+					return full_help(argv);
 				default:
-					break;
+					return usage(argv);
 			}
 		}
 	}
