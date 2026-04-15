@@ -12,6 +12,8 @@
 #define IO_VID_DRIVER 0x5008
 #define IO_VID_REINIT 0x5009
 
+#define IO_VGA_MOUSE_ADJ 0x5010
+
 struct vid_size {
 	uint32_t width;
 	uint32_t height;

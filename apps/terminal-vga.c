@@ -450,12 +450,15 @@ void placech(unsigned char c, int x, int y, int attr) {
 	basecopy[where] = att;
 }
 
+static int vga_text_fd = 0;
+
 static void maybe_write_screen(void) {
 	/* This says "maybe_" but we always draw whatever
 	 * needs drawing... */
 	for (int i = 0; i < term_width * term_height; ++i) {
 		if (basecopy[i] != flipcopy[i]) {
-			textmemptr[i] = flipcopy[i] = basecopy[i];
+			flipcopy[i] = basecopy[i];
+			pwrite(vga_text_fd, &flipcopy[i], sizeof(unsigned short), i * sizeof(unsigned short));
 		}
 	}
 }
@@ -1118,8 +1121,7 @@ static int mouse_y = 0;
 static int last_mouse_buttons = 0;
 static int mouse_is_dragging = 0;
 
-#define MOUSE_X_R 820
-#define MOUSE_Y_R 2621
+static int mouse_r[2] = {820, 2621};
 
 static int old_x = 0;
 static int old_y = 0;
@@ -1252,8 +1254,8 @@ void handle_mouse(mouse_device_packet_t * packet) {
 }
 
 void handle_mouse_abs(mouse_device_packet_t * packet) {
-	mouse_x = packet->x_difference / MOUSE_X_R;
-	mouse_y = packet->y_difference / MOUSE_Y_R;
+	mouse_x = packet->x_difference / mouse_r[0];
+	mouse_y = packet->y_difference / mouse_r[1];
 
 	rel_mouse_x = mouse_x * 20;
 	rel_mouse_y = mouse_y * 40;
@@ -1297,14 +1299,14 @@ int main(int argc, char ** argv) {
 	}
 
 #define TEXT_MODE_DEVICE "/dev/vga0"
-	int vga_text_fd = open(TEXT_MODE_DEVICE, O_RDWR);
+	vga_text_fd = open(TEXT_MODE_DEVICE, O_RDWR);
 	if (vga_text_fd < 0) {
 		fprintf(stderr, "%s: %s: %s\n", argv[0], TEXT_MODE_DEVICE, strerror(errno));
 		return 1;
 	}
 	ioctl(vga_text_fd, IO_VID_WIDTH,  &term_width);
 	ioctl(vga_text_fd, IO_VID_HEIGHT, &term_height);
-	ioctl(vga_text_fd, IO_VID_ADDR,   &textmemptr);
+	ioctl(vga_text_fd, IO_VGA_MOUSE_ADJ, &mouse_r);
 
 	putenv("TERM=toaru-vga");
 

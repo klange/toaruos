@@ -476,23 +476,10 @@ static int ioctl_vga(fs_node_t * node, unsigned long request, void * argp) {
 			validate(argp);
 			*((size_t *)argp) = 25;
 			return 0;
-		case IO_VID_ADDR:
-			/* Map framebuffer into userspace process */
+		case IO_VGA_MOUSE_ADJ:
 			validate(argp);
-			{
-				uintptr_t vga_user_offset;
-				if (*(uintptr_t*)argp == 0) {
-					vga_user_offset = USER_DEVICE_MAP;
-				} else {
-					validate((void*)(*(uintptr_t*)argp));
-					vga_user_offset = *(uintptr_t*)argp;
-				}
-				for (uintptr_t i = 0; i < 0x1000; i += 0x1000) {
-					union PML * page = mmu_get_page(vga_user_offset + i, MMU_GET_MAKE);
-					mmu_frame_map_address(page,MMU_FLAG_WRITABLE/*|MMU_FLAG_WC*/,(uintptr_t)(0xB8000 + i));
-				}
-				*((uintptr_t *)argp) = vga_user_offset;
-			}
+			((int*)argp)[0] = 820;
+			((int*)argp)[1] = 2621;
 			return 0;
 		default:
 			return -EINVAL;
