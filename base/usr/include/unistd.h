@@ -74,6 +74,7 @@ extern int chown(const char * pathname, uid_t owner, gid_t group);
 extern int fchown(int fd, uid_t owner, gid_t group);
 
 extern char * getlogin(void);
+extern int getlogin_r(char *, size_t);
 extern char * ttyname(int fd);
 extern int ttyname_r(int fd, char * buf, size_t buflen);
 

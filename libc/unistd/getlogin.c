@@ -6,8 +6,7 @@
 
 static char _name[64]; /* NAME_MAX ? */
 
-char * getlogin(void) {
-
+int getlogin_r(char * buf, size_t bufsize) {
 	int tty = STDIN_FILENO;
 	if (!isatty(tty)) {
 		tty = STDOUT_FILENO;
@@ -15,20 +14,24 @@ char * getlogin(void) {
 			tty = STDERR_FILENO;
 			if (!isatty(tty)) {
 				errno = ENOTTY;
-				return NULL;
+				return -1;
 			}
 		}
 	}
 
 	/* Get the owner */
 	struct stat statbuf;
-	fstat(tty, &statbuf);
+	if (fstat(tty, &statbuf) == -1) return -1;
 
 	struct passwd * passwd = getpwuid(statbuf.st_uid);
+	if (!passwd) return -1;
+	if (!passwd->pw_name) return -1;
+	if ((unsigned int)snprintf(buf, bufsize, passwd->pw_name) >= bufsize) return (errno = ERANGE), -1;
 
-	if (!passwd) return NULL;
-	if (!passwd->pw_name) return NULL;
+	return 0;
+}
 
-	memcpy(_name, passwd->pw_name, strlen(passwd->pw_name));
+char * getlogin(void) {
+	if (getlogin_r(_name, 64) == -1) return NULL;
 	return _name;
 }
