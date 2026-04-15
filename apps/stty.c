@@ -175,7 +175,9 @@ static int show_settings(int all) {
 	/* Size */
 	struct winsize w;
 	ioctl(use_fd, TIOCGWINSZ, &w);
-	fprintf(stdout, "rows %d; columns %d; ypixels %d; xpixels %d;\n", w.ws_row, w.ws_col, w.ws_ypixel, w.ws_xpixel);
+	fprintf(stdout, "rows %d; columns %d;", w.ws_row, w.ws_col);
+	if (w.ws_ypixel != 0 || w.ws_xpixel != 0) fprintf(stdout, " ypixels %d; xpixels %d;\n", w.ws_ypixel, w.ws_xpixel);
+	else fprintf(stdout, "\n");
 	printed = 0;
 
 	/* Keys */
