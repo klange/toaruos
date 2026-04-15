@@ -355,12 +355,7 @@ fs_node_t *finddir_fs(fs_node_t *node, char *name) {
  */
 int ioctl_fs(fs_node_t *node, unsigned long request, void * argp) {
 	if (!node) return -ENOENT;
-
-	if (node->ioctl) {
-		return node->ioctl(node, request, argp);
-	} else {
-		return -EINVAL;
-	}
+	return node->ioctl ? node->ioctl(node, request, argp) : -ENOTTY;
 }
 
 fs_node_t * file_get_parent(const char * path, int *error) {

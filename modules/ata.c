@@ -440,7 +440,7 @@ static int ioctl_ata(fs_node_t * node, unsigned long request, void * argp) {
 		}
 
 		default:
-			return -EINVAL;
+			return -ENOTTY;
 	}
 }
 

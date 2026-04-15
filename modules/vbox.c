@@ -243,7 +243,7 @@ static int ioctl_mouse(fs_node_t * node, unsigned long request, void * argp) {
 	if (request == 3) {
 		return mouse_state == (VBOX_MOUSE_ON);
 	}
-	return -1;
+	return -ENOTTY;
 }
 
 static ssize_t write_pointer(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {

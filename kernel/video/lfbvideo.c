@@ -137,9 +137,8 @@ static int ioctl_vid(fs_node_t * node, unsigned long request, void * argp) {
 			validate(argp);
 			return lfb_init(argp);
 		default:
-			return -EINVAL;
+			return -ENOTTY;
 	}
-	return -EINVAL;
 }
 
 /* Framebuffer device file initializer */

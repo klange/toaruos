@@ -302,14 +302,6 @@ static void tty_fill_name(pty_t * pty, char * out) {
 
 int pty_ioctl(pty_t * pty, unsigned long request, void * argp) {
 	switch (request) {
-		case IOCTLDTYPE:
-			/*
-			 * This is a special toaru-specific call to get a simple
-			 * integer that describes the kind of device this is.
-			 * It's more specific than just "character device" or "file",
-			 * but for here we just need to say we're a TTY.
-			 */
-			return IOCTL_DTYPE_TTY;
 		case IOCTLTTYNAME:
 			if (!argp) return -EINVAL;
 			validate(argp);
@@ -391,7 +383,7 @@ int pty_ioctl(pty_t * pty, unsigned long request, void * argp) {
 			memcpy(&pty->tios, argp, sizeof(struct termios));
 			return 0;
 		default:
-			return -EINVAL;
+			return -ENOTTY;
 	}
 }
 
@@ -625,9 +617,7 @@ fs_node_t * pty_slave_create(pty_t * pty) {
 }
 
 static int isatty(fs_node_t * node) {
-	if (!node) return 0;
-	if (!node->ioctl) return 0;
-	return ioctl_fs(node, IOCTLDTYPE, NULL) == IOCTL_DTYPE_TTY;
+	return node && (node->ioctl == ioctl_pty_master || node->ioctl == ioctl_pty_slave);
 }
 
 static ssize_t readlink_dev_tty(fs_node_t * node, char * buf, size_t size) {

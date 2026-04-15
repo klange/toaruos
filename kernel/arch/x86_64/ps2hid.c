@@ -16,6 +16,7 @@
 #include <kernel/mouse.h>
 #include <kernel/misc.h>
 #include <kernel/args.h>
+#include <errno.h>
 
 #include <kernel/arch/x86_64/ports.h>
 #include <kernel/arch/x86_64/regs.h>
@@ -240,7 +241,7 @@ static int ioctl_mouse(fs_node_t * node, unsigned long request, void * argp) {
 		mouse_cycle = 0;
 		return 0;
 	}
-	return -1;
+	return -ENOTTY;
 }
 
 /**

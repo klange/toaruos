@@ -189,7 +189,7 @@ static int ioctl_server(fs_node_t * node, unsigned long request, void * argp) {
 		case IOCTL_PACKETFS_QUEUED:
 			return pipe_size(p->server_pipe);
 		default:
-			return -1;
+			return -ENOTTY;
 	}
 }
 
@@ -253,7 +253,7 @@ static int ioctl_client(fs_node_t * node, unsigned long request, void * argp) {
 		case IOCTL_PACKETFS_QUEUED:
 			return pipe_size(c->pipe);
 		default:
-			return -1;
+			return -ENOTTY;
 	}
 }
 

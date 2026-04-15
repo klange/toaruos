@@ -481,7 +481,7 @@ static int ioctl_mouse(fs_node_t * node, unsigned long request, void * argp) {
 		case 3:
 			return ps2_mouse_alternate == vmware_mouse;
 		default:
-			return -EINVAL;
+			return -ENOTTY;
 	}
 }
 

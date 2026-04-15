@@ -91,9 +91,8 @@ static int ioctl_ramdisk(fs_node_t * node, unsigned long request, void * argp) {
 				return 0;
 			}
 		default:
-			return -EINVAL;
+			return ENOTTY;
 	}
-	return -1;
 }
 
 static fs_node_t * ramdisk_device_create(int device_number, uintptr_t location, size_t size) {

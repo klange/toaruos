@@ -447,7 +447,7 @@ static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 		}
 
 		default:
-			return -EINVAL;
+			return -ENOTTY;
 	}
 }
 

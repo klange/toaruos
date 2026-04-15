@@ -1454,7 +1454,7 @@ static int ioctl_ext2(fs_node_t * node, unsigned long request, void * argp) {
 			return ioctl_fs(this->block_device, IOCTLSYNC, NULL);
 
 		default:
-			return -EINVAL;
+			return -ENOTTY;
 	}
 }
 

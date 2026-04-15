@@ -380,7 +380,7 @@ static int ioctl_vga_emul(fs_node_t * node, unsigned long request, void * argp) 
 			get_cursor_adj(&((int*)argp)[0], &((int*)argp)[1]);
 			return 0;
 		default:
-			return -EINVAL;
+			return -ENOTTY;
 	}
 }
 
