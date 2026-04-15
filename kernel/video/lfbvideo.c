@@ -27,6 +27,7 @@
 #include <kernel/procfs.h>
 #include <kernel/mmu.h>
 #include <kernel/args.h>
+#include <kernel/assert.h>
 
 /* FIXME: Not sure what to do with this; ifdef around it? */
 #include <kernel/arch/x86_64/ports.h>
@@ -462,49 +463,16 @@ static void auto_scan_pci(uint32_t device, uint16_t v, uint16_t d, void * extra)
 	}
 }
 
-static fs_node_t * vga_text_device = NULL;
-
-static int ioctl_vga(fs_node_t * node, unsigned long request, void * argp) {
-	switch (request) {
-		case IO_VID_WIDTH:
-			/* Get framebuffer width */
-			validate(argp);
-			*((size_t *)argp) = 80;
-			return 0;
-		case IO_VID_HEIGHT:
-			/* Get framebuffer height */
-			validate(argp);
-			*((size_t *)argp) = 25;
-			return 0;
-		case IO_VGA_MOUSE_ADJ:
-			validate(argp);
-			((int*)argp)[0] = 820;
-			((int*)argp)[1] = 2621;
-			return 0;
-		default:
-			return -EINVAL;
-	}
-}
-
-static void vga_text_init(void) {
-	vga_text_device = calloc(sizeof(fs_node_t), 1);
-	snprintf(vga_text_device->name, 100, "vga0");
-	vga_text_device->length = 0;
-	vga_text_device->flags  = FS_BLOCKDEVICE;
-	vga_text_device->mask   = 0660;
-	vga_text_device->ioctl  = ioctl_vga;
-	vfs_mount("/dev/vga0", vga_text_device, "vgatext", "");
-}
-
 static int lfb_init(const char * c) {
 	char * arg = strdup(c);
-	char * argv[10];
-	int argc = tokenize(arg, ",", argv);
+	char * _argv[10];
+	int argc = tokenize(arg, ",", _argv);
+	char ** argv = _argv;
 
 	if (!strcmp(argv[0],"text")) {
-		/* VGA text mode? TODO: We should try to detect this,
-		 * or limit it to things that are likely to have it... */
-		vga_text_init();
+#ifndef __x86_64__
+		assert(0 && "This platform does not support 'text'.");
+#endif
 		free(arg);
 		return 0;
 	}
