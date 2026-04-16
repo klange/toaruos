@@ -272,7 +272,11 @@ FILE * freopen(const char *path, const char *mode, FILE * stream) {
 	if (path) {
 		fflush(stream);
 		free(stream->_name);
-		syscall_close(stream->fd);
+		int ret = syscall_close(stream->fd);
+		if (ret < 0) {
+			errno = -ret;
+			return NULL;
+		}
 		int flags, mask;
 		parse_mode(mode, &flags, &mask);
 		int fd = syscall_open(path, flags, mask);

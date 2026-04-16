@@ -174,7 +174,7 @@ DECL_SYSCALL0(fork);
 DECL_SYSCALL0(getpid);
 DECL_SYSCALL1(sbrk, int);
 DECL_SYSCALL3(socket, int, int, int);
-DECL_SYSCALL1(uname, void *);
+DECL_SYSCALL1(uname, struct utsname*);
 DECL_SYSCALL5(openpty, int *, int *, char *, void *, void *);
 DECL_SYSCALL3(seek, int, long, int);
 DECL_SYSCALL2(stat, int, void *);
