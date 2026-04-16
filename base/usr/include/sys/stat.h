@@ -76,12 +76,13 @@ struct stat  {
 #define	S_ISSOCK(m)	(((m)&_IFMT) == _IFSOCK)
 
 extern int stat(const char *file, struct stat *st);
-  int stat(const char*, struct stat*) __asm__("__statns");
 extern int lstat(const char *path, struct stat *st);
-  int lstat(const char *, struct stat*) __asm__("__lstatns");
 extern int fstat(int fd, struct stat *st);
-  int fstat(int fd, struct stat*) __asm__("__fstatns");
 extern int mkdir(const char *pathname, mode_t mode);
 extern mode_t umask(mode_t mask);
+
+__redirect(stat,__statns);
+__redirect(lstat,__lstatns);
+__redirect(fstat,__fstatns);
 
 _End_C_Header

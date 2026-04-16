@@ -19,10 +19,12 @@ typedef struct DIR {
 
 DIR * opendir (const char * dirname);
 int closedir (DIR * dir);
-struct dirent * readdir (DIR * dirp) __asm__("readdir64");
+struct dirent * readdir (DIR * dirp);
 long telldir (DIR * dirp);
 void rewinddir (DIR * dirp);
 void seekdir (DIR * dirp, long loc);
+
+__redirect(readdir,readdir64);
 #endif
 
 _End_C_Header

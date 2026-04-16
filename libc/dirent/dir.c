@@ -6,6 +6,7 @@
 #include <syscall_nums.h>
 #include <errno.h>
 #include <bits/dirent.h>
+#include <_cheader.h>
 
 DEFN_SYSCALL3(readdir, SYS_READDIR, int, int, void *);
 
@@ -61,10 +62,17 @@ void seekdir(DIR * dirp, long loc) {
 	dirp->cur_entry = loc;
 }
 
+/**
+ * This provides the 32-bit binary compatibility for old
+ * binaries that want 'readdir' to use 32-bit ino values.
+ */
 struct dirent32 {
 	unsigned int d_ino;
 	char d_name[256];
 };
+
+struct dirent32 * readdir32 (DIR *);
+__redirect(readdir32,readdir);
 
 struct dirent32 * readdir32 (DIR * dirp) {
 	static struct dirent32 ent;
@@ -75,8 +83,6 @@ struct dirent32 * readdir32 (DIR * dirp) {
 	memcpy(ent.d_name,big->d_name,sizeof(ent.d_name));
 	return &ent;
 }
-
-struct dirent32 * readdir32 (DIR * dirp) __asm__("readdir");
 
 int scandir(const char *dirname, struct dirent ***namelist, int (*select)(const struct dirent *), int (*compar)(const struct dirent **, const struct dirent **)) {
 

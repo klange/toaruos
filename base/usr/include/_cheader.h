@@ -9,3 +9,5 @@
 #   define _End_C_Header
 #   define __restrict restrict
 #endif
+
+#define __redirect(symbol,truename) __typeof__(symbol) symbol __asm__(#truename)
