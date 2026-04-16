@@ -25,6 +25,7 @@ static void reverse(char * const argv[], int left, int right) {
 
 /* Swaps the items from [a,b] with the ones in (b,optind) */
 static int permutate_args(char * const argv[], int first_nonopt, int last_nonopt, int optind) {
+	if (last_nonopt == optind - 1) return 0; /* nothing to swap */
 	reverse(argv, first_nonopt, last_nonopt);
 	reverse(argv, last_nonopt + 1, optind - 1);
 	reverse(argv, first_nonopt, optind - 1);
