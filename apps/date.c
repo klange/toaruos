@@ -10,6 +10,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <errno.h>
 #include <sys/time.h>
 
 static int show_usage(int argc, char * argv[]) {
@@ -74,6 +75,7 @@ int main(int argc, char * argv[]) {
 	struct timeval now;
 	char buf[BUFSIZ] = {0};
 	int opt;
+	int ret = 0;
 
 	while ((opt = getopt(argc,argv,"?")) != -1) {
 		switch (opt) {
@@ -121,10 +123,14 @@ _invalid:
 set_time:
 		now.tv_usec = 0;
 		now.tv_sec = mktime(timeinfo);
-		return settimeofday(&now, NULL);
+		if (settimeofday(&now, NULL) == -1) {
+			/* GNU prints the error and then proceeds to display the day we tried to set anyway, so let's do that. */
+			fprintf(stderr, "%s: cannot set date: %s\n", argv[0], strerror(errno));
+			ret = 1;
+		}
 	}
 
 	strftime(buf,BUFSIZ,format,timeinfo);
 	puts(buf);
-	return 0;
+	return ret;
 }
