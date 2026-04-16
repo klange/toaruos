@@ -886,9 +886,6 @@ static int syn_esh_calculate(struct syntax_state * state) {
 		return 0;
 	} else if (find_keywords(state, shell_commands, FLAG_KEYWORD, esh_keyword_qualifier)) {
 		return 0;
-	} else if (isdigit(charat())) {
-		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
-		return 0;
 	} else if (charat() != -1) {
 		skip();
 		return 0;
