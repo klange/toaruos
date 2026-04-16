@@ -93,34 +93,32 @@ int getopt_long(int argc, char * const argv[], const char *optstring, const stru
 					goto _erroneous_longopt;
 				}
 
-				if (found != -1) {
-					if (longindex) *longindex = found;
+				if (longindex) *longindex = found;
 
-					if (longopts[found].has_arg == required_argument) {
-						if (!optarg) {
-							if (optind + 1 == argc) {
-								if (print_errors) fprintf(stderr, "%s: Option requires an argument: '%s'\n", argv[0], longopts[found].name);
-								optopt = longopts[found].val;
-								ret = was_colon ? ':' : '?'; /* Just for missing required argument, if caller asked, they get a colon. */
-								goto _erroneous_longopt;
-							}
-							optarg = argv[optind+1];
-							optind++;
+				if (longopts[found].has_arg == required_argument) {
+					if (!optarg) {
+						if (optind + 1 == argc) {
+							if (print_errors) fprintf(stderr, "%s: Option requires an argument: '%s'\n", argv[0], longopts[found].name);
+							optopt = longopts[found].val;
+							ret = was_colon ? ':' : '?'; /* Just for missing required argument, if caller asked, they get a colon. */
+							goto _erroneous_longopt;
 						}
-					} else if (longopts[found].has_arg == no_argument && optarg) {
-						if (print_errors) fprintf(stderr, "%s: Option does not accept an argument: '%s'\n", argv[0], longopts[found].name);
-						optopt = longopts[found].val;
-						goto _erroneous_longopt;
+						optarg = argv[optind+1];
+						optind++;
 					}
-					nextchar = NULL;
-					optind++;
-					if (!longopts[found].flag) {
-						return longopts[found].val;
-					} else {
-						*longopts[found].flag = longopts[found].val;
-						return 0;
-					}
+				} else if (longopts[found].has_arg == no_argument && optarg) {
+					if (print_errors) fprintf(stderr, "%s: Option does not accept an argument: '%s'\n", argv[0], longopts[found].name);
+					optopt = longopts[found].val;
+					goto _erroneous_longopt;
 				}
+
+				nextchar = NULL;
+				optind++;
+
+				if (!longopts[found].flag) return longopts[found].val;
+
+				*longopts[found].flag = longopts[found].val;
+				return 0;
 
 _erroneous_longopt:
 				if (longindex) *longindex = -1;
