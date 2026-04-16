@@ -1,0 +1,172 @@
+.TH getopt 3 "April, 2026"
+
+.SH NAME
+.BR getopt ", " getopt_long ", " optarg ", " optind ", " opterr ", " optopt
+\- parse command line options
+
+.SH LIBRARY
+Standard C library (\fIlibc\fP, \fI\-lc\fP)
+
+.SH SYNOPSIS
+.B #include <unistd.h>
+.sp
+.B int getopt(int \fIargc\fP, char *\fIargv\fP[], const char *\fIopstring\fP);
+.sp
+.B extern char * \fIoptarg\fP;
+.br
+.B extern int \fIoptind\fP, \fIopterr\fP, \fIoptopt\fP;
+.sp
+.B #include <getopt.h>
+.sp
+.B extern int getopt_long(int \fIargc\fP, char *\fIargv\fP[], const char *\fIoptstring\fP,
+.br
+.B                        const struct option *\fIlongopts\fP, int *\fIlongindex\fP);
+
+.SH DESCRIPTION
+The \fBgetopt()\fP function is a parser for command-line options.
+.PP
+This manual page mostly describes how this implementation may differ from
+other implementations.
+For more details on how to use these functions, please reference another manual source.
+.PP
+This implementation is modeled on a mix of behavior from the GNU and BSD versions.
+If the first character of \fIoptstring\fP is not a '+', arguments will be permutated
+such that all non-option arguments end up at the end of the argument list while
+maintaining their original ordering;
+otherwise, parsing will stop at the first non-option.
+POSIX.1\-2024 now requires conforming implementations to accept this leading '+',
+particularly when considering whether the "first" character of \fIoptstring\fP is
+a ':', which must appear after the '+'.
+.PP
+If, after any leading '+', the first charcter of \fIoptstring\fP is ':', then \fBgetopt\fP
+returns ':' instead of '?' when it encounters an option which requires an argument but
+which appeared at the end of the argument list.
+.PP
+This implementation only considers ':' to be an invalid option character and will
+reject it when processing short options.
+All other single bytes, including '\-', are accepted, though '\-' will not be processed
+when using \fBgetopt_long\fP (unless \fIlongopts\fP is \fBNULL\fP).
+Note that for '+' to be an accepted option character, it must not be the first character
+in optstring.
+.PP
+A lone '\-' is considered to be a non-option, while '\-\-' will stop parsing but not
+be considered a non-option (if any non-options were found before '\-\-', the '\-\-'
+will be permutated to appear before those non-options, unless \fIopstring\fP started
+with a '+').
+.PP
+This implementation does not provide any special handling of \fB\-W\fP as a way to
+provide long options, nor does it accept a leading '\-' in \fIopstring\fP to mean
+any sort of special processing of non-option arguments as the arguments to an option,
+both of which are GNU extensions.
+.PP
+This implementation supports optional arguments to short options when two ':'
+characters follow the option character in \fIoptstring\fP.
+Such optional arguments are to be supplied after the option character within
+the same command line argument.
+.PP
+Required arguments may appear either within the same command line argument,
+or as the next command line argument. In either case, no further processing
+of short options will happen for the command line argument in which such
+an option appeared.
+.PP
+Each time \fBgetopt\fP returns, the value of \fIoptind\fP indicates the next
+command line argument to be processed.
+When processing a command line argument with multiple short options,
+\fBgetopt\fP may return multiple times without changing \fIoptind\fP;
+incomplete processing of these arguments is tracked in an internal variable.
+.PP
+If \fIoptind\fP is changed between calls to \fIgetopt\fP, the function will
+attempt to restart processing from the new \fIoptind\fP.
+If \fIoptind\fP is set to 0, \fBgetopt\fP will attempt to restart processing
+from the beginning of the argument list (as if \fIoptind\fP were 1).
+
+.SS getopt_long()
+
+\fIlongopts\fP should point to an array of \fIstruct option\fP elements:
+
+    struct option {
+        const char *name;
+        int has_arg;
+        int *flag;
+        int val;
+    };
+
+The fields work as follows:
+
+.TP
+.I name
+The option string to match.
+
+.TP
+.I has_arg
+Should be one of \fBno_argument\fP, \fBrequired_argument\fP, or \fBoptional_argument\fP,
+each of which is defined as a macro in \fB<getopt.h>\fP.
+
+.TP
+.I flag
+When set, the value in \fIval\fP will be stored in the integer pointed to by \fIflag\fP
+if this option is encountered (and 0 will be returned).
+
+.TP
+.I val
+If \fIflag\fP is \fBNULL\fP, this value will be returned by \fBgetopt_long\fP when this
+option is encountered.
+If \fIflag\fP is set, this value will be stored in the integer pointed to by \fIflag\fP.
+
+.PP
+Long options which take a required argument may be specified in the command line either
+with the argument included alongside the option (\fB\-\-option=argument\fP), or with
+the argument as the follow command line argument. Long options which accept an optional
+argument may only receive the argument alongside the option (with an '=').
+.PP
+When a recognized long option, or an unambiguous abbreviation of one, is processed
+successfully, without a mismatch in arguments, \fBgetopt_long\fP will store the index
+of the option in the integer pointed to by \fIlongindex\fP, if it is not a \fBNULL\fP pointer.
+\fIoptopt\fP will not be modified in this case.
+.PP
+When an ambiguous or unknown long option is encountered, \fBgetopt_long\fP will return '?'
+and \fIoptopt\fP will be set to 0.
+If \fIopterr\fP has not been set to 0, ambiguous options will produce a list of possible
+matches in the resulting diagnostic message, and unknown options will produce an appropriate
+diagnostic message.
+.PP
+If an option which requires an argument does not have one (eg. it appears at the end of
+the argument list and does not have a '=' after it), \fBgetopt_long\fP will return '?'
+or, if the first character of \fIoptstring\fP, after any leading '+', was a ':', then it will return ':'.
+If an option which does not accept an argument has one (eg. it is followed by a '='), then
+\fBgetopt_long\fP will return '?' regardless.
+In both cases, \fIoptopt\fP will be set to the \fIval\fP for the option and, if \fIopterr\fP
+was not set to 0, a diagnostic message will be printed.
+This implementation also stores the index of the option in \fBlongindex\fP even if its
+arguments are not as expected.
+
+.SH PERMUTATION
+When the first character in \fIoptstring\fP is not '+', this implementation permutates
+arguments to place non-option arguments after option arguments (and their arguments,
+if any), while maintaining the relative orders of each set.
+.PP
+Permutation occurs at two points:
+
+- Upon entry to \fBgetopt\fP, any non-options encountered while processing the previous
+arguments will be permutated to be after that argument (and before the argument indicated
+by \fIoptind\fP).
+.sp
+- Before returning -1 to indicate the end of arguments (either because the argument list
+has been exhausted, or '\-\-' was encountered), any non-option arguments that were
+encountered during processing will be placed after the last option argument, or after
+the terminating '\-\-', and \fIoptind\fP will be set to the index of the first non-option
+argument.
+
+.SH STANDARDS
+
+.TP
+.B getopt()
+POSIX.1\-2024
+
+.TP
+.B getopt_long()
+Should conform reasonably well to the GNU implementation.
+
+.SH HISTORY
+The ToaruOS implementation of \fBgetopt\fP and \fBgetopt_long\fP did not historically support
+abbreviations, argument reordering, or optional arguments to short options.
