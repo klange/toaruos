@@ -516,6 +516,11 @@ void tab_complete_func(rline_context_t * c) {
 	char * word = argv[cursor];
 	int word_offset = word ? (c->offset - (argv[cursor] - dup)) : 0;
 
+	if (word_offset < 0) {
+		word_offset = 0;
+		word = NULL;
+	}
+
 	char * prefix = malloc(word_offset + 1);
 	if (word) memcpy(prefix, word, word_offset);
 	prefix[word_offset] = '\0';
