@@ -547,7 +547,7 @@ size_t mmu_count_shm(union PML * from) {
 							for (size_t l = 0; l < 512; ++l) {
 								/* Calculate final address to skip SHM */
 								uintptr_t address = ((i << (9 * 3 + 12)) | (j << (9*2 + 12)) | (k << (9 + 12)) | (l << PAGE_SHIFT));
-								if (address < USER_DEVICE_MAP && address >= USER_SHM_HIGH) continue;
+								if (address < USER_DEVICE_MAP || address > USER_SHM_HIGH) continue;
 								if (pt_in[l].bits.present) {
 									if (pt_in[l].bits.ap & 1) {
 										out++;
