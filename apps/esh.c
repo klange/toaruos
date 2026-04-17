@@ -2299,15 +2299,20 @@ uint32_t shell_cmd_export_cmd(int argc, char * argv[]) {
 	size_t accum = 0;
 
 	do {
-		int r = read(pipe_fds[0], buf+accum, 1023-accum);
-
+		ssize_t r = read(pipe_fds[0], buf+accum, 1023-accum);
 		if (r == 0) break;
+
 		if (r < 0) {
+			close(pipe_fds[0]);
+			kill(child_pid, SIGKILL);
 			return -r;
 		}
 
 		accum += r;
 	} while (accum < 1023);
+
+	close(pipe_fds[0]);
+	kill(child_pid, SIGKILL);
 
 	waitpid(child_pid, NULL, 0);
 
