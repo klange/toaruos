@@ -20,6 +20,7 @@
 #include <time.h>
 #include <pwd.h>
 #include <wchar.h>
+#include <getopt.h>
 #include <errno.h>
 
 #include <sys/ioctl.h>
@@ -68,6 +69,11 @@ static int print_dir   = 0;
 static int term_width = DEFAULT_TERM_WIDTH;
 static int term_height = DEFAULT_TERM_HEIGHT;
 static int columns = 1;
+static int in_order = 0;
+static int show_inode = 0;
+static int show_size = 0;
+static int one_column = 0;
+static int show_slash = 0;
 
 struct tfile {
 	char * name;
@@ -128,7 +134,32 @@ static int display_width_of_string(const char * str) {
 	return out;
 }
 
-static void print_entry(struct tfile * file, int colwidth) {
+static size_t as_1k_blocks(off_t size) {
+	size_t blocks = size / 1024;
+	if (size % 1024) blocks += 1;
+	return blocks;
+}
+
+static int print_human_readable_size(char * _out, size_t avail, size_t s);
+
+static void prefixes(int *colwidth, struct tfile * file) {
+	/* Prefixed stuff */
+	if (show_inode) printf("%*zu ", colwidth[1]-1, file->statbuf.st_ino);
+	if (show_size) {
+		size_t size = as_1k_blocks(file->statbuf.st_size);
+		if (human_readable) {
+			char tmp[100];
+			print_human_readable_size(tmp, 100, size * 1024);
+			printf("%*s ", colwidth[2]-1, tmp);
+		} else {
+			printf("%*zu ", colwidth[2]-1, size);
+		}
+	}
+}
+
+static void print_entry(struct tfile * file, int *colwidth) {
+	prefixes(colwidth,file);
+
 	const char * ansi_color_str = color_str(&file->statbuf);
 
 	/* Print the file name */
@@ -138,13 +169,30 @@ static void print_entry(struct tfile * file, int colwidth) {
 		printf("%s", file->name);
 	}
 
+	/* These classifiers are accounted for in width calculations separately */
+	if (show_slash) {
+		if (S_ISDIR(file->statbuf.st_mode)) {
+			printf("/");
+		} else if (show_slash > 1 && S_ISLNK(file->statbuf.st_mode)) {
+			printf("@");
+		} else if (show_slash > 1 && S_ISFIFO(file->statbuf.st_mode)) {
+			printf("|");
+		} else if (show_slash > 1 && (file->statbuf.st_mode & 0111)) {
+			printf("*");
+		} else if (show_slash > 1 && S_ISSOCK(file->statbuf.st_mode)) {
+			printf("=");
+		} else {
+			printf(" ");
+		}
+	}
+
 	/* Pad the rest of the column */
-	for (int rem = colwidth - display_width_of_string(file->name); rem > 0; rem--) {
+	for (int rem = colwidth[0] - display_width_of_string(file->name); rem > 0; rem--) {
 		printf(" ");
 	}
 }
 
-static int print_username(char * _out, int uid) {
+static int print_username(char * _out, size_t avail, int uid) {
 
 	TRACE("getpwuid");
 	struct passwd * p = getpwuid(uid);
@@ -152,10 +200,10 @@ static int print_username(char * _out, int uid) {
 
 	if (p) {
 		TRACE("p is set");
-		out = sprintf(_out, "%s", p->pw_name);
+		out = snprintf(_out, avail, "%s", p->pw_name);
 	} else {
 		TRACE("p is not set");
-		out = sprintf(_out, "%d", uid);
+		out = snprintf(_out, avail, "%d", uid);
 	}
 
 	endpwent();
@@ -163,48 +211,49 @@ static int print_username(char * _out, int uid) {
 	return out;
 }
 
-static int print_human_readable_size(char * _out, size_t s) {
+static int print_human_readable_size(char * _out, size_t avail, size_t s) {
 	if (s >= 1<<20) {
 		size_t t = s / (1 << 20);
-		return sprintf(_out, "%d.%1dM", (int)t, (int)(s - t * (1 << 20)) / ((1 << 20) / 10));
+		return snprintf(_out, avail, "%d.%1dM", (int)t, (int)(s - t * (1 << 20)) / ((1 << 20) / 10));
 	} else if (s >= 1<<10) {
 		size_t t = s / (1 << 10);
-		return sprintf(_out, "%d.%1dK", (int)t, (int)(s - t * (1 << 10)) / ((1 << 10) / 10));
+		return snprintf(_out, avail, "%d.%1dK", (int)t, (int)(s - t * (1 << 10)) / ((1 << 10) / 10));
 	} else {
-		return sprintf(_out, "%d", (int)s);
+		return snprintf(_out, avail, "%d", (int)s);
 	}
 }
 
 static void update_column_widths(int * widths, struct tfile * file) {
-	char tmp[256];
 	int n;
 
 	/* Links */
 	TRACE("links");
-	n = sprintf(tmp, "%d", file->statbuf.st_nlink);
+	n = snprintf(NULL, 0, "%d", file->statbuf.st_nlink);
 	if (n > widths[0]) widths[0] = n;
 
 	/* User */
 	TRACE("user");
-	n = print_username(tmp, file->statbuf.st_uid);
+	n = print_username(NULL, 0, file->statbuf.st_uid);
 	if (n > widths[1]) widths[1] = n;
 
 	/* Group */
 	TRACE("group");
-	n = print_username(tmp, file->statbuf.st_gid);
+	n = print_username(NULL, 0, file->statbuf.st_gid);
 	if (n > widths[2]) widths[2] = n;
 
 	/* File size */
 	TRACE("file size");
 	if (human_readable) {
-		n = print_human_readable_size(tmp, file->statbuf.st_size);
+		n = print_human_readable_size(NULL, 0, file->statbuf.st_size);
 	} else {
-		n = sprintf(tmp, "%d", (int)file->statbuf.st_size);
+		n = snprintf(NULL, 0, "%d", (int)file->statbuf.st_size);
 	}
 	if (n > widths[3]) widths[3] = n;
 }
 
-static void print_entry_long(int * widths, struct tfile * file) {
+static void print_entry_long(int * widths, int * colwidth, struct tfile * file) {
+	prefixes(colwidth, file);
+
 	const char * ansi_color_str = color_str(&file->statbuf);
 
 	/* file permissions */
@@ -230,13 +279,13 @@ static void print_entry_long(int * widths, struct tfile * file) {
 	printf( " %*d ", widths[0], file->statbuf.st_nlink); /* number of links, not supported */
 
 	char tmp[100];
-	print_username(tmp, file->statbuf.st_uid);
+	print_username(tmp, 100, file->statbuf.st_uid);
 	printf("%-*s ", widths[1], tmp);
-	print_username(tmp, file->statbuf.st_gid);
+	print_username(tmp, 100, file->statbuf.st_gid);
 	printf("%-*s ", widths[2], tmp);
 
 	if (human_readable) {
-		print_human_readable_size(tmp, file->statbuf.st_size);
+		print_human_readable_size(tmp, 100, file->statbuf.st_size);
 		printf("%*s ", widths[3], tmp);
 	} else {
 		printf("%*d ", widths[3], (int)file->statbuf.st_size);
@@ -254,12 +303,18 @@ static void print_entry_long(int * widths, struct tfile * file) {
 	/* Print the file name */
 	if (stdout_is_tty) {
 		printf("\033[%sm%s\033[0m", ansi_color_str, file->name);
+		if (show_slash && S_ISDIR(file->statbuf.st_mode)) {
+			printf("/");
+		}
 		if (S_ISLNK(file->statbuf.st_mode)) {
 			const char * s = color_str(&file->statbufl);
 			printf(" -> \033[%sm%s\033[0m", s, file->link);
 		}
 	} else {
 		printf("%s", file->name);
+		if (show_slash && S_ISDIR(file->statbuf.st_mode)) {
+			printf("/");
+		}
 		if (S_ISLNK(file->statbuf.st_mode)) {
 			printf(" -> %s", file->link);
 		}
@@ -268,25 +323,66 @@ static void print_entry_long(int * widths, struct tfile * file) {
 	printf("\n");
 }
 
-static int show_usage(int argc, char * argv[]) {
 #define X_S "\033[3m"
 #define X_E "\033[0m"
+static int show_help(int argc, char * argv[]) {
 	fprintf(stderr,
 			"%s - list files\n"
 			"\n"
-			"usage: %s [-lha] [" X_S "path" X_E "]\n"
+			"usage: %s [-aAfFhiklpsxC1] [" X_S "path" X_E "...]\n"
 			"\n"
-			" -a     " X_S "list all files (including . files)" X_E "\n"
-			" -l     " X_S "use a long listing format" X_E "\n"
-			" -h     " X_S "human-readable file sizes" X_E "\n"
-			" -C     " X_S "format output by columns (default)" X_E "\n"
-			" -x     " X_S "format output by line" X_E "\n"
-			" -?     " X_S "show this help text" X_E "\n"
+			" -a  --all             " X_S "list all files (including . files)" X_E "\n"
+			" -A  --almost-all      " X_S "like -a, but still hide . and .." X_E "\n"
+			" -f                    " X_S "display entries in original order" X_E "\n"
+			" -F  --classify        " X_S "show characters after files depending on type" X_E "\n"
+			" -h  --human-readable  " X_S "human-readable file sizes" X_E "\n"
+			" -i  --inode           " X_S "display inode number before name" X_E "\n"
+			" -k  --kibibytes       " X_S "(no-op; block size is always 1024)" X_E "\n"
+			" -l                    " X_S "use a long listing format" X_E "\n"
+			" -p                    " X_S "show a / after directory names" X_E "\n"
+			" -s  --size            " X_S "show size (in block) before file names" X_E "\n"
+			" -x                    " X_S "sort entries across columns instead of down" X_E "\n"
+			" -C                    " X_S "format output by columns (default)" X_E "\n"
+			" --help                " X_S "show this help text" X_E "\n"
 			"\n", argv[0], argv[0]);
+	return 0;
+}
+
+static int show_usage(int argc, char * argv[]) {
+	fprintf(stderr,
+			"usage: %s [-aAfFhiklpsxC1] [" X_S "path" X_E "...]\n"
+			" or try '%s --help' for more information\n",
+			argv[0], argv[0]);
 	return 1;
 }
 
 static void display_tfiles(struct tfile ** ents_array, int numents) {
+	int ent_max_len[4] = {0,0,0,0};
+	size_t total_blocks = 0;
+	for (int i = 0; i < numents; i++) {
+		ent_max_len[0] = MAX(ent_max_len[0], display_width_of_string(ents_array[i]->name));
+		if (show_inode) ent_max_len[1] = MAX(ent_max_len[1], snprintf(NULL,0,"%zu ",ents_array[i]->statbuf.st_ino));
+		if (show_size) {
+			size_t size = as_1k_blocks(ents_array[i]->statbuf.st_size);
+			if (human_readable) {
+				ent_max_len[2] = MAX(ent_max_len[2], print_human_readable_size(NULL, 0, size * 1024) + 1);
+			} else {
+				ent_max_len[2] = MAX(ent_max_len[2], snprintf(NULL,0,"%zu ",size));
+			}
+		}
+		total_blocks += as_1k_blocks(ents_array[i]->statbuf.st_size);
+	}
+	int total_width = 0;
+	for (size_t i = 0; i < sizeof(ent_max_len) / sizeof(*ent_max_len); ++i) {
+		total_width += ent_max_len[i];
+	}
+	if (show_slash) total_width += 1;
+
+	if (long_mode || show_size) {
+		/* || a few other things as well we don't have yet */
+		printf("total %zu\n", total_blocks);
+	}
+
 	if (long_mode) {
 		TRACE("long mode display, column lengths");
 		int widths[4] = {0,0,0,0};
@@ -295,16 +391,11 @@ static void display_tfiles(struct tfile ** ents_array, int numents) {
 		}
 		TRACE("actual printing");
 		for (int i = 0; i < numents; i++) {
-			print_entry_long(widths, ents_array[i]);
+			print_entry_long(widths, ent_max_len, ents_array[i]);
 		}
 	} else {
 		/* Determine the gridding dimensions */
-		int ent_max_len = 0;
-		for (int i = 0; i < numents; i++) {
-			ent_max_len = MAX(ent_max_len, display_width_of_string(ents_array[i]->name));
-		}
-
-		int col_ext = ent_max_len + MIN_COL_SPACING;
+		int col_ext = total_width + MIN_COL_SPACING;
 		int cols = ((term_width + MIN_COL_SPACING) / col_ext);
 		if (cols == 0) cols = 1;
 
@@ -350,24 +441,25 @@ static int display_dir(char * p) {
 
 	TRACE("reading entries");
 	struct dirent * ent = readdir(dirp);
-	while (ent != NULL) {
-		if (show_hidden || (ent->d_name[0] != '.')) {
-			struct tfile * f = malloc(sizeof(struct tfile));
+	for (; ent; ent = readdir(dirp)) {
+		if (ent->d_name[0] == '.' && !show_hidden) continue;
+		if (show_hidden != 1 && !strcmp(ent->d_name, ".")) continue;
+		if (show_hidden != 1 && !strcmp(ent->d_name, "..")) continue;
 
-			f->name = strdup(ent->d_name);
+		struct tfile * f = malloc(sizeof(struct tfile));
 
-			char tmp[strlen(p)+strlen(ent->d_name)+2];
-			sprintf(tmp, "%s/%s", p, ent->d_name);
-			lstat(tmp, &f->statbuf);
-			if (S_ISLNK(f->statbuf.st_mode)) {
-				stat(tmp, &f->statbufl);
-				f->link = malloc(4096);
-				readlink(tmp, f->link, 4096);
-			}
+		f->name = strdup(ent->d_name);
 
-			list_insert(ents_list, (void *)f);
+		char tmp[strlen(p)+strlen(ent->d_name)+2];
+		sprintf(tmp, "%s/%s", p, ent->d_name);
+		lstat(tmp, &f->statbuf);
+		if (S_ISLNK(f->statbuf.st_mode)) {
+			stat(tmp, &f->statbufl);
+			f->link = malloc(4096);
+			readlink(tmp, f->link, 4096);
 		}
-		ent = readdir(dirp);
+
+		list_insert(ents_list, (void *)f);
 	}
 	closedir(dirp);
 
@@ -386,7 +478,7 @@ static int display_dir(char * p) {
 	list_free(ents_list);
 
 	TRACE("sorting");
-	qsort(file_arr, index, sizeof(struct tfile *), filecmp_notypesort);
+	if (!in_order) qsort(file_arr, index, sizeof(struct tfile *), filecmp_notypesort);
 
 	TRACE("displaying");
 	display_tfiles(file_arr, index);
@@ -397,46 +489,79 @@ static int display_dir(char * p) {
 }
 
 int main (int argc, char * argv[]) {
-
-	/* Parse arguments */
 	char * p = ".";
 
-	if (argc > 1) {
-		int c;
-		while ((c = getopt(argc, argv, "ahlxC?")) != -1) {
-			switch (c) {
-				case 'a':
-					show_hidden = 1;
-					break;
-				case 'h':
-					human_readable = 1;
-					break;
-				case 'l':
-					long_mode = 1;
-					break;
+	static struct option long_opts[] = {
+		{"help", no_argument, 0, '-'},
+		{"all", no_argument, 0, 'a'},
+		{"almost-all", no_argument, 0, 'A'},
+		{"classify", no_argument, 0, 'F'},
+		{"human-readable", no_argument, 0, 'h'},
+		{"inode", no_argument, 0, 'i'},
+		{"kibibytes", no_argument, 0, 'k'},
+		{"size", no_argument, 0, 's'},
+		{0,0,0,0},
+	};
 
-				/* TODO These two should also force the multi-column
-				 * display even when stdout is not a TTY...
-				 * They should probably also unset long_mode? */
-				case 'x':
-					columns = 0;
-					break;
-				case 'C':
-					columns = 1;
-					break;
-				case '?':
-					return show_usage(argc, argv);
-			}
-		}
+	int opt, index;
+	while ((opt = getopt_long(argc, argv, "aAfFhiklpsxC1?", long_opts, &index)) != -1) {
+		switch (opt) {
+			case 'a':
+				show_hidden = 1;
+				break;
+			case 'A':
+				show_hidden = 2;
+				break;
+			case 'f':
+				in_order = 1;
+				break;
+			case 'F':
+				show_slash = 2;
+				break;
+			case 'h':
+				human_readable = 1;
+				break;
+			case 'i':
+				show_inode = 1;
+				break;
+			case 'k':
+				/* no op, we always use 1024 like GNU */
+				break;
+			case 'l':
+				long_mode = 1;
+				break;
+			case 'p':
+				show_slash = 1;
+				break;
+			case 's':
+				show_size = 1;
+				break;
 
-		if (optind < argc) {
-			p = argv[optind];
-		}
-		if (optind + 1 < argc) {
-			print_dir = 1;
+			/* TODO These two should also force the multi-column
+			 * display even when stdout is not a TTY... */
+			case 'x':
+				long_mode = 0;
+				columns = 0;
+				break;
+			case 'C':
+				long_mode = 0;
+				columns = 1;
+				break;
+
+			case '1':
+				one_column = 1;
+				break;
+
+			case '-':
+				if (index == 0) return show_help(argc, argv);
+				/* fallthrough */
+			case '?':
+				return show_usage(argc, argv);
 		}
 	}
 
+	if (optind < argc) p = argv[optind];
+	if (optind + 1 < argc) print_dir = 1;
 
 	stdout_is_tty = isatty(STDOUT_FILENO);
 
@@ -448,7 +573,7 @@ int main (int argc, char * argv[]) {
 		this_year = timeinfo->tm_year;
 	}
 
-	if (stdout_is_tty) {
+	if (stdout_is_tty && !one_column) {
 		TRACE("getting display size");
 		struct winsize w;
 		ioctl(1, TIOCGWINSZ, &w);

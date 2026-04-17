@@ -4,24 +4,58 @@
 ls \- list directory contents
 
 .SH SYNOPSIS
-\fBls\fP [\fB-l\fP] [\fB-h\fP] [\fB-a\fP] [\fB-x\fP] [\fB\-C\fB] [\fIpath\fP]...
+\fBls\fP [\fB\-a\fP|\fB\-A\fP] [\fB\-f\fP] [\fB\-F\fP|\fB\-p\fP] [\fB\-h\fP]
+[\fB\-i\fP] [\fB\-k\fP] [\fB\-s\fP] [\fB\-l\fP|\fB\-x\fP|\fB\-C\fP|\fB\-1\fP] [\fIpath\fP]...
 
 .SH DESCRIPTION
 List information about the files in a directory, sorted by name.
-.PP
-This \fIls\fP only supports short options:
+
+.SS Options
 
 .TP
-.B \-a
+.BR \-a " or " \-\-all
 Show hidden files (ones starting with .)
 
 .TP
-.B \-h
+.BR \-A " or " \-\-almost\-all
+Show hidden files, but not '.' or '..'.
+
+.TP
+.B \-f
+Display entries in their original order as returned from the file system, instead of sorting them.
+
+.TP
+.BR \-F " or " \-\-classify
+Print a symbol next to file names to identify directories (/), FIFOs (|), sockets (=),
+executables (*), and symbolic links (@).
+
+.TP
+.BR \-h " or " \-\-human\-readable
 When printing file sizes, use human-readable values like \fB2M\fP.
+Also applies to the block sizes from the \fB\-s\fP option.
+
+.TP
+.BR \-i " or " \-\-inode
+Display the serial number of each file before its name.
+
+.TP
+.BR \-k " or " \-\-kibibytes
+Does nothing (block sizes are always 1024 bytes).
+Included for compatibility.
 
 .TP
 .B \-l
 Format each file on one line, with details.
+
+.TP
+.B \-p
+Display a '/' after the name of a directory.
+
+.TP
+.BR \-s " or " \-\-size
+Display the block size, in units of 1024 bytes, before each file name.
+(As of writing, this number is based on \fBst_size\fP, rather than an
+actual block count reported by the file system.)
 
 .TP
 .B \-x
