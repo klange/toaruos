@@ -12,14 +12,16 @@
 #include <unistd.h>
 #include <errno.h>
 #include <pwd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+
+static int verbosity = 0;
+static int change_links = 0;   /* -h */
+static int recurse = 0;        /* -R  */
+static int recurse_mode = 0; /* -H -L -P */
 
 static int usage(char * argv[]) {
 	fprintf(stderr, "usage: %s [OWNER][:[GROUP]] FILE...\n", argv[0]);
-	return 1;
-}
-
-static int invalid(char * argv[], char c) {
-	fprintf(stderr, "%s: %c: unrecognized option\n", argv[0], c);
 	return 1;
 }
 
@@ -79,35 +81,75 @@ static int parse_user_group(char * argv[], char * arg, uid_t * user, gid_t * gro
 	return 0;
 }
 
+#define do_error() return fprintf(stderr, "%s: %s: %s\n", argv[0], thing, strerror(errno)), 1
+
+static int change_thing(char * argv[], const char * thing, uid_t user, gid_t group, int dereference) {
+	struct stat st;
+
+	if (dereference) {
+		if (stat(thing, &st)) do_error();
+	} else {
+		if (lstat(thing, &st)) do_error();
+	}
+
+	if (dereference && S_ISLNK(st.st_mode)) {
+		if (lchown(thing, user, group)) do_error();
+		goto report_results;
+	}
+
+	if (chown(thing, user, group)) do_error();
+
+	if (recurse && S_ISDIR(st.st_mode)) {
+		fprintf(stderr, "%s: warning: recursion into '%s' ignored\n", argv[0], thing);
+	}
+
+report_results:
+	if (verbosity) fprintf(stdout, "%s\n", thing);
+	return 0;
+}
+
 int main(int argc, char * argv[]) {
-
-	int i = 1;
-	for (; i < argc; i++) {
-		if (argv[i][0] != '-') break;
-
-		switch (argv[i][0]) {
+	int opt;
+	while ((opt = getopt(argc,argv,"hHLPRv")) != -1) {
+		switch (opt) {
 			case 'h':
+				change_links = 1;
+				break;
+			case 'H': /* Follow links on the command line. */
+			case 'L': /* Follow all links. */
+			case 'P': /* Follow no links. */
+				recurse_mode = opt;
+				break;
+			case 'R':
+				recurse = 1;
+				break;
+			case 'v':
+				if (verbosity) fprintf(stderr, "%s: warning: extra verbosity not yet supported\n", argv[0]);
+				verbosity++;
+				break;
+			case '?':
 				return usage(argv);
-			default:
-				return invalid(argv,argv[i][0]);
 		}
 	}
 
-	if (i + 1 >= argc) return usage(argv);
+	/* Need at least the user/group spec and one file */
+	if (optind + 1 >= argc) return usage(argv);
+	if (recurse_mode && !recurse) fprintf(stderr, "%s: warning: -H/-L/-P are only meaningful with -R\n", argv[0]); /* warning, not error */
+	if (recurse && !recurse_mode) recurse_mode = 'P'; /* default */
+
+	/* XXX todo */
+	if (recurse) fprintf(stderr, "%s: warning: recursion unsupported; each directory will yield an additional diagnostic\n", argv[0]);
 
 	uid_t user = -1;
 	uid_t group = -1;
 
-	if (parse_user_group(argv, argv[i++], &user, &group)) return 1;
+	if (parse_user_group(argv, argv[optind++], &user, &group)) return 1;
 	if (user == -1 && group == -1) return 0;
 
 	int retval = 0;
 
-	for (; i < argc; i++) {
-		if (chown(argv[i], user, group)) {
-			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[i], strerror(errno));
-			retval = 1;
-		}
+	for (; optind < argc; optind++) {
+		retval |= change_thing(argv, argv[optind], user, group, (!recurse && !change_links) || (recurse_mode != 'P'));
 	}
 
 	return retval;

@@ -4,12 +4,48 @@
 \fBchown\fP \- Change ownership of files.
 
 .SH SYNOPSIS
-\fBchown\fP \fIowner\fP[\fB:\fP\fIgroup\fP] \fIfile\fP...
+\fBchown\fP [\fB\-hv\fP] [\fB\-R\fP [\fB\-H\fP | \fB\-L\fP | \fB\-P\fP]] \fIowner\fP[\fB:\fP\fIgroup\fP] \fIfile\fP...
+.br
+\fBchown\fP [\fB\-hv\fP] [\fB\-R\fP [\fB\-H\fP | \fB\-L\fP | \fB\-P\fP]] \fB:\fP\fIgroup\fP \fIfile\fP...
 
 .SH DESCRIPTION
 Changes the ownership of each \fIfile\fP. The \fIowner\fP and \fIgroup\fP may be specified
 as either numeric IDs or usernames looked up through
 .IR getpwnam (3).
+
+.SS Options
+.TP
+.B \-h
+For each \fIfile\fP argument which is a symbolic link, \fBchown\fP will attempt to change the
+ownership of the link itself, rather than the ownership of the target.
+
+.TP
+.B \-v
+Be verbose: print each thing that has been changed.
+Providing this option multiple times theoretically increases verbosity.
+
+.TP
+.B \-R
+Theoretically recurse into directories and attempt to change the ownership of their contents.
+
+.TP
+.B \-H
+With \fB\-R\fP, if a \fIfile\fP is a symbolic link, it is followed.
+
+.TP
+.B \-L
+With \fB\-R\fP, any symbolic link that is encountered will be followed.
+
+.TP
+.B \-P
+With \fB\-R\fP, no symbolic links are followed.
+This is the default.
+When a symbolic link is "not followed", \fBchown\fP attempts to change the ownership of the link itself.
+
+.SH NOTES
+Recursion is not currently supported due to an inability to reliably prevent cycles.
+.PP
+Extra verbosity is not currently supported out of laziness; ask again later.
 
 .SH EXIT STATUS
 .TP
@@ -20,11 +56,8 @@ Ownership was successfully changed on all files.
 An error occurred.
 
 .SH STANDARDS
-The \fB\-h\fP option doesn't do what POSIX says and instead prints help information.
-.PP
-None of the \fB\-R\fP, \fB\-H\fP, \fB\-L\fP, or \fB\-P\fP options are supported.
+POSIX.1-2024
 
 .SH SEE ALSO
-.BR chown (2)
-
-
+.BR chown (2),
+.BR lchown (2)
