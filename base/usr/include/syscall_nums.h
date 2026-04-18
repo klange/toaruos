@@ -89,3 +89,4 @@
 #define SYS_TRUNCATE 86
 #define SYS_FTRUNCATE 87
 #define SYS_GETPPID 88
+#define SYS_LCHOWN 89

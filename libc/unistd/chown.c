@@ -15,3 +15,8 @@ int fchown(int fd, uid_t owner, gid_t group) {
 	__sets_errno(syscall_fchown(fd,owner,group));
 }
 
+DEFN_SYSCALL3(lchown, SYS_LCHOWN, const char *, uid_t, gid_t);
+
+int lchown(const char * pathname, uid_t owner, gid_t group) {
+	__sets_errno(syscall_lchown(pathname,owner,group));
+}

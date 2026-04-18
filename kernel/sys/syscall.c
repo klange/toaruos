@@ -578,63 +578,51 @@ static int current_group_matches(gid_t gid) {
 	return 0;
 }
 
-long sys_chown(char * file, uid_t uid, uid_t gid) {
+static long chown_node(fs_node_t * fn, uid_t uid, gid_t gid) {
+	/* Only a privileged user can change the owner of a file. */
+	if (this_core->current_process->user != USER_ROOT_UID && uid != -1) return -EPERM;
+
+	if (this_core->current_process->user != USER_ROOT_UID && gid != -1) {
+		/* The owner of a file... */
+		if (this_core->current_process->user != fn->uid) return -EPERM;
+		/* May change the group of the file to one that the owner is a member of... */
+		if (!current_group_matches(gid)) return -EPERM;
+	}
+
+	if ((uid != -1 || gid != -1) && (fn->mask & 0x800)) {
+		/* Whenever the owner or group of a setuid executable is changed, it
+		 * loses the setuid bit. */
+		 chmod_fs(fn, fn->mask & (~0x800));
+	}
+
+	return chown_fs(fn, uid, gid);
+}
+
+long sys_chown(char * file, uid_t uid, gid_t gid) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
 	int error = 0;
 	fs_node_t * fn = kopen_error(file, 0, &error);
-	if (fn) {
-
-		/* Only a privileged user can change the owner of a file. */
-		if (this_core->current_process->user != USER_ROOT_UID && uid != -1) {
-			goto _access;
-		}
-
-		if (this_core->current_process->user != USER_ROOT_UID && gid != -1) {
-			/* The owner of a file... */
-			if (this_core->current_process->user != fn->uid) {
-				goto _access;
-			}
-
-			/* May change the group of the file to one that the owner is a member of... */
-			if (!current_group_matches(gid)) {
-				goto _access;
-			}
-		}
-
-		if ((uid != -1 || gid != -1) && (fn->mask & 0x800)) {
-			/* Whenever the owner or group of a setuid executable is changed, it
-			 * loses the setuid bit. */
-			 chmod_fs(fn, fn->mask & (~0x800));
-		}
-
-		long result = chown_fs(fn, uid, gid);
-		close_fs(fn);
-		return result;
-	} else {
-		return -error;
-	}
-
-_access:
+	if (!fn) return -error;
+	long ret = chown_node(fn, uid, gid);
 	close_fs(fn);
-	return -EPERM;
+	return ret;
 }
 
-long sys_fchown(int fd, uid_t uid, uid_t gid) {
+long sys_lchown(char * file, uid_t uid, gid_t gid) {
+	PTR_VALIDATE(file);
+	if (!file) return -EFAULT;
+	int error = 0;
+	fs_node_t * fn = kopen_error(file, O_PATH | O_NOFOLLOW, &error);
+	if (!fn) return -error;
+	long ret = chown_node(fn, uid, gid);
+	close_fs(fn);
+	return ret;
+}
+
+long sys_fchown(int fd, uid_t uid, gid_t gid) {
 	if (!FD_CHECK(fd)) return -EBADF;
-	if (this_core->current_process->user != USER_ROOT_UID && uid != -1) return -EACCES;
-	if (this_core->current_process->user != USER_ROOT_UID && gid != -1) {
-		if (this_core->current_process->user != FD_ENTRY(fd)->uid) return -EACCES;
-		if (!current_group_matches(gid)) return -EACCES;
-	}
-
-	if ((uid != -1 || gid != -1) && (FD_ENTRY(fd)->mask & 0x800)) {
-		/* Whenever the owner or group of a setuid executable is changed, it
-		 * loses the setuid bit. */
-		 chmod_fs(FD_ENTRY(fd), FD_ENTRY(fd)->mask & (~0x800));
-	}
-
-	return chown_fs(FD_ENTRY(fd), uid, gid);
+	return chown_node(FD_ENTRY(fd), uid, gid);
 }
 
 long sys_truncate(char * file, off_t size) {
@@ -1393,6 +1381,7 @@ static scall_func syscalls[] = {
 	[SYS_TRUNCATE]     = (scall_func)(uintptr_t)sys_truncate,
 	[SYS_FTRUNCATE]    = (scall_func)(uintptr_t)sys_ftruncate,
 	[SYS_GETPPID]      = (scall_func)(uintptr_t)sys_getppid,
+	[SYS_LCHOWN]       = (scall_func)(uintptr_t)sys_lchown,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

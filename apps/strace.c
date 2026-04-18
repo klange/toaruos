@@ -120,6 +120,7 @@ const char * syscall_names[] = {
 	[SYS_GETSOCKNAME]  = "getsockname",
 	[SYS_GETPEERNAME]  = "getpeername",
 	[SYS_GETPPID]      = "getppid",
+	[SYS_LCHOWN]       = "lchown",
 };
 
 char syscall_mask[] = {
@@ -212,6 +213,7 @@ char syscall_mask[] = {
 	[SYS_GETSOCKNAME]  = 1,
 	[SYS_GETPEERNAME]  = 1,
 	[SYS_GETPPID]      = 1,
+	[SYS_LCHOWN]       = 1,
 };
 
 static const int syscall_set_net[] = {
@@ -224,7 +226,7 @@ static const int syscall_set_file[] = {
 	SYS_OPEN, SYS_STATF, SYS_LSTAT, SYS_ACCESS, SYS_EXECVE,
 	SYS_GETCWD, SYS_CHDIR, SYS_MKDIR, SYS_SYMLINK, SYS_UNLINK,
 	SYS_CHMOD, SYS_CHOWN, SYS_MOUNT, SYS_READLINK, SYS_RENAME,
-	SYS_TRUNCATE, SYS_EACCESS,
+	SYS_TRUNCATE, SYS_EACCESS, SYS_LCHOWN, 0
 };
 
 static const int syscall_set_desc[] = {
@@ -833,6 +835,11 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			mode_arg(uregs_syscall_arg2(r));
 			break;
 		case SYS_CHOWN:
+			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			int_arg(uregs_syscall_arg2(r)); COMMA;
+			int_arg(uregs_syscall_arg3(r));
+			break;
+		case SYS_LCHOWN:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			int_arg(uregs_syscall_arg2(r)); COMMA;
 			int_arg(uregs_syscall_arg3(r));
