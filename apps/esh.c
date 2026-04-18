@@ -944,13 +944,6 @@ finish_tab:
 
 }
 
-void add_argument(list_t * argv, char * buf) {
-	char * c = malloc(strlen(buf) + 1);
-	memcpy(c, buf, strlen(buf) + 1);
-
-	list_insert(argv, c);
-}
-
 void add_environment(list_t * env) {
 	if (env->length) {
 		foreach (node, env) {
@@ -1140,6 +1133,53 @@ int wait_for_child(int pgid, char * name, int retpid) {
 	return WEXITSTATUS(ret_code_real);
 }
 
+struct ArgBuilder {
+	char * bytes;
+	size_t length;
+	size_t capacity;
+};
+
+void argbuilder_push_char(struct ArgBuilder * ab, char c) {
+	if (ab->capacity < ab->length + 1) {
+		size_t old = ab->capacity;
+		ab->capacity = old < 8 ? 8 : (old * 2);
+		ab->bytes = realloc(ab->bytes, sizeof(char) * ab->capacity);
+	}
+	ab->bytes[ab->length++] = c;
+}
+
+void argbuilder_push_bytes(struct ArgBuilder * ab, const char *str, size_t len) {
+	if (ab->capacity < ab->length + len) {
+		while (ab->capacity < ab->length + len) {
+			size_t old = ab->capacity;
+			ab->capacity = old < 8 ? 8 : (old * 2);
+		}
+		ab->bytes = realloc(ab->bytes, sizeof(char) * ab->capacity);
+	}
+	for (size_t i = 0; i < len; ++i) {
+		ab->bytes[ab->length++] = *(str++);
+	}
+}
+
+void argbuilder_push(struct ArgBuilder *ab, char *str) {
+	argbuilder_push_bytes(ab, str, strlen(str));
+}
+
+void argbuilder_discard(struct ArgBuilder *ab) {
+	free(ab->bytes);
+	ab->bytes = NULL;
+	ab->length = 0;
+	ab->capacity = 0;
+}
+
+void add_argument(list_t * argv, struct ArgBuilder *ab) {
+	char * arg = malloc(ab->length + 1);
+	arg[ab->length] = 0;
+	memcpy(arg, ab->bytes, ab->length);
+	argbuilder_discard(ab);
+	list_insert(argv, arg);
+}
+
 int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 
 	*out_buffer = NULL;
@@ -1160,8 +1200,9 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 
 	char quoted = 0;
 	char backslash = 0;
-	char buffer_[512] = {0};
-	int collected = 0;
+
+	struct ArgBuilder ab = {0};
+
 	int force_collected = 0;
 
 	list_t * args = list_create();
@@ -1173,115 +1214,93 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 
 		while (*p) {
 			switch (*p) {
-				case '$':
-					if (quoted == '\'') {
-						goto _just_add;
-					} else {
-						if (backslash) goto _just_add;
+				case '$': {
+					if (quoted == '\'') goto _just_add;
+					if (backslash) goto _just_add;
+					p++;
+					char var[100];
+					int  coll = 0;
+					if (*p == '{') {
 						p++;
-						char var[100];
-						int  coll = 0;
-						if (*p == '{') {
+						while (*p != '}' && *p != '\0' && (coll < 100)) {
+							var[coll] = *p;
+							coll++;
+							var[coll] = '\0';
 							p++;
-							while (*p != '}' && *p != '\0' && (coll < 100)) {
-								var[coll] = *p;
-								coll++;
-								var[coll] = '\0';
-								p++;
-							}
-							if (*p == '}') {
-								p++;
-							}
-						} else {
-							while (*p != '\0' && (variable_char(*p) || (coll == 0 && variable_char_first(*p)))  && (coll < 100)) {
-								var[coll] = *p;
-								coll++;
-								var[coll] = '\0';
-								if (coll == 1 && (isdigit(*p) || *p == '?' || *p == '$' || *p == '#')) {
-									p++;
-									break; /* Don't let these keep going */
-								}
-								p++;
-							}
 						}
-						/* Special cases */
-						char *c = NULL;
-						char tmp[128];
-						if (!strcmp(var, "?")) {
-							sprintf(tmp,"%d",last_ret);
-							c = tmp;
-						} else if (!strcmp(var, "$")) {
-							sprintf(tmp,"%d",getpid());
-							c = tmp;
-						} else if (!strcmp(var, "#")) {
-							sprintf(tmp,"%d",shell_argc ? shell_argc-1 : 0);
-							c = tmp;
-						} else if (is_number(var)) {
-							int a = atoi(var);
-							if (a >= 0 && a < shell_argc) {
-								c = shell_argv[a];
-							}
-						} else if (!strcmp(var, "RANDOM")) {
-							sprintf(tmp,"%d",rand()%32768); /* sure, modulo is bad for range restriction, shut up */
-							c = tmp;
-						} else {
-							c = getenv(var);
+						if (*p == '}') {
+							p++;
 						}
-
-						if (c) {
-							backslash = 0;
-							for (int i = 0; i < (int)strlen(c); ++i) {
-								if (c[i] == ' ' && !quoted) {
-									/* If we are not quoted and we reach a space, it signals a new argument */
-									if (collected || force_collected) {
-										buffer_[collected] = '\0';
-										add_argument(args, buffer_);
-										buffer_[0] = '\0';
-										have_star = 0;
-										collected = 0;
-										force_collected = 0;
-									}
-								} else {
-									buffer_[collected] = c[i];
-									collected++;
-								}
-							}
-							buffer_[collected] = '\0';
-						}
-						continue;
-					}
-				case '~':
-					if (quoted || collected || backslash) {
-						goto _just_add;
 					} else {
-						if (p[1] == 0 || p[1] == '/' || p[1] == '\n' || p[1] == ' ' || p[1] == ';') {
-							char * c = getenv("HOME");
-							if (!c) {
-								goto _just_add;
+						while (*p != '\0' && (variable_char(*p) || (coll == 0 && variable_char_first(*p)))  && (coll < 100)) {
+							var[coll] = *p;
+							coll++;
+							var[coll] = '\0';
+							if (coll == 1 && (isdigit(*p) || *p == '?' || *p == '$' || *p == '#')) {
+								p++;
+								break; /* Don't let these keep going */
 							}
-							for (int i = 0; i < (int)strlen(c); ++i) {
-								buffer_[collected] = c[i];
-								collected++;
-							}
-							buffer_[collected] = '\0';
-							goto _next;
-						} else {
-							goto _just_add;
+							p++;
 						}
 					}
-					break;
+					/* Special cases */
+					char *c = NULL;
+					char tmp[128];
+					if (!strcmp(var, "?")) {
+						sprintf(tmp,"%d",last_ret);
+						c = tmp;
+					} else if (!strcmp(var, "$")) {
+						sprintf(tmp,"%d",getpid());
+						c = tmp;
+					} else if (!strcmp(var, "#")) {
+						sprintf(tmp,"%d",shell_argc ? shell_argc-1 : 0);
+						c = tmp;
+					} else if (is_number(var)) {
+						int a = atoi(var);
+						if (a >= 0 && a < shell_argc) {
+							c = shell_argv[a];
+						}
+					} else if (!strcmp(var, "RANDOM")) {
+						sprintf(tmp,"%d",rand()%32768); /* sure, modulo is bad for range restriction, shut up */
+						c = tmp;
+					} else {
+						c = getenv(var);
+					}
+
+					if (c) {
+						backslash = 0;
+						for (int i = 0; i < (int)strlen(c); ++i) {
+							if (c[i] == ' ' && !quoted) {
+								/* If we are not quoted and we reach a space, it signals a new argument */
+								if (ab.length || force_collected) {
+									add_argument(args, &ab);
+									have_star = 0;
+									force_collected = 0;
+								}
+							} else {
+								argbuilder_push_char(&ab, c[i]);
+							}
+						}
+					}
+					continue;
+				}
+				case '~':
+					if (quoted || ab.length || backslash) goto _just_add;
+					if (p[1] == 0 || p[1] == '/' || p[1] == '\n' || p[1] == ' ' || p[1] == ';') {
+						char * c = getenv("HOME");
+						if (!c) goto _just_add;
+						argbuilder_push(&ab, c);
+						goto _next;
+					}
+					goto _just_add;
 				case '\"':
 					force_collected = 1;
 					if (quoted == '\"') {
-						if (backslash) {
-							goto _just_add;
-						}
+						if (backslash) goto _just_add;
 						quoted = 0;
 						goto _next;
 					} else if (!quoted) {
-						if (backslash) {
-							goto _just_add;
-						}
+						if (backslash) goto _just_add;
 						quoted = *p;
 						goto _next;
 					}
@@ -1289,77 +1308,55 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 				case '\'':
 					force_collected = 1;
 					if (quoted == '\'') {
-						if (backslash) {
-							goto _just_add;
-						}
+						if (backslash) goto _just_add;
 						quoted = 0;
 						goto _next;
 					} else if (!quoted) {
-						if (backslash) {
-							goto _just_add;
-						}
+						if (backslash) goto _just_add;
 						quoted = *p;
 						goto _next;
 					}
 					goto _just_add;
 				case '*':
-					if (quoted) {
-						goto _just_add;
-					}
-					if (backslash) {
-						goto _just_add;
-					}
-					if (have_star) {
-						goto _just_add; /* TODO multiple globs */
-					}
+					if (quoted || backslash || have_star) goto _just_add;
+					/* TODO multiple globs */
 					have_star = 1;
-					collected += sprintf(&buffer_[collected], STAR_TOKEN);
+					argbuilder_push(&ab, STAR_TOKEN);
 					goto _next;
 				case '\\':
-					if (quoted == '\'') {
-						goto _just_add;
-					}
-					if (backslash) {
-						goto _just_add;
-					}
+					if (quoted == '\'' || backslash) goto _just_add;
 					backslash = 1;
 					goto _next;
 				case ' ':
-					if (backslash) {
-						goto _just_add;
-					}
-					if (!quoted) {
-						goto _new_arg;
-					}
+					if (!quoted && !backslash) goto _new_arg;
 					goto _just_add;
 				case '\n':
-					if (!quoted) {
-						goto _done;
-					}
+					if (!quoted) goto _done;
 					goto _just_add;
 				case '|':
 					if (!quoted && !backslash) {
-						if (collected || force_collected) {
-							add_argument(args, buffer_);
+						if (ab.length || force_collected) {
+							add_argument(args, &ab);
 						}
 						force_collected = 0;
-						collected = sprintf(buffer_, "%s", PIPE_TOKEN);
+						argbuilder_push(&ab, PIPE_TOKEN);
 						goto _new_arg;
 					}
 					goto _just_add;
 				case '>':
 					if (!quoted && !backslash) {
-						if (collected || force_collected) {
-							if (!strcmp(buffer_,"2")) {
+						if (ab.length || force_collected) {
+							if (ab.length == 1 && ab.bytes[0] == '2') {
 								/* Special case */
 								force_collected = 0;
-								collected = sprintf(buffer_,"%s", WRITE_ERR_TOKEN);
+								argbuilder_discard(&ab);
+								argbuilder_push(&ab, WRITE_ERR_TOKEN);
 								goto _new_arg;
 							}
-							add_argument(args, buffer_);
+							add_argument(args, &ab);
 						}
 						force_collected = 0;
-						collected = sprintf(buffer_, "%s", WRITE_TOKEN);
+						argbuilder_push(&ab, WRITE_TOKEN);
 						goto _new_arg;
 					}
 					goto _just_add;
@@ -1370,9 +1367,7 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 					}
 					goto _just_add;
 				case '#':
-					if (!quoted && !backslash) {
-						goto _done; /* Support comments; must not be part of an existing arg */
-					}
+					if (!quoted && !backslash) goto _done;
 					goto _just_add;
 				case '`':
 					if (!quoted && !backslash) {
@@ -1402,55 +1397,39 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 						}
 						close(out_pipe[1]);
 
-						char buf[1024];
-						size_t accum = 0;
-
 						do {
-							ssize_t r = read(out_pipe[0], buf + accum, 1023 - accum);
+							char buf[1024];
+							ssize_t r = read(out_pipe[0], buf, 1024);
 							if (r <= 0) break;
-							accum += r;
-						} while (accum < 1023);
+							argbuilder_push_bytes(&ab, buf, r);
+						} while (1);
 						close(out_pipe[0]);
 						kill(-child_pid, SIGKILL);
 						waitpid(child_pid, NULL, 0);
 						reset_pgrp();
-						buf[accum] = '\0';
-						if (accum && buf[accum-1] == '\n') buf[accum-1] = '\0';
 
-						if (collected || force_collected) {
-							add_argument(args, buffer_);
-							collected = 0;
-							force_collected = 0;
+						if (ab.length && ab.bytes[ab.length-1] == '\n') {
+							ab.length--;
 						}
-
-						add_argument(args, buf);
 
 						/* Restore state */
 						*p = '`';
-						goto _new_arg;
+						goto _next;
 					}
 					goto _just_add;
 				default:
-					if (backslash) {
-						buffer_[collected] = '\\';
-						collected++;
-						buffer_[collected] = '\0';
-					}
+					if (backslash) argbuilder_push_char(&ab, '\\');
 _just_add:
 					backslash = 0;
-					buffer_[collected] = *p;
-					collected++;
-					buffer_[collected] = '\0';
+					argbuilder_push_char(&ab, *p);
 					goto _next;
 			}
 
 _new_arg:
 			backslash = 0;
-			if (collected || force_collected) {
-				add_argument(args, buffer_);
-				buffer_[0] = '\0';
+			if (ab.length || force_collected) {
+				add_argument(args, &ab);
 				have_star = 0;
-				collected = 0;
 				force_collected = 0;
 			}
 
@@ -1467,6 +1446,7 @@ _done:
 				read_entry_continued(buffer);
 				if (break_while) {
 					break_while = 0;
+					if (ab.capacity) argbuilder_discard(&ab);
 					return 1;
 				}
 				rline_history_append_line(buffer);
@@ -1475,18 +1455,21 @@ _done:
 				fgets(buffer, size, file);
 				continue;
 			} else {
+				if (ab.capacity) argbuilder_discard(&ab);
 				fprintf(stderr, "Syntax error: Unterminated quoted string.\n");
 				return 127;
 			}
 		}
 
-		if (collected || force_collected) {
-			add_argument(args, buffer_);
+		if (ab.length || force_collected) {
+			add_argument(args, &ab);
 			break;
 		}
 
 		break;
 	}
+
+	if (ab.capacity) argbuilder_discard(&ab);
 
 	int cmdi = 0;
 	char ** arg_starts[100] = { &argv[0], NULL };
@@ -1513,6 +1496,7 @@ _done:
 				continue;
 			}
 			err_files[cmdi] = c;
+			next_is_err = 0;
 			continue;
 		}
 
@@ -1529,6 +1513,7 @@ _done:
 				continue;
 			}
 			output_files[cmdi] = c;
+			next_is_file = 0;
 			continue;
 		}
 
@@ -1537,7 +1522,6 @@ _done:
 			file_args[cmdi] = O_WRONLY | O_CREAT | O_TRUNC;
 			continue;
 		}
-
 
 		if (!strcmp(c, PIPE_TOKEN)) {
 			if (arg_starts[cmdi] == &argv[i]) {
