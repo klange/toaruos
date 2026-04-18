@@ -1,19 +1,15 @@
-.TH HOSTNAME 1 "March, 2026"
+.TH HOSTNAME 1 "April, 2026"
 
 .SH NAME
 \fBhostname\fP \- get or set the system hostname
 
 .SH SYNOPSIS
-\fBhostname\fP
-.br
-\fBhostname\fP \fIname\fP
+\fBhostname\fP [\fB\-f\fP] [\fB\-s\fP] [\fB\-d\fP] [\fIname\fP]
 
 .SH DESCRIPTION
 Displays or updates the system hostname.
 .PP
-Only \fBroot\fP can change the hostname. This is enforced by the kernel,
-but \fBhostname\fP will also refuse to try unless the current effective
-user ID is 0.
+Only \fBroot\fP can change the hostname.
 .PP
 When setting the hostname, \fBhostname\fP will both issue the
 .IR sethostname (2)
@@ -21,6 +17,13 @@ system call and also update \fB/etc/hostname\fP with the new \fIname\fP.
 .PP
 Running applications that have previously collected the hostname may
 not update it without restarting.
+
+.SS Options
+The \fB\-f\fP, \fB\-s\fP, and \fB\-d\fP options are accepted and ignored for compatibility,
+as they are supported on both GNU and Linux versions.
+
+.SH STANDARDS
+The \fBhostname\fP utility is not in POSIX.
 
 .SH SEE ALSO
 .BR gethostname (2),
