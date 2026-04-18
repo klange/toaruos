@@ -858,7 +858,8 @@ long sys_chdir(char * newdir) {
 			close_fs(chd);
 			return -EACCES;
 		}
-		close_fs(chd);
+		close_fs(this_core->current_process->wd_node);
+		this_core->current_process->wd_node = chd;
 		free(this_core->current_process->wd_name);
 		this_core->current_process->wd_name = malloc(strlen(path) + 1);
 		memcpy(this_core->current_process->wd_name, path, strlen(path) + 1);
