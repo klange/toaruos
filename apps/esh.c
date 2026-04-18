@@ -31,10 +31,10 @@
 #include <wchar.h>
 
 #include <sys/time.h>
-#include <sys/times.h>
 #include <sys/wait.h>
 #include <sys/utsname.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 
 #include <toaru/list.h>
 #include <toaru/hashmap.h>
@@ -2604,13 +2604,26 @@ uint32_t shell_cmd_rehash(int argc, char * argv[]) {
 	return 0;
 }
 
+static void time_diff(struct timeval * start, struct timeval * end, int *minutes, time_t *sec_diff, suseconds_t * usec_diff) {
+	*sec_diff = end->tv_sec - start->tv_sec;
+	*usec_diff = end->tv_usec - start->tv_usec;
+	if (end->tv_usec < start->tv_usec) {
+		*sec_diff -= 1;
+		*usec_diff = (1000000 + end->tv_usec) - start->tv_usec;
+	}
+
+	*minutes = *sec_diff / 60;
+	*sec_diff = *sec_diff % 60;
+}
+
 uint32_t shell_cmd_time(int argc, char * argv[]) {
 	int pid, ret_code = 0;
+
 	struct timeval start, end;
 	gettimeofday(&start, NULL);
 
-	struct tms timeBefore;
-	times(&timeBefore);
+	struct rusage before, after;
+	getrusage(RUSAGE_CHILDREN, &before);
 
 	if (argc > 1) {
 		pid_t child_pid = fork();
@@ -2630,32 +2643,19 @@ uint32_t shell_cmd_time(int argc, char * argv[]) {
 	}
 
 	gettimeofday(&end, NULL);
+	getrusage(RUSAGE_CHILDREN, &after);
 
-	time_t sec_diff = end.tv_sec - start.tv_sec;
-	suseconds_t usec_diff = end.tv_usec - start.tv_usec;
-	if (end.tv_usec < start.tv_usec) {
-		sec_diff -= 1;
-		usec_diff = (1000000 + end.tv_usec) - start.tv_usec;
-	}
+	int minutes;
+	time_t sec_diff;
+	suseconds_t usec_diff;
 
-	int minutes = sec_diff / 60;
-	sec_diff = sec_diff % 60;
-
+	time_diff(&start, &end, &minutes, &sec_diff, &usec_diff);
 	fprintf(shell_stderr, "\nreal\t%dm%d.%.03ds\n", minutes, (int)sec_diff, (int)(usec_diff / 1000));
 
-	/* User and system times from children */
-	struct tms timeBuf;
-	times(&timeBuf);
-
-	fprintf(shell_stderr, "user\t%dm%d.%.03ds\n",
-		(int)(((timeBuf.tms_cutime - timeBefore.tms_cutime) / (60 * CLOCKS_PER_SEC))),
-		(int)(((timeBuf.tms_cutime - timeBefore.tms_cutime) / (CLOCKS_PER_SEC)) % 60),
-		(int)(((timeBuf.tms_cutime - timeBefore.tms_cutime) / (CLOCKS_PER_SEC / 1000)) % 1000));
-
-	fprintf(shell_stderr, "sys\t%dm%d.%.03ds\n",
-		(int)(((timeBuf.tms_cstime - timeBefore.tms_cstime) / (60 * CLOCKS_PER_SEC))),
-		(int)(((timeBuf.tms_cstime - timeBefore.tms_cstime) / (CLOCKS_PER_SEC)) % 60),
-		(int)(((timeBuf.tms_cstime - timeBefore.tms_cstime) / (CLOCKS_PER_SEC / 1000)) % 1000));
+	time_diff(&before.ru_utime, &after.ru_utime, &minutes, &sec_diff, &usec_diff);
+	fprintf(shell_stderr, "user\t%dm%d.%.03ds\n", minutes, (int)sec_diff, (int)(usec_diff / 1000));
+	time_diff(&before.ru_stime, &after.ru_stime, &minutes, &sec_diff, &usec_diff);
+	fprintf(shell_stderr, "sys\t%dm%d.%.03ds\n", minutes, (int)sec_diff, (int)(usec_diff / 1000));
 
 	return WEXITSTATUS(ret_code);
 }
