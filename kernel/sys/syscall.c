@@ -16,6 +16,7 @@
 #include <sys/times.h>
 #include <sys/ptrace.h>
 #include <sys/signal.h>
+#include <sys/resource.h>
 #include <syscall_nums.h>
 #include <kernel/printf.h>
 #include <kernel/process.h>
@@ -1288,7 +1289,7 @@ long sys_reboot(int unused) {
 
 long sys_times(struct tms *buf) {
 	if (buf) {
-		PTR_VALIDATE(buf);
+		PTRCHECK(buf,sizeof(struct tms),MMU_PTR_WRITE);
 
 		buf->tms_utime  = (this_core->current_process->time_total - this_core->current_process->time_sys) / arch_cpu_mhz();
 		buf->tms_stime  = this_core->current_process->time_sys          / arch_cpu_mhz();
@@ -1297,6 +1298,27 @@ long sys_times(struct tms *buf) {
 	}
 
 	return arch_perf_timer() / arch_cpu_mhz();
+}
+
+long sys_getrusage(int who, struct rusage *buf) {
+	PTRCHECK(buf,sizeof(struct rusage),MMU_PTR_WRITE);
+	if (who != RUSAGE_SELF && who != RUSAGE_CHILDREN) return -EINVAL;
+
+	uint64_t utime, stime;
+	if (who == RUSAGE_SELF) {
+		utime = (this_core->current_process->time_total - this_core->current_process->time_sys) / arch_cpu_mhz();
+		stime = this_core->current_process->time_sys / arch_cpu_mhz();
+	} else {
+		utime = (this_core->current_process->time_children - this_core->current_process->time_sys_children) / arch_cpu_mhz();
+		stime = this_core->current_process->time_sys_children / arch_cpu_mhz();
+	}
+
+	buf->ru_utime.tv_sec = utime / 1000000UL;
+	buf->ru_utime.tv_usec = utime % 1000000UL;
+	buf->ru_stime.tv_sec = stime / 1000000UL;
+	buf->ru_stime.tv_usec = stime % 1000000UL;
+
+	return 0;
 }
 
 extern long ptrace_handle(long,pid_t,void*,void*);
@@ -1383,6 +1405,7 @@ static scall_func syscalls[] = {
 	[SYS_FTRUNCATE]    = (scall_func)(uintptr_t)sys_ftruncate,
 	[SYS_GETPPID]      = (scall_func)(uintptr_t)sys_getppid,
 	[SYS_LCHOWN]       = (scall_func)(uintptr_t)sys_lchown,
+	[SYS_GETRUSAGE]    = (scall_func)(uintptr_t)sys_getrusage,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

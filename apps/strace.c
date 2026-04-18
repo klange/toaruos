@@ -23,6 +23,7 @@
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/uregs.h>
+#include <sys/resource.h>
 #include <syscall_nums.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -121,6 +122,7 @@ const char * syscall_names[] = {
 	[SYS_GETPEERNAME]  = "getpeername",
 	[SYS_GETPPID]      = "getppid",
 	[SYS_LCHOWN]       = "lchown",
+	[SYS_GETRUSAGE]    = "getrusage",
 };
 
 char syscall_mask[] = {
@@ -214,6 +216,7 @@ char syscall_mask[] = {
 	[SYS_GETPEERNAME]  = 1,
 	[SYS_GETPPID]      = 1,
 	[SYS_LCHOWN]       = 1,
+	[SYS_GETRUSAGE]    = 1,
 };
 
 static const int syscall_set_net[] = {
@@ -731,6 +734,20 @@ static void struct_timeval_arg(pid_t pid, uintptr_t ptr) {
 	fprintf(logfile, "}");
 }
 
+static void struct_rusage_arg(pid_t pid, uintptr_t ptr) {
+	if (!ptr) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+
+	fprintf(logfile, "{ru_utime=");
+	struct_timeval_arg(pid, ptr + offsetof(struct rusage, ru_utime));
+	COMMA;
+	fprintf(logfile, "ru_stime=");
+	struct_timeval_arg(pid, ptr + offsetof(struct rusage, ru_stime));
+	fprintf(logfile, "}");
+}
+
 static void signal_arg(int signum) {
 	char signame[SIG2STR_MAX] = {0};
 
@@ -1133,6 +1150,14 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			pointer_arg(uregs_syscall_arg4(r)); COMMA; /* TODO sockaddr in some contexts */
 			pointer_arg(uregs_syscall_arg5(r)); /* Note - differs from set */
 			break;
+		case SYS_GETRUSAGE:
+			switch (uregs_syscall_arg1(r)) {
+				C(RUSAGE_SELF);
+				C(RUSAGE_CHILDREN);
+				default: int_arg(uregs_syscall_arg1(r)); break;
+			} COMMA;
+			/* one output arg */
+			break;
 		/* These have no arguments: */
 		case SYS_YIELD:
 		case SYS_FORK:
@@ -1218,6 +1243,10 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 		case SYS_GETCWD:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			uint_arg(uregs_syscall_arg2(r));
+			maybe_errno(r);
+			break;
+		case SYS_GETRUSAGE:
+			struct_rusage_arg(pid, uregs_syscall_arg2(r)); COMMA;
 			maybe_errno(r);
 			break;
 		/* Most things return -errno, or positive valid result */
