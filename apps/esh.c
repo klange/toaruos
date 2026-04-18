@@ -1159,7 +1159,7 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 	int tokenid = 0;
 
 	char quoted = 0;
-	char backtick = 0;
+	char backslash = 0;
 	char buffer_[512] = {0};
 	int collected = 0;
 	int force_collected = 0;
@@ -1177,9 +1177,7 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 					if (quoted == '\'') {
 						goto _just_add;
 					} else {
-						if (backtick) {
-							goto _just_add;
-						}
+						if (backslash) goto _just_add;
 						p++;
 						char var[100];
 						int  coll = 0;
@@ -1231,7 +1229,7 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 						}
 
 						if (c) {
-							backtick = 0;
+							backslash = 0;
 							for (int i = 0; i < (int)strlen(c); ++i) {
 								if (c[i] == ' ' && !quoted) {
 									/* If we are not quoted and we reach a space, it signals a new argument */
@@ -1253,7 +1251,7 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 						continue;
 					}
 				case '~':
-					if (quoted || collected || backtick) {
+					if (quoted || collected || backslash) {
 						goto _just_add;
 					} else {
 						if (p[1] == 0 || p[1] == '/' || p[1] == '\n' || p[1] == ' ' || p[1] == ';') {
@@ -1275,13 +1273,13 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 				case '\"':
 					force_collected = 1;
 					if (quoted == '\"') {
-						if (backtick) {
+						if (backslash) {
 							goto _just_add;
 						}
 						quoted = 0;
 						goto _next;
 					} else if (!quoted) {
-						if (backtick) {
+						if (backslash) {
 							goto _just_add;
 						}
 						quoted = *p;
@@ -1291,13 +1289,13 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 				case '\'':
 					force_collected = 1;
 					if (quoted == '\'') {
-						if (backtick) {
+						if (backslash) {
 							goto _just_add;
 						}
 						quoted = 0;
 						goto _next;
 					} else if (!quoted) {
-						if (backtick) {
+						if (backslash) {
 							goto _just_add;
 						}
 						quoted = *p;
@@ -1308,7 +1306,7 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 					if (quoted) {
 						goto _just_add;
 					}
-					if (backtick) {
+					if (backslash) {
 						goto _just_add;
 					}
 					if (have_star) {
@@ -1321,13 +1319,13 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 					if (quoted == '\'') {
 						goto _just_add;
 					}
-					if (backtick) {
+					if (backslash) {
 						goto _just_add;
 					}
-					backtick = 1;
+					backslash = 1;
 					goto _next;
 				case ' ':
-					if (backtick) {
+					if (backslash) {
 						goto _just_add;
 					}
 					if (!quoted) {
@@ -1340,7 +1338,7 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 					}
 					goto _just_add;
 				case '|':
-					if (!quoted && !backtick) {
+					if (!quoted && !backslash) {
 						if (collected || force_collected) {
 							add_argument(args, buffer_);
 						}
@@ -1350,7 +1348,7 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 					}
 					goto _just_add;
 				case '>':
-					if (!quoted && !backtick) {
+					if (!quoted && !backslash) {
 						if (collected || force_collected) {
 							if (!strcmp(buffer_,"2")) {
 								/* Special case */
@@ -1366,24 +1364,80 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
 					}
 					goto _just_add;
 				case ';':
-					if (!quoted && !backtick) {
+					if (!quoted && !backslash) {
 						*out_buffer = ++p;
 						goto _done;
 					}
 					goto _just_add;
 				case '#':
-					if (!quoted && !backtick) {
+					if (!quoted && !backslash) {
 						goto _done; /* Support comments; must not be part of an existing arg */
 					}
 					goto _just_add;
+				case '`':
+					if (!quoted && !backslash) {
+						/* oh boy here we go */
+						p++;
+						char * start_of_cmd = p;
+						while (*p && *p != '`') p++;
+						*p = '\0';
+
+						int out_pipe[2];
+						pipe(out_pipe);
+						int child_pid = fork();
+
+						if (!child_pid) {
+							set_pgid(0);
+							set_pgrp(getpid());
+							is_subshell = 1;
+							dup2(out_pipe[1], STDOUT_FILENO);
+							close(out_pipe[0]);
+							shell_interactive = 0;
+							char * out = NULL;
+							do {
+								shell_exec(start_of_cmd, p - start_of_cmd, NULL, &out);
+								start_of_cmd = out;
+							} while (start_of_cmd);
+							exit(0);
+						}
+						close(out_pipe[1]);
+
+						char buf[1024];
+						size_t accum = 0;
+
+						do {
+							ssize_t r = read(out_pipe[0], buf + accum, 1023 - accum);
+							if (r <= 0) break;
+							accum += r;
+						} while (accum < 1023);
+						close(out_pipe[0]);
+						kill(-child_pid, SIGKILL);
+						waitpid(child_pid, NULL, 0);
+						reset_pgrp();
+						buf[accum] = '\0';
+						if (accum && buf[accum-1] == '\n') buf[accum-1] = '\0';
+
+						if (collected || force_collected) {
+							add_argument(args, buffer_);
+							collected = 0;
+							force_collected = 0;
+						}
+
+						add_argument(args, buf);
+
+						/* Restore state */
+						*p = '`';
+						goto _new_arg;
+					}
+					goto _just_add;
 				default:
-					if (backtick) {
+					if (backslash) {
 						buffer_[collected] = '\\';
 						collected++;
 						buffer_[collected] = '\0';
 					}
 _just_add:
-					backtick = 0;
+					backslash = 0;
 					buffer_[collected] = *p;
 					collected++;
 					buffer_[collected] = '\0';
@@ -1391,7 +1445,7 @@ _just_add:
 			}
 
 _new_arg:
-			backtick = 0;
+			backslash = 0;
 			if (collected || force_collected) {
 				add_argument(args, buffer_);
 				buffer_[0] = '\0';
@@ -1406,8 +1460,8 @@ _next:
 
 _done:
 
-		if (quoted || backtick) {
-			backtick = 0;
+		if (quoted || backslash) {
+			backslash = 0;
 			if (shell_interactive == 1) {
 				break_while = 0;
 				read_entry_continued(buffer);
