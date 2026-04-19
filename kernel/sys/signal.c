@@ -222,6 +222,7 @@ int send_signal(pid_t process, int signal, int force_root) {
 
 	if (!receiver) return -ESRCH;
 	if (!force_root && receiver->user != this_core->current_process->user && this_core->current_process->user != USER_ROOT_UID &&
+		receiver->real_user != this_core->current_process->user &&
 		!(signal == SIGCONT && receiver->session == this_core->current_process->session)) return -EPERM;
 	if (receiver->flags & PROC_FLAG_IS_TASKLET) return -EPERM;
 	if (signal >= NUMSIGNALS || signal < 0) return -EINVAL;
