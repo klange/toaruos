@@ -197,6 +197,7 @@ struct menu_bar_entries terminal_menu_entries[] = {
 	{"File", "file"},
 	{"Edit", "edit"},
 	{"View", "view"},
+	{"Terminal", "terminal"},
 	{"Help", "help"},
 	{NULL, NULL},
 };
@@ -2624,6 +2625,14 @@ static void _menu_action_paste(struct MenuEntry * self) {
 	yutani_special_request(yctx, NULL, YUTANI_SPECIAL_REQUEST_CLIPBOARD);
 }
 
+static void _menu_action_signal(struct MenuEntry * self) {
+	int sig;
+	str2sig(((struct MenuEntry_Normal*)self)->action, &sig);
+
+	pid_t pgrp = tcgetpgrp(fd_master);
+	if (pgrp != -1) kill(pgrp, sig);
+}
+
 static void update_scale_menu(void) {
 	menu_update_toggle_state(_menu_scale_075, font_scaling == 0.75);
 	menu_update_toggle_state(_menu_scale_100, font_scaling == 1.00);
@@ -2648,6 +2657,27 @@ static void _menu_action_set_scale(struct MenuEntry * self) {
 static void render_decors_callback(struct menu_bar * self) {
 	(void)self;
 	render_decors();
+}
+
+static void do_sig_menu(struct MenuList * m, int i) {
+	char sig[SIG2STR_MAX]; /* will be dup'd by menu_create_normal */
+	sig2str(i, sig);
+	char * tmp;
+	asprintf(&tmp, "SIG%s (%d)", sig, i);
+	menu_insert(m, menu_create_normal(NULL,sig,tmp, _menu_action_signal));
+	free(tmp); /* dup'd by menu_creat_normal */
+}
+
+static void do_sig_menus(struct MenuList *p, int i, int max, char * name) {
+	char * tmp;
+	struct MenuList *ms = menu_create();
+	for (; i < max; ++i) do_sig_menu(ms, i);
+	menu_set_insert(terminal_menu_bar.set, name, ms);
+	asprintf(&tmp, "SIG%s-SIG%s...",
+		((struct MenuEntry_Normal*)list_index(ms->entries, 0))->action,
+		((struct MenuEntry_Normal*)list_index(ms->entries, ms->entries->length-1))->action);
+	menu_insert(p, menu_create_submenu(NULL,name,tmp));
+	free(tmp);
 }
 
 /**
@@ -2828,7 +2858,9 @@ int main(int argc, char ** argv) {
 	_menu_toggle_bold_context = menu_create_toggle(NULL, "Emulate bold", emulate_bold, _menu_action_toggle_bold);
 	menu_update_enabled(_menu_toggle_bold_context, !_use_aa);
 	menu_insert(menu_right_click, _menu_toggle_bold_context);
+	menu_insert(menu_right_click, menu_create_separator());
 	menu_insert(menu_right_click, menu_create_submenu(NULL,"termstate","Terminal state..."));
+	menu_insert(menu_right_click, menu_create_submenu(NULL,"signal", "Send signal..."));
 	menu_insert(menu_right_click, menu_create_separator());
 	menu_insert(menu_right_click, _menu_exit);
 
@@ -2885,8 +2917,6 @@ int main(int argc, char ** argv) {
 	menu_update_enabled(_menu_toggle_bold_bar, !_use_aa);
 	menu_insert(m, _menu_toggle_bold_bar);
 
-	menu_insert(m, menu_create_submenu(NULL,"termstate","Terminal state..."));
-
 	menu_insert(m, menu_create_separator());
 
 	menu_insert(m, menu_create_normal(NULL, NULL, "Redraw", _menu_action_redraw));
@@ -2898,6 +2928,19 @@ int main(int argc, char ** argv) {
 	menu_insert(m, menu_create_separator());
 	menu_insert(m, menu_create_normal("star","star","About Terminal", _menu_action_show_about));
 	menu_set_insert(terminal_menu_bar.set, "help", m);
+
+	m = menu_create();
+	do_sig_menus(m,1,16,"signala");
+	do_sig_menus(m,16,31,"signalb");
+	do_sig_menus(m,31,NSIG,"signalc");
+	menu_set_insert(terminal_menu_bar.set, "signal", m);
+
+	m = menu_create();
+
+	m = menu_create();
+	menu_insert(m, menu_create_submenu(NULL,"termstate","Terminal state..."));
+	menu_insert(m, menu_create_submenu(NULL,"signal", "Send signal..."));
+	menu_set_insert(terminal_menu_bar.set, "terminal", m);
 
 	scrollback_list = list_create();
 	images_list = list_create();
