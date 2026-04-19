@@ -53,6 +53,7 @@ double exp(double x) {
 #else
 
 double exp(double x) {
+	if (fpclassify(x) == FP_INFINITE) return x > 0 ? __builtin_inf() : 0.0;
 	size_t counter = 0;
 	while (fabs(x) > 2.0) {
 		counter++;
