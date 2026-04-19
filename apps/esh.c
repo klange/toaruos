@@ -1180,7 +1180,7 @@ void add_argument(list_t * argv, struct ArgBuilder *ab) {
 	list_insert(argv, arg);
 }
 
-int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer) {
+int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer, char ** getline_buf, size_t * getline_avail) {
 
 	*out_buffer = NULL;
 
@@ -1452,10 +1452,19 @@ _done:
 				rline_history_append_line(buffer);
 				continue;
 			} else if (shell_interactive == 2) {
-				fgets(buffer, size, file);
+				if (getline_buf) {
+					ssize_t len = getline(getline_buf, getline_avail, file);
+					if (len < 0) break;
+					buffer = *getline_buf;
+					size = len;
+				} else {
+					/* fallback */
+					fgets(buffer, size, file);
+				}
 				continue;
 			} else {
 				if (ab.capacity) argbuilder_discard(&ab);
+				list_destroy(args);
 				fprintf(stderr, "Syntax error: Unterminated quoted string.\n");
 				return 127;
 			}
@@ -1930,20 +1939,24 @@ void add_path(void) {
 
 int run_script(FILE * f) {
 	current_line = 1;
-	while (!feof(f)) {
-		char buf[LINE_LEN] = {0};
-		fgets(buf, LINE_LEN, f);
+
+	char * buf = NULL;
+	size_t avail = 0;
+	ssize_t len;
+
+	while ((len = getline(&buf, &avail, f)) >= 0) {
 		int ret;
 		char * out = NULL;
 		char * b = buf;
 		do {
-			ret = shell_exec(b, LINE_LEN, f, &out);
+			ret = shell_exec(b, len, f, &out, &buf, &avail);
 			b = out;
 		} while (b);
 		current_line++;
 		if (ret >= 0) last_ret = ret;
 	}
 
+	free(buf);
 	fclose(f);
 
 	return last_ret;
@@ -1992,7 +2005,7 @@ int main(int argc, char ** argv) {
 					{
 						char * out = NULL;
 						do {
-							last_ret = shell_exec(optarg, strlen(optarg), NULL, &out);
+							last_ret = shell_exec(optarg, strlen(optarg), NULL, &out, NULL, NULL);
 							optarg = out;
 						} while (optarg);
 					}
@@ -2073,7 +2086,7 @@ int main(int argc, char ** argv) {
 		char * out = NULL;
 		char * b = buffer;
 		do {
-			ret = shell_exec(b, LINE_LEN, stdin, &out);
+			ret = shell_exec(b, LINE_LEN, stdin, &out, NULL, NULL);
 			b = out;
 		} while (b);
 		if (ret >= 0) last_ret = ret;
