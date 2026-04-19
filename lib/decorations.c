@@ -129,7 +129,6 @@ static void _decor_minimize(yutani_t * yctx, yutani_window_t * window) {
 static yutani_window_t * _decor_menu_owner_window = NULL;
 static struct MenuSet * _decor_menu_set = NULL;
 static struct MenuList * _decor_menu = NULL;
-static struct MenuList * _decor_menu_tile = NULL;
 
 static void _decor_start_move(struct MenuEntry * self) {
 	if (!_decor_menu_owner_window)
@@ -175,9 +174,15 @@ tile_menu_func(left,2,1,0,0)
 tile_menu_func(right,2,1,1,0)
 tile_menu_func(up,1,2,0,0)
 tile_menu_func(down,1,2,0,1)
+
 tile_menu_func(left_third,3,1,0,0)
 tile_menu_func(center_third,3,1,1,0)
 tile_menu_func(right_third,3,1,2,0)
+
+tile_menu_func(up_left,2,2,0,0)
+tile_menu_func(up_right,2,2,1,0)
+tile_menu_func(bottom_left,2,2,0,1)
+tile_menu_func(bottom_right,2,2,1,1)
 
 void init_decorations() {
 	char * tmp = getenv("WM_THEME");
@@ -185,17 +190,28 @@ void init_decorations() {
 
 	_decor_menu_set = menu_set_create();
 
-	_decor_menu_tile = menu_create();
-	menu_insert(_decor_menu_tile, menu_create_normal("tile-left", NULL, "Left", _decor_tile_left));
-	menu_insert(_decor_menu_tile, menu_create_normal("tile-right", NULL, "Right", _decor_tile_right));
-	menu_insert(_decor_menu_tile, menu_create_normal("tile-up", NULL, "Up", _decor_tile_up));
-	menu_insert(_decor_menu_tile, menu_create_normal("tile-down", NULL, "Down", _decor_tile_down));
-	menu_insert(_decor_menu_tile, menu_create_separator());
-	menu_insert(_decor_menu_tile, menu_create_normal("tile-a", NULL, "Left third", _decor_tile_left_third));
-	menu_insert(_decor_menu_tile, menu_create_normal("tile-b", NULL, "Center third", _decor_tile_center_third));
-	menu_insert(_decor_menu_tile, menu_create_normal("tile-c", NULL, "Right third", _decor_tile_right_third));
+	struct MenuList * m = menu_create();
+	menu_insert(m, menu_create_normal("tile-left", NULL, "Left", _decor_tile_left));
+	menu_insert(m, menu_create_normal("tile-right", NULL, "Right", _decor_tile_right));
+	menu_insert(m, menu_create_normal("tile-up", NULL, "Up", _decor_tile_up));
+	menu_insert(m, menu_create_normal("tile-down", NULL, "Down", _decor_tile_down));
+	menu_insert(m, menu_create_separator());
+	menu_insert(m, menu_create_submenu(NULL, "tile-thirds", "Thirds..."));
+	menu_insert(m, menu_create_submenu(NULL, "tile-corners", "Corners..."));
+	menu_set_insert(_decor_menu_set, "tile", m);
 
-	menu_set_insert(_decor_menu_set, "tile", _decor_menu_tile);
+	m = menu_create();
+	menu_insert(m, menu_create_normal("tile-a", NULL, "Left third", _decor_tile_left_third));
+	menu_insert(m, menu_create_normal("tile-b", NULL, "Center third", _decor_tile_center_third));
+	menu_insert(m, menu_create_normal("tile-c", NULL, "Right third", _decor_tile_right_third));
+	menu_set_insert(_decor_menu_set, "tile-thirds", m);
+
+	m = menu_create();
+	menu_insert(m, menu_create_normal("tile-ul", NULL, "Upper left", _decor_tile_up_left));
+	menu_insert(m, menu_create_normal("tile-ur", NULL, "Upper right", _decor_tile_up_right));
+	menu_insert(m, menu_create_normal("tile-bl", NULL, "Bottom left", _decor_tile_bottom_left));
+	menu_insert(m, menu_create_normal("tile-br", NULL, "Bottom right", _decor_tile_bottom_right));
+	menu_set_insert(_decor_menu_set, "tile-corners", m);
 
 	_decor_menu = menu_create();
 	menu_insert(_decor_menu, menu_create_normal(NULL, NULL, "Maximize", _decor_start_maximize));
