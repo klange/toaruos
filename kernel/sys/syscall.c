@@ -398,6 +398,7 @@ long sys_open(const char * file, long flags, long mode) {
 			return -EACCES;
 		}
 		if (node && (node->flags & FS_DIRECTORY)) {
+			close_fs(node);
 			return -EISDIR;
 		}
 		if ((flags & O_RDWR) || (flags & O_WRONLY)) {
@@ -408,6 +409,7 @@ long sys_open(const char * file, long flags, long mode) {
 
 	if (node && (flags & O_DIRECTORY)) {
 		if (!(node->flags & FS_DIRECTORY)) {
+			close_fs(node);
 			return -ENOTDIR;
 		}
 	}
