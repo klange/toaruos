@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <math.h>
 #include <dlfcn.h>
+#include <sys/time.h>
 
 #include <toaru/graphics.h>
 #include <toaru/yutani.h>
@@ -305,6 +306,27 @@ static yutani_scale_direction_t old_resize_direction = SCALE_NONE;
 int decor_hover_button = 0;
 yutani_window_t * decor_hover_window = NULL;
 
+static uint64_t precise_current_time(void) {
+	struct timeval t;
+	gettimeofday(&t, NULL);
+
+	time_t sec_diff = t.tv_sec;
+	suseconds_t usec_diff = t.tv_usec;
+
+	return (uint64_t)((uint64_t)sec_diff * 1000LL + usec_diff / 1000);
+}
+
+static uint64_t precise_time_since(uint64_t start_time) {
+
+	uint64_t now = precise_current_time();
+	uint64_t diff = now - start_time; /* Milliseconds */
+
+	return diff;
+}
+
+static uint64_t last_click = 0;
+static int _decor_max_on_up = 0;
+
 int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 	if (m) {
 		switch (m->type) {
@@ -334,10 +356,23 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 								}
 
 								if (me->new_y < (int)bounds.top_height && resize_direction == SCALE_NONE) {
-									yutani_window_drag_start(yctx, window);
+									if (precise_time_since(last_click) < 400) {
+										/* maximize on up */
+										_decor_max_on_up = 1;
+									} else {
+										yutani_window_drag_start(yctx, window);
+										_decor_max_on_up = 0;
+									}
+									last_click = precise_current_time();
 								}
 								return DECOR_OTHER;
 							}
+						}
+						if (_decor_max_on_up &&
+							(me->command == YUTANI_MOUSE_EVENT_RAISE || me->command == YUTANI_MOUSE_EVENT_CLICK))  {
+							_decor_max_on_up = 0;
+							_decor_maximize(yctx, window);
+							return DECOR_OTHER;
 						}
 						if (!button && (me->buttons & YUTANI_MOUSE_BUTTON_RIGHT)) {
 							return DECOR_RIGHT;
