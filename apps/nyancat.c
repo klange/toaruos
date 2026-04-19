@@ -158,6 +158,7 @@ int min_row = -1;
 int max_row = -1;
 int min_col = -1;
 int max_col = -1;
+int extra_space = 0;
 
 /*
  * Actual width/height of terminal.
@@ -222,7 +223,8 @@ void SIGWINCH_handler(int sig) {
 
 	if (using_automatic_width) {
 		min_col = (FRAME_WIDTH - terminal_width/2) / 2;
-		max_col = (FRAME_WIDTH + terminal_width/2) / 2;
+		max_col = min_col + terminal_width/2;
+		extra_space = (terminal_width % 2);
 	}
 
 	if (using_automatic_height) {
@@ -779,7 +781,8 @@ int main(int argc, char ** argv) {
 
 	if (min_col == max_col) {
 		min_col = (FRAME_WIDTH - terminal_width/2) / 2;
-		max_col = (FRAME_WIDTH + terminal_width/2) / 2;
+		max_col = min_col + terminal_width/2;
+		extra_space = (terminal_width % 2);
 		using_automatic_width = 1;
 	}
 
@@ -902,6 +905,7 @@ int main(int argc, char ** argv) {
 					}
 				}
 			}
+			if (extra_space) printf(" ");
 			/* End of row, send newline */
 			newline(1);
 		}
