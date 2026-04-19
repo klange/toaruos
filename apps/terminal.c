@@ -2633,6 +2633,18 @@ static void _menu_action_signal(struct MenuEntry * self) {
 	if (pgrp != -1) kill(pgrp, sig);
 }
 
+static void _menu_action_reset(struct MenuEntry * self) {
+	full_reset();
+}
+
+static void _menu_action_clear(struct MenuEntry * self) {
+	term_clear(2);
+}
+
+static void _menu_action_clear_scrollback(struct MenuEntry * self) {
+	term_clear(3);
+}
+
 static void update_scale_menu(void) {
 	menu_update_toggle_state(_menu_scale_075, font_scaling == 0.75);
 	menu_update_toggle_state(_menu_scale_100, font_scaling == 1.00);
@@ -2940,6 +2952,10 @@ int main(int argc, char ** argv) {
 	m = menu_create();
 	menu_insert(m, menu_create_submenu(NULL,"termstate","Terminal state..."));
 	menu_insert(m, menu_create_submenu(NULL,"signal", "Send signal..."));
+	menu_insert(m, menu_create_separator());
+	menu_insert(m, menu_create_normal(NULL,NULL,"Reset", _menu_action_reset));
+	menu_insert(m, menu_create_normal(NULL,NULL,"Clear", _menu_action_clear));
+	menu_insert(m, menu_create_normal(NULL,NULL,"Clear scrollback", _menu_action_clear_scrollback));
 	menu_set_insert(terminal_menu_bar.set, "terminal", m);
 
 	scrollback_list = list_create();
