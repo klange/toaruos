@@ -539,6 +539,19 @@ void yutani_msg_buildx_window_panel_size(yutani_msg_t * msg, yutani_wid_t wid, i
 	ps->h = h;
 }
 
+void yutani_msg_buildx_window_tile(yutani_msg_t * msg, yutani_wid_t wid, uint32_t columns, uint32_t rows, uint32_t column, uint32_t row) {
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_WINDOW_TILE;
+	msg->size  = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_tile);
+
+	struct yutani_msg_window_tile * wt = (void *)msg->data;
+	wt->wid = wid;
+	wt->columns = columns;
+	wt->rows = rows;
+	wt->column = column;
+	wt->row = row;
+}
+
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg) {
 	return pex_reply(y->sock, msg->size, (char *)msg);
 }
@@ -1034,6 +1047,18 @@ void yutani_window_show_mouse(yutani_t * yctx, yutani_window_t * window, int32_t
 void yutani_window_resize_start(yutani_t * yctx, yutani_window_t * window, yutani_scale_direction_t direction) {
 	yutani_msg_buildx_window_resize_start_alloc(m);
 	yutani_msg_buildx_window_resize_start(m, window->wid, direction);
+	yutani_msg_send(yctx, m);
+}
+
+/**
+ * Tile a window.
+ *
+ * Subdivide the screen into @p columns and @p rows.
+ * Place this @p window at @p column and @p row.
+ */
+void yutani_window_tile(yutani_t * yctx, yutani_window_t * window, uint32_t columns, uint32_t rows, uint32_t column, uint32_t row) {
+	yutani_msg_buildx_window_tile_alloc(m);
+	yutani_msg_buildx_window_tile(m, window->wid, columns, rows, column, row);
 	yutani_msg_send(yctx, m);
 }
 

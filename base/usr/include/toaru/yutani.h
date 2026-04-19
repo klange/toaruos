@@ -270,6 +270,14 @@ struct yutani_msg_window_set_parent {
 	yutani_wid_t parent_wid;
 };
 
+struct yutani_msg_window_tile {
+	yutani_wid_t wid;
+	uint32_t columns;
+	uint32_t rows;
+	uint32_t column;
+	uint32_t row;
+};
+
 /* Magic value */
 #define YUTANI_MSG__MAGIC 0xABAD1DEA
 
@@ -297,6 +305,7 @@ struct yutani_msg_window_set_parent {
 
 #define YUTANI_MSG_WINDOW_MOVE_RELATIVE 0x00000015
 #define YUTANI_MSG_WINDOW_SET_PARENT    0x00000016
+#define YUTANI_MSG_WINDOW_TILE          0x00000017
 
 /* Some session management / de stuff */
 #define YUTANI_MSG_WINDOW_ADVERTISE    0x00000020
@@ -567,6 +576,7 @@ extern void yutani_window_update_shape(yutani_t * yctx, yutani_window_t * window
 extern void yutani_window_warp_mouse(yutani_t * yctx, yutani_window_t * window, int32_t x, int32_t y);
 extern void yutani_window_show_mouse(yutani_t * yctx, yutani_window_t * window, int32_t show_mouse);
 extern void yutani_window_resize_start(yutani_t * yctx, yutani_window_t * window, yutani_scale_direction_t direction);
+extern void yutani_window_tile(yutani_t * yctx, yutani_window_t * window, uint32_t columns, uint32_t rows, uint32_t column, uint32_t row);
 extern void yutani_special_request(yutani_t * yctx, yutani_window_t * window, uint32_t request);
 extern void yutani_special_request_wid(yutani_t * yctx, yutani_wid_t wid, uint32_t request);
 extern void yutani_set_clipboard(yutani_t * yctx, char * content);

@@ -41,6 +41,7 @@ _Begin_C_Header
 #define yutani_msg_buildx_special_request_alloc(out) char _yutani_tmp_ ## LINE [sizeof(struct yutani_message) + sizeof(struct yutani_msg_special_request)]; yutani_msg_t * out = (void *)&_yutani_tmp_ ## LINE;
 #define yutani_msg_buildx_clipboard_alloc(out, length) char _yutani_tmp_ ## LINE [sizeof(struct yutani_message) + sizeof(struct yutani_msg_clipboard)+length]; yutani_msg_t * out = (void *)&_yutani_tmp_ ## LINE;
 #define yutani_msg_buildx_window_panel_size_alloc(out) char _yutani_tmp_ ## LINE [sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_panel_size)]; yutani_msg_t * out = (void *)&_yutani_tmp_ ## LINE;
+#define yutani_msg_buildx_window_tile_alloc(out) char _yutani_tmp_ ## LINE [sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_tile)]; yutani_msg_t * out = (void *)&_yutani_tmp_ ## LINE;
 
 extern void yutani_msg_buildx_hello(yutani_msg_t * msg);
 extern void yutani_msg_buildx_flip(yutani_msg_t * msg, yutani_wid_t wid);
@@ -75,5 +76,6 @@ extern void yutani_msg_buildx_window_resize_start(yutani_msg_t * msg, yutani_wid
 extern void yutani_msg_buildx_special_request(yutani_msg_t * msg, yutani_wid_t wid, uint32_t request);
 extern void yutani_msg_buildx_clipboard(yutani_msg_t * msg, char * content);
 extern void yutani_msg_buildx_window_panel_size(yutani_msg_t * msg, yutani_wid_t wid, int32_t x, int32_t y, int32_t w, int32_t h);
+extern void yutani_msg_buildx_window_tile(yutani_msg_t * msg, yutani_wid_t wid, uint32_t columns, uint32_t rows, uint32_t column, uint32_t row);
 
 _End_C_Header

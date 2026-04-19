@@ -3020,6 +3020,16 @@ int main(int argc, char * argv[]) {
 					}
 				}
 				break;
+			case YUTANI_MSG_WINDOW_TILE:
+				{
+					struct yutani_msg_window_tile * wt = (void *)m->data;
+					yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)wt->wid);
+					if (wt->columns == 0 || wt->columns > 8 || wt->rows == 0 || wt->rows > 8) break;
+					if (wt->column >= wt->columns || wt->row >= wt->rows) break;
+					if (!w) break;
+					window_tile(yg, w, wt->columns, wt->rows, wt->column, wt->row);
+					break;
+				}
 			case YUTANI_MSG_SPECIAL_REQUEST:
 				{
 					struct yutani_msg_special_request * sr = (void *)m->data;
