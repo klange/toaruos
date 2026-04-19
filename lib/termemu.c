@@ -539,8 +539,8 @@ static void _ansi_put(term_state_t * s, char c) {
 					pch = strtok_r(NULL,";",&save);
 				}
 				/* Start testing the first argument for what command to use */
-				if (argv[0]) {
-					if (!strcmp(argv[0], "1")) {
+				if (argc && argv[0]) {
+					if (!strcmp(argv[0], "0") || !strcmp(argv[0], "2")) {
 						if (argc > 1) {
 							callbacks->set_title(argv[1]);
 						}
