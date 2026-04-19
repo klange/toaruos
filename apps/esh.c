@@ -1370,11 +1370,17 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer, char
 					if (!quoted && !backslash) goto _done;
 					goto _just_add;
 				case '`':
-					if (!quoted && !backslash) {
+					if (!backslash && quoted != '\'') {
 						/* oh boy here we go */
 						p++;
 						char * start_of_cmd = p;
 						while (*p && *p != '`') p++;
+						if (!*p) {
+							argbuilder_discard(&ab);
+							list_destroy(args);
+							fprintf(stderr, "esh: unterminated ` sequence\n");
+							return 127;
+						}
 						*p = '\0';
 
 						int out_pipe[2];
@@ -1390,27 +1396,48 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer, char
 							shell_interactive = 0;
 							char * out = NULL;
 							do {
-								shell_exec(start_of_cmd, p - start_of_cmd, NULL, &out);
+								shell_exec(start_of_cmd, p - start_of_cmd, NULL, &out, NULL, NULL);
 								start_of_cmd = out;
 							} while (start_of_cmd);
 							exit(0);
 						}
 						close(out_pipe[1]);
+						ssize_t hold_out = 0;
+						ssize_t ew = 0;
 
 						do {
 							char buf[1024];
 							ssize_t r = read(out_pipe[0], buf, 1024);
 							if (r <= 0) break;
-							argbuilder_push_bytes(&ab, buf, r);
+							for (ssize_t i = 0; i < r; ++i) {
+								/* Skip NUL */
+								if (!buf[i]) continue;
+								/* TODO probably other whitespace, but we're a bad shell after all */
+								if (hold_out && buf[i] != '\n') {
+									add_argument(args, &ab);
+									hold_out = 0;
+								} else if (ew && buf[i] != '\n') {
+									while (ew) {
+										argbuilder_push_char(&ab, '\n');
+										ew--;
+									}
+								}
+								if (!quoted && buf[i] == '\n') {
+									hold_out = ab.length != 0;
+								} else if (!quoted && buf[i] == ' ') {
+									if (ab.length) add_argument(args, &ab);
+									hold_out = -1;
+								} else if (quoted && buf[i] == '\n') {
+									ew++;
+								} else {
+									argbuilder_push_char(&ab, buf[i]);
+								}
+							}
 						} while (1);
 						close(out_pipe[0]);
 						kill(-child_pid, SIGKILL);
 						waitpid(child_pid, NULL, 0);
 						reset_pgrp();
-
-						if (ab.length && ab.bytes[ab.length-1] == '\n') {
-							ab.length--;
-						}
 
 						/* Restore state */
 						*p = '`';
