@@ -2828,11 +2828,15 @@ int main(int argc, char ** argv) {
 	_menu_toggle_bold_context = menu_create_toggle(NULL, "Emulate bold", emulate_bold, _menu_action_toggle_bold);
 	menu_update_enabled(_menu_toggle_bold_context, !_use_aa);
 	menu_insert(menu_right_click, _menu_toggle_bold_context);
+	menu_insert(menu_right_click, menu_create_submenu(NULL,"termstate","Terminal state..."));
 	menu_insert(menu_right_click, menu_create_separator());
 	menu_insert(menu_right_click, _menu_exit);
 
 	/* Menu Bar menus */
 	terminal_menu_bar.set = menu_set_create();
+
+	menu_set_insert(terminal_menu_bar.set, "context", menu_right_click);
+
 	struct MenuList * m;
 	m = menu_create(); /* File */
 	menu_insert(m, _menu_exit);
