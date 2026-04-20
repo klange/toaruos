@@ -1,7 +1,7 @@
 /**
  * @brief Virtual terminal emulator, for VGA text mode.
  *
- * Basicall the same as @ref terminal.c but outputs to the VGA
+ * Basically the same as @ref terminal.c but outputs to the VGA
  * text mode buffer instead of managing a graphical window.
  *
  * Supports >16 colors by using a dumb closest-match approach.
@@ -9,31 +9,26 @@
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2021 K. Lange
+ * Copyright (C) 2013-2026 K. Lange
  */
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
-#include <time.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
-#include <sys/time.h>
 #include <sys/wait.h>
 #include <getopt.h>
 #include <errno.h>
 #include <pty.h>
 #include <sys/fswait.h>
 
-#include <wchar.h>
-
 #include <kernel/video.h>
 
-#include <toaru/decodeutf8.h>
 #include <toaru/kbd.h>
 #include <toaru/graphics.h>
 #include <toaru/termemu.h>
@@ -43,29 +38,37 @@
 
 #include "vga-palette.h"
 
-#define USE_BELL 0
-
 /* master and slave pty descriptors */
 static int fd_master, fd_slave;
+static int vga_text_fd = 0;
+static pid_t child_pid = 0;
 static FILE * terminal;
-
-static uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell or not */
-
 static char * selection_text = NULL;
+static volatile int exit_application = 0;
+static int _selection_count = 0;
+static int _selection_i = 0;
+static term_state_t * ansi_state = NULL;
+static int mouse_x = 0;
+static int mouse_y = 0;
+static int rel_mouse_x = 0;
+static int rel_mouse_y = 0;
+static int last_mouse_buttons = 0;
+static unsigned int button_state = 0;
+static int mouse_is_dragging = 0;
+static int mouse_r[2] = {820, 2621};
+static int old_x = 0;
+static int old_y = 0;
+static int input_stopped = 0;
+static volatile int input_buffer_lock = 0;
+static int input_buffer_semaphore[2];
+static list_t * input_buffer_queue = NULL;
+struct input_data {
+	size_t len;
+	char data[];
+};
 
-#define char_width 1
-#define char_height 1
-
-term_state_t * ansi_state = NULL;
 static term_state_t * current_terminal(void) {
 	return ansi_state;
-}
-
-static uint64_t get_ticks(void) {
-	struct timeval now;
-	gettimeofday(&now, NULL);
-
-	return (uint64_t)now.tv_sec * 1000000LL + (uint64_t)now.tv_usec;
 }
 
 static int color_distance(uint32_t a, uint32_t b) {
@@ -104,16 +107,6 @@ static uint32_t vga_base_colors[] = {
 	0xFFFFFF,
 };
 
-#if 0
-static int is_gray(uint32_t a) {
-	int a_r = (a & 0xFF0000) >> 16;
-	int a_g = (a & 0xFF00) >> 8;
-	int a_b = (a & 0xFF);
-
-	return (a_r == a_g && a_g == a_b);
-}
-#endif
-
 static int best_match(uint32_t a) {
 	int best_distance = INT32_MAX;
 	int best_index = 0;
@@ -127,23 +120,7 @@ static int best_match(uint32_t a) {
 	return best_index;
 }
 
-
-volatile int exit_application = 0;
-
-/* Returns the lower of two shorts */
-uint16_t min(uint16_t a, uint16_t b) {
-	return (a < b) ? a : b;
-}
-
-/* Returns the higher of two shorts */
-uint16_t max(uint16_t a, uint16_t b) {
-	return (a > b) ? a : b;
-}
-
-static int _selection_count = 0;
-static int _selection_i = 0;
-
-void count_selection(term_state_t * state, uint16_t x, uint16_t y) {
+static void count_selection(term_state_t * state, uint16_t x, uint16_t y) {
 	term_cell_t * cell = termemu_cell_at(state,x,y);
 	if (((uint32_t *)cell)[0] != 0x00000000) {
 		char tmp[7];
@@ -154,7 +131,7 @@ void count_selection(term_state_t * state, uint16_t x, uint16_t y) {
 	}
 }
 
-void write_selection(term_state_t * state, uint16_t x, uint16_t y) {
+static void write_selection(term_state_t * state, uint16_t x, uint16_t y) {
 	term_cell_t * cell = termemu_cell_at(state,x,y);
 	if (((uint32_t *)cell)[0] != 0x00000000) {
 		char tmp[7];
@@ -170,7 +147,7 @@ void write_selection(term_state_t * state, uint16_t x, uint16_t y) {
 	}
 }
 
-char * copy_selection(void) {
+static char * copy_selection(void) {
 	_selection_count = 0;
 	termemu_iterate_selection(current_terminal(), count_selection);
 	if (selection_text) free(selection_text);
@@ -188,15 +165,7 @@ char * copy_selection(void) {
 	return selection_text;
 }
 
-static volatile int input_buffer_lock = 0;
-static int input_buffer_semaphore[2];
-static list_t * input_buffer_queue = NULL;
-struct input_data {
-	size_t len;
-	char data[];
-};
-
-void * handle_input_writing(void * unused) {
+static void * handle_input_writing(void * unused) {
 	(void)unused;
 
 	while (1) {
@@ -238,37 +207,26 @@ static void write_input_buffer(char * data, size_t len) {
 	write(input_buffer_semaphore[1], d, 1);
 }
 
-void handle_input(char c) {
+static void handle_input(char c) {
 	write_input_buffer(&c, 1);
 	termemu_unscroll(current_terminal());
 }
 
-void handle_input_s(char * c) {
+static void handle_input_s(char * c) {
 	size_t len = strlen(c);
 	write_input_buffer(c, len);
 	termemu_unscroll(current_terminal());
 }
 
-static int vga_text_fd = 0;
-
 /* ANSI-to-VGA */
-char vga_to_ansi[] = {
+static char vga_to_ansi[] = {
 	0, 4, 2, 6, 1, 5, 3, 7,
 	8,12,10,14, 9,13,11,15
 };
 
 #include "ununicode.h"
 
-void
-term_write_char(
-		uint32_t val,
-		uint16_t x,
-		uint16_t y,
-		uint32_t fg,
-		uint32_t bg,
-		uint32_t flags
-		) {
-
+static void term_write_char(uint32_t val, uint16_t x, uint16_t y, uint32_t fg, uint32_t bg, uint32_t flags) {
 	if (flags & ANSI_INVERT) {
 		uint32_t tmp = fg;
 		fg = bg;
@@ -297,16 +255,7 @@ term_write_char(
 	pwrite(vga_text_fd, &cell, sizeof(unsigned short), (current_terminal()->width * y + x) * sizeof(unsigned short));
 }
 
-static void maybe_flip_display(int force) {
-	static uint64_t last_refresh;
-	uint64_t ticks = get_ticks();
-	if (!force) {
-		if (ticks < last_refresh + 33330L) {
-			return;
-		}
-	}
-
-	last_refresh = ticks;
+static void flip_display() {
 	term_state_t * state = current_terminal();
 	for (int y = 0; y < state->height; ++y) {
 		for (int x = 0; x < state->width; ++x) {
@@ -320,9 +269,7 @@ static void maybe_flip_display(int force) {
 	}
 }
 
-pid_t child_pid = 0;
-
-void key_event(int ret, key_event_t * event) {
+static void key_event(int ret, key_event_t * event) {
 	if (ret) {
 		/* Special keys */
 		if ((event->modifiers & KEY_MOD_LEFT_SHIFT || event->modifiers & KEY_MOD_RIGHT_SHIFT) &&
@@ -505,7 +452,7 @@ void key_event(int ret, key_event_t * event) {
 	}
 }
 
-int usage(char * argv[]) {
+static int usage(char * argv[]) {
 #define X_S "\033[3m"
 #define X_E "\033[0m"
 	fprintf(stderr,
@@ -522,13 +469,15 @@ int usage(char * argv[]) {
 	return 1;
 }
 
-static int term_char_size(term_state_t * s) { return 0; }
+static int term_char_size(term_state_t * s) {
+	return 0;
+}
 
 static void input_buffer_stuff(term_state_t * state, char * str) {
 	handle_input_s(str);
 }
 
-term_callbacks_t term_callbacks = {
+static term_callbacks_t term_callbacks = {
 	NULL,
 	NULL,
 	input_buffer_stuff,
@@ -540,7 +489,7 @@ term_callbacks_t term_callbacks = {
 	NULL,
 };
 
-void check_for_exit(void) {
+static void check_for_exit(void) {
 	if (exit_application) return;
 
 	pid_t pid = waitpid(-1, NULL, WNOHANG);
@@ -554,16 +503,6 @@ void check_for_exit(void) {
 	write(fd_slave, exit_message, sizeof(exit_message));
 	close(input_buffer_semaphore[1]);
 }
-
-static int mouse_x = 0;
-static int mouse_y = 0;
-static int last_mouse_buttons = 0;
-static int mouse_is_dragging = 0;
-
-static int mouse_r[2] = {820, 2621};
-
-static int old_x = 0;
-static int old_y = 0;
 
 static void mouse_event(int button, int x, int y) {
 	if (ansi_state->mouse_on & TERMEMU_MOUSE_SGR) {
@@ -594,9 +533,7 @@ static void redraw_mouse(void) {
 	old_y = mouse_y;
 }
 
-static unsigned int button_state = 0;
-
-void handle_mouse_event(mouse_device_packet_t * packet) {
+static void handle_mouse_event(mouse_device_packet_t * packet) {
 	if (mouse_x < 0) mouse_x = 0;
 	if (mouse_y < 0) mouse_y = 0;
 	if (mouse_x >= current_terminal()->width)  mouse_x = current_terminal()->width - 1;
@@ -642,10 +579,7 @@ void handle_mouse_event(mouse_device_packet_t * packet) {
 	redraw_mouse();
 }
 
-static int rel_mouse_x = 0;
-static int rel_mouse_y = 0;
-
-void handle_mouse(mouse_device_packet_t * packet) {
+static void handle_mouse(mouse_device_packet_t * packet) {
 	rel_mouse_x += packet->x_difference;
 	rel_mouse_y -= packet->y_difference;
 
@@ -655,7 +589,7 @@ void handle_mouse(mouse_device_packet_t * packet) {
 	handle_mouse_event(packet);
 }
 
-void handle_mouse_abs(mouse_device_packet_t * packet) {
+static void handle_mouse_abs(mouse_device_packet_t * packet) {
 	mouse_x = packet->x_difference / mouse_r[0];
 	mouse_y = packet->y_difference / mouse_r[1];
 
@@ -665,9 +599,7 @@ void handle_mouse_abs(mouse_device_packet_t * packet) {
 	handle_mouse_event(packet);
 }
 
-static int input_stopped = 0;
-
-void sig_suspend_input(int sig) {
+static void sig_suspend_input(int sig) {
 	(void)sig;
 	char exit_message[] = "[Input stopped]\n";
 	write(fd_slave, exit_message, sizeof(exit_message));
@@ -678,8 +610,7 @@ void sig_suspend_input(int sig) {
 }
 
 int main(int argc, char ** argv) {
-
-	_login_shell = 0;
+	int _login_shell = 0;
 
 	static struct option long_opts[] = {
 		{"login",      no_argument,       0, 'l'},
@@ -740,10 +671,9 @@ int main(int argc, char ** argv) {
 
 	signal(SIGUSR2, sig_suspend_input);
 
-	int pid = getpid();
-	uint32_t f = fork();
+	child_pid = fork();
 
-	if (getpid() != pid) {
+	if (!child_pid) {
 		setsid();
 		dup2(fd_slave, 0);
 		dup2(fd_slave, 1);
@@ -755,103 +685,88 @@ int main(int argc, char ** argv) {
 		if (argv[optind] != NULL) {
 			char * tokens[] = {argv[optind], NULL};
 			execvp(tokens[0], tokens);
-			fprintf(stderr, "Failed to launch requested startup application.\n");
+		} else if (_login_shell) {
+			char * tokens[] = {"/bin/login-loop",NULL};
+			execvp(tokens[0], tokens);
 		} else {
-			if (_login_shell) {
-				char * tokens[] = {"/bin/login-loop",NULL};
-				execvp(tokens[0], tokens);
-				exit(1);
-			} else {
-				char * shell = getenv("SHELL");
-				if (!shell) shell = "/bin/sh"; /* fallback */
-				char * tokens[] = {shell,NULL};
-				execvp(tokens[0], tokens);
-				exit(1);
+			char * shell = getenv("SHELL");
+			if (!shell) shell = "/bin/sh"; /* fallback */
+			char * tokens[] = {shell,NULL};
+			execvp(tokens[0], tokens);
+		}
+		exit(127);
+	}
+
+	int kfd = open("/dev/kbd", O_RDONLY);
+	key_event_t event;
+	int vmmouse = 0;
+	mouse_device_packet_t packet;
+
+	int mfd = open("/dev/mouse", O_RDONLY);
+	int amfd = open("/dev/absmouse", O_RDONLY);
+	if (amfd == -1) {
+		amfd = open("/dev/vmmouse", O_RDONLY);
+		vmmouse = 1;
+	}
+
+	key_event_state_t kbd_state = {0};
+
+	/* Prune any keyboard input we got before the terminal started. */
+	struct stat s;
+	fstat(kfd, &s);
+	for (unsigned int i = 0; i < s.st_size; i++) {
+		char tmp[1];
+		read(kfd, tmp, 1);
+	}
+
+	int fds[] = {fd_master, kfd, mfd, amfd};
+
+	#define BUF_SIZE 4096
+	unsigned char buf[4096];
+	while (!exit_application) {
+
+		int res[] = {0,0,0,0};
+		fswait3(amfd == -1 ? 3 : 4,fds,200,res);
+
+		check_for_exit();
+
+		if (input_stopped) continue;
+
+		termemu_maybe_flip_cursor(current_terminal());
+		if (res[0]) {
+			int r = read(fd_master, buf, BUF_SIZE);
+			for (int i = 0; i < r; ++i) {
+				termemu_put(ansi_state, buf[i]);
 			}
 		}
-
-		exit_application = 1;
-
-		return 1;
-	} else {
-
-		child_pid = f;
-
-		int kfd = open("/dev/kbd", O_RDONLY);
-		key_event_t event;
-		int vmmouse = 0;
-		mouse_device_packet_t packet;
-
-		int mfd = open("/dev/mouse", O_RDONLY);
-		int amfd = open("/dev/absmouse", O_RDONLY);
-		if (amfd == -1) {
-			amfd = open("/dev/vmmouse", O_RDONLY);
-			vmmouse = 1;
-		}
-
-		key_event_state_t kbd_state = {0};
-
-		/* Prune any keyboard input we got before the terminal started. */
-		struct stat s;
-		fstat(kfd, &s);
-		for (unsigned int i = 0; i < s.st_size; i++) {
-			char tmp[1];
-			read(kfd, tmp, 1);
-		}
-
-		int fds[] = {fd_master, kfd, mfd, amfd};
-
-		#define BUF_SIZE 4096
-		unsigned char buf[4096];
-		while (!exit_application) {
-
-			int res[] = {0,0,0,0};
-			fswait3(amfd == -1 ? 3 : 4,fds,200,res);
-
-			check_for_exit();
-
-			if (input_stopped) {
-				maybe_flip_display(0);
-				continue;
-			}
-
-			termemu_maybe_flip_cursor(current_terminal());
-			if (res[0]) {
-				int r = read(fd_master, buf, BUF_SIZE);
-				for (int i = 0; i < r; ++i) {
-					termemu_put(ansi_state, buf[i]);
+		if (res[1]) {
+			int r = read(kfd, buf, 1);
+			for (int i = 0; i < r; ++i) {
+				if (kbd_scancode(&kbd_state, buf[i], &event)) {
+					key_event(event.action == KEY_ACTION_DOWN && event.key, &event);
 				}
 			}
-			if (res[1]) {
-				int r = read(kfd, buf, 1);
-				for (int i = 0; i < r; ++i) {
-					if (kbd_scancode(&kbd_state, buf[i], &event)) {
-						key_event(event.action == KEY_ACTION_DOWN && event.key, &event);
-					}
-				}
+		}
+		if (res[2]) {
+			/* mouse event */
+			int r = read(mfd, (char *)&packet, sizeof(mouse_device_packet_t));
+			if (r > 0) {
+				last_mouse_buttons = packet.buttons;
+				handle_mouse(&packet);
 			}
-			if (res[2]) {
-				/* mouse event */
-				int r = read(mfd, (char *)&packet, sizeof(mouse_device_packet_t));
-				if (r > 0) {
+		}
+		if (amfd != -1 && res[3]) {
+			int r = read(amfd, (char *)&packet, sizeof(mouse_device_packet_t));
+			if (r > 0) {
+				if (!vmmouse) {
+					packet.buttons = last_mouse_buttons & 0xF;
+				} else {
 					last_mouse_buttons = packet.buttons;
-					handle_mouse(&packet);
 				}
+				handle_mouse_abs(&packet);
 			}
-			if (amfd != -1 && res[3]) {
-				int r = read(amfd, (char *)&packet, sizeof(mouse_device_packet_t));
-				if (r > 0) {
-					if (!vmmouse) {
-						packet.buttons = last_mouse_buttons & 0xF;
-					} else {
-						last_mouse_buttons = packet.buttons;
-					}
-					handle_mouse_abs(&packet);
-				}
-			}
-			maybe_flip_display(1);
 		}
-
+		flip_display();
 	}
 
 	close(input_buffer_semaphore[1]);
