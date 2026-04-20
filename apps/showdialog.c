@@ -13,6 +13,7 @@
 #include <toaru/menu.h>
 #include <toaru/button.h>
 #include <toaru/text.h>
+#include <toaru/markup_text.h>
 #include <toaru/icon_cache.h>
 
 #include <sys/utsname.h>
@@ -37,15 +38,14 @@ static char * cancel_str = "Cancel";
 static char ** body_text = NULL;
 static int disable_cancel = 0;
 
-static struct TT_Font * _tt_font = NULL;
-
 static void draw_string(int y, const char * string, uint32_t color) {
-
 	struct decor_bounds bounds;
 	decor_get_bounds(window, &bounds);
-
-	tt_set_size(_tt_font, 13);
-	tt_draw_string(ctx, _tt_font, bounds.left_width + 80, bounds.top_height + 30 + y + 13, string, color);
+	struct MarkupState * renderer = markup_setup_renderer(ctx, bounds.left_width + 80, bounds.top_height + 30 + y + 13, color, 0);
+	markup_set_base_font_size(renderer, 13);
+	markup_set_base_state(renderer, 0);
+	markup_push_string(renderer, string);
+	markup_finish_renderer(renderer);
 }
 
 struct TTKButton _ok = {0};
@@ -224,11 +224,10 @@ int main(int argc, char * argv[]) {
 	}
 
 	init_decorations();
+	markup_text_init();
 
 	struct decor_bounds bounds;
 	decor_get_bounds(NULL, &bounds);
-
-	_tt_font = tt_font_from_shm("sans-serif");
 
 	if (argc - optind > 3) {
 		height += 20 * (argc - optind - 3);
