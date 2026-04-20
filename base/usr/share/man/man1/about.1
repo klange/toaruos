@@ -11,6 +11,11 @@
 .SH DESCRIPTION
 The \fBabout\fP utility displays a window describing an application.
 .PP
+This utility is a wrapper around
+.IR about\-dialog (1),
+mapping the arguments of the \fBabout\fP from prior releases of ToaruOS
+to the format accepted by the new utility.
+.PP
 With no arguments, the utility will describe the operating system.
 .PP
 With the arguments, the utility is intended to be launched from the
@@ -45,11 +50,7 @@ Additionally, if provided, \fIx\fP and \fIy\fP describe the display
 coordinate at which the window should be centered. Usually, this is the
 center of some other main application window.
 
-.SH BUGS
-- The window size is not adjusted to fit the displayed content.
-.br
-- Text is not wrapped.
-
 .SH SEE ALSO
+.BR about\-dialog (1),
 .BR sysinfo (1),
 .BR uname (1)

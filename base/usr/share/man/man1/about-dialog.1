@@ -1,0 +1,76 @@
+.TH ABOUT-DIALOG 1 "April, 2026"
+
+.SH NAME
+\fBabout\-dialog\fP \- display an informational dialog
+
+.SH SYNOPSIS
+\fBabout\-dialog\fP [{\fB\-\-title\fP|\fB\-\-title\-about\fP} \fItitle\fP] [\fB\-\-icon\fP \fIicon\fP]
+[\fB\-\-logo\fP \fIlogo\fP] [\fB\-\-version\fP \fIversion\fP]
+             [\fB\-\-parent\fP \fIwid\fP] [\fB\-\-at\fP \fIx\fP,\fIy\fP] \fIbody\fP...
+
+.SH DESCRIPTION
+Similar to
+.IR showdialog (1),
+the \fBabout\-dialog\fP displays a configurable window with information about an application.
+.PP
+This utility replaces the old \fBabout\fP utility from previous releases of ToaruOS, moving
+most of the configuration to option arguments.
+.PP
+Each \fIbody\fP argument will be displayed as a line in the dialog.
+A \fBbody\fP argument may begin with \fB'%'\fP (the percent character) to render
+the text in blue, or begin with a \fB'\-'\fP (dash) to not render the line and instead
+insert a small vertical space.
+.PP
+The dialog will be sized vertically to fit the provided logo and text.
+
+.SS Options
+
+.TP
+.B \-\-title \fItitle\fP
+Set the \fItitle\fP of the window.
+
+.TP
+.B \-\-title\-about \fItitle\fP
+Set the \fItitle\fP of the window, but prepend \fItitle\fP with "About".
+
+.TP
+.B \-\-icon \fIicon\fP
+Set the \fIicon\fP to use in window advertisements for the dialog.
+This should be an icon name accepted by
+.IR libtoaru_icon_cache (3),
+and not a path.
+The default is \fBgeneric\fP.
+
+.TP
+.B \-\-logo \fIlogo\fP
+Set the \fIlogo\fP to display in the dialog, which may be either an
+icon name accepted by
+.IR libtoaru_icon_cache (3),
+or a path to an image.
+The default is \fBgeneric\fP.
+
+.TP
+.B \-\-name \fIversion\fP
+Set the \fIname\fP of the application to display in the dialog.
+This often includes a version number, like "ToaruOS 2.3".
+
+.TP
+.B \-\-at \fIx\fP,\fIy\fP
+Center the dialog box at these coordinates.
+When combined with the \fB\-\-parent\fP option, the coordinates are
+relative to the upper left of the parent window; to center a dialog
+within a window, use half the width and height as the argument to
+\fB\-\-at\fP.
+
+.TP
+.B \-\-parent \fIwid\fP
+Make the dialog a child window of \fIwid\fP.
+With the \fB\-\-at\fP option, the dialog box will be centered at the
+upper left corner of the parent window, which is probably not what
+you want.
+
+.SH BUGS
+The utility will not wrap text.
+
+.SH SEE ALSO
+.BR showdialog (1)
