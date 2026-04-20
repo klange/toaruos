@@ -238,11 +238,15 @@ void _menu_activate_MenuEntry_Submenu(struct MenuEntry * self, int focused) {
 			new_menu->main_window = new_menu->parent->main_window;
 			menu_prepare(new_menu, _self->_owner->window->ctx);
 			int offset_x = _self->_owner->window->width - 2;
+			int offset_y = _self->offset - 4;
 			if (_self->_owner->window->width + _self->_owner->window->x - 2 + new_menu->window->width > _self->_owner->window->ctx->display_width) {
 				offset_x = 2 - new_menu->window->width;
 			}
+			if (_self->_owner->window->y + offset_y + new_menu->window->height >  _self->_owner->window->ctx->display_height) {
+				offset_y = _self->_owner->window->ctx->display_height - _self->_owner->window->y - new_menu->window->height;
+			}
 			yutani_window_move_relative(_self->_owner->window->ctx, new_menu->window, _self->_owner->window,
-				offset_x, _self->offset - 4);
+				offset_x, offset_y);
 			yutani_flip(_self->_owner->window->ctx, new_menu->window);
 		}
 	}
