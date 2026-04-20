@@ -17,38 +17,30 @@ mapping the arguments of the \fBabout\fP from prior releases of ToaruOS
 to the format accepted by the new utility.
 .PP
 With no arguments, the utility will describe the operating system.
-.PP
-With the arguments, the utility is intended to be launched from the
-"Help > About" menu in a graphical application. The agruments should
-describe the application as follows:
+.SS Arguments
+When arguments are provided, they are translated as follows:
 
 .TP
 .I title
-A title to use with the window decorations, such as "About Terminal".
+Becomes the argument to the \fB\-\-title\fP option.
 
 .TP
 .I icon
-The full path to an image loadable by
-.IR load_sprite (3)
-to be displayed as an icon or logo.
+Becomes the argument to the \fB\-\-logo\fP option.
+(Not to be confused with the \fB\-\-icon\fP option, which will be set to \fB"star"\fP.)
 
 .TP
 .I version
-The application's name and version, such as "ToaruOS 2.3.0" or "Terminal 1.0".
-Just the name of the application is also permissible. The version string
-will be drawn in bold text.
+Becomes the argument to the \fB\-\-name\fP option.
 
 .TP
 .I description
-A set of lines describing the application. A line containing only a '-'
-will result in a small vertical gap. A line beginning with '%' (the
-percent symbol) will be drawn in blue text and is suitable for URLs.
-Other lines will be displayed in black text.
+Split on new lines, each provided as regular argument to
+.IR about\-dialog (1).
 
-.PP
-Additionally, if provided, \fIx\fP and \fIy\fP describe the display
-coordinate at which the window should be centered. Usually, this is the
-center of some other main application window.
+.TP
+\fIx\fP, \fIy\fP
+\fB"\fIx\fB,\fIy\fB"\fR becomes the the argument to the \fB\-\-at\fP option.
 
 .SH SEE ALSO
 .BR about\-dialog (1),
