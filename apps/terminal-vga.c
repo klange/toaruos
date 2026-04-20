@@ -49,46 +49,17 @@
 static int fd_master, fd_slave;
 static FILE * terminal;
 
-static ssize_t  term_width     = 80;    /* Width of the terminal (in cells) */
-static ssize_t  term_height    = 25;    /* Height of the terminal (in cells) */
-static uint16_t csr_x          = 0;    /* Cursor X */
-static uint16_t csr_y          = 0;    /* Cursor Y */
-static uint16_t csr_h          = 0;
-static term_cell_t * term_buffer    = NULL; /* The terminal cell buffer */
-static term_cell_t * term_buffer_a = NULL;
-static term_cell_t * term_buffer_b = NULL;
-static int active_buffer  = 0;
-static int _orig_x = 0;
-static int _orig_y = 0;
-static uint32_t _orig_fg = 7;
-static uint32_t _orig_bg = 0;
-static uint32_t current_fg     = 7;    /* Current foreground color */
-static uint32_t current_bg     = 0;    /* Current background color */
-static uint8_t  cursor_on      = 1;    /* Whether or not the cursor should be rendered */
-
 static uint8_t  _login_shell   = 0;    /* Whether we're going to display a login shell or not */
 
-static uint64_t mouse_ticks = 0;
-
-static int selection = 0;
-static int selection_start_x = 0;
-static int selection_start_y = 0;
-static int selection_start_xx = 0;
-static int selection_end_x = 0;
-static int selection_end_y = 0;
 static char * selection_text = NULL;
 
 #define char_width 1
 #define char_height 1
 
 term_state_t * ansi_state = NULL;
-
-void reinit(void); /* Defined way further down */
-void term_redraw_cursor();
-
-void term_clear();
-
-void dump_buffer();
+static term_state_t * current_terminal(void) {
+	return ansi_state;
+}
 
 static uint64_t get_ticks(void) {
 	struct timeval now;
@@ -169,210 +140,45 @@ uint16_t max(uint16_t a, uint16_t b) {
 	return (a > b) ? a : b;
 }
 
-void set_title(char * c) {
-	/* Do nothing */
-}
-
-static void cell_redraw(uint16_t x, uint16_t y);
-static void cell_redraw_inverted(uint16_t x, uint16_t y);
-
-int is_in_selection(int x, int y) {
-	if (!selection) return 0;
-	if (selection_end_y < selection_start_y) {
-		if (y == selection_end_y) {
-			return (x >= selection_end_x);
-		} else if (y == selection_start_y) {
-			return (x <= selection_start_x);
-		} else {
-			return (y > selection_end_y && y < selection_start_y);
-		}
-	} else if (selection_end_y > selection_start_y) {
-		if (y == selection_start_y) {
-			return (x >= selection_start_x);
-		} else if (y == selection_end_y) {
-			return (x <= selection_end_x);
-		} else {
-			return (y > selection_start_y && y < selection_end_y);
-		}
-	} else if (selection_end_y == selection_start_y) {
-		if (y != selection_end_y) return 0;
-		if (selection_start_x > selection_end_x) {
-			return (x >= selection_end_x && x <= selection_start_x);
-		} else if (selection_start_x < selection_end_x) {
-			return (x >= selection_start_x && x <= selection_end_x);
-		} else {
-			return x == selection_start_x;
-		}
-	}
-	return 0;
-}
-
-void iterate_selection(void (*func)(uint16_t x, uint16_t y)) {
-	if (!selection) return;
-	if (selection_end_y < selection_start_y) {
-		for (int x = selection_end_x; x < term_width; ++x) {
-			func(x, selection_end_y);
-		}
-		for (int y = selection_end_y + 1; y < selection_start_y; ++y) {
-			for (int x = 0; x < term_width; ++x) {
-				func(x, y);
-			}
-		}
-		for (int x = 0; x <= selection_start_xx; ++x) {
-			func(x, selection_start_y);
-		}
-	} else if (selection_start_y == selection_end_y) {
-		if (selection_start_x > selection_end_x) {
-			for (int x = selection_end_x; x <= selection_start_xx; ++x) {
-				func(x, selection_start_y);
-			}
-		} else {
-			for (int x = selection_start_x; x <= selection_end_x || x <= selection_start_xx; ++x) {
-				func(x, selection_start_y);
-			}
-		}
-	} else {
-		for (int x = selection_start_x; x < term_width; ++x) {
-			func(x, selection_start_y);
-		}
-		for (int y = selection_start_y + 1; y < selection_end_y; ++y) {
-			for (int x = 0; x < term_width; ++x) {
-				func(x, y);
-			}
-		}
-		for (int x = 0; x <= selection_end_x; ++x) {
-			func(x, selection_end_y);
-		}
-	}
-
-}
-
-void redraw_selection(void) {
-	iterate_selection(cell_redraw_inverted);
-}
-
-static term_cell_t * cell_at(uint16_t x, uint16_t y) {
-	return (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
-}
-
-static void mark_cell(uint16_t x, uint16_t y) {
-	term_cell_t * c = cell_at(x,y);
-	if (c) {
-		c->flags |= ANSI_MARKED;
-	}
-}
-
-static void mark_selection(void) {
-	iterate_selection(mark_cell);
-}
-
-static void red_cell(uint16_t x, uint16_t y) {
-	term_cell_t * c = cell_at(x,y);
-	if (c) {
-		if (c->flags & ANSI_MARKED) {
-			c->flags &= ~(ANSI_MARKED);
-		} else {
-			c->flags |= ANSI_RED;
-		}
-	}
-}
-
-static void flip_selection(void) {
-	iterate_selection(red_cell);
-	for (int y = 0; y < term_height; ++y) {
-		for (int x = 0; x < term_width; ++x) {
-			term_cell_t * c = cell_at(x,y);
-			if (c) {
-				if (c->flags & ANSI_MARKED) cell_redraw(x,y);
-				if (c->flags & ANSI_RED) cell_redraw_inverted(x,y);
-				c->flags &= ~(ANSI_MARKED | ANSI_RED);
-			}
-		}
-	}
-}
-
 static int _selection_count = 0;
 static int _selection_i = 0;
 
-static int to_eight(uint32_t codepoint, char * out) {
-	memset(out, 0x00, 7);
-
-	if (codepoint < 0x0080) {
-		out[0] = (char)codepoint;
-	} else if (codepoint < 0x0800) {
-		out[0] = 0xC0 | (codepoint >> 6);
-		out[1] = 0x80 | (codepoint & 0x3F);
-	} else if (codepoint < 0x10000) {
-		out[0] = 0xE0 | (codepoint >> 12);
-		out[1] = 0x80 | ((codepoint >> 6) & 0x3F);
-		out[2] = 0x80 | (codepoint & 0x3F);
-	} else if (codepoint < 0x200000) {
-		out[0] = 0xF0 | (codepoint >> 18);
-		out[1] = 0x80 | ((codepoint >> 12) & 0x3F);
-		out[2] = 0x80 | ((codepoint >> 6) & 0x3F);
-		out[3] = 0x80 | ((codepoint) & 0x3F);
-	} else if (codepoint < 0x4000000) {
-		out[0] = 0xF8 | (codepoint >> 24);
-		out[1] = 0x80 | (codepoint >> 18);
-		out[2] = 0x80 | ((codepoint >> 12) & 0x3F);
-		out[3] = 0x80 | ((codepoint >> 6) & 0x3F);
-		out[4] = 0x80 | ((codepoint) & 0x3F);
-	} else {
-		out[0] = 0xF8 | (codepoint >> 30);
-		out[1] = 0x80 | ((codepoint >> 24) & 0x3F);
-		out[2] = 0x80 | ((codepoint >> 18) & 0x3F);
-		out[3] = 0x80 | ((codepoint >> 12) & 0x3F);
-		out[4] = 0x80 | ((codepoint >> 6) & 0x3F);
-		out[5] = 0x80 | ((codepoint) & 0x3F);
-	}
-
-	return strlen(out);
-}
-
-void count_selection(uint16_t x, uint16_t y) {
-	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
+void count_selection(term_state_t * state, uint16_t x, uint16_t y) {
+	term_cell_t * cell = termemu_cell_at(state,x,y);
 	if (((uint32_t *)cell)[0] != 0x00000000) {
 		char tmp[7];
-		_selection_count += to_eight(cell->c, tmp);
+		_selection_count += termemu_to_eight(cell->c, tmp);
 	}
-	if (x == term_width - 1) {
+	if (x == current_terminal()->width - 1) {
 		_selection_count++;
 	}
 }
 
-void write_selection(uint16_t x, uint16_t y) {
-	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
+void write_selection(term_state_t * state, uint16_t x, uint16_t y) {
+	term_cell_t * cell = termemu_cell_at(state,x,y);
 	if (((uint32_t *)cell)[0] != 0x00000000) {
 		char tmp[7];
-		int count = to_eight(cell->c, tmp);
+		int count = termemu_to_eight(cell->c, tmp);
 		for (int i = 0; i < count; ++i) {
 			selection_text[_selection_i] = tmp[i];
 			_selection_i++;
 		}
 	}
-	if (x == term_width - 1) {
+	if (x == current_terminal()->width - 1) {
 		selection_text[_selection_i] = '\n';;
 		_selection_i++;
 	}
 }
 
-
 char * copy_selection(void) {
 	_selection_count = 0;
-	iterate_selection(count_selection);
+	termemu_iterate_selection(current_terminal(), count_selection);
+	if (selection_text) free(selection_text);
+	if (!_selection_count) return NULL;
 
-	if (selection_text) {
-		free(selection_text);
-	}
-
-	if (_selection_count == 0) {
-		return NULL;
-	}
-
-	selection_text = malloc(_selection_count + 1);
-	selection_text[_selection_count] = '\0';
+	selection_text = calloc(_selection_count + 1, 1);
 	_selection_i = 0;
-	iterate_selection(write_selection);
+	termemu_iterate_selection(current_terminal(), write_selection);
 
 	if (selection_text[_selection_count-1] == '\n') {
 		/* Don't end on a line feed */
@@ -434,34 +240,16 @@ static void write_input_buffer(char * data, size_t len) {
 
 void handle_input(char c) {
 	write_input_buffer(&c, 1);
+	termemu_unscroll(current_terminal());
 }
 
 void handle_input_s(char * c) {
 	size_t len = strlen(c);
 	write_input_buffer(c, len);
-}
-
-unsigned short * textmemptr = NULL;
-unsigned short * basecopy = NULL;
-unsigned short * flipcopy = NULL;
-void placech(unsigned char c, int x, int y, int attr) {
-	unsigned int where = y * term_width + x;
-	unsigned int att = (c | (attr << 8));
-	basecopy[where] = att;
+	termemu_unscroll(current_terminal());
 }
 
 static int vga_text_fd = 0;
-
-static void maybe_write_screen(void) {
-	/* This says "maybe_" but we always draw whatever
-	 * needs drawing... */
-	for (int i = 0; i < term_width * term_height; ++i) {
-		if (basecopy[i] != flipcopy[i]) {
-			flipcopy[i] = basecopy[i];
-			pwrite(vga_text_fd, &flipcopy[i], sizeof(unsigned short), i * sizeof(unsigned short));
-		}
-	}
-}
 
 /* ANSI-to-VGA */
 char vga_to_ansi[] = {
@@ -503,316 +291,31 @@ term_write_char(
 	}
 	if (fg == 16) fg = 0;
 	if (bg == 16) bg = 0;
-	placech(val, x, y, (vga_to_ansi[fg] & 0xF) | (vga_to_ansi[bg] << 4));
+
+	unsigned short attr = (vga_to_ansi[fg] & 0xF) | (vga_to_ansi[bg] << 4);
+	unsigned short cell = (val | (attr << 8));
+	pwrite(vga_text_fd, &cell, sizeof(unsigned short), (current_terminal()->width * y + x) * sizeof(unsigned short));
 }
 
-static void cell_set(uint16_t x, uint16_t y, uint32_t c, uint32_t fg, uint32_t bg, uint32_t flags) {
-	if (x >= term_width || y >= term_height) return;
-	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
-	cell->c     = c;
-	cell->fg    = fg;
-	cell->bg    = bg;
-	cell->flags = flags;
-}
-
-static void cell_redraw(uint16_t x, uint16_t y) {
-	if (x >= term_width || y >= term_height) return;
-	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
-	if (((uint32_t *)cell)[0] == 0x00000000) {
-		term_write_char(' ', x * char_width, y * char_height, TERM_DEFAULT_FG, TERM_DEFAULT_BG, TERM_DEFAULT_FLAGS);
-	} else {
-		term_write_char(cell->c, x * char_width, y * char_height, cell->fg, cell->bg, cell->flags);
-	}
-}
-
-static void cell_redraw_inverted(uint16_t x, uint16_t y) {
-	if (x >= term_width || y >= term_height) return;
-	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
-	if (((uint32_t *)cell)[0] == 0x00000000) {
-		term_write_char(' ', x * char_width, y * char_height, TERM_DEFAULT_BG, TERM_DEFAULT_FG, TERM_DEFAULT_FLAGS | ANSI_SPECBG);
-	} else {
-		term_write_char(cell->c, x * char_width, y * char_height, cell->bg, cell->fg, cell->flags | ANSI_SPECBG);
-	}
-}
-
-#if 0
-static void cell_redraw_box(uint16_t x, uint16_t y) {
-	if (x >= term_width || y >= term_height) return;
-	term_cell_t * cell = (term_cell_t *)((uintptr_t)term_buffer + (y * term_width + x) * sizeof(term_cell_t));
-	if (((uint32_t *)cell)[0] == 0x00000000) {
-		term_write_char(' ', x * char_width, y * char_height, TERM_DEFAULT_FG, TERM_DEFAULT_BG, TERM_DEFAULT_FLAGS | ANSI_BORDER);
-	} else {
-		term_write_char(cell->c, x * char_width, y * char_height, cell->fg, cell->bg, cell->flags | ANSI_BORDER);
-	}
-}
-#endif
-
-void render_cursor() {
-	if (!cursor_on) return;
-	cell_redraw_inverted(csr_x, csr_y);
-}
-
-static uint8_t cursor_flipped = 0;
-void draw_cursor() {
-	if (!cursor_on) return;
-	mouse_ticks = get_ticks();
-	cursor_flipped = 0;
-	render_cursor();
-}
-
-void term_redraw_all() {
-	/* Redraw to a temp buffer */
-	for (uint16_t y = 0; y < term_height; ++y) {
-		for (uint16_t x = 0; x < term_width; ++x) {
-			cell_redraw(x,y);
-		}
-	}
-}
-
-void term_shift_region(int top, int height, int how_much) {
-	if (how_much == 0) return;
-
-	int destination, source;
-	int count, new_top, new_bottom;
-	if (how_much > height) {
-		count = 0;
-		new_top = top;
-		new_bottom = top + height;
-	} else if (how_much > 0) {
-		destination = term_width * top;
-		source = term_width * (top + how_much);
-		count = height - how_much;
-		new_top = top + height - how_much;
-		new_bottom = top + height;
-	} else if (how_much < 0) {
-		destination = term_width * (top - how_much);
-		source = term_width * top;
-		count = height + how_much;
-		new_top = top;
-		new_bottom = top - how_much;
-	}
-
-	/* Move from top+how_much to top */
-	if (count) {
-		memmove(term_buffer + destination, term_buffer + source, count * term_width * sizeof(term_cell_t));
-	}
-
-	/* Clear new lines at bottom */
-	for (int i = new_top; i < new_bottom; ++i) {
-		for (uint16_t x = 0; x < term_width; ++x) {
-			cell_set(x, i, ' ', current_fg, current_bg, ansi_state->flags);
+static void maybe_flip_display(int force) {
+	static uint64_t last_refresh;
+	uint64_t ticks = get_ticks();
+	if (!force) {
+		if (ticks < last_refresh + 33330L) {
+			return;
 		}
 	}
 
-	term_redraw_all();
-}
-
-void term_scroll(int how_much) {
-	term_shift_region(0,term_height,how_much);
-}
-
-void insert_delete_lines(int how_many) {
-	if (how_many == 0) return;
-
-	if (how_many > 0) {
-		/* Insert lines is equivalent to scrolling from the current line */
-		term_shift_region(csr_y,term_height-csr_y,-how_many);
-	} else {
-		term_shift_region(csr_y,term_height-csr_y,-how_many);
-	}
-}
-
-int is_wide(uint32_t codepoint) {
-	if (codepoint < 256) return 0;
-	return wcwidth(codepoint) == 2;
-}
-
-static void undraw_cursor(void) {
-	cell_redraw(csr_x, csr_y);
-}
-
-static void normalize_x(int setting_lcf) {
-	if (csr_x >= term_width) {
-		csr_x = term_width - 1;
-		if (setting_lcf) {
-			csr_h = 1;
-		}
-	}
-}
-
-static void normalize_y(void) {
-	if (csr_y == term_height) {
-		term_scroll(1);
-		csr_y = term_height - 1;
-	}
-}
-
-
-void term_write(char c) {
-	static uint32_t codepoint = 0;
-	static uint32_t unicode_state = 0;
-
-	if (!decode(&unicode_state, &codepoint, (uint8_t)c)) {
-		uint32_t o = codepoint;
-		codepoint = 0;
-
-		switch (c) {
-			case '\a':
-				/* boop */
-				return;
-
-			case '\r':
-				undraw_cursor();
-				csr_x = csr_h = 0;
-				draw_cursor();
-				return;
-
-			case '\t':
-				undraw_cursor();
-				csr_x += (8 - csr_x % 8);
-				normalize_x(0);
-				draw_cursor();
-				return;
-
-			case '\v':
-			case '\f':
-			case '\n':
-				undraw_cursor();
-				csr_h = 0;
-				++csr_y;
-				normalize_y();
-				draw_cursor();
-				return;
-
-			case '\b':
-				if (csr_x > 0) {
-					undraw_cursor();
-					--csr_x;
-					draw_cursor();
-				}
-				csr_h = 0;
-				return;
-
-			default: {
-				int wide = is_wide(o);
-				uint32_t flags = ansi_state->flags;
-
-				undraw_cursor();
-
-				if (csr_h || (wide && csr_x == term_width - 1)) {
-					csr_x = csr_h = 0;
-					++csr_y;
-					normalize_y();
-				}
-
-				if (wide) {
-					flags = flags | ANSI_WIDE;
-				}
-
-				cell_set(csr_x,csr_y, o, current_fg, current_bg, flags);
-				cell_redraw(csr_x,csr_y);
-				csr_x++;
-
-				if (wide && csr_x != term_width) {
-					cell_set(csr_x, csr_y, 0xFFFF, current_fg, current_bg, ansi_state->flags);
-					cell_redraw(csr_x,csr_y);
-					cell_redraw(csr_x-1,csr_y);
-					csr_x++;
-				}
-
-				normalize_x(1);
-				draw_cursor();
-				return;
+	last_refresh = ticks;
+	term_state_t * state = current_terminal();
+	for (int y = 0; y < state->height; ++y) {
+		for (int x = 0; x < state->width; ++x) {
+			term_cell_t * cell_m = &state->term_mirror[y * state->width + x];
+			term_cell_t * cell_d = &state->term_display[y * state->width + x];
+			if (memcmp(cell_m, cell_d, sizeof(term_cell_t))) {
+				*cell_d = *cell_m;
+				term_write_char(cell_m->c, x, y, cell_m->fg, cell_m->bg, cell_m->flags);
 			}
-		}
-	} else if (unicode_state == UTF8_REJECT) {
-		unicode_state = 0;
-		codepoint = 0;
-	}
-}
-
-void term_set_csr(int x, int y) {
-	cell_redraw(csr_x,csr_y);
-	if (x < 0) x = 0;
-	if (x >= term_width) x = term_width - 1;
-	if (y < 0) y = 0;
-	if (y >= term_height) y = term_height - 1;
-	csr_x = x;
-	csr_y = y;
-	csr_h = 0;
-	draw_cursor();
-}
-
-int term_get_csr_x() {
-	return csr_x;
-}
-
-int term_get_csr_y() {
-	return csr_y;
-}
-
-void term_set_csr_show(int on) {
-	cursor_on = on;
-	if (on) {
-		draw_cursor();
-	}
-}
-
-void term_set_colors(uint32_t fg, uint32_t bg) {
-	current_fg = fg;
-	current_bg = bg;
-}
-
-void term_redraw_cursor() {
-	if (term_buffer) {
-		draw_cursor();
-	}
-}
-
-void flip_cursor() {
-	if (cursor_flipped) {
-		cell_redraw(csr_x, csr_y);
-	} else {
-		render_cursor();
-	}
-	cursor_flipped = 1 - cursor_flipped;
-}
-
-void term_set_cell(int x, int y, uint32_t c) {
-	cell_set(x, y, c, current_fg, current_bg, ansi_state->flags);
-	cell_redraw(x, y);
-}
-
-void term_redraw_cell(int x, int y) {
-	if (x < 0 || y < 0 || x >= term_width || y >= term_height) return;
-	cell_redraw(x,y);
-}
-
-void term_clear(int i) {
-	if (i == 2) {
-		/* Oh dear */
-		csr_x = 0;
-		csr_y = 0;
-		csr_h = 0;
-		memset((void *)term_buffer, 0x00, term_width * term_height * sizeof(term_cell_t));
-		term_redraw_all();
-	} else if (i == 0) {
-		for (int x = csr_x; x < term_width; ++x) {
-			term_set_cell(x, csr_y, ' ');
-		}
-		for (int y = csr_y + 1; y < term_height; ++y) {
-			for (int x = 0; x < term_width; ++x) {
-				term_set_cell(x, y, ' ');
-			}
-		}
-	} else if (i == 1) {
-		for (int y = 0; y < csr_y; ++y) {
-			for (int x = 0; x < term_width; ++x) {
-				term_set_cell(x, y, ' ');
-			}
-		}
-		for (int x = 0; x < csr_x; ++x) {
-			term_set_cell(x, csr_y, ' ');
 		}
 	}
 }
@@ -825,7 +328,7 @@ void key_event(int ret, key_event_t * event) {
 		if ((event->modifiers & KEY_MOD_LEFT_SHIFT || event->modifiers & KEY_MOD_RIGHT_SHIFT) &&
 			(event->modifiers & KEY_MOD_LEFT_CTRL || event->modifiers & KEY_MOD_RIGHT_CTRL) &&
 			(event->keycode == 'c')) {
-			if (selection) {
+			if (current_terminal()->selection) {
 				/* Copy selection */
 				copy_selection();
 			}
@@ -968,16 +471,32 @@ void key_event(int ret, key_event_t * event) {
 				}
 				break;
 			case KEY_PAGE_UP:
-				handle_input_s("\033[5~");
+				if (event->modifiers & KEY_MOD_LEFT_SHIFT) {
+					if (current_terminal()->active_buffer != 1) termemu_scroll_up(current_terminal(), current_terminal()->height/2);
+				} else {
+					handle_input_s("\033[5~");
+				}
 				break;
 			case KEY_PAGE_DOWN:
-				handle_input_s("\033[6~");
+				if (event->modifiers & KEY_MOD_LEFT_SHIFT) {
+					if (current_terminal()->active_buffer != 1) termemu_scroll_down(current_terminal(), current_terminal()->height/2);
+				} else {
+					handle_input_s("\033[6~");
+				}
 				break;
 			case KEY_HOME:
-				handle_input_s("\033[H");
+				if (event->modifiers & KEY_MOD_LEFT_SHIFT) {
+					termemu_scroll_top(current_terminal());
+				} else {
+					handle_input_s("\033[H");
+				}
 				break;
 			case KEY_END:
-				handle_input_s("\033[F");
+				if (event->modifiers & KEY_MOD_LEFT_SHIFT) {
+					termemu_unscroll(current_terminal());
+				} else {
+					handle_input_s("\033[F");
+				}
 				break;
 			case KEY_DEL:
 				handle_input_s("\033[3~");
@@ -1003,103 +522,23 @@ int usage(char * argv[]) {
 	return 1;
 }
 
-int unsupported_int(void) { return 0; }
-void unsupported(int x, int y, char * data) { }
+static int term_char_size(term_state_t * s) { return 0; }
 
-#define SWAP(T,a,b) do { T _a = a; a = b; b = _a; } while(0);
-static void term_switch_buffer(int buffer) {
-	if (buffer != 0 && buffer != 1) return;
-	if (buffer != active_buffer) {
-		active_buffer = buffer;
-		term_buffer = active_buffer == 0 ? term_buffer_a : term_buffer_b;
-
-		SWAP(int, csr_x, _orig_x);
-		SWAP(int, csr_y, _orig_y);
-		SWAP(uint32_t, current_fg, _orig_fg);
-		SWAP(uint32_t, current_bg, _orig_bg);
-
-		term_redraw_all();
-	}
-}
-
-static void full_reset(void) {
-	/* Reset everything */
-	csr_x = 0;
-	csr_y = 0;
-	csr_h = 0;
-
-	/* Huh, why don't we haven't an _orig_h - surely hold should be saved? */
-	_orig_x = 0;
-	_orig_y = 0;
-
-	current_fg = TERM_DEFAULT_FG;
-	current_bg = TERM_DEFAULT_BG;
-	_orig_fg = TERM_DEFAULT_FG;
-	_orig_bg = TERM_DEFAULT_BG;
-
-	active_buffer = 0;
-	term_buffer = term_buffer_a;
-
-	/* Clear both buffers to 0 */
-	memset((void *)term_buffer_a, 0x00, term_width * term_height * sizeof(term_cell_t));
-	memset((void *)term_buffer_b, 0x00, term_width * term_height * sizeof(term_cell_t));
-
-	/* Enable cursor */
-	cursor_on = 1;
+static void input_buffer_stuff(term_state_t * state, char * str) {
+	handle_input_s(str);
 }
 
 term_callbacks_t term_callbacks = {
-	term_write,
-	term_set_colors,
-	term_set_csr,
-	term_get_csr_x,
-	term_get_csr_y,
-	term_set_cell,
-	term_clear,
-	term_scroll,
-	term_redraw_cursor,
-	handle_input_s,
-	set_title,
-	unsupported,
-	unsupported_int,
-	unsupported_int,
-	term_set_csr_show,
-	term_switch_buffer,
-	insert_delete_lines,
-	full_reset,
+	NULL,
+	NULL,
+	input_buffer_stuff,
+	NULL,
+	NULL,
+	term_char_size,
+	term_char_size,
+	NULL,
 	NULL,
 };
-
-void reinit(void) {
-	if (term_buffer) {
-		/* Do nothing */
-	} else {
-		term_buffer_a = malloc(sizeof(term_cell_t) * term_width * term_height);
-		memset(term_buffer_a, 0x0, sizeof(term_cell_t) * term_width * term_height);
-
-		term_buffer_b = malloc(sizeof(term_cell_t) * term_width * term_height);
-		memset(term_buffer_b, 0x0, sizeof(term_cell_t) * term_width * term_height);
-
-		term_buffer = term_buffer_a;
-		basecopy = malloc(sizeof(unsigned short) * term_width * term_height);
-		memset(basecopy, 0, sizeof(unsigned short) * term_width * term_height);
-		flipcopy = malloc(sizeof(unsigned short) * term_width * term_height);
-		memset(flipcopy, 0, sizeof(unsigned short) * term_width * term_height);
-	}
-
-	ansi_state = ansi_init(ansi_state, term_width, term_height, &term_callbacks);
-	term_redraw_all();
-}
-
-
-void maybe_flip_cursor(void) {
-	uint64_t ticks = get_ticks();
-	if (ticks > mouse_ticks + 600000LL) {
-		mouse_ticks = ticks;
-		flip_cursor();
-	}
-}
-
 
 void check_for_exit(void) {
 	if (exit_application) return;
@@ -1140,16 +579,14 @@ static void mouse_event(int button, int x, int y) {
 
 static void redraw_mouse(void) {
 	/* Redraw previous cursor position */
-	if (is_in_selection(old_x, old_y)) {
-		cell_redraw_inverted(old_x, old_y);
-	} else {
-		cell_redraw(old_x, old_y);
+	if (old_x != mouse_x || old_y != mouse_y) {
+		term_cell_t * cell_d = &current_terminal()->term_display[old_y * current_terminal()->width + old_x];
+		cell_d->c = 0xFF;
+		termemu_redraw_scrollback(current_terminal());
+		termemu_redraw_selection(current_terminal());
 	}
-	term_cell_t * cell = term_buffer + (mouse_y * term_width + mouse_x);
+	term_cell_t * cell = &current_terminal()->term_mirror[old_y * current_terminal()->width + old_x];
 	int current_background = cell->bg;
-	if (is_in_selection(mouse_x, mouse_y)) {
-		current_background = (((uint32_t *)cell)[0] == 0) ? TERM_DEFAULT_FG : cell->fg;
-	}
 	/* Get new cursor position character */
 	int cursor_color = (current_background == 12) ? 15 : 12;
 	term_write_char(L'▲', mouse_x, mouse_y, cursor_color, current_background, 0);
@@ -1162,10 +599,9 @@ static unsigned int button_state = 0;
 void handle_mouse_event(mouse_device_packet_t * packet) {
 	if (mouse_x < 0) mouse_x = 0;
 	if (mouse_y < 0) mouse_y = 0;
-	if (mouse_x >= term_width) mouse_x = term_width - 1;
-	if (mouse_y >= term_height) mouse_y = term_height - 1;
+	if (mouse_x >= current_terminal()->width)  mouse_x = current_terminal()->width - 1;
+	if (mouse_y >= current_terminal()->height) mouse_y = current_terminal()->height - 1;
 
-	static uint64_t last_click = 0;
 	if (ansi_state->mouse_on & TERMEMU_MOUSE_ENABLE) {
 		/* TODO: Handle shift */
 		if (packet->buttons & MOUSE_SCROLL_UP) {
@@ -1195,49 +631,15 @@ void handle_mouse_event(mouse_device_packet_t * packet) {
 	}
 	if (mouse_is_dragging) {
 		if (packet->buttons & LEFT_CLICK) {
-			mark_selection();
-			selection_end_x = mouse_x;
-			selection_end_y = mouse_y;
-			selection = 1;
-			flip_selection();
+			termemu_selection_drag(current_terminal(), mouse_x, mouse_y);
 		} else {
 			mouse_is_dragging = 0;
 		}
-	} else {
-		if (packet->buttons & LEFT_CLICK) {
-			term_redraw_all();
-			uint64_t now = get_ticks();
-			if (now - last_click < 500000UL && (mouse_x == selection_start_x && mouse_y == selection_start_y)) {
-				/* Double click */
-				while (selection_start_x > 0) {
-					term_cell_t * c = cell_at(selection_start_x-1, selection_start_y);
-					if (!c || c->c == ' ' || !c->c) break;
-					selection_start_x--;
-				}
-				while (selection_end_x < term_width - 1) {
-					term_cell_t * c = cell_at(selection_end_x+1, selection_end_y);
-					if (!c || c->c == ' ' || !c->c) break;
-					selection_end_x++;
-				}
-				selection_start_xx = selection_end_x;
-				selection = 1;
-			} else {
-				last_click = get_ticks();
-				selection_start_x = mouse_x;
-				selection_start_xx = mouse_x;
-				selection_start_y = mouse_y;
-				selection_end_x = mouse_x;
-				selection_end_y = mouse_y;
-				selection = 0;
-			}
-			redraw_selection();
-			mouse_is_dragging = 1;
-		} else {
-			redraw_mouse();
-		}
+	} else if (packet->buttons & LEFT_CLICK) {
+		termemu_selection_click(current_terminal(), mouse_x, mouse_y);
+		mouse_is_dragging = 1;
 	}
-
-
+	redraw_mouse();
 }
 
 static int rel_mouse_x = 0;
@@ -1304,6 +706,9 @@ int main(int argc, char ** argv) {
 		fprintf(stderr, "%s: %s: %s\n", argv[0], TEXT_MODE_DEVICE, strerror(errno));
 		return 1;
 	}
+
+	int term_width, term_height;
+
 	ioctl(vga_text_fd, IO_VID_WIDTH,  &term_width);
 	ioctl(vga_text_fd, IO_VID_HEIGHT, &term_height);
 	ioctl(vga_text_fd, IO_VGA_MOUSE_ADJ, &mouse_r);
@@ -1321,7 +726,8 @@ int main(int argc, char ** argv) {
 	w.ws_ypixel = 0;
 	ioctl(fd_master, TIOCSWINSZ, &w);
 
-	reinit();
+	ansi_state = termemu_init(term_width, term_height, &term_callbacks);
+	termemu_init_scrollback(ansi_state, 10000);
 
 	pthread_t input_buffer_thread;
 	pipe(input_buffer_semaphore);
@@ -1404,13 +810,16 @@ int main(int argc, char ** argv) {
 
 			check_for_exit();
 
-			if (input_stopped) continue;
+			if (input_stopped) {
+				maybe_flip_display(0);
+				continue;
+			}
 
-			maybe_flip_cursor();
+			termemu_maybe_flip_cursor(current_terminal());
 			if (res[0]) {
 				int r = read(fd_master, buf, BUF_SIZE);
 				for (int i = 0; i < r; ++i) {
-					ansi_put(ansi_state, buf[i]);
+					termemu_put(ansi_state, buf[i]);
 				}
 			}
 			if (res[1]) {
@@ -1440,7 +849,7 @@ int main(int argc, char ** argv) {
 					handle_mouse_abs(&packet);
 				}
 			}
-			maybe_write_screen();
+			maybe_flip_display(1);
 		}
 
 	}
