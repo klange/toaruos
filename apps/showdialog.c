@@ -154,7 +154,7 @@ static sprite_t * image_or_icon(const char * path) {
 }
 
 static int usage(char * argv[]) {
-	fprintf(stderr, "usage: %s [-t title] [-i icon] [-a x,y] text...", argv[0]);
+	fprintf(stderr, "usage: %s [-t title] [-i icon] [-a x,y] text...\n", argv[0]);
 	return 1;
 }
 
@@ -163,11 +163,6 @@ int main(int argc, char * argv[]) {
 	int req_center_x = 0;
 	int req_center_y = 0;
 	yutani_wid_t parent_window = 0;
-	yctx = yutani_init();
-	if (!yctx) {
-		fprintf(stderr, "%s: failed to connect to compositor\n", argv[0]);
-		return 1;
-	}
 
 	struct option long_opts[] = {
 		{"title",required_argument,0,'t'},
@@ -221,6 +216,12 @@ int main(int argc, char * argv[]) {
 
 	if (optind == argc) return usage(argv);
 	body_text = &argv[optind];
+
+	yctx = yutani_init();
+	if (!yctx) {
+		fprintf(stderr, "%s: failed to connect to compositor\n", argv[0]);
+		return 1;
+	}
 
 	init_decorations();
 
