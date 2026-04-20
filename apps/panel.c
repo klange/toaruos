@@ -333,7 +333,7 @@ static void redraw_alttab(void) {
 
 static pthread_t _waiter_thread;
 static void * logout_prompt_waiter(void * arg) {
-	if (system("showdialog \"Log Out\" /usr/share/icons/48/exit.png \"Are you sure you want to log out?\"") == 0) {
+	if (system("showdialog --title 'Log Out' --icon exit 'Are you sure you want to log out?'") == 0) {
 		yutani_session_end(yctx);
 		_continue = 0;
 	}

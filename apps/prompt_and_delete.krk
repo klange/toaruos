@@ -15,10 +15,10 @@ if callbackPid < 1:
 
 count -= 2
 
-def show_dialog(msg,title="File Browser",icon="/usr/share/icons/48/folder.png"):
+def show_dialog(msg,title="File Browser",icon="folder"):
     let pid = os.fork()
     if pid == 0:
-        os.execvp('showdialog',['showdialog',title,icon,msg])
+        os.execvp('showdialog',['showdialog','--title',title,'--icon',icon,'--cancel-label','No','--okay-label','Yes',*msg])
         os.exit(1)
     while True:
         let result = _waitpid.waitpid(pid)
@@ -26,7 +26,7 @@ def show_dialog(msg,title="File Browser",icon="/usr/share/icons/48/folder.png"):
             continue
         return result[1] == 0
 
-if show_dialog(f'This will permanently delete {count} file{"s" if count != 1 else ""}.'):
+if show_dialog([f'This will permanently delete {count} file{"s" if count != 1 else ""}.','Continue?']):
     for file in kuroko.argv[2:]:
         try:
             os.remove(file)

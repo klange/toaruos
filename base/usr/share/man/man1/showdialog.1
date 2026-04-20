@@ -4,7 +4,8 @@
 \fBshowdialog\fP \- show a graphical dialog prompt
 
 .SH SYNOPSIS
-\fBshowdialog\fP [\fItitle\fP \fIicon\fP \fIbody\fP [\fIx\fP \fIy\fP]]
+\fBshowdialog\fP [\fB\-\-title\fP \fItitle\fP] [\fB\-\-icon\fP \fIicon\fP] [\fB\-\-at\fP \fIx\fP,\fIy\fP] [\fB\-\-parent\fP \fIwid\fP]
+           [\fB\-\-disable\-cancel\fP] [\fB\-\-cancel\-label\fP \fIlabel\fP] [\fB\-\-okay\-label\fP \fIlabel\fP] \fIbody\fP...
 
 .SH DESCRIPTION
 Similar to
@@ -14,21 +15,56 @@ the icon is displayed to the left of the text, the window is wider,
 buttons for "Okay" and "Cancel" are shown and the exit status
 can be checked to determine which button was pressed.
 .PP
-The \fIicon\fP must be a path to an image loadable by
-.IR load_sprite (3).
-.PP
-The \fIbody\fP may be multiple lines.
+Each \fIbody\fP argument will be shown as a separate line, and the window
+will be resized to be tall enough to fit them.
 No text reflow will be performed, and no inline markup is supported.
 Lines starting with '-' will be skipped and result in a small vertical space.
 Lines beginning with '%' will be drawn in blue.
-.PP
-If the option \fIx\fP and \fIy\fP arguments are provided, the window
-will be centered at those display coordinates.
 
-.SH BUGS
-While up to 20 lines of \fIbody\fP text can be provided, the utility
-will not resize the window to account for them.
-Users should generally limit the number of lines to 3.
+.SS Options
+
+.TP
+.B \-\-title \fItitle\fP
+Set the window title for the dialog.
+Without this option, the default title is \fB"Dialog Prompt"\fP.
+
+.TP
+.B \-\-icon \fIicon\fP
+Set the icon to be displayed.
+Without this option, the default icon is \fBgeneric\fP.
+The \fIicon\fP may be a path to a loadable sprite or the name of an icon
+recognized by
+.IR libtoaru_icon_cache (3).
+If a path is used, the icon used in window advertisements for the dialog
+will be the \fBgeneric\fP icon.
+
+.TP
+.B \-\-at \fIx\fP,\fIy\fP
+Center the dialog box at these coordinates.
+When combined with the \fB\-\-parent\fP option, the coordinates are
+relative to the upper left of the parent window; to center a dialog
+within a window, use half the width and height as the argument to
+\fB\-\-at\fP.
+
+.TP
+.B \-\-parent \fIwid\fP
+Make the dialog a child window of \fIwid\fP.
+With the \fB\-\-at\fP option, the dialog box will be centered at the
+upper left corner of the parent window, which is probably not what
+you want.
+
+.TP
+.B \-\-disable\-cancel
+Disable the "Cancel" button.
+It will be rendered as such and not be clickable.
+
+.TP
+.B \-\-cancel-label \fIlabel\fP
+Set the label on the "Cancel" button to \fIlabel\fP instead of "Cancel".
+
+.TP
+.B \-\-okay-label \fIlabel\fP
+Set the label on the "Okay" button to \fIlable\fP instead of "Okay".
 
 .SH EXIT STATUS
 .TP

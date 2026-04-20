@@ -466,9 +466,21 @@ static void load_directory(const char * path, int modifies_history) {
 		 * but it should use a dialog library like with the buttons.
 		 */
 		if (!fork()) {
-			char tmp[512];
-			sprintf(tmp, "Could not open directory \"%s\": %s", path, strerror(errno));
-			char * args[] = {"showdialog","File Browser","/usr/share/icons/48/folder.png",tmp,NULL};
+			char * tmp;
+			char wid[100];
+			snprintf(wid,100,"%d",main_window->wid);
+			char coords[100];
+			snprintf(coords,100,"%d,%d",(int)main_window->width / 2,(int)main_window->height / 2);
+			asprintf(&tmp, "Could not open directory \"%s\": %s", path, strerror(errno));
+			char * args[] = {"showdialog",
+				"--title","File Browser",
+				"--icon","folder",
+				"--parent",wid,
+				"--at",coords,
+				"--disable-cancel",
+				tmp,
+				NULL
+			};
 			execvp(args[0],args);
 			exit(0);
 		}

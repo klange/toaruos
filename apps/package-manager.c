@@ -239,7 +239,7 @@ static void load_manifest(void) {
 	}
 
 	if (!pkg_pointers_len) {
-		system("showdialog 'Package Manager' '/usr/share/icons/48/package.png' 'No packages are available.' &");
+		system("showdialog --title 'Package Manager' --icon package 'No packages are available.' &");
 	}
 }
 
@@ -490,8 +490,9 @@ int main(int argc, char * argv[]) {
 	if (geteuid() != 0) {
 		char * args[] = {
 			"showdialog",
-			"Package Manager",
-			"/usr/share/icons/48/package.png",
+			"--title", "Package Manager",
+			"--icon", "package",
+			"--disable-cancel",
 			"Only root can manage packages.",
 			NULL,
 		};

@@ -130,7 +130,7 @@ static void weather_refresh(struct MenuEntry * self) {
 
 static void weather_configure(struct MenuEntry * self) {
 	(void)self;
-	system("terminal sh -c \"sudo weather-configurator; weather-tool\" &");
+	system("terminal -- sh -c \"sudo weather-configurator; weather-tool\" &");
 }
 
 static int widget_click_weather(struct PanelWidget * this, struct yutani_msg_window_mouse_event * evt) {
