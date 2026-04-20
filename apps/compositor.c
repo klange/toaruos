@@ -2514,6 +2514,7 @@ int main(int argc, char * argv[]) {
 			execvp(args[0], args);
 			TRACE("Failed to start app?");
 		}
+		exit(127);
 	}
 
 	int fds[4];

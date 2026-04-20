@@ -49,6 +49,7 @@ int main(int argc, char * argv[]) {
 		char * args[] = {"/bin/glogin",NULL};
 		execvp(args[0],args);
 		system("reboot");
+		exit(127);
 	}
 
 	do {

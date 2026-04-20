@@ -203,6 +203,8 @@ int main(int argc, char * argv[]) {
 				NULL
 			};
 			execvp(args[0], args);
+			exit(2); /* Ensures login-loop halts */
+			
 		} else {
 			int result, status;
 			do {
