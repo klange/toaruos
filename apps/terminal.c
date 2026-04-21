@@ -1436,6 +1436,7 @@ static void reinit(void) {
 _done:
 	render_decors();
 	termemu_redraw_all(current_terminal());
+	termemu_draw_cursor(current_terminal());
 	maybe_flip_display(1);
 }
 
