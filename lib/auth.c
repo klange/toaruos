@@ -88,15 +88,13 @@ void toaru_auth_get_groups(uid_t uid, int *groupCount, gid_t *groups) {
 	if (!groupList) return;
 
 	/* Scan through lines of groups. */
-#define LINE_LEN 2048
-	char * pw_blob = malloc(LINE_LEN);
+	char * pw_blob = NULL;
+	size_t avail = 0;
 
 	while (!feof(groupList)) {
-		memset(pw_blob, 0x00, LINE_LEN);
-		fgets(pw_blob, LINE_LEN, groupList);
-		if (pw_blob[strlen(pw_blob)-1] == '\n') {
-			pw_blob[strlen(pw_blob)-1] = '\0'; /* erase newline */
-		}
+		ssize_t len;
+		if ((len = getline(&pw_blob, &avail, groupList)) <= 0) break;
+		if (pw_blob[len-1] == '\n') pw_blob[len-1] = '\0';
 
 		/* Tokenize */
 		char * memberlist = NULL;
