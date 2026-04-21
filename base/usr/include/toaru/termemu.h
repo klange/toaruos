@@ -151,6 +151,7 @@ typedef struct TermemuState {
 /* TODO: _MOUSE_URXVT         0x80 */
 
 extern term_state_t * termemu_init(int w, int h, int max_scrollback, term_callbacks_t * callbacks_in);
+extern void termemu_free(term_state_t * state);
 extern int termemu_reinit(term_state_t * state, int w, int h);
 extern void termemu_put(term_state_t * s, char c);
 

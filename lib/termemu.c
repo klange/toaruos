@@ -595,6 +595,20 @@ term_state_t * termemu_init(int w, int h, int max_scrollback, term_callbacks_t *
 	return s;
 }
 
+void termemu_free(term_state_t * state) {
+	free(state->term_buffer_a);
+	free(state->term_buffer_b);
+	free(state->term_mirror);
+	free(state->term_display);
+	list_destroy(state->scrollback_list);
+	list_free(state->scrollback_list);
+	free(state->scrollback_list);
+
+	if (state->img_data) free(state->img_data);
+
+	free(state);
+}
+
 static term_cell_t * copy_terminal(term_state_t * state, int new_width, int new_height, int old_width, int old_height, term_cell_t * term_buffer) {
 	term_cell_t * new_term_buffer = malloc(sizeof(term_cell_t) * new_width * new_height);
 
