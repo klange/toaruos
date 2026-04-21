@@ -1617,7 +1617,9 @@ static void * handle_incoming(void) {
 					if (win == window) {
 						win->focused = wf->focused;
 						render_decors();
-						current_terminal()->focused = wf->focused;
+						foreach (node, terminals) {
+							((term_state_t*)node->value)->focused = wf->focused;
+						}
 						termemu_draw_cursor(current_terminal());
 						maybe_flip_display(1);
 					}
