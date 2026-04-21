@@ -1050,11 +1050,23 @@ void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx) {
 		_entries = self->entries;
 	}
 	while (_entries->title) {
-		int w = string_width(_entries->title) + 11;
+		char * title = _entries->title;
+		int draw_tab = 0;
+		int is_tab = (*title == '\t' || *title == '\v');
+		if (is_tab) {
+			draw_tab = *title;
+			title++;
+		}
+
+		int w = string_width(title) + 11;
 		if ((self->active_menu && hashmap_has(menu_get_windows_hash(), (void*)(uintptr_t)self->active_menu_wid)) && _entries == self->active_entry) {
 			draw_rectangle(subctx, offset + 2, 0, w, height, rgb(93,163,236));
+		} else if (draw_tab == '\v') {
+			draw_rounded_rectangle(subctx, offset + 2, 0, w, height + 3, 4, rgb(200,200,200));
+		} else if (draw_tab == '\t') {
+			/* Nothing special yet */
 		}
-		draw_string(subctx, offset + 7, 2, 0xFFFFFFFF, _entries->title);
+		draw_string(subctx, offset + 7, 2, (draw_tab != '\v') ? rgb(255,255,255) : rgb(0,0,0), title);
 		offset += w;
 		_entries++;
 	}
@@ -1063,6 +1075,8 @@ void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx) {
 }
 
 void menu_bar_show_menu(yutani_t * yctx, yutani_window_t * window, struct menu_bar * self, int offset, struct menu_bar_entries * _entries) {
+	if (*_entries->title == '\t' || *_entries->title == '\v') return;
+
 	struct MenuList * new_menu = menu_set_get_menu(self->set, _entries->action);
 	int i = 0;
 
@@ -1072,7 +1086,9 @@ void menu_bar_show_menu(yutani_t * yctx, yutani_window_t * window, struct menu_b
 		struct menu_bar_entries * e = self->entries;
 		while (e->title) {
 			if (e == _entries) break;
-			offset += string_width(e->title) + 10;
+			char * title = e->title;
+			if (*title == '\t' || *title == '\v') title++;
+			offset += string_width(title) + 10;
 			e++;
 			i++;
 		}
@@ -1110,13 +1126,23 @@ int menu_bar_mouse_event(yutani_t * yctx, yutani_window_t * window, struct menu_
 	struct menu_bar_entries * _entries = self->entries;
 
 	while (_entries->title) {
-		int w = string_width(_entries->title) + 11;
+		char * title = _entries->title;
+		int is_tab = (*title == '\t' || *title == '\v');
+		if (is_tab) title++;
+		int w = string_width(title) + 11;
 		if (x >= offset && x < offset + w) {
 			if (me->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(me)) {
-				menu_bar_show_menu(yctx, window, self,offset,_entries);
+				if (is_tab) {
+					((struct menu_bar_with_tabs*)self)->tab_callback((struct menu_bar_with_tabs*)self, _entries);
+					return 0;
+				} else {
+					menu_bar_show_menu(yctx, window, self,offset,_entries);
+				}
 			} else if (self->active_menu && hashmap_has(menu_get_windows_hash(), (void*)(uintptr_t)self->active_menu_wid) && _entries != self->active_entry) {
-				menu_definitely_close(self->active_menu);
-				menu_bar_show_menu(yctx, window, self,offset,_entries);
+				if (!is_tab) {
+					menu_definitely_close(self->active_menu);
+					menu_bar_show_menu(yctx, window, self,offset,_entries);
+				}
 			}
 		}
 

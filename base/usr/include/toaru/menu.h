@@ -145,6 +145,11 @@ struct menu_bar {
 	void (*redraw_callback)(struct menu_bar *);
 };
 
+struct menu_bar_with_tabs {
+	struct menu_bar _super;
+	void (*tab_callback) (struct menu_bar_with_tabs*, struct menu_bar_entries *);
+};
+
 extern void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx);
 extern int menu_bar_mouse_event(yutani_t * yctx, yutani_window_t * window, struct menu_bar * self, struct yutani_msg_window_mouse_event * me, int x, int y);
 extern void menu_bar_show_menu(yutani_t * yctx, yutani_window_t * window, struct menu_bar * self, int offset, struct menu_bar_entries * _entries);
