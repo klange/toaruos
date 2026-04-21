@@ -566,7 +566,7 @@ void termemu_put(term_state_t * s, char c) {
 	spin_unlock(&s->lock);
 }
 
-term_state_t * termemu_init(int w, int h, term_callbacks_t * callbacks_in) {
+term_state_t * termemu_init(int w, int h, int max_scrollback, term_callbacks_t * callbacks_in) {
 	term_state_t * s = calloc(1, sizeof(term_state_t));
 
 	/* Terminal Defaults */
@@ -588,6 +588,9 @@ term_state_t * termemu_init(int w, int h, term_callbacks_t * callbacks_in) {
 	s->term_buffer = s->term_buffer_a;
 	s->cursor_on = 1;
 	s->focused = 1;
+	s->max_scrollback = max_scrollback;
+	s->scrollback_list = list_create();
+	s->scrollback_offset = 0;
 
 	return s;
 }
@@ -633,15 +636,7 @@ int termemu_reinit(term_state_t * state, int w, int h) {
 	memset(state->term_display, 0xFF, sizeof(term_cell_t) * w * h);
 	state->width = w;
 	state->height = h;
-	return 0; /* TODO */
-}
-
-void termemu_init_scrollback(term_state_t * s, int max_scrollback) {
-	s->scrollback = malloc(sizeof(struct TermemuScrollbackState));
-
-	s->scrollback->max_scrollback = max_scrollback;
-	s->scrollback->scrollback_list = list_create();
-	s->scrollback->scrollback_offset = 0;
+	return 0;
 }
 
 /* Call a function for each selected cell */
@@ -688,12 +683,12 @@ static void term_cell_redraw_offset(term_state_t * state, uint16_t x, uint16_t _
 	int y = _y;
 	int i = y;
 
-	y -= state->scrollback->scrollback_offset;
+	y -= state->scrollback_offset;
 
 	if (y >= 0) {
 		term_mirror_copy(state, x,i,&state->term_buffer[y * state->width + x]);
 	} else {
-		node_t * node = state->scrollback->scrollback_list->tail;
+		node_t * node = state->scrollback_list->tail;
 		for (; y < -1; y++) {
 			if (!node) break;
 			node = node->prev;
@@ -713,12 +708,12 @@ static void term_cell_redraw_offset_inverted(term_state_t * state, uint16_t x, u
 	int y = _y;
 	int i = y;
 
-	y -= state->scrollback->scrollback_offset;
+	y -= state->scrollback_offset;
 
 	if (y >= 0) {
 		term_mirror_copy_inverted(state, x,i,&state->term_buffer[y * state->width + x]);
 	} else {
-		node_t * node = state->scrollback->scrollback_list->tail;
+		node_t * node = state->scrollback_list->tail;
 		for (; y < -1; y++) {
 			if (!node) break;
 			node = node->prev;
@@ -742,11 +737,11 @@ void termemu_redraw_selection(term_state_t * state) {
 
 term_cell_t * termemu_cell_at(term_state_t * state, uint16_t x, uint16_t _y) {
 	int y = _y;
-	y -= state->scrollback->scrollback_offset;
+	y -= state->scrollback_offset;
 	if (y >= 0) {
 		return &state->term_buffer[y * state->width + x];
 	} else {
-		node_t * node = state->scrollback->scrollback_list->tail;
+		node_t * node = state->scrollback_list->tail;
 		for (; y < -1; y++) {
 			if (!node) break;
 			node = node->prev;
@@ -798,23 +793,23 @@ void termemu_flip_selection(term_state_t * state) {
 }
 
 void termemu_redraw_scrollback(term_state_t * state) {
-	if (!state->scrollback->scrollback_offset) {
+	if (!state->scrollback_offset) {
 		termemu_redraw_all(state);
 		return;
 	}
-	if (state->scrollback->scrollback_offset < state->height) {
-		for (int i = state->scrollback->scrollback_offset; i < state->height; i++) {
-			int y = i - state->scrollback->scrollback_offset;
+	if (state->scrollback_offset < state->height) {
+		for (int i = state->scrollback_offset; i < state->height; i++) {
+			int y = i - state->scrollback_offset;
 			for (int x = 0; x < state->width; ++x) {
 				term_mirror_copy(state, x,i,&state->term_buffer[y * state->width + x]);
 			}
 		}
 
-		node_t * node = state->scrollback->scrollback_list->tail;
-		for (int i = 0; i < state->scrollback->scrollback_offset; ++i) {
+		node_t * node = state->scrollback_list->tail;
+		for (int i = 0; i < state->scrollback_offset; ++i) {
 			struct TermemuScrollbackRow * row = (struct TermemuScrollbackRow *)node->value;
 
-			int y = state->scrollback->scrollback_offset - 1 - i;
+			int y = state->scrollback_offset - 1 - i;
 			int width = row->width;
 			if (width > state->width) {
 				width = state->width;
@@ -830,14 +825,14 @@ void termemu_redraw_scrollback(term_state_t * state) {
 			node = node->prev;
 		}
 	} else {
-		node_t * node = state->scrollback->scrollback_list->tail;
-		for (int i = 0; i < state->scrollback->scrollback_offset - state->height; ++i) {
+		node_t * node = state->scrollback_list->tail;
+		for (int i = 0; i < state->scrollback_offset - state->height; ++i) {
 			node = node->prev;
 		}
-		for (int i = state->scrollback->scrollback_offset - state->height; i < state->scrollback->scrollback_offset; ++i) {
+		for (int i = state->scrollback_offset - state->height; i < state->scrollback_offset; ++i) {
 			struct TermemuScrollbackRow * row = (struct TermemuScrollbackRow *)node->value;
 
-			int y = state->scrollback->scrollback_offset - 1 - i;
+			int y = state->scrollback_offset - 1 - i;
 			int width = row->width;
 			if (width > state->width) {
 				width = state->width;
@@ -858,10 +853,9 @@ void termemu_redraw_scrollback(term_state_t * state) {
 
 /* Scroll the view up (scrollback) */
 void termemu_scroll_up(term_state_t * state, int amount) {
-	if (!state->scrollback) return;
 	int i = 0;
-	while (i < amount && state->scrollback->scrollback_list && state->scrollback->scrollback_offset < (ssize_t)state->scrollback->scrollback_list->length) {
-		state->scrollback->scrollback_offset ++;
+	while (i < amount && state->scrollback_list && state->scrollback_offset < (ssize_t)state->scrollback_list->length) {
+		state->scrollback_offset ++;
 		i++;
 	}
 	termemu_redraw_scrollback(state);
@@ -869,10 +863,9 @@ void termemu_scroll_up(term_state_t * state, int amount) {
 
 /* Scroll the view down (scrollback) */
 void termemu_scroll_down(term_state_t * state, int amount) {
-	if (!state->scrollback) return;
 	int i = 0;
-	while (i < amount && state->scrollback->scrollback_list && state->scrollback->scrollback_offset != 0) {
-		state->scrollback->scrollback_offset -= 1;
+	while (i < amount && state->scrollback_list && state->scrollback_offset != 0) {
+		state->scrollback_offset -= 1;
 		i++;
 	}
 	termemu_redraw_scrollback(state);
@@ -936,7 +929,7 @@ void termemu_maybe_flip_cursor(term_state_t * state) {
 	uint64_t ticks = get_ticks();
 	if (ticks > state->mouse_ticks + 600000LL) {
 		state->mouse_ticks = ticks;
-		if (state->scrollback->scrollback_offset != 0) {
+		if (state->scrollback_offset != 0) {
 			return; /* Don't flip cursor while drawing scrollback */
 		}
 		if (state->focused && state->cursor_flipped) {
@@ -955,8 +948,8 @@ static void term_save_scrollback(term_state_t * state, int row_num) {
 	struct TermemuScrollbackRow * row = NULL;
 	node_t * n = NULL;
 
-	if (state->scrollback->max_scrollback && state->scrollback->scrollback_list->length == state->scrollback->max_scrollback) {
-		n = list_dequeue(state->scrollback->scrollback_list);
+	if (state->max_scrollback && state->scrollback_list->length == state->max_scrollback) {
+		n = list_dequeue(state->scrollback_list);
 		row = n->value;
 		if (row->width < state->width) {
 			free(row);
@@ -970,10 +963,10 @@ static void term_save_scrollback(term_state_t * state, int row_num) {
 	}
 
 	if (!n) {
-		list_insert(state->scrollback->scrollback_list, row);
+		list_insert(state->scrollback_list, row);
 	} else {
 		n->value = row;
-		list_append(state->scrollback->scrollback_list, n);
+		list_append(state->scrollback_list, n);
 	}
 
 	for (int i = 0; i < state->width; ++i) {
@@ -1197,13 +1190,13 @@ void termemu_clear(term_state_t * state, int i) {
 		}
 	} else if (i == 3) {
 		/* Clear scrollback */
-		if (state->scrollback->scrollback_list) {
-			while (state->scrollback->scrollback_list->length) {
-				node_t * n = list_dequeue(state->scrollback->scrollback_list);
+		if (state->scrollback_list) {
+			while (state->scrollback_list->length) {
+				node_t * n = list_dequeue(state->scrollback_list);
 				free(n->value);
 				free(n);
 			}
-			state->scrollback->scrollback_offset = 0;
+			state->scrollback_offset = 0;
 		}
 	}
 
@@ -1299,15 +1292,15 @@ void termemu_redraw_all(term_state_t * state) {
 }
 
 void termemu_unscroll(term_state_t * state) {
-	if (state->scrollback->scrollback_offset != 0) {
-		state->scrollback->scrollback_offset = 0;
+	if (state->scrollback_offset != 0) {
+		state->scrollback_offset = 0;
 		termemu_redraw_all(state);
 	}
 }
 
 void termemu_scroll_top(term_state_t * state) {
-	if (state->scrollback->scrollback_list) {
-		state->scrollback->scrollback_offset = state->scrollback->scrollback_list->length;
+	if (state->scrollback_list) {
+		state->scrollback_offset = state->scrollback_list->length;
 		termemu_redraw_scrollback(state);
 	}
 }

@@ -657,8 +657,7 @@ int main(int argc, char ** argv) {
 	w.ws_ypixel = 0;
 	ioctl(fd_master, TIOCSWINSZ, &w);
 
-	ansi_state = termemu_init(term_width, term_height, &term_callbacks);
-	termemu_init_scrollback(ansi_state, 10000);
+	ansi_state = termemu_init(term_width, term_height, 10000, &term_callbacks);
 
 	pthread_t input_buffer_thread;
 	pipe(input_buffer_semaphore);

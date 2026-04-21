@@ -950,8 +950,8 @@ static void flush_unused_images(term_state_t * state) {
 	list_t * tmp = list_create();
 
 	/* Go through scrollback, too */
-	if (state->scrollback->scrollback_list) {
-		foreach(node, state->scrollback->scrollback_list) {
+	if (state->scrollback_list) {
+		foreach(node, state->scrollback_list) {
 			struct TermemuScrollbackRow * row = (struct TermemuScrollbackRow *)node->value;
 			for (unsigned int x = 0; x < row->width; ++x) {
 				term_cell_t * cell = &row->cells[x];
@@ -1085,7 +1085,7 @@ static void new_tab() {
 	active_terminal = terminal_create(
 		this_term()->scale_fonts,
 		this_term()->font_scaling,
-		active_terminal->scrollback->max_scrollback,
+		active_terminal->max_scrollback,
 		this_term()->use_truetype,
 		this_term()->emulate_bold,
 		0, NULL);
@@ -1456,8 +1456,7 @@ static term_state_t * terminal_create(int scale_fonts, float font_scaling, int m
 	priv->extra_right = window_width - (term_width * priv->char_width);
 	priv->extra_bottom = window_height - (term_height * priv->char_height);
 
-	term_state_t * out = termemu_init(term_width, term_height, &term_callbacks);
-	termemu_init_scrollback(out, max_scrollback);
+	term_state_t * out = termemu_init(term_width, term_height, max_scrollback, &term_callbacks);
 	out->priv = priv;
 
 	list_insert(terminals, out);

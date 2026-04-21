@@ -35,13 +35,6 @@ struct TermemuScrollbackRow {
 	term_cell_t cells[];
 };
 
-struct TermemuScrollbackState {
-	size_t max_scrollback;
-	list_t * scrollback_list;
-	ssize_t scrollback_offset;
-};
-
-
 typedef struct TermemuState {
 	void * priv;
 	uint16_t x;       /* Current cursor location */
@@ -91,7 +84,9 @@ typedef struct TermemuState {
 	int selection_end_x;
 	int selection_end_y;
 
-	struct TermemuScrollbackState * scrollback;
+	size_t max_scrollback;
+	list_t * scrollback_list;
+	ssize_t scrollback_offset;
 } term_state_t;
 
 /* Triggers escape mode. */
@@ -155,7 +150,7 @@ typedef struct TermemuState {
 /* TODO: _MOUSE_UTF8          0x10 */
 /* TODO: _MOUSE_URXVT         0x80 */
 
-extern term_state_t * termemu_init(int w, int h, term_callbacks_t * callbacks_in);
+extern term_state_t * termemu_init(int w, int h, int max_scrollback, term_callbacks_t * callbacks_in);
 extern int termemu_reinit(term_state_t * state, int w, int h);
 extern void termemu_put(term_state_t * s, char c);
 
@@ -176,7 +171,6 @@ void termemu_redraw_scrollback(term_state_t * state);
 void termemu_unscroll(term_state_t * state);
 void termemu_draw_cursor(term_state_t * state);
 void termemu_scroll_top(term_state_t * state);
-void termemu_init_scrollback(term_state_t * s, int max_scrollback);
 void termemu_maybe_flip_cursor(term_state_t * state);
 void termemu_selection_click(term_state_t * state, int new_x, int new_y);
 void termemu_selection_drag(term_state_t * state, int new_x, int new_y);
