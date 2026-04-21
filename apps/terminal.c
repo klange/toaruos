@@ -106,6 +106,9 @@ struct Terminal_Private {
 	char tab_title[TERMINAL_TITLE_SIZE]; /* TODO just gonna fill in numbers for now */
 
 	list_t * images_list;
+
+	int use_truetype;
+	int emulate_bold;
 };
 
 static list_t * terminals = NULL;
@@ -115,15 +118,13 @@ static term_state_t * current_terminal(void) {
 	return active_terminal;
 }
 
-static term_state_t * terminal_create(int scale_fonts, float font_scaling, int max_scrollback, int argc, char * argv[]);
+static term_state_t * terminal_create(int scale_fonts, float font_scaling, int max_scrollback, int use_truetype, int emulate_bold, int argc, char * argv[]);
 
 #define this_term() ((struct Terminal_Private*)current_terminal()->priv)
 
 static bool _fullscreen    = 0;    /* Whether or not we are running in fullscreen mode (GUI only) */
 static bool _no_frame      = 0;    /* Whether to disable decorations or not */
-static bool _use_aa        = 1;    /* Whether or not to use best-available anti-aliased renderer */
 static bool _free_size     = 1;    /* Disable rounding when resized */
-static bool emulate_bold   = 0;    /* Emulate bold by double drawing bitmap font. */
 
 static bool terminal_login_shell_restricted = 0;
 
@@ -218,6 +219,7 @@ static volatile int exit_application = 0;
 
 static void update_bounds(void);
 static void update_scale_menu(void);
+static void update_font_menu_states(void);
 
 static uint64_t get_ticks(void) {
 	struct timeval now;
@@ -753,7 +755,7 @@ static void term_write_char(term_state_t * state, uint32_t val, uint16_t x, uint
 	}
 
 	/* Draw glyphs */
-	if (_use_aa) {
+	if (term->use_truetype) {
 		if (val == 0xFFFF) return;
 		for (uint8_t i = 0; i < term->char_height; ++i) {
 			for (uint8_t j = 0; j < term->char_width; ++j) {
@@ -811,7 +813,7 @@ static void term_write_char(term_state_t * state, uint32_t val, uint16_t x, uint
 #define bit_set(i,j) (c[i] & (1 << (LARGE_FONT_MASK-(j))))
 		for (uint8_t i = 0; i < term->char_height; ++i) {
 			for (uint8_t j = 0; j < term->char_width; ++j) {
-				if (bit_set(i,j) || ((flags & ANSI_BOLD) && emulate_bold && bit_set(i,j+1))) {
+				if (bit_set(i,j) || ((flags & ANSI_BOLD) && term->emulate_bold && bit_set(i,j+1))) {
 					term_set_point(x+j,y+i,_fg);
 				} else {
 					term_set_point(x+j,y+i,_bg);
@@ -1080,7 +1082,13 @@ static void handle_input_s(char * c) {
 
 static void new_tab() {
 	if (terminals->length == 9) return;
-	active_terminal = terminal_create(this_term()->scale_fonts, this_term()->font_scaling, active_terminal->scrollback->max_scrollback, 0, NULL);
+	active_terminal = terminal_create(
+		this_term()->scale_fonts,
+		this_term()->font_scaling,
+		active_terminal->scrollback->max_scrollback,
+		this_term()->use_truetype,
+		this_term()->emulate_bold,
+		0, NULL);
 	update_menu_bar_tabs();
 	reinit();
 }
@@ -1373,7 +1381,7 @@ static void check_for_exit(void) {
 
 static void terminal_calculate_font_size(struct Terminal_Private * priv) {
 	/* Set up font sizing */
-	if (_use_aa) {
+	if (priv->use_truetype) {
 		priv->char_width = 8;
 		priv->char_height = 17;
 		priv->font_size = 13;
@@ -1413,6 +1421,7 @@ static void reinit(void) {
 	this->extra_bottom = window_height - (term_height * this->char_height);
 
 	term_state_change(current_terminal());
+	update_font_menu_states();
 	update_scale_menu();
 
 	if (current_terminal()->width == term_width && current_terminal()->height == term_height) {
@@ -1430,11 +1439,13 @@ _done:
 	maybe_flip_display(1);
 }
 
-static term_state_t * terminal_create(int scale_fonts, float font_scaling, int max_scrollback, int argc, char * argv[]) {
+static term_state_t * terminal_create(int scale_fonts, float font_scaling, int max_scrollback, int use_truetype, int emulate_bold, int argc, char * argv[]) {
 	struct Terminal_Private * priv = calloc(1, sizeof(struct Terminal_Private));
 
 	priv->scale_fonts = scale_fonts;
 	priv->font_scaling = font_scaling;
+	priv->use_truetype = use_truetype;
+	priv->emulate_bold = emulate_bold;
 	terminal_calculate_font_size(priv);
 
 	priv->images_list = list_create();
@@ -1839,20 +1850,25 @@ static struct MenuEntry * _menu_toggle_bitmap_bar = NULL;
 static struct MenuEntry * _menu_toggle_bold_bar = NULL;
 static struct MenuEntry * _menu_toggle_bold_context = NULL;
 
+static void update_font_menu_states(void) {
+	menu_update_toggle_state(_menu_toggle_bitmap_context, !this_term()->use_truetype );
+	menu_update_toggle_state(_menu_toggle_bitmap_bar, !this_term()->use_truetype );
+	menu_update_enabled(_menu_set_zoom, this_term()->use_truetype );
+	menu_update_enabled(_menu_toggle_bold_bar, !this_term()->use_truetype );
+	menu_update_enabled(_menu_toggle_bold_context, !this_term()->use_truetype );
+	menu_update_toggle_state(_menu_toggle_bold_bar, this_term()->emulate_bold);
+	menu_update_toggle_state(_menu_toggle_bold_context, this_term()->emulate_bold);
+}
+
 static void _menu_action_toggle_tt(struct MenuEntry * self) {
-	_use_aa = !(_use_aa);
-	menu_update_toggle_state(_menu_toggle_bitmap_context, !_use_aa);
-	menu_update_toggle_state(_menu_toggle_bitmap_bar, !_use_aa);
-	menu_update_enabled(_menu_set_zoom, _use_aa);
-	menu_update_enabled(_menu_toggle_bold_bar, !_use_aa);
-	menu_update_enabled(_menu_toggle_bold_context, !_use_aa);
+	this_term()->use_truetype = !this_term()->use_truetype;
+	update_font_menu_states();
 	reinit();
 }
 
 static void _menu_action_toggle_bold(struct MenuEntry * self) {
-	emulate_bold = !emulate_bold;
-	menu_update_toggle_state(_menu_toggle_bold_bar, emulate_bold);
-	menu_update_toggle_state(_menu_toggle_bold_context, emulate_bold);
+	this_term()->emulate_bold = !this_term()->emulate_bold;
+	update_font_menu_states();
 	reinit();
 }
 
@@ -2055,6 +2071,8 @@ int main(int argc, char ** argv) {
 	int set_max_scrollback = 10000;
 	int set_scale_fonts = 0;
 	float set_font_scaling = 1.0;
+	int set_truetype = 1;
+	int set_bold = 0;
 
 	static struct option long_opts[] = {
 		{"fullscreen", no_argument,       0, 'F'},
@@ -2091,10 +2109,10 @@ int main(int argc, char ** argv) {
 				_no_frame = 1;
 				break;
 			case 'b':
-				_use_aa = 0;
+				set_truetype = 0;
 				break;
 			case 'e':
-				emulate_bold = 1;
+				set_bold = 1;
 				break;
 			case 'h':
 				usage(argv);
@@ -2190,10 +2208,10 @@ int main(int argc, char ** argv) {
 		_menu_toggle_borders_context = menu_create_toggle(NULL, "Show borders", !_no_frame, _menu_action_hide_borders);
 		menu_insert(menu_right_click, _menu_toggle_borders_context);
 	}
-	_menu_toggle_bitmap_context = menu_create_toggle(NULL, "Bitmap font", !_use_aa, _menu_action_toggle_tt);
+	_menu_toggle_bitmap_context = menu_create_toggle(NULL, "Bitmap font", !set_truetype, _menu_action_toggle_tt);
 	menu_insert(menu_right_click, _menu_toggle_bitmap_context);
-	_menu_toggle_bold_context = menu_create_toggle(NULL, "Emulate bold", emulate_bold, _menu_action_toggle_bold);
-	menu_update_enabled(_menu_toggle_bold_context, !_use_aa);
+	_menu_toggle_bold_context = menu_create_toggle(NULL, "Emulate bold", set_bold, _menu_action_toggle_bold);
+	menu_update_enabled(_menu_toggle_bold_context, !set_truetype);
 	menu_insert(menu_right_click, _menu_toggle_bold_context);
 	menu_insert(menu_right_click, menu_create_separator());
 	menu_insert(menu_right_click, menu_create_submenu(NULL,"termstate","Terminal state..."));
@@ -2248,11 +2266,11 @@ int main(int argc, char ** argv) {
 	menu_insert(m, menu_create_separator());
 
 	menu_insert(m, (_menu_set_zoom = menu_create_submenu(NULL,"zoom","Set zoom...")));
-	menu_update_enabled(_menu_set_zoom, _use_aa);
-	_menu_toggle_bitmap_bar = menu_create_toggle(NULL, "Bitmap font", !_use_aa, _menu_action_toggle_tt);
+	menu_update_enabled(_menu_set_zoom, set_truetype);
+	_menu_toggle_bitmap_bar = menu_create_toggle(NULL, "Bitmap font", !set_truetype, _menu_action_toggle_tt);
 	menu_insert(m, _menu_toggle_bitmap_bar);
-	_menu_toggle_bold_bar = menu_create_toggle(NULL, "Emulate bold", emulate_bold, _menu_action_toggle_bold);
-	menu_update_enabled(_menu_toggle_bold_bar, !_use_aa);
+	_menu_toggle_bold_bar = menu_create_toggle(NULL, "Emulate bold", set_bold, _menu_action_toggle_bold);
+	menu_update_enabled(_menu_toggle_bold_bar, !set_truetype);
 	menu_insert(m, _menu_toggle_bold_bar);
 
 	menu_insert(m, menu_create_separator());
@@ -2304,7 +2322,7 @@ int main(int argc, char ** argv) {
 	}
 
 	terminals = list_create();
-	active_terminal = terminal_create(set_scale_fonts, set_font_scaling, set_max_scrollback, argc-optind, &argv[optind]);
+	active_terminal = terminal_create(set_scale_fonts, set_font_scaling, set_max_scrollback, set_truetype, set_bold, argc-optind, &argv[optind]);
 
 	/* PTY read buffer */
 	unsigned char buf[4096];
