@@ -11,6 +11,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2026 K. Lange
  */
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -38,16 +39,15 @@
 
 #include "vga-palette.h"
 
-/* master and slave pty descriptors */
-static int fd_master, fd_slave;
 static int vga_text_fd = 0;
-static pid_t child_pid = 0;
-static FILE * terminal;
-static char * selection_text = NULL;
 static volatile int exit_application = 0;
+static bool terminal_login_shell_restricted = 0;
+
+static char * selection_text = NULL;
 static int _selection_count = 0;
 static int _selection_i = 0;
-static term_state_t * ansi_state = NULL;
+
+/* Actual mouse cursor */
 static int mouse_x = 0;
 static int mouse_y = 0;
 static int rel_mouse_x = 0;
@@ -58,18 +58,31 @@ static int mouse_is_dragging = 0;
 static int mouse_r[2] = {820, 2621};
 static int old_x = 0;
 static int old_y = 0;
-static int input_stopped = 0;
-static volatile int input_buffer_lock = 0;
-static int input_buffer_semaphore[2];
-static list_t * input_buffer_queue = NULL;
+
 struct input_data {
 	size_t len;
 	char data[];
 };
 
+struct Terminal_Private {
+	int fd_master, fd_slave;
+	pid_t child_pid;
+	pthread_t input_buffer_thread;
+	volatile int input_buffer_lock;
+	int input_buffer_semaphore[2];
+	list_t * input_buffer_queue;
+	int thread_done;
+};
+
+static list_t * terminals = NULL;
+static list_t * dead_terminals = NULL;
+static term_state_t * active_terminal = NULL;
+
 static term_state_t * current_terminal(void) {
-	return ansi_state;
+	return active_terminal;
 }
+
+static term_state_t * terminal_create(int term_width, int term_height, int max_scrollback, int argc, char * argv[]);
 
 static int color_distance(uint32_t a, uint32_t b) {
 	int a_r = (a & 0xFF0000) >> 16;
@@ -165,27 +178,28 @@ static char * copy_selection(void) {
 	return selection_text;
 }
 
-static void * handle_input_writing(void * unused) {
-	(void)unused;
+void * handle_input_writing(void * _state) {
+	term_state_t * my_state = _state;
+	struct Terminal_Private * my_term = my_state->priv;
 
 	while (1) {
 
 		/* Read one byte from semaphore; as long as semaphore has data,
 		 * there is another input blob to write to the TTY */
 		char tmp[1];
-		int c = read(input_buffer_semaphore[0],tmp,1);
+		int c = read(my_term->input_buffer_semaphore[0],tmp,1);
 		if (c > 0) {
 			/* Retrieve blob */
-			spin_lock(&input_buffer_lock);
-			node_t * blob = list_dequeue(input_buffer_queue);
-			spin_unlock(&input_buffer_lock);
+			spin_lock(&my_term->input_buffer_lock);
+			node_t * blob = list_dequeue(my_term->input_buffer_queue);
+			spin_unlock(&my_term->input_buffer_lock);
 			/* No blobs? This shouldn't happen, but just in case, just continue */
 			if (!blob) {
 				continue;
 			}
 			/* Write blob data to the tty */
 			struct input_data * value = blob->value;
-			write(fd_master, value->data, value->len);
+			write(my_term->fd_master, value->data, value->len);
 			free(blob->value);
 			free(blob);
 		} else {
@@ -194,27 +208,29 @@ static void * handle_input_writing(void * unused) {
 		}
 	}
 
+	my_term->thread_done = 1;
 	return NULL;
 }
 
-static void write_input_buffer(char * data, size_t len) {
+static void write_input_buffer(term_state_t * state, char * data, size_t len) {
+	struct Terminal_Private * priv = state->priv;
 	struct input_data * d = malloc(sizeof(struct input_data) + len);
 	d->len = len;
 	memcpy(&d->data, data, len);
-	spin_lock(&input_buffer_lock);
-	list_insert(input_buffer_queue, d);
-	spin_unlock(&input_buffer_lock);
-	write(input_buffer_semaphore[1], d, 1);
+	spin_lock(&priv->input_buffer_lock);
+	list_insert(priv->input_buffer_queue, d);
+	spin_unlock(&priv->input_buffer_lock);
+	write(priv->input_buffer_semaphore[1], d, 1);
 }
 
 static void handle_input(char c) {
-	write_input_buffer(&c, 1);
+	write_input_buffer(current_terminal(), &c, 1);
 	termemu_unscroll(current_terminal());
 }
 
 static void handle_input_s(char * c) {
 	size_t len = strlen(c);
-	write_input_buffer(c, len);
+	write_input_buffer(current_terminal(), c, len);
 	termemu_unscroll(current_terminal());
 }
 
@@ -269,24 +285,63 @@ static void flip_display() {
 	}
 }
 
+static void refresh_display(term_state_t * state) {
+	memset(state->term_display, 0xFF, sizeof(term_cell_t) * state->width * state->height);
+	flip_display();
+}
+
+static void new_tab() {
+	if (terminals->length == 9) return;
+	active_terminal = terminal_create(
+		active_terminal->width,
+		active_terminal->height,
+		active_terminal->max_scrollback,
+		0, NULL);
+	refresh_display(active_terminal);
+}
+
+#define mod_Shift (event->modifiers & KEY_MOD_LEFT_SHIFT || event->modifiers & KEY_MOD_RIGHT_SHIFT)
+#define mod_Ctrl  (event->modifiers & KEY_MOD_LEFT_CTRL  || event->modifiers & KEY_MOD_RIGHT_CTRL)
+#define mod_Alt   (event->modifiers & KEY_MOD_LEFT_ALT   || event->modifiers & KEY_MOD_RIGHT_ALT)
+
 static void key_event(int ret, key_event_t * event) {
 	if (ret) {
-		/* Special keys */
-		if ((event->modifiers & KEY_MOD_LEFT_SHIFT || event->modifiers & KEY_MOD_RIGHT_SHIFT) &&
-			(event->modifiers & KEY_MOD_LEFT_CTRL || event->modifiers & KEY_MOD_RIGHT_CTRL) &&
-			(event->keycode == 'c')) {
+
+		/* Ctrl-Shift-T: Open a new tab */
+		if (mod_Shift && mod_Ctrl && !mod_Alt && (event->keycode == 't')) {
+			new_tab();
+			return;
+		}
+
+		/* Alt-n: Switch to tab. */
+		if (mod_Alt && !mod_Ctrl && !mod_Shift && (event->keycode >= '1') && (event->keycode <= '9') && terminals->length > 1) {
+			int term = event->keycode - '1';
+			int i = 0;
+
+			foreach (node, terminals) {
+				if (i == term) {
+					active_terminal = node->value;
+					refresh_display(active_terminal);
+					return;
+				}
+				i++;
+			}
+		}
+
+		/* Ctrl-Shift-C: Copy selection */
+		if (mod_Shift && mod_Ctrl && !mod_Alt && (event->keycode == 'c')) {
 			if (current_terminal()->selection) {
 				/* Copy selection */
 				copy_selection();
 			}
 			return;
 		}
-		if ((event->modifiers & KEY_MOD_LEFT_SHIFT || event->modifiers & KEY_MOD_RIGHT_SHIFT) &&
-			(event->modifiers & KEY_MOD_LEFT_CTRL || event->modifiers & KEY_MOD_RIGHT_CTRL) &&
-			(event->keycode == 'v')) {
+
+		/* Ctrl-Shift-V: Paste clipboard */
+		if (mod_Shift && mod_Ctrl && !mod_Alt && (event->keycode == 'v')) {
 			/* Paste selection */
 			if (selection_text) {
-				if (ansi_state->paste_mode) {
+				if (current_terminal()->paste_mode) {
 					handle_input_s("\033[200~");
 					handle_input_s(selection_text);
 					handle_input_s("\033[201~");
@@ -296,6 +351,7 @@ static void key_event(int ret, key_event_t * event) {
 			}
 			return;
 		}
+
 		if (event->modifiers & KEY_MOD_LEFT_ALT || event->modifiers & KEY_MOD_RIGHT_ALT) {
 			handle_input('\033');
 		}
@@ -474,7 +530,8 @@ static int term_char_size(term_state_t * s) {
 }
 
 static void input_buffer_stuff(term_state_t * state, char * str) {
-	handle_input_s(str);
+	size_t len = strlen(str);
+	write_input_buffer(state, str, len);
 }
 
 static term_callbacks_t term_callbacks = {
@@ -490,22 +547,65 @@ static term_callbacks_t term_callbacks = {
 };
 
 static void check_for_exit(void) {
+
+	/* If something has set exit_application, we should exit. */
 	if (exit_application) return;
+
+	/* See if any dead terminals can be cleaned up */
+	while (dead_terminals->length) {
+		struct Terminal_Private * term = dead_terminals->head->value;
+		if (!term->thread_done) break;
+		node_t * head = list_dequeue(dead_terminals);
+		free(head);
+		list_free(term->input_buffer_queue);
+		free(term->input_buffer_queue);
+		/* TODO we don't actually have a good way to clean up pthreads */
+		free(term);
+	}
 
 	pid_t pid = waitpid(-1, NULL, WNOHANG);
 
-	if (pid != child_pid) return;
+	/* If the child has exited, we should exit. */
+	term_state_t * matched = NULL;
+	node_t * matched_node = NULL;
+	foreach (node, terminals) {
+		term_state_t * term = node->value;
+		struct Terminal_Private * priv = term->priv;
+		if (pid == priv->child_pid) {
+			matched = term;
+			matched_node = node;
+			break;
+		}
+	}
 
-	/* Clean up */
-	exit_application = 1;
-	/* Exit */
-	char exit_message[] = "[Process terminated]\n";
-	write(fd_slave, exit_message, sizeof(exit_message));
-	close(input_buffer_semaphore[1]);
+	if (!matched) return;
+
+	if (current_terminal() == matched) {
+		if (matched_node->prev) {
+			active_terminal = matched_node->prev->value;
+		} else if (matched_node->next) {
+			active_terminal = matched_node->next->value;
+		}
+	}
+
+	refresh_display(active_terminal);
+
+	list_delete(terminals, matched_node);
+	free(matched_node);
+
+	if (terminals->length == 0) exit_application = 1;
+
+	struct Terminal_Private * priv = matched->priv;
+	close(priv->input_buffer_semaphore[1]); /* Kills the input processing thread */
+	close(priv->fd_master); /* Hangs up the TTY */
+	close(priv->fd_slave);
+
+	list_insert(dead_terminals, priv);
+	termemu_free(matched);
 }
 
 static void mouse_event(int button, int x, int y) {
-	if (ansi_state->mouse_on & TERMEMU_MOUSE_SGR) {
+	if (current_terminal()->mouse_on & TERMEMU_MOUSE_SGR) {
 		char buf[100];
 		sprintf(buf,"\033[<%d;%d;%d%c", button == 3 ? 0 : button, x+1, y+1, button == 3 ? 'm' : 'M');
 		handle_input_s(buf);
@@ -539,7 +639,7 @@ static void handle_mouse_event(mouse_device_packet_t * packet) {
 	if (mouse_x >= current_terminal()->width)  mouse_x = current_terminal()->width - 1;
 	if (mouse_y >= current_terminal()->height) mouse_y = current_terminal()->height - 1;
 
-	if (ansi_state->mouse_on & TERMEMU_MOUSE_ENABLE) {
+	if (current_terminal()->mouse_on & TERMEMU_MOUSE_ENABLE) {
 		/* TODO: Handle shift */
 		if (packet->buttons & MOUSE_SCROLL_UP) {
 			mouse_event(32+32, mouse_x, mouse_y);
@@ -555,7 +655,7 @@ static void handle_mouse_event(mouse_device_packet_t * packet) {
 			if (!(packet->buttons & MIDDLE_CLICK) && (button_state & MIDDLE_CLICK)) mouse_event(3, mouse_x, mouse_y);
 			if (!(packet->buttons & RIGHT_CLICK) && (button_state & MIDDLE_CLICK)) mouse_event(3, mouse_x, mouse_y);
 			button_state = packet->buttons;
-		} else if (ansi_state->mouse_on & TERMEMU_MOUSE_DRAG) {
+		} else if (current_terminal()->mouse_on & TERMEMU_MOUSE_DRAG) {
 			if (old_x != mouse_x || old_y != mouse_y) {
 				if (button_state & LEFT_CLICK) mouse_event(32, mouse_x, mouse_y);
 				if (button_state & MIDDLE_CLICK) mouse_event(33, mouse_x, mouse_y);
@@ -599,19 +699,71 @@ static void handle_mouse_abs(mouse_device_packet_t * packet) {
 	handle_mouse_event(packet);
 }
 
-static void sig_suspend_input(int sig) {
-	(void)sig;
-	char exit_message[] = "[Input stopped]\n";
-	write(fd_slave, exit_message, sizeof(exit_message));
+static void terminal_set_size(term_state_t * state) {
+	struct Terminal_Private * term = state->priv;
+	struct winsize w;
+	w.ws_row = state->height;
+	w.ws_col = state->width;
+	w.ws_xpixel = 0;
+	w.ws_ypixel = 0;
+	ioctl(term->fd_master, TIOCSWINSZ, &w);
+}
 
-	input_stopped = 1;
+static term_state_t * terminal_create(int term_width, int term_height, int max_scrollback, int argc, char * argv[]) {
+	struct Terminal_Private * priv = calloc(1, sizeof(struct Terminal_Private));
+	term_state_t * out = termemu_init(term_width, term_height, max_scrollback, &term_callbacks);
+	out->priv = priv;
 
-	signal(SIGUSR2, sig_suspend_input);
+	list_insert(terminals, out);
+
+	pipe(priv->input_buffer_semaphore);
+	priv->input_buffer_queue = list_create();
+	pthread_create(&priv->input_buffer_thread, NULL, handle_input_writing, out);
+
+	/* Open a PTY */
+	openpty(&priv->fd_master, &priv->fd_slave, NULL, NULL, NULL);
+	terminal_set_size(out);
+
+	priv->child_pid = fork();
+
+	if (!priv->child_pid) {
+		setsid();
+		/* Prepare stdin/out/err */
+		dup2(priv->fd_slave, 0);
+		dup2(priv->fd_slave, 1);
+		dup2(priv->fd_slave, 2);
+
+		ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
+		tcsetpgrp(STDIN_FILENO, getpid());
+
+		signal(SIGHUP, SIG_DFL);
+
+		/* Set the TERM environment variable. */
+		putenv("TERM=toaru-vga");
+
+		/* Execute requested initial process */
+		if (terminal_login_shell_restricted) {
+			char * tokens[] = {"/bin/login-loop",NULL};
+			execvp(tokens[0], tokens);
+		} else if (argc) {
+			/* Run something specified by the terminal startup */
+			execvp(argv[0], argv);
+		} else {
+			/* Run the user's shell */
+			char * shell = getenv("SHELL");
+			if (!shell) shell = "/bin/sh"; /* fallback */
+			char * tokens[] = {shell,NULL};
+			execvp(tokens[0], tokens);
+			exit(1);
+		}
+
+		exit(127);
+	}
+
+	return out;
 }
 
 int main(int argc, char ** argv) {
-	int _login_shell = 0;
-
 	static struct option long_opts[] = {
 		{"login",      no_argument,       0, 'l'},
 		{"help",       no_argument,       0, 'h'},
@@ -623,12 +775,17 @@ int main(int argc, char ** argv) {
 	while ((c = getopt_long(argc, argv, "hl", long_opts, &index)) != -1) {
 		switch (c) {
 			case 'l':
-				_login_shell = 1;
+				terminal_login_shell_restricted = 1;
 				break;
 			case 'h':
 			case '?':
 				return usage(argv);
 		}
+	}
+
+	if (terminal_login_shell_restricted && optind != argc) {
+		fprintf(stderr, "%s: arguments may not be provided with '--login'\n", argv[0]);
+		return 1;
 	}
 
 #define TEXT_MODE_DEVICE "/dev/vga0"
@@ -644,57 +801,13 @@ int main(int argc, char ** argv) {
 	ioctl(vga_text_fd, IO_VID_HEIGHT, &term_height);
 	ioctl(vga_text_fd, IO_VGA_MOUSE_ADJ, &mouse_r);
 
-	putenv("TERM=toaru-vga");
-
-	openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
-
-	terminal = fdopen(fd_slave, "w");
-
-	struct winsize w;
-	w.ws_row = term_height;
-	w.ws_col = term_width;
-	w.ws_xpixel = 0;
-	w.ws_ypixel = 0;
-	ioctl(fd_master, TIOCSWINSZ, &w);
-
-	ansi_state = termemu_init(term_width, term_height, 10000, &term_callbacks);
-
-	pthread_t input_buffer_thread;
-	pipe(input_buffer_semaphore);
-	input_buffer_queue = list_create();
-	pthread_create(&input_buffer_thread, NULL, handle_input_writing, NULL);
-
 	fflush(stdin);
-
 	system("cursor-off");
 
-	signal(SIGUSR2, sig_suspend_input);
+	terminals = list_create();
+	dead_terminals = list_create();
 
-	child_pid = fork();
-
-	if (!child_pid) {
-		setsid();
-		dup2(fd_slave, 0);
-		dup2(fd_slave, 1);
-		dup2(fd_slave, 2);
-		ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
-		tcsetpgrp(STDIN_FILENO, getpid());
-		signal(SIGHUP, SIG_DFL);
-
-		if (argv[optind] != NULL) {
-			char * tokens[] = {argv[optind], NULL};
-			execvp(tokens[0], tokens);
-		} else if (_login_shell) {
-			char * tokens[] = {"/bin/login-loop",NULL};
-			execvp(tokens[0], tokens);
-		} else {
-			char * shell = getenv("SHELL");
-			if (!shell) shell = "/bin/sh"; /* fallback */
-			char * tokens[] = {shell,NULL};
-			execvp(tokens[0], tokens);
-		}
-		exit(127);
-	}
+	active_terminal = terminal_create(term_width, term_height, 10000, argc-optind, &argv[optind]);
 
 	int kfd = open("/dev/kbd", O_RDONLY);
 	key_event_t event;
@@ -718,27 +831,52 @@ int main(int argc, char ** argv) {
 		read(kfd, tmp, 1);
 	}
 
-	int fds[] = {fd_master, kfd, mfd, amfd};
+	size_t fds_size = 1;
+	int * fds = malloc(sizeof(int));
+	int * res = malloc(sizeof(int));
+	term_state_t ** term = malloc(sizeof(term_state_t*));
+	int _kfd_offset = 0;
+	int _mfd_offset = 0;
+	int _amfd_offset = 0;
 
 	#define BUF_SIZE 4096
 	unsigned char buf[4096];
 	while (!exit_application) {
-
-		int res[] = {0,0,0,0};
-		fswait3(amfd == -1 ? 3 : 4,fds,200,res);
-
 		check_for_exit();
 
-		if (input_stopped) continue;
+
+		if (fds_size != 3 + terminals->length) {
+			fds_size = 3 + terminals->length;
+			fds = realloc(fds, fds_size * sizeof(int));
+			term = realloc(term, fds_size * sizeof(term_state_t *));
+			size_t i = 0;
+			foreach(node, terminals) {
+				term[i] = node->value;
+				struct Terminal_Private * priv = term[i]->priv;
+				fds[i] = priv->fd_master;
+				i++;
+			}
+			fds[(_kfd_offset = (i++))] = kfd;
+			fds[(_mfd_offset = (i++))] = mfd;
+			fds[(_amfd_offset = (i++))] = amfd;
+			res = realloc(res, fds_size * sizeof(int));
+		}
+
+		fswait3(fds_size + (amfd == -1 ? -1 : 0), fds, 200, res);
 
 		termemu_maybe_flip_cursor(current_terminal());
-		if (res[0]) {
-			int r = read(fd_master, buf, BUF_SIZE);
-			for (int i = 0; i < r; ++i) {
-				termemu_put(ansi_state, buf[i]);
+
+		for (size_t i = 0; i < terminals->length; ++i) {
+			if (res[i]) {
+				struct Terminal_Private * priv = term[i]->priv;
+				ssize_t r = read(priv->fd_master, buf, BUF_SIZE);
+				for (ssize_t j = 0; j < r; ++j) {
+					termemu_put(term[i], buf[j]);
+				}
 			}
 		}
-		if (res[1]) {
+
+		if (res[_kfd_offset]) {
 			int r = read(kfd, buf, 1);
 			for (int i = 0; i < r; ++i) {
 				if (kbd_scancode(&kbd_state, buf[i], &event)) {
@@ -746,7 +884,8 @@ int main(int argc, char ** argv) {
 				}
 			}
 		}
-		if (res[2]) {
+
+		if (res[_mfd_offset]) {
 			/* mouse event */
 			int r = read(mfd, (char *)&packet, sizeof(mouse_device_packet_t));
 			if (r > 0) {
@@ -754,7 +893,8 @@ int main(int argc, char ** argv) {
 				handle_mouse(&packet);
 			}
 		}
-		if (amfd != -1 && res[3]) {
+
+		if (amfd != -1 && res[_amfd_offset]) {
 			int r = read(amfd, (char *)&packet, sizeof(mouse_device_packet_t));
 			if (r > 0) {
 				if (!vmmouse) {
@@ -765,9 +905,14 @@ int main(int argc, char ** argv) {
 				handle_mouse_abs(&packet);
 			}
 		}
+
 		flip_display();
 	}
 
-	close(input_buffer_semaphore[1]);
+	foreach(node, terminals) {
+		struct Terminal_Private * priv = ((term_state_t*)node->value)->priv;
+		close(priv->input_buffer_semaphore[1]);
+	}
+
 	return 0;
 }

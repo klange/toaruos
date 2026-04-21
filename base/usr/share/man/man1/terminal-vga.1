@@ -4,24 +4,51 @@
 \fBterminal\-vga\fP \- terminal emulator for VGA text mode
 
 .SH SYNOPSIS
-\fBterminal\-vga\fP [\fB\-l\fP] [\fIcommand\fP]...
+\fBterminal\-vga\fP [\fIcommand\fP]...
+.br
+\fBterminal\-vga\fP \fB\-l\fP
 
 .SH DESCRIPTION
-The \fBterminal\-vga\fP utility hosts a terminal emulator on the VGA text mode display.
+\fBtermina\-vga\fP provides a terminal emulator through the VGA text mode
+display device, or an emulation thereof.
 .PP
-If no \fIcommand\fP is given, and the \fB\-l\fP option is not specified, \fB/bin/sh\fP will be started.
+As the text mode display has a limited character repertoire and no bitmap
+support, the functionality of this terminal is not as complete as the
+.IR terminal (1)
+graphical application.
 .PP
-Input will be read from \fB/dev/kbd\fP and \fB/dev/mouse\fP, as well as
-\fB/dev/absmouse\fP or \fB/dev/vmmouse\fP if they are available.
+The terminal will be sized to fit the display provided by the VGA text mode
+device; as such, real VGA text mode will generally provide a terminal with
+80 columns and 25 rows, while emulated text mode may provide larger sizes
+to fill a larger framebuffer.
 
 .SS Options
 .TP
-.B \-l
-Shortcut to start \fB/bin/login-loop\fP as the command.
+.B \-l \fRor\fP \-\-login
+Force all new sessions in this terminal to run \fBlogin\-loop\fP instead of
+the user's shell.
+No other arguments may be provided.
 
-.SH NOTES
-This terminal does not support as much functionality as the normal graphical
-.IR terminal (1).
+.SH KEYBOARD SHORTCUTS
+The following key combinations perform special actions in \fBterminal\-vga\fP.
+
+.TP
+.B Ctrl\-Shift\-T
+Open a new tab.
+Up to 9 total tabs may be opened; attempting to open more tabs does nothing.
+
+.TP
+.B Alt\-1 \fRthrough\fP Alt\-9
+Switch to a numbered tab.
+
+.TP
+.B Ctrl\-Shift\-C
+Copy the selected text.
+
+.TP
+.B Ctrl\-Shift\-V
+Paste text from the clipboard into the terminal.
+The clipboard is local to \fBterminal\-vga\fP, but is shared between tabs.
 
 .SH SEE ALSO
 .BR terminal (1)
