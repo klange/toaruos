@@ -2191,7 +2191,7 @@ int main(int argc, char ** argv) {
 	terminal_menu_bar._super.entries = terminal_menu_entries;
 	terminal_menu_bar._super.redraw_callback = render_decors_callback;
 
-	_menu_new_tab = menu_create_normal(NULL, NULL, "New Tab", _menu_action_new_tab);
+	_menu_new_tab = menu_create_normal("terminal-new-tab", NULL, "New Tab", _menu_action_new_tab);
 	_menu_exit = menu_create_normal("exit","exit","Exit", _menu_action_exit);
 	_menu_copy = menu_create_normal(NULL, NULL, "Copy", _menu_action_copy);
 	_menu_copy_escapes = menu_create_normal(NULL, NULL, "Copy with escapes", _menu_action_copy_escapes);
