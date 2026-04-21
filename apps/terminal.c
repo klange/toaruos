@@ -77,13 +77,12 @@ static int usage(char * argv[]) {
 	return 1;
 }
 
-/* master and slave pty descriptors */
-static int fd_master, fd_slave;
-static FILE * terminal;
-static pid_t child_pid = 0;
+struct input_data {
+	size_t len;
+	char data[];
+};
 
 #define TERMINAL_TITLE_SIZE 512
-
 struct Terminal_Private {
 	int   scale_fonts;
 	float font_scaling;
@@ -95,15 +94,30 @@ struct Terminal_Private {
 	uint16_t extra_bottom;
 	char   terminal_title[TERMINAL_TITLE_SIZE];
 	size_t terminal_title_length;
+
+	pthread_t input_buffer_thread;
+	volatile int input_buffer_lock;
+	int input_buffer_semaphore[2];
+	list_t * input_buffer_queue;
+
+	int fd_master, fd_slave;
+	pid_t child_pid;
+
+	char tab_title[TERMINAL_TITLE_SIZE]; /* TODO just gonna fill in numbers for now */
+
+	list_t * images_list;
 };
 
-static struct Terminal_Private this_terminal; /* FIXME */
-
-static term_state_t * ansi_state = NULL; /* ANSI parser library state */
+static list_t * terminals = NULL;
+static term_state_t * active_terminal = NULL;
 
 static term_state_t * current_terminal(void) {
-	return ansi_state;
+	return active_terminal;
 }
+
+static term_state_t * terminal_create(int scale_fonts, float font_scaling, int max_scrollback, int argc, char * argv[]);
+
+#define this_term() ((struct Terminal_Private*)current_terminal()->priv)
 
 static bool _fullscreen    = 0;    /* Whether or not we are running in fullscreen mode (GUI only) */
 static bool _no_frame      = 0;    /* Whether to disable decorations or not */
@@ -119,12 +133,7 @@ static struct TT_Font * _tt_font_bold_oblique = NULL;
 static struct TT_Font * _tt_font_fallback = NULL;
 static struct TT_Font * _tt_font_japanese = NULL;
 
-static list_t * images_list = NULL;
-
 static int menu_bar_height = 24;
-
-/* TODO */
-static unsigned long set_max_scrollback = 10000;
 
 /* Text selection information */
 
@@ -158,6 +167,7 @@ static struct MenuList * menu_right_click = NULL;
 
 static void render_decors(void);
 static void reinit(void);
+static void update_menu_bar_tabs(void);
 
 static int decor_left_width = 0;
 static int decor_top_height = 0;
@@ -167,7 +177,7 @@ static int decor_width = 0;
 static int decor_height = 0;
 
 /* Menu bar entries */
-struct menu_bar terminal_menu_bar = {0};
+struct menu_bar_with_tabs terminal_menu_bar = {0};
 struct menu_bar_entries terminal_menu_entries[] = {
 	{"File", "file"},
 	{"Edit", "edit"},
@@ -176,6 +186,7 @@ struct menu_bar_entries terminal_menu_entries[] = {
 	{"Help", "help"},
 	{NULL, NULL},
 };
+struct menu_bar_entries * terminal_menu_bar_with_tabs = NULL;
 
 /* We need to track these so we can update their states*/
 static struct MenuEntry * _menu_toggle_borders_context = NULL;
@@ -189,6 +200,7 @@ static struct MenuEntry * _menu_scale_100 = NULL;
 static struct MenuEntry * _menu_scale_150 = NULL;
 static struct MenuEntry * _menu_scale_200 = NULL;
 static struct MenuEntry * _menu_set_zoom = NULL;
+static struct MenuEntry * _menu_new_tab = NULL;
 
 /* Terminal state menu */
 static struct MenuEntry * _menu_toggle_altscreen = NULL;
@@ -240,6 +252,7 @@ static void set_title(term_state_t * state, char * c) {
 	memcpy(term->terminal_title, c, len);
 	term->terminal_title[len-1] = '\0';
 	term->terminal_title_length = len - 1;
+	update_menu_bar_tabs();
 	render_decors();
 }
 
@@ -366,35 +379,28 @@ static char * copy_selection(int with_escapes) {
 	return selection_text;
 }
 
-static volatile int input_buffer_lock = 0;
-static int input_buffer_semaphore[2];
-static list_t * input_buffer_queue = NULL;
-struct input_data {
-	size_t len;
-	char data[];
-};
-
-void * handle_input_writing(void * unused) {
-	(void)unused;
+void * handle_input_writing(void * _state) {
+	term_state_t * my_state = _state;
+	struct Terminal_Private * my_term = my_state->priv;
 
 	while (1) {
 
 		/* Read one byte from semaphore; as long as semaphore has data,
 		 * there is another input blob to write to the TTY */
 		char tmp[1];
-		int c = read(input_buffer_semaphore[0],tmp,1);
+		int c = read(my_term->input_buffer_semaphore[0],tmp,1);
 		if (c > 0) {
 			/* Retrieve blob */
-			spin_lock(&input_buffer_lock);
-			node_t * blob = list_dequeue(input_buffer_queue);
-			spin_unlock(&input_buffer_lock);
+			spin_lock(&my_term->input_buffer_lock);
+			node_t * blob = list_dequeue(my_term->input_buffer_queue);
+			spin_unlock(&my_term->input_buffer_lock);
 			/* No blobs? This shouldn't happen, but just in case, just continue */
 			if (!blob) {
 				continue;
 			}
 			/* Write blob data to the tty */
 			struct input_data * value = blob->value;
-			write(fd_master, value->data, value->len);
+			write(my_term->fd_master, value->data, value->len);
 			free(blob->value);
 			free(blob);
 		} else {
@@ -406,23 +412,60 @@ void * handle_input_writing(void * unused) {
 	return NULL;
 }
 
-static void write_input_buffer(char * data, size_t len) {
+static void write_input_buffer(term_state_t * state, char * data, size_t len) {
+	struct Terminal_Private * priv = state->priv;
 	struct input_data * d = malloc(sizeof(struct input_data) + len);
 	d->len = len;
 	memcpy(&d->data, data, len);
-	spin_lock(&input_buffer_lock);
-	list_insert(input_buffer_queue, d);
-	spin_unlock(&input_buffer_lock);
-	write(input_buffer_semaphore[1], d, 1);
+	spin_lock(&priv->input_buffer_lock);
+	list_insert(priv->input_buffer_queue, d);
+	spin_unlock(&priv->input_buffer_lock);
+	write(priv->input_buffer_semaphore[1], d, 1);
 }
 
 /* Stuffs a string into the stdin of the terminal's child process
  * Useful for things like the ANSI DSR command. */
 static void input_buffer_stuff(term_state_t * state, char * str) {
 	size_t len = strlen(str);
-	write_input_buffer(str, len);
+	write_input_buffer(state, str, len);
 }
 
+static void tab_callback(struct menu_bar_with_tabs * menu, struct menu_bar_entries * entry) {
+	int tab = atoi(entry->title+1);
+	int i = 1;
+	foreach (node, terminals) {
+		if (i == tab) {
+			active_terminal = node->value;
+			update_menu_bar_tabs();
+			reinit();
+			return;
+		}
+		i++;
+	}
+}
+
+static void update_menu_bar_tabs(void) {
+	terminal_menu_bar_with_tabs = realloc(terminal_menu_bar_with_tabs, sizeof(terminal_menu_entries) + sizeof(struct menu_bar_entries) * terminals->length);
+	memcpy(terminal_menu_bar_with_tabs, &terminal_menu_entries, sizeof(terminal_menu_entries));
+	terminal_menu_bar._super.entries = terminal_menu_bar_with_tabs;
+	terminal_menu_bar.tab_callback = tab_callback;
+	if (terminals->length == 1) return;
+
+	struct menu_bar_entries * entry;
+	for (entry = terminal_menu_bar_with_tabs; entry->title; entry++);
+	int i = 1;
+	foreach (node, terminals) {
+		term_state_t * state = node->value;
+		struct Terminal_Private * priv = state->priv;
+		snprintf(priv->tab_title, TERMINAL_TITLE_SIZE,
+			state == current_terminal() ? "\v%d" : "\t%d", i);
+		entry->title = priv->tab_title;
+		entry->action = "tab";
+		entry++;
+		i++;
+	}
+	entry->title = NULL;
+}
 
 /* Redraw the decorations */
 static void render_decors(void) {
@@ -431,18 +474,18 @@ static void render_decors(void) {
 
 	if (!_no_frame) {
 		/* Draw the decorations */
-		render_decorations(window, ctx, this_terminal.terminal_title_length ? this_terminal.terminal_title : "Terminal");
+		render_decorations(window, ctx, this_term()->terminal_title_length ? this_term()->terminal_title : "Terminal");
 		/* Update menu bar position and size */
-		terminal_menu_bar.x = decor_left_width;
-		terminal_menu_bar.y = decor_top_height;
-		terminal_menu_bar.width = window_width;
-		terminal_menu_bar.window = window;
+		terminal_menu_bar._super.x = decor_left_width;
+		terminal_menu_bar._super.y = decor_top_height;
+		terminal_menu_bar._super.width = window_width;
+		terminal_menu_bar._super.window = window;
 		/* Redraw the menu bar */
-		menu_bar_render(&terminal_menu_bar, ctx);
+		menu_bar_render((struct menu_bar*)&terminal_menu_bar, ctx);
 	}
 
 	/* Advertise the window icon to the panel. */
-	yutani_window_advertise_icon(yctx, window, this_terminal.terminal_title_length ? this_terminal.terminal_title : "Terminal", "utilities-terminal");
+	yutani_window_advertise_icon(yctx, window, this_term()->terminal_title_length ? this_term()->terminal_title : "Terminal", "utilities-terminal");
 
 	/*
 	 * Flip the whole window
@@ -579,7 +622,7 @@ static void _menu_action_cache_stats(struct MenuEntry * self) {
 		"Size of sprites: %lu\n",
 		_hits, _misses, _wrongcolor, count, size);
 
-	write(fd_slave, msg, strlen(msg));
+	write(this_term()->fd_slave, msg, strlen(msg));
 }
 
 static void _menu_action_clear_cache(struct MenuEntry * self) {
@@ -897,7 +940,8 @@ static void _menu_action_redraw(struct MenuEntry * self) {
 
 /* Remove no-longer-visible image cell data. */
 static void flush_unused_images(term_state_t * state) {
-	if (!images_list->length) return;
+	struct Terminal_Private * term = state->priv;
+	if (!term->images_list->length) return;
 
 	list_t * tmp = list_create();
 
@@ -935,14 +979,14 @@ static void flush_unused_images(term_state_t * state) {
 		}
 	}
 
-	foreach(node, images_list) {
+	foreach(node, term->images_list) {
 		if (!list_find(tmp, node->value)) {
 			free(node->value);
 		}
 	}
 
-	list_free(images_list);
-	images_list = tmp;
+	list_free(term->images_list);
+	term->images_list = tmp;
 }
 
 /* Scroll the terminal up or down. */
@@ -957,7 +1001,7 @@ static void term_set_cell_contents(term_state_t * state, int x, int y, char * da
 	struct Terminal_Private * term = state->priv;
 	char * cell_data = malloc(term->char_width * term->char_height * sizeof(uint32_t));
 	memcpy(cell_data, data, term->char_width * term->char_height * sizeof(uint32_t));
-	list_insert(images_list, cell_data);
+	list_insert(term->images_list, cell_data);
 
 	term_cell_t * cell = &state->term_buffer[y * state->width + x];
 	cell->c = ' ';
@@ -1022,23 +1066,52 @@ static void scroll_down(int amount) {
 }
 
 static void handle_input(char c) {
-	write_input_buffer(&c, 1);
+	write_input_buffer(current_terminal(), &c, 1);
 	termemu_unscroll(current_terminal());
 }
 
 static void handle_input_s(char * c) {
 	size_t len = strlen(c);
-	write_input_buffer(c, len);
+	write_input_buffer(current_terminal(), c, len);
 	termemu_unscroll(current_terminal());
 }
+
+static void new_tab() {
+	if (terminals->length == 9) return;
+	active_terminal = terminal_create(this_term()->scale_fonts, this_term()->font_scaling, active_terminal->scrollback->max_scrollback, 0, NULL);
+	update_menu_bar_tabs();
+	reinit();
+}
+
+#define mod_Shift (event->modifiers & KEY_MOD_LEFT_SHIFT || event->modifiers & KEY_MOD_RIGHT_SHIFT)
+#define mod_Ctrl  (event->modifiers & KEY_MOD_LEFT_CTRL  || event->modifiers & KEY_MOD_RIGHT_CTRL)
+#define mod_Alt   (event->modifiers & KEY_MOD_LEFT_ALT   || event->modifiers & KEY_MOD_RIGHT_ALT)
 
 /* Handle a key press from Yutani */
 static void key_event(int ret, key_event_t * event) {
 	if (ret) {
+		if (mod_Shift && mod_Ctrl && !mod_Alt && (event->keycode == 't')) {
+			new_tab();
+			return;
+		}
+
+		if (mod_Alt && !mod_Ctrl && !mod_Shift && (event->keycode >= '1') && (event->keycode <= '9') && terminals->length > 1) {
+			int term = event->keycode - '1';
+			int i = 0;
+
+			foreach (node, terminals) {
+				if (i == term) {
+					active_terminal = node->value;
+					update_menu_bar_tabs();
+					reinit();
+					return;
+				}
+				i++;
+			}
+		}
+
 		/* Ctrl-Shift-C - Copy selection */
-		if ((event->modifiers & KEY_MOD_LEFT_SHIFT || event->modifiers & KEY_MOD_RIGHT_SHIFT) &&
-			(event->modifiers & KEY_MOD_LEFT_CTRL || event->modifiers & KEY_MOD_RIGHT_CTRL) &&
-			(event->keycode == 'c')) {
+		if (mod_Shift && mod_Ctrl && !mod_Alt && (event->keycode == 'c')) {
 			if (current_terminal()->selection) {
 				/* Copy selection */
 				copy_selection(0);
@@ -1047,37 +1120,31 @@ static void key_event(int ret, key_event_t * event) {
 		}
 
 		/* Ctrl-Shift-V - Paste selection */
-		if ((event->modifiers & KEY_MOD_LEFT_SHIFT || event->modifiers & KEY_MOD_RIGHT_SHIFT) &&
-			(event->modifiers & KEY_MOD_LEFT_CTRL || event->modifiers & KEY_MOD_RIGHT_CTRL) &&
-			(event->keycode == 'v')) {
+		if (mod_Shift && mod_Ctrl && !mod_Alt && (event->keycode == 'v')) {
 			/* Paste selection */
 			yutani_special_request(yctx, NULL, YUTANI_SPECIAL_REQUEST_CLIPBOARD);
 			return;
 		}
 
-		if ((event->modifiers & KEY_MOD_LEFT_CTRL || event->modifiers & KEY_MOD_RIGHT_CTRL) &&
-			(event->keycode == '0')) {
-			this_terminal.scale_fonts  = 0;
-			this_terminal.font_scaling = 1.0;
+		if (mod_Ctrl && !mod_Shift && !mod_Alt && (event->keycode == '0')) {
+			this_term()->scale_fonts  = 0;
+			this_term()->font_scaling = 1.0;
 			update_scale_menu();
 			reinit();
 			return;
 		}
 
-		if ((event->modifiers & KEY_MOD_LEFT_SHIFT || event->modifiers & KEY_MOD_RIGHT_SHIFT) &&
-			(event->modifiers & KEY_MOD_LEFT_CTRL || event->modifiers & KEY_MOD_RIGHT_CTRL) &&
-			(event->keycode == '=')) {
-			this_terminal.scale_fonts  = 1;
-			this_terminal.font_scaling = this_terminal.font_scaling * 1.2;
+		if (mod_Shift && mod_Ctrl && !mod_Alt && (event->keycode == '=')) {
+			this_term()->scale_fonts  = 1;
+			this_term()->font_scaling = this_term()->font_scaling * 1.2;
 			update_scale_menu();
 			reinit();
 			return;
 		}
 
-		if ((event->modifiers & KEY_MOD_LEFT_CTRL || event->modifiers & KEY_MOD_RIGHT_CTRL) &&
-			(event->keycode == '-')) {
-			this_terminal.scale_fonts  = 1;
-			this_terminal.font_scaling = this_terminal.font_scaling * 0.8333333;
+		if (mod_Ctrl && !mod_Shift && !mod_Alt && (event->keycode == '-')) {
+			this_term()->scale_fonts  = 1;
+			this_term()->font_scaling = this_term()->font_scaling * 0.8333333;
 			update_scale_menu();
 			reinit();
 			return;
@@ -1266,70 +1333,165 @@ static void check_for_exit(void) {
 	pid_t pid = waitpid(-1, NULL, WNOHANG);
 
 	/* If the child has exited, we should exit. */
-	if (pid != child_pid) return;
+	term_state_t * matched = NULL;
+	node_t * matched_node = NULL;
+	foreach (node, terminals) {
+		term_state_t * term = node->value;
+		struct Terminal_Private * priv = term->priv;
+		if (pid == priv->child_pid) {
+			matched = term;
+			matched_node = node;
+			break;
+		}
+	}
 
-	/* Clean up */
-	exit_application = 1;
+	if (!matched) return;
 
-	/* Write [Process terminated] */
-	char exit_message[] = "[Process terminated]\n";
-	write(fd_slave, exit_message, sizeof(exit_message));
-	close(input_buffer_semaphore[1]);
+	if (current_terminal() == matched) {
+		if (matched_node->prev) {
+			active_terminal = matched_node->prev->value;
+		} else if (matched_node->next) {
+			active_terminal = matched_node->next->value;
+		}
+	}
+
+	list_delete(terminals, matched_node);
+	update_menu_bar_tabs();
+	reinit();
+
+	if (terminals->length == 0) exit_application = 1;
+
+	struct Terminal_Private * priv = matched->priv;
+	close(priv->input_buffer_semaphore[1]); /* Kills the input processing thread */
+	close(priv->fd_master); /* Hangs up the TTY */
+	close(priv->fd_slave);
+
+	/* FIXME need to actually free the terminal */
+}
+
+static void terminal_calculate_font_size(struct Terminal_Private * priv) {
+	/* Set up font sizing */
+	if (_use_aa) {
+		priv->char_width = 8;
+		priv->char_height = 17;
+		priv->font_size = 13;
+		priv->char_offset = 13;
+		if (priv->scale_fonts) {
+			priv->font_size   *= priv->font_scaling;
+			priv->char_height *= priv->font_scaling;
+			priv->char_width  *= priv->font_scaling;
+			priv->char_offset *= priv->font_scaling;
+		}
+	} else {
+		priv->char_width = LARGE_FONT_CELL_WIDTH;
+		priv->char_height = LARGE_FONT_CELL_HEIGHT;
+	}
+}
+
+static void terminal_set_size(term_state_t * state) {
+	struct Terminal_Private * term = state->priv;
+	struct winsize w;
+	w.ws_row = state->height;
+	w.ws_col = state->width;
+	w.ws_xpixel = state->width * term->char_width;
+	w.ws_ypixel = state->height * term->char_height;
+	ioctl(term->fd_master, TIOCSWINSZ, &w);
 }
 
 /* Reinitialize the terminal after a resize. */
 static void reinit(void) {
-
-	/* Figure out character sizes if fonts have changed. */
-	if (_use_aa) {
-		this_terminal.char_width = 8;
-		this_terminal.char_height = 17;
-		this_terminal.font_size = 13;
-		this_terminal.char_offset = 13;
-		if (this_terminal.scale_fonts) {
-			this_terminal.font_size   *= this_terminal.font_scaling;
-			this_terminal.char_height *= this_terminal.font_scaling;
-			this_terminal.char_width  *= this_terminal.font_scaling;
-			this_terminal.char_offset *= this_terminal.font_scaling;
-		}
-	} else {
-		this_terminal.char_width = LARGE_FONT_CELL_WIDTH;
-		this_terminal.char_height = LARGE_FONT_CELL_HEIGHT;
-	}
+	struct Terminal_Private * this = current_terminal()->priv;
+	terminal_calculate_font_size(this);
 
 	/* Resize the terminal buffer */
-	int term_width  = window_width  / this_terminal.char_width;
-	int term_height = window_height / this_terminal.char_height;
+	int term_width  = window_width  / this->char_width;
+	int term_height = window_height / this->char_height;
 
-	this_terminal.extra_right = window_width - (term_width * this_terminal.char_width);
-	this_terminal.extra_bottom = window_height - (term_height * this_terminal.char_height);
+	this->extra_right = window_width - (term_width * this->char_width);
+	this->extra_bottom = window_height - (term_height * this->char_height);
 
-	if (current_terminal()) {
-		if (current_terminal()->width == term_width && current_terminal()->height == term_height) {
-			memset(current_terminal()->term_display, 0xFF, sizeof(term_cell_t) * term_width * term_height);
-			goto _done;
-		}
-		termemu_reinit(current_terminal(), term_width, term_height);
-	} else {
-		ansi_state = termemu_init(term_width, term_height, &term_callbacks);
-		termemu_init_scrollback(ansi_state, set_max_scrollback);
+	term_state_change(current_terminal());
+	update_scale_menu();
+
+	if (current_terminal()->width == term_width && current_terminal()->height == term_height) {
+		memset(current_terminal()->term_display, 0xFF, sizeof(term_cell_t) * term_width * term_height);
+		goto _done;
 	}
 
-	ansi_state->priv = &this_terminal;
-
-	/* Send window size change ioctl */
-	struct winsize w;
-	w.ws_row = term_height;
-	w.ws_col = term_width;
-	w.ws_xpixel = term_width * this_terminal.char_width;
-	w.ws_ypixel = term_height * this_terminal.char_height;
-	ioctl(fd_master, TIOCSWINSZ, &w);
+	termemu_reinit(current_terminal(), term_width, term_height);
+	terminal_set_size(current_terminal());
 
 	/* Redraw the window */
 _done:
 	render_decors();
 	termemu_redraw_all(current_terminal());
 	maybe_flip_display(1);
+}
+
+static term_state_t * terminal_create(int scale_fonts, float font_scaling, int max_scrollback, int argc, char * argv[]) {
+	struct Terminal_Private * priv = calloc(1, sizeof(struct Terminal_Private));
+
+	priv->scale_fonts = scale_fonts;
+	priv->font_scaling = font_scaling;
+	terminal_calculate_font_size(priv);
+
+	priv->images_list = list_create();
+
+	int term_width  = window_width  / priv->char_width;
+	int term_height = window_height / priv->char_height;
+	priv->extra_right = window_width - (term_width * priv->char_width);
+	priv->extra_bottom = window_height - (term_height * priv->char_height);
+
+	term_state_t * out = termemu_init(term_width, term_height, &term_callbacks);
+	termemu_init_scrollback(out, max_scrollback);
+	out->priv = priv;
+
+	list_insert(terminals, out);
+
+	pipe(priv->input_buffer_semaphore);
+	priv->input_buffer_queue = list_create();
+	pthread_create(&priv->input_buffer_thread, NULL, handle_input_writing, out);
+
+	update_menu_bar_tabs();
+
+	/* Open a PTY */
+	openpty(&priv->fd_master, &priv->fd_slave, NULL, NULL, NULL);
+	terminal_set_size(out);
+
+	priv->child_pid = fork();
+
+	if (!priv->child_pid) {
+		setsid();
+		/* Prepare stdin/out/err */
+		dup2(priv->fd_slave, 0);
+		dup2(priv->fd_slave, 1);
+		dup2(priv->fd_slave, 2);
+
+		ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
+		tcsetpgrp(STDIN_FILENO, getpid());
+
+		signal(SIGHUP, SIG_DFL);
+
+		/* Set the TERM environment variable. */
+		putenv("TERM=toaru");
+
+		/* Execute requested initial process */
+		if (argc) {
+			/* Run something specified by the terminal startup */
+			execvp(argv[0], argv);
+		} else {
+			/* Run the user's shell */
+			char * shell = getenv("SHELL");
+			if (!shell) shell = "/bin/sh"; /* fallback */
+			char * tokens[] = {shell,NULL};
+			execvp(tokens[0], tokens);
+			exit(1);
+		}
+
+		exit(127);
+	}
+
+	return out;
 }
 
 static void update_bounds(void) {
@@ -1368,19 +1530,19 @@ static void resize_finish(int width, int height) {
 	int t_window_height = height - extra_y;
 
 	/* Prevent the terminal from becoming too small. */
-	if (t_window_width < this_terminal.char_width * 20 || t_window_height < this_terminal.char_height * 10) {
+	if (t_window_width < this_term()->char_width * 20 || t_window_height < this_term()->char_height * 10) {
 		resize_attempts++;
-		int n_width  = extra_x + max(this_terminal.char_width * 20, t_window_width);
-		int n_height = extra_y + max(this_terminal.char_height * 10, t_window_height);
+		int n_width  = extra_x + max(this_term()->char_width * 20, t_window_width);
+		int n_height = extra_y + max(this_term()->char_height * 10, t_window_height);
 		yutani_window_resize_offer(yctx, window, n_width, n_height);
 		return;
 	}
 
 	/* If requested, ensure the terminal resizes to a fixed size based on the cell size. */
-	if (!_free_size && ((t_window_width % this_terminal.char_width != 0 || t_window_height % this_terminal.char_height != 0) && resize_attempts < 3)) {
+	if (!_free_size && ((t_window_width % this_term()->char_width != 0 || t_window_height % this_term()->char_height != 0) && resize_attempts < 3)) {
 		resize_attempts++;
-		int n_width  = extra_x + t_window_width  - (t_window_width  % this_terminal.char_width);
-		int n_height = extra_y + t_window_height - (t_window_height % this_terminal.char_height);
+		int n_width  = extra_x + t_window_width  - (t_window_width  % this_term()->char_width);
+		int n_height = extra_y + t_window_height - (t_window_height % this_term()->char_height);
 		yutani_window_resize_offer(yctx, window, n_width, n_height);
 		return;
 	}
@@ -1510,7 +1672,7 @@ static void * handle_incoming(void) {
 								break;
 						}
 
-						menu_bar_mouse_event(yctx, window, &terminal_menu_bar, me, me->new_x, me->new_y);
+						menu_bar_mouse_event(yctx, window, (struct menu_bar*)&terminal_menu_bar, me, me->new_x, me->new_y);
 					}
 
 					if (me->new_x < 0 || me->new_y < 0 ||
@@ -1543,8 +1705,8 @@ static void * handle_incoming(void) {
 						new_y -= decor_top_height+menu_bar_height;
 					}
 					/* Convert from coordinate to cell positon */
-					new_x /= this_terminal.char_width;
-					new_y /= this_terminal.char_height;
+					new_x /= this_term()->char_width;
+					new_y /= this_term()->char_height;
 
 					if (new_x < 0 || new_y < 0) break;
 					if (new_x >= current_terminal()->width || new_y >= current_terminal()->height) break; /* FIXME */
@@ -1650,6 +1812,10 @@ static void * handle_incoming(void) {
 /* File > Exit */
 static void _menu_action_exit(struct MenuEntry * self) {
 	exit_application = 1;
+}
+
+static void _menu_action_new_tab(struct MenuEntry * self) {
+	new_tab();
 }
 
 static void _menu_action_hide_borders(struct MenuEntry * self) {
@@ -1767,7 +1933,7 @@ static void _menu_action_signal(struct MenuEntry * self) {
 	int sig;
 	str2sig(((struct MenuEntry_Normal*)self)->action, &sig);
 
-	pid_t pgrp = tcgetpgrp(fd_master);
+	pid_t pgrp = tcgetpgrp(this_term()->fd_master);
 	if (pgrp != -1) kill(pgrp, sig);
 }
 
@@ -1784,21 +1950,21 @@ static void _menu_action_clear_scrollback(struct MenuEntry * self) {
 }
 
 static void update_scale_menu(void) {
-	menu_update_toggle_state(_menu_scale_075, this_terminal.font_scaling == 0.75);
-	menu_update_toggle_state(_menu_scale_100, this_terminal.font_scaling == 1.00);
-	menu_update_toggle_state(_menu_scale_150, this_terminal.font_scaling == 1.50);
-	menu_update_toggle_state(_menu_scale_200, this_terminal.font_scaling == 2.00);
+	menu_update_toggle_state(_menu_scale_075, this_term()->font_scaling == 0.75);
+	menu_update_toggle_state(_menu_scale_100, this_term()->font_scaling == 1.00);
+	menu_update_toggle_state(_menu_scale_150, this_term()->font_scaling == 1.50);
+	menu_update_toggle_state(_menu_scale_200, this_term()->font_scaling == 2.00);
 }
 
 static void _menu_action_set_scale(struct MenuEntry * self) {
 	struct MenuEntry_Normal * _self = (struct MenuEntry_Normal *)self;
 	if (!_self->action) {
-		this_terminal.scale_fonts  = 0;
-		this_terminal.font_scaling = 1.0;
+		this_term()->scale_fonts  = 0;
+		this_term()->font_scaling = 1.0;
 		update_scale_menu();
 	} else {
-		this_terminal.scale_fonts  = 1;
-		this_terminal.font_scaling = atof(_self->action);
+		this_term()->scale_fonts  = 1;
+		this_term()->font_scaling = atof(_self->action);
 		update_scale_menu();
 	}
 	reinit();
@@ -1822,7 +1988,7 @@ static void do_sig_menus(struct MenuList *p, int i, int max, char * name) {
 	char * tmp;
 	struct MenuList *ms = menu_create();
 	for (; i < max; ++i) do_sig_menu(ms, i);
-	menu_set_insert(terminal_menu_bar.set, name, ms);
+	menu_set_insert(terminal_menu_bar._super.set, name, ms);
 	asprintf(&tmp, "SIG%s-SIG%s...",
 		((struct MenuEntry_Normal*)list_index(ms->entries, 0))->action,
 		((struct MenuEntry_Normal*)list_index(ms->entries, ms->entries->length-1))->action);
@@ -1881,6 +2047,10 @@ int main(int argc, char ** argv) {
 	window_width  = 8 * 80;
 	window_height = 17 * 24;
 
+	int set_max_scrollback = 10000;
+	int set_scale_fonts = 0;
+	float set_font_scaling = 1.0;
+
 	static struct option long_opts[] = {
 		{"fullscreen", no_argument,       0, 'F'},
 		{"bitmap",     no_argument,       0, 'b'},
@@ -1924,8 +2094,8 @@ int main(int argc, char ** argv) {
 				usage(argv);
 				return 0;
 			case 's':
-				this_terminal.scale_fonts = 1;
-				this_terminal.font_scaling = atof(optarg);
+				set_scale_fonts = 1;
+				set_font_scaling = atof(optarg);
 				break;
 			case 'g':
 				parse_geometry(argv,optarg);
@@ -1983,9 +2153,10 @@ int main(int argc, char ** argv) {
 	update_bounds();
 
 	/* Set up menus */
-	terminal_menu_bar.entries = terminal_menu_entries;
-	terminal_menu_bar.redraw_callback = render_decors_callback;
+	terminal_menu_bar._super.entries = terminal_menu_entries;
+	terminal_menu_bar._super.redraw_callback = render_decors_callback;
 
+	_menu_new_tab = menu_create_normal(NULL, NULL, "New Tab", _menu_action_new_tab);
 	_menu_exit = menu_create_normal("exit","exit","Exit", _menu_action_exit);
 	_menu_copy = menu_create_normal(NULL, NULL, "Copy", _menu_action_copy);
 	_menu_copy_escapes = menu_create_normal(NULL, NULL, "Copy with escapes", _menu_action_copy_escapes);
@@ -1995,6 +2166,8 @@ int main(int argc, char ** argv) {
 	menu_update_enabled(_menu_copy_escapes, 0);
 
 	menu_right_click = menu_create();
+	menu_insert(menu_right_click, _menu_new_tab);
+	menu_insert(menu_right_click, menu_create_separator());
 	menu_insert(menu_right_click, _menu_copy);
 	menu_insert(menu_right_click, _menu_copy_escapes);
 	menu_insert(menu_right_click, _menu_paste);
@@ -2015,33 +2188,34 @@ int main(int argc, char ** argv) {
 	menu_insert(menu_right_click, _menu_exit);
 
 	/* Menu Bar menus */
-	terminal_menu_bar.set = menu_set_create();
+	terminal_menu_bar._super.set = menu_set_create();
 
-	menu_set_insert(terminal_menu_bar.set, "context", menu_right_click);
+	menu_set_insert(terminal_menu_bar._super.set, "context", menu_right_click);
 
 	struct MenuList * m;
 	m = menu_create(); /* File */
+	menu_insert(m, _menu_new_tab);
+	menu_insert(m, menu_create_separator());
 	menu_insert(m, _menu_exit);
-	menu_set_insert(terminal_menu_bar.set, "file", m);
+	menu_set_insert(terminal_menu_bar._super.set, "file", m);
 
 	m = menu_create();
 	menu_insert(m, _menu_copy);
 	menu_insert(m, _menu_copy_escapes);
 	menu_insert(m, _menu_paste);
-	menu_set_insert(terminal_menu_bar.set, "edit", m);
+	menu_set_insert(terminal_menu_bar._super.set, "edit", m);
 
 	m = menu_create();
 	menu_insert(m, (_menu_scale_075 = menu_create_toggle("0.75", "75%", 0, _menu_action_set_scale)));
 	menu_insert(m, (_menu_scale_100 = menu_create_toggle(NULL,  "100%", 0, _menu_action_set_scale)));
 	menu_insert(m, (_menu_scale_150 = menu_create_toggle("1.5", "150%", 0, _menu_action_set_scale)));
 	menu_insert(m, (_menu_scale_200 = menu_create_toggle("2.0", "200%", 0, _menu_action_set_scale)));
-	update_scale_menu();
-	menu_set_insert(terminal_menu_bar.set, "zoom", m);
+	menu_set_insert(terminal_menu_bar._super.set, "zoom", m);
 
 	m = menu_create();
 	menu_insert(m, menu_create_normal(NULL, NULL, "View stats", _menu_action_cache_stats));
 	menu_insert(m, menu_create_normal(NULL, NULL, "Clear cache", _menu_action_clear_cache));
-	menu_set_insert(terminal_menu_bar.set, "cache", m);
+	menu_set_insert(terminal_menu_bar._super.set, "cache", m);
 
 	m = menu_create();
 	menu_insert(m, (_menu_toggle_altscreen        = menu_create_toggle(NULL, "Alternate screen", 0,        _menu_action_toggle_altscreen)));
@@ -2050,7 +2224,7 @@ int main(int argc, char ** argv) {
 	menu_insert(m, (_menu_toggle_mouse_sgr        = menu_create_toggle(NULL, "SGR 1006 mouse mode", 0,     _menu_action_toggle_mouse_sgr)));
 	menu_insert(m, (_menu_toggle_mouse_altscroll  = menu_create_toggle(NULL, "Alt. screen scroll mode", 0, _menu_action_toggle_mouse_altscroll)));
 	menu_insert(m, (_menu_toggle_paste_bracketing = menu_create_toggle(NULL, "Paste bracketing", 0,        _menu_action_toggle_paste_bracketing)));
-	menu_set_insert(terminal_menu_bar.set, "termstate", m);
+	menu_set_insert(terminal_menu_bar._super.set, "termstate", m);
 
 	m = menu_create();
 	_menu_toggle_borders_bar = menu_create_toggle(NULL, "Show borders", !_no_frame, _menu_action_hide_borders);
@@ -2071,19 +2245,19 @@ int main(int argc, char ** argv) {
 
 	menu_insert(m, menu_create_normal(NULL, NULL, "Redraw", _menu_action_redraw));
 	menu_insert(m, menu_create_submenu(NULL,"cache","Glyph cache..."));
-	menu_set_insert(terminal_menu_bar.set, "view", m);
+	menu_set_insert(terminal_menu_bar._super.set, "view", m);
 
 	m = menu_create();
 	menu_insert(m, menu_create_normal("help","help","Contents", _menu_action_show_help));
 	menu_insert(m, menu_create_separator());
 	menu_insert(m, menu_create_normal("star","star","About Terminal", _menu_action_show_about));
-	menu_set_insert(terminal_menu_bar.set, "help", m);
+	menu_set_insert(terminal_menu_bar._super.set, "help", m);
 
 	m = menu_create();
 	do_sig_menus(m,1,16,"signala");
 	do_sig_menus(m,16,31,"signalb");
 	do_sig_menus(m,31,NSIG,"signalc");
-	menu_set_insert(terminal_menu_bar.set, "signal", m);
+	menu_set_insert(terminal_menu_bar._super.set, "signal", m);
 
 	m = menu_create();
 
@@ -2094,9 +2268,12 @@ int main(int argc, char ** argv) {
 	menu_insert(m, menu_create_normal(NULL,NULL,"Reset", _menu_action_reset));
 	menu_insert(m, menu_create_normal(NULL,NULL,"Clear", _menu_action_clear));
 	menu_insert(m, menu_create_normal(NULL,NULL,"Clear scrollback", _menu_action_clear_scrollback));
-	menu_set_insert(terminal_menu_bar.set, "terminal", m);
+	menu_set_insert(terminal_menu_bar._super.set, "terminal", m);
 
-	images_list = list_create();
+	/* FIXME hack */
+	m = menu_create();
+	menu_insert(m, menu_create_separator());
+	menu_set_insert(terminal_menu_bar._super.set, "tab", m);
 
 	/* Initialize the graphics context */
 	ctx = init_graphics_yutani_double_buffer(window);
@@ -2112,97 +2289,69 @@ int main(int argc, char ** argv) {
 		yutani_window_move(yctx, window, yctx->display_width / 2 - window->width / 2, yctx->display_height / 2 - window->height / 2);
 	}
 
-	/* Open a PTY */
-	openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
-	terminal = fdopen(fd_slave, "w");
+	terminals = list_create();
+	active_terminal = terminal_create(set_scale_fonts, set_font_scaling, set_max_scrollback, argc-optind, &argv[optind]);
 
-	/* Initialize the terminal buffer and ANSI library for the first time. */
-	reinit();
+	/* PTY read buffer */
+	unsigned char buf[4096];
+	int next_wait = 200;
 
-	/* Run thread to handle asynchronous writes to the tty */
-	pthread_t input_buffer_thread;
-	pipe(input_buffer_semaphore);
-	input_buffer_queue = list_create();
-	pthread_create(&input_buffer_thread, NULL, handle_input_writing, NULL);
+	size_t fds_size = 1;
+	int * fds = malloc(sizeof(int));
+	int * res = malloc(sizeof(int));
+	term_state_t ** term = malloc(sizeof(term_state_t*));
 
-	/* Make sure we're not passing anything to stdin on the child */
-	fflush(stdin);
+	while (!exit_application) {
 
-	/* Fork off child */
-	child_pid = fork();
-
-	if (!child_pid) {
-		setsid();
-		/* Prepare stdin/out/err */
-		dup2(fd_slave, 0);
-		dup2(fd_slave, 1);
-		dup2(fd_slave, 2);
-
-		ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
-		tcsetpgrp(STDIN_FILENO, getpid());
-
-		signal(SIGHUP, SIG_DFL);
-
-		/* Set the TERM environment variable. */
-		putenv("TERM=toaru");
-
-		/* Execute requested initial process */
-		if (argv[optind] != NULL) {
-			/* Run something specified by the terminal startup */
-			execvp(argv[optind], &argv[optind]);
-			fprintf(stderr, "Failed to launch requested startup application.\n");
-		} else {
-			/* Run the user's shell */
-			char * shell = getenv("SHELL");
-			if (!shell) shell = "/bin/sh"; /* fallback */
-			char * tokens[] = {shell,NULL};
-			execvp(tokens[0], tokens);
-			exit(1);
+		if (fds_size != 1 + terminals->length) {
+			fds_size = 1 + terminals->length;
+			fds = realloc(fds, fds_size * sizeof(int));
+			term = realloc(term, fds_size * sizeof(term_state_t *));
+			fds[0] = fileno(yctx->sock);
+			size_t i = 1;
+			foreach(node, terminals) {
+				term[i] = node->value;
+				struct Terminal_Private * priv = term[i]->priv;
+				fds[i] = priv->fd_master;
+				i++;
+			}
+			res = realloc(res, fds_size * sizeof(int));
 		}
 
-		/* Failed to start */
-		exit_application = 1;
-		return 1;
-	} else {
+		/* Wait for something to happen. */
+		fswait3(fds_size,fds,next_wait,res);
 
-		/* Set up fswait to check Yutani and the PTY master */
-		int fds[2] = {fileno(yctx->sock), fd_master};
+		/* Check if the child application has closed. */
+		check_for_exit();
+		termemu_maybe_flip_cursor(current_terminal());
 
-		/* PTY read buffer */
-		unsigned char buf[4096];
-		int next_wait = 200;
-
-		while (!exit_application) {
-
-			/* Wait for something to happen. */
-			int res[] = {0,0};
-			fswait3(2,fds,next_wait,res);
-
-			/* Check if the child application has closed. */
-			check_for_exit();
-			termemu_maybe_flip_cursor(current_terminal());
-
-			int force_flip = (!res[1] && (next_wait == 10));
-
-			if (res[1]) {
-				/* Read from PTY */
-				ssize_t r = read(fd_master, buf, 4096);
-				for (ssize_t i = 0; i < r; ++i) {
-					termemu_put(current_terminal(), buf[i]);
+		int force_flip = (next_wait == 10);
+		next_wait = 200;
+		for (size_t i = 1; i < fds_size; ++i) {
+			if (res[i]) {
+				struct Terminal_Private * priv = term[i]->priv;
+				if (term[i] == current_terminal()) {
+					force_flip = 0;
+					next_wait = 10;
 				}
-				next_wait = 10;
-			} else {
-				next_wait = 200;
+				ssize_t r = read(priv->fd_master, buf, 4096);
+				for (ssize_t j = 0; j < r; ++j) {
+					termemu_put(term[i], buf[j]);
+				}
 			}
-			if (res[0]) {
-				/* Handle Yutani events. */
-				handle_incoming();
-			}
-			maybe_flip_display(force_flip);
 		}
+
+		if (res[0]) {
+			/* Handle Yutani events. */
+			handle_incoming();
+		}
+		maybe_flip_display(force_flip);
 	}
 
-	close(input_buffer_semaphore[1]);
+	foreach(node, terminals) {
+		struct Terminal_Private * priv = ((term_state_t*)node->value)->priv;
+		close(priv->input_buffer_semaphore[1]);
+	}
 
 	/* Windows will close automatically on exit. */
 	return 0;
