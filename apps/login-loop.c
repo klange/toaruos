@@ -100,7 +100,7 @@ char * get_ipv4_address(char * arg) {
 }
 
 void print_issue(void) {
-	printf("\033[H\033[2J\n");
+	printf("\033[H\033[2J\033[3J\n");
 
 	FILE * f = fopen("/etc/issue","r");
 	if (!f) return;
