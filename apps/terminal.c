@@ -109,9 +109,11 @@ struct Terminal_Private {
 
 	int use_truetype;
 	int emulate_bold;
+	int thread_done;
 };
 
 static list_t * terminals = NULL;
+static list_t * dead_terminals = NULL;
 static term_state_t * active_terminal = NULL;
 
 static term_state_t * current_terminal(void) {
@@ -413,6 +415,7 @@ void * handle_input_writing(void * _state) {
 		}
 	}
 
+	my_term->thread_done = 1;
 	return NULL;
 }
 
@@ -1340,6 +1343,23 @@ static void check_for_exit(void) {
 	/* If something has set exit_application, we should exit. */
 	if (exit_application) return;
 
+	/* See if any dead terminals can be cleaned up */
+	while (dead_terminals->length) {
+		struct Terminal_Private * term = dead_terminals->head->value;
+		if (!term->thread_done) break;
+		node_t * head = list_dequeue(dead_terminals);
+		free(head);
+		if (term->images_list && term->images_list->length) {
+			list_destroy(term->images_list);
+			list_free(term->images_list);
+			free(term->images_list);
+		}
+		list_free(term->input_buffer_queue);
+		free(term->input_buffer_queue);
+		/* TODO we don't actually have a good way to clean up pthreads */
+		free(term);
+	}
+
 	pid_t pid = waitpid(-1, NULL, WNOHANG);
 
 	/* If the child has exited, we should exit. */
@@ -1366,6 +1386,7 @@ static void check_for_exit(void) {
 	}
 
 	list_delete(terminals, matched_node);
+	free(matched_node);
 	update_menu_bar_tabs();
 	reinit();
 
@@ -1376,7 +1397,8 @@ static void check_for_exit(void) {
 	close(priv->fd_master); /* Hangs up the TTY */
 	close(priv->fd_slave);
 
-	/* FIXME need to actually free the terminal */
+	list_insert(dead_terminals, priv);
+	termemu_free(matched);
 }
 
 static void terminal_calculate_font_size(struct Terminal_Private * priv) {
@@ -2324,6 +2346,8 @@ int main(int argc, char ** argv) {
 	}
 
 	terminals = list_create();
+	dead_terminals = list_create();
+
 	active_terminal = terminal_create(set_scale_fonts, set_font_scaling, set_max_scrollback, set_truetype, set_bold, argc-optind, &argv[optind]);
 
 	/* PTY read buffer */
@@ -2336,6 +2360,9 @@ int main(int argc, char ** argv) {
 	term_state_t ** term = malloc(sizeof(term_state_t*));
 
 	while (!exit_application) {
+
+		/* Check if the child application has closed. */
+		check_for_exit();
 
 		if (fds_size != 1 + terminals->length) {
 			fds_size = 1 + terminals->length;
@@ -2355,8 +2382,6 @@ int main(int argc, char ** argv) {
 		/* Wait for something to happen. */
 		fswait3(fds_size,fds,next_wait,res);
 
-		/* Check if the child application has closed. */
-		check_for_exit();
 		termemu_maybe_flip_cursor(current_terminal());
 
 		int force_flip = (next_wait == 10);
