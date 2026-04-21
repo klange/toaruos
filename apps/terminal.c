@@ -125,6 +125,8 @@ static bool _use_aa        = 1;    /* Whether or not to use best-available anti-
 static bool _free_size     = 1;    /* Disable rounding when resized */
 static bool emulate_bold   = 0;    /* Emulate bold by double drawing bitmap font. */
 
+static bool terminal_login_shell_restricted = 0;
+
 static struct TT_Font * _tt_font_normal = NULL;
 static struct TT_Font * _tt_font_bold = NULL;
 static struct TT_Font * _tt_font_oblique = NULL;
@@ -1476,7 +1478,10 @@ static term_state_t * terminal_create(int scale_fonts, float font_scaling, int m
 		putenv("TERM=toaru");
 
 		/* Execute requested initial process */
-		if (argc) {
+		if (terminal_login_shell_restricted) {
+			char * tokens[] = {"/bin/login-loop",NULL};
+			execvp(tokens[0], tokens);
+		} else if (argc) {
 			/* Run something specified by the terminal startup */
 			execvp(argv[0], argv);
 		} else {
@@ -2062,12 +2067,13 @@ int main(int argc, char ** argv) {
 		{"geometry",   required_argument, 0, 'g'},
 		{"blurred",    no_argument,       0, 'B'},
 		{"scrollback", required_argument, 0, 'S'},
+		{"login",      no_argument,       0, 'l'},
 		{0,0,0,0}
 	};
 
 	/* Read some arguments */
 	int index, c;
-	while ((c = getopt_long(argc, argv, "behxnFs:g:BS:", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "behxlnFs:g:BS:", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
@@ -2106,9 +2112,17 @@ int main(int argc, char ** argv) {
 			case 'S':
 				set_max_scrollback = strtoull(optarg,NULL,10);
 				break;
+			case 'l':
+				terminal_login_shell_restricted = 1;
+				break;
 			case '?':
 				return usage(argv);
 		}
+	}
+
+	if (terminal_login_shell_restricted && optind != argc) {
+		fprintf(stderr, "%s: arguments may not be provided with '--login'\n", argv[0]);
+		return 1;
 	}
 
 	/* Initialize the windowing library */
