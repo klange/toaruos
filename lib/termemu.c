@@ -948,7 +948,9 @@ void termemu_maybe_flip_cursor(term_state_t * state) {
 	}
 }
 
-static void term_save_scrollback(term_state_t * state) {
+static void term_save_scrollback(term_state_t * state, int row_num) {
+	if (state->active_buffer == 1) return;
+
 	/* If the scrollback is already full, remove the oldest element. */
 	struct TermemuScrollbackRow * row = NULL;
 	node_t * n = NULL;
@@ -975,7 +977,7 @@ static void term_save_scrollback(term_state_t * state) {
 	}
 
 	for (int i = 0; i < state->width; ++i) {
-		term_cell_t * cell = &state->term_buffer[i];
+		term_cell_t * cell = &state->term_buffer[row_num * state->width + i];
 		memcpy(&row->cells[i], cell, sizeof(term_cell_t));
 	}
 }
@@ -991,7 +993,7 @@ static void term_normalize_x(term_state_t * state, int setting_lcf) {
 
 static void term_normalize_y(term_state_t * state) {
 	if (state->y == state->height) {
-		if (state->active_buffer != 1) term_save_scrollback(state);
+		term_save_scrollback(state, 0);
 		term_scroll(state, 1);
 		state->y = state->height - 1;
 	}
@@ -1166,10 +1168,11 @@ static void term_set_cell(term_state_t * state, int x, int y, uint32_t c) {
 
 void termemu_clear(term_state_t * state, int i) {
 	if (i == 2) {
-		/* Clear all */
-		state->x = 0;
-		state->y = 0;
-		state->h = 0;
+		/* Save everything up to and including the current line to scrollback,
+		 * do not move the cursor, clear the whole screen. */
+		for (int i = 0; i <= state->y; ++i) {
+			term_save_scrollback(state, i);
+		}
 		memset((void *)state->term_buffer, 0x00, state->width * state->height * sizeof(term_cell_t));
 		termemu_redraw_all(state);
 	} else if (i == 0) {
