@@ -546,10 +546,10 @@ static term_callbacks_t term_callbacks = {
 	NULL,
 };
 
-static void check_for_exit(void) {
+static int check_for_exit(void) {
 
 	/* If something has set exit_application, we should exit. */
-	if (exit_application) return;
+	if (exit_application) return 1;
 
 	/* See if any dead terminals can be cleaned up */
 	while (dead_terminals->length) {
@@ -578,7 +578,7 @@ static void check_for_exit(void) {
 		}
 	}
 
-	if (!matched) return;
+	if (!matched) return 0;
 
 	if (current_terminal() == matched) {
 		if (matched_node->prev) {
@@ -593,7 +593,7 @@ static void check_for_exit(void) {
 	list_delete(terminals, matched_node);
 	free(matched_node);
 
-	if (terminals->length == 0) exit_application = 1;
+	if (terminals->length == 0) return (exit_application = 1);
 
 	struct Terminal_Private * priv = matched->priv;
 	close(priv->input_buffer_semaphore[1]); /* Kills the input processing thread */
@@ -602,6 +602,8 @@ static void check_for_exit(void) {
 
 	list_insert(dead_terminals, priv);
 	termemu_free(matched);
+
+	return 0;
 }
 
 static void mouse_event(int button, int x, int y) {
@@ -842,7 +844,7 @@ int main(int argc, char ** argv) {
 	#define BUF_SIZE 4096
 	unsigned char buf[4096];
 	while (!exit_application) {
-		check_for_exit();
+		if (check_for_exit()) break;
 
 
 		if (fds_size != 3 + terminals->length) {

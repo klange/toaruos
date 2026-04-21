@@ -1338,10 +1338,10 @@ static void key_event(int ret, key_event_t * event) {
 }
 
 /* Check if the Terminal should close. */
-static void check_for_exit(void) {
+static int check_for_exit(void) {
 
 	/* If something has set exit_application, we should exit. */
-	if (exit_application) return;
+	if (exit_application) return 1;
 
 	/* See if any dead terminals can be cleaned up */
 	while (dead_terminals->length) {
@@ -1375,7 +1375,7 @@ static void check_for_exit(void) {
 		}
 	}
 
-	if (!matched) return;
+	if (!matched) return 0;
 
 	if (current_terminal() == matched) {
 		if (matched_node->prev) {
@@ -1390,7 +1390,7 @@ static void check_for_exit(void) {
 	update_menu_bar_tabs();
 	reinit();
 
-	if (terminals->length == 0) exit_application = 1;
+	if (terminals->length == 0) return (exit_application = 1);
 
 	struct Terminal_Private * priv = matched->priv;
 	close(priv->input_buffer_semaphore[1]); /* Kills the input processing thread */
@@ -1399,6 +1399,8 @@ static void check_for_exit(void) {
 
 	list_insert(dead_terminals, priv);
 	termemu_free(matched);
+
+	return 0;
 }
 
 static void terminal_calculate_font_size(struct Terminal_Private * priv) {
@@ -2362,7 +2364,7 @@ int main(int argc, char ** argv) {
 	while (!exit_application) {
 
 		/* Check if the child application has closed. */
-		check_for_exit();
+		if (check_for_exit()) break;
 
 		if (fds_size != 1 + terminals->length) {
 			fds_size = 1 + terminals->length;
