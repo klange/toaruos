@@ -84,7 +84,7 @@ struct input_data {
 
 #define TERMINAL_TITLE_SIZE 512
 struct Terminal_Private {
-	int   scale_fonts;
+	bool scale_fonts;
 	float font_scaling;
 	uint16_t font_size;
 	uint16_t char_width;
@@ -106,12 +106,14 @@ struct Terminal_Private {
 	char *tab_title;
 	char *tab_action;
 	int tab_color;
-	int unread;
+	bool unread;
+	bool belled;
 
 	list_t * images_list;
 
-	int use_truetype;
-	int emulate_bold;
+	bool use_truetype;
+	bool emulate_bold;
+	bool beep_on_bell;
 	int thread_done;
 };
 
@@ -123,7 +125,7 @@ static term_state_t * current_terminal(void) {
 	return active_terminal;
 }
 
-static term_state_t * terminal_create(int scale_fonts, float font_scaling, int max_scrollback, int use_truetype, int emulate_bold, int argc, char * argv[]);
+static term_state_t * terminal_create(bool scale_fonts, float font_scaling, int max_scrollback, bool use_truetype, bool emulate_bold, int argc, char * argv[]);
 
 #define this_term() ((struct Terminal_Private*)current_terminal()->priv)
 
@@ -558,13 +560,17 @@ static void update_menu_bar_tabs(void) {
 		free(priv->tab_action);
 
 		int active = (state == current_terminal());
-		if (active) priv->unread = 0;
+		if (active) {
+			priv->unread = 0;
+			priv->belled = 0;
+		}
 
 		asprintf(&priv->tab_title, "%c%s [%d]%s",
 			active ? '\v' : '\t',
 			priv->terminal_title,
 			i,
-			priv->unread ? "*" : "");
+			priv->belled ? "♪" :
+				priv->unread ? "*" : "");
 
 		asprintf(&priv->tab_action, "%d%s%s",
 			i,
@@ -1156,6 +1162,27 @@ static void term_state_change(term_state_t * state) {
 	menu_update_toggle_state(_menu_toggle_paste_bracketing, state->paste_mode);
 }
 
+static void term_bell(term_state_t * state) {
+	struct Terminal_Private *priv = state->priv;
+	if (state != current_terminal()) {
+		if (!priv->belled) {
+			priv->belled = 1;
+			update_menu_bar_tabs();
+			render_decors();
+		}
+	}
+
+	if (priv->beep_on_bell) {
+		/* As long as we do it from the main thread, we'll pick
+		 * up this beep process with a waitpid in check_for_exit */
+		if (!fork()) {
+			char *args[] = {"beep","-l","140",NULL};
+			execvp("beep", args);
+			exit(127);
+		}
+	}
+}
+
 /* ANSI callbacks */
 term_callbacks_t term_callbacks = {
 	term_clear,
@@ -1167,6 +1194,7 @@ term_callbacks_t term_callbacks = {
 	term_get_cell_height,
 	full_reset,
 	term_state_change,
+	term_bell,
 };
 
 static void scroll_up(int amount) {
@@ -1573,7 +1601,7 @@ _done:
 	maybe_flip_display(1);
 }
 
-static term_state_t * terminal_create(int scale_fonts, float font_scaling, int max_scrollback, int use_truetype, int emulate_bold, int argc, char * argv[]) {
+static term_state_t * terminal_create(bool scale_fonts, float font_scaling, int max_scrollback, bool use_truetype, bool emulate_bold, int argc, char * argv[]) {
 	struct Terminal_Private * priv = calloc(1, sizeof(struct Terminal_Private));
 
 	priv->scale_fonts = scale_fonts;
@@ -2039,6 +2067,7 @@ static struct MenuEntry * _menu_toggle_bitmap_context = NULL;
 static struct MenuEntry * _menu_toggle_bitmap_bar = NULL;
 static struct MenuEntry * _menu_toggle_bold_bar = NULL;
 static struct MenuEntry * _menu_toggle_bold_context = NULL;
+static struct MenuEntry * _menu_toggle_beep = NULL;
 
 static void update_font_menu_states(void) {
 	menu_update_toggle_state(_menu_toggle_bitmap_context, !this_term()->use_truetype );
@@ -2048,6 +2077,13 @@ static void update_font_menu_states(void) {
 	menu_update_enabled(_menu_toggle_bold_context, !this_term()->use_truetype );
 	menu_update_toggle_state(_menu_toggle_bold_bar, this_term()->emulate_bold);
 	menu_update_toggle_state(_menu_toggle_bold_context, this_term()->emulate_bold);
+	menu_update_toggle_state(_menu_toggle_beep, this_term()->beep_on_bell);
+}
+
+static void _menu_action_toggle_beep(struct MenuEntry * self) {
+	this_term()->beep_on_bell = !this_term()->beep_on_bell;
+	update_font_menu_states();
+	reinit();
 }
 
 static void _menu_action_toggle_tt(struct MenuEntry * self) {
@@ -2473,6 +2509,7 @@ int main(int argc, char ** argv) {
 	_menu_toggle_borders_bar = menu_create_toggle(NULL, "Show borders", !_no_frame, _menu_action_hide_borders);
 	menu_insert(m, _menu_toggle_borders_bar);
 	menu_insert(m, menu_create_toggle(NULL, "Snap to Cell Size", !_free_size, _menu_action_toggle_free_size));
+	menu_insert(m, (_menu_toggle_beep = menu_create_toggle(NULL, "Beep on Bell", 0, _menu_action_toggle_beep)));
 
 	menu_insert(m, menu_create_separator());
 
