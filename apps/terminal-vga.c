@@ -544,6 +544,7 @@ static term_callbacks_t term_callbacks = {
 	term_char_size,
 	NULL,
 	NULL,
+	NULL,
 };
 
 static int check_for_exit(void) {

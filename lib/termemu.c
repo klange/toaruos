@@ -1071,6 +1071,7 @@ static void term_write(term_state_t * state, char c) {
 		switch (c) {
 			case '\a':
 				/* boop */
+				if (state->callbacks->bell) state->callbacks->bell(state);
 				return;
 
 			case '\r':

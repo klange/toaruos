@@ -28,6 +28,7 @@ typedef struct {
 	int  (*get_cell_height)    (struct TermemuState *);
 	void (*full_reset)         (struct TermemuState *);
 	void (*state_change)       (struct TermemuState *);
+	void (*bell)               (struct TermemuState *);
 } term_callbacks_t;
 
 struct TermemuScrollbackRow {
