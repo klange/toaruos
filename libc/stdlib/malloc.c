@@ -182,6 +182,13 @@ static void spin_unlock(int volatile * lock) {
 	__sync_lock_release(lock);
 }
 
+void __libc_take_malloc_lock(void) {
+	spin_lock(&mem_lock, "fork");
+}
+
+void __libc_release_malloc_lock(void) {
+	spin_unlock(&mem_lock);
+}
 
 void * __attribute__ ((malloc)) malloc(uintptr_t size) {
 	spin_lock(&mem_lock, __FUNCTION__);
