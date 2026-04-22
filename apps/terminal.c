@@ -470,6 +470,21 @@ static void _menu_action_tab_move_right(struct MenuEntry * self) {
 	update_menu_bar_tabs();
 }
 
+static void _menu_action_tab_close(struct MenuEntry * self) {
+	node_t * node = get_terminal_at_index(_menu_tab);
+	if (!node) return;
+	term_state_t * term = node->value;
+	struct Terminal_Private * priv = term->priv;
+
+	/* To close a tab, we close our end of the PTY, which hangs it up,
+	 * killing session for us; we then pick that up in check_for_exit
+	 * just like when the session ended normally. */
+	if (priv->fd_master != -1) {
+		close(priv->fd_master);
+		priv->fd_master = -1;
+	}
+}
+
 static void tab_callback(struct menu_bar_with_tabs * menu, struct menu_bar_entries * entry, int action, int x, int y) {
 	int tab = atoi(entry->action);
 	node_t * node = get_terminal_at_index(tab);
@@ -1431,8 +1446,8 @@ static int check_for_exit(void) {
 
 	struct Terminal_Private * priv = matched->priv;
 	close(priv->input_buffer_semaphore[1]); /* Kills the input processing thread */
-	close(priv->fd_master); /* Hangs up the TTY */
-	close(priv->fd_slave);
+	if (priv->fd_master != -1) close(priv->fd_master); /* Hangs up the TTY */
+	if (priv->fd_slave != -1) close(priv->fd_slave);
 
 	list_insert(dead_terminals, priv);
 	termemu_free(matched);
@@ -2340,6 +2355,8 @@ int main(int argc, char ** argv) {
 	menu_tab_context = menu_create();
 	menu_insert(menu_tab_context, menu_create_normal("back",NULL,"Move tab left",_menu_action_tab_move_left));
 	menu_insert(menu_tab_context, menu_create_normal("forward",NULL,"Move tab right",_menu_action_tab_move_right));
+	menu_insert(menu_tab_context, menu_create_separator());
+	menu_insert(menu_tab_context, menu_create_normal("close",NULL,"Close tab",_menu_action_tab_close));
 
 	/* Menu Bar menus */
 	terminal_menu_bar._super.set = menu_set_create();
