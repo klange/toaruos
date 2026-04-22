@@ -31,9 +31,11 @@ struct MarkupState {
 	int cursor_y;
 	int initial_left;
 	uint32_t color;
+	uint32_t bgcolor;
 	gfx_context_t * ctx;
 	int max_cursor_x;
 	list_t * colors;
+	list_t * bgcolors;
 	int sizes[3];
 	int dryrun;
 };
@@ -77,9 +79,17 @@ static int parser_open(struct markup_state * self, void * user, struct markup_ta
 	} else if (!strcmp(tag->name, "color")) {
 		/* get options */
 		list_t * args = hashmap_keys(tag->options);
+		list_insert(state->colors, (void*)(uintptr_t)state->color);
 		if (args->length == 1) {
-			list_insert(state->colors, (void*)(uintptr_t)state->color);
 			state->color = parseColor((char*)args->head->value);
+		}
+		free(args);
+	} else if (!strcmp(tag->name, "bgcolor")) {
+		/* get options */
+		list_t * args = hashmap_keys(tag->options);
+		list_insert(state->bgcolors, (void*)(uintptr_t)state->bgcolor);
+		if (args->length == 1) {
+			state->bgcolor = parseColor((char*)args->head->value);
 		}
 		free(args);
 	}
@@ -101,8 +111,16 @@ static int parser_close(struct markup_state * self, void * user, char * tag_name
 		pop_state(state);
 	} else if (!strcmp(tag_name, "color")) {
 		node_t * ncolor = list_pop(state->colors);
-		state->color = (uint32_t)(uintptr_t)ncolor->value;
-		free(ncolor);
+		if (ncolor) {
+			state->color = (uint32_t)(uintptr_t)ncolor->value;
+			free(ncolor);
+		}
+	} else if (!strcmp(tag_name, "bgcolor")) {
+		node_t * ncolor = list_pop(state->bgcolors);
+		if (ncolor) {
+			state->bgcolor = (uint32_t)(uintptr_t)ncolor->value;
+			free(ncolor);
+		}
 	}
 	return 0;
 }
@@ -172,10 +190,16 @@ static void draw_cached_glyph(gfx_context_t * ctx, struct TT_Font * _font, uint3
 	}
 }
 
-static int string_draw_internal(gfx_context_t * ctx, struct TT_Font * font, int font_size, int x, int y, char * data, uint32_t color) {
+static int string_draw_internal(gfx_context_t * ctx, struct TT_Font * font, int font_size, int x, int y, char * data, uint32_t color, uint32_t bgcolor) {
 	float x_offset = x;
 	uint32_t cp = 0;
 	uint32_t istate = 0;
+
+	if (bgcolor) {
+		/* temporary hack */
+		size_t width = tt_string_width(font, data);
+		draw_rounded_rectangle(ctx, x - 2, y - font_size, width + 4, font_size + 4, 3, bgcolor);
+	}
 
 	for (const unsigned char * c = (const unsigned char*)data; *c; ++c) {
 		if (!decode(&istate, &cp, *c)) {
@@ -193,7 +217,7 @@ static int parser_data(struct markup_state * self, void * user, char * data) {
 	struct TT_Font * font = fontForState(state);
 	int size = sizeForState(state);
 	tt_set_size(font, size);
-	state->cursor_x += string_draw_internal(state->ctx, font, size, state->cursor_x, state->cursor_y, data, state->color);
+	state->cursor_x += string_draw_internal(state->ctx, font, size, state->cursor_x, state->cursor_y, data, state->color, state->bgcolor);
 	if (state->cursor_x > state->max_cursor_x) state->max_cursor_x = state->cursor_x;
 	return 0;
 }
@@ -208,7 +232,7 @@ static int parser_dryrun(struct markup_state * self, void * user, char * data) {
 }
 
 struct MarkupState * markup_setup_renderer(gfx_context_t * ctx, int x, int y, uint32_t color, int dryrun) {
-	struct MarkupState * state = malloc(sizeof(struct MarkupState));
+	struct MarkupState * state = calloc(1,sizeof(struct MarkupState));
 	state->parser = markup_init(state, parser_open, parser_close, dryrun ? parser_dryrun : parser_data);
 	state->state = list_create();
 	state->current_state = 0;
@@ -219,6 +243,7 @@ struct MarkupState * markup_setup_renderer(gfx_context_t * ctx, int x, int y, ui
 	state->ctx = ctx;
 	state->max_cursor_x = x;
 	state->colors = list_create();
+	state->bgcolors = list_create();
 	state->sizes[0] = 13;
 	state->sizes[1] = 10;
 	state->sizes[2] = 18;
