@@ -1118,7 +1118,18 @@ void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx) {
 			if (left_pad < 0) left_pad = (tab_width - w - 5);
 
 			draw_rounded_rectangle(subctx, offset + 2, 0, tab_width + 1, height + 3, 5, rgb(42,42,42)); /* This creates a small overlap in tabs, which is intended. */
-			draw_rounded_rectangle(subctx, offset + 3, 1, tab_width - 1, height + 3, 4, tab_active ? rgb(72,72,72) : rgb(59,59,59));
+			char * tab_color = strchr(e->action,';');
+			if (tab_color) {
+				/* Parse the color */
+				char r[3] = {tab_color[1],tab_color[2],'\0'};
+				char g[3] = {tab_color[3],tab_color[4],'\0'};
+				char b[3] = {tab_color[5],tab_color[6],'\0'};
+				uint32_t color = rgba(strtoul(r,NULL,16),strtoul(g,NULL,16),strtoul(b,NULL,16),255);
+				draw_rounded_rectangle(subctx, offset + 3, 1, tab_width - 1, height + 3, 4, color);
+				draw_rounded_rectangle(subctx, offset + 5, 3, tab_width - 5, height + 3, 2, tab_active ? premultiply(rgba(72,72,72,50)) : premultiply(rgba(59,59,59,220)));
+			} else {
+				draw_rounded_rectangle(subctx, offset + 3, 1, tab_width - 1, height + 3, 4, tab_active ? rgb(72,72,72) : rgb(59,59,59));
+			}
 			if (tab_active && window_is_focused) draw_rectangle(subctx, offset+3, subctx->height - 2, tab_width - 1, 2, rgb(46,91,164));
 			gfx_context_t * clip = init_graphics_subregion(subctx, offset + 5, 0, tab_width - 5, subctx->height);
 			draw_string(clip, left_pad, 2, (tab_active && window_is_focused) ? rgb(226,226,226) : rgb(147,147,147), title);
