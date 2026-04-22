@@ -1656,6 +1656,60 @@ static void mouse_event(int button, int x, int y) {
 	}
 }
 
+static pthread_t exit_dialog_thread;
+static int have_exit_dialog = 0;
+
+static void * show_exit_dialog(void * _unused) {
+	(void)_unused;
+
+	pid_t child = fork();
+
+	if (!child) {
+		char wid[100];
+		snprintf(wid,100,"%d",window->wid);
+		char coords[100];
+		snprintf(coords,100,"%d,%d",(int)window->width / 2,(int)window->height / 2);
+		char * args[] = {"showdialog",
+			"--title","Quit Terminal?",
+			"--icon","utilities-terminal",
+			"--parent",wid,
+			"--at",coords,
+			"--okay-label", "Exit",
+			"Multiple tabs are open.",
+			"Are you sure you want to exit?",
+			NULL
+		};
+		execvp(args[0],args);
+		exit(127);
+	}
+
+	int ret, status = 2;
+	while ((ret = waitpid(child, &status, 0)) == EINTR);
+
+	if (status == 0) exit_application = 1;
+	have_exit_dialog = 0;
+
+	return NULL;
+}
+
+static void maybe_exit(void) {
+	if (terminals->length == 1) {
+		/* Only one terminal, consider it safe to exit.
+		 * TODO: We could check if the running application is something interesting. */
+		exit_application = 1;
+		return;
+	}
+
+	/* Spin a up thread to show a prompt, so it can wait for the response
+	 * without interrupting our normal operations (also we just spin up
+	 * a lot of threads anyway to make sure TTYs don't deadlock, so
+	 * whatever, it's fine... threads are pretty cheap in Misaka, right?) */
+	if (have_exit_dialog) return; /* Dialog is already being shown. */
+
+	have_exit_dialog = 1;
+	pthread_create(&exit_dialog_thread, NULL, show_exit_dialog, NULL);
+}
+
 /* Handle Yutani messages */
 static void * handle_incoming(void) {
 	yutani_msg_t * m = yutani_poll(yctx);
@@ -1690,12 +1744,13 @@ static void * handle_incoming(void) {
 				{
 					struct yutani_msg_window_close * wc = (void*)m->data;
 					if (wc->wid == window->wid) {
-						exit_application = 1;
+						maybe_exit();
 					}
 				}
 				break;
 			case YUTANI_MSG_SESSION_END:
 				{
+					/* Definitely exit. */
 					exit_application = 1;
 				}
 				break;
@@ -1741,7 +1796,7 @@ static void * handle_incoming(void) {
 
 						switch (decor_response) {
 							case DECOR_CLOSE:
-								exit_application = 1;
+								maybe_exit();
 								break;
 							case DECOR_RIGHT:
 								/* right click in decoration, show appropriate menu */
@@ -1890,7 +1945,7 @@ static void * handle_incoming(void) {
 
 /* File > Exit */
 static void _menu_action_exit(struct MenuEntry * self) {
-	exit_application = 1;
+	maybe_exit();
 }
 
 static void _menu_action_new_tab(struct MenuEntry * self) {
