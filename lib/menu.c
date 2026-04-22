@@ -1022,6 +1022,42 @@ int menu_process_event(yutani_t * yctx, yutani_msg_t * m) {
 	return 0;
 }
 
+static void menu_bar_preflight(struct menu_bar * self, ssize_t * tabs, ssize_t * tab_width, ssize_t * extra) {
+	ssize_t w = 4;
+	struct menu_bar_entries * e = self->entries;
+	ssize_t tabcount = 0;
+
+	/* Figure out the size of elements before the first tab */
+	for (; e->title; e++) {
+		char * title = e->title;
+		if (*title == '\t' || *title == '\v') break;
+		w += string_width(title) + 11;
+	}
+
+	/* Figure out how many tabs there are. */
+	for (; e->title; e++) {
+		char * title = e->title;
+		if (*title != '\t' && *title != '\v') break;
+		tabcount++;
+	}
+
+	/* See if there are any elements after the tabs */
+	for (; e->title; e++) {
+		w += string_width(e->title) + 11;
+	}
+
+	if (w > self->width || !tabcount) {
+		*tab_width = 0; /* Tabs have no available space */
+		*tabs = 0; /* Inform caller they should skip any tabs the see. */
+		*extra = 0;
+		return;
+	}
+
+	*tabs = tabcount;
+	*tab_width = (self->width - w) / tabcount;
+	*extra = self->width - w - *tab_width * tabcount;
+}
+
 void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx) {
 	int _x = self->x;
 	int _y = self->y;
@@ -1039,36 +1075,59 @@ void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx) {
 	draw_rectangle(subctx, 0, 0, width, height, menu_bar_color);
 
 	/* for each menu entry */
-	int offset = 0;
-	struct menu_bar_entries * _entries = self->entries;
-
+	struct menu_bar_entries * e = self->entries;
 	if (!self->num_entries) {
-		while (_entries->title) {
-			_entries++;
+		while (e->title) {
+			e++;
 			self->num_entries++;
 		}
-		_entries = self->entries;
+		e = self->entries;
 	}
-	while (_entries->title) {
-		char * title = _entries->title;
-		int draw_tab = 0;
-		int is_tab = (*title == '\t' || *title == '\v');
-		if (is_tab) {
-			draw_tab = *title;
-			title++;
+
+	/* Preflight check of whether the tabs will actually fit or should render with their ->actions instead of ->titles */
+	ssize_t tabs, tab_width, extra;
+	menu_bar_preflight(self, &tabs, &tab_width, &extra);
+
+	int window_is_focused = self->window->focused || !hashmap_is_empty(menu_get_windows_hash());
+
+	int offset = 0;
+	while (e->title) {
+		/* Non-tabs */
+		for (; e->title; e++) {
+			char * title = e->title;
+			if (*title == '\t' || *title == '\v') break;
+			int w = string_width(title) + 11;
+			uint32_t text_color = rgb(255,255,255);
+			if ((self->active_menu && hashmap_has(menu_get_windows_hash(), (void*)(uintptr_t)self->active_menu_wid)) && e == self->active_entry) {
+				draw_rectangle(subctx, offset + 2, 0, w, height, rgb(93,163,236));
+			}
+			draw_string(subctx, offset + 7, 2, text_color, title);
+			offset += w;
 		}
 
-		int w = string_width(title) + 11;
-		if ((self->active_menu && hashmap_has(menu_get_windows_hash(), (void*)(uintptr_t)self->active_menu_wid)) && _entries == self->active_entry) {
-			draw_rectangle(subctx, offset + 2, 0, w, height, rgb(93,163,236));
-		} else if (draw_tab == '\v') {
-			draw_rounded_rectangle(subctx, offset + 2, 0, w, height + 3, 4, rgb(200,200,200));
-		} else if (draw_tab == '\t') {
-			/* Nothing special yet */
+		/* tabs */
+		for (; e->title; e++) {
+			char * title = e->title;
+			if (*title != '\t' && *title != '\v') break;
+			if (!tabs || (tab_width < 4)) continue;
+			int tab_active = *title == '\v';
+			title++;
+
+			int w = string_width(title);
+			int left_pad = (tab_width - w - 5) / 2;
+			if (left_pad < 0) left_pad = (tab_width - w - 5);
+
+			draw_rounded_rectangle(subctx, offset + 2, 0, tab_width + 1, height + 3, 5, rgb(42,42,42)); /* This creates a small overlap in tabs, which is intended. */
+			draw_rounded_rectangle(subctx, offset + 3, 1, tab_width - 1, height + 3, 4, tab_active ? rgb(72,72,72) : rgb(59,59,59));
+			if (tab_active && window_is_focused) draw_rectangle(subctx, offset+3, subctx->height - 2, tab_width - 1, 2, rgb(46,91,164));
+			gfx_context_t * clip = init_graphics_subregion(subctx, offset + 5, 0, tab_width - 5, subctx->height);
+			draw_string(clip, left_pad, 2, (tab_active && window_is_focused) ? rgb(226,226,226) : rgb(147,147,147), title);
+			free(clip);
+
+			offset += tab_width;
 		}
-		draw_string(subctx, offset + 7, 2, (draw_tab != '\v') ? rgb(255,255,255) : rgb(0,0,0), title);
-		offset += w;
-		_entries++;
+
+		offset += extra;
 	}
 
 	free(subctx);
@@ -1078,19 +1137,30 @@ void menu_bar_show_menu(yutani_t * yctx, yutani_window_t * window, struct menu_b
 	if (*_entries->title == '\t' || *_entries->title == '\v') return;
 
 	struct MenuList * new_menu = menu_set_get_menu(self->set, _entries->action);
-	int i = 0;
 
+	ssize_t tabs, tab_width, extra;
+	menu_bar_preflight(self, &tabs, &tab_width, &extra);
+
+	int i = 0;
 	if (offset == -1) {
 		/* Must calculate */
 		offset = self->x;
 		struct menu_bar_entries * e = self->entries;
 		while (e->title) {
+			for (; e->title; e++) {
+				if (e == _entries) break;
+				if (*e->title == '\t' || *e->title == '\v') break;
+				offset += string_width(e->title) + 11;
+			}
 			if (e == _entries) break;
-			char * title = e->title;
-			if (*title == '\t' || *title == '\v') title++;
-			offset += string_width(title) + 10;
-			e++;
-			i++;
+			for (; e->title; e++) {
+				if (e == _entries) break;
+				if (*e->title != '\t' && *e->title != '\v') break;
+				if (!tabs || (tab_width < 4)) continue;
+				offset += tab_width;
+			}
+			if (e == _entries) break;
+			offset += extra;
 		}
 	} else {
 		struct menu_bar_entries * e = self->entries;
@@ -1103,7 +1173,10 @@ void menu_bar_show_menu(yutani_t * yctx, yutani_window_t * window, struct menu_b
 
 	new_menu->main_window = window;
 	menu_prepare(new_menu, yctx);
-	yutani_window_move_relative(yctx, new_menu->window, window, offset, self->y + MENU_BAR_HEIGHT);
+	int right_side = new_menu->window->width + window->x + offset;
+	int offset_x = (right_side > (int)yctx->display_width) ?
+		(right_side - (int)yctx->display_width) : 0;
+	yutani_window_move_relative(yctx, new_menu->window, window, offset - offset_x, self->y + MENU_BAR_HEIGHT);
 	yutani_flip(yctx, new_menu->window);
 
 	self->active_menu = new_menu;
@@ -1122,32 +1195,42 @@ int menu_bar_mouse_event(yutani_t * yctx, yutani_window_t * window, struct menu_
 	}
 
 	int offset = self->x;
+	ssize_t tabs, tab_width, extra;
+	menu_bar_preflight(self, &tabs, &tab_width, &extra);
 
-	struct menu_bar_entries * _entries = self->entries;
-
-	while (_entries->title) {
-		char * title = _entries->title;
-		int is_tab = (*title == '\t' || *title == '\v');
-		if (is_tab) title++;
-		int w = string_width(title) + 11;
-		if (x >= offset && x < offset + w) {
-			if (me->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(me)) {
-				if (is_tab) {
-					((struct menu_bar_with_tabs*)self)->tab_callback((struct menu_bar_with_tabs*)self, _entries);
-					return 0;
-				} else {
-					menu_bar_show_menu(yctx, window, self,offset,_entries);
-				}
-			} else if (self->active_menu && hashmap_has(menu_get_windows_hash(), (void*)(uintptr_t)self->active_menu_wid) && _entries != self->active_entry) {
-				if (!is_tab) {
+	struct menu_bar_entries * e = self->entries;
+	while (e->title) {
+		for (; e->title; e++) {
+			char * title = e->title;
+			if (*title == '\t' || *title == '\v') break;
+			int w = string_width(title) + 11;
+			if (x >= offset && x < offset + w) {
+				if (me->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(me)) {
+					menu_bar_show_menu(yctx, window, self,offset,e);
+				} else if (self->active_menu && hashmap_has(menu_get_windows_hash(), (void*)(uintptr_t)self->active_menu_wid) && e != self->active_entry) {
 					menu_definitely_close(self->active_menu);
-					menu_bar_show_menu(yctx, window, self,offset,_entries);
+					menu_bar_show_menu(yctx, window, self,offset,e);
 				}
+				return 0;
 			}
+			offset += w;
 		}
-
-		offset += w;
-		_entries++;
+		for (; e->title; e++) {
+			if (*e->title != '\t' && *e->title != '\v') break;
+			if (!tabs || (tab_width < 4)) continue;
+			if (x >= offset && x < offset + tab_width) {
+				int action = 0;
+				if (me->command == YUTANI_MOUSE_EVENT_CLICK || _close_enough(me)) {
+					action = 1; /* TODO enum */
+				} else if (me->buttons & YUTANI_MOUSE_BUTTON_RIGHT) {
+					action = 2;
+				}
+				if (action) ((struct menu_bar_with_tabs*)self)->tab_callback((struct menu_bar_with_tabs*)self, e, action, x, y);
+				return 0;
+			}
+			offset += tab_width;
+		}
+		offset += extra;
 	}
 
 	if (x >= offset && me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {

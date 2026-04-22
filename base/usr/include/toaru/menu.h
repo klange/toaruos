@@ -147,7 +147,7 @@ struct menu_bar {
 
 struct menu_bar_with_tabs {
 	struct menu_bar _super;
-	void (*tab_callback) (struct menu_bar_with_tabs*, struct menu_bar_entries *);
+	void (*tab_callback) (struct menu_bar_with_tabs*, struct menu_bar_entries *, int action, int x, int y);
 };
 
 extern void menu_bar_render(struct menu_bar * self, gfx_context_t * ctx);

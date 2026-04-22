@@ -104,6 +104,7 @@ struct Terminal_Private {
 	pid_t child_pid;
 
 	char tab_title[TERMINAL_TITLE_SIZE]; /* TODO just gonna fill in numbers for now */
+	char tab_action[32];
 
 	list_t * images_list;
 
@@ -169,6 +170,7 @@ static int32_t  window_left   = 0;
 static int32_t  window_top    = 0;
 static gfx_context_t * ctx;
 static struct MenuList * menu_right_click = NULL;
+static struct MenuList * menu_tab_context = NULL;
 
 static void render_decors(void);
 static void reinit(void);
@@ -437,17 +439,51 @@ static void input_buffer_stuff(term_state_t * state, char * str) {
 	write_input_buffer(state, str, len);
 }
 
-static void tab_callback(struct menu_bar_with_tabs * menu, struct menu_bar_entries * entry) {
-	int tab = atoi(entry->title+1);
+static int _menu_tab = -1;
+static node_t * get_terminal_at_index(int index) {
 	int i = 1;
 	foreach (node, terminals) {
-		if (i == tab) {
+		if (i == index) return node;
+		i++;
+	}
+
+	return NULL;
+}
+
+static void _menu_action_tab_move_left(struct MenuEntry * self) {
+	node_t * node = get_terminal_at_index(_menu_tab);
+	if (!node) return;
+	node_t * left = node->prev;
+	if (!left) return;
+	list_delete(terminals, node);
+	list_append_before(terminals, left, node);
+	update_menu_bar_tabs();
+}
+
+static void _menu_action_tab_move_right(struct MenuEntry * self) {
+	node_t * node = get_terminal_at_index(_menu_tab);
+	if (!node) return;
+	node_t * right = node->next;
+	if (!right) return;
+	list_delete(terminals, node);
+	list_append_after(terminals, right, node);
+	update_menu_bar_tabs();
+}
+
+static void tab_callback(struct menu_bar_with_tabs * menu, struct menu_bar_entries * entry, int action, int x, int y) {
+	int tab = atoi(entry->action);
+	node_t * node = get_terminal_at_index(tab);
+	if (!node) return;
+	switch (action) {
+		case 1:
 			active_terminal = node->value;
 			update_menu_bar_tabs();
 			reinit();
-			return;
-		}
-		i++;
+			break;
+		case 2:
+			_menu_tab = tab;
+			menu_show_at(menu_tab_context, window, x, y);
+			break;
 	}
 }
 
@@ -465,9 +501,10 @@ static void update_menu_bar_tabs(void) {
 		term_state_t * state = node->value;
 		struct Terminal_Private * priv = state->priv;
 		snprintf(priv->tab_title, TERMINAL_TITLE_SIZE,
-			state == current_terminal() ? "\v%d" : "\t%d", i);
+			state == current_terminal() ? "\v%s [%d]" : "\t%s [%d]", priv->terminal_title, i);
+		snprintf(priv->tab_action, 32, "%d", i);
 		entry->title = priv->tab_title;
-		entry->action = "tab";
+		entry->action = priv->tab_action;
 		entry++;
 		i++;
 	}
@@ -2245,10 +2282,15 @@ int main(int argc, char ** argv) {
 	menu_insert(menu_right_click, menu_create_separator());
 	menu_insert(menu_right_click, _menu_exit);
 
+	menu_tab_context = menu_create();
+	menu_insert(menu_tab_context, menu_create_normal("back",NULL,"Move tab left",_menu_action_tab_move_left));
+	menu_insert(menu_tab_context, menu_create_normal("forward",NULL,"Move tab right",_menu_action_tab_move_right));
+
 	/* Menu Bar menus */
 	terminal_menu_bar._super.set = menu_set_create();
 
 	menu_set_insert(terminal_menu_bar._super.set, "context", menu_right_click);
+	menu_set_insert(terminal_menu_bar._super.set, "tab-context", menu_tab_context);
 
 	struct MenuList * m;
 	m = menu_create(); /* File */
