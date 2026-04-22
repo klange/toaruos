@@ -103,8 +103,10 @@ struct Terminal_Private {
 	int fd_master, fd_slave;
 	pid_t child_pid;
 
-	char tab_title[TERMINAL_TITLE_SIZE]; /* TODO just gonna fill in numbers for now */
-	char tab_action[32];
+	char *tab_title;
+	char *tab_action;
+	int tab_color;
+	int unread;
 
 	list_t * images_list;
 
@@ -216,6 +218,8 @@ static struct MenuEntry * _menu_toggle_mouse_drag = NULL;
 static struct MenuEntry * _menu_toggle_mouse_sgr = NULL;
 static struct MenuEntry * _menu_toggle_mouse_altscroll = NULL;
 static struct MenuEntry * _menu_toggle_paste_bracketing = NULL;
+
+static struct MenuEntry * _menu_tab_color[7];
 
 /* Trigger to exit the terminal when the child process dies or
  * we otherwise receive an exit signal */
@@ -485,10 +489,21 @@ static void _menu_action_tab_close(struct MenuEntry * self) {
 	}
 }
 
+static void _menu_action_tab_color(struct MenuEntry * self) {
+	node_t * node = get_terminal_at_index(_menu_tab);
+	if (!node) return;
+	term_state_t * term = node->value;
+	struct Terminal_Private * priv = term->priv;
+	priv->tab_color = atoi(((struct MenuEntry_Normal*)self)->action);
+	update_menu_bar_tabs();
+}
+
 static void tab_callback(struct menu_bar_with_tabs * menu, struct menu_bar_entries * entry, int action, int x, int y) {
 	int tab = atoi(entry->action);
 	node_t * node = get_terminal_at_index(tab);
 	if (!node) return;
+	term_state_t * term = node->value;
+	struct Terminal_Private * priv = term->priv;
 	switch (action) {
 		case 1:
 			active_terminal = node->value;
@@ -497,8 +512,31 @@ static void tab_callback(struct menu_bar_with_tabs * menu, struct menu_bar_entri
 			break;
 		case 2:
 			_menu_tab = tab;
+			for (int i = 0; i < 7; ++i) {
+				menu_update_toggle_state(_menu_tab_color[i], priv->tab_color == i);
+			}
 			menu_show_at(menu_tab_context, window, x, y);
 			break;
+	}
+}
+
+static char * map_color(int color, int active) {
+	if (color < 1 || color > 6) return "000000";
+	static char tmp[100];
+	snprintf(tmp, 100, "%06x", term_colors[color + active * 8]);
+	return tmp;
+}
+
+/* For the menus */
+static const char * map_color_name(int color) {
+	switch (color) {
+		default: return "None";
+		case 1: return "Red";
+		case 2: return "Green";
+		case 3: return "Yellow";
+		case 4: return "Blue";
+		case 5: return "Purple";
+		case 6: return "Cyan";
 	}
 }
 
@@ -515,9 +553,24 @@ static void update_menu_bar_tabs(void) {
 	foreach (node, terminals) {
 		term_state_t * state = node->value;
 		struct Terminal_Private * priv = state->priv;
-		snprintf(priv->tab_title, TERMINAL_TITLE_SIZE,
-			state == current_terminal() ? "\v%s [%d]" : "\t%s [%d]", priv->terminal_title, i);
-		snprintf(priv->tab_action, 32, "%d", i);
+
+		free(priv->tab_title);
+		free(priv->tab_action);
+
+		int active = (state == current_terminal());
+		if (active) priv->unread = 0;
+
+		asprintf(&priv->tab_title, "%c%s [%d]%s",
+			active ? '\v' : '\t',
+			priv->terminal_title,
+			i,
+			priv->unread ? "*" : "");
+
+		asprintf(&priv->tab_action, "%d%s%s",
+			i,
+			priv->tab_color ? ";" : "",
+			priv->tab_color ? map_color(priv->tab_color, active) : "");
+
 		entry->title = priv->tab_title;
 		entry->action = priv->tab_action;
 		entry++;
@@ -1407,6 +1460,10 @@ static int check_for_exit(void) {
 			free(term->images_list);
 		}
 		list_free(term->input_buffer_queue);
+
+		free(term->tab_title);
+		free(term->tab_action);
+
 		free(term->input_buffer_queue);
 		/* TODO we don't actually have a good way to clean up pthreads */
 		free(term);
@@ -2356,6 +2413,8 @@ int main(int argc, char ** argv) {
 	menu_insert(menu_tab_context, menu_create_normal("back",NULL,"Move tab left",_menu_action_tab_move_left));
 	menu_insert(menu_tab_context, menu_create_normal("forward",NULL,"Move tab right",_menu_action_tab_move_right));
 	menu_insert(menu_tab_context, menu_create_separator());
+	menu_insert(menu_tab_context, menu_create_submenu(NULL,"tab-color","Set tab color..."));
+	menu_insert(menu_tab_context, menu_create_separator());
 	menu_insert(menu_tab_context, menu_create_normal("close",NULL,"Close tab",_menu_action_tab_close));
 
 	/* Menu Bar menus */
@@ -2365,6 +2424,18 @@ int main(int argc, char ** argv) {
 	menu_set_insert(terminal_menu_bar._super.set, "tab-context", menu_tab_context);
 
 	struct MenuList * m;
+
+	m = menu_create();
+	menu_insert(m, (_menu_tab_color[0] = menu_create_toggle("0", "    None", 1, _menu_action_tab_color)));
+	for (int i = 1; i < 7; ++i) {
+		char * title;
+		asprintf(&title, "<bgcolor #%s>   </bgcolor> %s", map_color(i, 1), map_color_name(i));
+		char * action;
+		asprintf(&action, "%d", i);
+		menu_insert(m, (_menu_tab_color[i] = menu_create_toggle(action, title, 0, _menu_action_tab_color)));
+	}
+	menu_set_insert(terminal_menu_bar._super.set, "tab-color", m);
+
 	m = menu_create(); /* File */
 	menu_insert(m, _menu_new_tab);
 	menu_insert(m, menu_create_separator());
@@ -2500,6 +2571,7 @@ int main(int argc, char ** argv) {
 
 		termemu_maybe_flip_cursor(current_terminal());
 
+		int new_unread = 0;
 		int force_flip = (next_wait == 10);
 		next_wait = 200;
 		for (size_t i = 1; i < fds_size; ++i) {
@@ -2513,6 +2585,10 @@ int main(int argc, char ** argv) {
 				for (ssize_t j = 0; j < r; ++j) {
 					termemu_put(term[i], buf[j]);
 				}
+				if (!priv->unread && term[i] != current_terminal()) {
+					priv->unread = 1;
+					new_unread = 1;
+				}
 			}
 		}
 
@@ -2521,6 +2597,11 @@ int main(int argc, char ** argv) {
 			handle_incoming();
 		}
 		maybe_flip_display(force_flip);
+
+		if (new_unread) {
+			update_menu_bar_tabs();
+			render_decors();
+		}
 	}
 
 	foreach(node, terminals) {
