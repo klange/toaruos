@@ -1163,6 +1163,7 @@ static void term_state_change(term_state_t * state) {
 }
 
 static void term_bell(term_state_t * state) {
+	static uint64_t last_beep = 0;
 	struct Terminal_Private *priv = state->priv;
 	if (state != current_terminal()) {
 		if (!priv->belled) {
@@ -1172,7 +1173,8 @@ static void term_bell(term_state_t * state) {
 		}
 	}
 
-	if (priv->beep_on_bell) {
+	if (priv->beep_on_bell && get_ticks() - last_beep > 300000) {
+		last_beep = get_ticks();
 		/* As long as we do it from the main thread, we'll pick
 		 * up this beep process with a waitpid in check_for_exit */
 		if (!fork()) {
