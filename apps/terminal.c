@@ -45,6 +45,8 @@
 #include <toaru/list.h>
 #include <toaru/menu.h>
 #include <toaru/text.h>
+#include <toaru/json.h>
+extern const char * json_lib_error;
 
 /* 16- and 256-color palette */
 #include "terminal-palette.h"
@@ -2355,6 +2357,95 @@ static void parse_geometry(char ** argv, char * str) {
 	}
 }
 
+static int config_option_bool(char * argv[], struct JSON_Value * config, char * name, bool *sets) {
+	if (hashmap_has(config->object, name)) {
+		struct JSON_Value * value = hashmap_get(config->object, name);
+		if (value->type != JSON_TYPE_BOOL) {
+			fprintf(stderr, "%s: config option '%s' must be true or false\n",
+				argv[0], name);
+			return 1;
+		}
+
+		*sets = value->boolean;
+	}
+
+	return 0;
+}
+
+static int config_option_float(char * argv[], struct JSON_Value * config, char * name, float *sets) {
+	if (hashmap_has(config->object, name)) {
+		struct JSON_Value * value = hashmap_get(config->object, name);
+		if (value->type != JSON_TYPE_NUMBER) {
+			fprintf(stderr, "%s: config option '%s' must be a number\n",
+				argv[0], name);
+			return 1;
+		}
+
+		*sets = value->number;
+	}
+
+	return 0;
+}
+
+static int config_option_int(char * argv[], struct JSON_Value * config, char * name, int *sets) {
+	if (hashmap_has(config->object, name)) {
+		struct JSON_Value * value = hashmap_get(config->object, name);
+		if (value->type != JSON_TYPE_NUMBER) {
+			fprintf(stderr, "%s: config option '%s' must be a number\n",
+				argv[0], name);
+			return 1;
+		}
+
+		*sets = (int)value->number;
+	}
+
+	return 0;
+}
+
+static void load_config(char * argv[], int *max_scrollback, bool *scale_fonts, float *font_scaling, bool *truetype, bool *emulatebold) {
+	char * home = getenv("HOME");
+	if (!home) return;
+
+	char * config_path = NULL;
+	asprintf(&config_path, "%s/.terminal.json", home);
+
+	if (access(config_path, R_OK)) {
+		free(config_path);
+		return;
+	}
+
+	struct JSON_Value * config_json = json_parse_file(config_path);
+
+	if (!config_json) {
+		fprintf(stderr, "%s: %s: JSON parse failure: %s\n", argv[0], config_path, json_lib_error);
+		goto config_done;
+	}
+
+	if (config_json->type != JSON_TYPE_OBJECT) {
+		fprintf(stderr, "%s: %s: Config must be an object\n", argv[0], config_path);
+		goto config_done;
+	}
+
+	/* This one is backwards */
+	bool bitmap = !*truetype;
+	config_option_bool(argv, config_json, "bitmap", &bitmap);
+	*truetype = !bitmap;
+
+	config_option_bool(argv, config_json, "emulatebold", emulatebold);
+	config_option_bool(argv, config_json, "scale-fonts", scale_fonts);
+	config_option_float(argv, config_json, "font-scaling", font_scaling);
+	config_option_int(argv, config_json, "max-scrollback", max_scrollback);
+
+	config_option_bool(argv, config_json, "beep-on-bell", &beep_on_bell);
+	config_option_bool(argv, config_json, "tab-numbers", &show_tab_numbers);
+	config_option_bool(argv, config_json, "no-frame", &_no_frame);
+	config_option_bool(argv, config_json, "no-menu-bar", &_no_menu_bar);
+
+config_done:
+	if (config_json) json_free(config_json);
+	free(config_path);
+}
+
 int main(int argc, char ** argv) {
 
 	int _flags = 0;
@@ -2362,10 +2453,21 @@ int main(int argc, char ** argv) {
 	window_height = 17 * 24;
 
 	int set_max_scrollback = 10000;
-	int set_scale_fonts = 0;
+	bool set_scale_fonts = 0;
 	float set_font_scaling = 1.0;
-	int set_truetype = 1;
-	int set_bold = 0;
+	bool set_truetype = 1;
+	bool set_bold = 0;
+
+	/* Load user config before parsing arguments */
+
+	load_config(
+		argv,
+		&set_max_scrollback,
+		&set_scale_fonts,
+		&set_font_scaling,
+		&set_truetype,
+		&set_bold);
+
 
 	static struct option long_opts[] = {
 		{"fullscreen", no_argument,       0, 'F'},
