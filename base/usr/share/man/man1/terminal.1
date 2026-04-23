@@ -28,7 +28,6 @@ Enable the bitmap font by default. This can also be toggled using menus at runti
 .TP
 .B \-\-bitmap=no
 Disable the bitmap font.
-This may override a configuration file option in the future.
 
 .TP
 .B \-e \fRor\fP \-\-emulatebold[=yes]
@@ -38,7 +37,6 @@ This may result in a lack of kerning, especially in capitalized text.
 .TP
 .B \-\-emulatebold=no
 Disable emulation of bold text with the bitmap font.
-This may override a configuration file option in the future.
 
 .TP
 .B \-s \fRor\fP \-\-scale \fIscale\fP
@@ -81,7 +79,6 @@ Produce an audible beep when the \fBBEL\fP character is output.
 .TP
 .B \-\-beep\-on\-bell=no
 Do not produce an audible beep on the \fBBEL\fP character.
-This may override a configuration file option in the future.
 
 .TP
 .B \-\-tab\-numbers[=yes]
@@ -90,7 +87,6 @@ Display tab numbers in tab titles.
 .TP
 .B \-\-tab\-numbers=no
 Do not display tab numbers in tab titles.
-This may override a configuration file option in the future.
 
 .SH KEYBOARD SHORTCUTS
 When the terminal is focused, some keyboard inputs are interpreted specially:
@@ -122,6 +118,49 @@ Increase the font scaling size by a factor of 1.2.
 .TP
 .B Ctrl\-\- \fR(minus)
 Reduce the font scaling size by a factor of 0.83333333.
+
+.SH CONFIGURATION
+If present, \fBTerminal\fP will load a configuration from \fB~/.terminal.json\fP.
+Configuration options generally match the behavior of the equivalent command\-line option.
+The command\-line options override the configuration file.
+.PP
+The file should contain a JSON object with any of the following keys:
+
+.TP
+.B bitmap \fIbool\fP
+Enable the bitmap font.
+
+.TP
+.B emulatebold \fIbool\fP
+When using the bitmap font, emulate bold text by double striking gylphs.
+
+.TP
+.B scale\-fonts \fIbool\fP
+Enable or disable font scaling.
+
+.TP
+.B font\-scaling \fInumber\fP
+Set the font scaling multiplier.
+
+.TP
+.B max\-scrollback \fInumber\fP
+Set the number of lines of scrollback to save.
+
+.TP
+.B beep\-on\-bell \fIbool\fP
+Produce an audible beep in response to the \fBBEL\fP character.
+
+.TP
+.B tab\-numbers \fIbool\fP
+Display tab numbers in tab titles.
+
+.TP
+.B no\-frame \fIbool\fP
+Disable window decorations.
+
+.TP
+.B no\-menu\-bar \fIbool\fP
+Hide the menu bar and tabs.
 
 .SH SEE ALSO
 .BR terminal-vga (1),
