@@ -62,7 +62,7 @@ static int usage(char * argv[]) {
 			"\n"
 			" -F --fullscreen        " X_S "Run in fullscreen (background) mode." X_E "\n"
 			" -b --bitmap            " X_S "Use the integrated bitmap font." X_E "\n"
-			" -e --emulatebold       " X_S "Emulate bold text by double striking bitmap glyphs." X_E "\n"
+			" -e --emulatebold[=no]  " X_S "Enable (disable) emulated bold text by double striking bitmap glyphs." X_E "\n"
 			" -s --scale " X_S "SCALE       Scale the font in antialiased mode by a given amount." X_E "\n"
 			" -h --help              " X_S "Show this help message." X_E "\n"
 			" -x --grid              " X_S "Make resizes round to nearest match for character cell size." X_E "\n"
@@ -70,6 +70,9 @@ static int usage(char * argv[]) {
 			" -g --geometry " X_S "WxH      Set requested terminal size WIDTHxHEIGHT" X_E "\n"
 			" -B --blurred           " X_S "Blur background behind terminal." X_E "\n"
 			" -S --scrollback " X_S "LINES  Set the scrollback buffer size, 0 for unlimited." X_E "\n"
+			" -l --login             " X_S "New sessions always start 'login-loop'." X_E "\n"
+			"    --beep-on-bell[=no] " X_S "Enable (disable) audible beep on BEL." X_E "\n"
+			"    --tab-numbers[=no]  " X_S "Enable (disable) displaying tab numbers." X_E "\n"
 			"\n"
 			" This terminal emulator provides basic support for VT220 escapes and\n"
 			" XTerm extensions, including 256 color support and font effects.\n",
@@ -2328,8 +2331,6 @@ int main(int argc, char ** argv) {
 
 	static struct option long_opts[] = {
 		{"fullscreen", no_argument,       0, 'F'},
-		{"bitmap",     no_argument,       0, 'b'},
-		{"emulatebold",no_argument,       0, 'e'},
 		{"scale",      required_argument, 0, 's'},
 		{"help",       no_argument,       0, 'h'},
 		{"grid",       no_argument,       0, 'x'},
@@ -2338,6 +2339,14 @@ int main(int argc, char ** argv) {
 		{"blurred",    no_argument,       0, 'B'},
 		{"scrollback", required_argument, 0, 'S'},
 		{"login",      no_argument,       0, 'l'},
+
+		/* These either don't match the semantics of
+		 * their respective short options, or don't
+		 * have matching short options. */
+		{"beep-on-bell", optional_argument, 0, 1000},
+		{"tab-numbers",  optional_argument, 0, 1001},
+		{"emulatebold",  optional_argument, 0, 1002},
+		{"bitmap",       optional_argument, 0, 1003},
 		{0,0,0,0}
 	};
 
@@ -2363,8 +2372,14 @@ int main(int argc, char ** argv) {
 			case 'b':
 				set_truetype = 0;
 				break;
+			case 1003: /* --bitmap[=no] */
+				set_truetype = !(!optarg || *optarg != 'n');
+				break;
 			case 'e':
-				set_bold = 1;
+				set_bold = 0;
+				break;
+			case 1002: /* --emulatebold[=no] */
+				set_bold = (!optarg || *optarg != 'n');
 				break;
 			case 'h':
 				usage(argv);
@@ -2384,6 +2399,12 @@ int main(int argc, char ** argv) {
 				break;
 			case 'l':
 				terminal_login_shell_restricted = 1;
+				break;
+			case 1000: /* --beep-on-bell */
+				beep_on_bell = (!optarg || *optarg != 'n');
+				break;
+			case 1001: /* --tab-numbers */
+				show_tab_numbers = (!optarg || *optarg != 'n');
 				break;
 			case '?':
 				return usage(argv);

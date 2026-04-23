@@ -22,13 +22,23 @@ This option is generally used by the startup scripts to run "single user mode" a
 recommended for typical users.
 
 .TP
-.B \-b \fRor\fP \-\-bitmap
+.B \-b \fRor\fP \-\-bitmap[=yes]
 Enable the bitmap font by default. This can also be toggled using menus at runtime.
 
 .TP
-.B \-e \fRor\fP \-\-emulatebold
+.B \-\-bitmap=no
+Disable the bitmap font.
+This may override a configuration file option in the future.
+
+.TP
+.B \-e \fRor\fP \-\-emulatebold[=yes]
 When using the bitmap font, emulate bold text by double striking gylphs.
 This may result in a lack of kerning, especially in capitalized text.
+
+.TP
+.B \-\-emulatebold=no
+Disable emulation of bold text with the bitmap font.
+This may override a configuration file option in the future.
 
 .TP
 .B \-s \fRor\fP \-\-scale \fIscale\fP
@@ -63,6 +73,24 @@ Set the scrollback buffer size to \fIlines\fP lines, 0 for unlimited.
 Force all new sessions in this terminal to run \fBlogin\-loop\fP instead of
 the user's shell.
 No other arguments may be provided.
+
+.TP
+.B \-\-beep\-on\-bell[=yes]
+Produce an audible beep when the \fBBEL\fP character is output.
+
+.TP
+.B \-\-beep\-on\-bell=no
+Do not produce an audible beep on the \fBBEL\fP character.
+This may override a configuration file option in the future.
+
+.TP
+.B \-\-tab\-numbers[=yes]
+Display tab numbers in tab titles.
+
+.TP
+.B \-\-tab\-numbers=no
+Do not display tab numbers in tab titles.
+This may override a configuration file option in the future.
 
 .SH KEYBOARD SHORTCUTS
 When the terminal is focused, some keyboard inputs are interpreted specially:
