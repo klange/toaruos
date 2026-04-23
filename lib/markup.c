@@ -107,6 +107,10 @@ int markup_free_tag(struct markup_tag * tag) {
 	return 0;
 }
 
+int markup_emit_raw(struct markup_state * state, char * s) {
+	return state->callback_data(state, state->user, s);
+}
+
 int markup_parse(struct markup_state * state, char c) {
 	switch (state->state) {
 		case 0: /* STATE_NORMAL */

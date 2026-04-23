@@ -61,6 +61,8 @@ static uint32_t parseColor(const char * c) {
 	return rgba(strtoul(r,NULL,16),strtoul(g,NULL,16),strtoul(b,NULL,16),255);
 }
 
+extern int markup_emit_raw(struct markup_state * state, char * s);
+
 static int parser_open(struct markup_state * self, void * user, struct markup_tag * tag) {
 	struct MarkupState * state = (struct MarkupState*)user;
 	if (!strcmp(tag->name, "b")) {
@@ -76,6 +78,8 @@ static int parser_open(struct markup_state * self, void * user, struct markup_ta
 	} else if (!strcmp(tag->name, "br")) {
 		state->cursor_x = state->initial_left;
 		state->cursor_y += 20; /* state->line_height? */
+	} else if (!strcmp(tag->name, "ab")) {
+		markup_emit_raw(self, "<");
 	} else if (!strcmp(tag->name, "color")) {
 		/* get options */
 		list_t * args = hashmap_keys(tag->options);
