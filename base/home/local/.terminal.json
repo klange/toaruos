@@ -1,0 +1,6 @@
+{
+    "--comment": "Configuration file for Terminal.",
+    "beep-on-bell": false,
+    "bitmap": false,
+    "emulatebold": true
+}
