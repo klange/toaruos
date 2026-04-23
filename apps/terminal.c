@@ -113,7 +113,6 @@ struct Terminal_Private {
 
 	bool use_truetype;
 	bool emulate_bold;
-	bool beep_on_bell;
 	int thread_done;
 };
 
@@ -132,6 +131,8 @@ static term_state_t * terminal_create(bool scale_fonts, float font_scaling, int 
 static bool _fullscreen    = 0;    /* Whether or not we are running in fullscreen mode (GUI only) */
 static bool _no_frame      = 0;    /* Whether to disable decorations or not */
 static bool _free_size     = 1;    /* Disable rounding when resized */
+static bool beep_on_bell = 0;
+static bool show_tab_numbers = 0;
 
 static bool terminal_login_shell_restricted = 0;
 
@@ -565,12 +566,29 @@ static void update_menu_bar_tabs(void) {
 			priv->belled = 0;
 		}
 
-		asprintf(&priv->tab_title, "%c%s [%d]%s",
+		char notification[150] = {0};
+
+		if (priv->belled) {
+			snprintf(notification, 150,
+				" <color #%s>▲</color> ",
+				map_color(1,1)); /* red */
+		} else if (priv->unread) {
+			snprintf(notification, 150,
+				" <color #%s>●</color> ",
+				map_color(4,1));
+		}
+
+		char maybe_number[150] = {0};
+
+		if (show_tab_numbers) {
+			snprintf(maybe_number, 150, " [%d]", i);
+		}
+
+		asprintf(&priv->tab_title, "%c%s%s%s",
 			active ? '\v' : '\t',
 			priv->terminal_title,
-			i,
-			priv->belled ? "♪" :
-				priv->unread ? "*" : "");
+			maybe_number,
+			notification);
 
 		asprintf(&priv->tab_action, "%d%s%s",
 			i,
@@ -1173,7 +1191,7 @@ static void term_bell(term_state_t * state) {
 		}
 	}
 
-	if (priv->beep_on_bell && get_ticks() - last_beep > 300000) {
+	if (beep_on_bell && get_ticks() - last_beep > 300000) {
 		last_beep = get_ticks();
 		/* As long as we do it from the main thread, we'll pick
 		 * up this beep process with a waitpid in check_for_exit */
@@ -2069,7 +2087,6 @@ static struct MenuEntry * _menu_toggle_bitmap_context = NULL;
 static struct MenuEntry * _menu_toggle_bitmap_bar = NULL;
 static struct MenuEntry * _menu_toggle_bold_bar = NULL;
 static struct MenuEntry * _menu_toggle_bold_context = NULL;
-static struct MenuEntry * _menu_toggle_beep = NULL;
 
 static void update_font_menu_states(void) {
 	menu_update_toggle_state(_menu_toggle_bitmap_context, !this_term()->use_truetype );
@@ -2079,13 +2096,6 @@ static void update_font_menu_states(void) {
 	menu_update_enabled(_menu_toggle_bold_context, !this_term()->use_truetype );
 	menu_update_toggle_state(_menu_toggle_bold_bar, this_term()->emulate_bold);
 	menu_update_toggle_state(_menu_toggle_bold_context, this_term()->emulate_bold);
-	menu_update_toggle_state(_menu_toggle_beep, this_term()->beep_on_bell);
-}
-
-static void _menu_action_toggle_beep(struct MenuEntry * self) {
-	this_term()->beep_on_bell = !this_term()->beep_on_bell;
-	update_font_menu_states();
-	reinit();
 }
 
 static void _menu_action_toggle_tt(struct MenuEntry * self) {
@@ -2103,6 +2113,20 @@ static void _menu_action_toggle_bold(struct MenuEntry * self) {
 static void _menu_action_toggle_free_size(struct MenuEntry * self) {
 	_free_size = !(_free_size);
 	menu_update_toggle_state(self, !_free_size);
+}
+
+static void _menu_action_toggle_beep(struct MenuEntry * self) {
+	beep_on_bell = !beep_on_bell;
+	menu_update_toggle_state(self, beep_on_bell);
+	update_menu_bar_tabs();
+	render_decors();
+}
+
+static void _menu_action_toggle_tab_numbers(struct MenuEntry * self) {
+	show_tab_numbers = !show_tab_numbers;
+	menu_update_toggle_state(self, show_tab_numbers);
+	update_menu_bar_tabs();
+	render_decors();
 }
 
 static void _menu_action_toggle_altscreen(struct MenuEntry * self) {
@@ -2511,7 +2535,8 @@ int main(int argc, char ** argv) {
 	_menu_toggle_borders_bar = menu_create_toggle(NULL, "Show borders", !_no_frame, _menu_action_hide_borders);
 	menu_insert(m, _menu_toggle_borders_bar);
 	menu_insert(m, menu_create_toggle(NULL, "Snap to Cell Size", !_free_size, _menu_action_toggle_free_size));
-	menu_insert(m, (_menu_toggle_beep = menu_create_toggle(NULL, "Beep on Bell", 0, _menu_action_toggle_beep)));
+	menu_insert(m, menu_create_toggle(NULL, "Beep on Bell", beep_on_bell, _menu_action_toggle_beep));
+	menu_insert(m, menu_create_toggle(NULL, "Show tab numbers", show_tab_numbers, _menu_action_toggle_tab_numbers));
 
 	menu_insert(m, menu_create_separator());
 
