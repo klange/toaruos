@@ -51,6 +51,8 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 	f = fopen(fname, "r");
 	free(fname);
 
+	if (!f) return NULL;
+
 	p_t * proc = calloc(sizeof(p_t),1);
 
 	while ((len = getline(&line, &avail, f)) != -1) {
@@ -166,3 +168,8 @@ int procfs_iterate(int (*callback)(struct process *,void*), void *ctx, int flags
 	return ret;
 }
 
+struct process * procfs_get_pid(pid_t pid, int flags) {
+	struct dirent dent;
+	snprintf(dent.d_name, sizeof(dent.d_name), "%d", pid);
+	return build_entry(&dent, flags);
+}

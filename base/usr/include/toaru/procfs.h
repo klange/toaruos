@@ -30,3 +30,4 @@ typedef struct process {
 
 extern  void procfs_free(struct process * proc);
 extern int procfs_iterate(int (*callback)(struct process *,void*), void *ctx, int flags);
+extern struct process * procfs_get_pid(pid_t pid, int flags);
