@@ -65,34 +65,39 @@ uint32_t hsv_to_rgb(int h, float s, float v) {
 	return rgb((rp + m) * 255, (gp + m) * 255, (bp + m) * 255);
 }
 
+static uint32_t palette[256];
+double time = 0;
+
+static void draw_once(void) {
+	time += 1.0;
+
+	for (int x = 0; x < win_width; ++x) {
+		for (int y = 0; y < win_height; ++y) {
+			double value = sin(dist(x + time, y, 128.0, 128.0) / 8.0)
+				+ sin(dist(x, y, 64.0, 64.0) / 8.0)
+				+ sin(dist(x, y + time / 7, 192.0, 64) / 7.0)
+				+ sin(dist(x, y, 192.0, 100.0) / 8.0);
+			GFX(ctx, x + off_x, y + off_y) = palette[(unsigned int)((value + 4) * 32) & 0xFF];
+		}
+	}
+	redraw_borders();
+	flip(ctx);
+	yutani_flip(yctx, wina);
+}
+
 void * draw_thread(void * garbage) {
 	(void)garbage;
 
-	double time = 0;
 
 	/* Generate a palette */
-	uint32_t palette[256];
 	for (int x = 0; x < 256; ++x) {
 		palette[x] = hsv_to_rgb(x,1.0,1.0);
 	}
 
 	while (!should_exit) {
 
-		time += 1.0;
-
 		spin_lock(&draw_lock);
-		for (int x = 0; x < win_width; ++x) {
-			for (int y = 0; y < win_height; ++y) {
-				double value = sin(dist(x + time, y, 128.0, 128.0) / 8.0)
-					+ sin(dist(x, y, 64.0, 64.0) / 8.0)
-					+ sin(dist(x, y + time / 7, 192.0, 64) / 7.0)
-					+ sin(dist(x, y, 192.0, 100.0) / 8.0);
-				GFX(ctx, x + off_x, y + off_y) = palette[(unsigned int)((value + 4) * 32) & 0xFF];
-			}
-		}
-		redraw_borders();
-		flip(ctx);
-		yutani_flip(yctx, wina);
+		draw_once();
 		spin_unlock(&draw_lock);
 		sched_yield();
 	}
@@ -100,6 +105,7 @@ void * draw_thread(void * garbage) {
 }
 
 void resize_finish(int w, int h) {
+	spin_lock(&draw_lock);
 	yutani_window_resize_accept(yctx, wina, w, h);
 	reinit_graphics_yutani(ctx, wina);
 
@@ -111,7 +117,10 @@ void resize_finish(int w, int h) {
 	off_x = bounds.left_width;
 	off_y = bounds.top_height;
 
+	draw_once();
+
 	yutani_window_resize_done(yctx, wina);
+	spin_unlock(&draw_lock);
 }
 
 int main (int argc, char ** argv) {
@@ -181,9 +190,7 @@ int main (int argc, char ** argv) {
 					{
 						struct yutani_msg_window_resize * wr = (void*)m->data;
 						if (wr->wid == wina->wid) {
-							spin_lock(&draw_lock);
 							resize_finish(wr->width, wr->height);
-							spin_unlock(&draw_lock);
 						}
 					}
 					break;
