@@ -136,6 +136,7 @@ static bool _no_frame      = 0;    /* Whether to disable decorations or not */
 static bool _free_size     = 1;    /* Disable rounding when resized */
 static bool beep_on_bell = 0;
 static bool show_tab_numbers = 0;
+static bool _no_menu_bar   = 0;
 
 static bool terminal_login_shell_restricted = 0;
 
@@ -638,6 +639,9 @@ static void render_decors(void) {
 	if (!_no_frame) {
 		/* Draw the decorations */
 		render_decorations(window, ctx, this_term()->terminal_title_length ? this_term()->terminal_title : "Terminal");
+	}
+
+	if (!_no_menu_bar) {
 		/* Update menu bar position and size */
 		terminal_menu_bar._super.x = decor_left_width;
 		terminal_menu_bar._super.y = decor_top_height;
@@ -1729,7 +1733,6 @@ static void update_bounds(void) {
 		decor_bottom_height = bounds.bottom_height;
 		decor_width = bounds.width;
 		decor_height = bounds.height;
-		menu_bar_height = 24;
 	} else {
 		decor_left_width = 0;
 		decor_top_height = 0;
@@ -1737,8 +1740,8 @@ static void update_bounds(void) {
 		decor_bottom_height = 0;
 		decor_width = 0;
 		decor_height = 0;
-		menu_bar_height = 0;
 	}
+	menu_bar_height = _no_menu_bar ? 0 : 24;
 }
 
 /* Handle window resize event. */
@@ -1952,17 +1955,18 @@ static void * handle_incoming(void) {
 							default:
 								break;
 						}
+					}
 
+					if (!_no_menu_bar) {
 						menu_bar_mouse_event(yctx, window, (struct menu_bar*)&terminal_menu_bar, me, me->new_x, me->new_y);
 					}
 
 					if (me->new_x < 0 || me->new_y < 0 ||
-						(!_no_frame && (me->new_x >= (int)window_width + (int)decor_width ||
+						(me->new_x >= (int)window_width + (int)decor_width ||
 							me->new_y < (int)decor_top_height+menu_bar_height ||
 							me->new_y >= (int)(window_height + decor_top_height+menu_bar_height) ||
 							me->new_x < (int)decor_left_width ||
-							me->new_x >= (int)(window_width + decor_left_width))) ||
-						(_no_frame && (me->new_x >= (int)window_width || me->new_y >= (int)window_height))) {
+							me->new_x >= (int)(window_width + decor_left_width))) {
 						if (window->mouse_state == YUTANI_CURSOR_TYPE_IBEAM) {
 							yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESET);
 						}
@@ -1983,8 +1987,9 @@ static void * handle_incoming(void) {
 					int new_y = me->new_y;
 					if (!_no_frame) {
 						new_x -= decor_left_width;
-						new_y -= decor_top_height+menu_bar_height;
+						new_y -= decor_top_height;
 					}
+					new_y -= menu_bar_height;
 					/* Convert from coordinate to cell positon */
 					new_x /= this_term()->char_width;
 					new_y /= this_term()->char_height;
@@ -2107,6 +2112,15 @@ static void _menu_action_hide_borders(struct MenuEntry * self) {
 	menu_update_toggle_state(_menu_toggle_borders_context, !_no_frame);
 	menu_update_toggle_state(_menu_toggle_borders_bar, !_no_frame);
 	
+	reinit();
+}
+
+static void _menu_action_hide_menu_bar(struct MenuEntry * self) {
+	_no_menu_bar = !_no_menu_bar;
+	update_bounds();
+	window_width = window->width - decor_width;
+	window_height = window->height - (decor_height + menu_bar_height);
+	menu_update_toggle_state(self, !_no_menu_bar);
 	reinit();
 }
 
@@ -2392,6 +2406,7 @@ int main(int argc, char ** argv) {
 			case 'F':
 				_fullscreen = 1;
 				_no_frame = 1;
+				_no_menu_bar = 1;
 				break;
 			case 'b':
 				set_truetype = 0;
@@ -2504,6 +2519,7 @@ int main(int argc, char ** argv) {
 	if (!_fullscreen) {
 		_menu_toggle_borders_context = menu_create_toggle(NULL, "Show borders", !_no_frame, _menu_action_hide_borders);
 		menu_insert(menu_right_click, _menu_toggle_borders_context);
+		menu_insert(menu_right_click, menu_create_toggle(NULL, "Show menu bar", !_no_menu_bar, _menu_action_hide_menu_bar));
 	}
 	_menu_toggle_bitmap_context = menu_create_toggle(NULL, "Bitmap font", !set_truetype, _menu_action_toggle_tt);
 	menu_insert(menu_right_click, _menu_toggle_bitmap_context);
