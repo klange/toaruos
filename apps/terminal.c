@@ -587,11 +587,35 @@ static void update_menu_bar_tabs(void) {
 			snprintf(maybe_number, 150, " [%d]", i);
 		}
 
+		size_t sanitized_size = 0;
+		char * sanitized_title = NULL;
+
+		/* Determine if we need to sanitize the title, and if so how big it should be. */
+		for (char * c = priv->terminal_title; *c; ++c) {
+			sanitized_size += (*c == '<') ? 4 : 1;
+		}
+
+		if (sanitized_size != priv->terminal_title_length) {
+			sanitized_title = calloc(sanitized_size + 1, 1);
+			for (size_t i = 0, j = 0; i < priv->terminal_title_length; ++i) {
+				if (priv->terminal_title[i] == '<') {
+					sanitized_title[j++] = '<';
+					sanitized_title[j++] = 'a';
+					sanitized_title[j++] = 'b';
+					sanitized_title[j++] = '>';
+				} else {
+					sanitized_title[j++] = priv->terminal_title[i];
+				}
+			}
+		}
+
 		asprintf(&priv->tab_title, "%c%s%s%s",
 			active ? '\v' : '\t',
-			priv->terminal_title,
+			sanitized_title ? sanitized_title : priv->terminal_title,
 			maybe_number,
 			notification);
+
+		free(sanitized_title);
 
 		asprintf(&priv->tab_action, "%d%s%s",
 			i,
