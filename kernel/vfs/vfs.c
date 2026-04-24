@@ -474,7 +474,7 @@ int create_file_fs(char *name, mode_t permission) {
 	}
 
 	free(path);
-	free(parent);
+	close_fs(parent);
 
 	return ret;
 }
