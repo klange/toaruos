@@ -26,6 +26,7 @@
 #include <wchar.h>
 #include <dlfcn.h>
 #include <pthread.h>
+#include <libgen.h>
 
 #include <sys/stat.h>
 #include <sys/ioctl.h>
@@ -45,6 +46,7 @@
 #include <toaru/list.h>
 #include <toaru/menu.h>
 #include <toaru/text.h>
+#include <toaru/procfs.h>
 #include <toaru/json.h>
 extern const char * json_lib_error;
 
@@ -114,6 +116,9 @@ struct Terminal_Private {
 	bool unread;
 	bool belled;
 
+	pid_t fg_pid;
+	char * fg_name;
+
 	list_t * images_list;
 
 	bool use_truetype;
@@ -133,12 +138,13 @@ static term_state_t * terminal_create(bool scale_fonts, float font_scaling, int 
 
 #define this_term() ((struct Terminal_Private*)current_terminal()->priv)
 
-static bool _fullscreen    = 0;    /* Whether or not we are running in fullscreen mode (GUI only) */
-static bool _no_frame      = 0;    /* Whether to disable decorations or not */
-static bool _free_size     = 1;    /* Disable rounding when resized */
+static bool _fullscreen = 0;
+static bool _no_frame = 0;
+static bool _free_size = 1;
 static bool beep_on_bell = 0;
 static bool show_tab_numbers = 0;
-static bool _no_menu_bar   = 0;
+static bool _no_menu_bar = 0;
+static bool show_fg_name = 1;
 
 static bool terminal_login_shell_restricted = 0;
 
@@ -612,9 +618,10 @@ static void update_menu_bar_tabs(void) {
 			}
 		}
 
-		asprintf(&priv->tab_title, "%c%s%s%s",
+		asprintf(&priv->tab_title, "%c%s%s%s%s",
 			active ? '\v' : '\t',
 			sanitized_title ? sanitized_title : priv->terminal_title,
+			priv->fg_name ? priv->fg_name : "",
 			maybe_number,
 			notification);
 
@@ -1525,9 +1532,36 @@ static void key_event(int ret, key_event_t * event) {
 
 /* Check if the Terminal should close. */
 static int check_for_exit(void) {
-
 	/* If something has set exit_application, we should exit. */
 	if (exit_application) return 1;
+
+	/* See if any of the terminals had a change in foreground process */
+	if (show_fg_name) {
+		int needs_update = 0;
+
+		foreach (node, terminals) {
+			term_state_t * term = node->value;
+			struct Terminal_Private * priv = term->priv;
+			pid_t pgrp = tcgetpgrp(priv->fd_master);
+			if (pgrp != -1 && pgrp != priv->fg_pid) {
+				priv->fg_pid = pgrp;
+				free(priv->fg_name);
+				priv->fg_name = NULL;
+				struct process * fg_proc = procfs_get_pid(priv->fg_pid, 0);
+				if (fg_proc) {
+					asprintf(&priv->fg_name, " (%s)", basename(fg_proc->path));
+					procfs_free(fg_proc);
+				}
+
+				needs_update = 1;
+			}
+		}
+
+		if (needs_update) {
+			update_menu_bar_tabs();
+			render_decors();
+		}
+	}
 
 	/* See if any dead terminals can be cleaned up */
 	while (dead_terminals->length) {
@@ -1544,6 +1578,7 @@ static int check_for_exit(void) {
 
 		free(term->tab_title);
 		free(term->tab_action);
+		free(term->fg_name);
 
 		free(term->input_buffer_queue);
 		/* TODO we don't actually have a good way to clean up pthreads */
@@ -2249,6 +2284,8 @@ static void _menu_action_signal(struct MenuEntry * self) {
 	int sig;
 	str2sig(((struct MenuEntry_Normal*)self)->action, &sig);
 
+	/* Note, we don't use fg_pid because it's only updated
+	 * when show_fg_name is enabled. */
 	pid_t pgrp = tcgetpgrp(this_term()->fd_master);
 	if (pgrp != -1) kill(pgrp, sig);
 }
@@ -2440,6 +2477,8 @@ static void load_config(char * argv[], int *max_scrollback, bool *scale_fonts, f
 	config_option_bool(argv, config_json, "tab-numbers", &show_tab_numbers);
 	config_option_bool(argv, config_json, "no-frame", &_no_frame);
 	config_option_bool(argv, config_json, "no-menu-bar", &_no_menu_bar);
+
+	config_option_bool(argv, config_json, "fg-name", &show_fg_name);
 
 config_done:
 	if (config_json) json_free(config_json);
