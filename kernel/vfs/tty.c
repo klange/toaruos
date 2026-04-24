@@ -298,7 +298,7 @@ static ssize_t tty_fill_name(pty_t * pty, size_t len, char * out) {
 	return snprintf((char*)out, len, "/dev/pts/%zd", pty->name);
 }
 
-int pty_ioctl(pty_t * pty, unsigned long request, void * argp) {
+int pty_ioctl(fs_node_t * node, pty_t * pty, unsigned long request, void * argp) {
 	switch (request) {
 		case IOCTLTTYNAME: {
 			if (!argp) return -EINVAL;
@@ -342,11 +342,13 @@ int pty_ioctl(pty_t * pty, unsigned long request, void * argp) {
 		case TIOCGPGRP:
 			if (!argp) return -EINVAL;
 			if (!mmu_validate_user_pointer(argp, sizeof(pid_t), MMU_PTR_WRITE)) return -EFAULT;
+			if (node != pty->master && pty->ct_proc != this_core->current_process->session) return -ENOTTY;
 			*(pid_t *)argp = pty->fg_proc;
 			return 0;
 		case TIOCGSID:
 			if (!argp) return -EINVAL;
 			if (!mmu_validate_user_pointer(argp, sizeof(pid_t), MMU_PTR_WRITE)) return -EFAULT;
+			if (node != pty->master && pty->ct_proc != this_core->current_process->session) return -ENOTTY;
 			*(pid_t *)argp = pty->ct_proc;
 			return 0;
 		case TIOCSCTTY:
@@ -513,12 +515,12 @@ void     close_pty_slave(fs_node_t * node) {
  */
 int ioctl_pty_master(fs_node_t * node, unsigned long request, void * argp) {
 	pty_t * pty = (pty_t *)node->device;
-	return pty_ioctl(pty, request, argp);
+	return pty_ioctl(node, pty, request, argp);
 }
 
 int ioctl_pty_slave(fs_node_t * node, unsigned long request, void * argp) {
 	pty_t * pty = (pty_t *)node->device;
-	return pty_ioctl(pty, request, argp);
+	return pty_ioctl(node, pty, request, argp);
 }
 
 int pty_available_input(fs_node_t * node) {
