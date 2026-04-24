@@ -2664,10 +2664,12 @@ int main(int argc, char * argv[]) {
 
 		if (p->size == 0) {
 			/* Connection closed for client */
-			TRACE("Connection closed for client  %x", p->source);
-
 			list_t * client_list = hashmap_get(yg->clients_to_windows, (void *)p->source);
+
+			/* Only clean up clients that said hello; others could be spurious
+			 * open()s/ stat()s of our PEX endpoint. */
 			if (client_list) {
+				TRACE("Connection closed for client  %x", p->source);
 				foreach(node, client_list) {
 					yutani_server_window_t * win = node->value;
 					TRACE("Killing window %d", win->wid);
@@ -2676,12 +2678,12 @@ int main(int argc, char * argv[]) {
 				hashmap_remove(yg->clients_to_windows, (void *)p->source);
 				list_free(client_list);
 				free(client_list);
-			}
 
-			if (hashmap_is_empty(yg->clients_to_windows)) {
-				TRACE("Last compositor client disconnected, exiting.");
-				yg->server = NULL;
-				exit(0);
+				if (hashmap_is_empty(yg->clients_to_windows)) {
+					TRACE("Last compositor client disconnected, exiting.");
+					yg->server = NULL;
+					exit(0);
+				}
 			}
 
 			free(p);
