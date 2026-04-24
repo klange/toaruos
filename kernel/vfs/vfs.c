@@ -41,7 +41,7 @@ hashmap_t * fs_types = NULL;
 #define MIN(l,r) ((l) < (r) ? (l) : (r))
 #define MAX(l,r) ((l) > (r) ? (l) : (r))
 
-#define debug_print(x, ...) do { if (0) {printf("vfs.c [%s] ", #x); printf(__VA_ARGS__); printf("\n"); } } while (0)
+#define debug_print(x, fmt, ...) do { if (0) {dprintf("vfs.c [" #x "] " fmt "\n", ## __VA_ARGS__); } } while (0)
 
 static int cb_printf(void * user, char c) {
 	fs_node_t * f = user;
@@ -232,7 +232,8 @@ static spin_lock_t tmp_refcount_lock = { 0 };
 
 void vfs_lock(fs_node_t * node) {
 	spin_lock(tmp_refcount_lock);
-	node->refcount = -1;
+	/* We no longer immortalize things in the mount tree, just increment the refcount */
+	node->refcount += 1;
 	spin_unlock(tmp_refcount_lock);
 }
 
@@ -246,11 +247,11 @@ void open_fs(fs_node_t *node, unsigned int flags) {
 
 	if (!node) return;
 
+	spin_lock(tmp_refcount_lock);
 	if (node->refcount >= 0) {
-		spin_lock(tmp_refcount_lock);
 		node->refcount++;
-		spin_unlock(tmp_refcount_lock);
 	}
+	spin_unlock(tmp_refcount_lock);
 
 	if (node->open) {
 		node->open(node, flags);
@@ -270,9 +271,12 @@ void close_fs(fs_node_t *node) {
 		return;
 	}
 
-	if (node->refcount == -1) return;
-
 	spin_lock(tmp_refcount_lock);
+	if (node->refcount < 0) {
+		spin_unlock(tmp_refcount_lock);
+		return;
+	}
+
 	node->refcount--;
 	if (node->refcount == 0) {
 		debug_print(NOTICE, "Node refcount [%s] is now 0: %ld", node->name, node->refcount);
@@ -588,11 +592,11 @@ int mkdir_fs(char *name, mode_t permission) {
 fs_node_t *clone_fs(fs_node_t *source) {
 	if (!source) return NULL;
 
+	spin_lock(tmp_refcount_lock);
 	if (source->refcount >= 0) {
-		spin_lock(tmp_refcount_lock);
 		source->refcount++;
-		spin_unlock(tmp_refcount_lock);
 	}
+	spin_unlock(tmp_refcount_lock);
 
 	return source;
 }
@@ -671,10 +675,9 @@ char *canonicalize_path(const char *cwd, const char *input) {
 	 * If we have a relative path, we need to canonicalize
 	 * the working directory and insert it into the stack.
 	 */
-	if (strlen(input) && input[0] != PATH_SEPARATOR) {
+	if (*input && *input != PATH_SEPARATOR) {
 		/* Make a copy of the working directory */
-		char *path = malloc((strlen(cwd) + 1) * sizeof(char));
-		memcpy(path, cwd, strlen(cwd) + 1);
+		char *path = strdup(cwd);
 
 		/* Setup tokenizer */
 		char *pch;
@@ -683,19 +686,14 @@ char *canonicalize_path(const char *cwd, const char *input) {
 
 		/* Start tokenizing */
 		while (pch != NULL) {
-			/* Make copies of the path elements */
-			char *s = malloc(sizeof(char) * (strlen(pch) + 1));
-			memcpy(s, pch, strlen(pch) + 1);
-			/* And push them */
-			list_insert(out, s);
+			list_insert(out, strdup(pch));
 			pch = strtok_r(NULL,PATH_SEPARATOR_STRING,&save);
 		}
 		free(path);
 	}
 
 	/* Similarly, we need to push the elements from the new path */
-	char *path = malloc((strlen(input) + 1) * sizeof(char));
-	memcpy(path, input, strlen(input) + 1);
+	char *path = strdup(input);
 
 	/* Initialize the tokenizer... */
 	char *pch;
@@ -709,28 +707,16 @@ char *canonicalize_path(const char *cwd, const char *input) {
 	 */
 	while (pch != NULL) {
 		if (!strcmp(pch,PATH_UP)) {
-			/*
-			 * Path = ..
-			 * Pop the stack to move up a directory
-			 */
+			/* Pop */
 			node_t * n = list_pop(out);
 			if (n) {
 				free(n->value);
 				free(n);
 			}
 		} else if (!strcmp(pch,PATH_DOT)) {
-			/*
-			 * Path = .
-			 * Do nothing
-			 */
+			/* Ignore dot */
 		} else {
-			/*
-			 * Regular path, push it
-			 * XXX: Path elements should be checked for existence!
-			 */
-			char * s = malloc(sizeof(char) * (strlen(pch) + 1));
-			memcpy(s, pch, strlen(pch) + 1);
-			list_insert(out, s);
+			list_insert(out, strdup(pch));
 		}
 		pch = strtok_r(NULL, PATH_SEPARATOR_STRING, &save);
 	}
@@ -844,7 +830,7 @@ void * vfs_mount(const char * path, fs_node_t * local_root, const char * type, c
 
 	spin_lock(tmp_vfs_lock);
 
-	local_root->refcount = -1;
+	vfs_lock(local_root);
 
 	tree_node_t * ret_val = NULL;
 
@@ -935,9 +921,10 @@ void map_vfs_directory(const char * c) {
 }
 
 
-void debug_print_vfs_tree_node(tree_node_t * node, size_t height) {
+static void debug_print_vfs_tree_node(tree_node_t * node, size_t height) {
 	/* End recursion on a blank entry */
 	if (!node) return;
+#ifdef MISAKA_DEBUG_PRINT_VFS_TREE
 	char * tmp = malloc(512);
 	memset(tmp, 0, 512);
 	char * c = tmp;
@@ -960,6 +947,7 @@ void debug_print_vfs_tree_node(tree_node_t * node, size_t height) {
 		/* Recursively print the children */
 		debug_print_vfs_tree_node(child->value, height + 1);
 	}
+#endif
 }
 
 void debug_print_vfs_tree(void) {
@@ -986,9 +974,7 @@ fs_node_t *get_mount_point(char * path, unsigned int path_depth, char **outpath,
 	int _tree_depth = 0;
 
 	while (1) {
-		if (at >= path) {
-			break;
-		}
+		if (at >= path) break;
 		int found = 0;
 		debug_print(INFO, "Searching for %s", at);
 		foreach(child, node->children) {
@@ -1006,31 +992,46 @@ fs_node_t *get_mount_point(char * path, unsigned int path_depth, char **outpath,
 				break;
 			}
 		}
-		if (!found) {
-			break;
-		}
+		if (!found) break;
 		_depth++;
 	}
 
 	*outdepth = _tree_depth;
 
-	if (last) {
-		fs_node_t * last_clone = malloc(sizeof(fs_node_t));
-		memcpy(last_clone, last, sizeof(fs_node_t));
-		last_clone->refcount = 0;
-		return last_clone;
-	}
 	return last;
 }
 
+static char * path_tokenize(char * path, size_t len, unsigned int *depth) {
+	char *path_offset = path;
+	*depth = 0;
+	while (path_offset < path + len) {
+		/* Find each PATH_SEPARATOR */
+		if (*path_offset == PATH_SEPARATOR) {
+			*path_offset = '\0';
+			(*depth)++;
+		}
+		path_offset++;
+	}
+	/* Clean up */
+	path[len] = '\0';
+	return path + 1;
+}
+
+static char * path_untokenize(char * path, size_t len, unsigned int depth) {
+	char * out = malloc(len + 1);
+	memcpy(out, path, len + 1);
+	char * p = out;
+	for (unsigned int i = 0; depth && i < depth - 1; i++) {
+		while (*p) p++;
+		*p = PATH_SEPARATOR;
+	}
+	return out;
+}
 
 
 fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_depth, char *relative_to, int * error) {
 	/* Simple sanity checks that we actually have a file system */
-	if (!filename) {
-		*error = ENOENT;
-		return NULL;
-	}
+	if (!filename) return *error = ENOENT, NULL;
 
 	/* Canonicalize the (potentially relative) path... */
 	char *path = canonicalize_path(relative_to, filename);
@@ -1039,155 +1040,64 @@ fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_de
 
 	/* If strlen(path) == 1, then path = "/"; return root */
 	if (path_len == 1) {
-		/* Clone the root file system node */
-		fs_node_t *root_clone = malloc(sizeof(fs_node_t));
-		memcpy(root_clone, fs_root, sizeof(fs_node_t));
-		root_clone->refcount = 0;
-
-		/* Free the path */
 		free(path);
-
-		open_fs(root_clone, flags);
-
-		/* And return the clone */
-		return root_clone;
+		open_fs(fs_root, flags);
+		return fs_root;
 	}
 
 	/* Otherwise, we need to break the path up and start searching */
-	char *path_offset = path;
-	uint64_t path_depth = 0;
-	while (path_offset < path + path_len) {
-		/* Find each PATH_SEPARATOR */
-		if (*path_offset == PATH_SEPARATOR) {
-			*path_offset = '\0';
-			path_depth++;
-		}
-		path_offset++;
-	}
-	/* Clean up */
-	path[path_len] = '\0';
-	path_offset = path + 1;
+	unsigned int path_depth = 0;
+	char * path_offset = path_tokenize(path, path_len, &path_depth);
 
-	/*
-	 * At this point, the path is tokenized and path_offset points
-	 * to the first token (directory) and path_depth is the number
-	 * of directories in the path
-	 */
-
-	/*
-	 * Dig through the (real) tree to find the file
-	 */
 	unsigned int depth = 0;
-	/* Find the mountpoint for this file */
 	fs_node_t *node_ptr = get_mount_point(path, path_depth, &path_offset, &depth);
-	debug_print(INFO, "path_offset: %s", path_offset);
-	debug_print(INFO, "depth: %d", depth);
 
-	if (!node_ptr) {
-		*error = ENOENT;
-		return NULL;
-	}
+	if (!node_ptr) return *error = ENOENT, NULL;
+	open_fs(node_ptr, flags);
 
 	do {
-		/* 
-		 * This test is a little complicated, but we basically always resolve symlinks in the
-		 * of a path (like /home/symlink/file) even if O_NOFOLLOW and O_PATH are set. If we are
-		 * on the leaf of the path then we will look at those flags and act accordingly
-		 */
-		if ((node_ptr->flags & FS_SYMLINK) &&
-				!((flags & O_NOFOLLOW) && (flags & O_PATH) && depth == path_depth)) {
-			/* This ensures we don't return a path when NOFOLLOW is requested but PATH
-			 * isn't passed.
-			 */
-			debug_print(NOTICE, "resolving symlink at %s", node_ptr->name);
-			if (symlink_depth >= MAX_SYMLINK_DEPTH) {
-				debug_print(WARNING, "Reached max symlink depth on %s.", node_ptr->name);
-				free((void *)path);
-				free(node_ptr);
-				*error = ELOOP;
-				return NULL;
-			}
-			/* 
-			 * This may actually be big enough that we wouldn't want to allocate it on
-			 * the stack, especially considering this function is called recursively
-			 */
+		if ((node_ptr->flags & FS_SYMLINK) && !((flags & O_NOFOLLOW) && depth == path_depth)) {
+			if (symlink_depth >= MAX_SYMLINK_DEPTH) return *error = ELOOP, free(path), close_fs(node_ptr), NULL;
 			char *symlink_buf = calloc(MAX_SYMLINK_SIZE, 1);
+
 			int len = readlink_fs(node_ptr, symlink_buf, MAX_SYMLINK_SIZE);
-			if (len < 0) {
-				debug_print(WARNING, "Got error %d from symlink for %s.", len, node_ptr->name);
-				free(symlink_buf);
-				free((void *)path);
-				free(node_ptr);
-				*error = -len; /* assume readlink gave us a good error */
-				return NULL;
-			}
-			if (symlink_buf[len] != '\0') {
-				debug_print(WARNING, "readlink for %s doesn't end in a null pointer. That's weird...", node_ptr->name);
-				free(symlink_buf);
-				free((void *)path);
-				free(node_ptr);
-				*error = ENOENT;
-				return NULL;
-			}
-			fs_node_t * old_node_ptr = node_ptr;
+			close_fs(node_ptr); /* We don't need the reference to the original symlink anymore.*/
+
+			if (len < 0) return free(symlink_buf), *error = -len, free(path), NULL; /* Could not read symlink */
+			if (!len || symlink_buf[len]) return free(symlink_buf), *error = ENOENT, free(path), NULL; /* Symlink name truncated = same as couldn't read */
+
 			/* Rebuild our path up to this point. This is hella hacky. */
-			char * relpath = malloc(path_len + 1);
-			char * ptr = relpath;
-			memcpy(relpath, path, path_len + 1);
-			for (unsigned int i = 0; depth && i < depth-1; i++) {
-				while(*ptr != '\0') {
-					ptr++;
-				}
-				*ptr = PATH_SEPARATOR;
-			}
+			char * relpath = path_untokenize(path, path_len, depth);
+
 			symlink_depth += 1;
 			node_ptr = kopen_recur(symlink_buf, 0, symlink_depth, relpath, error);
 			free(symlink_buf);
 			free(relpath);
-			free(old_node_ptr);
-			if (!node_ptr) {
-				/* Dangling symlink? */
-				debug_print(WARNING, "Failed to open symlink path %s. Perhaps it's a dangling symlink?", symlink_buf);
-				free((void *)path);
-				return NULL;
-			}
+
+			if (!node_ptr) return free((void *)path), NULL;
 		}
-		if (path_offset >= path+path_len) {
-			free(path);
-			open_fs(node_ptr, flags);
-			return node_ptr;
-		}
-		if (depth == path_depth) {
-			/* We found the file and are done, open the node */
-			open_fs(node_ptr, flags);
-			free((void *)path);
-			return node_ptr;
-		}
-		/* We are still searching... */
-		if (!has_permission(node_ptr, 01)) {
-			*error = EACCES;
-			free(node_ptr);
-			free((void*)path);
-			return NULL;
-		}
-		debug_print(INFO, "... Searching for %s", path_offset);
+
+		/* Found what we were looking for. */
+		if (path_offset >= path+path_len || depth == path_depth) return free(path), node_ptr;
+
+		/* We are still searching, so this needs to be a directory. */
+		if (!(node_ptr->flags & FS_DIRECTORY)) return *error = ENOTDIR, free(path), close_fs(node_ptr), NULL;
+		if (!has_permission(node_ptr, 01)) return *error = EACCES, free(path), close_fs(node_ptr), NULL;
+
+		/* Search for the requested file. */
 		fs_node_t * node_next = finddir_fs(node_ptr, path_offset);
-		free(node_ptr); /* Always a clone or an unopened thing */
+		close_fs(node_ptr);
+
+		if (!node_next) return free(path), *error = ENOENT, NULL;
 		node_ptr = node_next;
-		/* Search the active directory for the requested directory */
-		if (!node_ptr) {
-			/* We failed to find the requested directory */
-			free((void *)path);
-			*error = ENOENT;
-			return NULL;
-		}
+		open_fs(node_ptr, flags);
+
 		path_offset += strlen(path_offset) + 1;
 		++depth;
 	} while (depth < path_depth + 1);
-	debug_print(INFO, "- Not found.");
-	/* We failed to find the requested file, but our loop terminated. */
+
+	free(path);
 	*error = ENOENT;
-	free((void *)path);
 	return NULL;
 }
 
