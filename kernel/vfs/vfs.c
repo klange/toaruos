@@ -1100,13 +1100,6 @@ fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_de
 			 * isn't passed.
 			 */
 			debug_print(NOTICE, "resolving symlink at %s", node_ptr->name);
-			if ((flags & O_NOFOLLOW) && depth == path_depth - 1) {
-				debug_print(NOTICE, "Refusing to follow final entry for open with O_NOFOLLOW for %s.", node_ptr->name);
-				free((void *)path);
-				free(node_ptr);
-				*error = ELOOP;
-				return NULL;
-			}
 			if (symlink_depth >= MAX_SYMLINK_DEPTH) {
 				debug_print(WARNING, "Reached max symlink depth on %s.", node_ptr->name);
 				free((void *)path);
