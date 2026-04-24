@@ -329,7 +329,7 @@ long sys_readlink(const char * file, char * ptr, long len) {
 	PTRCHECK(ptr,len,0);
 	if (!file) return -EFAULT;
 	int error = 0;
-	fs_node_t * node = kopen_error((char *) file, O_PATH | O_NOFOLLOW, &error);
+	fs_node_t * node = kopen_error((char *) file, O_NOFOLLOW, &error);
 	if (!node) return -error;
 	long rv = readlink_fs(node, ptr, len);
 	close_fs(node);
@@ -341,7 +341,7 @@ long sys_lstat(char * file, struct stat * st) {
 	PTR_VALIDATE(st);
 	if (!file || !st) return -EFAULT;
 	int error = 0;
-	fs_node_t * fn = kopen_error(file, O_PATH | O_NOFOLLOW, &error);
+	fs_node_t * fn = kopen_error(file, O_NOFOLLOW, &error);
 	if (!fn) {
 		memset(st, 0, sizeof(struct stat));
 		return -error;
@@ -616,7 +616,7 @@ long sys_lchown(char * file, uid_t uid, gid_t gid) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
 	int error = 0;
-	fs_node_t * fn = kopen_error(file, O_PATH | O_NOFOLLOW, &error);
+	fs_node_t * fn = kopen_error(file, O_NOFOLLOW, &error);
 	if (!fn) return -error;
 	long ret = chown_node(fn, uid, gid);
 	close_fs(fn);
