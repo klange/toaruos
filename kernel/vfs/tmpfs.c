@@ -798,6 +798,7 @@ static struct procfs_entry tmpfs_entry = {
 	0,
 	"tmpfs",
 	tmpfs_func,
+	0
 };
 
 void tmpfs_register_init(void) {

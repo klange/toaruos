@@ -8,6 +8,7 @@ struct procfs_entry {
 	intptr_t     id;
 	const char *       name;
 	procfs_populate_t func;
+	int flags;
 };
 
 extern int procfs_install(struct procfs_entry * entry);

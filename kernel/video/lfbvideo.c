@@ -169,6 +169,7 @@ static struct procfs_entry framebuffer_entry = {
 	0,
 	"framebuffer",
 	framebuffer_func,
+	0
 };
 
 /* Install framebuffer device */

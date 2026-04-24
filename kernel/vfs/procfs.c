@@ -95,9 +95,24 @@ static void procfs_entry_close(fs_node_t * node) {
 	entry->avail = 0;
 }
 
-static fs_node_t * procfs_generic_create(const char * name, procfs_populate_t read_func) {
-	procfs_entry_t * entry = malloc(sizeof(procfs_entry_t));
-	memset(entry, 0x00, sizeof(procfs_entry_t));
+static ssize_t procfs_entry_readlink(fs_node_t * node, char * buf, size_t size) {
+	procfs_entry_t * entry = (void*)node;
+
+	if (size == 0) return 0;
+
+	if (size >= entry->used + 1) {
+		memcpy(buf, entry->buf, entry->used);
+		buf[entry->used] = '\0';
+		return entry->used;
+	} else {
+		memcpy(buf, entry->buf, size - 1);
+		buf[size-1] = '\0';
+		return size - 2; /* This is a dumb hack... */
+	}
+}
+
+static fs_node_t * procfs_generic_create(const char * name, procfs_populate_t read_func, int flags) {
+	procfs_entry_t * entry = calloc(1, sizeof(procfs_entry_t));
 	entry->fnode.inode = 0;
 	strcpy(entry->fnode.name, name);
 
@@ -109,13 +124,18 @@ static fs_node_t * procfs_generic_create(const char * name, procfs_populate_t re
 	entry->fnode.uid = 0;
 	entry->fnode.gid = 0;
 	entry->fnode.mask    = 0444;
-	entry->fnode.flags   = FS_FILE;
-	entry->fnode.read    = procfs_entry_read;
-	entry->fnode.write   = NULL;
+
+	if (flags == FS_SYMLINK) {
+		entry->fnode.flags   = FS_FILE | FS_SYMLINK;
+		entry->fnode.readlink = procfs_entry_readlink;
+	} else {
+		entry->fnode.flags   = FS_FILE;
+		entry->fnode.read    = procfs_entry_read;
+	}
+
 	entry->fnode.open    = procfs_entry_open;
 	entry->fnode.close   = procfs_entry_close;
-	entry->fnode.readdir = NULL;
-	entry->fnode.finddir = NULL;
+
 	entry->fnode.ctime   = now();
 	entry->fnode.mtime   = now();
 	entry->fnode.atime   = now();
@@ -249,9 +269,15 @@ static void proc_status_func(fs_node_t *node) {
 			);
 }
 
+static void proc_cwd_func(fs_node_t *node) {
+	process_t * proc = process_from_pid(node->inode);
+	procfs_printf(node,"%s", proc->wd_name);
+}
+
 static struct procfs_entry procdir_entries[] = {
-	{1, "cmdline", proc_cmdline_func},
-	{2, "status",  proc_status_func},
+	{1, "cmdline", proc_cmdline_func, 0},
+	{2, "status",  proc_status_func, 0},
+	{3, "cwd",     proc_cwd_func, FS_SYMLINK},
 };
 
 static struct dirent * readdir_procfs_procdir(fs_node_t *node, uint64_t index) {
@@ -288,7 +314,7 @@ static fs_node_t * finddir_procfs_procdir(fs_node_t * node, char * name) {
 
 	for (unsigned int i = 0; i < PROCFS_PROCDIR_ENTRIES; ++i) {
 		if (!strcmp(name, procdir_entries[i].name)) {
-			fs_node_t * out = procfs_generic_create(procdir_entries[i].name, procdir_entries[i].func);
+			fs_node_t * out = procfs_generic_create(procdir_entries[i].name, procdir_entries[i].func, procdir_entries[i].flags);
 			out->inode = node->inode;
 			return out;
 		}
@@ -595,23 +621,28 @@ static void kallsyms_func(fs_node_t *fnode) {
 	free(syms);
 }
 
+static void self_func(fs_node_t *fnode) {
+	procfs_printf(fnode, "%d", this_core->current_process->id);
+}
+
 static struct procfs_entry std_entries[] = {
-	{-1, "cpuinfo",  cpuinfo_func},
-	{-2, "meminfo",  meminfo_func},
-	{-3, "uptime",   uptime_func},
-	{-4, "cmdline",  cmdline_func},
-	{-5, "version",  version_func},
-	{-6, "compiler", compiler_func},
-	{-7, "mounts",   mounts_func},
-	{-8, "modules",  modules_func},
-	{-9, "filesystems", filesystems_func},
-	{-10,"loader",   loader_func},
-	{-11,"idle",     idle_func},
-	{-12,"kallsyms", kallsyms_func},
-	{-13,"pci",      pci_func},
+	{-1, "cpuinfo",  cpuinfo_func, 0},
+	{-2, "meminfo",  meminfo_func, 0},
+	{-3, "uptime",   uptime_func, 0},
+	{-4, "cmdline",  cmdline_func, 0},
+	{-5, "version",  version_func, 0},
+	{-6, "compiler", compiler_func, 0},
+	{-7, "mounts",   mounts_func, 0},
+	{-8, "modules",  modules_func, 0},
+	{-9, "filesystems", filesystems_func, 0},
+	{-10,"loader",   loader_func, 0},
+	{-11,"idle",     idle_func, 0},
+	{-12,"kallsyms", kallsyms_func, 0},
+	{-13,"pci",      pci_func, 0},
+	{-14,"self",     self_func, FS_SYMLINK},
 #ifdef __x86_64__
-	{-14,"irq",      irq_func},
-	{-15,"pat",      pat_func},
+	{-15,"irq",      irq_func, 0},
+	{-16,"pat",      pat_func, 0},
 #endif
 };
 
@@ -647,15 +678,7 @@ static struct dirent * readdir_procfs_root(fs_node_t *node, uint64_t index) {
 		return out;
 	}
 
-	if (index == 2) {
-		struct dirent * out = malloc(sizeof(struct dirent));
-		memset(out, 0x00, sizeof(struct dirent));
-		out->d_ino = 0;
-		strcpy(out->d_name, "self");
-		return out;
-	}
-
-	index -= 3;
+	index -= 2;
 
 	if (index < PROCFS_STANDARD_ENTRIES) {
 		struct dirent * out = malloc(sizeof(struct dirent));
@@ -711,42 +734,6 @@ static struct dirent * readdir_procfs_root(fs_node_t *node, uint64_t index) {
 	return out;
 }
 
-static ssize_t readlink_self(fs_node_t * node, char * buf, size_t size) {
-	char tmp[30];
-	size_t req;
-	snprintf(tmp, 100, "/proc/%d", this_core->current_process->id);
-	req = strlen(tmp) + 1;
-
-	if (size < req) {
-		memcpy(buf, tmp, size);
-		buf[size-1] = '\0';
-		return size-1;
-	}
-
-	if (size > req) size = req;
-
-	memcpy(buf, tmp, size);
-	return size-1;
-}
-
-static fs_node_t * procfs_create_self(void) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
-	fnode->inode = 0;
-	strcpy(fnode->name, "self");
-	fnode->mask = 0777;
-	fnode->uid  = 0;
-	fnode->gid  = 0;
-	fnode->flags   = FS_FILE | FS_SYMLINK;
-	fnode->readlink = readlink_self;
-	fnode->length  = 1;
-	fnode->nlink   = 1;
-	fnode->ctime   = now();
-	fnode->mtime   = now();
-	fnode->atime   = now();
-	return fnode;
-}
-
 static fs_node_t * finddir_procfs_root(fs_node_t * node, char * name) {
 	if (!name) return NULL;
 	if (strlen(name) < 1) return NULL;
@@ -762,13 +749,9 @@ static fs_node_t * finddir_procfs_root(fs_node_t * node, char * name) {
 		return out;
 	}
 
-	if (!strcmp(name,"self")) {
-		return procfs_create_self();
-	}
-
 	for (unsigned int i = 0; i < PROCFS_STANDARD_ENTRIES; ++i) {
 		if (!strcmp(name, std_entries[i].name)) {
-			fs_node_t * out = procfs_generic_create(std_entries[i].name, std_entries[i].func);
+			fs_node_t * out = procfs_generic_create(std_entries[i].name, std_entries[i].func, std_entries[i].flags);
 			return out;
 		}
 	}
@@ -777,7 +760,7 @@ static fs_node_t * finddir_procfs_root(fs_node_t * node, char * name) {
 		foreach(node, extended_entries) {
 			struct procfs_entry * e = node->value;
 			if (!strcmp(name, e->name)) {
-				fs_node_t * out = procfs_generic_create(e->name, e->func);
+				fs_node_t * out = procfs_generic_create(e->name, e->func, e->flags);
 				return out;
 			}
 		}
