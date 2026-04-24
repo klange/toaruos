@@ -115,7 +115,10 @@ int exec(const char * path, int argc, char *const argv[], char *const env[], int
 	int error = 0;
 	fs_node_t * file = kopen_error(path, 0, &error);
 	if (!file) return -error;
-	if (!has_permission(file, 01)) return -EACCES;
+	if (!has_permission(file, 01)) {
+		close_fs(file);
+		return -EACCES;
+	}
 
 	unsigned char head[4];
 	read_fs(file, 0, 4, head);
@@ -128,6 +131,8 @@ int exec(const char * path, int argc, char *const argv[], char *const env[], int
 			return fmts[i].func(path, file, argc, argv, env, interp_depth);
 		}
 	}
+
+	close_fs(file);
 	return -ENOEXEC;
 }
 

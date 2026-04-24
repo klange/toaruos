@@ -264,6 +264,7 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 
 	if (header.e_ident[EI_CLASS] != ELFCLASS64) {
 		printf("(Wrong Elf class)\n");
+		close_fs(file);
 		return -EINVAL;
 	}
 
@@ -271,6 +272,7 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	if (header.e_type != ET_EXEC) {
 		printf("(Not an executable)\n");
 		/* TODO: what about DYN? */
+		close_fs(file);
 		return -EINVAL;
 	}
 

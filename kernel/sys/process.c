@@ -1325,6 +1325,10 @@ void task_exit(int retval) {
 		}
 	}
 
+	if (this_core->current_process->wd_node) {
+		close_fs(this_core->current_process->wd_node);
+	}
+
 	if (this_core->current_process->tracees) {
 		spin_lock(this_core->current_process->wait_lock);
 		while (this_core->current_process->tracees->length) {
