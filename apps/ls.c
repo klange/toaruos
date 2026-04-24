@@ -80,6 +80,7 @@ struct tfile {
 	struct stat statbuf;
 	char * link;
 	struct stat statbufl;
+	int lstatres;
 };
 
 static const char * color_str(struct stat * sb) {
@@ -307,7 +308,7 @@ static void print_entry_long(int * widths, int * colwidth, struct tfile * file) 
 			printf("/");
 		}
 		if (S_ISLNK(file->statbuf.st_mode)) {
-			const char * s = color_str(&file->statbufl);
+			const char * s = file->lstatres == 0 ? color_str(&file->statbufl) : "1;31";
 			printf(" -> \033[%sm%s\033[0m", s, file->link);
 		}
 	} else {
@@ -454,7 +455,7 @@ static int display_dir(char * p) {
 		sprintf(tmp, "%s/%s", p, ent->d_name);
 		lstat(tmp, &f->statbuf);
 		if (S_ISLNK(f->statbuf.st_mode)) {
-			stat(tmp, &f->statbufl);
+			f->lstatres = stat(tmp, &f->statbufl);
 			f->link = malloc(4096);
 			readlink(tmp, f->link, 4096);
 		}
@@ -603,7 +604,7 @@ int main (int argc, char * argv[]) {
 				out = 2;
 			} else {
 				if (S_ISLNK(f->statbuf.st_mode)) {
-					stat(p, &f->statbufl);
+					f->lstatres = stat(p, &f->statbufl);
 					f->link = malloc(4096);
 					readlink(p, f->link, 4096);
 				}
