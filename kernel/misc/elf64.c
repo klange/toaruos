@@ -248,6 +248,9 @@ _unmap_module:
 	return -error;
 }
 
+extern void process_acquire_big_lock(void);
+extern void process_release_big_lock(void);
+
 int elf_exec(const char * path, fs_node_t * file, int argc, const char *const argv[], const char *const env[], int interp) {
 	Elf64_Header header;
 
@@ -306,6 +309,7 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	uintptr_t execBase = -1;
 	uintptr_t heapBase = 0;
 
+	process_acquire_big_lock();
 	mmu_set_directory(NULL);
 	page_directory_t * this_directory = this_core->current_process->thread.page_directory;
 	this_core->current_process->thread.page_directory = malloc(sizeof(page_directory_t));
@@ -314,6 +318,8 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	this_core->current_process->thread.page_directory->directory = mmu_clone(NULL);
 	mmu_set_directory(this_core->current_process->thread.page_directory->directory);
 	process_release_directory(this_directory);
+	process_release_big_lock();
+
 	for (int i = 0; i < NUMSIGNALS; ++i) {
 		if (this_core->current_process->signals[i].handler != 1) {
 			this_core->current_process->signals[i].handler = 0;

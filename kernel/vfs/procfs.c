@@ -165,14 +165,19 @@ static void proc_cmdline_func(fs_node_t *node) {
 	}
 }
 
+extern void process_acquire_big_lock(void);
+extern void process_release_big_lock(void);
+
 static void proc_status_func(fs_node_t *node) {
+	process_acquire_big_lock();
 	process_t * proc = process_from_pid(node->inode);
-	process_t * parent = process_get_parent(proc);
 
 	if (!proc) {
-		/* wat */
+		process_release_big_lock();
 		return;
 	}
+
+	process_t * parent = process_get_parent(proc);
 
 	char state = 'S';
 
@@ -197,9 +202,11 @@ static void proc_status_func(fs_node_t *node) {
 	}
 
 	/* Calculate process memory usage */
+	spin_lock(proc->thread.page_directory->lock);
 	long mem_usage = mmu_count_user(proc->thread.page_directory->directory) * 4;
 	long shm_usage = mmu_count_shm(proc->thread.page_directory->directory) * 4;
 	long mem_permille = 1000 * (mem_usage + shm_usage) / mmu_total_memory();
+	spin_unlock(proc->thread.page_directory->lock);
 
 	sigset_t ignored = 0;
 	sigset_t caught = 0;
@@ -267,6 +274,8 @@ static void proc_status_func(fs_node_t *node) {
 			ignored,
 			caught
 			);
+
+	process_release_big_lock();
 }
 
 static void proc_cwd_func(fs_node_t *node) {

@@ -630,6 +630,14 @@ void process_reap_later(process_t * proc) {
 	spin_unlock(reap_lock);
 }
 
+void process_acquire_big_lock(void) {
+	spin_lock(reap_lock);
+}
+
+void process_release_big_lock(void) {
+	spin_unlock(reap_lock);
+}
+
 /**
  * @brief Remove a process from the valid process list.
  *
@@ -676,16 +684,7 @@ void process_delete(process_t * proc) {
 	}
 
 	/* Is someone using this process? */
-	for (int i = 0; i < processor_count; ++i) {
-		if (i == this_core->cpu_id) continue;
-		if (processor_local_data[i].previous_process == proc ||
-		    processor_local_data[i].current_process == proc) {
-			process_reap_later(proc);
-			return;
-		}
-	}
-
-	process_reap(proc);
+	process_reap_later(proc);
 }
 
 /**
