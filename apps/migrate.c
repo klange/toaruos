@@ -50,8 +50,8 @@ void copy_file(char * source, char * dest, int mode,int uid, int gid) {
 	//fprintf(stderr, "need to copy file %s to %s %x\n", source, dest, mode);
 	//TRACE_("Copying %s...", dest);
 
-	int d_fd = open(dest, O_WRONLY | O_CREAT, mode);
-	int s_fd = open(source, O_RDONLY);
+	int d_fd = open(dest, O_WRONLY | O_CREAT | O_CLOEXEC, mode);
+	int s_fd = open(source, O_RDONLY | O_CLOEXEC);
 
 	ssize_t length;
 
@@ -169,7 +169,7 @@ int main(int argc, char * argv[]) {
 		_debug = 1;
 	}
 
-	_splash = fopen("/dev/pex/splash","r+");
+	_splash = fopen("/dev/pex/splash","re+");
 
 	if (hashmap_has(cmdline, "root")) {
 		TRACE_("Original root was %s", (char*)hashmap_get(cmdline, "root"));
