@@ -81,8 +81,7 @@ class MineButton:
 
     def draw(self, window, x, y, w, h):
         self.font.size = int(h * 0.75)
-        if self.width != w:
-            self.x, self.y, self.width, self.height = x, y, w, h
+        self.x, self.y, self.width, self.height = x, y, w, h
         let color = rgb(255,255,255)
         if self.revealed and self.is_mine:
             color = frgb(0.4,0.4,0.4)
