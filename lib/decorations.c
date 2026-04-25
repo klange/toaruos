@@ -327,9 +327,22 @@ static uint64_t precise_time_since(uint64_t start_time) {
 static uint64_t last_click = 0;
 static int _decor_max_on_up = 0;
 
-int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
+int decor_handle_event_flags(yutani_t * yctx, yutani_msg_t * m, int flags) {
 	if (m) {
+		if (flags & DECOR_HANDLE_MENU_EVENTS) {
+			if (menu_process_event(yctx, m)) return DECOR_REDRAW;
+		}
 		switch (m->type) {
+			case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
+				if (flags & DECOR_HANDLE_WINDOW_FOCUS) {
+					struct yutani_msg_window_focus_change * wf = (void*)m->data;
+					yutani_window_t * window = hashmap_get(yctx->windows, (void*)(uintptr_t)wf->wid);
+					if (!window || !(window->decorator_flags & DECOR_FLAG_DECORATED)) return 0;
+					int ret = window->focused != wf->focused;
+					window->focused = wf->focused;
+					return ret ? DECOR_REDRAW : 0;
+				}
+				break;
 			case YUTANI_MSG_WINDOW_MOUSE_EVENT:
 				{
 					struct yutani_msg_window_mouse_event * me = (void*)m->data;
@@ -375,6 +388,9 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 							return DECOR_OTHER;
 						}
 						if (!button && (me->buttons & YUTANI_MOUSE_BUTTON_RIGHT)) {
+							if (flags & DECOR_HANDLE_CONTEXT_MENU) {
+								decor_show_default_menu(window, window->x + me->new_x, window->y + me->new_y);
+							}
 							return DECOR_RIGHT;
 						}
 						if (me->command == YUTANI_MOUSE_EVENT_MOVE) {
@@ -460,4 +476,8 @@ int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
 		}
 	}
 	return 0;
+}
+
+int decor_handle_event(yutani_t * yctx, yutani_msg_t * m) {
+	return decor_handle_event_flags(yctx, m, 0);
 }

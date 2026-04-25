@@ -55,6 +55,7 @@ extern yutani_window_t * decor_hover_window;
 extern void init_decorations();
 
 extern int decor_handle_event(yutani_t * yctx, yutani_msg_t * m);
+extern int decor_handle_event_flags(yutani_t * yctx, yutani_msg_t * m, int flags);
 
 /* Callbacks for handle_event */
 extern void decor_set_close_callback(void (*callback)(yutani_window_t *));
@@ -81,5 +82,11 @@ extern yutani_window_t * decor_show_default_menu(yutani_window_t * window, int y
 #define DECOR_FLAG_TILE_RIGHT  (0x2 << 2)
 #define DECOR_FLAG_TILE_UP     (0x4 << 2)
 #define DECOR_FLAG_TILE_DOWN   (0x8 << 2)
+
+#define DECOR_HANDLE_CONTEXT_MENU     (1 << 0)
+#define DECOR_HANDLE_WINDOW_FOCUS     (1 << 1)
+#define DECOR_HANDLE_MENU_EVENTS      (1 << 2)
+
+#define DECOR_HANDLE_SIMPLE (DECOR_HANDLE_CONTEXT_MENU | DECOR_HANDLE_WINDOW_FOCUS | DECOR_HANDLE_MENU_EVENTS)
 
 _End_C_Header
