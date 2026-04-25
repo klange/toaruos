@@ -123,6 +123,7 @@ const char * syscall_names[] = {
 	[SYS_GETPPID]      = "getppid",
 	[SYS_LCHOWN]       = "lchown",
 	[SYS_GETRUSAGE]    = "getrusage",
+	[SYS_PIPE2]        = "pipe2",
 };
 
 char syscall_mask[] = {
@@ -217,6 +218,7 @@ char syscall_mask[] = {
 	[SYS_GETPPID]      = 1,
 	[SYS_LCHOWN]       = 1,
 	[SYS_GETRUSAGE]    = 1,
+	[SYS_PIPE2]        = 1,
 };
 
 static const int syscall_set_net[] = {
@@ -234,7 +236,7 @@ static const int syscall_set_file[] = {
 
 static const int syscall_set_desc[] = {
 	SYS_OPEN, SYS_READ, SYS_WRITE, SYS_CLOSE, SYS_STAT, SYS_FSWAIT,
-	SYS_FSWAIT2, SYS_FSWAIT3, SYS_SEEK, SYS_IOCTL, SYS_PIPE,
+	SYS_FSWAIT2, SYS_FSWAIT3, SYS_SEEK, SYS_IOCTL, SYS_PIPE, SYS_PIPE2,
 	SYS_DUP2, SYS_READDIR, SYS_OPENPTY, SYS_PREAD, SYS_PWRITE, SYS_FCNTL,
 	SYS_FCHMOD, SYS_FCHOWN, SYS_FTRUNCATE, 0
 };
@@ -442,6 +444,8 @@ static void open_flags(int flags) {
 	H(O_PATH);
 	H(O_NONBLOCK);
 	H(O_DIRECTORY);
+	H(O_CLOEXEC);
+	H(O_CLOFORK);
 
 	if (flags) {
 		fprintf(logfile, "(%#x)", flags);
@@ -1041,6 +1045,9 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 		case SYS_PIPE:
 			/* Arg is a pointer */
 			break;
+		case SYS_PIPE2:
+			/* Output-filled pointer */
+			break;
 		case SYS_DUP2:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			fd_arg(pid, uregs_syscall_arg2(r));
@@ -1208,6 +1215,11 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 			break;
 		case SYS_PIPE:
 			fds_arg(pid, 2, uregs_syscall_arg1(r));
+			maybe_errno(r);
+			break;
+		case SYS_PIPE2:
+			fds_arg(pid, 2, uregs_syscall_arg1(r)); COMMA;
+			open_flags(uregs_syscall_arg2(r));
 			maybe_errno(r);
 			break;
 		case SYS_GETTIMEOFDAY:

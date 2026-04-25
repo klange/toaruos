@@ -1069,19 +1069,27 @@ long sys_sleep(unsigned long seconds, unsigned long subseconds) {
 	return sys_sleepabs(s, ss);
 }
 
-long sys_pipe(int pipes[2]) {
+long sys_pipe2(int pipes[2], int flag) {
+	if (flag & ~(O_NONBLOCK | O_CLOEXEC | O_CLOFORK)) return -EINVAL;
 	PTRCHECK(pipes, sizeof(int) * 2, MMU_PTR_WRITE);
-
 	fs_node_t * outpipes[2];
-
 	make_unix_pipe(outpipes);
 
 	open_fs(outpipes[0], 0);
 	open_fs(outpipes[1], 0);
 
-	pipes[0] = process_append_fd((process_t *)this_core->current_process, outpipes[0], PROC_FD_MODE__RW);
-	pipes[1] = process_append_fd((process_t *)this_core->current_process, outpipes[1], PROC_FD_MODE__RW);
+	int flags = PROC_FD_MODE__RW;
+	if (flag & O_CLOEXEC) flags |= PROC_FD_MODE_CLOEXEC;
+	if (flag & O_CLOFORK) flags |= PROC_FD_MODE_CLOFORK;
+
+	pipes[0] = process_append_fd((process_t *)this_core->current_process, outpipes[0], flags);
+	pipes[1] = process_append_fd((process_t *)this_core->current_process, outpipes[1], flags);
+
 	return 0;
+}
+
+long sys_pipe(int pipes[2]) {
+	return sys_pipe2(pipes, 0);
 }
 
 long sys_signal(long signum, uintptr_t handler) {
@@ -1372,6 +1380,7 @@ static scall_func syscalls[] = {
 	[SYS_SLEEPABS]     = (scall_func)(uintptr_t)sys_sleepabs,
 	[SYS_SLEEP]        = (scall_func)(uintptr_t)sys_sleep,
 	[SYS_PIPE]         = (scall_func)(uintptr_t)sys_pipe,
+	[SYS_PIPE2]        = (scall_func)(uintptr_t)sys_pipe2,
 	[SYS_FSWAIT]       = (scall_func)(uintptr_t)sys_fswait,
 	[SYS_FSWAIT2]      = (scall_func)(uintptr_t)sys_fswait_timeout,
 	[SYS_FSWAIT3]      = (scall_func)(uintptr_t)sys_fswait_multi,

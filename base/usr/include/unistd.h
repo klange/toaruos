@@ -35,6 +35,7 @@ extern gid_t getgid(void);
 extern gid_t getegid(void);
 extern char * getcwd(char *buf, size_t size);
 extern int pipe(int pipefd[2]);
+extern int pipe2(int pipefd[2], int flag);
 extern int dup(int oldfd);
 extern int dup2(int oldfd, int newfd);
 
