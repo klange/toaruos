@@ -1713,6 +1713,8 @@ static term_state_t * terminal_create(bool scale_fonts, float font_scaling, int 
 	list_insert(terminals, out);
 
 	pipe(priv->input_buffer_semaphore);
+	fcntl(priv->input_buffer_semaphore[0], F_SETFD, FD_CLOEXEC);
+	fcntl(priv->input_buffer_semaphore[1], F_SETFD, FD_CLOEXEC);
 	priv->input_buffer_queue = list_create();
 	pthread_create(&priv->input_buffer_thread, NULL, handle_input_writing, out);
 
