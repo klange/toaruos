@@ -10,17 +10,17 @@
 
 DEFN_SYSCALL3(readdir, SYS_READDIR, int, int, void *);
 
-DIR * opendir (const char * dirname) {
-	int fd = open(dirname, O_RDONLY|O_DIRECTORY);
-	if (fd < 0) {
-		/* errno was set by open */
-		return NULL;
-	}
-
+DIR * fdopendir(int fd) {
 	DIR * dir = (DIR *)malloc(sizeof(DIR));
 	dir->fd = fd;
 	dir->cur_entry = -1;
 	return dir;
+}
+
+DIR * opendir (const char * dirname) {
+	int fd = open(dirname, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+	if (fd < 0) return NULL;
+	return fdopendir(fd);
 }
 
 int closedir (DIR * dir) {

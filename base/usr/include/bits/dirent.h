@@ -18,6 +18,7 @@ typedef struct DIR {
 } DIR;
 
 DIR * opendir (const char * dirname);
+DIR * fdopendir (int fd);
 int closedir (DIR * dir);
 struct dirent * readdir (DIR * dirp);
 long telldir (DIR * dirp);
