@@ -2451,7 +2451,7 @@ static void load_config(char * argv[], int *max_scrollback, bool *scale_fonts, f
 		return;
 	}
 
-	struct JSON_Value * config_json = json_parse_file(config_path);
+	struct JSON_Value * config_json = json_parse_file_flags(config_path, TOARU_JSON_LENIENT | TOARU_JSON_PRINT_PARSE_ERRORS);
 
 	if (!config_json) {
 		fprintf(stderr, "%s: %s: JSON parse failure: %s\n", argv[0], config_path, json_lib_error);
