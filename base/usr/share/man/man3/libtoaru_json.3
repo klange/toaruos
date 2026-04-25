@@ -8,7 +8,11 @@
 .sp
 .B struct JSON_Value * json_parse(const char *\fIjson_str\fP);
 .br
+.B struct JSON_Value * json_parse_flags(const char * \fIjson_str\fP, int \fIflags\fP);
+.br
 .B struct JSON_Value * json_parse_file(const char *\fIfilename\fP);
+.br
+.B struct JSON_Value * json_parse_file_flags(const char *\fIfilename\fP, int \fIflags\fP);
 .br
 .B void json_free(struct JSON_Value *\fIvalue\fP);
 .sp
@@ -78,6 +82,14 @@ If parsing failed, these functions will return \fBNULL\fP and will generally try
 up as much as they can.
 Further details may be available from the library through the global variable \fBjson_lib_error\fP,
 but a declaration is not exposed in the header for this value as this API is subject to change.
+.PP
+The \fB_flags\fP variants of these functions accept the following options:
+.TP
+.B TOARU_JSON_LENIENT
+Allow objects and arrays to have a trailing comma.
+.TP
+.B TOARU_JSON_PRINT_PARSE_ERRORS
+Print the location of parse errors to standard error.
 .PP
 To access a JSON value, first confirm which union member to use by examining the \fBtype\fP
 of the value, then directly access the necessary member.

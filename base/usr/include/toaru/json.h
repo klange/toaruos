@@ -29,6 +29,9 @@ struct JSON_Value {
 #define JSON_KEY(v,k) ((struct JSON_Value *)(hashmap_get(v->object,k)))
 #define JSON_IND(v,i) ((struct JSON_Value *)(list_index(v->array,i)))
 
+#define TOARU_JSON_LENIENT             0x0001
+#define TOARU_JSON_PRINT_PARSE_ERRORS  0x0002
+
 /**
  * json_free
  *
@@ -43,6 +46,7 @@ extern void json_free(struct JSON_Value *);
  * Parse a string into a JSON_Value
  */
 extern struct JSON_Value * json_parse(const char *);
+extern struct JSON_Value * json_parse_flags(const char *, int);
 
 /**
  * json_parse_file
@@ -51,6 +55,7 @@ extern struct JSON_Value * json_parse(const char *);
  * (Convenience function)
  */
 extern struct JSON_Value * json_parse_file(const char * filename);
+extern struct JSON_Value * json_parse_file_flags(const char * filename, int);
 
 extern int json_serialize(FILE * f, struct JSON_Value * thing, int indent);
 extern int json_serialize_string(FILE * f, const char * str);

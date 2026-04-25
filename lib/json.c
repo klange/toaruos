@@ -26,6 +26,9 @@ struct JSON_Context {
 	const char * string;
 	int c;
 	const char * error;
+	int lenient;
+	int last_line_start;
+	int line;
 };
 
 void json_free(Value * v) {
@@ -61,6 +64,10 @@ static void whitespace(struct JSON_Context * ctx) {
 		int ch = peek(ctx);
 		if (ch == ' ' || ch == '\r' || ch == '\n' || ch == '\t') {
 			advance(ctx);
+			if (ch == '\n') {
+				ctx->last_line_start = ctx->c;
+				ctx->line++;
+			}
 		} else {
 			break;
 		}
@@ -174,6 +181,12 @@ static Value * object(struct JSON_Context * ctx) {
 
 	while (1) {
 		whitespace(ctx);
+
+		if (peek(ctx) == '}' && ctx->lenient) {
+			advance(ctx);
+			goto _object_done;
+		}
+
 		Value * s = string(ctx);
 
 		if (!s) {
@@ -190,6 +203,7 @@ static Value * object(struct JSON_Context * ctx) {
 		advance(ctx);
 
 		Value * v = value(ctx);
+		if (!v) break;
 
 		hashmap_set(output, s->string, v);
 		json_free(s);
@@ -353,6 +367,13 @@ static Value * array(struct JSON_Context * ctx) {
 	}
 
 	while (1) {
+		whitespace(ctx);
+
+		if (peek(ctx) == ']' && ctx->lenient) {
+			advance(ctx);
+			goto _array_done;
+		}
+
 		Value * next = value(ctx);
 
 		if (!next) break;
@@ -401,31 +422,40 @@ static Value * value(struct JSON_Context * ctx) {
 	else if (peek(ctx) == 't') WHITE(boolean(ctx))
 	else if (peek(ctx) == 'f') WHITE(boolean(ctx))
 	else if (peek(ctx) == 'n') WHITE(null(ctx))
-	ctx->error = "Unexpected value";
+	ctx->error = "Expected a value";
 	return NULL;
 }
 
-Value * json_parse(const char * str) {
-	struct JSON_Context ctx;
-	ctx.string = str;
-	ctx.c = 0;
-	ctx.error = NULL;
+Value * json_parse_flags(const char * str, int flags) {
+	struct JSON_Context ctx = {str, 0, NULL, !!(flags & TOARU_JSON_LENIENT), 0, 0};
 	json_lib_error = NULL; /* No error yet */
 	Value * out = value(&ctx);
-	if (!out) json_lib_error = ctx.error; /* Pointer to static string, so this is fine. */
-#if 0
 	if (!out) {
-		fprintf(stderr, "JSON parse error at %d (%c)\n", ctx.c, ctx.string[ctx.c]);
-		fprintf(stderr, "%s\n", ctx.error);
-		fprintf(stderr, "%s\n", ctx.string);
-		for (int i = 0; i < ctx.c; ++i) { fprintf(stderr, " "); }
-		fprintf(stderr, "^\n");
+		json_lib_error = ctx.error; /* Pointer to static string, so this is fine. */
+
+		if (flags & TOARU_JSON_PRINT_PARSE_ERRORS) {
+			const char * line = &ctx.string[ctx.last_line_start];
+			fprintf(stderr, "JSON parse error: %s\n", ctx.error);
+			fprintf(stderr, "At offset %d (line %d, col %d) '%c':\n",
+				ctx.c,
+				ctx.line + 1,
+				ctx.c - ctx.last_line_start,
+				ctx.string[ctx.c]);
+			fprintf(stderr, "    %.*s\n", (int)(strchrnul(line, '\n') - line), line);
+			fprintf(stderr, "    ");
+			for (int i = 0; i < ctx.c - ctx.last_line_start; ++i) fprintf(stderr, (line[i] == '\t') ? "\t" : " ");
+			fprintf(stderr, "^\n");
+		}
 	}
-#endif
+
 	return out;
 }
 
-Value * json_parse_file(const char * filename) {
+Value * json_parse(const char * str) {
+	return json_parse_flags(str, 0);
+}
+
+Value * json_parse_file_flags(const char * filename, int flags) {
 	FILE * f = fopen(filename, "r");
 
 	if (!f) {
@@ -443,9 +473,13 @@ Value * json_parse_file(const char * filename) {
 
 	fclose(f);
 
-	Value * out = json_parse(tmp);
+	Value * out = json_parse_flags(tmp, flags);
 	free(tmp);
 	return out;
+}
+
+Value * json_parse_file(const char * filename) {
+	return json_parse_file_flags(filename, 0);
 }
 
 int json_serialize(FILE * f, Value * thing, int indent);
