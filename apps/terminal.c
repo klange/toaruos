@@ -526,11 +526,13 @@ static void tab_callback(struct menu_bar_with_tabs * menu, struct menu_bar_entri
 			reinit();
 			break;
 		case 2:
-			_menu_tab = tab;
-			for (int i = 0; i < 7; ++i) {
-				menu_update_toggle_state(_menu_tab_color[i], priv->tab_color == i);
+			if (!menu_tab_context->window) {
+				_menu_tab = tab;
+				for (int i = 0; i < 7; ++i) {
+					menu_update_toggle_state(_menu_tab_color[i], priv->tab_color == i);
+				}
+				menu_show_at(menu_tab_context, window, x, y);
 			}
-			menu_show_at(menu_tab_context, window, x, y);
 			break;
 	}
 }
