@@ -1003,7 +1003,7 @@ static void yutani_screenshot(yutani_globals_t * yg) {
 	timeinfo = localtime((time_t *)&now.tv_sec);
 	strftime(fname,1024,"/tmp/screenshot_%F_%H_%M_%S.tga",timeinfo);
 
-	FILE * f = fopen(fname, "w");
+	FILE * f = fopen(fname, "we");
 	if (!f) {
 		TRACE("Error opening output file for screenshot.");
 		return;
@@ -1069,7 +1069,7 @@ static void yutani_screenshot(yutani_globals_t * yg) {
 	fclose(f);
 
 
-	FILE * toast = fopen("/dev/pex/toast", "w");
+	FILE * toast = fopen("/dev/pex/toast", "we");
 	fprintf(toast, "{\"icon\": \"%s\", \"body\": \"Screenshot taken.\"}", fname);
 	fclose(toast);
 
@@ -2531,15 +2531,15 @@ int main(int argc, char * argv[]) {
 	if (yutani_options.nested) {
 		fds[1] = fileno(yg->host_context->sock);
 	} else {
-		mfd = open("/dev/mouse", O_RDONLY);
-		kfd = open("/dev/kbd", O_RDONLY);
-		amfd = open("/dev/absmouse", O_RDONLY);
+		mfd = open("/dev/mouse", O_RDONLY | O_CLOEXEC);
+		kfd = open("/dev/kbd", O_RDONLY | O_CLOEXEC);
+		amfd = open("/dev/absmouse", O_RDONLY | O_CLOEXEC);
 		if (amfd < 0) {
-			amfd = open("/dev/vmmouse", O_RDONLY);
+			amfd = open("/dev/vmmouse", O_RDONLY | O_CLOEXEC);
 			vmmouse = 1;
 		}
-		yg->vbox_rects = open("/dev/vboxrects", O_WRONLY);
-		yg->vbox_pointer = open("/dev/vboxpointer", O_WRONLY);
+		yg->vbox_rects = open("/dev/vboxrects", O_WRONLY | O_CLOEXEC);
+		yg->vbox_pointer = open("/dev/vboxpointer", O_WRONLY | O_CLOEXEC);
 
 		fds[1] = mfd;
 		fds[2] = kfd;
