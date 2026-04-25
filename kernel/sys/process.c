@@ -323,7 +323,7 @@ unsigned long process_append_fd(process_t * proc, fs_node_t * node) {
  * @param newfd Minimum value of new file descriptor.
  * @returns The actual newly allocated file descriptor.
  */
-long process_fd_dup_least(process_t * proc, long oldfd, long newfd) {
+long process_fd_dup_least(process_t * proc, long oldfd, long newfd, int flags) {
 	spin_lock(proc->fds->lock);
 
 	/* Ensure there is at least enough space for for newfd itself */
@@ -354,6 +354,7 @@ long process_fd_dup_least(process_t * proc, long oldfd, long newfd) {
 
 	long i = proc->fds->length;
 	process_fds_copy(proc, oldfd, i);
+	proc->fds->modes[i] |= flags;
 	proc->fds->length++;
 	spin_unlock(proc->fds->lock);
 

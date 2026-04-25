@@ -15,6 +15,8 @@ int fcntl(int fd, int cmd, ...) {
 		case F_SETFD:
 		case F_SETFL:
 		case F_DUPFD:
+		case F_DUPFD_CLOEXEC:
+		case F_DUPFD_CLOFORK:
 			arg = va_arg(ap, int); /* "taken as an integer of type int" */
 			break;
 		case F_GETLK:

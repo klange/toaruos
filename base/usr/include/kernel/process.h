@@ -276,6 +276,7 @@ extern int exec(const char * path, int argc, char *const argv[], char *const env
 extern void update_process_usage(uint64_t clock_ticks, uint64_t perf_scale);
 extern void update_process_times_on_exit(void);
 extern size_t process_collect_by(off_t field, size_t fieldSize, void * target, pid_t ** into, int threads);
+extern long process_fd_dup_least(process_t *, long, long, int);
 
 extern tree_t * process_tree;  /* Parent->Children tree */
 extern list_t * process_list;  /* Flat storage */

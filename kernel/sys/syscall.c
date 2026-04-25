@@ -915,10 +915,14 @@ long sys_fcntl(int fd, int cmd, long arg) {
 		case F_SETFL: {
 			return 0; /* TODO NONBLOCK, APPEND, SYNC... */
 		}
+		case F_DUPFD_CLOEXEC:
+		case F_DUPFD_CLOFORK:
 		case F_DUPFD: {
 			if (arg < 0 || arg > 256) return -EINVAL; /* We expect a value of, like, 10 from dash. */
-			extern long process_fd_dup_least(process_t *, long, long);
-			return process_fd_dup_least((process_t*)this_core->current_process, fd, arg);
+			int flags = 0;
+			if (cmd == F_DUPFD_CLOEXEC) flags = PROC_FD_MODE_CLOEXEC;
+			if (cmd == F_DUPFD_CLOFORK) flags = PROC_FD_MODE_CLOFORK;
+			return process_fd_dup_least((process_t*)this_core->current_process, fd, arg, flags);
 		}
 		case F_GETLK:
 		case F_SETLK:

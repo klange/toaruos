@@ -28,6 +28,8 @@ _Begin_C_Header
 #define F_SETFL 4
 
 #define F_DUPFD 10
+#define F_DUPFD_CLOEXEC 11
+#define F_DUPFD_CLOFORK 12
 
 /* Advisory locks are not currently supported;
  * these definitions are stubs. */
