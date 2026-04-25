@@ -87,20 +87,9 @@ struct semaphore {
 	int fds[2];
 };
 
-int clo_pipe(int *fds) {
-	int ret = pipe(fds);
-	if (ret < 0) return ret;
-
-	fcntl(fds[0], F_SETFD, FD_CLOEXEC);
-	fcntl(fds[1], F_SETFD, FD_CLOEXEC);
-
-	return ret;
-}
-
-
 struct semaphore create_semaphore(void) {
 	struct semaphore out;
-	clo_pipe(out.fds);
+	pipe2(out.fds, O_CLOEXEC);
 	return out;
 }
 
@@ -1394,7 +1383,7 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer, char
 						*p = '\0';
 
 						int out_pipe[2];
-						clo_pipe(out_pipe);
+						pipe2(out_pipe, O_CLOEXEC);
 						int child_pid = fork();
 
 						if (!child_pid) {
@@ -1723,7 +1712,7 @@ _nope:
 	int pgid = 0;
 	if (cmdi > 0) {
 		int last_output[2];
-		clo_pipe(last_output);
+		pipe2(last_output, O_CLOEXEC);
 
 		child_pid = fork();
 		if (!child_pid) {
@@ -1740,7 +1729,7 @@ _nope:
 
 		for (int j = 1; j < cmdi; ++j) {
 			int tmp_out[2];
-			clo_pipe(tmp_out);
+			pipe2(tmp_out, O_CLOEXEC);
 			if (!fork()) {
 				is_subshell = 1;
 				set_pgid(pgid);
@@ -2369,7 +2358,7 @@ uint32_t shell_cmd_export_cmd(int argc, char * argv[]) {
 	}
 
 	int pipe_fds[2];
-	clo_pipe(pipe_fds);
+	pipe2(pipe_fds, O_CLOEXEC);
 
 	pid_t child_pid = fork();
 	if (!child_pid) {
