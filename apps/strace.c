@@ -70,6 +70,7 @@ const char * syscall_names[] = {
 	[SYS_SETPGID]      = "setpgid",
 	[SYS_GETPGID]      = "getpgid",
 	[SYS_DUP2]         = "dup2",
+	[SYS_DUP3]         = "dup3",
 	[SYS_EXECVE]       = "execve",
 	[SYS_FORK]         = "fork",
 	[SYS_WAITPID]      = "waitpid",
@@ -165,6 +166,7 @@ char syscall_mask[] = {
 	[SYS_SETPGID]      = 1,
 	[SYS_GETPGID]      = 1,
 	[SYS_DUP2]         = 1,
+	[SYS_DUP3]         = 1,
 	[SYS_EXECVE]       = 1,
 	[SYS_FORK]         = 1,
 	[SYS_WAITPID]      = 1,
@@ -238,7 +240,7 @@ static const int syscall_set_desc[] = {
 	SYS_OPEN, SYS_READ, SYS_WRITE, SYS_CLOSE, SYS_STAT, SYS_FSWAIT,
 	SYS_FSWAIT2, SYS_FSWAIT3, SYS_SEEK, SYS_IOCTL, SYS_PIPE, SYS_PIPE2,
 	SYS_DUP2, SYS_READDIR, SYS_OPENPTY, SYS_PREAD, SYS_PWRITE, SYS_FCNTL,
-	SYS_FCHMOD, SYS_FCHOWN, SYS_FTRUNCATE, 0
+	SYS_FCHMOD, SYS_FCHOWN, SYS_FTRUNCATE, SYS_DUP3, 0
 };
 
 static const int syscall_set_memory[] = {
@@ -1051,6 +1053,11 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 		case SYS_DUP2:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			fd_arg(pid, uregs_syscall_arg2(r));
+			break;
+		case SYS_DUP3:
+			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			fd_arg(pid, uregs_syscall_arg2(r)); COMMA;
+			open_flags(uregs_syscall_arg3(r));
 			break;
 		case SYS_FCNTL:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;

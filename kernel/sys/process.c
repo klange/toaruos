@@ -36,6 +36,7 @@
 #include <kernel/time.h>
 #include <kernel/misc.h>
 #include <kernel/syscall.h>
+#include <kernel/ksym.h>
 #include <sys/wait.h>
 #include <sys/signal_defs.h>
 
@@ -263,9 +264,9 @@ static void process_fds_grow(process_t * proc) {
 /**
  * @brief Duplicate a file descriptor to a new table entry.
  */
-static void process_fds_copy(process_t * proc, long src, long dest) {
+static void process_fds_copy(process_t * proc, long src, long dest, int extra_mode) {
 	proc->fds->entries[dest] = clone_fs(proc->fds->entries[src]);
-	proc->fds->modes[dest] = proc->fds->modes[src] & PROC_FD_MODE__RW;
+	proc->fds->modes[dest] = (proc->fds->modes[src] & PROC_FD_MODE__RW) | extra_mode;
 	proc->fds->offsets[dest] = proc->fds->offsets[src];
 }
 
@@ -339,8 +340,7 @@ long process_fd_dup_least(process_t * proc, long oldfd, long newfd, int flags) {
 	for (size_t i = newfd; i < proc->fds->length; ++i) {
 		if (proc->fds->entries[i] == NULL) {
 			/* Found a hit, copy */
-			process_fds_copy(proc, oldfd, i);
-			proc->fds->modes[i] |= flags;
+			process_fds_copy(proc, oldfd, i, flags);
 			spin_unlock(proc->fds->lock);
 			return i;
 		}
@@ -352,8 +352,7 @@ long process_fd_dup_least(process_t * proc, long oldfd, long newfd, int flags) {
 	}
 
 	long i = proc->fds->length;
-	process_fds_copy(proc, oldfd, i);
-	proc->fds->modes[i] |= flags;
+	process_fds_copy(proc, oldfd, i, flags);
 	proc->fds->length++;
 	spin_unlock(proc->fds->lock);
 
@@ -997,17 +996,17 @@ process_t * process_from_pid(pid_t pid) {
 }
 
 
-long process_move_fd(process_t * proc, long src, long dest) {
+long process_move_fd(process_t * proc, long src, long dest, int forbid_noop, int flags) {
 	if ((size_t)src >= proc->fds->length || (dest != -1 && (size_t)dest >= proc->fds->length)) {
 		return -EBADF;
 	}
-	if (dest == src) return dest;
+	if (dest == src) return forbid_noop ? -EINVAL : dest;
 	if (dest == -1) dest = process_append_fd(proc, NULL, 0);
 	if (proc->fds->entries[dest]) {
 		close_fs(proc->fds->entries[dest]);
 		proc->fds->entries[dest] = NULL;
 	}
-	process_fds_copy(proc, src, dest);
+	process_fds_copy(proc, src, dest, flags);
 	return dest;
 }
 
@@ -1650,6 +1649,18 @@ int session_send_signal(pid_t session, int signal, int force_root) {
 
 int process_close_fds(process_t * proc, int for_what) {
 	for (unsigned int i = 0; i < proc->fds->length; ++i) {
+#ifdef MISAKA_DEBUG_CLOEXEC_MISMATCHES
+		if (i >= 3 && proc->fds->entries[i] && !(proc->fds->modes[i] & for_what)) {
+			char * name = NULL, * wname = NULL, * dname = NULL;
+			uintptr_t addr = (uintptr_t)proc->fds->entries[i]->read - ksym_closest((uintptr_t)proc->fds->entries[i]->read, &name);
+			uintptr_t waddr = (uintptr_t)proc->fds->entries[i]->write - ksym_closest((uintptr_t)proc->fds->entries[i]->write, &wname);
+			uintptr_t daddr = (uintptr_t)proc->fds->entries[i]->readdir - ksym_closest((uintptr_t)proc->fds->entries[i]->readdir, &dname);
+			dprintf("probably unintended leak of file descriptor %d execing in pid %d (%s) (read:%s+%#zx) (wread:%s+%#zx) (readdir:%s+%#zx) (name:%s)\n", i, proc->id, proc->name,
+				name, addr, wname, waddr, dname, daddr, proc->fds->entries[i]->name);
+		} else if (i < 3 && proc->fds->entries[i] && (proc->fds->modes[i] & for_what)) {
+			dprintf("probably unintended CLOEXEC of file descriptor %d execing in pid %d\n", i, proc->id);
+		}
+#endif
 		if (proc->fds->entries[i] && (proc->fds->modes[i] & for_what)) {
 			close_fs(proc->fds->entries[i]);
 			proc->fds->entries[i] = NULL;

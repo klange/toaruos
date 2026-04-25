@@ -245,7 +245,7 @@ register struct ProcessorLocal * this_core asm("x18");
 #endif
 
 extern unsigned long process_append_fd(process_t * proc, fs_node_t * node, int mode);
-extern long process_move_fd(process_t * proc, long src, long dest);
+extern long process_move_fd(process_t * proc, long src, long dest, int forbid_noop, int flags);
 extern void initialize_process_tree(void);
 extern process_t * process_from_pid(pid_t pid);
 

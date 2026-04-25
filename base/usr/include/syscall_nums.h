@@ -92,3 +92,4 @@
 #define SYS_LCHOWN 89
 #define SYS_GETRUSAGE 90
 #define SYS_PIPE2 91
+#define SYS_DUP3 92

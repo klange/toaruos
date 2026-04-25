@@ -38,6 +38,7 @@ extern int pipe(int pipefd[2]);
 extern int pipe2(int pipefd[2], int flag);
 extern int dup(int oldfd);
 extern int dup2(int oldfd, int newfd);
+extern int dup3(int oldfd, int newfd, int flag);
 
 extern pid_t tcgetpgrp(int fd);
 extern int tcsetpgrp(int fd, pid_t pgrp);

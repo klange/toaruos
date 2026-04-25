@@ -884,7 +884,16 @@ long sys_getcwd(char * buf, size_t size) {
 }
 
 long sys_dup2(int old, int new) {
-	return process_move_fd((process_t *)this_core->current_process, old, new);
+	return process_move_fd((process_t *)this_core->current_process, old, new, 0, 0);
+}
+
+long sys_dup3(int old, int new, int flag) {
+	if (new < 0) return -EBADF; /* only dup2 syscall interface accepts -1 */
+	int flags = 0;
+	if (flag & ~(O_CLOEXEC | O_CLOFORK)) return -EINVAL;
+	if (flag & O_CLOEXEC) flags |= PROC_FD_MODE_CLOEXEC;
+	if (flag & O_CLOFORK) flags |= PROC_FD_MODE_CLOFORK;
+	return process_move_fd((process_t *)this_core->current_process, old, new, 1, flags);
 }
 
 long sys_fcntl(int fd, int cmd, long arg) {
