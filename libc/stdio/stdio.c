@@ -224,6 +224,9 @@ static void parse_mode(const char * mode, int * flags_, int * mask_) {
 		if (*x == 'x') {
 			flags |= O_EXCL;
 		}
+		if (*x == 'e') {
+			flags |= O_CLOEXEC;
+		}
 		++x;
 	}
 
