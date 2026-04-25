@@ -635,6 +635,7 @@ static void load_directory(const char * path, int modifies_history) {
 							sprintf(f->name, eq);
 						}
 					}
+					fclose(file);
 					sprintf(f->filetype, "Launcher");
 					sprintf(f->filename, "%s", ent->d_name);
 					f->type = 2;
