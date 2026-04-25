@@ -42,7 +42,7 @@ static void release_lock(void) {
 
 static void needs_lock(void) {
 	if (lock_fd == -1) {
-		lock_fd = open(LOCK_PATH, O_RDWR|O_CREAT|O_EXCL);
+		lock_fd = open(LOCK_PATH, O_RDWR|O_CREAT|O_EXCL|O_CLOEXEC);
 		if (lock_fd < 0) {
 			fprintf(stderr, "msk: failed to obtain exclusive lock\n");
 			exit(1);
@@ -136,6 +136,8 @@ static void read_installed(void) {
 
 		hashmap_set(msk_installed, tmp, strdup(version));
 	}
+
+	fclose(installed);
 }
 
 static void make_var(void) {
