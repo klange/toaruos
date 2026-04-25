@@ -526,6 +526,7 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_KEY_EVENT:
 					{
 						struct yutani_msg_key_event * ke = (void*)m->data;
+						if (ke->wid != window->wid) break;
 						if (ke->event.action == KEY_ACTION_DOWN) {
 							if (explore_mode) {
 								switch (ke->event.keycode) {
@@ -603,6 +604,7 @@ int main(int argc, char * argv[]) {
 				case YUTANI_MSG_RESIZE_OFFER:
 					{
 						struct yutani_msg_window_resize * wr = (void*)m->data;
+						if (wr->wid != window->wid) break;
 						resize_finish(wr->width, wr->height);
 					}
 					break;
