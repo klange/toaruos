@@ -290,6 +290,16 @@ static void refresh_display(term_state_t * state) {
 	flip_display();
 }
 
+static void write_tab_notification(term_state_t * state, int i) {
+	term_cell_t * cell = &state->term_mirror[state->width - 3];
+	for (int j = 0; j < 3; ++j) {
+		cell[j].c = (j == 1) ? ('0' + i) : ' ';
+		cell[j].fg = 7;
+		cell[j].bg = 0;
+		cell[j].flags = ANSI_INVERT;
+	}
+}
+
 static void new_tab() {
 	if (terminals->length == 9) return;
 	active_terminal = terminal_create(
@@ -297,6 +307,7 @@ static void new_tab() {
 		active_terminal->height,
 		active_terminal->max_scrollback,
 		0, NULL);
+	write_tab_notification(active_terminal, terminals->length);
 	refresh_display(active_terminal);
 }
 
@@ -321,6 +332,7 @@ static void key_event(int ret, key_event_t * event) {
 			foreach (node, terminals) {
 				if (i == term) {
 					active_terminal = node->value;
+					write_tab_notification(active_terminal, i + 1);
 					refresh_display(active_terminal);
 					return;
 				}
