@@ -584,13 +584,12 @@ struct MenuSet * menu_set_from_description(const char * path, void (*callback)(s
 		}
 	}
 
+	if (f != stdin) fclose(f);
 	return _out;
 
 failure:
 	fprintf(stderr, "malformed description file\n");
-	if (f != stdin) {
-		fclose(f);
-	}
+	if (f != stdin) fclose(f);
 	free(out);
 	return NULL;
 }
