@@ -423,6 +423,8 @@ const char * fcntl_cmd_names[] = {
 	M(F_GETLK),
 	M(F_SETLK),
 	M(F_SETLKW),
+	M(F_DUPFD_CLOEXEC),
+	M(F_DUPFD_CLOFORK),
 };
 
 static void open_flags(int flags) {
