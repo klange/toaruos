@@ -14,6 +14,7 @@
  */
 #include <stdio.h>
 #include <unistd.h>
+#include <getopt.h>
 
 #include <toaru/yutani.h>
 #include <toaru/yutani-internal.h>
@@ -27,8 +28,8 @@ int show_usage(int argc, char * argv[]) {
 			"\n"
 			"usage: %s [-w]\n"
 			"\n"
-			" -w   " X_S "take a screenshot of the focused window" X_E "\n"
-			" -?   " X_S "show this help text" X_E "\n"
+			" -w  --window " X_S "take a screenshot of the focused window" X_E "\n"
+			"     --help   " X_S "show this help text" X_E "\n"
 			"\n", argv[0], argv[0]);
 	return 1;
 }
@@ -36,7 +37,14 @@ int show_usage(int argc, char * argv[]) {
 int main(int argc, char * argv[]) {
 	int of_window = 0;
 	int opt;
-	while ((opt = getopt(argc, argv, "?w")) != -1) {
+
+	struct option long_opts[] = {
+		{"window",no_argument,0,'w'},
+		{"help",no_argument,0,'?'},
+		{0,0,0,0},
+	};
+
+	while ((opt = getopt_long(argc, argv, "w", long_opts, NULL)) != -1) {
 		switch (opt) {
 			case 'w':
 				of_window = 1;
