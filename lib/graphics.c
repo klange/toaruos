@@ -114,7 +114,7 @@ gfx_context_t * init_graphics_fullscreen() {
 	out->buffer = NULL;
 
 	if (!framebuffer_fd) {
-		framebuffer_fd = open("/dev/fb0", 0, 0);
+		framebuffer_fd = open("/dev/fb0", O_CLOEXEC | O_RDWR);
 	}
 	if (framebuffer_fd < 0) {
 		/* oh shit */
