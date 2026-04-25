@@ -14,6 +14,7 @@
 #include <math.h>
 #include <string.h>
 #include <time.h>
+#include <fcntl.h>
 
 #include <sys/wait.h>
 
@@ -44,8 +45,8 @@ int main (int argc, char ** argv) {
 		int uid = -1;
 
 		int com_pipe[2], rep_pipe[2];
-		pipe(com_pipe);
-		pipe(rep_pipe);
+		pipe2(com_pipe, O_CLOEXEC);
+		pipe2(rep_pipe, O_CLOEXEC);
 		TRACE("Starting login client...");
 
 		pid_t _gui_login = fork();
