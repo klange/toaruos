@@ -12,11 +12,7 @@ typedef struct dirent {
 } dirent;
 
 #ifndef _KERNEL_
-typedef struct DIR {
-	int fd;
-	int cur_entry;
-} DIR;
-
+typedef struct DIR DIR;
 DIR * opendir (const char * dirname);
 DIR * fdopendir (int fd);
 int closedir (DIR * dir);

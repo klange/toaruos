@@ -10,8 +10,20 @@
 
 DEFN_SYSCALL3(readdir, SYS_READDIR, int, int, void *);
 
+struct dirent32 {
+	unsigned int d_ino;
+	char d_name[256];
+};
+
+struct DIR {
+	int fd;
+	int cur_entry;
+	struct dirent _last;
+	struct dirent32 _last32;
+};
+
 DIR * fdopendir(int fd) {
-	DIR * dir = (DIR *)malloc(sizeof(DIR));
+	DIR * dir = (DIR *)calloc(1, sizeof(DIR));
 	dir->fd = fd;
 	dir->cur_entry = -1;
 	return dir;
@@ -32,22 +44,21 @@ int closedir (DIR * dir) {
 }
 
 struct dirent * readdir (DIR * dirp) {
-	static struct dirent ent;
-
-	int ret = syscall_readdir(dirp->fd, ++dirp->cur_entry, &ent);
+	struct dirent * ent = &dirp->_last;
+	int ret = syscall_readdir(dirp->fd, ++dirp->cur_entry, ent);
 	if (ret < 0) {
 		errno = -ret;
-		memset(&ent, 0, sizeof(struct dirent));
+		memset(ent, 0, sizeof(struct dirent));
 		return NULL;
 	}
 
 	if (ret == 0) {
 		/* end of directory */
-		memset(&ent, 0, sizeof(struct dirent));
+		memset(ent, 0, sizeof(struct dirent));
 		return NULL;
 	}
 
-	return &ent;
+	return ent;
 }
 
 long telldir(DIR * dirp) {
@@ -66,22 +77,19 @@ void seekdir(DIR * dirp, long loc) {
  * This provides the 32-bit binary compatibility for old
  * binaries that want 'readdir' to use 32-bit ino values.
  */
-struct dirent32 {
-	unsigned int d_ino;
-	char d_name[256];
-};
 
 struct dirent32 * readdir32 (DIR *);
 __redirect(readdir32,readdir);
 
 struct dirent32 * readdir32 (DIR * dirp) {
-	static struct dirent32 ent;
+	struct dirent32 * ent = &dirp->_last32;
 	struct dirent* big = readdir(dirp);
 	if (!big) return NULL;
 
-	ent.d_ino = big->d_ino;
-	memcpy(ent.d_name,big->d_name,sizeof(ent.d_name));
-	return &ent;
+	memset(ent, 0, sizeof(struct dirent32));
+	ent->d_ino = big->d_ino;
+	memcpy(ent->d_name,big->d_name,sizeof(ent->d_name));
+	return ent;
 }
 
 int scandir(const char *dirname, struct dirent ***namelist, int (*select)(const struct dirent *), int (*compar)(const struct dirent **, const struct dirent **)) {
