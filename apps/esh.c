@@ -647,25 +647,24 @@ void tab_complete_func(rline_context_t * c) {
 		while (ent != NULL) {
 			if (ent->d_name[0] != '.' || compare[0] == '.') {
 				if (!word || strstr(ent->d_name, compare) == ent->d_name) {
+					int ret;
 					struct stat statbuf;
 					/* stat it */
 					if (last_slash) {
 						char * x;
 						char * home;
 						if (tmp[0] == '~' && (home = getenv("HOME"))) {
-							x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1 + strlen(home) + 1);
-							snprintf(x, strlen(tmp) + 1 + strlen(ent->d_name) + 1 + strlen(home) + 1, "%s%s/%s",home,tmp+1,ent->d_name);
+							asprintf(&x, "%s%s/%s", home, tmp + 1, ent->d_name);
 						} else {
-							x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1);
-							snprintf(x, strlen(tmp) + 1 + strlen(ent->d_name) + 1, "%s/%s",tmp,ent->d_name);
+							asprintf(&x, "%s/%s", tmp, ent->d_name);
 						}
-						lstat(x, &statbuf);
+						ret = lstat(x, &statbuf);
 						free(x);
 					} else {
-						lstat(ent->d_name, &statbuf);
+						ret = lstat(ent->d_name, &statbuf);
 					}
 					char * s;
-					if (S_ISDIR(statbuf.st_mode)) {
+					if (!ret && S_ISDIR(statbuf.st_mode)) {
 						/* Directories are blue, like in ls. */
 						asprintf(&s,"%c%s/", 4, ent->d_name);
 						no_space_if_only = 1;
@@ -849,8 +848,8 @@ void tab_complete_func(rline_context_t * c) {
 			char * c = strchr(tmp, '=');
 			*c = '\0';
 			if (strstr(tmp, prefix+with_dollar) == tmp) {
-				char * m = malloc(strlen(tmp)+1+with_dollar);
-				sprintf(m, "%s%s", with_dollar ? "$" : "", tmp);
+				char * m;
+				asprintf(&m, "%s%s", with_dollar ? "$" : "", tmp);
 				list_insert(matches, m);
 			}
 			free(tmp);
@@ -1617,8 +1616,7 @@ _done:
 					struct dirent * ent = readdir(dirp);
 					while (ent != NULL) {
 						if (ent->d_name[0] != '.' || (dir ? (dir[1] == '.') : (before && before[0] == '.'))) {
-							char * s = malloc(sizeof(char) * (strlen(ent->d_name) + 1));
-							memcpy(s, ent->d_name, strlen(ent->d_name) + 1);
+							char * s = strdup(ent->d_name);
 
 							char * t = s;
 
@@ -1632,8 +1630,8 @@ _done:
 							if (has_after) {
 								if (strlen(t) >= strlen(after)) {
 									if (!strcmp(after,&t[strlen(t)-strlen(after)])) {
-										char * out = malloc(strlen(s) + 2 + strlen(prepend));
-										sprintf(out,"%s%s%s", prepend, !!*prepend ? "/" : "", s);
+										char * out;
+										asprintf(&out, "%s%s%s", prepend, !!*prepend ? "/" : "", s);
 										list_insert(glob_args, out);
 										argv[i] = out;
 										i++;
@@ -1641,8 +1639,8 @@ _done:
 									}
 								}
 							} else {
-								char * out = malloc(strlen(s) + 2 + strlen(prepend));
-								sprintf(out,"%s%s%s", prepend, !!*prepend ? "/" : "", s);
+								char * out;
+								asprintf(&out,"%s%s%s", prepend, !!*prepend ? "/" : "", s);
 								list_insert(glob_args, out);
 								argv[i] = out;
 								i++;
@@ -1881,9 +1879,7 @@ void add_path_contents(char * path) {
 	struct dirent * ent = readdir(dirp);
 	while (ent != NULL) {
 		if (ent->d_name[0] != '.') {
-			char * s = malloc(sizeof(char) * (strlen(ent->d_name) + 1));
-			memcpy(s, ent->d_name, strlen(ent->d_name) + 1);
-			shell_install_command(s, NULL, NULL);
+			shell_install_command(strdup(ent->d_name), NULL, NULL);
 		}
 
 		ent = readdir(dirp);
@@ -2100,8 +2096,7 @@ int main(int argc, char ** argv) {
 
 		read_entry(buffer);
 
-		char * history = malloc(strlen(buffer) + 1);
-		memcpy(history, buffer, strlen(buffer) + 1);
+		char * history = strdup(buffer);
 
 		if (buffer[0] != ' ' && buffer[0] != '\n' && buffer[0] != '!') {
 			rline_history_insert(history);
