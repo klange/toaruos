@@ -187,7 +187,7 @@ static elf_t * open_object(const char * path) {
 	}
 
 	/* Open the library. */
-	FILE * f = fopen(file, "r");
+	FILE * f = fopen(file, "re");
 
 	/* Free the expanded path, we don't need it anymore. */
 	free(file);
