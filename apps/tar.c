@@ -327,7 +327,7 @@ int main(int argc, char * argv[]) {
 		if (!strcmp(fname,"-")) {
 			f = stdin;
 		} else {
-			f = fopen(fname,"r");
+			f = fopen(fname,"re");
 		}
 		if (!f) {
 			fprintf(stderr, "%s: %s: %s\n", argv[0], fname, strerror(errno));
@@ -336,7 +336,7 @@ int main(int argc, char * argv[]) {
 
 		if (compressed) {
 			int fds[2];
-			pipe(fds);
+			pipe2(fds, O_CLOEXEC);
 
 			int child = fork();
 			if (child == 0) {
