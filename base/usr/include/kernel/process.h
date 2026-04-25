@@ -64,6 +64,13 @@ typedef struct image {
 	spin_lock_t lock;
 } image_t;
 
+#define PROC_FD_MODE_READ     0x001
+#define PROC_FD_MODE_WRITE    0x002
+#define PROC_FD_MODE_CLOEXEC  0x010
+#define PROC_FD_MODE_CLOFORK  0x020
+
+#define PROC_FD_MODE__RW      (PROC_FD_MODE_READ | PROC_FD_MODE_WRITE)
+
 typedef struct file_descriptors {
 	fs_node_t ** entries;
 	uint64_t * offsets;

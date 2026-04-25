@@ -16,6 +16,10 @@ _Begin_C_Header
 #define O_PATH       0x2000
 #define O_NONBLOCK   0x4000
 #define O_DIRECTORY  0x8000
+#define O_CLOEXEC   0x10000
+#define O_CLOFORK   0x20000
+
+#define O_ACCMODE   (O_WRONLY | O_RDWR)
 
 #define F_GETFD 1
 #define F_SETFD 2
@@ -44,6 +48,7 @@ struct flock {
 };
 
 #define FD_CLOEXEC (1 << 0)
+#define FD_CLOFORK (1 << 1)
 
 #ifndef __kernel__
 extern int open (const char *, int, ...);

@@ -1071,7 +1071,7 @@ static int tcp_socket(void) {
 	sock->_fnode.read = sock_tcp_read;
 	sock->_fnode.write = sock_tcp_write;
 	int fd = process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock);
-	FD_MODE(fd) = 03;
+	FD_MODE(fd) = PROC_FD_MODE__RW;
 	return fd;
 }
 

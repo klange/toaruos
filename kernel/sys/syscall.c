@@ -222,7 +222,7 @@ long sys_write(int fd, char * ptr, unsigned long len) {
 	if (FD_CHECK(fd)) {
 		PTRCHECK(ptr,len,MMU_PTR_NULL);
 		fs_node_t * node = FD_ENTRY(fd);
-		if (!(FD_MODE(fd) & 2)) return -EBADF;
+		if (!(FD_MODE(fd) & PROC_FD_MODE_WRITE)) return -EBADF;
 		if (!len) return 0;
 		int64_t out = write_fs(node, FD_OFFSET(fd), len, (uint8_t*)ptr);
 		if (out > 0) FD_OFFSET(fd) += out;
@@ -236,7 +236,7 @@ long sys_pwrite(int fd, void * ptr, size_t count, off_t offset) {
 		if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ESPIPE;
 		PTRCHECK(ptr,count,MMU_PTR_NULL);
 		fs_node_t * node = FD_ENTRY(fd);
-		if (!(FD_MODE(fd) & 2)) return -EBADF;
+		if (!(FD_MODE(fd) & PROC_FD_MODE_WRITE)) return -EBADF;
 		if (!count) return 0;
 		return write_fs(node, offset, count, (uint8_t*)ptr);
 	}
@@ -248,7 +248,7 @@ long sys_pread(int fd, void * ptr, size_t count, off_t offset) {
 		if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ESPIPE;
 		PTRCHECK(ptr,count,MMU_PTR_NULL|MMU_PTR_WRITE);
 		fs_node_t * node = FD_ENTRY(fd);
-		if (!(FD_MODE(fd) & 01)) return -EBADF;
+		if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
 		if (!count) return 0;
 		return read_fs(node, offset, count, (uint8_t *)ptr);
 	}
@@ -388,7 +388,7 @@ long sys_open(const char * file, long flags, long mode) {
 			close_fs(node);
 			return -EACCES;
 		} else {
-			access_bits |= 01;
+			access_bits |= PROC_FD_MODE_READ;
 		}
 	}
 
@@ -403,7 +403,7 @@ long sys_open(const char * file, long flags, long mode) {
 		}
 		if ((flags & O_RDWR) || (flags & O_WRONLY)) {
 			/* truncate doesn't grant write permissions */
-			access_bits |= 02;
+			access_bits |= PROC_FD_MODE_WRITE;
 		}
 	}
 
@@ -415,7 +415,7 @@ long sys_open(const char * file, long flags, long mode) {
 	}
 
 	if (node && (flags & O_TRUNC)) {
-		if (!(access_bits & 02)) {
+		if (!(access_bits & PROC_FD_MODE_WRITE)) {
 			close_fs(node);
 			return -EINVAL;
 		}
@@ -429,6 +429,10 @@ long sys_open(const char * file, long flags, long mode) {
 		close_fs(node);
 		return -EISDIR;
 	}
+
+	if (flags & O_CLOEXEC) access_bits |= PROC_FD_MODE_CLOEXEC;
+	if (flags & O_CLOFORK) access_bits |= PROC_FD_MODE_CLOFORK;
+
 	int fd = process_append_fd((process_t *)this_core->current_process, node);
 	FD_MODE(fd) = access_bits;
 	if (flags & O_APPEND) {
@@ -473,7 +477,7 @@ long sys_read(int fd, char * ptr, unsigned long len) {
 	if (FD_CHECK(fd)) {
 		PTRCHECK(ptr,len,MMU_PTR_NULL|MMU_PTR_WRITE);
 		fs_node_t * node = FD_ENTRY(fd);
-		if (!(FD_MODE(fd) & 01)) return -EBADF;
+		if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
 		if (!len) return 0;
 		int64_t out = read_fs(node, FD_OFFSET(fd), len, (uint8_t *)ptr);
 		if (out > 0) FD_OFFSET(fd) += out;
@@ -494,7 +498,7 @@ long sys_readdir(int fd, long index, struct dirent * entry) {
 	if (FD_CHECK(fd)) {
 		PTRCHECK(entry,sizeof(struct dirent),MMU_PTR_WRITE);
 		fs_node_t * node = FD_ENTRY(fd);
-		if (!(FD_MODE(fd) & 01)) return -EBADF;
+		if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
 		struct dirent * kentry = readdir_fs(node, (uint64_t)index);
 		if (kentry) {
 			memcpy(entry, kentry, sizeof *entry);
@@ -655,7 +659,7 @@ long sys_truncate(char * file, off_t size) {
 
 long sys_ftruncate(int fd, off_t size) {
 	if (!FD_CHECK(fd)) return -EBADF;
-	if (!(FD_MODE(fd) & 2)) return -EBADF;
+	if (!(FD_MODE(fd) & PROC_FD_MODE_WRITE)) return -EBADF;
 	if (size < 0) return -EINVAL;
 	if (!FD_ENTRY(fd)->truncate) return -ENOTSUP;
 	return FD_ENTRY(fd)->truncate(FD_ENTRY(fd), size);
@@ -888,15 +892,23 @@ long sys_fcntl(int fd, int cmd, long arg) {
 	if (!FD_CHECK(fd)) return -EBADF;
 
 	switch (cmd) {
-		case F_GETFD:
-			return 0; /* We don't support any flags. CLOEXEC is the only thing in here. */
-		case F_SETFD:
-			return 0; /* We don't support any flags, so can't set any flags. */
+		case F_GETFD: {
+			int flags = 0;
+			if (FD_MODE(fd) & PROC_FD_MODE_CLOEXEC) flags |= FD_CLOEXEC;
+			if (FD_MODE(fd) & PROC_FD_MODE_CLOFORK) flags |= FD_CLOFORK;
+			return flags;
+		}
+		case F_SETFD: {
+			int new_mode = FD_MODE(fd) & O_ACCMODE;
+			if (arg & FD_CLOEXEC) new_mode |= PROC_FD_MODE_CLOEXEC;
+			if (arg & FD_CLOFORK) new_mode |= PROC_FD_MODE_CLOFORK;
+			return 0;
+		}
 		case F_GETFL: {
 			int mode = 0;
-			if (FD_MODE(fd) & 03) mode = O_RDWR;
-			else if (FD_MODE(fd) & 01) mode = O_RDONLY;
-			else if (FD_MODE(fd) & 02) mode = O_WRONLY;
+			if ((FD_MODE(fd) & PROC_FD_MODE__RW) == PROC_FD_MODE__RW) mode = O_RDWR;
+			else if (FD_MODE(fd) & PROC_FD_MODE_READ) mode = O_RDONLY;
+			else if (FD_MODE(fd) & PROC_FD_MODE_WRITE) mode = O_WRONLY;
 			/* TODO we don't persist O_APPEND and there are other flags we don't support */
 			return mode;
 		}
@@ -1078,8 +1090,8 @@ long sys_pipe(int pipes[2]) {
 
 	pipes[0] = process_append_fd((process_t *)this_core->current_process, outpipes[0]);
 	pipes[1] = process_append_fd((process_t *)this_core->current_process, outpipes[1]);
-	FD_MODE(pipes[0]) = 03;
-	FD_MODE(pipes[1]) = 03;
+	FD_MODE(pipes[0]) = PROC_FD_MODE__RW;
+	FD_MODE(pipes[1]) = PROC_FD_MODE__RW;
 	return 0;
 }
 
@@ -1260,8 +1272,8 @@ long sys_openpty(int * master, int * slave, char * name, void * _ign0, void * si
 	*master = process_append_fd((process_t *)this_core->current_process, fs_master);
 	*slave  = process_append_fd((process_t *)this_core->current_process, fs_slave);
 
-	FD_MODE(*master) = 03;
-	FD_MODE(*slave) = 03;
+	FD_MODE(*master) = PROC_FD_MODE__RW;
+	FD_MODE(*slave)  = PROC_FD_MODE__RW;
 
 	open_fs(fs_master, 0);
 	open_fs(fs_slave, 0);
