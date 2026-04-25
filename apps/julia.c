@@ -22,7 +22,6 @@
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
-#include <toaru/menu.h>
 #include <toaru/markup_text.h>
 
 #define GFX_(xpt, ypt) (GFX(ctx,xpt+decor_left_width,ypt+decor_top_height))
@@ -513,11 +512,15 @@ int main(int argc, char * argv[]) {
 		yutani_msg_t * m = yutani_poll(yctx);
 
 		while (m) {
-			if (menu_process_event(yctx, m)) {
-				/* just decorations should be fine */
-				decors();
-				flip(ctx);
-				yutani_flip(yctx, window);
+			switch (decor_handle_event_flags(yctx, m, DECOR_HANDLE_SIMPLE)) {
+				case DECOR_REDRAW:
+					decors();
+					flip(ctx);
+					yutani_flip(yctx, window);
+					break;
+				case DECOR_CLOSE:
+					playing = 0;
+					break;
 			}
 			switch (m->type) {
 				case YUTANI_MSG_KEY_EVENT:
@@ -597,40 +600,10 @@ int main(int argc, char * argv[]) {
 						}
 					}
 					break;
-				case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
-					{
-						struct yutani_msg_window_focus_change * wf = (void*)m->data;
-						yutani_window_t * win = hashmap_get(yctx->windows, (void*)(uintptr_t)wf->wid);
-						if (win && win == window) {
-							win->focused = wf->focused;
-							decors();
-							flip(ctx);
-							yutani_flip(yctx, window);
-						}
-					}
-					break;
 				case YUTANI_MSG_RESIZE_OFFER:
 					{
 						struct yutani_msg_window_resize * wr = (void*)m->data;
 						resize_finish(wr->width, wr->height);
-					}
-					break;
-				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
-					{
-						struct yutani_msg_window_mouse_event * me = (void*)m->data;
-						int result = decor_handle_event(yctx, m);
-						switch (result) {
-							case DECOR_CLOSE:
-								playing = 0;
-								break;
-							case DECOR_RIGHT:
-								/* right click in decoration, show appropriate menu */
-								decor_show_default_menu(window, window->x + me->new_x, window->y + me->new_y);
-								break;
-							default:
-								/* Other actions */
-								break;
-						}
 					}
 					break;
 				case YUTANI_MSG_WINDOW_CLOSE:
