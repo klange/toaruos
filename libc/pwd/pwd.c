@@ -32,7 +32,7 @@ struct passwd {
 static FILE * pwdb = NULL;
 
 static void open_it(void) {
-	pwdb = fopen("/etc/passwd", "r");
+	pwdb = fopen("/etc/passwd", "re");
 }
 
 #define LINE_LEN 2048
