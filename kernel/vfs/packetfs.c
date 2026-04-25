@@ -374,32 +374,30 @@ static void open_pex(fs_node_t * node, unsigned int flags) {
 	return;
 }
 
-static struct dirent * readdir_packetfs(fs_node_t *node, uint64_t index) {
+static int readdir_packetfs(fs_node_t *node, uint64_t index, struct dirent * out) {
 	pex_t * p = (pex_t *)node->device;
 	unsigned int i = 0;
 
 	debug_print(INFO, "[pex] readdir(%lu)", index);
 
 	if (index == 0) {
-		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
 		out->d_ino = 0;
 		strcpy(out->d_name, ".");
-		return out;
+		return 1;
 	}
 
 	if (index == 1) {
-		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
 		out->d_ino = 0;
 		strcpy(out->d_name, "..");
-		return out;
+		return 1;
 	}
 
 	index -= 2;
 
 	if (index >= p->exchanges->length) {
-		return NULL;
+		return 0;
 	}
 
 	spin_lock(p->lock);
@@ -408,11 +406,10 @@ static struct dirent * readdir_packetfs(fs_node_t *node, uint64_t index) {
 		if (i == index) {
 			spin_unlock(p->lock);
 			pex_ex_t * t = (pex_ex_t *)f->value;
-			struct dirent * out = malloc(sizeof(struct dirent));
 			memset(out, 0x00, sizeof(struct dirent));
 			out->d_ino = (uint64_t)t;
 			strcpy(out->d_name, t->name);
-			return out;
+			return 1;
 		} else {
 			++i;
 		}
@@ -420,7 +417,7 @@ static struct dirent * readdir_packetfs(fs_node_t *node, uint64_t index) {
 
 	spin_unlock(p->lock);
 
-	return NULL;
+	return 0;
 }
 
 static fs_node_t * file_from_pex(pex_ex_t * pex) {

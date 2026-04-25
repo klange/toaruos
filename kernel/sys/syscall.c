@@ -498,14 +498,7 @@ long sys_readdir(int fd, long index, struct dirent * entry) {
 		PTRCHECK(entry,sizeof(struct dirent),MMU_PTR_WRITE);
 		fs_node_t * node = FD_ENTRY(fd);
 		if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
-		struct dirent * kentry = readdir_fs(node, (uint64_t)index);
-		if (kentry) {
-			memcpy(entry, kentry, sizeof *entry);
-			free(kentry);
-			return 1;
-		} else {
-			return 0;
-		}
+		return readdir_fs(node, (uint64_t)index, entry);
 	}
 	return -EBADF;
 }

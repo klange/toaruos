@@ -191,21 +191,19 @@ static void close_iso(fs_node_t *node) {
 	/* Nothing to do here */
 }
 
-static struct dirent * readdir_iso(fs_node_t *node, unsigned long index) {
+static int readdir_iso(fs_node_t *node, unsigned long index, struct dirent * dent) {
 	if (index == 0) {
-		struct dirent * out = malloc(sizeof(struct dirent));
-		memset(out, 0x00, sizeof(struct dirent));
-		out->d_ino = 0;
-		strcpy(out->d_name, ".");
-		return out;
+		memset(dent, 0x00, sizeof(struct dirent));
+		dent->d_ino = 0;
+		strcpy(dent->d_name, ".");
+		return 1;
 	}
 
 	if (index == 1) {
-		struct dirent * out = malloc(sizeof(struct dirent));
-		memset(out, 0x00, sizeof(struct dirent));
-		out->d_ino = 0;
-		strcpy(out->d_name, "..");
-		return out;
+		memset(dent, 0x00, sizeof(struct dirent));
+		dent->d_ino = 0;
+		strcpy(dent->d_name, "..");
+		return 1;
 	}
 
 	iso_9660_fs_t * this = node->device;
@@ -231,10 +229,10 @@ static struct dirent * readdir_iso(fs_node_t *node, unsigned long index) {
 	/* Examine directory */
 	offset = root_data;
 
+	int found = 0;
 	unsigned int i = 0;
-	struct dirent *dirent = malloc(sizeof(struct dirent));
 	fs_node_t * out = malloc(sizeof(fs_node_t));
-	memset(dirent, 0, sizeof(struct dirent));
+	memset(dent, 0, sizeof(struct dirent));
 	while (1) {
 		iso_9660_directory_entry_t * dir = (iso_9660_directory_entry_t *)offset;
 		if (dir->length == 0) {
@@ -247,8 +245,9 @@ static struct dirent * readdir_iso(fs_node_t *node, unsigned long index) {
 		if (!(dir->flags & FLAG_HIDDEN)) {
 			if (i == index) {
 				file_from_dir_entry(this, (root_entry->extent_start_LSB)+(offset - root_data)/this->block_size, dir, (offset - root_data) % this->block_size, out);
-				memcpy(&dirent->d_name, out->name, strlen(out->name)+1);
-				dirent->d_ino = out->inode;
+				memcpy(&dent->d_name, out->name, strlen(out->name)+1);
+				dent->d_ino = out->inode;
+				found = 1;
 				goto cleanup;
 			}
 			i += 1;
@@ -258,14 +257,11 @@ try_again:
 		if ((size_t)(offset - root_data) >= root_entry->extent_length_LSB) break;
 	}
 
-	free(dirent);
-	dirent = NULL;
-
 cleanup:
 	free(root_data);
 	free(buffer);
 	free(out);
-	return dirent;
+	return found;
 }
 
 static ssize_t read_iso(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {

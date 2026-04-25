@@ -391,43 +391,40 @@ static fs_node_t * tmpfs_from_link(struct tmpfs_file * t) {
 	return fnode;
 }
 
-static struct dirent * readdir_tmpfs(fs_node_t *node, uint64_t index) {
+static int readdir_tmpfs(fs_node_t *node, uint64_t index, struct dirent * out) {
 	struct tmpfs_dir * d = (struct tmpfs_dir *)node->inode;
 	uint64_t i = 0;
 
 	if (index == 0) {
-		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
 		out->d_ino = 0;
 		strcpy(out->d_name, ".");
-		return out;
+		return 1;
 	}
 
 	if (index == 1) {
-		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
 		out->d_ino = 0;
 		strcpy(out->d_name, "..");
-		return out;
+		return 1;
 	}
 
 	index -= 2;
 
-	if (index >= d->files->length) return NULL;
+	if (index >= d->files->length) return 0;
 
 	foreach(f, d->files) {
 		if (i == index) {
 			struct tmpfs_file * t = (struct tmpfs_file *)f->value;
-			struct dirent * out = malloc(sizeof(struct dirent));
 			memset(out, 0x00, sizeof(struct dirent));
 			out->d_ino = (uint64_t)t;
 			strcpy(out->d_name, t->name);
-			return out;
+			return 1;
 		} else {
 			++i;
 		}
 	}
-	return NULL;
+	return 0;
 }
 
 static fs_node_t * finddir_tmpfs(fs_node_t * node, char * name) {

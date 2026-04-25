@@ -289,33 +289,30 @@ static struct procfs_entry procdir_entries[] = {
 	{3, "cwd",     proc_cwd_func, FS_SYMLINK},
 };
 
-static struct dirent * readdir_procfs_procdir(fs_node_t *node, uint64_t index) {
+static int readdir_procfs_procdir(fs_node_t *node, uint64_t index, struct dirent * out) {
 	if (index == 0) {
-		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
 		out->d_ino = 0;
 		strcpy(out->d_name, ".");
-		return out;
+		return 1;
 	}
 
 	if (index == 1) {
-		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
 		out->d_ino = 0;
 		strcpy(out->d_name, "..");
-		return out;
+		return 1;
 	}
 
 	index -= 2;
 
 	if (index < PROCFS_PROCDIR_ENTRIES) {
-		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
 		out->d_ino = procdir_entries[index].id;
 		strcpy(out->d_name, procdir_entries[index].name);
-		return out;
+		return 1;
 	}
-	return NULL;
+	return 0;
 }
 
 static fs_node_t * finddir_procfs_procdir(fs_node_t * node, char * name) {
@@ -670,31 +667,28 @@ int procfs_install(struct procfs_entry * entry) {
 	return 0;
 }
 
-static struct dirent * readdir_procfs_root(fs_node_t *node, uint64_t index) {
+static int readdir_procfs_root(fs_node_t *node, uint64_t index, struct dirent * out) {
 	if (index == 0) {
-		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
 		out->d_ino = 0;
 		strcpy(out->d_name, ".");
-		return out;
+		return 1;
 	}
 
 	if (index == 1) {
-		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
 		out->d_ino = 0;
 		strcpy(out->d_name, "..");
-		return out;
+		return 1;
 	}
 
 	index -= 2;
 
 	if (index < PROCFS_STANDARD_ENTRIES) {
-		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
 		out->d_ino = std_entries[index].id;
 		strcpy(out->d_name, std_entries[index].name);
-		return out;
+		return 1;
 	}
 
 	index -= PROCFS_STANDARD_ENTRIES;
@@ -709,11 +703,10 @@ static struct dirent * readdir_procfs_root(fs_node_t *node, uint64_t index) {
 			}
 
 			struct procfs_entry * e = n->value;
-			struct dirent * out = malloc(sizeof(struct dirent));
 			memset(out, 0x00, sizeof(struct dirent));
 			out->d_ino = e->id;
 			strcpy(out->d_name, e->name);
-			return out;
+			return 1;
 		}
 		index -=  extended_entries->length;
 	}
@@ -732,15 +725,14 @@ static struct dirent * readdir_procfs_root(fs_node_t *node, uint64_t index) {
 	}
 
 	if (pid == 0) {
-		return NULL;
+		return 0;
 	}
 
-	struct dirent * out = malloc(sizeof(struct dirent));
 	memset(out, 0x00, sizeof(struct dirent));
 	out->d_ino  = pid;
 	snprintf(out->d_name, 100, "%d", pid);
 
-	return out;
+	return 1;
 }
 
 static fs_node_t * finddir_procfs_root(fs_node_t * node, char * name) {

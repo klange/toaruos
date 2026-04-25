@@ -1334,7 +1334,7 @@ static void close_ext2(fs_node_t *node) {
 /**
  * readdir_ext2
  */
-static struct dirent * readdir_ext2(fs_node_t *node, unsigned long index) {
+static int readdir_ext2(fs_node_t *node, unsigned long index, struct dirent *dirent) {
 
 	ext2_fs_t * this = (ext2_fs_t *)node->device;
 
@@ -1343,15 +1343,14 @@ static struct dirent * readdir_ext2(fs_node_t *node, unsigned long index) {
 	ext2_dir_t *direntry = direntry_ext2(this, inode, node->inode, index);
 	if (!direntry) {
 		free(inode);
-		return NULL;
+		return 0;
 	}
-	struct dirent *dirent = malloc(sizeof(struct dirent));
 	memcpy(&dirent->d_name, &direntry->name, direntry->name_len);
 	dirent->d_name[direntry->name_len] = '\0';
 	dirent->d_ino = direntry->inode;
 	free(direntry);
 	free(inode);
-	return dirent;
+	return 1;
 }
 
 static int symlink_ext2(fs_node_t * parent, char * target, char * name) {

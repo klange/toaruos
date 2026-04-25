@@ -673,21 +673,19 @@ static fs_node_t * create_dev_tty(void) {
 	return fnode;
 }
 
-static struct dirent * readdir_pty(fs_node_t *node, unsigned long index) {
+static int readdir_pty(fs_node_t *node, unsigned long index, struct dirent * out) {
 	if (index == 0) {
-		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
 		out->d_ino = 0;
 		strcpy(out->d_name, ".");
-		return out;
+		return 1;
 	}
 
 	if (index == 1) {
-		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
 		out->d_ino = 0;
 		strcpy(out->d_name, "..");
-		return out;
+		return 1;
 	}
 
 	index -= 2;
@@ -704,15 +702,13 @@ static struct dirent * readdir_pty(fs_node_t *node, unsigned long index) {
 	list_free(values);
 
 	if (out_pty) {
-		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
 		out->d_ino = out_pty->name;
 		out->d_name[0] = '\0';
 		snprintf(out->d_name, 100, "%zd", out_pty->name);
-		return out;
-	} else {
-		return NULL;
+		return 1;
 	}
+	return 0;
 }
 
 static fs_node_t * finddir_pty(fs_node_t * node, char * name) {

@@ -99,21 +99,19 @@ int has_permission(fs_node_t * node, int permission_bit) {
 	return (permission_bit & my_permissions) == permission_bit;
 }
 
-static struct dirent * readdir_mapper(fs_node_t *node, unsigned long index) {
+static int readdir_mapper(fs_node_t *node, unsigned long index, struct dirent * dir) {
 	tree_node_t * d = (tree_node_t *)node->device;
 
-	if (!d) return NULL;
+	if (!d) return 0;
 
 	if (index == 0) {
-		struct dirent * dir = malloc(sizeof(struct dirent));
 		strcpy(dir->d_name, ".");
 		dir->d_ino = 0;
-		return dir;
+		return 1;
 	} else if (index == 1) {
-		struct dirent * dir = malloc(sizeof(struct dirent));
 		strcpy(dir->d_name, "..");
 		dir->d_ino = 1;
-		return dir;
+		return 1;
 	}
 
 	index -= 2;
@@ -123,17 +121,16 @@ static struct dirent * readdir_mapper(fs_node_t *node, unsigned long index) {
 			/* Recursively print the children */
 			tree_node_t * tchild = (tree_node_t *)child->value;
 			struct vfs_entry * n = (struct vfs_entry *)tchild->value;
-			struct dirent * dir = malloc(sizeof(struct dirent));
 
 			size_t len = strlen(n->name) + 1;
 			memcpy(&dir->d_name, n->name, MIN(256, len));
 			dir->d_ino = i;
-			return dir;
+			return 1;
 		}
 		++i;
 	}
 
-	return NULL;
+	return 0;
 }
 
 static fs_node_t * vfs_mapper(void) {
@@ -320,13 +317,13 @@ int chown_fs(fs_node_t *node, uid_t uid, gid_t gid) {
  * @param index Offset to look for
  * @returns A dirent object.
  */
-struct dirent *readdir_fs(fs_node_t *node, unsigned long index) {
-	if (!node) return NULL;
+int readdir_fs(fs_node_t *node, unsigned long index, struct dirent * out) {
+	if (!node) return -EINVAL;
 
 	if ((node->flags & FS_DIRECTORY) && node->readdir) {
-		return node->readdir(node, index);
+		return node->readdir(node, index, out);
 	} else {
-		return NULL;
+		return -EINVAL;
 	}
 }
 

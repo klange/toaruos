@@ -147,21 +147,19 @@ static int count_slashes(char * string) {
 	return i;
 }
 
-static struct dirent * readdir_tar_root(fs_node_t *node, unsigned long index) {
+static int readdir_tar_root(fs_node_t *node, unsigned long index, struct dirent * out) {
 	if (index == 0) {
-		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
 		out->d_ino = 0;
 		strcpy(out->d_name, ".");
-		return out;
+		return 1;
 	}
 
 	if (index == 1) {
-		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
 		out->d_ino = 0;
 		strcpy(out->d_name, "..");
-		return out;
+		return 1;
 	}
 
 	index -= 2;
@@ -176,7 +174,7 @@ static struct dirent * readdir_tar_root(fs_node_t *node, unsigned long index) {
 
 		if (!status) {
 			free(file);
-			return NULL;
+			return 0;
 		}
 
 		char filename_workspace[256];
@@ -190,12 +188,11 @@ static struct dirent * readdir_tar_root(fs_node_t *node, unsigned long index) {
 			if (slash) *slash = '\0'; /* remove trailing slash */
 			if (strlen(filename_workspace)) {
 				if (index == 0) {
-					struct dirent * out = malloc(sizeof(struct dirent));
 					memset(out, 0x00, sizeof(struct dirent));
 					out->d_ino = offset;
 					strcpy(out->d_name, filename_workspace);
 					free(file);
-					return out;
+					return 1;
 				} else {
 					index--;
 				}
@@ -208,7 +205,7 @@ static struct dirent * readdir_tar_root(fs_node_t *node, unsigned long index) {
 	}
 
 	free(file);
-	return NULL;
+	return 0;
 }
 
 static ssize_t read_tarfs(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
@@ -227,21 +224,19 @@ static ssize_t read_tarfs(fs_node_t * node, off_t offset, size_t size, uint8_t *
 	return read_fs(self->device, offset + node->inode + 512, size, buffer);
 }
 
-static struct dirent * readdir_tarfs(fs_node_t *node, unsigned long index) {
+static int readdir_tarfs(fs_node_t *node, unsigned long index, struct dirent *out) {
 	if (index == 0) {
-		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
 		out->d_ino = 0;
 		strcpy(out->d_name, ".");
-		return out;
+		return 1;
 	}
 
 	if (index == 1) {
-		struct dirent * out = malloc(sizeof(struct dirent));
 		memset(out, 0x00, sizeof(struct dirent));
 		out->d_ino = 0;
 		strcpy(out->d_name, "..");
-		return out;
+		return 1;
 	}
 
 	index -= 2;
@@ -267,7 +262,7 @@ static struct dirent * readdir_tarfs(fs_node_t *node, unsigned long index) {
 
 		if (!status) {
 			free(file);
-			return NULL;
+			return 0;
 		}
 
 		char filename_workspace[256];
@@ -281,12 +276,11 @@ static struct dirent * readdir_tarfs(fs_node_t *node, unsigned long index) {
 					if (index == 0) {
 						char * slash = strstr(filename_workspace+strlen(my_filename),"/");
 						if (slash) *slash = '\0'; /* remove trailing slash */
-						struct dirent * out = malloc(sizeof(struct dirent));
 						memset(out, 0x00, sizeof(struct dirent));
 						out->d_ino = offset;
 						strcpy(out->d_name, filename_workspace+strlen(my_filename));
 						free(file);
-						return out;
+						return 1;
 					} else {
 						index--;
 					}
@@ -299,7 +293,7 @@ static struct dirent * readdir_tarfs(fs_node_t *node, unsigned long index) {
 	}
 
 	free(file);
-	return NULL;
+	return 0;
 }
 
 static fs_node_t * finddir_tarfs(fs_node_t *node, char *name) {
