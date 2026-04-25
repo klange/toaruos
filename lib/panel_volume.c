@@ -28,7 +28,7 @@ static int mixer = -1;
 
 static int widget_update_volume(struct PanelWidget * this, int * force_updates) {
 	if (mixer == -1) {
-		mixer = open("/dev/mixer", O_RDONLY);
+		mixer = open("/dev/mixer", O_RDONLY | O_CLOEXEC);
 	}
 
 	snd_knob_value_t value = {0};
