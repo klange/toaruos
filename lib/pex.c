@@ -52,7 +52,7 @@ FILE * pex_connect(char * target) {
 	char tmp[100];
 	if (strlen(target) > 80) return NULL;
 	sprintf(tmp, "/dev/pex/%s", target);
-	FILE * out = fopen(tmp, "r+");
+	FILE * out = fopen(tmp, "re+");
 	if (out) {
 		setbuf(out, NULL);
 	}
@@ -63,7 +63,7 @@ FILE * pex_bind(char * target) {
 	char tmp[100];
 	if (strlen(target) > 80) return NULL;
 	sprintf(tmp, "/dev/pex/%s", target);
-	int fd = open(tmp, O_CREAT | O_EXCL | O_RDWR | O_APPEND);
+	int fd = open(tmp, O_CREAT | O_EXCL | O_RDWR | O_APPEND | O_CLOEXEC);
 	if (fd < 0) {
 		return NULL;
 	}
