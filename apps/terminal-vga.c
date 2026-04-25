@@ -731,7 +731,7 @@ static term_state_t * terminal_create(int term_width, int term_height, int max_s
 
 	list_insert(terminals, out);
 
-	pipe(priv->input_buffer_semaphore);
+	pipe2(priv->input_buffer_semaphore, O_CLOEXEC);
 	priv->input_buffer_queue = list_create();
 	pthread_create(&priv->input_buffer_thread, NULL, handle_input_writing, out);
 
