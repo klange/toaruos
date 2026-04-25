@@ -20,7 +20,6 @@
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
 #include <toaru/spinlock.h>
-#include <toaru/menu.h>
 
 #define dist(a,b,c,d) sqrt((double)(((a) - (c)) * ((a) - (c)) + ((b) - (d)) * ((b) - (d))))
 
@@ -163,22 +162,17 @@ int main (int argc, char ** argv) {
 	while (!should_exit) {
 		yutani_msg_t * m = yutani_poll(yctx);
 		while (m) {
-			menu_process_event(yctx, m);
+			switch (decor_handle_event_flags(yctx, m, DECOR_HANDLE_SIMPLE)) {
+				case DECOR_CLOSE:
+					should_exit = 1;
+					break;
+			}
 			switch (m->type) {
 				case YUTANI_MSG_KEY_EVENT:
 					{
 						struct yutani_msg_key_event * ke = (void*)m->data;
 						if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
 							should_exit = 1;
-						}
-					}
-					break;
-				case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
-					{
-						struct yutani_msg_window_focus_change * wf = (void*)m->data;
-						yutani_window_t * win = hashmap_get(yctx->windows, (void*)(uintptr_t)wf->wid);
-						if (win && win == wina) {
-							win->focused = wf->focused;
 						}
 					}
 					break;
@@ -191,19 +185,6 @@ int main (int argc, char ** argv) {
 						struct yutani_msg_window_resize * wr = (void*)m->data;
 						if (wr->wid == wina->wid) {
 							resize_finish(wr->width, wr->height);
-						}
-					}
-					break;
-				case YUTANI_MSG_WINDOW_MOUSE_EVENT:
-					{
-						struct yutani_msg_window_mouse_event * me = (void*)m->data;
-						switch (decor_handle_event(yctx, m)) {
-							case DECOR_CLOSE:
-								should_exit = 1;
-								break;
-							case DECOR_RIGHT:
-								decor_show_default_menu(wina, wina->x + me->new_x, wina->y + me->new_y);
-								break;
 						}
 					}
 					break;
