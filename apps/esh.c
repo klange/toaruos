@@ -87,9 +87,20 @@ struct semaphore {
 	int fds[2];
 };
 
+int clo_pipe(int *fds) {
+	int ret = pipe(fds);
+	if (ret < 0) return ret;
+
+	fcntl(fds[0], F_SETFD, FD_CLOEXEC);
+	fcntl(fds[1], F_SETFD, FD_CLOEXEC);
+
+	return ret;
+}
+
+
 struct semaphore create_semaphore(void) {
 	struct semaphore out;
-	pipe(out.fds);
+	clo_pipe(out.fds);
 	return out;
 }
 
@@ -1383,7 +1394,7 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer, char
 						*p = '\0';
 
 						int out_pipe[2];
-						pipe(out_pipe);
+						clo_pipe(out_pipe);
 						int child_pid = fork();
 
 						if (!child_pid) {
@@ -1527,7 +1538,7 @@ _done:
 		if (next_is_err) {
 			if (next_is_err == 1 && !strcmp(c, WRITE_TOKEN)) {
 				next_is_err = 2;
-				err_args[cmdi] = O_WRONLY | O_CREAT | O_APPEND;
+				err_args[cmdi] = O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC;
 				continue;
 			}
 			err_files[cmdi] = c;
@@ -1537,14 +1548,14 @@ _done:
 
 		if (!strcmp(c, WRITE_ERR_TOKEN)) {
 			next_is_err = 1;
-			err_args[cmdi] = O_WRONLY | O_CREAT | O_TRUNC;
+			err_args[cmdi] = O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC;
 			continue;
 		}
 
 		if (next_is_file) {
 			if (next_is_file == 1 && !strcmp(c, WRITE_TOKEN)) {
 				next_is_file = 2;
-				file_args[cmdi] = O_WRONLY | O_CREAT | O_APPEND;
+				file_args[cmdi] = O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC;
 				continue;
 			}
 			output_files[cmdi] = c;
@@ -1554,7 +1565,7 @@ _done:
 
 		if (!strcmp(c, WRITE_TOKEN)) {
 			next_is_file = 1;
-			file_args[cmdi] = O_WRONLY | O_CREAT | O_TRUNC;
+			file_args[cmdi] = O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC;
 			continue;
 		}
 
@@ -1712,7 +1723,7 @@ _nope:
 	int pgid = 0;
 	if (cmdi > 0) {
 		int last_output[2];
-		pipe(last_output);
+		clo_pipe(last_output);
 
 		child_pid = fork();
 		if (!child_pid) {
@@ -1729,7 +1740,7 @@ _nope:
 
 		for (int j = 1; j < cmdi; ++j) {
 			int tmp_out[2];
-			pipe(tmp_out);
+			clo_pipe(tmp_out);
 			if (!fork()) {
 				is_subshell = 1;
 				set_pgid(pgid);
@@ -1787,6 +1798,7 @@ _nope:
 			int old_err = -1;
 			if (output_files[0]) {
 				old_out = dup(STDOUT_FILENO);
+				fcntl(old_out, F_SETFD, FD_CLOEXEC);
 				int fd = open(output_files[cmdi], file_args[cmdi], 0666);
 				if (fd < 0) {
 					fprintf(stderr, "sh: %s: %s\n", output_files[cmdi], strerror(errno));
@@ -1797,6 +1809,7 @@ _nope:
 			}
 			if (err_files[0]) {
 				old_err = dup(STDERR_FILENO);
+				fcntl(old_err, F_SETFD, FD_CLOEXEC);
 				int fd = open(err_files[cmdi], err_args[cmdi], 0666);
 				if (fd < 0) {
 					fprintf(stderr, "sh: %s: %s\n", err_files[cmdi], strerror(errno));
@@ -1993,7 +2006,7 @@ void source_eshrc(void) {
 	char tmp[512];
 	sprintf(tmp, "%s/.eshrc", home);
 
-	FILE * f = fopen(tmp, "r");
+	FILE * f = fopen(tmp, "re");
 	if (!f) return;
 
 	current_file = tmp;
@@ -2017,6 +2030,7 @@ int main(int argc, char ** argv) {
 	install_commands();
 
 	int err = dup(STDERR_FILENO);
+	fcntl(err, F_SETFD, FD_CLOEXEC);
 	shell_stderr = fdopen(err, "w");
 
 	if (argc > 1) {
@@ -2044,7 +2058,7 @@ int main(int argc, char ** argv) {
 
 	if (optind < argc) {
 		shell_interactive = 2;
-		FILE * f = fopen(argv[optind],"r");
+		FILE * f = fopen(argv[optind],"re");
 
 		if (!f) {
 			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[optind], strerror(errno));
@@ -2355,7 +2369,8 @@ uint32_t shell_cmd_export_cmd(int argc, char * argv[]) {
 	}
 
 	int pipe_fds[2];
-	pipe(pipe_fds);
+	clo_pipe(pipe_fds);
+
 	pid_t child_pid = fork();
 	if (!child_pid) {
 		set_pgid(0);
@@ -2426,7 +2441,7 @@ uint32_t shell_cmd_return(int argc, char * argv[]) {
 uint32_t shell_cmd_source(int argc, char * argv[]) {
 	if (argc < 2) return 0;
 
-	FILE * f = fopen(argv[1], "r");
+	FILE * f = fopen(argv[1], "re");
 
 	if (!f) {
 		fprintf(stderr, "%s: %s: %s\n", argv[0], argv[1], strerror(errno));
