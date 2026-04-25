@@ -18,23 +18,6 @@
 
 extern char end[];
 
-static uintptr_t matching_symbol(uintptr_t ip, char ** name) {
-	hashmap_t * symbols = ksym_get_map();
-	uintptr_t best_match = 0;
-	for (size_t i = 0; i < symbols->size; ++i) {
-		hashmap_entry_t * x = symbols->entries[i];
-		while (x) {
-			void* sym_addr = x->value;
-			char* sym_name = x->key;
-			if ((uintptr_t)sym_addr < ip && (uintptr_t)sym_addr > best_match) {
-				best_match = (uintptr_t)sym_addr;
-				*name = sym_name;
-			}
-			x = x->next;
-		}
-	}
-	return best_match;
-}
 static int validate_pointer(uintptr_t base, size_t size) {
 	uintptr_t end  = size ? (base + (size - 1)) : base;
 	uintptr_t page_base = base >> 12;
@@ -72,7 +55,7 @@ static void dump_traceback(uintptr_t ip, uintptr_t bp, uintptr_t x30) {
 		} else if (ip >= 0xffffffff80000000UL && ip <= (uintptr_t)&end) {
 			/* Find symbol match */
 			char * name;
-			uintptr_t addr = matching_symbol(ip, &name);
+			uintptr_t addr = ksym_closest(ip, &name);
 			if (!addr) {
 				dprintf("\a (no match)\n");
 			} else {

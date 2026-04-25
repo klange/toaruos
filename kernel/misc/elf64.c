@@ -26,6 +26,7 @@
 #include <kernel/module.h>
 #include <kernel/hashmap.h>
 #include <kernel/mutex.h>
+#include <kernel/shm.h>
 
 hashmap_t * _modules_table = NULL;
 sched_mutex_t * _modules_mutex = NULL;
@@ -309,6 +310,9 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	uintptr_t execBase = -1;
 	uintptr_t heapBase = 0;
 
+	shm_release_all((process_t *)this_core->current_process);
+	process_close_fds((process_t *)this_core->current_process, PROC_FD_MODE_CLOEXEC);
+
 	process_acquire_big_lock();
 	mmu_set_directory(NULL);
 	page_directory_t * this_directory = this_core->current_process->thread.page_directory;
@@ -319,6 +323,7 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	mmu_set_directory(this_core->current_process->thread.page_directory->directory);
 	process_release_directory(this_directory);
 	process_release_big_lock();
+
 
 	for (int i = 0; i < NUMSIGNALS; ++i) {
 		if (this_core->current_process->signals[i].handler != 1) {
@@ -433,5 +438,6 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	arch_set_kernel_stack(this_core->current_process->image.stack);
 	arch_enter_user(header.e_entry, argc, _argv, _envp, userstack);
 
-	return -EINVAL;
+	task_exit(127);
+	__builtin_unreachable();
 }

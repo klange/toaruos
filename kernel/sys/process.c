@@ -264,10 +264,9 @@ static void process_fds_grow(process_t * proc) {
  * @brief Duplicate a file descriptor to a new table entry.
  */
 static void process_fds_copy(process_t * proc, long src, long dest) {
-	proc->fds->entries[dest] = proc->fds->entries[src];
-	proc->fds->modes[dest] = proc->fds->modes[src];
+	proc->fds->entries[dest] = clone_fs(proc->fds->entries[src]);
+	proc->fds->modes[dest] = proc->fds->modes[src] & PROC_FD_MODE__RW;
 	proc->fds->offsets[dest] = proc->fds->offsets[src];
-	open_fs(proc->fds->entries[dest], 0);
 }
 
 /**
@@ -281,14 +280,14 @@ static void process_fds_copy(process_t * proc, long src, long dest) {
  * @param node VFS object to add a reference to.
  * @returns the new file descriptor index
  */
-unsigned long process_append_fd(process_t * proc, fs_node_t * node) {
+unsigned long process_append_fd(process_t * proc, fs_node_t * node, int mode) {
 	spin_lock(proc->fds->lock);
 	/* Fill gaps */
 	for (unsigned long i = 0; i < proc->fds->length; ++i) {
 		if (!proc->fds->entries[i]) {
 			proc->fds->entries[i] = node;
 			/* modes, offsets must be set by caller */
-			proc->fds->modes[i] = 0;
+			proc->fds->modes[i] = mode;
 			proc->fds->offsets[i] = 0;
 			spin_unlock(proc->fds->lock);
 			return i;
@@ -299,8 +298,7 @@ unsigned long process_append_fd(process_t * proc, fs_node_t * node) {
 		process_fds_grow(proc);
 	}
 	proc->fds->entries[proc->fds->length] = node;
-	/* modes, offsets must be set by caller */
-	proc->fds->modes[proc->fds->length] = 0;
+	proc->fds->modes[proc->fds->length] = mode;
 	proc->fds->offsets[proc->fds->length] = 0;
 	proc->fds->length++;
 	spin_unlock(proc->fds->lock);
@@ -342,6 +340,7 @@ long process_fd_dup_least(process_t * proc, long oldfd, long newfd, int flags) {
 		if (proc->fds->entries[i] == NULL) {
 			/* Found a hit, copy */
 			process_fds_copy(proc, oldfd, i);
+			proc->fds->modes[i] |= flags;
 			spin_unlock(proc->fds->lock);
 			return i;
 		}
@@ -500,7 +499,7 @@ process_t * spawn_init(void) {
 	return init;
 }
 
-process_t * spawn_process(volatile process_t * parent, int flags) {
+process_t * spawn_process(volatile process_t * parent, int flags, int close_at_fork) {
 	process_t * proc = calloc(1,sizeof(process_t));
 
 	proc->id          = get_next_pid();
@@ -551,10 +550,11 @@ process_t * spawn_process(volatile process_t * parent, int flags) {
 		spin_lock(parent->fds->lock);
 		proc->fds->length = parent->fds->length;
 		proc->fds->capacity = parent->fds->capacity;
-		proc->fds->entries = malloc(proc->fds->capacity * sizeof(fs_node_t *));
-		proc->fds->modes   = malloc(proc->fds->capacity * sizeof(int));
-		proc->fds->offsets = malloc(proc->fds->capacity * sizeof(uint64_t));
+		proc->fds->entries = calloc(proc->fds->capacity, sizeof(fs_node_t *));
+		proc->fds->modes   = calloc(proc->fds->capacity, sizeof(int));
+		proc->fds->offsets = calloc(proc->fds->capacity, sizeof(uint64_t));
 		for (uint32_t i = 0; i < parent->fds->length; ++i) {
+			if (close_at_fork && (parent->fds->modes[i] & PROC_FD_MODE_CLOFORK)) continue;
 			proc->fds->entries[i] = clone_fs(parent->fds->entries[i]);
 			proc->fds->modes[i]   = parent->fds->modes[i];
 			proc->fds->offsets[i] = parent->fds->offsets[i];
@@ -999,15 +999,15 @@ process_t * process_from_pid(pid_t pid) {
 
 long process_move_fd(process_t * proc, long src, long dest) {
 	if ((size_t)src >= proc->fds->length || (dest != -1 && (size_t)dest >= proc->fds->length)) {
-		return -1;
+		return -EBADF;
 	}
-	if (dest == -1) {
-		dest = process_append_fd(proc, NULL);
-	}
-	if (proc->fds->entries[dest] != proc->fds->entries[src]) {
+	if (dest == src) return dest;
+	if (dest == -1) dest = process_append_fd(proc, NULL, 0);
+	if (proc->fds->entries[dest]) {
 		close_fs(proc->fds->entries[dest]);
-		process_fds_copy(proc, src, dest);
+		proc->fds->entries[dest] = NULL;
 	}
+	process_fds_copy(proc, src, dest);
 	return dest;
 }
 
@@ -1379,7 +1379,7 @@ pid_t fork(void) {
 	uintptr_t sp, bp;
 	process_t * parent = (process_t*)this_core->current_process;
 	union PML * directory = mmu_clone(parent->thread.page_directory->directory);
-	process_t * new_proc = spawn_process(parent, 0);
+	process_t * new_proc = spawn_process(parent, 0, 1);
 	new_proc->thread.page_directory = malloc(sizeof(page_directory_t));
 	new_proc->thread.page_directory->refcount = 1;
 	new_proc->thread.page_directory->directory = directory;
@@ -1421,7 +1421,7 @@ pid_t fork(void) {
 pid_t clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 	uintptr_t sp, bp;
 	process_t * parent = (process_t *)this_core->current_process;
-	process_t * new_proc = spawn_process(this_core->current_process, 1);
+	process_t * new_proc = spawn_process(this_core->current_process, 1, 0);
 	new_proc->thread.page_directory = this_core->current_process->thread.page_directory;
 	spin_lock(new_proc->thread.page_directory->lock);
 	new_proc->thread.page_directory->refcount++;
@@ -1648,3 +1648,12 @@ int session_send_signal(pid_t session, int signal, int force_root) {
 	return killed_something ? 0 : -ESRCH;
 }
 
+int process_close_fds(process_t * proc, int for_what) {
+	for (unsigned int i = 0; i < proc->fds->length; ++i) {
+		if (proc->fds->entries[i] && (proc->fds->modes[i] & for_what)) {
+			close_fs(proc->fds->entries[i]);
+			proc->fds->entries[i] = NULL;
+		}
+	}
+	return 0;
+}

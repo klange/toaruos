@@ -41,3 +41,21 @@ list_t * ksym_list(void) {
 hashmap_t * ksym_get_map(void) {
 	return ksym_hash;
 }
+
+uintptr_t ksym_closest(uintptr_t ip, char ** name) {
+	hashmap_t * symbols = ksym_hash;
+	uintptr_t best_match = 0;
+	for (size_t i = 0; i < symbols->size; ++i) {
+		hashmap_entry_t * x = symbols->entries[i];
+		while (x) {
+			void* sym_addr = x->value;
+			char* sym_name = x->key;
+			if ((uintptr_t)sym_addr < ip && (uintptr_t)sym_addr > best_match) {
+				best_match = (uintptr_t)sym_addr;
+				*name = sym_name;
+			}
+			x = x->next;
+		}
+	}
+	return best_match;
+}

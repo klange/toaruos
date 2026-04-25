@@ -244,7 +244,7 @@ static struct ProcessorLocal __seg_gs * const this_core = 0;
 register struct ProcessorLocal * this_core asm("x18");
 #endif
 
-extern unsigned long process_append_fd(process_t * proc, fs_node_t * node);
+extern unsigned long process_append_fd(process_t * proc, fs_node_t * node, int mode);
 extern long process_move_fd(process_t * proc, long src, long dest);
 extern void initialize_process_tree(void);
 extern process_t * process_from_pid(pid_t pid);
@@ -276,6 +276,7 @@ extern int exec(const char * path, int argc, char *const argv[], char *const env
 extern void update_process_usage(uint64_t clock_ticks, uint64_t perf_scale);
 extern void update_process_times_on_exit(void);
 extern size_t process_collect_by(off_t field, size_t fieldSize, void * target, pid_t ** into, int threads);
+extern int process_close_fds(process_t * proc, int for_what);
 extern long process_fd_dup_least(process_t *, long, long, int);
 
 extern tree_t * process_tree;  /* Parent->Children tree */

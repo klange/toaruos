@@ -190,7 +190,7 @@ long net_raw_socket(int type, int protocol) {
 	list_insert(net_raw_sockets_list, sock);
 	spin_unlock(net_raw_sockets_lock);
 
-	int fd = process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock);
+	int fd = process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, PROC_FD_MODE__RW);
 	return fd;
 }
 

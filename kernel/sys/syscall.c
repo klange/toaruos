@@ -433,8 +433,7 @@ long sys_open(const char * file, long flags, long mode) {
 	if (flags & O_CLOEXEC) access_bits |= PROC_FD_MODE_CLOEXEC;
 	if (flags & O_CLOFORK) access_bits |= PROC_FD_MODE_CLOFORK;
 
-	int fd = process_append_fd((process_t *)this_core->current_process, node);
-	FD_MODE(fd) = access_bits;
+	int fd = process_append_fd((process_t *)this_core->current_process, node, access_bits);
 	if (flags & O_APPEND) {
 		FD_OFFSET(fd) = node->length;
 	} else {
@@ -899,9 +898,10 @@ long sys_fcntl(int fd, int cmd, long arg) {
 			return flags;
 		}
 		case F_SETFD: {
-			int new_mode = FD_MODE(fd) & O_ACCMODE;
+			int new_mode = FD_MODE(fd) & PROC_FD_MODE__RW;
 			if (arg & FD_CLOEXEC) new_mode |= PROC_FD_MODE_CLOEXEC;
 			if (arg & FD_CLOFORK) new_mode |= PROC_FD_MODE_CLOFORK;
+			FD_MODE(fd) = new_mode;
 			return 0;
 		}
 		case F_GETFL: {
@@ -1024,19 +1024,6 @@ long sys_execve(const char * filename, char *const argv[], char *const envp[]) {
 		envp_[0] = NULL;
 	}
 
-	/**
-	 * FIXME: For legacy reasons, we're just going to close everything >2 for now,
-	 *        but we should really implement proper CLOEXEC semantics...
-	 */
-	for (unsigned int i = 3; i < this_core->current_process->fds->length; ++i) {
-		if (this_core->current_process->fds->entries[i]) {
-			close_fs(this_core->current_process->fds->entries[i]);
-			this_core->current_process->fds->entries[i] = NULL;
-		}
-	}
-
-	shm_release_all((process_t *)this_core->current_process);
-
 	this_core->current_process->cmdline = argv_;
 	return exec(filename, argc, argv_, envp_, 0);
 }
@@ -1092,10 +1079,8 @@ long sys_pipe(int pipes[2]) {
 	open_fs(outpipes[0], 0);
 	open_fs(outpipes[1], 0);
 
-	pipes[0] = process_append_fd((process_t *)this_core->current_process, outpipes[0]);
-	pipes[1] = process_append_fd((process_t *)this_core->current_process, outpipes[1]);
-	FD_MODE(pipes[0]) = PROC_FD_MODE__RW;
-	FD_MODE(pipes[1]) = PROC_FD_MODE__RW;
+	pipes[0] = process_append_fd((process_t *)this_core->current_process, outpipes[0], PROC_FD_MODE__RW);
+	pipes[1] = process_append_fd((process_t *)this_core->current_process, outpipes[1], PROC_FD_MODE__RW);
 	return 0;
 }
 
@@ -1273,11 +1258,8 @@ long sys_openpty(int * master, int * slave, char * name, void * _ign0, void * si
 	pty_create(size, &fs_master, &fs_slave);
 
 	/* Append the master and slave to the calling process */
-	*master = process_append_fd((process_t *)this_core->current_process, fs_master);
-	*slave  = process_append_fd((process_t *)this_core->current_process, fs_slave);
-
-	FD_MODE(*master) = PROC_FD_MODE__RW;
-	FD_MODE(*slave)  = PROC_FD_MODE__RW;
+	*master = process_append_fd((process_t *)this_core->current_process, fs_master,PROC_FD_MODE__RW|PROC_FD_MODE_CLOEXEC);
+	*slave  = process_append_fd((process_t *)this_core->current_process, fs_slave, PROC_FD_MODE__RW|PROC_FD_MODE_CLOEXEC);
 
 	open_fs(fs_master, 0);
 	open_fs(fs_slave, 0);

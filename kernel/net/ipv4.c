@@ -305,7 +305,7 @@ static int icmp_socket(void) {
 	sock->sock_close = sock_icmp_close;
 	sock->priv32[0] = this_core->current_process->id;
 	hashmap_set(icmp_sockets, (void*)(uintptr_t)sock->priv32[0], sock);
-	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock);
+	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, PROC_FD_MODE__RW);
 }
 
 #define TCP_FLAGS_FIN (1 << 0)
@@ -651,7 +651,7 @@ static int udp_socket(void) {
 	sock->sock_close = sock_udp_close;
 	sock->sock_bind = sock_udp_bind;
 	sock->sock_getsockname = sock_udp_getsockname;
-	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock);
+	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, PROC_FD_MODE__RW);
 }
 
 static spin_lock_t tcp_port_lock = {0};
@@ -1070,7 +1070,7 @@ static int tcp_socket(void) {
 	sock->sock_getpeername = sock_tcp_getpeername;
 	sock->_fnode.read = sock_tcp_read;
 	sock->_fnode.write = sock_tcp_write;
-	int fd = process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock);
+	int fd = process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, PROC_FD_MODE__RW);
 	FD_MODE(fd) = PROC_FD_MODE__RW;
 	return fd;
 }
