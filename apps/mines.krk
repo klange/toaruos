@@ -11,6 +11,7 @@ from _yutani2 import (Font, rgb, decor_get_bounds, decor_render, decor_handle_ev
     MenuBar, MenuEntry, MenuEntrySeparator, MenuList, MenuEntrySubmenu)
 from yutani_mainloop import Window, AsyncMainloop
 
+let app_name = 'Mines'
 let app_version = '2.0.0'
 let mainloop = AsyncMainloop()
 
@@ -108,7 +109,7 @@ class MinesWindow(Window):
 
     def __init__(self):
         let bounds = decor_get_bounds()
-        super().__init__(self.base_width + bounds['width'], self.base_height + bounds['height'], title="Mines", icon="mines", doublebuffer=True)
+        super().__init__(self.base_width + bounds['width'], self.base_height + bounds['height'], title=app_name, icon="mines", doublebuffer=True)
         self.move(100,100)
         self.button_width = {}
         self.button_height = 0
@@ -122,7 +123,7 @@ class MinesWindow(Window):
         _menu_Game.insert(MenuEntry('Exit', lambda menu: self.close(), icon='exit'))
         self.mb.insert('game',_menu_Game)
         let _menu_Help = MenuList()
-        _menu_Help.insert(MenuEntry("About Mines", self.launch_about, icon='star'))
+        _menu_Help.insert(MenuEntry(f"About {app_name}", self.launch_about, icon='star'))
         self.mb.insert('help',_menu_Help)
         let _menu_New_Game = MenuList()
         _menu_New_Game.insert(MenuEntry("9×9, 10 mines", lambda menu: self.basic_game()))
@@ -141,7 +142,23 @@ class MinesWindow(Window):
 
     def launch_about(self, menu):
         import os
-        os.system(f'about "About Mines" /usr/share/icons/48/mines.png "Mines {app_version}" "© 2017-2023 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaruos" &')
+        if not os.fork():
+            os.execvp('about-dialog', ['about-dialog',
+                '--title-about', app_name,
+                '--logo', 'mines',
+                '--icon', 'star',
+                '--name', f'{app_name} {app_version}',
+                '--',
+                '© 2017-2026 K. Lange',
+                '-',
+                'Part of ToaruOS, which is free software',
+                'released under the NCSA/University of Illinois',
+                'license.',
+                '-',
+                '%https://toaruos.org',
+                '%https://github.com/klange/toaruos'
+            ])
+            os.exit(127)
 
     def basic_game(self):
         self.new_game((9,10))
