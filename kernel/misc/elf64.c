@@ -438,6 +438,6 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	arch_set_kernel_stack(this_core->current_process->image.stack);
 	arch_enter_user(header.e_entry, argc, _argv, _envp, userstack);
 
-	task_exit(127);
+	task_exit(127 << 8);
 	__builtin_unreachable();
 }

@@ -265,7 +265,7 @@ extern int process_wait_nodes(process_t * process,fs_node_t * nodes[], int timeo
 extern process_t * process_get_parent(process_t * process);
 extern int process_is_ready(process_t * proc);
 extern void wakeup_sleepers(unsigned long seconds, unsigned long subseconds);
-extern void task_exit(int retval);
+extern void task_exit(long retval);
 extern __attribute__((noreturn)) void switch_next(void);
 extern int process_awaken_from_fswait(process_t * process, int index);
 extern void process_awaken_signal(process_t * process);

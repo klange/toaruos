@@ -208,7 +208,7 @@ long sys_sysfunc(long fn, char ** args) {
 
 __attribute__((noreturn))
 long sys_exit(long exitcode) {
-	task_exit((exitcode & 0xFF) << 8);
+	task_exit(exitcode << 8);
 	__builtin_unreachable();
 }
 

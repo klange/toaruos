@@ -1286,8 +1286,8 @@ process_t * process_get_parent(process_t * process) {
 	return result;
 }
 
-void task_exit(int retval) {
-	this_core->current_process->status = retval;
+void task_exit(long retval) {
+	this_core->current_process->status = retval & 0xFFFF;
 
 	if (this_core->current_process->group == this_core->current_process->id) {
 		/* If is thread leader, kill threads */
@@ -1369,7 +1369,13 @@ void task_exit(int retval) {
 
 	if (parent && !(parent->flags & PROC_FLAG_FINISHED)) {
 		spin_lock(parent->wait_lock);
-		send_signal(parent->group, SIGCHLD, 1);
+		siginfo_t cause = {0};
+		cause.si_code = (retval & 0xFF) ? CLD_KILLED : CLD_EXITED;
+		cause.si_pid = this_core->current_process->id;
+		cause.si_uid = this_core->current_process->real_user;
+		cause.si_status = (retval & 0xFF) ? (retval & 0xFF) : (retval >> 8);
+
+		send_signal_info(parent->group, SIGCHLD, 1, &cause);
 		wakeup_queue(parent->wait_queue);
 		spin_unlock(parent->wait_lock);
 	}
