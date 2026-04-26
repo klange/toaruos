@@ -17,6 +17,7 @@
 #include <kernel/ringbuffer.h>
 #include <kernel/process.h>
 #include <kernel/signal.h>
+#include <kernel/args.h>
 
 #include <sys/signal_defs.h>
 #include <sys/ioctl.h>
@@ -102,6 +103,10 @@ static int wait_pipe(fs_node_t * node, void * process) {
 
 int make_unix_pipe(fs_node_t ** pipes) {
 	size_t size = UNIX_PIPE_BUFFER;
+
+	if (args_present("pipesize")) {
+		size = atoi(args_value("pipesize"));
+	}
 
 	pipes[0] = malloc(sizeof(fs_node_t));
 	pipes[1] = malloc(sizeof(fs_node_t));
