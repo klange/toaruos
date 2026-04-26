@@ -170,6 +170,8 @@ typedef struct process {
 	long interrupted_system_call;
 	sigset_t restored_signals;
 	spin_lock_t sig_lock;
+
+	list_t * sig_queue;
 } process_t;
 
 typedef struct {

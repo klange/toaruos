@@ -142,7 +142,7 @@ static void maybe_restart_system_call(struct regs * r, int signum, int no_handle
  *             forward to @c arch_enter_signal_handler
  * @returns 0 if another signal needs to be handled, 1 otherwise.
  */
-int handle_signal(process_t * proc, int signum, struct regs *r) {
+int handle_signal(process_t * proc, int signum, struct regs *r, siginfo_t * cause) {
 	struct signal_config config = proc->signals[signum];
 
 	/* Are we being traced? */
@@ -193,11 +193,7 @@ int handle_signal(process_t * proc, int signum, struct regs *r) {
 		proc->signals[signum].flags &= ~(SA_SIGINFO);
 	}
 
-	/* TODO should be pulled from a queue */
-	siginfo_t cause = {0};
-	cause.si_signo = signum;
-
-	arch_enter_signal_handler(&config, &cause, r);
+	arch_enter_signal_handler(&config, cause, r);
 	return 1; /* Should not be reachable */
 
 _ignore_signal:
@@ -222,7 +218,7 @@ _ignore_signal:
  *                   can use this parameter to skip this check.
  * @returns General status, should be suitable for sys_kill return value.
  */
-int send_signal(pid_t process, int signal, int force_root) {
+int send_signal_info(pid_t process, int signal, int force_root, siginfo_t *cause) {
 	process_t * receiver = process_from_pid(process);
 
 	if (!receiver) return -ESRCH;
@@ -249,7 +245,21 @@ int send_signal(pid_t process, int signal, int force_root) {
 
 	/* Mark the signal for delivery. */
 	spin_lock(receiver->sig_lock);
+
+	if (cause) {
+		siginfo_t * heap_cause = malloc(sizeof(siginfo_t));
+		memcpy(heap_cause, cause, sizeof(siginfo_t));
+		heap_cause->si_signo = signal;
+		if (cause->si_code <= 0) {
+			cause->si_pid = this_core->current_process->id;
+			cause->si_uid = this_core->current_process->real_user;
+		}
+		if (!receiver->sig_queue) receiver->sig_queue = list_create("signal queue",receiver);
+		list_insert(receiver->sig_queue, heap_cause);
+	}
+
 	receiver->pending_signals |= shift_signal(signal);
+
 	spin_unlock(receiver->sig_lock);
 
 	/* If the signal is blocked and not being awaited, end here. */
@@ -267,6 +277,10 @@ int send_signal(pid_t process, int signal, int force_root) {
 	}
 
 	return 0;
+}
+
+int send_signal(pid_t process, int signal, int force_root) {
+	return send_signal_info(process, signal, force_root, NULL);
 }
 
 /**
@@ -287,9 +301,39 @@ _tryagain:
 		int signal = 0;
 		while (active_signals && signal < NUMSIGNALS)  {
 			if (active_signals & 1) {
-				this_core->current_process->pending_signals &= ~shift_signal(signal);
+				/* Default case */
+				siginfo_t cause = {0};
+				cause.si_signo = signal;
+				cause.si_code = SI_USER;
+
+				int still_pending = 0;
+				node_t * match = NULL;
+				if (this_core->current_process->sig_queue) {
+					foreach (node, this_core->current_process->sig_queue) {
+						siginfo_t * info = node->value;
+						if (info->si_signo == signal) {
+							if (match) {
+								still_pending = 1;
+								break;
+							}
+							match = node;
+						}
+					}
+				}
+
+				if (!still_pending) {
+					this_core->current_process->pending_signals &= ~shift_signal(signal);
+				}
+
+				if (match) {
+					list_delete(this_core->current_process->sig_queue, match);
+					memcpy(&cause, match->value, sizeof(siginfo_t));
+					free(match->value);
+					free(match);
+				}
+
 				spin_unlock(this_core->current_process->sig_lock);
-				if (handle_signal((process_t*)this_core->current_process, signal, r)) return;
+				if (handle_signal((process_t*)this_core->current_process, signal, r, &cause)) return;
 				goto _tryagain;
 			}
 			active_signals >>= 1;

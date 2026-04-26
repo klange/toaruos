@@ -599,6 +599,12 @@ void process_reap(process_t * proc) {
 	free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
 	process_release_directory(proc->thread.page_directory);
 
+	if (proc->sig_queue) {
+		list_destroy(proc->sig_queue);
+		list_free(proc->sig_queue);
+		free(proc->sig_queue);
+	}
+
 	free(proc->name);
 	free(proc);
 }
