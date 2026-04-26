@@ -2304,8 +2304,12 @@ static int read_line(void) {
 	rline_place_cursor();
 
 	while ((cin = getch(timeout))) {
-		if (cin == -1) continue;
 		get_size();
+		if (cin == -1) {
+			render_line();
+			rline_place_cursor();
+			continue;
+		}
 		if (!decode(&istate, &c, cin)) {
 			if (timeout == 0) {
 				if (c != '\t') tabbed = 0;
