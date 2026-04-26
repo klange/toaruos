@@ -188,8 +188,9 @@ int handle_signal(process_t * proc, int signum, struct regs *r) {
 	/* If the handler value is 1 we treat it as IGN. */
 	if (config.handler == 1) goto _ignore_signal;
 
-	if (config.flags & SA_RESETHAND) {
+	if (signum != SIGILL && signum != SIGTRAP && (config.flags & SA_RESETHAND)) {
 		proc->signals[signum].handler = 0;
+		proc->signals[signum].flags &= ~(SA_SIGINFO);
 	}
 
 	arch_enter_signal_handler(config.handler, signum, r);
