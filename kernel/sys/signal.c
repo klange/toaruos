@@ -167,15 +167,20 @@ int handle_signal(process_t * proc, int signum, struct regs *r, siginfo_t * caus
 			__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_SUSPENDED);
 			this_core->current_process->status = 0x7F | (signum << 8) | 0xFF0000;
 			process_t * parent = process_get_parent((process_t *)this_core->current_process);
-			process_send_sigchld(proc, parent, CLD_STOPPED, signum);
+			if (!(config.flags & SA_NOCLDSTOP)) process_send_sigchld(proc, parent, CLD_STOPPED, signum);
+			else if (parent) wakeup_queue(parent->wait_queue);
+
 			do {
 				switch_task(0);
 			} while (!PENDING);
 
 			return 0; /* Return and handle another */
 		} else if (dowhat == SIG_DISP_Cont) {
-			process_t * parent = process_get_parent((process_t *)this_core->current_process);
-			process_send_sigchld(proc, parent, CLD_CONTINUED, signum);
+			if (!(config.flags & SA_NOCLDSTOP)) {
+				process_t * parent = process_get_parent((process_t *)this_core->current_process);
+				process_send_sigchld(proc, parent, CLD_CONTINUED, signum);
+				/* We don't support WIFCONTINUED yet, so if we aren't doing this we don't need to wake up the parent */
+			}
 			goto _ignore_signal;
 		}
 		goto _ignore_signal;
