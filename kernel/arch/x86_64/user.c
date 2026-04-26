@@ -72,17 +72,17 @@ static void _kill_it(void) {
 
 int arch_return_from_signal_handler(struct regs *r) {
 
-	for (int i = 0; i < 64; ++i) {
-		POP(r->rsp, uint64_t, this_core->current_process->thread.fp_regs[63-i]);
-	}
-
-	arch_restore_floating((process_t*)this_core->current_process);
-
 	POP(r->rsp, sigset_t, this_core->current_process->blocked_signals);
 	long originalSignal;
 	POP(r->rsp, long, originalSignal);
 
 	POP(r->rsp, long, this_core->current_process->interrupted_system_call);
+
+	for (int i = 0; i < 64; ++i) {
+		POP(r->rsp, uint64_t, this_core->current_process->thread.fp_regs[63-i]);
+	}
+
+	arch_restore_floating((process_t*)this_core->current_process);
 
 	struct regs out;
 	POP(r->rsp, struct regs, out);
@@ -114,29 +114,40 @@ int arch_return_from_signal_handler(struct regs *r) {
  * @param entrypoint Userspace address of the signal handler, set by the process.
  * @param signum     Signal number that caused this entry.
  */
-void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r) {
+void arch_enter_signal_handler(struct signal_config * config, siginfo_t * cause, struct regs *r) {
 	struct regs ret;
 	ret.cs = 0x28 | 0x03;
 	ret.ss = 0x20 | 0x03;
-	ret.rip = entrypoint;
+	ret.rip = config->handler;
 	ret.rflags = (1 << 21) | (1 << 9);
 	ret.rsp = (r->rsp - 128) & 0xFFFFFFFFFFFFFFF0; /* ensure considerable alignment */
 
+	uintptr_t ucontext_addr = 0;
+	uintptr_t sainfo_addr = 0;
+
+	if (config->flags & SA_SIGINFO) {
+		PUSH(ret.rsp, siginfo_t, *cause);
+		sainfo_addr = ret.rsp;
+
+		/* Bottom of ucontext_t */
+		PUSH(ret.rsp, uintptr_t, 0); /* TODO uc_link */
+	}
+
 	PUSH(ret.rsp, struct regs, *r);
-
-	PUSH(ret.rsp, long, this_core->current_process->interrupted_system_call);
-	this_core->current_process->interrupted_system_call = 0;
-
-	PUSH(ret.rsp, long, signum);
-	PUSH(ret.rsp, sigset_t, this_core->current_process->blocked_signals);
-
-	struct signal_config * config = (struct signal_config*)&this_core->current_process->signals[signum];
-	this_core->current_process->blocked_signals |= config->mask | (config->flags & SA_NODEFER ? 0 : (1UL << signum));
 
 	arch_save_floating((process_t*)this_core->current_process);
 	for (int i = 0; i < 64; ++i) {
 		PUSH(ret.rsp, uint64_t, this_core->current_process->thread.fp_regs[i]);
 	}
+
+	/* Common stuff */
+	PUSH(ret.rsp, long, this_core->current_process->interrupted_system_call);
+	this_core->current_process->interrupted_system_call = 0;
+
+	PUSH(ret.rsp, long, cause->si_signo);
+	PUSH(ret.rsp, sigset_t, this_core->current_process->blocked_signals);
+
+	this_core->current_process->blocked_signals |= config->mask | (config->flags & SA_NODEFER ? 0 : (1UL << cause->si_signo));
 
 	PUSH(ret.rsp, uintptr_t, 0x516);
 
@@ -151,7 +162,9 @@ void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r)
 		"swapgs\n"
 		"iretq"
 	: : "m"(ret.ss), "m"(ret.rsp), "m"(ret.rflags), "m"(ret.cs), "m"(ret.rip),
-	    "D"(signum));
+	    "D"(cause->si_signo),
+	    "S"(sainfo_addr),
+	    "d"(ucontext_addr));
 	__builtin_unreachable();
 }
 

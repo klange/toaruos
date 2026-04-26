@@ -293,7 +293,7 @@ extern void arch_save_floating(process_t * proc);
 extern void arch_set_kernel_stack(uintptr_t);
 extern void arch_enter_user(uintptr_t entrypoint, int argc, char * argv[], char * envp[], uintptr_t stack);
 __attribute__((noreturn))
-extern void arch_enter_signal_handler(uintptr_t,int,struct regs*);
+extern void arch_enter_signal_handler(struct signal_config *, siginfo_t *,struct regs*);
 extern void arch_wakeup_others(void);
 extern int arch_return_from_signal_handler(struct regs *r);
 

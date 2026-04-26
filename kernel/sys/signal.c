@@ -193,7 +193,11 @@ int handle_signal(process_t * proc, int signum, struct regs *r) {
 		proc->signals[signum].flags &= ~(SA_SIGINFO);
 	}
 
-	arch_enter_signal_handler(config.handler, signum, r);
+	/* TODO should be pulled from a queue */
+	siginfo_t cause = {0};
+	cause.si_signo = signum;
+
+	arch_enter_signal_handler(&config, &cause, r);
 	return 1; /* Should not be reachable */
 
 _ignore_signal:

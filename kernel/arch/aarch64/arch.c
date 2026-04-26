@@ -77,6 +77,13 @@ int arch_return_from_signal_handler(struct regs *r) {
 	uintptr_t spsr;
 	uintptr_t sp = r->user_sp;
 
+	POP(sp, sigset_t, this_core->current_process->blocked_signals);
+	long originalSignal;
+	POP(sp, long, originalSignal);
+
+	/* Interrupt system call status */
+	POP(sp, long, this_core->current_process->interrupted_system_call);
+
 	/* Restore floating point */
 	POP(sp, uintptr_t, this_core->current_process->thread.context.saved[13]);
 	POP(sp, uintptr_t, this_core->current_process->thread.context.saved[12]);
@@ -84,13 +91,6 @@ int arch_return_from_signal_handler(struct regs *r) {
 		POP(sp, uint64_t, this_core->current_process->thread.fp_regs[63-i]);
 	}
 	arch_restore_floating((process_t*)this_core->current_process);
-
-	POP(sp, sigset_t, this_core->current_process->blocked_signals);
-	long originalSignal;
-	POP(sp, long, originalSignal);
-
-	/* Interrupt system call status */
-	POP(sp, long, this_core->current_process->interrupted_system_call);
 
 	/* Process state */
 	POP(sp, uintptr_t, spsr);
@@ -101,6 +101,8 @@ int arch_return_from_signal_handler(struct regs *r) {
 
 	/* Interrupt context registers */
 	POP(sp, struct regs, *r);
+
+	/* Anything before this doesn't need to be popped anywhere */
 
 	asm volatile ("msr SP_EL0, %0" :: "r"(r->user_sp));
 	return originalSignal;
@@ -116,12 +118,20 @@ int arch_return_from_signal_handler(struct regs *r) {
  *
  * Does not return.
  *
- * @param entrypoint Userspace address of the signal handler, set by the process.
- * @param signum     Signal number that caused this entry.
+ * @param cause  Description of the signal handler to be entered and why it is happening.
  */
-void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r) {
-
+void arch_enter_signal_handler(struct signal_config * config, siginfo_t * cause, struct regs *r) {
 	uintptr_t sp = (r->user_sp - 128) & 0xFFFFFFFFFFFFFFF0;
+	uintptr_t ucontext_addr = 0;
+	uintptr_t sainfo_addr = 0;
+
+	if (config->flags & SA_SIGINFO) {
+		PUSH(sp, siginfo_t, *cause);
+		sainfo_addr = sp;
+
+		/* Bottom of ucontext_t */
+		PUSH(sp, uintptr_t, 0); /* TODO uc_link */
+	}
 
 	/* Save essential registers */
 	PUSH(sp, struct regs, *r);
@@ -132,15 +142,6 @@ void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r)
 	asm volatile ("mrs %0, SPSR_EL1" : "=r"(this_core->current_process->thread.context.saved[11]));
 	PUSH(sp, uintptr_t, this_core->current_process->thread.context.saved[11]);
 
-	PUSH(sp, long, this_core->current_process->interrupted_system_call);
-	this_core->current_process->interrupted_system_call = 0;
-
-	PUSH(sp, long, signum);
-	PUSH(sp, sigset_t, this_core->current_process->blocked_signals);
-
-	struct signal_config * config = (struct signal_config*)&this_core->current_process->signals[signum];
-	this_core->current_process->blocked_signals |= config->mask | (config->flags & SA_NODEFER ? 0 : (1UL << signum));
-
 	/* Save floating point */
 	arch_save_floating((process_t*)this_core->current_process);
 	for (int i = 0; i < 64; ++i) {
@@ -149,6 +150,18 @@ void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r)
 	PUSH(sp, uintptr_t, this_core->current_process->thread.context.saved[12]);
 	PUSH(sp, uintptr_t, this_core->current_process->thread.context.saved[13]);
 
+	/* top of mcontext_t */
+
+	PUSH(sp, long, this_core->current_process->interrupted_system_call);
+	this_core->current_process->interrupted_system_call = 0;
+
+	PUSH(sp, long, cause->si_signo);
+	PUSH(sp, sigset_t, this_core->current_process->blocked_signals);
+
+	this_core->current_process->blocked_signals |= config->mask | (config->flags & SA_NODEFER ? 0 : (1UL << cause->si_signo));
+
+	if (config->flags & SA_SIGINFO) ucontext_addr = sp;
+
 	update_process_times_on_exit();
 
 	asm volatile(
@@ -156,17 +169,19 @@ void arch_enter_signal_handler(uintptr_t entrypoint, int signum, struct regs *r)
 		"msr SP_EL0, %1\n" /* stack */
 		"msr SPSR_EL1, %2\n" /* spsr from context */
 		::
-		"r"(entrypoint),
+		"r"(config->handler),
 		"r"(sp),
 		"r"(0));
 
-	register uint64_t x0 __asm__("x0") = signum;
+	register uint64_t x0 __asm__("x0") = cause->si_signo;
+	register uint64_t x1 __asm__("x1") = sainfo_addr;
+	register uint64_t x2 __asm__("x2") = ucontext_addr;
 	register uint64_t x30 __asm__("x30") = 0x516;
 	register uint64_t x4 __asm__("x4") = (uintptr_t)this_core->sp_el1;
 
 	asm volatile(
 		"mov sp, x4\n"
-		"eret\nnop\nnop" :: "r"(x0), "r"(x30), "r"(x4));
+		"eret\nnop\nnop" :: "r"(x0), "r"(x1), "r"(x2), "r"(x30), "r"(x4));
 
 	__builtin_unreachable();
 }

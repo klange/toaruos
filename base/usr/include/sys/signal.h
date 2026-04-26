@@ -56,6 +56,8 @@ struct sigaction {
 	} _signal_handlers;
 };
 
+#include <bits/ucontext.h>
+
 
 extern int kill(pid_t, int);
 _End_C_Header
