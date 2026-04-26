@@ -1,12 +1,14 @@
 #!/bin/kuroko
-from _yutani2 import (YutaniCtx, Font, rgb, rgb, MenuBar, decor_get_bounds, decor_render,
-                      MenuList, MenuEntry, MenuEntrySeparator, Message, decor_handle_event, decor_show_default_menu,
-                      MenuEntryCustom, Sprite, Subregion, TTContour, TransformMatrix, MenuEntrySubmenu,
-                      MenuEntryToggle)
-
+'''
+Text layout engine demo.
+'''
+from _yutani2 import *
 from yutani_mainloop import Window, yctx as y, AsyncMainloop, Task, sleep
 import math
 import random
+
+let app_name = 'Text Layout'
+let app_version = '1.0.0'
 
 let mainloop = AsyncMainloop()
 
@@ -179,14 +181,12 @@ def check_list(entries, default=0):
 
 class MyWindow(Window):
     def __init__(self):
-        super().__init__(640, 480, title="Hello", doublebuffer=True)
+        super().__init__(640, 480, title=app_name, doublebuffer=True)
         self.bgc = rgb(255,255,255)
         self.dejavu = Font("sans-serif", 13)
         self.mb = MenuBar((("File",'file'),("View",'view'),("Help",'help')))
         let _menu_File = MenuList()
-        _menu_File.insert(MenuEntry("Test", lambda menu: print("hello, world")))
-        _menu_File.insert(MenuEntrySeparator())
-        _menu_File.insert(MenuEntry("Quit", lambda menu: self.close()))
+        _menu_File.insert(MenuEntry("Exit", lambda menu: self.close(), icon='exit'))
         self.mb.insert('file', _menu_File)
         let _menu_View = MenuList()
 
@@ -209,14 +209,33 @@ class MyWindow(Window):
 
         self.mb.insert('view', _menu_View)
         let _menu_Help = MenuList()
-        let _menu_Help_help = MenuEntry("Help",lambda menu: print("oh no!"))
-        _menu_Help.insert(_menu_Help_help)
+        _menu_Help.insert(MenuEntry(f"About {app_name}", self.launch_about, icon='star'))
         self.mb.insert('help', _menu_Help)
         self.mb.callback = lambda x: self.pending_updates = True
         self.redrawer = Task(self.redraw_loop())
         self.pending_updates = True
         self.justification = 'center'
         self.cursor = 1,1
+
+    def launch_about(self, menu):
+        import os
+        if not os.fork():
+            os.execvp('about-dialog', ['about-dialog',
+                '--title-about', app_name,
+                '--logo', 'generic',
+                '--icon', 'star',
+                '--name', f'{app_name} {app_version}',
+                '--',
+                '© 2023-2026 K. Lange',
+                '-',
+                'Part of ToaruOS, which is free software',
+                'released under the NCSA/University of Illinois',
+                'license.',
+                '-',
+                '%https://toaruos.org',
+                '%https://github.com/klange/toaruos'
+            ])
+            os.exit(127)
 
     def set_justification(self, justify):
         self.justification = justify
