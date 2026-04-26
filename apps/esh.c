@@ -952,6 +952,20 @@ void add_environment(list_t * env) {
 	}
 }
 
+void sig_winch(int sig) {
+	/* Just having this at all is enough. */
+}
+
+int rline_winch(char * buffer, size_t len) {
+	struct sigaction action = {.sa_handler=sig_winch, .sa_flags=0};
+	struct sigaction original;
+	sigemptyset(&action.sa_mask);
+	sigaction(SIGWINCH, &action, &original);
+	int ret = rline(buffer, len);
+	sigaction(SIGWINCH, &original, NULL);
+	return ret;
+}
+
 #define FALLBACK_PS1 "\\u@\\h \\w\\$ "
 int read_entry(char * buffer) {
 	char lprompt[1024], rprompt[1024];
@@ -968,7 +982,7 @@ int read_entry(char * buffer) {
 	rline_exp_set_prompts(lprompt, rprompt, lwidth, rwidth);
 	rline_exp_set_shell_commands(shell_commands, shell_commands_len);
 	rline_exp_set_tab_complete_func(tab_complete_func);
-	return rline(buffer, LINE_LEN);
+	return rline_winch(buffer, LINE_LEN);
 }
 
 int read_entry_continued(char * buffer) {
@@ -977,7 +991,7 @@ int read_entry_continued(char * buffer) {
 	rline_exp_set_prompts("> ", "", 2, 0);
 	rline_exp_set_shell_commands(shell_commands, shell_commands_len);
 	rline_exp_set_tab_complete_func(tab_complete_func);
-	return rline(buffer, LINE_LEN);
+	return rline_winch(buffer, LINE_LEN);
 }
 
 int variable_char(uint8_t c) {
