@@ -332,7 +332,13 @@ void aarch64_sync_enter(struct regs * r) {
 		dprintf("  TPIDR_EL0=%#zx\n", tpidr_el0);
 	}
 
-	send_signal(this_core->current_process->id, SIGSEGV, 1);
+	int signo = SIGSEGV;
+	siginfo_t cause = {0};
+	cause.si_code = SEGV_MAPERR;
+	cause.si_addr = (void*)far;
+
+	/* TODO: Actually look at ESR and figure it out */
+	send_signal_info(this_core->current_process->id, signo, 1, &cause);
 
 _resume_user:
 	process_check_signals(r);
