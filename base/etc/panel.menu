@@ -12,11 +12,7 @@ exec calculator,calculator,Calculator
 exec file-browser,folder,File Browser
 exec terminal,utilities-terminal,Terminal
 :demos
-&decorated,folder,Decorated
-&undecorated,folder,Undecorated
-:undecorated
 exec drawlines,drawlines,Draw Lines
-:decorated
 exec julia,julia,Julia Fractals
 exec mandelbrot,mandelbrot,Mandelbrot Explorer
 exec plasma,plasma,Plasma

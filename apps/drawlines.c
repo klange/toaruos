@@ -22,32 +22,52 @@
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
+#include <toaru/decorations.h>
 
-static int left, top, width, height;
+static int width, height;
 
 static yutani_t * yctx;
 static yutani_window_t * wina;
-static gfx_context_t * ctx;
+static gfx_context_t * _ctx;
 static int should_exit = 0;
 static int thick = 0;
 
+static void redraw_borders(void) {
+	render_decorations(wina, _ctx, "drawlines");
+	flip(_ctx);
+	yutani_flip(yctx, wina);
+}
+
+static void redraw_full(void) {
+	draw_fill(_ctx, rgb(0,0,0));
+	redraw_borders();
+}
+
 static void draw(void) {
+	struct decor_bounds bounds;
+	decor_get_bounds(wina, &bounds);
+
+	width = wina->width - bounds.width;
+	height = wina->height - bounds.height;
+
+	gfx_context_t * ctx = init_graphics_subregion(_ctx, bounds.left_width, bounds.top_height, width, height);
+
 	if (thick) {
 		draw_line_aa(ctx, rand() % width, rand() % width, rand() % height, rand() % height, rgb(rand() % 255,rand() % 255,rand() % 255), (float)thick);
 	} else {
 		draw_line(ctx, rand() % width, rand() % width, rand() % height, rand() % height, rgb(rand() % 255,rand() % 255,rand() % 255));
 	}
+
+	free(ctx);
+	flip(_ctx);
 	yutani_flip(yctx, wina);
 }
 
 static void resize_finish(int w, int h) {
 	yutani_window_resize_accept(yctx, wina, w, h);
-	reinit_graphics_yutani(ctx, wina);
-	draw_fill(ctx, rgb(0,0,0));
-	width = w;
-	height = h;
+	reinit_graphics_yutani(_ctx, wina);
+	redraw_full();
 	yutani_window_resize_done(yctx, wina);
-	yutani_flip(yctx, wina);
 }
 
 static int show_usage(char * argv[]) {
@@ -66,8 +86,6 @@ static int show_usage(char * argv[]) {
 
 
 int main (int argc, char ** argv) {
-	left   = 100;
-	top    = 100;
 	width  = 500;
 	height = 500;
 
@@ -91,11 +109,14 @@ int main (int argc, char ** argv) {
 	}
 
 	wina = yutani_window_create(yctx, width, height);
-	yutani_window_move(yctx, wina, left, top);
+
+	init_decorations();
+
+	yutani_window_move(yctx, wina, 100, 100);
 	yutani_window_advertise_icon(yctx, wina, "drawlines", "drawlines");
 
-	ctx = init_graphics_yutani(wina);
-	draw_fill(ctx, rgb(0,0,0));
+	_ctx = init_graphics_yutani_double_buffer(wina);
+	redraw_full();
 
 	while (!should_exit) {
 		int fds[1] = {fileno(yctx->sock)};
@@ -103,21 +124,23 @@ int main (int argc, char ** argv) {
 		if (index == 0) {
 			yutani_msg_t * m = yutani_poll(yctx);
 			while (m) {
+				switch (decor_handle_event_flags(yctx, m, DECOR_HANDLE_SIMPLE)) {
+					case DECOR_CLOSE:
+						should_exit = 1;
+						break;
+					case DECOR_REDRAW:
+						redraw_borders();
+						break;
+				}
 				switch (m->type) {
 					case YUTANI_MSG_KEY_EVENT:
 						{
 							struct yutani_msg_key_event * ke = (void*)m->data;
-							if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
-								should_exit = 1;
-								sched_yield();
-							}
-						}
-						break;
-					case YUTANI_MSG_WINDOW_MOUSE_EVENT:
-						{
-							struct yutani_msg_window_mouse_event * me = (void*)m->data;
-							if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
-								yutani_window_drag_start(yctx, wina);
+							if (ke->wid == wina->wid) {
+								if (ke->event.action == KEY_ACTION_DOWN && ke->event.keycode == 'q') {
+									should_exit = 1;
+									sched_yield();
+								}
 							}
 						}
 						break;
