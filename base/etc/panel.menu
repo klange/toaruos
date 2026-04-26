@@ -16,6 +16,7 @@ exec drawlines,drawlines,Draw Lines
 exec julia,julia,Julia Fractals
 exec mandelbrot,mandelbrot,Mandelbrot Explorer
 exec plasma,plasma,Plasma
+exec polygons,polygons,Polygons
 :games
 exec mines.krk,mines,Mines
 :settings
