@@ -1367,18 +1367,9 @@ void task_exit(long retval) {
 		}
 	}
 
-	if (parent && !(parent->flags & PROC_FLAG_FINISHED)) {
-		spin_lock(parent->wait_lock);
-		siginfo_t cause = {0};
-		cause.si_code = (retval & 0xFF) ? CLD_KILLED : CLD_EXITED;
-		cause.si_pid = this_core->current_process->id;
-		cause.si_uid = this_core->current_process->real_user;
-		cause.si_status = (retval & 0xFF) ? (retval & 0xFF) : (retval >> 8);
-
-		send_signal_info(parent->group, SIGCHLD, 1, &cause);
-		wakeup_queue(parent->wait_queue);
-		spin_unlock(parent->wait_lock);
-	}
+	process_send_sigchld((process_t*)this_core->current_process, parent,
+		(retval & 0xFF) ? CLD_KILLED : CLD_EXITED,
+		(retval & 0xFF) ? (retval & 0xFF) : (retval >> 8));
 
 	switch_next();
 }
@@ -1679,4 +1670,19 @@ int process_close_fds(process_t * proc, int for_what) {
 		}
 	}
 	return 0;
+}
+
+void process_send_sigchld(process_t * proc, process_t * parent, int reason, int status) {
+	if (parent && !(parent->flags & PROC_FLAG_FINISHED)) {
+		spin_lock(parent->wait_lock);
+		siginfo_t cause = {0};
+		cause.si_code = reason;
+		cause.si_pid = proc->id;
+		cause.si_uid = proc->real_user;
+		cause.si_status = status;
+
+		send_signal_info(parent->group, SIGCHLD, 1, &cause);
+		wakeup_queue(parent->wait_queue);
+		spin_unlock(parent->wait_lock);
+	}
 }

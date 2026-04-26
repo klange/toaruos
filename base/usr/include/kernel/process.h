@@ -280,6 +280,7 @@ extern void update_process_times_on_exit(void);
 extern size_t process_collect_by(off_t field, size_t fieldSize, void * target, pid_t ** into, int threads);
 extern int process_close_fds(process_t * proc, int for_what);
 extern long process_fd_dup_least(process_t *, long, long, int);
+extern void process_send_sigchld(process_t * proc, process_t * parent, int reason, int status);
 
 extern tree_t * process_tree;  /* Parent->Children tree */
 extern list_t * process_list;  /* Flat storage */
