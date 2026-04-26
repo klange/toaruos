@@ -26,6 +26,7 @@ extern int sigprocmask(int how, const sigset_t * set, sigset_t * oset);
 extern int sigpending(sigset_t * set);
 extern int sigsuspend(const sigset_t * set);
 extern int sigwait(const sigset_t * set, int * sig);
+extern int sigqueue(pid_t,int,union sigval);
 
 extern int sig2str(int signum, char *str);
 extern int str2sig(const char *__restrict str, int *__restrict pnum);

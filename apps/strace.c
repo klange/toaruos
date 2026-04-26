@@ -125,6 +125,7 @@ const char * syscall_names[] = {
 	[SYS_LCHOWN]       = "lchown",
 	[SYS_GETRUSAGE]    = "getrusage",
 	[SYS_PIPE2]        = "pipe2",
+	[SYS_SIGQUEUE]     = "sigqueue",
 };
 
 char syscall_mask[] = {
@@ -221,6 +222,7 @@ char syscall_mask[] = {
 	[SYS_LCHOWN]       = 1,
 	[SYS_GETRUSAGE]    = 1,
 	[SYS_PIPE2]        = 1,
+	[SYS_SIGQUEUE]     = 1,
 };
 
 static const int syscall_set_net[] = {
@@ -253,11 +255,12 @@ static const int syscall_set_ipc[] = {
 
 static const int syscall_set_signal[] = {
 	SYS_SIGNAL, SYS_KILL, SYS_SIGACTION, SYS_SIGPENDING, SYS_SIGPROCMASK,
-	SYS_SIGSUSPEND, SYS_SIGWAIT, 0
+	SYS_SIGSUSPEND, SYS_SIGWAIT, SYS_SIGQUEUE, 0
 };
 
 static const int syscall_set_process[] = {
-	SYS_EXT, SYS_EXECVE, SYS_FORK, SYS_CLONE, SYS_WAITPID, SYS_KILL, 0
+	SYS_EXT, SYS_EXECVE, SYS_FORK, SYS_CLONE, SYS_WAITPID, SYS_KILL,
+	SYS_SIGQUEUE, 0
 };
 
 static const int syscall_set_creds[] = {
@@ -924,6 +927,11 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 		case SYS_KILL:
 			int_arg(uregs_syscall_arg1(r)); COMMA; /* pid_arg? */
 			signal_arg(uregs_syscall_arg2(r));
+			break;
+		case SYS_SIGQUEUE:
+			int_arg(uregs_syscall_arg1(r)); COMMA; /* pid_arg? */
+			signal_arg(uregs_syscall_arg2(r)); COMMA;
+			uint_arg(uregs_syscall_arg3(r)); /* sigval, which is an untagged union */
 			break;
 		case SYS_CHDIR:
 			string_arg(pid, uregs_syscall_arg1(r));

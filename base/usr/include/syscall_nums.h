@@ -93,3 +93,4 @@
 #define SYS_GETRUSAGE 90
 #define SYS_PIPE2 91
 #define SYS_DUP3 92
+#define SYS_SIGQUEUE 93

@@ -1282,6 +1282,16 @@ long sys_kill(pid_t process, int signal) {
 	}
 }
 
+long sys_sigqueue(pid_t process, int signal, union sigval value) {
+	/* Unlike kill, this doesn't need to support groups or whatnot, just a single pid */
+	if (process < 1) return -ESRCH;
+
+	siginfo_t cause = {0};
+	cause.si_code  = SI_QUEUE;
+	cause.si_value = value;
+	return send_signal_info(process, signal, 0, &cause);
+}
+
 long sys_reboot(int unused) {
 	(void)unused;
 	if (this_core->current_process->user != USER_ROOT_UID) {
@@ -1411,6 +1421,7 @@ static scall_func syscalls[] = {
 	[SYS_GETPPID]      = (scall_func)(uintptr_t)sys_getppid,
 	[SYS_LCHOWN]       = (scall_func)(uintptr_t)sys_lchown,
 	[SYS_GETRUSAGE]    = (scall_func)(uintptr_t)sys_getrusage,
+	[SYS_SIGQUEUE]     = (scall_func)(uintptr_t)sys_sigqueue,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,
