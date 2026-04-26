@@ -38,13 +38,7 @@ static char   hostname[256];
 static size_t hostname_len = 0;
 
 int ptr_validate(void * ptr, const char * syscall) {
-	if (ptr) {
-		if (!PTR_INRANGE(ptr)) {
-			send_signal(this_core->current_process->id, SIGSEGV, 1);
-			return 1;
-		}
-		if (!mmu_validate_user_pointer(ptr,1,0)) return 1;
-	}
+	if (ptr && (!PTR_INRANGE(ptr) || !mmu_validate_user_pointer(ptr,1,0))) return 1;
 	return 0;
 }
 
