@@ -144,6 +144,7 @@ int main (int argc, char ** argv) {
 									draw();
 									finish_draw();
 								} else if (me->buttons & YUTANI_MOUSE_BUTTON_RIGHT) {
+									if (!shape) break;
 									shape = tt_contour_move_to(shape, x, y);
 									is_degenerate = 1;
 									last_x = x;
