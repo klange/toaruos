@@ -68,7 +68,7 @@ int has_permission(fs_node_t * node, int permission_bit) {
 	if (!node) return 0;
 
 	uid_t whom  = this_core->current_process->user;
-	gid_t whomg = this_core->current_process->group;
+	gid_t whomg = this_core->current_process->user_group;
 	if (permission_bit & 010) {
 		whom = this_core->current_process->real_user;
 		whomg = this_core->current_process->real_user_group;
