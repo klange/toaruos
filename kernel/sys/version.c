@@ -39,7 +39,7 @@ int    __kernel_version_lower = 0;
 const char * __kernel_version_suffix   = KERNEL_VERSION_SUFFIX;
 
 /* The release codename. */
-const char * __kernel_version_codename = "\"Grow Slowly\"";
+const char * __kernel_version_codename = "\"nameless story\"";
 
 /* Build architecture */
 const char * __kernel_arch = STRSTR(KERNEL_ARCH);
