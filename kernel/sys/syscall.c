@@ -628,7 +628,7 @@ long sys_truncate(char * file, off_t size) {
 	if (!fn) return -error;
 
 	/* Need write permission */
-	if (!has_permission(fn, 04)) {
+	if (!has_permission(fn, 02)) {
 		close_fs(fn);
 		return -EACCES;
 	}
