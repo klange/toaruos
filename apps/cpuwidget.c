@@ -382,6 +382,7 @@ static void draw_legend_element(int which, int count, int index, uint32_t color,
 	if (unit_width > 22) {
 		char * label_cropped = tt_ellipsify(label, 12, tt_thin, unit_width - 22, NULL);
 		tt_draw_string(ctx_base, tt_thin, 22 + unit_x, y + 14, label_cropped, rgb(0,0,0));
+		free(label_cropped);
 	}
 
 }
