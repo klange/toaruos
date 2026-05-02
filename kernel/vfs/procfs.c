@@ -315,7 +315,7 @@ static int readdir_procfs_procdir(fs_node_t *node, uint64_t index, struct dirent
 	return 0;
 }
 
-static fs_node_t * finddir_procfs_procdir(fs_node_t * node, char * name) {
+static fs_node_t * finddir_procfs_procdir(fs_node_t * node, const char * name) {
 	if (!name) return NULL;
 
 	for (unsigned int i = 0; i < PROCFS_PROCDIR_ENTRIES; ++i) {
@@ -735,7 +735,7 @@ static int readdir_procfs_root(fs_node_t *node, uint64_t index, struct dirent * 
 	return 1;
 }
 
-static fs_node_t * finddir_procfs_root(fs_node_t * node, char * name) {
+static fs_node_t * finddir_procfs_root(fs_node_t * node, const char * name) {
 	if (!name) return NULL;
 	if (strlen(name) < 1) return NULL;
 

@@ -432,7 +432,7 @@ static fs_node_t * file_from_pex(pex_ex_t * pex) {
 	return fnode;
 }
 
-static fs_node_t * finddir_packetfs(fs_node_t * node, char * name) {
+static fs_node_t * finddir_packetfs(fs_node_t * node, const char * name) {
 	if (!name) return NULL;
 	pex_t * p = (pex_t *)node->device;
 
@@ -453,7 +453,7 @@ static fs_node_t * finddir_packetfs(fs_node_t * node, char * name) {
 	return NULL;
 }
 
-static int create_packetfs(fs_node_t *parent, char *name, mode_t permission) {
+static int create_packetfs(fs_node_t *parent, const char *name, mode_t permission) {
 	if (!name) return -EINVAL;
 
 	pex_t * p = (pex_t *)parent->device;
@@ -494,7 +494,7 @@ static void destroy_pex(pex_ex_t * p) {
 	/* XXX */
 }
 
-static int unlink_packetfs(fs_node_t *parent, char *name) {
+static int unlink_packetfs(fs_node_t *parent, const char *name) {
 	if (!name) return -EINVAL;
 
 	pex_t * p = (pex_t *)parent->device;

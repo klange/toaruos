@@ -711,7 +711,7 @@ static int readdir_pty(fs_node_t *node, unsigned long index, struct dirent * out
 	return 0;
 }
 
-static fs_node_t * finddir_pty(fs_node_t * node, char * name) {
+static fs_node_t * finddir_pty(fs_node_t * node, const char * name) {
 	if (!name) return NULL;
 	if (strlen(name) < 1) return NULL;
 

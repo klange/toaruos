@@ -296,7 +296,7 @@ static int readdir_tarfs(fs_node_t *node, unsigned long index, struct dirent *ou
 	return 0;
 }
 
-static fs_node_t * finddir_tarfs(fs_node_t *node, char *name) {
+static fs_node_t * finddir_tarfs(fs_node_t *node, const char *name) {
 	struct tarfs * self = node->device;
 
 	/* find my own filename */
@@ -370,7 +370,7 @@ static ssize_t readlink_tarfs(fs_node_t * node, char * buf, size_t size) {
 
 }
 
-static int create_ret_rofs(fs_node_t *parent, char *name, mode_t permission) {
+static int create_ret_rofs(fs_node_t *parent, const char *name, mode_t permission) {
 	return -EROFS;
 }
 
@@ -414,7 +414,7 @@ static fs_node_t * file_from_ustar(struct tarfs * self, struct ustar * file, uns
 	return fs;
 }
 
-static fs_node_t * finddir_tar_root(fs_node_t *node, char *name) {
+static fs_node_t * finddir_tar_root(fs_node_t *node, const char *name) {
 	struct tarfs * self = node->device;
 
 	unsigned int offset = 0;

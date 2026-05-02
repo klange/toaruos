@@ -285,7 +285,7 @@ static ssize_t read_iso(fs_node_t * node, off_t offset, size_t size, uint8_t * b
 	return size_to_read;
 }
 
-static fs_node_t * finddir_iso(fs_node_t *node, char *name) {
+static fs_node_t * finddir_iso(fs_node_t *node, const char *name) {
 	iso_9660_fs_t * this = node->device;
 	char * buffer = malloc(this->block_size);
 	read_sector(this, node->inode, buffer);

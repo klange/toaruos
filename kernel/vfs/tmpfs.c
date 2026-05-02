@@ -35,7 +35,7 @@ static volatile intptr_t tmpfs_total_blocks = 0;
 
 static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d);
 
-static struct tmpfs_file * tmpfs_file_new(char * name) {
+static struct tmpfs_file * tmpfs_file_new(const char * name) {
 	struct tmpfs_file * t = malloc(sizeof(struct tmpfs_file));
 	spin_init(t->lock);
 	t->name = strdup(name);
@@ -57,7 +57,7 @@ static struct tmpfs_file * tmpfs_file_new(char * name) {
 	return t;
 }
 
-static int symlink_tmpfs(fs_node_t * parent, char * target, char * name) {
+static int symlink_tmpfs(fs_node_t * parent, const char * target, const char * name) {
 	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->inode;
 
 	spin_lock(d->lock);
@@ -110,7 +110,7 @@ static ssize_t readlink_tmpfs(fs_node_t * node, char * buf, size_t size) {
 	}
 }
 
-static struct tmpfs_dir * tmpfs_dir_new(char * name, struct tmpfs_dir * parent) {
+static struct tmpfs_dir * tmpfs_dir_new(const char * name, struct tmpfs_dir * parent) {
 	struct tmpfs_dir * d = calloc(1, sizeof(struct tmpfs_dir));
 	spin_init(d->lock);
 	spin_init(d->nest_lock);
@@ -427,7 +427,7 @@ static int readdir_tmpfs(fs_node_t *node, uint64_t index, struct dirent * out) {
 	return 0;
 }
 
-static fs_node_t * finddir_tmpfs(fs_node_t * node, char * name) {
+static fs_node_t * finddir_tmpfs(fs_node_t * node, const char * name) {
 	if (!name) return NULL;
 
 	struct tmpfs_dir * d = (struct tmpfs_dir *)node->inode;
@@ -470,7 +470,7 @@ static int try_free_dir(struct tmpfs_dir * d) {
 	return 0;
 }
 
-static int unlink_tmpfs(fs_node_t * node, char * name) {
+static int unlink_tmpfs(fs_node_t * node, const char * name) {
 	struct tmpfs_dir * d = (struct tmpfs_dir *)node->inode;
 	int i = -1, j = 0;
 
@@ -504,7 +504,7 @@ static int unlink_tmpfs(fs_node_t * node, char * name) {
 	return 0;
 }
 
-static int create_tmpfs(fs_node_t *parent, char *name, mode_t permission) {
+static int create_tmpfs(fs_node_t *parent, const char *name, mode_t permission) {
 	if (!name) return -EINVAL;
 
 	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->inode;
@@ -532,7 +532,7 @@ static int create_tmpfs(fs_node_t *parent, char *name, mode_t permission) {
 	return 0;
 }
 
-static int mkdir_tmpfs(fs_node_t * parent, char * name, mode_t permission) {
+static int mkdir_tmpfs(fs_node_t * parent, const char * name, mode_t permission) {
 	if (!name) return -EINVAL;
 	if (!strlen(name)) return -EINVAL;
 

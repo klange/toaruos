@@ -236,7 +236,7 @@ static int ext2_root(ext2_fs_t * this, ext2_inodetable_t *inode, fs_node_t *fnod
 static ext2_inodetable_t * read_inode(ext2_fs_t * this, size_t inode);
 static void refresh_inode(ext2_fs_t * this, ext2_inodetable_t * inodet,  size_t inode);
 static int write_inode(ext2_fs_t * this, ext2_inodetable_t *inode, size_t index);
-static fs_node_t * finddir_ext2(fs_node_t *node, char *name);
+static fs_node_t * finddir_ext2(fs_node_t *node, const char *name);
 static size_t allocate_block(ext2_fs_t * this);
 
 /**
@@ -642,7 +642,7 @@ static unsigned int inode_write_block(ext2_fs_t * this, ext2_inodetable_t * inod
  *
  * @returns Error code or E_SUCCESS
  */
-static int create_entry(fs_node_t * parent, char * name, uint32_t inode) {
+static int create_entry(fs_node_t * parent, const char * name, uint32_t inode) {
 	ext2_fs_t * this = (ext2_fs_t *)parent->device;
 
 	ext2_inodetable_t * pinode = read_inode(this,parent->inode);
@@ -830,7 +830,7 @@ static unsigned int allocate_inode(ext2_fs_t * this) {
 	return node_no;
 }
 
-static int mkdir_ext2(fs_node_t * parent, char * name, mode_t permission) {
+static int mkdir_ext2(fs_node_t * parent, const char * name, mode_t permission) {
 	if (!name) return -EINVAL;
 
 	ext2_fs_t * this = parent->device;
@@ -928,7 +928,7 @@ static int mkdir_ext2(fs_node_t * parent, char * name, mode_t permission) {
 	return 0;
 }
 
-static int create_ext2(fs_node_t * parent, char * name, mode_t permission) {
+static int create_ext2(fs_node_t * parent, const char * name, mode_t permission) {
 	if (!name) return -EINVAL;
 
 	ext2_fs_t * this = parent->device;
@@ -1043,7 +1043,7 @@ static ext2_dir_t * direntry_ext2(ext2_fs_t * this, ext2_inodetable_t * inode, u
 /**
  * finddir_ext2
  */
-static fs_node_t * finddir_ext2(fs_node_t *node, char *name) {
+static fs_node_t * finddir_ext2(fs_node_t *node, const char *name) {
 
 	ext2_fs_t * this = (ext2_fs_t *)node->device;
 
@@ -1105,7 +1105,7 @@ static fs_node_t * finddir_ext2(fs_node_t *node, char *name) {
 	return outnode;
 }
 
-static int unlink_ext2(fs_node_t * node, char * name) {
+static int unlink_ext2(fs_node_t * node, const char * name) {
 	/* XXX this is a very bad implementation */
 	ext2_fs_t * this = (ext2_fs_t *)node->device;
 	if (!(this->flags & EXT2_FLAG_READWRITE)) return -EROFS;
@@ -1353,7 +1353,7 @@ static int readdir_ext2(fs_node_t *node, unsigned long index, struct dirent *dir
 	return 1;
 }
 
-static int symlink_ext2(fs_node_t * parent, char * target, char * name) {
+static int symlink_ext2(fs_node_t * parent, const char * target, const char * name) {
 	if (!name) return -EINVAL;
 
 	ext2_fs_t * this = parent->device;

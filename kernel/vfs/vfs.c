@@ -318,13 +318,8 @@ int chown_fs(fs_node_t *node, uid_t uid, gid_t gid) {
  * @returns A dirent object.
  */
 int readdir_fs(fs_node_t *node, unsigned long index, struct dirent * out) {
-	if (!node) return -EINVAL;
-
-	if ((node->flags & FS_DIRECTORY) && node->readdir) {
-		return node->readdir(node, index, out);
-	} else {
-		return -EINVAL;
-	}
+	if (!node || !(node->flags & FS_DIRECTORY) || !node->readdir) return -EINVAL;
+	return node->readdir(node, index, out);
 }
 
 /**
@@ -334,16 +329,9 @@ int readdir_fs(fs_node_t *node, unsigned long index, struct dirent * out) {
  * @param name File to look for
  * @returns An fs_node that the caller can free
  */
-fs_node_t *finddir_fs(fs_node_t *node, char *name) {
-	if (!node) return NULL;
-
-	if ((node->flags & FS_DIRECTORY) && node->finddir) {
-		return node->finddir(node, name);
-	} else {
-		debug_print(WARNING, "Node passed to finddir_fs isn't a directory!");
-		debug_print(WARNING, "node = %p, name = %s", (void*)node, name);
-		return NULL;
-	}
+fs_node_t *finddir_fs(fs_node_t *node, const char *name) {
+	if (!node || !(node->flags & FS_DIRECTORY) || !node->finddir) return NULL;
+	return node->finddir(node, name);
 }
 
 /**
@@ -408,8 +396,8 @@ int rename_file_fs(const char * src, const char * dest) {
 	const char * src_name = fs_basename(src);
 	const char * dest_name = fs_basename(dest);
 
-	if (!*src_name || !*dest_name) return -EINVAL;
-	if (*src_name == '/' || *dest_name == '/') return -EINVAL;
+	if (!*src_name || !*dest_name) { out = -EINVAL; goto _nope; }
+	if (*src_name == '/' || *dest_name == '/') { out = -EINVAL; goto _nope; }
 
 	out = src_parent->mount->rename(src_parent->mount, src_parent, src_name, dest_parent, dest_name);
 
@@ -419,171 +407,75 @@ _nope:
 	return out;
 }
 
-
-/*
- * XXX: The following two function should be replaced with
- *      one function to create children of directory nodes.
- *      There is no fundamental difference between a directory
- *      and a file, thus, the use of flag sets should suffice
+/**
+ * FIXME: This ->create should return a node.
  */
-
-int create_file_fs(char *name, mode_t permission) {
-	fs_node_t * parent;
-	char *cwd = (char *)(this_core->current_process->wd_name);
-	char *path = canonicalize_path(cwd, name);
-
-	char * parent_path = malloc(strlen(path) + 5);
-	snprintf(parent_path, strlen(path) + 4, "%s/..", path);
-
-	char * f_path = path + strlen(path) - 1;
-	while (f_path > path) {
-		if (*f_path == '/') {
-			f_path += 1;
-			break;
-		}
-		f_path--;
-	}
-
-	while (*f_path == '/') {
-		f_path++;
-	}
-
-	debug_print(NOTICE, "creating file %s within %s (hope these strings are good)", f_path, parent_path);
-
+int create_file_fs(const char *name, mode_t permission) {
 	int error = 0;
-	parent = kopen_error(parent_path, 0, &error);
-	free(parent_path);
-
-	if (!parent) {
-		debug_print(WARNING, "failed to open parent");
-		free(path);
-		return -error;
-	}
+	fs_node_t * parent = file_get_parent(name, &error);
+	if (!parent) return -error;
 
 	/* Need both exec and write on the parent to create a new entry */
-	if (!has_permission(parent, W_OK|X_OK)) {
-		free(path);
-		close_fs(parent);
-		return -EACCES;
-	}
+	if (!has_permission(parent, W_OK|X_OK)) return close_fs(parent), -EACCES;
+	if (!parent->create) return close_fs(parent), -EROFS;
 
-	int ret = 0;
-	if (parent->create) {
-		ret = parent->create(parent, f_path, permission);
-	} else {
-		ret = -EINVAL;
-	}
+	const char * src = fs_basename(name);
+	if (!*src || *src == '/') return close_fs(parent), -EINVAL;
 
-	free(path);
-	close_fs(parent);
-
-	return ret;
-}
-
-int unlink_fs(char * name) {
-	fs_node_t * parent;
-	char *cwd = (char *)(this_core->current_process->wd_name);
-	char *path = canonicalize_path(cwd, name);
-
-	char * parent_path = malloc(strlen(path) + 5);
-	snprintf(parent_path, strlen(path) + 4, "%s/..", path);
-
-	char * f_path = path + strlen(path) - 1;
-	while (f_path > path) {
-		if (*f_path == '/') {
-			f_path += 1;
-			break;
-		}
-		f_path--;
-	}
-
-	while (*f_path == '/') {
-		f_path++;
-	}
-
-	debug_print(WARNING, "unlinking file %s within %s (hope these strings are good)", f_path, parent_path);
-
-	int error = 0;
-	parent = kopen_error(parent_path, 0, &error);
-	free(parent_path);
-
-	if (!parent) {
-		free(path);
-		return -error;
-	}
-
-	if (!has_permission(parent, W_OK|X_OK)) {
-		free(path);
-		close_fs(parent);
-		return -EACCES;
-	}
-
-	int ret = 0;
-	if (parent->unlink) {
-		ret = parent->unlink(parent, f_path);
-	} else {
-		ret = -EINVAL;
-	}
-
-	free(path);
+	int ret = parent->create(parent, src, permission);
 	close_fs(parent);
 	return ret;
 }
 
-int mkdir_fs(char *name, mode_t permission) {
-	fs_node_t * parent;
-	char *cwd = (char *)(this_core->current_process->wd_name);
-	char *path = canonicalize_path(cwd, name);
-
-	if (!name || !strlen(name)) {
-		return -EINVAL;
-	}
-
-	char * parent_path = malloc(strlen(path) + 5);
-	snprintf(parent_path, strlen(path) + 4, "%s/..", path);
-
-	char * f_path = path + strlen(path) - 1;
-	while (f_path > path) {
-		if (*f_path == '/') {
-			f_path += 1;
-			break;
-		}
-		f_path--;
-	}
-
-	while (*f_path == '/') {
-		f_path++;
-	}
-
-	debug_print(WARNING, "creating directory %s within %s (hope these strings are good)", f_path, parent_path);
-
+int unlink_fs(const char * name) {
 	int error = 0;
-	parent = kopen_error(parent_path, 0, &error);
-	free(parent_path);
+	fs_node_t * parent = file_get_parent(name, &error);
+	if (!parent) return -error;
 
-	if (!parent) {
-		free(path);
-		return -error;
-	}
+	if (!has_permission(parent, W_OK|X_OK)) return close_fs(parent), -EACCES;
+	if (!parent->unlink) return close_fs(parent), -EROFS;
 
-	if (!f_path || !strlen(f_path)) {
-		/* Odd edge case with / */
-		return -EEXIST;
-	}
+	const char * src = fs_basename(name);
+	if (!*src || *src == '/') return close_fs(parent), -EINVAL;
 
-	/* Permission check was moved into methods for reasons. */
-
-	int ret = 0;
-	if (parent->mkdir) {
-		ret = parent->mkdir(parent, f_path, permission);
-	} else {
-		ret = -EROFS;
-	}
-
-	free(path);
+	int ret = parent->unlink(parent, src);
 	close_fs(parent);
-
 	return ret;
+}
+
+int mkdir_fs(const char *name, mode_t permission) {
+	int error = 0;
+	fs_node_t * parent = file_get_parent(name, &error);
+	if (!parent) return -error;
+	if (!parent->mkdir) return close_fs(parent), -EROFS;
+
+	const char * src = fs_basename(name);
+	if (!*src || *src == '/') return close_fs(parent), -EEXIST;
+
+	/* ->mkdir checks perms on parent itself; no need to do that here. */
+	int ret = parent->mkdir(parent, src, permission);
+	close_fs(parent);
+	return ret;
+}
+
+int symlink_fs(const char * target, const char * name) {
+	int error = 0;
+	fs_node_t * parent = file_get_parent(name, &error);
+	if (!parent) return -error;
+	if (!has_permission(parent, W_OK|X_OK)) return close_fs(parent), -EACCES;
+	if (!parent->symlink) return close_fs(parent), -EPERM;
+	const char * src = fs_basename(name);
+	if (!*src || *src == '/') return -EINVAL;
+
+	int ret = parent->symlink(parent, target, src);
+	close_fs(parent);
+	return ret;
+}
+
+ssize_t readlink_fs(fs_node_t *node, char * buf, size_t size) {
+	if (!node) return -ENOENT;
+	if (!node->readlink) return -EPERM;
+	return node->readlink(node, buf, size);
 }
 
 fs_node_t *clone_fs(fs_node_t *source) {
@@ -597,65 +489,6 @@ fs_node_t *clone_fs(fs_node_t *source) {
 
 	return source;
 }
-
-int symlink_fs(char * target, char * name) {
-	fs_node_t * parent;
-	char *cwd = (char *)(this_core->current_process->wd_name);
-	char *path = canonicalize_path(cwd, name);
-
-	char * parent_path = malloc(strlen(path) + 5);
-	snprintf(parent_path, strlen(path) + 4, "%s/..", path);
-
-	char * f_path = path + strlen(path) - 1;
-	while (f_path > path) {
-		if (*f_path == '/') {
-			f_path += 1;
-			break;
-		}
-		f_path--;
-	}
-
-	debug_print(NOTICE, "creating symlink %s within %s", f_path, parent_path);
-
-	int error = 0;
-	parent = kopen_error(parent_path, 0, &error);
-	free(parent_path);
-
-	if (!parent) {
-		free(path);
-		return -error;
-	}
-
-	/* Need both exec and write on the parent to create a new entry */
-	if (!has_permission(parent, W_OK|X_OK)) {
-		free(path);
-		close_fs(parent);
-		return -EACCES;
-	}
-
-	int ret = 0;
-	if (parent->symlink) {
-		ret = parent->symlink(parent, target, f_path);
-	} else {
-		ret = -EPERM;
-	}
-
-	free(path);
-	close_fs(parent);
-
-	return ret;
-}
-
-ssize_t readlink_fs(fs_node_t *node, char * buf, size_t size) {
-	if (!node) return -ENOENT;
-
-	if (node->readlink) {
-		return node->readlink(node, buf, size);
-	} else {
-		return -EPERM;
-	}
-}
-
 
 /**
  * @brief Canonicalize a path.
