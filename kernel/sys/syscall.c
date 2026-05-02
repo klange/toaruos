@@ -819,24 +819,16 @@ long sys_chdir(char * newdir) {
 	char * path = canonicalize_path(this_core->current_process->wd_name, newdir);
 	int error = 0;
 	fs_node_t * chd = kopen_error(path, 0, &error);
-	if (chd) {
-		if ((chd->flags & FS_DIRECTORY) == 0) {
-			close_fs(chd);
-			return -ENOTDIR;
-		}
-		if (!has_permission(chd, X_OK)) {
-			close_fs(chd);
-			return -EACCES;
-		}
-		close_fs(this_core->current_process->wd_node);
-		this_core->current_process->wd_node = chd;
-		free(this_core->current_process->wd_name);
-		this_core->current_process->wd_name = malloc(strlen(path) + 1);
-		memcpy(this_core->current_process->wd_name, path, strlen(path) + 1);
-		return 0;
-	} else {
-		return -error;
-	}
+	if (!chd) return free(path), -error;
+	if (!(chd->flags & FS_DIRECTORY)) return free(path), -ENOTDIR;
+	if (!has_permission(chd, X_OK)) return free(path), close_fs(chd), -EACCES;
+
+	close_fs(this_core->current_process->wd_node);
+	this_core->current_process->wd_node = chd;
+	free(this_core->current_process->wd_name);
+	this_core->current_process->wd_name = path;
+
+	return 0;
 }
 
 long sys_getcwd(char * buf, size_t size) {
