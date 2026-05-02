@@ -928,7 +928,7 @@ static int mkdir_ext2(fs_node_t * parent, const char * name, mode_t permission) 
 	return 0;
 }
 
-static int create_ext2(fs_node_t * parent, const char * name, mode_t permission) {
+static int create_ext2(fs_node_t * parent, const char * name, mode_t permission, fs_node_t ** out) {
 	if (!name) return -EINVAL;
 
 	ext2_fs_t * this = parent->device;
@@ -983,6 +983,16 @@ static int create_ext2(fs_node_t * parent, const char * name, mode_t permission)
 	/* Now append the entry to the parent */
 	create_entry(parent, name, inode_no);
 
+	ext2_dir_t * fake = malloc(sizeof(ext2_dir_t) + strlen(name));
+	fake->inode = inode_no;
+	fake->name_len = strlen(name);
+	memcpy(fake->name, name, fake->name_len);
+
+	fs_node_t * _out = calloc(1,sizeof(fs_node_t));
+	node_from_file(this, inode, fake, _out);
+	*out = _out;
+
+	free(fake);
 	free(inode);
 
 	return 0;

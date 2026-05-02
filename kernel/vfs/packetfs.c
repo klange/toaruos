@@ -453,7 +453,7 @@ static fs_node_t * finddir_packetfs(fs_node_t * node, const char * name) {
 	return NULL;
 }
 
-static int create_packetfs(fs_node_t *parent, const char *name, mode_t permission) {
+static int create_packetfs(fs_node_t *parent, const char *name, mode_t permission, fs_node_t **out) {
 	if (!name) return -EINVAL;
 
 	pex_t * p = (pex_t *)parent->device;
@@ -486,6 +486,8 @@ static int create_packetfs(fs_node_t *parent, const char *name, mode_t permissio
 	list_insert(p->exchanges, new_exchange);
 
 	spin_unlock(p->lock);
+
+	*out = file_from_pex(new_exchange);
 
 	return 0;
 }

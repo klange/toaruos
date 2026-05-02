@@ -407,10 +407,7 @@ _nope:
 	return out;
 }
 
-/**
- * FIXME: This ->create should return a node.
- */
-int create_file_fs(const char *name, mode_t permission) {
+int create_file_fs(const char *name, mode_t permission, fs_node_t **out) {
 	int error = 0;
 	fs_node_t * parent = file_get_parent(name, &error);
 	if (!parent) return -error;
@@ -422,7 +419,7 @@ int create_file_fs(const char *name, mode_t permission) {
 	const char * src = fs_basename(name);
 	if (!*src || *src == '/') return close_fs(parent), -EINVAL;
 
-	int ret = parent->create(parent, src, permission);
+	int ret = parent->create(parent, src, permission, out);
 	close_fs(parent);
 	return ret;
 }

@@ -353,22 +353,9 @@ long sys_open(const char * file, long flags, long mode) {
 	}
 
 	if (!node && (flags & O_CREAT)) {
-		int result = create_file_fs((char *)file, mode);
-		/*
-		 * This still potentially has an issue, particularly with
-		 * O_EXCL, where another process can replace this file,
-		 * or otherwise create a different file, and then the
-		 * file we created above is not the one we are opening.
-		 *
-		 * In the new VFS, creating a file should return an
-		 * inode/dirent representing the new file, so we don't
-		 * have to go and immediately try to open it.
-		 */
-		if (!result) {
-			node = kopen_error((char *)file, flags, &error);
-		} else {
-			return result;
-		}
+		int result = create_file_fs((char *)file, mode, &node);
+		if (result) return result;
+		open_fs(node, flags);
 	}
 
 	if (!(flags & O_WRONLY) || (flags & O_RDWR)) {

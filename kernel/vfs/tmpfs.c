@@ -504,7 +504,7 @@ static int unlink_tmpfs(fs_node_t * node, const char * name) {
 	return 0;
 }
 
-static int create_tmpfs(fs_node_t *parent, const char *name, mode_t permission) {
+static int create_tmpfs(fs_node_t *parent, const char *name, mode_t permission, fs_node_t ** out) {
 	if (!name) return -EINVAL;
 
 	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->inode;
@@ -527,6 +527,7 @@ static int create_tmpfs(fs_node_t *parent, const char *name, mode_t permission) 
 
 	spin_lock(d->lock);
 	list_insert(d->files, t);
+	*out = tmpfs_from_file(t);
 	spin_unlock(d->lock);
 
 	return 0;
