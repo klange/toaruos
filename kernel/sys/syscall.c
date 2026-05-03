@@ -339,11 +339,17 @@ long sys_lstat(char * file, struct stat * st) {
 	return result;
 }
 
-long sys_open(const char * file, long flags, long mode) {
+static mode_t modify_mode(mode_t mode_in) {
+	return mode_in & ~(this_core->current_process->process->mask & 0777);
+}
+
+long sys_open(const char * file, long flags, mode_t mode_in) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
 	int error = 0;
 	fs_node_t * node = kopen_error((char *)file, flags, &error);
+
+	mode_t mode = modify_mode(mode_in);
 
 	int access_bits = 0;
 
@@ -481,7 +487,8 @@ long sys_readdir(int fd, long index, struct dirent * entry) {
 long sys_mkdir(char * path, uint64_t mode) {
 	PTR_VALIDATE(path);
 	if (!path) return -EFAULT;
-	return mkdir_fs(path, mode);
+
+	return mkdir_fs(path, modify_mode(mode));
 }
 
 long sys_access(const char * file, long flags) {

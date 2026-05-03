@@ -6,14 +6,14 @@
 #include <syscall.h>
 #include <syscall_nums.h>
 
-DEFN_SYSCALL3(open,  SYS_OPEN, const char *, int, int);
+DEFN_SYSCALL3(open,  SYS_OPEN, const char *, long, mode_t);
 
 int open(const char *name, int flags, ...) {
 	va_list argp;
 	int mode = 0;
 	int result;
 	va_start(argp, flags);
-	if (flags & O_CREAT) mode = va_arg(argp, int);
+	if (flags & O_CREAT) mode = va_arg(argp, mode_t);
 	va_end(argp);
 
 	result = syscall_open(name, flags, mode);

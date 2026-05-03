@@ -165,7 +165,7 @@ _Begin_C_Header
 
 DECL_SYSCALL1(exit, int);
 DECL_SYSCALL0(geteuid);
-DECL_SYSCALL3(open, const char *, int, int);
+DECL_SYSCALL3(open, const char *, long, mode_t);
 DECL_SYSCALL3(read, int, char *, size_t);
 DECL_SYSCALL3(write, int, char *, size_t);
 DECL_SYSCALL1(close, int);
@@ -195,7 +195,7 @@ DECL_SYSCALL2(getcwd, char *, size_t);
 DECL_SYSCALL3(clone, uintptr_t, uintptr_t, void *);
 DECL_SYSCALL2(sethostname, char *, size_t);
 DECL_SYSCALL2(gethostname, char *, size_t);
-DECL_SYSCALL2(mkdir, char *, unsigned int);
+DECL_SYSCALL2(mkdir, char *, mode_t);
 DECL_SYSCALL2(shm_obtain, const char *, size_t *);
 DECL_SYSCALL1(shm_release, const char *);
 DECL_SYSCALL2(kill, int, int);
