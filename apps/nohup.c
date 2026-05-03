@@ -40,7 +40,7 @@ int main(int argc, char ** argv) {
 	char * file = NULL;
 
 	if (do_what & Redirect_stdin) {
-		int new_stdin = open("/dev/null",O_WRONLY);
+		int new_stdin = open("/dev/null",O_WRONLY|O_CLOEXEC);
 		if (new_stdin < 0) {
 			fprintf(stderr, "%s: can not redirect stdin to /dev/null: %s\n", argv[0], strerror(errno));
 			return NOHUP_INTERNAL_FAILURE;
@@ -50,12 +50,12 @@ int main(int argc, char ** argv) {
 
 	if (do_what & Redirect_stdout) {
 		asprintf(&file, "nohup.out");
-		int new_stdout = open(file,O_APPEND|O_WRONLY|O_CREAT,0644);
+		int new_stdout = open(file,O_APPEND|O_WRONLY|O_CREAT|O_CLOEXEC,0644);
 		if (new_stdout < 0) {
 			if (getenv("HOME")) {
 				free(file);
 				asprintf(&file, "%s/nohup.out", getenv("HOME"));
-				new_stdout = open(file,O_APPEND|O_WRONLY|O_CREAT,0644);
+				new_stdout = open(file,O_APPEND|O_WRONLY|O_CREAT|O_CLOEXEC,0644);
 			}
 			if (new_stdout < 0) {
 				fprintf(stderr, "%s: %s: %s\n", argv[0], file, strerror(errno));
