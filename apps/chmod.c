@@ -18,101 +18,58 @@
 #include <string.h>
 #include <sys/stat.h>
 
-enum mode_set {
-	MODE_SET,
-	MODE_ADD,
-	MODE_REMOVE,
-};
+extern mode_t __mode_calculate(const char *, mode_t, mode_t, int);
 
-static int calc(int mode, int users) {
-	int out = 0;
-	if (users & 1) {
-		out |= (mode << 6);
-	}
-	if (users & 2) {
-		out |= (mode << 3);
-	}
-	if (users & 4) {
-		out |= (mode << 0);
-	}
-	return out;
+static int usage(char * argv[]) {
+	fprintf(stderr, "usage: %s [-R] mode file...\n", argv[0]);
+	return 1;
+}
+
+static void describe_mode(char *modestr, mode_t mode) {
+	char * c = modestr;
+	*c++ = (mode & S_IRUSR) ? 'r' : '-';
+	*c++ = (mode & S_IWUSR) ? 'w' : '-';
+	*c++ = (mode & S_IXUSR) ? ((mode & S_ISUID) ? 's' : 'x') : ((mode & S_ISUID) ? 'S' : '-');
+
+	*c++ = (mode & S_IRGRP) ? 'r' : '-';
+	*c++ = (mode & S_IWGRP) ? 'w' : '-';
+	*c++ = (mode & S_IXGRP) ? ((mode & S_ISGID) ? 's' : 'x') : ((mode & S_ISGID) ? 'S' : '-');
+
+	*c++ = (mode & S_IROTH) ? 'r' : '-';
+	*c++ = (mode & S_IWOTH) ? 'w' : '-';
+	*c++ = (mode & S_IXOTH) ? 'x' : '-';
+	*c = '\0';
 }
 
 int main(int argc, char * argv[]) {
-	if (argc < 3) {
-		fprintf(stderr, "usage: %s OCTAL-MODE FILE...\n", argv[0]);
-		return 1;
-	}
+	int opt;
+	int verbose = 0;
 
-	/* Parse mode */
-	int mode = 0;
-	enum mode_set mode_set = MODE_SET;
-	char * c = argv[1];
-	int user_modes = 0;
-	int all_users = 7;
-
-	while (*c) {
-		switch (*c) {
-			case '0' ... '7':
-				while (*c >= '0' && *c <= '7') {
-					mode *= 8;
-					mode += (*c - '0');
-					c++;
-				}
-				break;
-			case 'u':
-				all_users = 0;
-				user_modes |= 1;
-				c++;
-				break;
-			case 'g':
-				all_users = 0;
-				user_modes |= 2;
-				c++;
-				break;
-			case 'o':
-				all_users = 0;
-				user_modes |= 4;
-				c++;
-				break;
-			case 'a':
-				all_users = 7;
-				user_modes = 7;
-				c++;
-				break;
-			case '-':
-				mode_set = MODE_REMOVE;
-				c++;
-				break;
-			case '+':
-				mode_set = MODE_ADD;
-				c++;
-				break;
-			case '=':
-				mode_set = MODE_SET;
-				c++;
-				break;
-			case 'r':
-				mode |= calc(S_IROTH, user_modes | all_users);
-				c++;
-				break;
-			case 'w':
-				mode |= calc(S_IWOTH, user_modes | all_users);
-				c++;
-				break;
-			case 'x':
-				mode |= calc(S_IXOTH, user_modes | all_users);
-				c++;
+	while ((opt = getopt(argc, argv, "Rv")) != -1) {
+		switch (opt) {
+			case 'R':
+				fprintf(stderr, "%s: recursion unsupported\n", argv[0]);
+				return 2;
+			case 'v':
+				verbose = 1;
 				break;
 			default:
-				fprintf(stderr, "%s: invalid mode '%s'\n", argv[0], argv[1]);
-				return 1;
+				return usage(argv);
 		}
 	}
 
+	if (argc < optind + 1) return usage(argv);
+
+	if (__mode_calculate(argv[optind], 0, 0, 0) == (mode_t)-1) {
+		fprintf(stderr, "%s: unsupported mode '%s'\n", argv[0], argv[optind]);
+		return 2;
+	}
+
+	mode_t mask = umask(0);
+	umask(mask);
+
 	int out = 0;
-	for (int i = 2; i < argc; ++i) {
-		int actual_mode = 0;
+	for (int i = optind + 1; i < argc; ++i) {
 		struct stat _stat;
 		if (stat(argv[i], &_stat) < 0) {
 			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[i], strerror(errno));
@@ -120,22 +77,28 @@ int main(int argc, char * argv[]) {
 			continue;
 		}
 
-		switch (mode_set) {
-			case MODE_SET:
-				actual_mode = mode;
-				break;
-			case MODE_ADD:
-				actual_mode = (_stat.st_mode & 07777) | mode;
-				break;
-			case MODE_REMOVE:
-				actual_mode = (_stat.st_mode & 07777) & ~(mode);
-				break;
+		mode_t old_mode = _stat.st_mode & 07777;
+		mode_t new_mode = __mode_calculate(argv[optind], old_mode, mask, 0);
+		char old_mode_desc[10];
+		char new_mode_desc[10];
+
+		if (verbose) {
+			describe_mode(old_mode_desc, old_mode);
+			describe_mode(new_mode_desc, new_mode);
 		}
 
-		if (chmod(argv[i], actual_mode) < 0) {
+		if (chmod(argv[i], new_mode) < 0) {
 			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[i], strerror(errno));
 			out |= 1;
-			continue;
+			if (verbose) {
+				printf("failed to change mode of '%s' from %04o (%s) to %04o (%s)\n", argv[i], old_mode, old_mode_desc, new_mode, new_mode_desc);
+			}
+		} else if (verbose) {
+			if (new_mode == old_mode) {
+				printf("mode of '%s' retained as %04o (%s)\n", argv[i], new_mode, new_mode_desc);
+			} else {
+				printf("mode of '%s' changed from %04o (%s) to %04o (%s)\n", argv[i], old_mode, old_mode_desc, new_mode, new_mode_desc);
+			}
 		}
 	}
 
