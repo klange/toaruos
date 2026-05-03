@@ -450,10 +450,8 @@ process_t * spawn_init(void) {
 	init->session    = 1;
 	init->name       = strdup("init");
 	init->cmdline    = NULL;
-	init->user       = USER_ROOT_UID;
-	init->real_user  = USER_ROOT_UID;
-	init->user_group = USER_ROOT_UID;
-	init->real_user_group = USER_ROOT_UID;
+	init->user = init->real_user = init->saved_user = USER_ROOT_UID;
+	init->user_group = init->real_user_group = init->saved_user_group = USER_ROOT_UID;
 	init->mask       = 022;
 	init->status     = 0;
 	init->signals    = calloc(NUMSIGNALS+1, sizeof(struct signal_config));
@@ -513,6 +511,8 @@ process_t * spawn_process(volatile process_t * parent, int flags, int close_at_f
 	proc->real_user   = parent->real_user;
 	proc->user_group  = parent->user_group;
 	proc->real_user_group = parent->real_user_group;
+	proc->saved_user = parent->saved_user;
+	proc->saved_user_group = parent->saved_user_group;
 	proc->mask        = parent->mask;
 	proc->job         = parent->job;
 	proc->session     = parent->session;
@@ -1486,12 +1486,6 @@ process_t * spawn_worker_thread(void (*entrypoint)(void * argp), const char * na
 	proc->name        = strdup(name);
 	proc->cmdline     = NULL;
 
-	/* Are these necessary for tasklets? Should probably all be zero. */
-	proc->user        = 0;
-	proc->real_user   = 0;
-	proc->user_group  = 0;
-	proc->real_user_group = 0;
-	proc->mask        = 0;
 	proc->job         = proc->id;
 	proc->session     = proc->id;
 

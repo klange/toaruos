@@ -172,6 +172,9 @@ typedef struct process {
 
 	list_t * sig_queue;
 
+	uid_t saved_user;
+	gid_t saved_user_group;
+
 	struct process * process;
 } process_t;
 

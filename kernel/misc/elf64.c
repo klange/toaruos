@@ -285,6 +285,14 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 		this_core->current_process->user = file->uid;
 	}
 
+	if ((file->mask & S_ISGID) && !(this_core->current_process->flags & (PROC_FLAG_TRACE_SYSCALLS | PROC_FLAG_TRACE_SIGNALS))) {
+		/* setgid */
+		this_core->current_process->user_group = file->gid;
+	}
+
+	this_core->current_process->saved_user = this_core->current_process->user;
+	this_core->current_process->saved_user_group = this_core->current_process->user_group;
+
 	/* First check if it is dynamic and needs an interpreter */
 	for (int i = 0; i < header.e_phnum; ++i) {
 		Elf64_Phdr phdr;

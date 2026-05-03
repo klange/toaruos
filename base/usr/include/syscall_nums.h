@@ -94,3 +94,7 @@
 #define SYS_PIPE2 91
 #define SYS_DUP3 92
 #define SYS_SIGQUEUE 93
+#define SYS_SETRESUID 94
+#define SYS_SETREUID 95
+#define SYS_SETRESGID 96
+#define SYS_SETREGID 97

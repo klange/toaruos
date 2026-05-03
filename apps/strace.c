@@ -126,6 +126,10 @@ const char * syscall_names[] = {
 	[SYS_GETRUSAGE]    = "getrusage",
 	[SYS_PIPE2]        = "pipe2",
 	[SYS_SIGQUEUE]     = "sigqueue",
+	[SYS_SETRESUID]    = "setresuid",
+	[SYS_SETREUID]     = "setreuid",
+	[SYS_SETRESGID]    = "setresgid",
+	[SYS_SETREGID]     = "setregid",
 };
 
 char syscall_mask[] = {
@@ -223,6 +227,10 @@ char syscall_mask[] = {
 	[SYS_GETRUSAGE]    = 1,
 	[SYS_PIPE2]        = 1,
 	[SYS_SIGQUEUE]     = 1,
+	[SYS_SETRESUID]    = 1,
+	[SYS_SETREUID]     = 1,
+	[SYS_SETRESGID]    = 1,
+	[SYS_SETREGID]     = 1,
 };
 
 static const int syscall_set_net[] = {
@@ -265,7 +273,8 @@ static const int syscall_set_process[] = {
 
 static const int syscall_set_creds[] = {
 	SYS_GETUID, SYS_GETGID, SYS_GETGROUPS, SYS_GETEGID, SYS_GETEUID,
-	SYS_SETUID, SYS_SETGID, SYS_SETGROUPS, 0
+	SYS_SETUID, SYS_SETGID, SYS_SETGROUPS, SYS_SETRESUID, SYS_SETREUID,
+	SYS_SETRESGID, SYS_SETREGID, 0
 };
 
 static const int syscall_set_stat[] = {
@@ -1185,6 +1194,21 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 				default: int_arg(uregs_syscall_arg1(r)); break;
 			} COMMA;
 			/* one output arg */
+			break;
+		case SYS_SETUID:
+		case SYS_SETGID:
+			int_arg(uregs_syscall_arg1(r));
+			break;
+		case SYS_SETREUID:
+		case SYS_SETREGID:
+			int_arg(uregs_syscall_arg1(r)); COMMA;
+			int_arg(uregs_syscall_arg2(r));
+			break;
+		case SYS_SETRESUID:
+		case SYS_SETRESGID:
+			int_arg(uregs_syscall_arg1(r)); COMMA;
+			int_arg(uregs_syscall_arg2(r)); COMMA;
+			int_arg(uregs_syscall_arg3(r));
 			break;
 		/* These have no arguments: */
 		case SYS_YIELD:

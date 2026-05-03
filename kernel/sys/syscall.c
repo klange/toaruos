@@ -665,6 +665,10 @@ long sys_setuid(uid_t new_uid) {
 	if (this_core->current_process->user == USER_ROOT_UID) {
 		this_core->current_process->user = new_uid;
 		this_core->current_process->real_user = new_uid;
+		this_core->current_process->saved_user = new_uid;
+		return 0;
+	} else if (new_uid == this_core->current_process->real_user || this_core->current_process->saved_user) {
+		this_core->current_process->user = new_uid;
 		return 0;
 	}
 	return -EPERM;
@@ -682,9 +686,80 @@ long sys_setgid(gid_t new_gid) {
 	if (this_core->current_process->user == USER_ROOT_UID) {
 		this_core->current_process->user_group = new_gid;
 		this_core->current_process->real_user_group = new_gid;
+		this_core->current_process->saved_user_group = new_gid;
+		return 0;
+	} else if (new_gid == this_core->current_process->real_user_group || this_core->current_process->saved_user_group) {
+		this_core->current_process->user_group = new_gid;
 		return 0;
 	}
 	return -EPERM;
+}
+
+static int valid_uid(uid_t id) {
+	if (this_core->current_process->user == USER_ROOT_UID) return 1;
+	return (id == this_core->current_process->real_user ||
+	        id == this_core->current_process->user ||
+	        id == this_core->current_process->saved_user);
+}
+
+long sys_setresuid(uid_t ruid, uid_t euid, uid_t suid) {
+	if (ruid != -1 && !valid_uid(ruid)) return -EPERM;
+	if (euid != -1 && !valid_uid(euid)) return -EPERM;
+	if (suid != -1 && !valid_uid(suid)) return -EPERM;
+
+	if (ruid != -1) this_core->current_process->real_user = ruid;
+	if (euid != -1) this_core->current_process->user = euid;
+	if (suid != -1) this_core->current_process->saved_user = suid;
+
+	return 0;
+}
+
+long sys_setreuid(uid_t ruid, uid_t euid) {
+	if (ruid != -1 && !valid_uid(ruid)) return -EPERM;
+	if (euid != -1 && !valid_uid(euid)) return -EPERM;
+
+	if (ruid != -1) this_core->current_process->real_user = ruid;
+	if (euid != -1) this_core->current_process->user = euid;
+
+	if (ruid != -1 || this_core->current_process->user != this_core->current_process->real_user) {
+		this_core->current_process->saved_user = this_core->current_process->user;
+	}
+
+	return 0;
+}
+
+static int valid_gid(uid_t id) {
+	if (this_core->current_process->user == USER_ROOT_UID) return 1;
+	return (id == this_core->current_process->real_user_group ||
+	        id == this_core->current_process->user_group ||
+	        id == this_core->current_process->saved_user_group);
+}
+
+
+long sys_setresgid(gid_t rgid, gid_t egid, gid_t sgid) {
+	if (rgid != -1 && !valid_gid(rgid)) return -EPERM;
+	if (egid != -1 && !valid_gid(egid)) return -EPERM;
+	if (sgid != -1 && !valid_gid(sgid)) return -EPERM;
+
+	if (rgid != -1) this_core->current_process->real_user_group = rgid;
+	if (egid != -1) this_core->current_process->user_group = egid;
+	if (sgid != -1) this_core->current_process->saved_user_group = sgid;
+
+	return 0;
+}
+
+long sys_setregid(gid_t rgid, gid_t egid) {
+	if (rgid != -1 && !valid_gid(rgid)) return -EPERM;
+	if (egid != -1 && !valid_gid(egid)) return -EPERM;
+
+	if (rgid != -1) this_core->current_process->real_user_group = rgid;
+	if (egid != -1) this_core->current_process->user_group = egid;
+
+	if (rgid != -1 || this_core->current_process->user_group != this_core->current_process->real_user_group) {
+		this_core->current_process->saved_user_group = this_core->current_process->user_group;
+	}
+
+	return 0;
 }
 
 long sys_getgroups(int size, gid_t list[]) {
@@ -1399,6 +1474,10 @@ static scall_func syscalls[] = {
 	[SYS_LCHOWN]       = (scall_func)(uintptr_t)sys_lchown,
 	[SYS_GETRUSAGE]    = (scall_func)(uintptr_t)sys_getrusage,
 	[SYS_SIGQUEUE]     = (scall_func)(uintptr_t)sys_sigqueue,
+	[SYS_SETRESUID]    = (scall_func)(uintptr_t)sys_setresuid,
+	[SYS_SETREUID]     = (scall_func)(uintptr_t)sys_setreuid,
+	[SYS_SETRESGID]    = (scall_func)(uintptr_t)sys_setresgid,
+	[SYS_SETREGID]     = (scall_func)(uintptr_t)sys_setregid,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

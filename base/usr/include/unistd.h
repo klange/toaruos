@@ -29,6 +29,14 @@ extern void _exit(int status);
 extern int setuid(uid_t uid);
 extern int setgid(gid_t gid);
 
+extern int seteuid(uid_t euid);
+extern int setreuid(uid_t ruid, uid_t euid);
+extern int setresuid(uid_t ruid, uid_t euid, uid_t suid);
+
+extern int setegid(gid_t egid);
+extern int setregid(gid_t rgid, gid_t egid);
+extern int setresgid(gid_t rgid, gid_t egid, gid_t sgid);
+
 extern uid_t getuid(void);
 extern uid_t geteuid(void);
 extern gid_t getgid(void);
