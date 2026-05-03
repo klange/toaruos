@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/wait.h>
 
 #include "stdio_internal.h"
@@ -13,7 +14,7 @@ FILE * popen(const char * command, const char * type) {
 	}
 
 	int pipe_fd[2];
-	if (pipe(pipe_fd) < 0) return NULL;
+	if (pipe2(pipe_fd, O_CLOEXEC) < 0) return NULL;
 
 	FILE * out = fdopen(pipe_fd[*type=='w'], type);
 	if (!out) {
