@@ -45,7 +45,7 @@ int main(int argc, char * argv[]) {
 		optind++;
 	}
 
-	fd_serial = open(file, O_RDWR);
+	fd_serial = open(file, O_RDWR | O_CLOEXEC);
 
 	if (fd_serial < 0) {
 		perror("open");
