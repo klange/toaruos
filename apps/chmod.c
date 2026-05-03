@@ -43,13 +43,15 @@ static void describe_mode(char *modestr, mode_t mode) {
 
 int main(int argc, char * argv[]) {
 	int opt;
+	int recursive = 0;
 	int verbose = 0;
 
 	while ((opt = getopt(argc, argv, "Rv")) != -1) {
 		switch (opt) {
 			case 'R':
-				fprintf(stderr, "%s: recursion unsupported\n", argv[0]);
-				return 2;
+				fprintf(stderr, "%s: warning: recursion unsupported; each directory will yield a further diagnostic\n", argv[0]);
+				recursive = 1;
+				break;
 			case 'v':
 				verbose = 1;
 				break;
@@ -75,6 +77,10 @@ int main(int argc, char * argv[]) {
 			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[i], strerror(errno));
 			out |= 1;
 			continue;
+		}
+
+		if (recursive && S_ISDIR(_stat.st_mode)) {
+			fprintf(stderr, "%s: %s: recursion ignored on directory\n", argv[0], argv[i]);
 		}
 
 		mode_t old_mode = _stat.st_mode & 07777;
