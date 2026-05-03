@@ -91,6 +91,8 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 			proc->time = strtoul(tab,NULL,0);
 		} else if (strstr(line, "State:") == line) {
 			proc->state = strdup(tab);
+		} else if (strstr(line, "Tty:") == line) {
+			proc->tty = strdup(tab);
 		}
 	}
 
@@ -100,6 +102,7 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 	if (!proc->name) proc->name = strdup("");
 	if (!proc->path) proc->path = strdup("");
 	if (!proc->state) proc->state = strdup("");
+	if (!proc->tty) proc->tty = strdup("");
 
 	if (proc->tgid != proc->pid && !(flags & PROCFSLIB_NO_CURLY_THREADS)) {
 		char * tmp;
@@ -144,6 +147,7 @@ void procfs_free(struct process * proc) {
 	free(proc->name);
 	free(proc->path);
 	free(proc->state);
+	free(proc->tty);
 	if (proc->cmdline) free(proc->cmdline);
 	free(proc);
 }
