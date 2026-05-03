@@ -150,11 +150,7 @@ do_fork:
 		ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
 		tcsetpgrp(STDIN_FILENO, getpid());
 		toaru_set_credentials(uid,gid);
-		char * args[] = {
-			getenv("SHELL"),
-			NULL
-		};
-		execvp(args[0], args);
+		toaru_auth_exec_shell(1);
 		return 1;
 	} else {
 		child = f;

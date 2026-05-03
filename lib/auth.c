@@ -11,6 +11,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <pwd.h>
+#include <libgen.h>
 
 #ifndef fgetpwent
 extern struct passwd *fgetpwent(FILE *stream);
@@ -69,6 +70,15 @@ void toaru_auth_set_vars(void) {
 
 	setenv("PATH", "/usr/bin:/bin", 0);
 	chdir(getenv("HOME"));
+}
+
+void toaru_auth_exec_shell(int login_shell) {
+	char * shell = getenv("SHELL");
+	if (!shell) shell = "/bin/sh";
+	char args0[1024];
+	snprintf(args0, 1024,  "%s%s", login_shell ? "-" : "", basename(shell));
+	char * args[] = {args0, NULL};
+	execv(shell, args);
 }
 
 void toaru_auth_get_groups(uid_t uid, int *groupCount, gid_t *groups) {

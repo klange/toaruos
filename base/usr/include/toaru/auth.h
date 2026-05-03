@@ -45,5 +45,6 @@ extern void toaru_set_credentials(uid_t uid, gid_t gid);
 
 extern gid_t toaru_auth_get_default_group(uid_t uid);
 extern void toaru_auth_get_groups(uid_t uid, int *groupCount, gid_t *groups);
+extern void toaru_auth_exec_shell(int is_login);
 
 _End_C_Header
