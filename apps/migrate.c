@@ -165,6 +165,8 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
+	umask(0);
+
 	if (hashmap_has(cmdline, "logtoserial")) {
 		_debug = 1;
 	}
