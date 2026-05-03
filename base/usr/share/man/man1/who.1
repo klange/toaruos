@@ -1,0 +1,55 @@
+.TH WHO 1 "May, 2026"
+
+.SH NAME
+\fBwho\fP \- print information about active user sessions
+
+.SH SYNOPSIS
+\fBwho\fP [\fB\-mTuH\fP]
+
+.SH DESCRIPTION
+The \fBwho\fP utility prints available information about logged\-in users.
+
+.SS Options
+
+.TP
+.B \-m
+Show only logins matching the current TTY.
+
+.TP
+.B \-T
+Show the writability of the terminal associated with the login,
+indicated as \fB+\fP if the terminal is writable by its owning
+group (\fBtty\fP or \fBdialout\fP), \fB\-\fP if it is not, or
+\fB?\fP if there is no associated terminal or the writability
+could not be determined.
+
+.TP
+.B \-u
+Display the idle time of the terminal, if available.
+(The idle time in this implementation is determined by the last
+modification time of the TTY device, which is set on input.)
+
+.TP
+.B \-H
+Display a header of column names.
+
+.SH STANDARDS
+Outside of XSI extensions, POSIX-1.2024 leaves much of the details
+of the \fBwho\fP command implementation\-defined.
+This implementation reads the process tree with
+.IR libtoaru_procfs (3)
+to find login-generating processes (such as
+.IR login (1),
+.IR glogin (1),
+.IR live\-session (1),
+and so on) and then determines who is logged in from those processes
+based on their user IDs of their children.
+.PP
+As the XSI extensions largely specify an experience based around the
+use of a \fButmp\fP file, this implementation does not include the
+XSI functionality.
+
+.SH SEE ALSO
+.BR whoami (1),
+.BR id (1),
+.BR libtoaru_procfs (3)
