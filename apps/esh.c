@@ -2732,6 +2732,51 @@ uint32_t shell_cmd_set(int argc, char * argv[]) {
 	return 0;
 }
 
+extern mode_t __mode_calculate(const char *, mode_t, mode_t, int);
+
+uint32_t shell_cmd_umask(int argc, char * argv[]) {
+	int optind = 1;
+	int symbolic = 0;
+	mode_t mode = umask(0777);
+
+	if (optind < argc && !strcmp(argv[optind], "-S")) {
+		symbolic = 1;
+		optind++;
+	}
+
+	if (optind < argc) {
+		mode_t new_mode = __mode_calculate(argv[optind], 0777 & (~mode), 0, 1);
+		if (new_mode == (mode_t)-1) fprintf(stderr, "%s: invalid mask '%s'\n", argv[0], argv[optind]);
+		else mode = new_mode;
+	}
+
+	umask(mode);
+
+	if (symbolic) {
+		char u_mode[4] = {0}; char * u_m = u_mode;
+		char g_mode[4] = {0}; char * g_m = g_mode;
+		char o_mode[4] = {0}; char * o_m = o_mode;
+
+		if (!(mode & S_IRUSR)) *u_m++ = 'r';
+		if (!(mode & S_IWUSR)) *u_m++ = 'w';
+		if (!(mode & S_IXUSR)) *u_m++ = 'x';
+
+		if (!(mode & S_IRGRP)) *g_m++ = 'r';
+		if (!(mode & S_IWGRP)) *g_m++ = 'w';
+		if (!(mode & S_IXGRP)) *g_m++ = 'x';
+
+		if (!(mode & S_IROTH)) *o_m++ = 'r';
+		if (!(mode & S_IWOTH)) *o_m++ = 'w';
+		if (!(mode & S_IXOTH)) *o_m++ = 'x';
+
+		fprintf(stdout, "u=%s,g=%s,o=%s\n", u_mode, g_mode, o_mode);
+	} else if (optind == argc) {
+		fprintf(stdout, "%04o\n", mode);
+	}
+
+	return 0;
+}
+
 void install_commands() {
 	shell_commands = malloc(sizeof(char *) * SHELL_COMMANDS);
 	shell_pointers = malloc(sizeof(shell_command_t) * SHELL_COMMANDS);
@@ -2760,4 +2805,5 @@ void install_commands() {
 	shell_install_command("rehash",  shell_cmd_rehash, "reset shell command memory");
 	shell_install_command("time",    shell_cmd_time, "time a command");
 	shell_install_command("set",     shell_cmd_set, "set shell options");
+	shell_install_command("umask",   shell_cmd_umask, "set file creation mask");
 }
