@@ -857,6 +857,10 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 		case SYS_OPEN:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			open_flags(uregs_syscall_arg2(r));
+			if (uregs_syscall_arg2(r) & O_CREAT) {
+				COMMA;
+				mode_arg(uregs_syscall_arg3(r));
+			}
 			break;
 		case SYS_CHMOD:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
@@ -953,7 +957,7 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			break;
 		case SYS_MKDIR:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			uint_arg(uregs_syscall_arg2(r));
+			mode_arg(uregs_syscall_arg2(r));
 			break;
 		case SYS_RENAME:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
@@ -1094,7 +1098,7 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			pointer_arg(uregs_syscall_arg4(r));
 			break;
 		case SYS_UMASK:
-			int_arg(uregs_syscall_arg1(r));
+			mode_arg(uregs_syscall_arg1(r));
 			break;
 		case SYS_UNLINK:
 			string_arg(pid, uregs_syscall_arg1(r));
@@ -1277,6 +1281,15 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 		case SYS_GETRUSAGE:
 			struct_rusage_arg(pid, uregs_syscall_arg2(r)); COMMA;
 			maybe_errno(r);
+			break;
+		case SYS_UMASK:
+			if ((intptr_t)uregs_syscall_result(r) >= 0) {
+				fprintf(logfile, ") = ");
+				mode_arg(uregs_syscall_result(r));
+				fprintf(logfile, "\n");
+			} else {
+				maybe_errno(r);
+			}
 			break;
 		/* Most things return -errno, or positive valid result */
 		default:
