@@ -567,7 +567,7 @@ static void pass_sig(int sig) {
 int main(int argc, char * argv[]) {
 	pid_t target_pid = 0;
 	int opt;
-	while ((opt = getopt(argc, argv, "o:p:h")) != -1) {
+	while ((opt = getopt(argc, argv, "+o:p:h")) != -1) {
 		switch (opt) {
 			case 'p':
 				target_pid = atoi(optarg);
