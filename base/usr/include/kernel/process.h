@@ -174,6 +174,7 @@ typedef struct process {
 
 	uid_t saved_user;
 	gid_t saved_user_group;
+	struct pty * pty;
 
 	struct process * process;
 } process_t;
@@ -287,6 +288,8 @@ extern size_t process_collect_by(off_t field, size_t fieldSize, void * target, p
 extern int process_close_fds(process_t * proc, int for_what);
 extern long process_fd_dup_least(process_t *, long, long, int);
 extern void process_send_sigchld(process_t * proc, process_t * parent, int reason, int status);
+extern size_t process_erase_field(off_t field, size_t fieldSize, void * target);
+extern size_t process_get_tty(process_t * proc, size_t len, char * out);
 
 extern tree_t * process_tree;  /* Parent->Children tree */
 extern list_t * process_list;  /* Flat storage */

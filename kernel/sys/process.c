@@ -37,6 +37,7 @@
 #include <kernel/misc.h>
 #include <kernel/syscall.h>
 #include <kernel/ksym.h>
+#include <kernel/pty.h>
 #include <sys/wait.h>
 #include <sys/signal_defs.h>
 
@@ -1385,6 +1386,7 @@ pid_t fork(void) {
 	union PML * directory = mmu_clone(parent->thread.page_directory->directory);
 	process_t * new_proc = spawn_process(parent->process, 0, 1);
 	new_proc->process = new_proc;
+	new_proc->pty = parent->process->pty;
 	new_proc->thread.page_directory = malloc(sizeof(page_directory_t));
 	new_proc->thread.page_directory->refcount = 1;
 	new_proc->thread.page_directory->directory = directory;
@@ -1684,4 +1686,26 @@ void process_send_sigchld(process_t * proc, process_t * parent, int reason, int 
 		wakeup_queue(parent->wait_queue);
 		spin_unlock(parent->wait_lock);
 	}
+}
+
+size_t process_erase_field(off_t field, size_t fieldSize, void * target) {
+	size_t count = 0;
+	spin_lock(tree_lock);
+	foreach(node, process_list) {
+		process_t * proc = node->value;
+		if (!memcmp((char*)proc + field, target, fieldSize)) {
+			memset((char*)proc + field, 0, fieldSize);
+			count++;
+		}
+	}
+	spin_unlock(tree_lock);
+
+	return count;
+}
+
+size_t process_get_tty(process_t * proc, size_t len, char * out) {
+	spin_lock(tree_lock);
+	size_t ret = proc->pty ? proc->pty->fill_name(proc->pty, len, out) : 0;
+	spin_unlock(tree_lock);
+	return ret;
 }

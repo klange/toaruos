@@ -208,6 +208,9 @@ static void proc_status_func(fs_node_t *node) {
 	long mem_permille = 1000 * (mem_usage + shm_usage) / mmu_total_memory();
 	spin_unlock(proc->thread.page_directory->lock);
 
+	char tty_name[101] = {0};
+	process_get_tty(proc, 100, tty_name);
+
 	sigset_t ignored = 0;
 	sigset_t caught = 0;
 	for (int i = 1; i < NUMSIGNALS; ++i) {
@@ -245,6 +248,7 @@ static void proc_status_func(fs_node_t *node) {
 			"SigBlk:\t%016zx\n"
 			"SigIgn:\t%016zx\n"
 			"SigCgt:\t%016zx\n"
+			"Tty:\t%s\n"
 			,
 			name,
 			state,
@@ -272,7 +276,8 @@ static void proc_status_func(fs_node_t *node) {
 			proc->pending_signals,
 			proc->blocked_signals,
 			ignored,
-			caught
+			caught,
+			tty_name
 			);
 
 	process_release_big_lock();

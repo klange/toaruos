@@ -35,6 +35,8 @@ static fs_node_t * _dev_tty = NULL;
 
 static void pty_teardown(pty_t * pty) {
 	if (pty->name) hashmap_remove(_pty_index, (void*)pty->name);
+	process_erase_field(offsetof(process_t,pty), sizeof(pty_t*), &pty);
+
 	free(pty->canon_buffer);
 	ring_buffer_destroy(pty->in);
 	ring_buffer_destroy(pty->out);
@@ -368,6 +370,7 @@ int pty_ioctl(fs_node_t * node, pty_t * pty, unsigned long request, void * argp)
 				return -EPERM;
 			}
 			pty->ct_proc = this_core->current_process->session;
+			this_core->current_process->process->pty = pty;
 			return 0;
 		case TCSETS:
 		case TCSETSW:
