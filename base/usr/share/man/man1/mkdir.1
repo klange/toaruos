@@ -8,18 +8,41 @@
 
 .SH DESCRIPTION
 The \fBmkdir\fP utility creates directories.
+.PP
 
 .SS Options
 .TP
 .B \-m \fImode\fP
-Apply the given \fImode\fP (either an octal mode, or a symbolic mode as in
+The \fBmode\fP argument of the the underlying call to
+.IR mkdir (2)
+to create the final component of a path specified by a \fIdir\fP argument
+will be calculated from the given \fImode\fP, as described in
 .IR chmod (1),
-applied with an initial mode of \fBa+rwx\fP) to the created directory.
+assuming an initial mode of \fBa+rwx\fP.
+The file mode creation mask when making this call will be set to the complement
+of the calculated mode.
 
 .TP
 .B \-p
-Recursively create parent directories. When this option is specified,
-it is not an error if a directory already exists.
+Recursively create parent directories.
+When this option is specified, it is not an error if a directory already exists.
+The \fBmode\fP argument of the underlying call to
+.IR mkdir (2)
+to create such a parent directory will always be \fB0777\fP, and the file
+mode creation mask when making this call will be set to the bitwise \fBAND\fP of
+the file mode creation mask at the time of invocation of the \fBmkdir\fP utility
+with the complement of \fB(S_IWUSR|S_IXUSR)\fP such that the resulting directories,
+if successfully created, will allow for the creation of additional subdirectories.
+
+.SH STANDARDS
+The way in which a \fImode\fP specified by the \fB\-m\fP option is applied is not
+specified by POSIX, only that the directory never have less restrictive permissions
+than those specified in \fImode\fP.
+.PP
+The way in which the permissions are set on parent directories created by the \fB\-p\fP
+option is described in POSIX to be as if the directories were created with a mode
+of 0 and then \fBchmod\fP was used to apply the modified file mask; this implementation
+does not use \fBchmod\fP.
 
 .SH SEE ALSO
 .BR mkdir (2)
