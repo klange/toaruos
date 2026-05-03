@@ -20,6 +20,7 @@ restricted_files = {
     'var': 0o755,
     'bin/sudo': 0o4555,
     'bin/gsudo': 0o4555,
+    'bin/newgrp': 0o4555,
 }
 
 def file_filter(tarinfo):

@@ -1,0 +1,36 @@
+.TH NEWGRP 1 "May, 2026"
+
+.SH NAME
+\fBnewgrp\fP \- change groups
+
+.SH SYNOPSIS
+\fBnewgrp\fP [\-l] [\fIgroup\fP]
+
+.SH DESCRIPTION
+The \fBnewgrp\fP utility spawns a new shell for the current user with
+group memberships based on their entries in the files \fB/etc/master.passwd\fP
+and \fB/etc/groups\fP.
+.PP
+If a \fIgroup\fP argument is provided, and the user is a member of that group,
+that \fIgroup\fP will be set as the real and effective group of the resulting shell,
+and the default group will replace that \fIgroup\fP in the supplementary group list.
+.PP
+Group passwords are not supported; if the calling user is a not a member of a group
+they are attempting to specify with a \fIgroup\fP option, the request will be denied.
+
+.SS Options
+
+.TP
+.B \-l
+Set the environment variables that would normally be set when logging in.
+This also means changing the working directory in the new shell to the user's \fBHOME\fP
+and prepending a '\-' to the zeroth argument of the shell to indicate it is a login shell.
+
+.SH STANDARDS
+POSIX.1-2024
+
+.SH SEE ALSO
+.BR id (1),
+.BR login (1),
+.BR sudo (1),
+.BR libtoaru_auth (3)
