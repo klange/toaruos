@@ -84,7 +84,7 @@ int main(int argc, char * argv[]) {
 		}
 
 		mode_t old_mode = _stat.st_mode & 07777;
-		mode_t new_mode = __mode_calculate(argv[optind], old_mode, mask, 0);
+		mode_t new_mode = __mode_calculate(argv[optind], old_mode, mask, S_ISDIR(_stat.st_mode) ? 2 : 0);
 		char old_mode_desc[10];
 		char new_mode_desc[10];
 
