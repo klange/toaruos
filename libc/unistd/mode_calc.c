@@ -1,6 +1,6 @@
 #include <sys/stat.h>
 
-mode_t __mode_calculate(const char * c, mode_t base, mode_t mask, int invert_symbolic) {
+mode_t __mode_calculate(const char * c, mode_t original, mode_t mask, int flags) {
 	if (*c >= '0' && *c <= '7') {
 		mode_t out = 0;
 		while (*c >= '0' && *c <= '7') {
@@ -14,6 +14,9 @@ mode_t __mode_calculate(const char * c, mode_t base, mode_t mask, int invert_sym
 	}
 
 	enum ModeAction { MODE_ADD, MODE_DEL, MODE_SET };
+
+	mode_t base = original;
+	int capital_X_is_meaningful = !!(flags & 2) || !!(original & (S_IXUSR | S_IXGRP | S_IXOTH));
 
 	while (*c) {
 		mode_t current = base;
@@ -58,11 +61,14 @@ _permlist:
 			case 'r': affect |= S_IROTH; c++; goto _permlist;
 			case 'w': affect |= S_IWOTH; c++; goto _permlist;
 			case 'x': affect |= S_IXOTH; c++; goto _permlist;
+			case 'X': if (capital_X_is_meaningful) { affect |= S_IXOTH; } c++; goto _permlist;
 			case 's':
 				setuid = (who & S_IXUSR) ? 1 : 0;
 				setgid = (who & S_IXGRP) ? 1 : 0;
 				goto _permlist;
-			case '+': more_actions = 1; c++; break;
+			case '+':
+			case '-':
+			case '=': more_actions = 1; break;
 			case ',': c++; break;
 			case '\0': break;
 			default: goto _invalid;
@@ -89,7 +95,7 @@ _apply: (void)0;
 		if (more_actions) goto _action;
 	}
 
-	if (invert_symbolic) return 0777 & (~base);
+	if (flags & 1) return 0777 & (~base);
 	return base;
 
 _invalid:
