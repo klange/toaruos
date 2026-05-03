@@ -37,16 +37,23 @@ int makedir(const char * dir, int mask, int parents) {
 	return mkdir(tmp, mask);
 }
 
+extern mode_t __mode_calculate(const char *, mode_t, mode_t, int);
+
 int main(int argc, char ** argv) {
 	int retval = 0;
 	int parents = 0;
 	int opt;
 
+	mode_t mode = S_IRWXU | S_IRWXG | S_IRWXO;
+
 	while ((opt = getopt(argc, argv, "m:p")) != -1) {
 		switch (opt) {
-			case 'm':
-				fprintf(stderr, "%s: -m unsupported\n", argv[0]);
-				return 1;
+			case 'm': {
+				mode_t current = umask(0);
+				umask(current);
+				mode = __mode_calculate(optarg, 0777, current, 0);
+				break;
+			}
 			case 'p':
 				parents = 1;
 				break;
@@ -59,7 +66,7 @@ int main(int argc, char ** argv) {
 	}
 
 	for (int i = optind; i < argc; ++i) {
-		if (makedir(argv[i], 0777, parents) < 0) {
+		if (makedir(argv[i], mode, parents) < 0) {
 			if (parents && errno == EEXIST) continue;
 			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[i], strerror(errno));
 			retval = 1;
