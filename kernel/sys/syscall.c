@@ -938,9 +938,10 @@ long sys_mount(char * arg, char * mountpoint, char * type, unsigned long flags, 
 	return -EFAULT;
 }
 
-long sys_umask(long mode) {
-	this_core->current_process->mask = mode & 0777;
-	return 0;
+long sys_umask(mode_t mode) {
+	mode_t old_mode = this_core->current_process->process->mask;
+	this_core->current_process->process->mask = mode & 0777;
+	return old_mode;
 }
 
 long sys_unlink(char * file) {

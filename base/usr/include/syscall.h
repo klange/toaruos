@@ -3,6 +3,7 @@
 #include <_cheader.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <sys/types.h>
 
 _Begin_C_Header
 
@@ -211,7 +212,7 @@ DECL_SYSCALL3(ioctl, int, unsigned long, void *);
 DECL_SYSCALL2(access, char *, int);
 DECL_SYSCALL2(statf, char *, void *);
 DECL_SYSCALL2(chmod, char *, int);
-DECL_SYSCALL1(umask, int);
+DECL_SYSCALL1(umask, mode_t);
 DECL_SYSCALL1(unlink, char *);
 DECL_SYSCALL3(waitpid, int, int *, int);
 DECL_SYSCALL1(pipe,  int *);
