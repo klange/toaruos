@@ -1310,7 +1310,7 @@ int main(int argc, char * argv[]) {
 
 	pid_t p = 0;
 	int opt;
-	while ((opt = getopt(argc, argv, "ho:e:p:")) != -1) {
+	while ((opt = getopt(argc, argv, "+ho:e:p:")) != -1) {
 		switch (opt) {
 			case 'p':
 				p = atoi(optarg);
