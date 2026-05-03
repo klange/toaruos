@@ -131,6 +131,7 @@ static ssize_t tty_erase_one(pty_t * pty, int erase) {
 #define erase_one(pty, erase) do { ssize_t written = tty_erase_one(pty, erase); if (written < 0) return written; } while (0)
 
 ssize_t tty_input_process(pty_t * pty, uint8_t c) {
+	pty->slave->mtime = now();
 	if (pty->next_is_verbatim) {
 		pty->next_is_verbatim = 0;
 		if (pty->canon_buflen < pty->canon_bufsize) {
