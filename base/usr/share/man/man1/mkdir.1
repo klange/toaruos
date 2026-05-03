@@ -4,10 +4,17 @@
 \fBmkdir\fP \- create directories
 
 .SH SYNOPSIS
-\fBmkdir\fP [\fB\-p\fP] \fIdir\fP...
+\fBmkdir\fP [\fB\-m\fP \fImode\fP] [\fB\-p\fP] \fIdir\fP...
 
 .SH DESCRIPTION
 The \fBmkdir\fP utility creates directories.
+
+.SS Options
+.TP
+.B \-m \fImode\fP
+Apply the given \fImode\fP (either an octal mode, or a symbolic mode as in
+.IR chmod (1),
+applied with an initial mode of \fBa+rwx\fP) to the created directory.
 
 .TP
 .B \-p
