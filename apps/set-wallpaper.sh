@@ -10,6 +10,6 @@ if not check-image -q "$NEW_WALLPAPER" then exec sh -c "echo '$0: $1: not a vali
 echo "wallpaper=$NEW_WALLPAPER" > $HOME/.wallpaper.conf
 
 # Tell the desktop to reload it
-export-cmd DESKTOP cat /var/run/.wallpaper.pid
+export-cmd DESKTOP cat $HOME/.wallpaper.pid
 if empty? "$DESKTOP" then exec sh -c "echo '$0: No wallpaper running?'"
 kill -SIGUSR1 $DESKTOP

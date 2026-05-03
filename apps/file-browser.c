@@ -1964,9 +1964,17 @@ int main(int argc, char * argv[]) {
 		yutani_window_move(yctx, main_window, 0, 0);
 		yutani_set_stack(yctx, main_window, YUTANI_ZORDER_BOTTOM);
 		arg_ind++;
-		FILE * f = fopen("/var/run/.wallpaper.pid", "w");
-		fprintf(f, "%d\n", getpid());
-		fclose(f);
+		char * home = getenv("HOME");
+		if (home) {
+			char * pid_path;
+			asprintf(&pid_path, "%s/.wallpaper.pid", home);
+			FILE * f = fopen(pid_path, "w");
+			free(pid_path);
+			if (f) {
+				fprintf(f, "%d\n", getpid());
+				fclose(f);
+			}
+		}
 	} else if (argc > 1 && !strcmp(argv[1], "--picker")) {
 		is_picker_dialog = 1;
 		menu_bar_height = 0;

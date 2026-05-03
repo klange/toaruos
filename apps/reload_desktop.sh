@@ -1,5 +1,5 @@
 #!/bin/esh
 
-export-cmd DESKTOP cat /var/run/.wallpaper.pid
+export-cmd DESKTOP cat $HOME/.wallpaper.pid
 
 if not empty? "$DESKTOP" then kill -SIGUSR2 $DESKTOP

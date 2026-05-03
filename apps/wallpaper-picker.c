@@ -201,8 +201,17 @@ void get_default_wallpaper(void) {
 }
 
 void set_wallpaper(void) {
+	char * home = getenv("HOME");
+	if (!home) {
+		/* That should not happen... */
+		fprintf(stderr, "Failed to read HOME envvar\n");
+		return;
+	}
 	/* get the PID of the destkop file-browser */
-	FILE * f = fopen("/var/run/.wallpaper.pid","r");
+	char * pid_path;
+	asprintf(&pid_path, "%s/.wallpaper.pid", home);
+	FILE * f = fopen(pid_path,"r");
+	free(pid_path);
 	if (!f) {
 		/* TODO show an error dialog */
 		fprintf(stderr, "Failed to read wallpaper PID\n");
@@ -214,15 +223,10 @@ void set_wallpaper(void) {
 	int pid = atoi(data);
 
 	/* write the config file */
-	char * home = getenv("HOME");
-	if (!home) {
-		/* That should not happen... */
-		fprintf(stderr, "Failed to read HOME envvar\n");
-		return;
-	}
-	char path[512];
-	sprintf(path, "%s/.wallpaper.conf", home);
+	char * path;
+	asprintf(&path, "%s/.wallpaper.conf", home);
 	FILE * conf = fopen(path,"w");
+	free(path);
 	fprintf(conf,"wallpaper=%s\n", wallpaper_path);
 	fprintf(stderr, "Setting wallpaper to %s\n", wallpaper_path);
 	fclose(conf);
