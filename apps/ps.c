@@ -26,27 +26,38 @@
 #include <toaru/procfs.h>
 
 static int show_all = 0;
+static int show_nontty = 0;
 static int show_threads = 0;
 static int show_username = 0;
 static int show_mem = 0;
 static int show_cpu = 0;
-static int show_time = 0;
+static int show_time = 1;
 static int collect_commandline = 0;
 
-static int widths[] = {3,3,4,3,3,4,4,4};
+static int widths[] = {3,3,4,3,3,4,4,4,3};
 
 static hashmap_t * process_ents = NULL;
 static list_t * ents_list = NULL;
+static struct process * me = NULL;
 
 struct process * process_from_pid(pid_t pid) {
 	return hashmap_get(process_ents, (void*)(uintptr_t)pid);
 }
 
-int ps_callback(struct process * proc, void * ctx) {
-	if (!show_all && proc->uid != getuid()) {
-		procfs_free(proc);
-		return 0;
+static char * tty_from_procfs(char * t) {
+	if (!*t) return "?";
+
+	if (strstr(t, "/dev/") == t) {
+		return t + 5;
 	}
+
+	return t;
+}
+
+int ps_callback(struct process * proc, void * ctx) {
+	if (!show_all && !show_nontty && strcmp(proc->tty, me->tty)) return procfs_free(proc), 0;
+	if (!show_all && proc->uid != getuid()) return procfs_free(proc), 0;
+	if (!show_nontty && !*proc->tty) return procfs_free(proc), 0;
 
 	if (!show_threads && proc->tgid != proc->pid) {
 		struct process * parent = process_from_pid(proc->tgid);
@@ -62,16 +73,15 @@ int ps_callback(struct process * proc, void * ctx) {
 	hashmap_set(process_ents, (void*)(uintptr_t)proc->pid, proc);
 	list_insert(ents_list, (void *)proc);
 
-	char garbage[1024];
 	int len;
 
-	if ((len = sprintf(garbage, "%d", proc->tgid)) > widths[0]) widths[0] = len;
-	if ((len = sprintf(garbage, "%d", proc->pid)) > widths[1]) widths[1] = len;
-	if ((len = sprintf(garbage, "%d", proc->vsz)) > widths[3]) widths[3] = len;
-	if ((len = sprintf(garbage, "%d", proc->shm)) > widths[4]) widths[4] = len;
-	if ((len = sprintf(garbage, "%d.%01d", proc->mem / 10, proc->mem % 10)) > widths[5]) widths[5] = len;
-	if ((len = sprintf(garbage, "%d.%01d", proc->cpu[0] / 10, proc->cpu[0] % 10)) > widths[6]) widths[6] = len;
-	if ((len = sprintf(garbage, "%lu:%02lu.%02lu",
+	if ((len = snprintf(NULL, 0, "%d", proc->tgid)) > widths[0]) widths[0] = len;
+	if ((len = snprintf(NULL, 0, "%d", proc->pid)) > widths[1]) widths[1] = len;
+	if ((len = snprintf(NULL, 0, "%d", proc->vsz)) > widths[3]) widths[3] = len;
+	if ((len = snprintf(NULL, 0, "%d", proc->shm)) > widths[4]) widths[4] = len;
+	if ((len = snprintf(NULL, 0, "%d.%01d", proc->mem / 10, proc->mem % 10)) > widths[5]) widths[5] = len;
+	if ((len = snprintf(NULL, 0, "%d.%01d", proc->cpu[0] / 10, proc->cpu[0] % 10)) > widths[6]) widths[6] = len;
+	if ((len = snprintf(NULL, 0, "%lu:%02lu.%02lu",
 		(proc->time / (1000000UL * 60 * 60)),
 		(proc->time / (1000000UL * 60)) % 60,
 		(proc->time / (1000000UL)) % 60)) > widths[7]) widths[7] = len;
@@ -80,9 +90,11 @@ int ps_callback(struct process * proc, void * ctx) {
 	if (p) {
 		if ((len = strlen(p->pw_name)) > widths[2]) widths[2] = len;
 	} else {
-		if ((len = sprintf(garbage, "%d", proc->uid)) > widths[2]) widths[2] = len;
+		if ((len = snprintf(NULL, 0, "%d", proc->uid)) > widths[2]) widths[2] = len;
 	}
 	endpwent();
+
+	if ((len = strlen(tty_from_procfs(proc->tty))) > widths[8]) widths[8] = len;
 
 	if (collect_commandline && proc->cmdline) {
 		/* Replace \x1e with spaces */
@@ -110,6 +122,7 @@ void print_header(void) {
 		printf("%*s ", widths[3], "VSZ");
 		printf("%*s ", widths[4], "SHM");
 	}
+	printf("%*s ", widths[8], "TTY");
 	if (show_time) {
 		printf("%*s ", widths[7], "TIME");
 	}
@@ -142,6 +155,7 @@ void print_entry(struct process * out) {
 		printf("%*d ", widths[3], out->vsz);
 		printf("%*d ", widths[4], out->shm);
 	}
+	printf("%*s ", widths[8], tty_from_procfs(out->tty));
 	if (show_time) {
 		char tmp[30];
 		sprintf(tmp, "%lu:%02lu.%02lu",
@@ -186,6 +200,7 @@ int main (int argc, char * argv[]) {
 		switch (c) {
 			case 'A':
 				show_all = 1;
+				show_nontty = 1;
 				break;
 			case 'T':
 				show_threads = 1;
@@ -204,9 +219,15 @@ int main (int argc, char * argv[]) {
 					show_mem = 1;
 					show_cpu = 1;
 					show_time = 1;
-					// fallthrough
+					collect_commandline = 1;
+					break;
 				case 'a':
 					collect_commandline = 1;
+					show_all = 1;
+					break;
+				case 'x':
+					collect_commandline = 1;
+					show_nontty = 1;
 					break;
 				default:
 					break;
@@ -214,6 +235,8 @@ int main (int argc, char * argv[]) {
 			show++;
 		}
 	}
+
+	me = procfs_get_pid(getpid(), 0);
 
 	/* Open the directory */
 	ents_list = list_create();

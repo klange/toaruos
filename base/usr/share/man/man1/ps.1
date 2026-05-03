@@ -1,4 +1,4 @@
-.TH PS 1 "March, 2026"
+.TH PS 1 "May, 2026"
 
 .SH NAME
 \fBps\fP \- show running processes
@@ -11,30 +11,32 @@ Shows a table of information about running processes.
 
 .TP
 .B \-A
-Include other users' processes in the output. By default,
-only processes belonging to the user that invoked \fBps\fP
-will be displayed.
+Show all processes from all users and regardless of whether
+they have an associated terminal or not.
 
 .TP
 .B \-T
 Include threads in the output.
 
 .PP
-The \fIformat\fP option is a string of characters specifying what
-information about the processes to include in the output, and
-supports at least the following characters:
+When a \fIformat\fP string is provided, the full command line for
+each process is shown, and the output is otherwise modified as
+follows:
 
 .TP
 .B a
-Show the full command line for each process.
+Show processes from all users.
 
 .TP
 .B u
-Show the username of the owner of the process, the memory and CPU usage
-of the process, and the process time.
+Show additional columns, including \fBUSER\fP and a few others.
+
+.TP
+.B x
+Show processes with or without associated terminals.
 
 .PP
-Other option characters are silently ignored.
+Other format characters are silently ignored.
 
 .SH SEE ALSO
 .BR top (1),
