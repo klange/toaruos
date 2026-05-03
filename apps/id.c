@@ -28,7 +28,7 @@ static int usage(char ** argv) {
 			" -g     " X_S "print the effective group" X_E "\n"
 			" -u     " X_S "print the effective user" X_E "\n"
 			" -n     " X_S "print names instead of IDs" X_E "\n"
-			" -n     " X_S "print real rather than effective IDs" X_E "\n"
+			" -r     " X_S "print real rather than effective IDs" X_E "\n"
 			" -?     " X_S "show this help text" X_E "\n"
 			"\n", argv[0], argv[0], argv[0], argv[0], argv[0]);
 	return 1;
