@@ -600,7 +600,7 @@ fs_node_t * pty_slave_create(pty_t * pty) {
 	fnode->name[0] = '\0';
 	snprintf(fnode->name, 100, "pty slave");
 	fnode->uid   = this_core->current_process->user;
-	fnode->gid   = this_core->current_process->user_group;
+	fnode->gid   = 3; /* tty group */
 	fnode->mask  = 0620;
 	fnode->flags = FS_CHARDEVICE;
 	fnode->read  =  read_pty_slave;

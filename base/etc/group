@@ -1,3 +1,4 @@
 root:x:0:
 adm:x:1:local
 dialout:x:2:local
+tty:x:3:
