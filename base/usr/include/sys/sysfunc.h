@@ -24,7 +24,6 @@
 #define TOARU_SYS_FUNC_NPROC        15
 
 /* Experimental */
-#define TOARU_SYS_FUNC_CLEARICACHE  42
 #define TOARU_SYS_FUNC_MUNMAP       43
 
 _Begin_C_Header

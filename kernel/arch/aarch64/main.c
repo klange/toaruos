@@ -260,6 +260,15 @@ static void exception_handlers(void) {
 	asm volatile("msr VBAR_EL1, %0" :: "r"(&_exception_vector));
 }
 
+static void enable_el0_cache_maintenance(void) {
+	asm volatile(
+		"mrs x0, SCTLR_EL1\n"
+		"ldr x1, =0x4008000\n"
+		"orr x0, x0, x1\n"
+		"msr SCTLR_EL1, x0\n"
+		::: "x0", "x1");
+}
+
 void aarch64_sync_enter(struct regs * r) {
 	uint64_t esr, far, elr, spsr;
 	asm volatile ("mrs %0, ESR_EL1" : "=r"(esr));
@@ -584,6 +593,8 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 
 	/* Set up exception handlers early... */
 	exception_handlers();
+
+	enable_el0_cache_maintenance();
 
 	/* Load ramdisk over fw-cfg. */
 	uintptr_t ramdisk_phys_base = 0;

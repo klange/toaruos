@@ -115,11 +115,6 @@ typedef struct elf_object {
 
 static elf_t * _main_obj = NULL;
 
-static void clear_cache(uintptr_t start, uintptr_t end) {
-	char * data[] = {(char*)start,(char*)end};
-	sysfunc(42, data);
-}
-
 /* Locate library for LD_LIBRARY PATH */
 static char * find_lib(const char * file) {
 
@@ -303,7 +298,7 @@ static uintptr_t object_load(elf_t * object, uintptr_t base) {
 					/* Copy the code into memory */
 					fseek(object->file, phdr.p_offset, SEEK_SET);
 					fread((void *)(base + phdr.p_vaddr), phdr.p_filesz, 1, object->file);
-					clear_cache(base + phdr.p_vaddr, base + phdr.p_vaddr + phdr.p_filesz);
+					__builtin___clear_cache((char*)(base + phdr.p_vaddr), (char *)(base + phdr.p_vaddr + phdr.p_filesz));
 
 					/* Zero the remaining area */
 					size_t r = phdr.p_filesz;
