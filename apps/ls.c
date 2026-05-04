@@ -90,7 +90,7 @@ static const char * color_str(struct stat * sb) {
 	} else if (S_ISLNK(sb->st_mode)) {
 		/* Symbolic Link */
 		return SYMLINK_COLOR;
-	} else if (sb->st_mode & S_ISUID) {
+	} else if ((sb->st_mode & S_ISUID) || (sb->st_mode & S_ISGID)) {
 		/* setuid - sudo, etc. */
 		return SETUID_COLOR;
 	} else if (sb->st_mode & 0111) {
@@ -256,26 +256,23 @@ static void print_entry_long(int * widths, int * colwidth, struct tfile * file) 
 	prefixes(colwidth, file);
 
 	const char * ansi_color_str = color_str(&file->statbuf);
+	mode_t mode = file->statbuf.st_mode;
 
 	/* file permissions */
-	if (S_ISLNK(file->statbuf.st_mode))       { printf("l"); }
-	else if (S_ISCHR(file->statbuf.st_mode))  { printf("c"); }
-	else if (S_ISBLK(file->statbuf.st_mode))  { printf("b"); }
-	else if (S_ISDIR(file->statbuf.st_mode))  { printf("d"); }
+	if (S_ISLNK(mode))       { printf("l"); }
+	else if (S_ISCHR(mode))  { printf("c"); }
+	else if (S_ISBLK(mode))  { printf("b"); }
+	else if (S_ISDIR(mode))  { printf("d"); }
 	else { printf("-"); }
-	printf( (file->statbuf.st_mode & S_IRUSR) ? "r" : "-");
-	printf( (file->statbuf.st_mode & S_IWUSR) ? "w" : "-");
-	if (file->statbuf.st_mode & S_ISUID) {
-		printf("s");
-	} else {
-		printf( (file->statbuf.st_mode & S_IXUSR) ? "x" : "-");
-	}
-	printf( (file->statbuf.st_mode & S_IRGRP) ? "r" : "-");
-	printf( (file->statbuf.st_mode & S_IWGRP) ? "w" : "-");
-	printf( (file->statbuf.st_mode & S_IXGRP) ? "x" : "-");
-	printf( (file->statbuf.st_mode & S_IROTH) ? "r" : "-");
-	printf( (file->statbuf.st_mode & S_IWOTH) ? "w" : "-");
-	printf( (file->statbuf.st_mode & S_IXOTH) ? "x" : "-");
+	printf("%c", (mode & S_IRUSR) ? 'r' : '-');
+	printf("%c", (mode & S_IWUSR) ? 'w' : '-');
+	printf("%c", (mode & S_IXUSR) ? ((mode & S_ISUID) ? 's' : 'x') : ((mode & S_ISUID) ? 'S' : '-'));
+	printf("%c", (mode & S_IRGRP) ? 'r' : '-');
+	printf("%c", (mode & S_IWGRP) ? 'w' : '-');
+	printf("%c", (mode & S_IXGRP) ? ((mode & S_ISGID) ? 's' : 'x') : ((mode & S_ISGID) ? 'S' : '-'));
+	printf("%c", (mode & S_IROTH) ? 'r' : '-');
+	printf("%c", (mode & S_IWOTH) ? 'w' : '-');
+	printf("%c", (mode & S_IXOTH) ? 'x' : '-');
 
 	printf( " %*d ", widths[0], file->statbuf.st_nlink); /* number of links, not supported */
 
