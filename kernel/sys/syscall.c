@@ -516,29 +516,25 @@ long sys_eaccess(const char * file, long flags) {
 	return ret;
 }
 
+static long chmod_node(fs_node_t * fn, mode_t mode) {
+	if (this_core->current_process->user != 0 && this_core->current_process->user != fn->uid) return -EACCES;
+	return chmod_fs(fn, mode);
+}
+
 long sys_chmod(char * file, long mode) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
 	int error = 0;
 	fs_node_t * fn = kopen_error(file, 0, &error);
-	if (fn) {
-		/* Can group members change bits? I think it's only owners. */
-		if (this_core->current_process->user != 0 && this_core->current_process->user != fn->uid) {
-			close_fs(fn);
-			return -EACCES;
-		}
-		long result = chmod_fs(fn, mode);
-		close_fs(fn);
-		return result;
-	} else {
-		return -error;
-	}
+	if (!fn) return -error;
+	long ret = chmod_node(fn, mode);
+	close_fs(fn);
+	return ret;
 }
 
 long sys_fchmod(int fd, long mode) {
 	if (!FD_CHECK(fd)) return -EBADF;
-	if (this_core->current_process->user != 0 && this_core->current_process->user != FD_ENTRY(fd)->uid) return -EACCES;
-	return chmod_fs(FD_ENTRY(fd), mode);
+	return chmod_node(FD_ENTRY(fd), mode);
 }
 
 long sys_rename(const char * src, const char * dest) {
