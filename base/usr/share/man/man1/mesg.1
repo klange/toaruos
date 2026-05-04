@@ -1,0 +1,38 @@
+.TH MESG 1 "May, 2026"
+
+.SH NAME
+\fBmesg\fP \- permit or deny messages
+
+.SH SYNOPSIS
+\fBmesg\fP [\fBy\fP | \fBn\fP]
+
+.SH DESCRIPTION
+The \fBmesg\fP utility modifies the permissions of the terminal associated with the first
+of standard input, standard output, or standard error which is a terminal, to allow or
+deny writes by group members and other users.
+.PP
+If no argument is provided, \fBmesg\fP will report the current status of the terminal:
+if it allows either group or other user write access, \fBmesg\fP will say "is y";
+if neither permission is set, \fBmesg\fP will say "is n".
+.PP
+If an argument of \fBy\fP is provided, group write access will be enabled for the terminal.
+.PP
+If an argument of \fBn\fP is provided, group and other user write access will be removed
+for the terminal.
+
+.SH EXIT STATUS
+.TP
+0
+Write access is allowed
+
+.TP
+1
+Write access is denied
+
+.TP
+2
+An error occurred while querying or modifying write access
+
+.SH STANDARDS
+POSIX.1-2024
+
