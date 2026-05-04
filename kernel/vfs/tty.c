@@ -594,6 +594,17 @@ fs_node_t * pty_master_create(pty_t * pty) {
 	return fnode;
 }
 
+static int chmod_pty_slave(fs_node_t * node, int mode) {
+	node->mask = mode;
+	return 0;
+}
+
+static int chown_pty_slave(fs_node_t * node, int uid, int gid) {
+	if (uid != -1) node->uid = uid;
+	if (gid != -1) node->gid = gid;
+	return 0;
+}
+
 fs_node_t * pty_slave_create(pty_t * pty) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
@@ -613,6 +624,8 @@ fs_node_t * pty_slave_create(pty_t * pty) {
 	fnode->readdir = NULL;
 	fnode->finddir = NULL;
 	fnode->ioctl = ioctl_pty_slave;
+	fnode->chmod = chmod_pty_slave;
+	fnode->chown = chown_pty_slave;
 	fnode->get_size = pty_available_input;
 	fnode->ctime   = now();
 	fnode->mtime   = now();
