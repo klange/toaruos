@@ -7,21 +7,8 @@
 static char _name[64]; /* NAME_MAX ? */
 
 int getlogin_r(char * buf, size_t bufsize) {
-	int tty = STDIN_FILENO;
-	if (!isatty(tty)) {
-		tty = STDOUT_FILENO;
-		if (!isatty(tty)) {
-			tty = STDERR_FILENO;
-			if (!isatty(tty)) {
-				errno = ENOTTY;
-				return -1;
-			}
-		}
-	}
-
-	/* Get the owner */
 	struct stat statbuf;
-	if (fstat(tty, &statbuf) == -1) return -1;
+	if (stat("/dev/tty", &statbuf) == -1) return -1;
 
 	struct passwd * passwd = getpwuid(statbuf.st_uid);
 	if (!passwd) return -1;
