@@ -570,10 +570,13 @@ static long chown_node(fs_node_t * fn, uid_t uid, gid_t gid) {
 		if (!current_group_matches(gid)) return -EPERM;
 	}
 
-	if ((uid != -1 || gid != -1) && (fn->mask & 0x800)) {
-		/* Whenever the owner or group of a setuid executable is changed, it
-		 * loses the setuid bit. */
-		 chmod_fs(fn, fn->mask & (~0x800));
+	if ((fn->mask & (S_IXUSR | S_IXGRP | S_IXOTH)) && (fn->mask & (S_ISUID | S_ISGID)) &&
+		this_core->current_process->user != USER_ROOT_UID) {
+		/* If any of the execute bits is set, and "the user does not have appropriate priveleges",
+		 * clear the set-user-ID and set-group-ID bits; do this before we actually change
+		 * ownership, to ensure there isn't a point where the new ownership is set but
+		 * the bits haven't been cleared. */
+		chmod_fs(fn, fn->mask & ~(S_ISUID | S_ISGID));
 	}
 
 	return chown_fs(fn, uid, gid);
