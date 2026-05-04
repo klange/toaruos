@@ -137,7 +137,7 @@ static uint32_t vbox_device = 0;
 static uint32_t vbox_port = 0x0;
 static int vbox_irq = 0;
 
-static struct vbox_ack_events * vbox_irq_ack;
+static volatile struct vbox_ack_events * vbox_irq_ack;
 static uint32_t vbox_phys_ack;
 static struct vbox_display_change * vbox_disp;
 static uint32_t vbox_phys_disp;
@@ -151,6 +151,8 @@ static struct vbox_pointershape * vbox_pointershape = NULL;
 static uint32_t vbox_phys_pointershape;
 
 static volatile uint32_t * vbox_vmmdev = 0;
+
+static process_t * vbox_kthread = NULL;
 
 static fs_node_t * mouse_pipe;
 static fs_node_t * rect_pipe;
@@ -196,18 +198,37 @@ static void vbox_do_mouse(void) {
 	write_fs(mouse_pipe, 0, sizeof(packet), (uint8_t *)&packet);
 }
 
+static void delay_yield(size_t subticks) {
+	unsigned long s, ss;
+	relative_time(0, subticks, &s, &ss);
+	sleep_until((process_t *)this_core->current_process, s, ss);
+	switch_task(0);
+}
+
+static void vbox_kthread_handler(void * data) {
+	while (1) {
+		uint32_t events = vbox_vmmdev[2];
+
+		if (events) {
+			vbox_irq_ack->header.rc = -225;
+			vbox_irq_ack->events = 0;
+			asm volatile ("" ::: "memory");
+			outportl(vbox_port, vbox_phys_ack);
+			asm volatile ("" ::: "memory");
+		}
+
+		if (events & VMM_Event_Mouse) vbox_do_mouse();
+		if (events & VMM_Event_DisplayChange) vbox_do_modeset();
+
+		delay_yield(10000);
+	}
+}
+
 static int vbox_irq_handler(struct regs *r) {
-	if (!vbox_vmmdev[2]) return 0;
-
-	uint32_t events;
-
-	events = vbox_irq_ack->events = vbox_vmmdev[2];
-	outportl(vbox_port, vbox_phys_ack);
+	uint32_t events = vbox_vmmdev[2];
+	if (!events) return 0;
+	if (vbox_kthread) make_process_ready(vbox_kthread);
 	irq_ack(vbox_irq);
-
-	if (events & VMM_Event_Mouse) vbox_do_mouse();
-	if (events & VMM_Event_DisplayChange) vbox_do_modeset();
-
 	return 1;
 }
 
@@ -458,16 +479,19 @@ static int vbox_install(int argc, char * argv[]) {
 	{
 		uintptr_t t = pci_read_field(vbox_device, PCI_BAR1, 4);
 		//fprintf(&vb, "mapping vmm_dev = 0x%x\n", t);
+		dprintf("vmm_dev = %p\n", (void*)t);
 		if (t > 0) {
 			vbox_vmmdev =  mmu_map_from_physical(t & 0xFFFFFFF0);
 			printf("Setting vbox mem device at %p\n", (void*)vbox_vmmdev);
 		}
 	}
 
+	vbox_kthread = spawn_worker_thread(vbox_kthread_handler, "[vbox-guest]", NULL);
+
 	/* Try a mode set */
 	vbox_do_modeset();
 
-	vbox_vmmdev[3] = 0xFFFFFFFF; /* Enable all for now */
+	vbox_vmmdev[3] = VMM_Event_DisplayChange | VMM_Event_Mouse | 1;
 
 	return 0;
 }
