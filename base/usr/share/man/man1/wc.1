@@ -13,25 +13,29 @@ provided, a total will also be printed.
 
 .TP
 .B \-c
-Count bytes rather than characters. This is the default.
+Count bytes rather than characters.
+This is the default.
 
 .TP
 .B \-m
-Count characters rather than bytes. This will decode each input as UTF\-8
-and count the codepoints.
+Count characters rather than bytes.
+This will decode each input as UTF\-8 and count the codepoints.
 
 .TP
 .B \-l
-Count the number of lines. This might just be the number of line feed
-characters found with this implementation.
+Count the number of lines.
+A line must be terminated with a line feed character to be counted;
+a file with no line feed characters will report zero lines.
 
 .TP
 .B \-w
-Count the words. This is supposed to be the number of whitespace\-separated
-non\-whitespace things in the file, but I'm not sure if what this implementation
-does is remotely correct.
+Count the words.
+A "word" is a sequence of non-whitespace characters.
 
 .PP
 If no options are given, the default is to print the lines, words, and bytes.
 .PP
 The \-c and \-m options are mutually exclusive.
+
+.SH STANDARDS
+POSIX.1-2024
