@@ -52,6 +52,7 @@
 #define BROKEN_COLOR	"1;"
 #define DEVICE_COLOR	"1;33;40"
 #define SETUID_COLOR	"37;41"
+#define SETGID_COLOR	"30;43"
 
 #define DEFAULT_TERM_WIDTH 0
 #define DEFAULT_TERM_HEIGHT 0
@@ -90,9 +91,11 @@ static const char * color_str(struct stat * sb) {
 	} else if (S_ISLNK(sb->st_mode)) {
 		/* Symbolic Link */
 		return SYMLINK_COLOR;
-	} else if ((sb->st_mode & S_ISUID) || (sb->st_mode & S_ISGID)) {
+	} else if (sb->st_mode & S_ISUID) {
 		/* setuid - sudo, etc. */
 		return SETUID_COLOR;
+	} else if (sb->st_mode & S_ISGID) {
+		return SETGID_COLOR;
 	} else if (sb->st_mode & 0111) {
 		/* Executable */
 		return EXE_COLOR;
