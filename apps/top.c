@@ -72,7 +72,8 @@ static const char * help_text[] = {
 enum {
 	FORMATTER_DECIMAL,
 	FORMATTER_PERCENT,
-	FORMATTER_STRING
+	FORMATTER_STRING,
+	FORMATTER_MEM,
 };
 
 enum {
@@ -90,8 +91,8 @@ struct columns {
 	[COLUMN_NONE] = {"", 0, 0, 0, 0},
 	[COLUMN_PID]  = {"PID",  offsetof(struct process, tgid),  FORMATTER_DECIMAL, 0, SORT_ASC},
 	[COLUMN_TID]  = {"TID",  offsetof(struct process, pid),   FORMATTER_DECIMAL, 0, SORT_ASC},
-	[COLUMN_VSZ]  = {"VSZ",  offsetof(struct process, vsz),   FORMATTER_DECIMAL, 0, SORT_DEC},
-	[COLUMN_SHM]  = {"SHM",  offsetof(struct process, shm),   FORMATTER_DECIMAL, 0, SORT_DEC},
+	[COLUMN_VSZ]  = {"VSZ",  offsetof(struct process, vsz),   FORMATTER_MEM, 0, SORT_DEC},
+	[COLUMN_SHM]  = {"SHM",  offsetof(struct process, shm),   FORMATTER_MEM, 0, SORT_DEC},
 	[COLUMN_MEM]  = {"%MEM", offsetof(struct process, mem),   FORMATTER_PERCENT, 0, SORT_DEC},
 	[COLUMN_CPU]  = {"%CPU", offsetof(struct process, cpu),   FORMATTER_PERCENT, 0, SORT_DEC},
 	[COLUMN_CPUA] = {"CPUA", offsetof(struct process, user_data), FORMATTER_PERCENT, 0, SORT_DEC},
@@ -106,12 +107,24 @@ static int * columns = NULL;
 /**
  * @brief Print a single column to stdout with the appropriate formatter.
  */
-static int print_column(struct process * proc, int column_id) {
+static int print_column(struct process * proc, int column_id, int color) {
 	struct columns * column = &ColumnDescriptions[column_id];
 	switch (column->formatter) {
 		case FORMATTER_DECIMAL: {
 			int value = *(int*)((char *)proc + column->member);
 			return printf("%*d ", column->width, value);
+		}
+		case FORMATTER_MEM: {
+			int value = *(int*)((char *)proc + column->member);
+			if (value >= 10240) {
+				value /= 1024;
+				if (color) printf("%s", T_T);
+				int out = printf("%*dM ", column->width-1, value);
+				if (color) printf("%s", T_E);
+				return out;
+			} else {
+				return printf("%*d ", column->width, value);
+			}
 		}
 		case FORMATTER_PERCENT: {
 			int value = *(int*)((char *)proc + column->member);
@@ -133,19 +146,27 @@ static int print_column(struct process * proc, int column_id) {
  * @brief Calculate the size of a formatted column.
  */
 static int size_column(struct process * proc, int column_id) {
-	char garbage[100];
 	struct columns * column = &ColumnDescriptions[column_id];
 	switch (column->formatter) {
 		case FORMATTER_DECIMAL: {
 			int value = *(int*)((char *)proc + column->member);
-			return snprintf(garbage, 100, "%d", value);
+			return snprintf(NULL, 0, "%d", value);
+		}
+		case FORMATTER_MEM: {
+			int value = *(int*)((char *)proc + column->member);
+			if (value >= 10240) {
+				value /= 1024;
+				return snprintf(NULL, 0, "%dM", value);
+			} else {
+				return snprintf(NULL, 0, "%d", value);
+			}
 		}
 		case FORMATTER_PERCENT: {
 			int value = *(int*)((char *)proc + column->member);
 			if (value >= 1000) {
 				return 3;
 			} else {
-				return snprintf(garbage, 100, "%d.%01d", value / 10, value % 10);
+				return snprintf(NULL, 0, "%d.%01d", value / 10, value % 10);
 			}
 		}
 		case FORMATTER_STRING: {
@@ -193,7 +214,7 @@ void print_entry(struct process * out, int width) {
 	int used = 0;
 	for (int * c = columns; *c; ++c) {
 		if (*c == sort_column) printf(T_C);
-		used += print_column(out, *c);
+		used += print_column(out, *c, 1);
 		if (*c == sort_column) printf(T_E);
 	}
 	const char * color = T_T;
@@ -319,6 +340,7 @@ static int sort_processes(const void * a, const void * b) {
 	}
 
 	switch (column->formatter) {
+		case FORMATTER_MEM:
 		case FORMATTER_DECIMAL:
 		case FORMATTER_PERCENT: {
 			int a = *(int*)((char *)left + column->member);
@@ -735,7 +757,7 @@ static int do_log(void) {
 	for (size_t ent = 0; ent < count; ++ent) {
 		struct process * out = processList[ent];
 		for (int * c = columns; *c; ++c) {
-			print_column(out, *c);
+			print_column(out, *c, 0);
 		}
 		printf("%s%s\n", out->name, out->cmdline);
 		free_entry(out);
