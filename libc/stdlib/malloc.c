@@ -108,6 +108,7 @@
 #include <limits.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/sysfunc.h>
 /* }}} */
 /* Definitions {{{ */
 
@@ -525,7 +526,7 @@ static void klfree(void *ptr) {
 		assert((bheader->size + sizeof(klmalloc_big_bin_header)) % PAGE_SIZE == 0);
 
 		char * args[] = {(char*)header, (char*)(bheader->size + sizeof(klmalloc_big_bin_header))};
-		syscall_sysfunc(43, args);
+		sysfunc(TOARU_SYS_FUNC_MUNMAP, args);
 	} else {
 		/*
 		 * If the stack is empty, we are freeing
