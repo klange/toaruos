@@ -557,7 +557,7 @@ static int current_group_matches(gid_t gid) {
 
 static long chown_node(fs_node_t * fn, uid_t uid, gid_t gid) {
 	/* Only a privileged user can change the owner of a file. */
-	if (this_core->current_process->user != USER_ROOT_UID && uid != -1) return -EPERM;
+	if (this_core->current_process->user != USER_ROOT_UID && uid != -1 && uid != fn->uid) return -EPERM;
 
 	if (this_core->current_process->user != USER_ROOT_UID && gid != -1) {
 		/* The owner of a file... */
