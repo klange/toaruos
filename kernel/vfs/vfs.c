@@ -297,7 +297,7 @@ int chmod_fs(fs_node_t *node, mode_t mode) {
 	if (node->chmod) {
 		return node->chmod(node, mode);
 	}
-	return 0;
+	return -EPERM;
 }
 
 /**
@@ -307,7 +307,7 @@ int chown_fs(fs_node_t *node, uid_t uid, gid_t gid) {
 	if (node->chown) {
 		return node->chown(node, uid, gid);
 	}
-	return 0;
+	return -EPERM;
 }
 
 /**
