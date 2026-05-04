@@ -65,6 +65,7 @@ _permlist:
 			case 's':
 				setuid = (who & S_IXUSR) ? 1 : 0;
 				setgid = (who & S_IXGRP) ? 1 : 0;
+				c++;
 				goto _permlist;
 			case '+':
 			case '-':
