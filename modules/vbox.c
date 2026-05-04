@@ -479,7 +479,6 @@ static int vbox_install(int argc, char * argv[]) {
 	{
 		uintptr_t t = pci_read_field(vbox_device, PCI_BAR1, 4);
 		//fprintf(&vb, "mapping vmm_dev = 0x%x\n", t);
-		dprintf("vmm_dev = %p\n", (void*)t);
 		if (t > 0) {
 			vbox_vmmdev =  mmu_map_from_physical(t & 0xFFFFFFF0);
 			printf("Setting vbox mem device at %p\n", (void*)vbox_vmmdev);
