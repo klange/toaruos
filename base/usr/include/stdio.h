@@ -83,6 +83,9 @@ extern int rename(const char * oldpath, const char * newpath);
 extern char * tmpnam(char * s);
 #define L_tmpnam 256
 
+extern char * ctermid(char * s);
+#define L_ctermid 1024
+
 extern int vsscanf(const char *str, const char *format, va_list ap);
 extern int sscanf(const char *str, const char *format, ...);
 extern int vfscanf(FILE * stream, const char *format, va_list ap);
