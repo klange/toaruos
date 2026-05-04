@@ -628,14 +628,8 @@ static int isatty(fs_node_t * node) {
 }
 
 static ssize_t readlink_dev_tty(fs_node_t * node, char * buf, size_t size) {
-	pty_t * pty = NULL;
+	pty_t * pty = this_core->current_process->pty;
 
-	for (unsigned int i = 0; i < ((this_core->current_process->fds->length < 3) ? this_core->current_process->fds->length : 3); ++i) {
-		if (isatty(this_core->current_process->fds->entries[i])) {
-			pty = (pty_t *)this_core->current_process->fds->entries[i]->device;
-			break;
-		}
-	}
 
 	char tmp[100];
 	size_t req;
