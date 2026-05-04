@@ -10,6 +10,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <ctype.h>
 #include <errno.h>
 #include <toaru/decodeutf8.h>
 
@@ -68,7 +69,7 @@ int main(int argc, char * argv[]) {
 		int words = 0;
 		int ch;
 		uint32_t state, c;
-		int last_was_whitespace = 0;
+		int new_word = 1;
 
 		while (!feof(f)) {
 			ch = getc(f);
@@ -84,20 +85,16 @@ int main(int argc, char * argv[]) {
 			}
 
 			chars++;
-			if (c == '\n') {
-				last_was_whitespace = 1;
-				lines++;
-				words++;
-			} else if (c == ' ') {
-				if (last_was_whitespace) continue;
-				last_was_whitespace = 1;
-				words++;
-			} else {
-				last_was_whitespace = 0;
-			}
-		}
 
-		if (!last_was_whitespace && chars > 0) words++;
+			if (isspace(c)) {
+				new_word = 1;
+			} else if (new_word) {
+				new_word = 0;
+				words++;
+			}
+
+			if (c == '\n') lines++;
+		}
 
 		if (!show_words && !show_chars && !show_bytes && !show_lines) {
 			fprintf(stdout, "%d %d %d %s\n", lines, words, chars, argv[i]);
