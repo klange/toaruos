@@ -676,6 +676,15 @@ static int do_once(int delay) {
 		printf(T_K "\n");
 	}
 
+	printf(T_H " "
+		T_R "q" T_S " quit  "
+		T_R "w" T_S " next col  "
+		T_R "W" T_S " prev col  "
+		T_R "T" T_S " %s threads  "
+		T_K T_E,
+		combine_threads ? "show" : "hide");
+	fflush(stdout);
+
 	/* Clean up process data from this round */
 	for (ent = 0; ent < count; ++ent) {
 		free_entry(processList[ent]);
