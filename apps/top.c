@@ -362,10 +362,10 @@ static int sort_processes(const void * a, const void * b) {
  * @p total (out) Total memory available in KiB
  * @p used  (out) In-use memory in KiB
  */
-static void get_mem_info(int * total, int * used) {
+static void get_mem_info(ssize_t * total, ssize_t * used) {
 	FILE * f = fopen("/proc/meminfo", "r");
 	if (!f) return;
-	int free;
+	ssize_t free;
 	char buf[1024] = {0};
 	fgets(buf, 1024, f);
 
@@ -374,13 +374,13 @@ static void get_mem_info(int * total, int * used) {
 	a++;
 	b = strchr(a, '\n');
 	*b = '\0';
-	*total = atoi(a);
+	*total = strtol(a, NULL, 10);
 	fgets(buf, 1024, f);
 	a = strchr(buf, ' ');
 	a++;
 	b = strchr(a, '\n');
 	*b = '\0';
-	free = atoi(a);
+	free = strtol(a, NULL, 10);
 	*used = *total - free;
 
 	fclose(f);
@@ -442,7 +442,7 @@ static int fill_colors[] = {
  * @p filled Values to stack in the meter.
  * @p maximum Maximum value of the meter.
  */
-static void print_meter(const char * title, const char * label, int width, int count, int filled[], int maximum) {
+static void print_meter(const char * title, const char * label, int width, int count, ssize_t filled[], size_t maximum) {
 	int available = width - strlen(title) - 4;
 	int remaining = available;
 	int fillSlots = 0;
@@ -566,7 +566,7 @@ static int do_once(int delay) {
 	struct process ** processList = read_processes(&count);
 
 	/* Gather total memory usage /proc/meminfo */
-	int mem_total = 0, mem_used = 0;
+	ssize_t mem_total = 0, mem_used = 0;
 	get_mem_info(&mem_total, &mem_used);
 
 	size_t mem_tmpfs = 0;
@@ -626,7 +626,7 @@ static int do_once(int delay) {
 		char name[20], usage[30];
 		sprintf(name, "%3d", cpu + 1);
 		sprintf(usage, "%d.%01d%%", cpus[cpu] / 10, cpus[cpu] % 10);
-		print_meter(name, usage, left_side ? meter_width : info_width, 1, (int[]){cpus[cpu]}, 1000);
+		print_meter(name, usage, left_side ? meter_width : info_width, 1, (ssize_t[]){cpus[cpu]}, 1000);
 
 		if (current_row < info_rows) {
 			printf("%s" T_K "\n", info_row[current_row]);
@@ -644,9 +644,9 @@ static int do_once(int delay) {
 	}
 
 	/* Display memory usage widget */
-	char memUsed[30];
-	sprintf(memUsed, "%dM/%dM", mem_used / 1024, mem_total / 1024);
-	print_meter("Mem", memUsed, left_side ? meter_width : info_width, 2, (int[]){mem_used-mem_tmpfs,mem_tmpfs}, mem_total);
+	char memUsed[100];
+	sprintf(memUsed, "%zdM/%zdM", mem_used / 1024, mem_total / 1024);
+	print_meter("Mem", memUsed, left_side ? meter_width : info_width, 2, (ssize_t[]){mem_used-mem_tmpfs,mem_tmpfs}, mem_total);
 	if (left_side && current_row < info_rows) {
 		printf("%s", info_row[current_row]);
 	}
@@ -708,7 +708,7 @@ static int do_log(void) {
 	size_t count;
 	struct process ** processList = read_processes(&count);
 
-	int mem_total = 0, mem_used = 0;
+	ssize_t mem_total = 0, mem_used = 0;
 	get_mem_info(&mem_total, &mem_used);
 
 	size_t mem_tmpfs = 0;
@@ -738,7 +738,7 @@ static int do_log(void) {
 	}
 
 	/* Task count and memory usage on one line */
-	printf("Tasks: %-7lu Mem: %dM/%dM (%ldM tmpfs)\n", count, mem_used / 1024, mem_total / 1024, mem_tmpfs/1024);
+	printf("Tasks: %-7lu Mem: %zdM/%zdM (%zuM tmpfs)\n", count, mem_used / 1024, mem_total / 1024, mem_tmpfs/1024);
 
 	/* CPU usage; all on one line; formatted best for small counts and <100% usage */
 	for (int cpu = 0; cpu < cpu_count; ++cpu) {
