@@ -159,6 +159,7 @@ int procfs_iterate(int (*callback)(struct process *,void*), void *ctx, int flags
 	for (struct dirent * ent = readdir(dirp); ent; ent = readdir(dirp)) {
 		if (ent->d_name[0] >= '0' && ent->d_name[0] <= '9') {
 			p_t * proc = build_entry(ent, flags);
+			if (!proc) continue;
 			if ((flags & PROCFSLIB_NO_THREADS) && proc->pid != proc->tgid) {
 				procfs_free(proc);
 				continue;
