@@ -74,18 +74,6 @@ long sys_sysfunc(long fn, char ** args) {
 			printf("kdebug: not implemented\n");
 			return -EINVAL;
 
-		case TOARU_SYS_FUNC_MUNMAP: {
-			extern void mmu_unmap_user(uintptr_t addr, size_t size);
-			PTR_VALIDATE(&args[0]);
-			PTR_VALIDATE(&args[1]);
-			volatile process_t * volatile proc = this_core->current_process->process;
-			if (!proc) return -EFAULT;
-			spin_lock(proc->image.lock);
-			mmu_unmap_user((uintptr_t)args[0], (size_t)args[1]);
-			spin_unlock(proc->image.lock);
-			return 0;
-		}
-
 		case TOARU_SYS_FUNC_INSMOD:
 			/* Linux has init_module as a system call? */
 			if (this_core->current_process->user != 0) return -EACCES;
@@ -1355,6 +1343,12 @@ long sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t 
 	return mmap_file(addr, length, prot, flags, FD_ENTRY(fd), offset);
 }
 
+long sys_munmap(uintptr_t addr, size_t length) {
+	if (addr & 0xFFF) return -EINVAL;
+	if (length == 0) return -EINVAL;
+	return mmap_unmap(addr, length);
+}
+
 extern long ptrace_handle(long,pid_t,void*,void*);
 
 typedef long (*scall_func)(long,long,long,long,long,long);
@@ -1447,6 +1441,7 @@ static scall_func syscalls[] = {
 	[SYS_SETRESGID]    = (scall_func)(uintptr_t)sys_setresgid,
 	[SYS_SETREGID]     = (scall_func)(uintptr_t)sys_setregid,
 	[SYS_MMAP]         = (scall_func)(uintptr_t)sys_mmap,
+	[SYS_MUNMAP]       = (scall_func)(uintptr_t)sys_munmap,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

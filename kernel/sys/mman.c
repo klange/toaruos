@@ -38,6 +38,15 @@ long mmap_sbrk(size_t size) {
 	return (long)out;
 }
 
+extern void mmu_unmap_user(uintptr_t addr, size_t size);
+long mmap_unmap(uintptr_t addr, size_t length) {
+	volatile process_t * volatile proc = this_core->current_process->process;
+	spin_lock(proc->image.lock);
+	mmu_unmap_user(addr, length);
+	spin_unlock(proc->image.lock);
+	return 0;
+}
+
 long mmap_anon(uintptr_t addr, size_t length, int prot, int flags) {
 	//dprintf("Map anonymous (zeroed on load) memory at %#zx[:%#zx]\n", addr, length);
 	if (!(flags & MAP_FIXED)) return dprintf("must be fixed\n"), -ENOTSUP;
@@ -78,3 +87,4 @@ long mmap_file(uintptr_t addr, size_t length, int prot, int flags, fs_node_t * f
 
 	return addr;
 }
+

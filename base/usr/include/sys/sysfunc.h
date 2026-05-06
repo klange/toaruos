@@ -22,9 +22,6 @@
 #define TOARU_SYS_FUNC_SETGSBASE    14
 #define TOARU_SYS_FUNC_NPROC        15
 
-/* Experimental */
-#define TOARU_SYS_FUNC_MUNMAP       43
-
 _Begin_C_Header
 extern int sysfunc(int command, char ** args);
 _End_C_Header

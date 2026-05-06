@@ -21,6 +21,7 @@ _Begin_C_Header
 #ifndef __kernel__
 
 extern void * mmap(void *,size_t,int,int,int,off_t);
+extern int munmap(void*,size_t);
 
 #endif
 

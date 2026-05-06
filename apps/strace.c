@@ -132,6 +132,7 @@ const char * syscall_names[] = {
 	[SYS_SETRESGID]    = "setresgid",
 	[SYS_SETREGID]     = "setregid",
 	[SYS_MMAP]         = "mmap",
+	[SYS_MUNMAP]       = "munmap",
 };
 
 char syscall_mask[] = {
@@ -234,6 +235,7 @@ char syscall_mask[] = {
 	[SYS_SETRESGID]    = 1,
 	[SYS_SETREGID]     = 1,
 	[SYS_MMAP]         = 1,
+	[SYS_MUNMAP]       = 1,
 };
 
 static const int syscall_set_net[] = {
@@ -257,7 +259,7 @@ static const int syscall_set_desc[] = {
 };
 
 static const int syscall_set_memory[] = {
-	SYS_SBRK, SYS_SHM_OBTAIN, SYS_SHM_RELEASE, SYS_MMAP, 0
+	SYS_SBRK, SYS_SHM_OBTAIN, SYS_SHM_RELEASE, SYS_MMAP, SYS_MUNMAP, 0
 };
 
 static const int syscall_set_ipc[] = {
@@ -1044,7 +1046,6 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 				C(TOARU_SYS_FUNC_THREADNAME);
 				C(TOARU_SYS_FUNC_SETGSBASE);
 				C(TOARU_SYS_FUNC_NPROC);
-				C(TOARU_SYS_FUNC_MUNMAP);
 				default: int_arg(uregs_syscall_arg1(r)); break;
 			} COMMA;
 			pointer_arg(uregs_syscall_arg2(r));
@@ -1239,6 +1240,10 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			mmap_flags_arg(uregs_syscall_arg4(r)); COMMA;
 			fd_arg(pid, uregs_syscall_arg5(r)); COMMA;
 			int_arg(uregs_syscall_arg6(r));
+			break;
+		case SYS_MUNMAP:
+			pointer_arg(uregs_syscall_arg1(r)); COMMA;
+			uint_arg(uregs_syscall_arg2(r));
 			break;
 		/* These have no arguments: */
 		case SYS_YIELD:
