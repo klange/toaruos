@@ -431,7 +431,7 @@ process_t * spawn_kidle(int bsp) {
 	idle->wait_queue = list_create("process wait queue (kidle)",idle);
 	idle->shm_mappings = list_create("process shm mappings (kidle)",idle);
 	gettimeofday(&idle->start, NULL);
-	idle->thread.page_directory = malloc(sizeof(page_directory_t));
+	idle->thread.page_directory = calloc(1, sizeof(page_directory_t));
 	idle->thread.page_directory->refcount = 1;
 	idle->thread.page_directory->directory = mmu_clone(this_core->current_pml);
 	idle->signals = NULL;
@@ -491,7 +491,7 @@ process_t * spawn_init(void) {
 
 	init->timed_sleep_node = NULL;
 
-	init->thread.page_directory = malloc(sizeof(page_directory_t));
+	init->thread.page_directory = calloc(1, sizeof(page_directory_t));
 	init->thread.page_directory->refcount = 1;
 	init->thread.page_directory->directory = this_core->current_pml;
 	spin_init(init->thread.page_directory->lock);
@@ -1387,7 +1387,7 @@ pid_t fork(void) {
 	process_t * new_proc = spawn_process(parent->process, 0, 1);
 	new_proc->process = new_proc;
 	new_proc->pty = parent->process->pty;
-	new_proc->thread.page_directory = malloc(sizeof(page_directory_t));
+	new_proc->thread.page_directory = calloc(1, sizeof(page_directory_t));
 	new_proc->thread.page_directory->refcount = 1;
 	new_proc->thread.page_directory->directory = directory;
 	spin_init(new_proc->thread.page_directory->lock);
@@ -1493,7 +1493,7 @@ process_t * spawn_worker_thread(void (*entrypoint)(void * argp), const char * na
 
 	proc->signals = calloc(NUMSIGNALS+1, sizeof(struct signal_config));
 
-	proc->thread.page_directory = malloc(sizeof(page_directory_t));
+	proc->thread.page_directory = calloc(1, sizeof(page_directory_t));
 	proc->thread.page_directory->refcount = 1;
 	proc->thread.page_directory->directory = mmu_clone(mmu_get_kernel_directory());
 	spin_init(proc->thread.page_directory->lock);

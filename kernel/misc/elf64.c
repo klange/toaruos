@@ -324,7 +324,7 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	process_acquire_big_lock();
 	mmu_set_directory(NULL);
 	page_directory_t * this_directory = this_core->current_process->thread.page_directory;
-	this_core->current_process->thread.page_directory = malloc(sizeof(page_directory_t));
+	this_core->current_process->thread.page_directory = calloc(1, sizeof(page_directory_t));
 	this_core->current_process->thread.page_directory->refcount = 1;
 	spin_init(this_core->current_process->thread.page_directory->lock);
 	this_core->current_process->thread.page_directory->directory = mmu_clone(NULL);

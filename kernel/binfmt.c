@@ -147,7 +147,7 @@ int system(const char * path, int argc, char *const argv[], char *const envin[])
 	}
 	argv_[argc] = NULL;
 	char * env[] = {NULL};
-	this_core->current_process->thread.page_directory = malloc(sizeof(page_directory_t));
+	this_core->current_process->thread.page_directory = calloc(1, sizeof(page_directory_t));
 	this_core->current_process->thread.page_directory->directory = mmu_clone(NULL); /* base PML? for exec? */
 	this_core->current_process->thread.page_directory->refcount = 1;
 	spin_init(this_core->current_process->thread.page_directory->lock);
