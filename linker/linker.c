@@ -390,7 +390,7 @@ static int object_postload(elf_t * object) {
 
 /* Whether symbol addresses is needed for a relocation type */
 static int need_symbol_for_type(unsigned int type) {
-#ifdef __x86_64__
+#if defined(__x86_64__)
 	switch(type) {
 		case R_X86_64_64:
 		case R_X86_64_PC32:
@@ -405,19 +405,20 @@ static int need_symbol_for_type(unsigned int type) {
 		default:
 			return 0;
 	}
-#else
+#elif defined(__aarch64__)
 	switch(type) {
-		case 1024:
-		case 1025:
-		case 1026:
-		case 1030:
-		case 1031:
-		case 257:
+		case R_AARCH64_COPY:
+		case R_AARCH64_GLOB_DAT:
+		case R_AARCH64_JUMP_SLOT:
+		case R_AARCH64_TLS_TPREL:
+		case R_AARCH64_TLSDESC:
+		case R_AARCH64_ABS64:
 			return 1;
 		default:
 			return 0;
 	}
-
+#else
+# error "Unknown arch"
 #endif
 }
 
@@ -540,26 +541,26 @@ static int object_relocate(elf_t * object) {
 						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
 						break;
 #elif defined(__aarch64__)
-					case 1024: /* COPY */
+					case R_AARCH64_COPY:
 						memcpy((void *)(table->r_offset + object->base), (void *)x, sym->st_size);
 						break;
-					case 1025: /* GLOB_DAT */
+					case R_AARCH64_GLOB_DAT:
 						if (symname && hashmap_has(glob_dat, symname)) {
 							x = (uintptr_t)hashmap_get(glob_dat, symname);
 						} /* fallthrough */
-					case 1026: /* JUMP_SLOT */
+					case R_AARCH64_JUMP_SLOT:
 						memcpy((void*)(table->r_offset + object->base), &x, sizeof(uintptr_t));
 						break;
-					case 1027: /* RELATIVE */
+					case R_AARCH64_RELATIVE:
 						x = object->base;
 						x += table->r_addend;
 						memcpy((void*)(table->r_offset + object->base), &x, sizeof(uintptr_t));
 						break;
-					case 257: /* ABS64 */
+					case R_AARCH64_ABS64:
 						x += table->r_addend;
 						memcpy((void*)(table->r_offset + object->base), &x, sizeof(uintptr_t));
 						break;
-					case 1030: /* TLS_TPREL64 TPREL(S+A) */
+					case R_AARCH64_TLS_TPREL:
 						x += *((ssize_t *)(table->r_offset + object->base)); /* A */
 						if (!hashmap_has(tls_map, symname)) {
 							if (!sym->st_size) {
@@ -575,7 +576,7 @@ static int object_relocate(elf_t * object) {
 						}
 						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
 						break;
-					case 1031: {
+					case R_AARCH64_TLSDESC: {
 						if (symbol) {
 							if (!hashmap_has(tls_map, symname)) {
 								fprintf(stderr, "Warning: Don't know where to get %s (symbol %d) from TLS\n", symname, symbol);
@@ -594,47 +595,7 @@ static int object_relocate(elf_t * object) {
 						break;
 					}
 #else
-# error "unsupported"
-#endif
-#if 0
-					case 6: /* GLOB_DAT */
-						if (symname && hashmap_has(glob_dat, symname)) {
-							x = (uintptr_t)hashmap_get(glob_dat, symname);
-						}
-					case 7: /* JUMP_SLOT */
-						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
-						break;
-					case 1: /* 32 */
-						x += *((ssize_t *)(table->r_offset + object->base));
-						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
-						break;
-					case 2: /* PC32 */
-						x += *((ssize_t *)(table->r_offset + object->base));
-						x -= (table->r_offset + object->base);
-						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
-						break;
-					case 8: /* RELATIVE */
-						x = object->base;
-						x += *((ssize_t *)(table->r_offset + object->base));
-						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
-						break;
-					case 5: /* COPY */
-						memcpy((void *)(table->r_offset + object->base), (void *)x, sym->st_size);
-						break;
-					case 14: /* TLS_TPOFF */
-						x = *((ssize_t *)(table->r_offset + object->base));
-						if (!hashmap_has(tls_map, symname)) {
-							if (!sym->st_size) {
-								fprintf(stderr, "Haven't placed %s in static TLS yet but don't know its size?\n", symname);
-							}
-							current_tls_offset += sym->st_size; /* TODO alignment restrictions */
-							hashmap_set(tls_map, symname, (void*)(current_tls_offset));
-							x -= current_tls_offset;
-						} else {
-							x -= (size_t)hashmap_get(tls_map, symname);
-						}
-						memcpy((void *)(table->r_offset + object->base), &x, sizeof(uintptr_t));
-						break;
+# error "Unknown arch"
 #endif
 					default:
 						TRACE_LD("Unknown relocation type: %d", type);

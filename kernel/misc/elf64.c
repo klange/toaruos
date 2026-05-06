@@ -187,21 +187,21 @@ int elf_module(char ** args) {
 					T32 = S + A - P;
 					break;
 #elif defined(__aarch64__)
-				case 275: { /* R_AARCH64_ADR_PREL_PG_HI21 */
+				case R_AARCH64_ADR_PREL_PG_HI21: {
 					T32 = T32 | aarch64_imm_adr( ((S + A) >> 12) - (P >> 12) );
 					break;
 				}
-				case 286: /* R_AARCH64_LDST64_ABS_LO12_NC */
+				case R_AARCH64_LDST64_ABS_LO12_NC:
 					T32 = T32 | aarch64_imm_12( ((S + A) >> 3) & 0x1FF );
 					break;
-				case 282: /* R_AARCH64_JUMP26 */
-				case 283: /* R_AARCH64_CALL26 */
+				case R_AARCH64_JUMP26:
+				case R_AARCH64_CALL26:
 					T32 = T32 | (((S + A - P) >> 2) & 0x3ffffff);
 					break;
-				case 257: /* ABS64 */
+				case R_AARCH64_ABS64:
 					T64 = S + A;
 					break;
-				case 258: /* ABS32 */
+				case R_AARCH64_ABS32:
 					T32 = S + A;
 					break;
 #endif
