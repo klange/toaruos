@@ -461,15 +461,6 @@ static int object_relocate(elf_t * object) {
 			if (table->st_shndx) {
 				if (!hashmap_has(dumb_symbol_table, symname)) {
 					hashmap_set(dumb_symbol_table, symname, (void*)(table->st_value + (is_tls ? 0 : object->base)));
-					table->st_value = table->st_value + (is_tls ? 0 : object->base);
-				} else {
-					table->st_value = (uintptr_t)hashmap_get(dumb_symbol_table, symname);
-				}
-			} else {
-				if (hashmap_has(dumb_symbol_table, symname)) {
-					table->st_value = (uintptr_t)hashmap_get(dumb_symbol_table, symname);
-				} else {
-					table->st_value = table->st_value + (is_tls ? 0 : object->base);
 				}
 			}
 
@@ -496,7 +487,7 @@ static int object_relocate(elf_t * object) {
 
 				/* If we need symbol for this, get it. */
 				char * symname = NULL;
-				uintptr_t x = sym->st_value;
+				uintptr_t x = sym->st_shndx == (SHN_ABS ? 0 : object->base) + sym->st_value;
 				if (need_symbol_for_type(type) || (type == 5)) {
 					symname = (char *)((uintptr_t)object->dyn_string_table + sym->st_name);
 					if (symname && hashmap_has(dumb_symbol_table, symname)) {
@@ -734,11 +725,14 @@ static void * object_find_symbol(elf_t * object, const char * symbol_name) {
 		return NULL;
 	}
 
+	if (symbol_name && hashmap_has(dumb_symbol_table, symbol_name)) return hashmap_get(dumb_symbol_table, symbol_name);
+
 	Elf64_Sym * table = object->dyn_symbol_table;
 	size_t i = 0;
 	while (i < object->dyn_symbol_table_size) {
 		if (!strcmp(symbol_name, (char *)((uintptr_t)object->dyn_string_table + table->st_name))) {
-			return (void *)(table->st_value);
+			int is_tls = (table->st_info & 0xF) == 6;
+			return (void*)((((table->st_shndx == SHN_ABS) || is_tls) ? 0 : object->base) + table->st_value);
 		}
 		table++;
 		i++;
