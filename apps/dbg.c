@@ -111,22 +111,7 @@ static char * read_string(pid_t pid, uintptr_t ptr) {
 	return out;
 }
 
-typedef struct elf_object {
-	FILE * file;
-	Elf64_Header header;
-	char * dyn_string_table;
-	size_t dyn_string_table_size;
-	Elf64_Sym * dyn_symbol_table;
-	size_t dyn_symbol_table_size;
-	Elf64_Dyn * dynamic;
-	Elf64_Word * dyn_hash;
-	void (*init)(void);
-	void (**init_array)(void);
-	size_t init_array_size;
-	uintptr_t base;
-	list_t * dependencies;
-	int loaded;
-} elf_t;
+#include <toaru/ld_elf.h>
 
 static int find_symbol(pid_t pid, uintptr_t addr_in, char ** name, uintptr_t *addr_out, char ** objname) {
 

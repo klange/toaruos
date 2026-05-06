@@ -87,33 +87,7 @@ static size_t current_tls_offset = 16;
 static char * last_error = NULL;
 
 static int _target_is_suid = 0;
-
-typedef struct elf_object {
-	int file_fd;
-
-	/* Full copy of the header. */
-	Elf64_Header header;
-
-	char * dyn_string_table;
-	size_t dyn_string_table_size;
-
-	Elf64_Sym * dyn_symbol_table;
-	size_t dyn_symbol_table_size;
-
-	Elf64_Dyn * dynamic;
-	Elf64_Word * dyn_hash;
-
-	void (*init)(void);
-	void (**init_array)(void);
-	size_t init_array_size;
-
-	uintptr_t base;
-
-	list_t * dependencies;
-
-	int loaded;
-
-} elf_t;
+#include <toaru/ld_elf.h>
 
 static elf_t * _main_obj = NULL;
 
