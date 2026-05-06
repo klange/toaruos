@@ -190,9 +190,11 @@ void mmu_frame_allocate(union PML * page, unsigned int flags) {
 	page->bits.af = 1;
 	page->bits.sh = 2;
 	page->bits.attrindx = ((flags & MMU_FLAG_NOCACHE) | (flags & MMU_FLAG_WRITETHROUGH)) ? 0 : 1;
+	page->bits.uxn = (flags & MMU_FLAG_NOEXECUTE) ? 1 : 0;
 
 	if (!(flags & MMU_FLAG_KERNEL)) {
 		page->bits.attrindx = 1;
+		page->bits.pxn = 1;
 
 		if ((flags & MMU_FLAG_WC) == MMU_FLAG_WC) {
 			page->bits.attrindx = 2;
@@ -369,6 +371,16 @@ _noentry:
 	return NULL;
 }
 
+void mmu_flush(char* page_out) {
+	asm volatile ("dmb sy\nisb" ::: "memory");
+	for (uintptr_t x = (uintptr_t)page_out; x < (uintptr_t)page_out + PAGE_SIZE; x += 64) {
+		asm volatile ("dc cvau, %0" :: "r"(x));
+	}
+	for (uintptr_t x = (uintptr_t)page_out; x < (uintptr_t)page_out + PAGE_SIZE; x += 64) {
+		asm volatile ("ic ivau, %0" :: "r"(x));
+	}
+}
+
 static int copy_page_maybe(union PML * pt_in, union PML * pt_out, size_t l, uintptr_t address) {
 	spin_lock(frame_alloc_lock);
 
@@ -379,14 +391,7 @@ static int copy_page_maybe(union PML * pt_in, union PML * pt_out, size_t l, uint
 	mmu_frame_set(newPage);
 	char * page_out = mmu_map_from_physical(newPage);
 	memcpy(page_out,page_in,PAGE_SIZE);
-	asm volatile ("dmb sy\nisb" ::: "memory");
-
-	for (uintptr_t x = (uintptr_t)page_out; x < (uintptr_t)page_out + PAGE_SIZE; x += 64) {
-		asm volatile ("dc cvau, %0" :: "r"(x));
-	}
-	for (uintptr_t x = (uintptr_t)page_out; x < (uintptr_t)page_out + PAGE_SIZE; x += 64) {
-		asm volatile ("ic ivau, %0" :: "r"(x));
-	}
+	mmu_flush(page_out);
 
 	pt_out[l].raw = 0;
 	pt_out[l].bits.table_page = 1;
@@ -394,6 +399,7 @@ static int copy_page_maybe(union PML * pt_in, union PML * pt_out, size_t l, uint
 	pt_out[l].bits.ap = pt_in[l].bits.ap;
 	pt_out[l].bits.af = pt_in[l].bits.af;
 	pt_out[l].bits.sh = pt_in[l].bits.sh;
+	pt_out[l].bits.uxn = pt_in[l].bits.uxn;
 	pt_out[l].bits.attrindx = pt_in[l].bits.attrindx;
 	pt_out[l].bits.page = newPage >> PAGE_SHIFT;
 	asm volatile ("" ::: "memory");
@@ -730,7 +736,7 @@ void mmu_unmap_user(uintptr_t addr, size_t size) {
 				}
 			}
 
-			mmu_invalidate(a);
+			//mmu_invalidate(a);
 		}
 
 		spin_unlock(frame_alloc_lock);

@@ -872,6 +872,10 @@ void mmu_invalidate(uintptr_t addr) {
 	arch_tlb_shootdown(addr);
 }
 
+void mmu_flush(char * addr) {
+	asm volatile ("" : : : "memory");
+}
+
 int mmu_get_page_deep(uintptr_t virtAddr, union PML ** pml4_out, union PML ** pdp_out, union PML ** pd_out, union PML ** pt_out) {
 	/* This is all the same as x86, thankfully? */
 	uintptr_t realBits = virtAddr & CANONICAL_MASK;

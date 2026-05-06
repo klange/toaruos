@@ -44,6 +44,7 @@ void mmu_set_directory(union PML * new_pml);
 void mmu_free(union PML * from);
 union PML * mmu_clone(union PML * from);
 void mmu_invalidate(uintptr_t addr);
+void mmu_flush(char*);
 uintptr_t mmu_allocate_a_frame(void);
 uintptr_t mmu_allocate_n_frames(int n);
 union PML * mmu_get_kernel_directory(void);
