@@ -98,3 +98,4 @@
 #define SYS_SETREUID 95
 #define SYS_SETRESGID 96
 #define SYS_SETREGID 97
+#define SYS_MMAP 98

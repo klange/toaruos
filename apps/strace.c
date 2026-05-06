@@ -24,6 +24,7 @@
 #include <sys/socket.h>
 #include <sys/uregs.h>
 #include <sys/resource.h>
+#include <sys/mman.h>
 #include <syscall_nums.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -130,6 +131,7 @@ const char * syscall_names[] = {
 	[SYS_SETREUID]     = "setreuid",
 	[SYS_SETRESGID]    = "setresgid",
 	[SYS_SETREGID]     = "setregid",
+	[SYS_MMAP]         = "mmap",
 };
 
 char syscall_mask[] = {
@@ -231,6 +233,7 @@ char syscall_mask[] = {
 	[SYS_SETREUID]     = 1,
 	[SYS_SETRESGID]    = 1,
 	[SYS_SETREGID]     = 1,
+	[SYS_MMAP]         = 1,
 };
 
 static const int syscall_set_net[] = {
@@ -254,7 +257,7 @@ static const int syscall_set_desc[] = {
 };
 
 static const int syscall_set_memory[] = {
-	SYS_SBRK, SYS_SHM_OBTAIN, SYS_SHM_RELEASE, 0
+	SYS_SBRK, SYS_SHM_OBTAIN, SYS_SHM_RELEASE, SYS_MMAP, 0
 };
 
 static const int syscall_set_ipc[] = {
@@ -857,6 +860,27 @@ static void signal_ptr_arg(pid_t pid, uintptr_t ptr) {
 	fprintf(logfile, "}");
 }
 
+static void mmap_prot_arg(int flags) {
+	if (!flags) fprintf(logfile,"PROT_NONE");
+	else {
+		H(PROT_READ);
+		H(PROT_WRITE);
+		H(PROT_EXEC);
+		if (flags) fprintf(logfile,"%#x",flags);
+	}
+}
+
+static void mmap_flags_arg(int flags) {
+	if (!flags) fprintf(logfile,"0");
+	else {
+		H(MAP_SHARED);
+		H(MAP_PRIVATE);
+		H(MAP_FIXED);
+		H(MAP_ANONYMOUS);
+		if (flags) fprintf(logfile,"%#x",flags);
+	}
+}
+
 static void handle_syscall(pid_t pid, struct URegs * r) {
 	if (uregs_syscall_num(r) >= sizeof(syscall_mask)) return;
 	if (!syscall_mask[uregs_syscall_num(r)]) return;
@@ -1209,6 +1233,14 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			int_arg(uregs_syscall_arg2(r)); COMMA;
 			int_arg(uregs_syscall_arg3(r));
 			break;
+		case SYS_MMAP:
+			pointer_arg(uregs_syscall_arg1(r)); COMMA;
+			uint_arg(uregs_syscall_arg2(r)); COMMA;
+			mmap_prot_arg(uregs_syscall_arg3(r)); COMMA;
+			mmap_flags_arg(uregs_syscall_arg4(r)); COMMA;
+			fd_arg(pid, uregs_syscall_arg5(r)); COMMA;
+			int_arg(uregs_syscall_arg6(r));
+			break;
 		/* These have no arguments: */
 		case SYS_YIELD:
 		case SYS_FORK:
@@ -1300,6 +1332,10 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			uint_arg(uregs_syscall_arg2(r));
 			maybe_errno(r);
+			break;
+		case SYS_MMAP:
+			if ((intptr_t)uregs_syscall_result(r) >= 0) fprintf(logfile, ") = %#zx\n", uregs_syscall_result(r));
+			else maybe_errno(r);
 			break;
 		case SYS_GETRUSAGE:
 			struct_rusage_arg(pid, uregs_syscall_arg2(r)); COMMA;

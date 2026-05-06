@@ -1,0 +1,9 @@
+#include <syscall.h>
+#include <syscall_nums.h>
+#include <errno.h>
+
+DEFN_SYSCALL6(mmap, SYS_MMAP, void*, size_t, int, int, int, off_t);
+
+void * mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
+	__sets_errno_type(void*,syscall_mmap(addr,length,prot,flags,fd,offset));
+}

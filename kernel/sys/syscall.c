@@ -17,6 +17,7 @@
 #include <sys/ptrace.h>
 #include <sys/signal.h>
 #include <sys/resource.h>
+#include <sys/mman.h>
 #include <syscall_nums.h>
 #include <kernel/printf.h>
 #include <kernel/process.h>
@@ -32,6 +33,7 @@
 #include <kernel/syscall.h>
 #include <kernel/misc.h>
 #include <kernel/ptrace.h>
+#include <kernel/mman.h>
 #include <kernel/net/netif.h>
 
 static char   hostname[256];
@@ -43,24 +45,6 @@ int ptr_validate(void * ptr, const char * syscall) {
 }
 
 #define PTRCHECK(addr,size,flags) do { if (!mmu_validate_user_pointer(addr,size,flags)) return -EFAULT; } while (0)
-
-long sys_sbrk(ssize_t size) {
-	if (size & 0xFFF) return -EINVAL;
-	volatile process_t * volatile proc = this_core->current_process->process;
-	if (!proc) return -EINVAL;
-	spin_lock(proc->image.lock);
-	uintptr_t out = proc->image.heap;
-	for (uintptr_t i = out; i < out + size; i += 0x1000) {
-		union PML * page = mmu_get_page(i, MMU_GET_MAKE);
-		if (page->bits.page != 0) {
-			printf("odd, %#zx is already allocated?\n", i);
-		}
-		mmu_frame_allocate(page, MMU_FLAG_WRITABLE);
-	}
-	proc->image.heap += size;
-	spin_unlock(proc->image.lock);
-	return (long)out;
-}
 
 extern int elf_module(char ** args);
 
@@ -1377,6 +1361,22 @@ long sys_getrusage(int who, struct rusage *buf) {
 	return 0;
 }
 
+long sys_sbrk(ssize_t size) {
+	return mmap_sbrk(size);
+}
+
+long sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t offset) {
+	if (flags & MAP_ANONYMOUS) {
+		return mmap_anon(addr, length, prot, flags);
+	}
+
+	if (!FD_CHECK(fd)) return -EBADF;
+	if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ENODEV;
+	if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EACCES;
+
+	return mmap_file(addr, length, prot, flags, FD_ENTRY(fd), offset);
+}
+
 extern long ptrace_handle(long,pid_t,void*,void*);
 
 typedef long (*scall_func)(long,long,long,long,long,long);
@@ -1468,6 +1468,7 @@ static scall_func syscalls[] = {
 	[SYS_SETREUID]     = (scall_func)(uintptr_t)sys_setreuid,
 	[SYS_SETRESGID]    = (scall_func)(uintptr_t)sys_setresgid,
 	[SYS_SETREGID]     = (scall_func)(uintptr_t)sys_setregid,
+	[SYS_MMAP]         = (scall_func)(uintptr_t)sys_mmap,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,
