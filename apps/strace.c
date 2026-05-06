@@ -1042,7 +1042,6 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			break;
 		case SYS_SYSFUNC:
 			switch (uregs_syscall_arg1(r)) {
-				C(TOARU_SYS_FUNC_INSMOD);
 				C(TOARU_SYS_FUNC_THREADNAME);
 				default: int_arg(uregs_syscall_arg1(r)); break;
 			} COMMA;

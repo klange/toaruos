@@ -9,9 +9,6 @@
 
 #include <_cheader.h>
 
-/* Privileged */
-#define TOARU_SYS_FUNC_INSMOD        8
-
 /* Unpriviliged */
 #define TOARU_SYS_FUNC_THREADNAME   11
 

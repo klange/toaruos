@@ -51,16 +51,6 @@ extern int elf_module(char ** args);
 long sys_sysfunc(long fn, char ** args) {
 	/* FIXME: Most of these should be top-level, many are hacks/broken in Misaka */
 	switch (fn) {
-		case TOARU_SYS_FUNC_INSMOD:
-			/* Linux has init_module as a system call? */
-			if (this_core->current_process->user != 0) return -EACCES;
-			PTR_VALIDATE(args);
-			if (!args) return -EFAULT;
-			PTR_VALIDATE(args[0]);
-			if (!args[0]) return -EFAULT;
-			for (char ** aa = args; *aa; ++aa) { PTR_VALIDATE(*aa); }
-			return elf_module(args);
-
 		case TOARU_SYS_FUNC_THREADNAME: {
 			/* This should probably be moved to a new system call. */
 			int count = 0;
@@ -1321,6 +1311,15 @@ long sys_set_tls_base(uintptr_t addr) {
 	return 0;
 }
 
+long sys_insmod(char ** args) {
+	if (this_core->current_process->user != USER_ROOT_UID) return -EACCES;
+	PTR_VALIDATE(args);
+	for (char ** aa = args; *aa; ++aa) {
+		PTR_VALIDATE(*aa);
+	}
+	return elf_module(args);
+}
+
 extern long ptrace_handle(long,pid_t,void*,void*);
 
 typedef long (*scall_func)(long,long,long,long,long,long);
@@ -1416,6 +1415,7 @@ static scall_func syscalls[] = {
 	[SYS_MUNMAP]       = (scall_func)(uintptr_t)sys_munmap,
 	[SYS_NPROC]        = (scall_func)(uintptr_t)sys_nproc,
 	[SYS_SETTLSBASE]   = (scall_func)(uintptr_t)sys_set_tls_base,
+	[SYS_INSMOD]       = (scall_func)(uintptr_t)sys_insmod,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,
