@@ -113,28 +113,6 @@ long sys_sysfunc(long fn, char ** args) {
 			return 0;
 		}
 
-		case TOARU_SYS_FUNC_MMAP: {
-			/* FIXME: This whole thing should be removed; we need a proper mmap interface,
-			 *        preferrably with all of the file mapping options, too. And it should
-			 *        probably also interact with the SHM subsystem... */
-			PTR_VALIDATE(args);
-			if (!args) return -EFAULT;
-			volatile process_t * volatile proc = this_core->current_process->process;
-			if (!proc) return -EFAULT;
-			spin_lock(proc->image.lock);
-			/* Align inputs */
-			uintptr_t start = ((uintptr_t)args[0]) & 0xFFFFffffFFFFf000UL;
-			uintptr_t end   = ((uintptr_t)args[0] + (size_t)args[1] + 0xFFF) & 0xFFFFffffFFFFf000UL;
-			if (!PTR_INRANGE(start)) return -EFAULT;
-			if (!PTR_INRANGE(end)) return -EFAULT;
-			for (uintptr_t i = start; i < end; i += 0x1000) {
-				union PML * page = mmu_get_page(i, MMU_GET_MAKE);
-				mmu_frame_allocate(page, MMU_FLAG_WRITABLE);
-			}
-			spin_unlock(proc->image.lock);
-			return 0;
-		}
-
 		case TOARU_SYS_FUNC_THREADNAME: {
 			/* This should probably be moved to a new system call. */
 			int count = 0;

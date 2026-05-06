@@ -1041,7 +1041,6 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 				C(TOARU_SYS_FUNC_KDEBUG);
 				C(TOARU_SYS_FUNC_INSMOD);
 				C(TOARU_SYS_FUNC_SETHEAP);
-				C(TOARU_SYS_FUNC_MMAP);
 				C(TOARU_SYS_FUNC_THREADNAME);
 				C(TOARU_SYS_FUNC_SETGSBASE);
 				C(TOARU_SYS_FUNC_NPROC);

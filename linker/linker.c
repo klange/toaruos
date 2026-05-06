@@ -30,6 +30,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/sysfunc.h>
+#include <sys/mman.h>
 #include <syscall.h>
 
 #include <kernel/elf.h>
@@ -291,20 +292,30 @@ static uintptr_t object_load(elf_t * object, uintptr_t base) {
 		switch (phdr.p_type) {
 			case PT_LOAD:
 				{
-					/* Request memory to load this PHDR into */
-					char * args[] = {(char *)(base + phdr.p_vaddr), (char *)phdr.p_memsz};
-					sysfunc(TOARU_SYS_FUNC_MMAP, args);
+					size_t    pageoffset = ((base + phdr.p_vaddr) & 0xFFF);
+					uintptr_t addr   = base + phdr.p_vaddr - pageoffset;
+					size_t    size   = phdr.p_filesz + pageoffset;
+					off_t     offset = phdr.p_offset - pageoffset;
+					size = (size + 0xFFF) & ~0xFFF;
 
-					/* Copy the code into memory */
-					fseek(object->file, phdr.p_offset, SEEK_SET);
-					fread((void *)(base + phdr.p_vaddr), phdr.p_filesz, 1, object->file);
-					__builtin___clear_cache((char*)(base + phdr.p_vaddr), (char *)(base + phdr.p_vaddr + phdr.p_filesz));
+					char * mapped_to = (char*)addr;
+					if (size) {
+						mapped_to = mmap((void*)addr, size, PROT_READ|PROT_WRITE|PROT_EXEC /* TODO */, MAP_PRIVATE | MAP_FIXED, fileno(object->file), offset);
+						uintptr_t pad = (uintptr_t)mapped_to + pageoffset + phdr.p_filesz;
+						if (pad & 0xFFF) {
+							size_t fill = 0x1000 - (pad & 0xFFF);
+							memset((void*)pad, 0, fill);
+						}
+					}
 
-					/* Zero the remaining area */
-					size_t r = phdr.p_filesz;
-					while (r < phdr.p_memsz) {
-						*(char *)(phdr.p_vaddr + base + r) = 0;
-						r++;
+					if (phdr.p_memsz > phdr.p_filesz) {
+						uintptr_t start = (uintptr_t)mapped_to + pageoffset + phdr.p_filesz;
+						uintptr_t end   = (uintptr_t)mapped_to + pageoffset + phdr.p_memsz;
+						uintptr_t start_page = (start + 0xFFF) & ~(0xFFF);
+						uintptr_t end_page   = (end + 0xFFF) & ~(0xFFF);
+						if (end_page > start_page) {
+							mmap((void*)start_page, end_page - start_page, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS, -1, 0);
+						}
 					}
 
 					/* If this expands our end address, be sure to update it */
