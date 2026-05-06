@@ -533,7 +533,7 @@ static int create_tmpfs(fs_node_t *parent, const char *name, mode_t permission, 
 	return 0;
 }
 
-static int mkdir_tmpfs(fs_node_t * parent, const char * name, mode_t permission) {
+static int mkdir_tmpfs(fs_node_t * parent, const char * name, mode_t permission, fs_node_t ** out_node) {
 	if (!name) return -EINVAL;
 	if (!strlen(name)) return -EINVAL;
 
@@ -561,6 +561,7 @@ static int mkdir_tmpfs(fs_node_t * parent, const char * name, mode_t permission)
 
 	spin_lock(d->lock);
 	list_insert(d->files, out);
+	if (out_node) *out_node = tmpfs_from_dir(out);
 	spin_unlock(d->lock);
 
 	return 0;

@@ -440,7 +440,7 @@ int unlink_fs(const char * name) {
 	return ret;
 }
 
-int mkdir_fs(const char *name, mode_t permission) {
+int mkdir_fs(const char *name, mode_t permission, fs_node_t **out) {
 	int error = 0;
 	fs_node_t * parent = file_get_parent(name, &error);
 	if (!parent) return -error;
@@ -450,7 +450,7 @@ int mkdir_fs(const char *name, mode_t permission) {
 	if (!*src || *src == '/') return close_fs(parent), -EEXIST;
 
 	/* ->mkdir checks perms on parent itself; no need to do that here. */
-	int ret = parent->mkdir(parent, src, permission);
+	int ret = parent->mkdir(parent, src, permission, out);
 	close_fs(parent);
 	return ret;
 }

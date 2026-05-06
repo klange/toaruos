@@ -830,7 +830,7 @@ static unsigned int allocate_inode(ext2_fs_t * this) {
 	return node_no;
 }
 
-static int mkdir_ext2(fs_node_t * parent, const char * name, mode_t permission) {
+static int mkdir_ext2(fs_node_t * parent, const char * name, mode_t permission, fs_node_t **out) {
 	if (!name) return -EINVAL;
 
 	ext2_fs_t * this = parent->device;
@@ -908,6 +908,19 @@ static int mkdir_ext2(fs_node_t * parent, const char * name, mode_t permission) 
 	free(t);
 
 	inode_write_block(this, inode, inode_no, 0, tmp);
+
+	if (out) {
+		ext2_dir_t * fake = malloc(sizeof(ext2_dir_t) + strlen(name));
+		fake->inode = inode_no;
+		fake->name_len = strlen(name);
+
+		memcpy(fake->name, name, fake->name_len);
+		fs_node_t * _out = calloc(1,sizeof(fs_node_t));
+		node_from_file(this, inode, fake, _out);
+		*out = _out;
+
+		free(fake);
+	}
 
 	free(inode);
 	free(tmp);

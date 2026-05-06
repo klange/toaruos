@@ -412,7 +412,7 @@ long sys_mkdir(char * path, uint64_t mode) {
 	PTR_VALIDATE(path);
 	if (!path) return -EFAULT;
 
-	return mkdir_fs(path, modify_mode(mode));
+	return mkdir_fs(path, modify_mode(mode), NULL);
 }
 
 long sys_access(const char * file, long flags) {

@@ -41,7 +41,7 @@ typedef int (*readdir_type_t) (struct fs_node *, unsigned long, struct dirent *)
 typedef struct fs_node *(*finddir_type_t) (struct fs_node *, const char *name);
 typedef int (*create_type_t) (struct fs_node *, const char *name, mode_t permission, struct fs_node **out);
 typedef int (*unlink_type_t) (struct fs_node *, const char *name);
-typedef int (*mkdir_type_t) (struct fs_node *, const char *name, mode_t permission);
+typedef int (*mkdir_type_t) (struct fs_node *, const char *name, mode_t permission, struct fs_node **out);
 typedef int (*ioctl_type_t) (struct fs_node *, unsigned long request, void * argp);
 typedef int (*get_size_type_t) (struct fs_node *);
 typedef int (*chmod_type_t) (struct fs_node *, mode_t mode);
@@ -115,7 +115,7 @@ void open_fs(fs_node_t *node, unsigned int flags);
 void close_fs(fs_node_t *node);
 int readdir_fs(fs_node_t *node, unsigned long index, struct dirent *dent);
 fs_node_t *finddir_fs(fs_node_t *node, const char *name);
-int mkdir_fs(const char *name, mode_t permission);
+int mkdir_fs(const char *name, mode_t permission, fs_node_t **out);
 int create_file_fs(const char *name, mode_t permission, fs_node_t **out);
 fs_node_t *kopen(const char *filename, unsigned int flags);
 fs_node_t *kopen_error(const char *filename, unsigned int flags, int *error);
