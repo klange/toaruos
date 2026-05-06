@@ -142,12 +142,10 @@ static void virtio_tablet_thread(void * data) {
 	cfg->select = 1; /* ask for name */
 	cfg->subsel = 0;
 	asm volatile ("isb" ::: "memory");
-	dprintf("virtio: found '%s'\n", cfg->data.str);
 
 	void * irq_region = mmu_map_mmio_region(t + 0x1000, 0x1000);
 	int irq;
 	gic_map_pci_interrupt("virtio-tablet", device, &irq, virtio_tablet_responder, irq_region);
-	dprintf("virtio-tablet: irq is %d\n", irq);
 
 	/* figure out range values */
 	cfg->select = 0x12;
@@ -159,9 +157,6 @@ static void virtio_tablet_thread(void * data) {
 	asm volatile ("isb" ::: "memory");
 	uint32_t max_y = cfg->data.tablet_data.max;
 
-	dprintf("virtio: %d x %d max coordinates\n",
-		max_x, max_y);
-
 	cfg->select = 0;
 	cfg->subsel = 0;
 	asm volatile ("isb" ::: "memory");
@@ -172,8 +167,6 @@ static void virtio_tablet_thread(void * data) {
 	asm volatile ("isb" ::: "memory");
 
 	int queue_size = common->queue_size;
-	dprintf("virtio: queue size is %u\n",
-		queue_size);
 
 	/* get us one page */
 	size_t queue_phys = mmu_allocate_a_frame() << 12;
@@ -311,12 +304,10 @@ static void virtio_keyboard_thread(void * data) {
 	cfg->select = 1; /* ask for name */
 	cfg->subsel = 0;
 	asm volatile ("isb" ::: "memory");
-	dprintf("virtio: found '%s'\n", cfg->data.str);
 
 	void * irq_region = mmu_map_mmio_region(t + 0x1000, 0x1000);
 	int irq;
 	gic_map_pci_interrupt("virtio-keyboard", device, &irq, virtio_keyboard_responder, irq_region);
-	dprintf("virtio-keyboard: irq is %d\n", irq);
 
 	cfg->select = 0;
 	cfg->subsel = 0;
@@ -328,8 +319,6 @@ static void virtio_keyboard_thread(void * data) {
 	asm volatile ("isb" ::: "memory");
 
 	int queue_size = common->queue_size;
-	dprintf("virtio: queue size is %u\n",
-		queue_size);
 
 	/* get us one page */
 	size_t queue_phys = mmu_allocate_a_frame() << 12;
@@ -418,8 +407,10 @@ static void virtio_keyboard_thread(void * data) {
 static void virtio_input_maybe(uint32_t device, uint16_t v, uint16_t d, void * extra) {
 	if (v == 0x1af4 && d == 0x1052) {
 		if (pci_find_type(device) == 0x0900) {
+			dprintf("virtio: found keyboard\n");
 			spawn_worker_thread(virtio_keyboard_thread, "[virtio-keyboard]", (void*)(uintptr_t)device);
 		} else if (pci_find_type(device) == 0x0980) {
+			dprintf("virtio: found tablet\n");
 			spawn_worker_thread(virtio_tablet_thread, "[virtio-tablet]", (void*)(uintptr_t)device);
 		}
 	}
