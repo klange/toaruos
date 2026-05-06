@@ -299,11 +299,8 @@ static uintptr_t object_load(elf_t * object, uintptr_t base) {
 					off_t     offset = phdr.p_offset - pageoffset;
 					size = (size + 0xFFF) & ~0xFFF;
 
-					int prot = PROT_READ | PROT_WRITE;
-					/* TODO, we want to not map non-writable PHDRs as writable, but
-					 *       we need to be able to modify their contents later to perform
-					 *       relocations? Do we need mprotect for this? */
-					//if (phdr.p_flags & PF_W) prot |= PROT_WRITE;
+					int prot = PROT_READ;
+					if (phdr.p_flags & PF_W) prot |= PROT_WRITE;
 					if (phdr.p_flags & PF_X) prot |= PROT_EXEC;
 
 					char * mapped_to = (char*)addr;
