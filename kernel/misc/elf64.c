@@ -27,6 +27,8 @@
 #include <kernel/hashmap.h>
 #include <kernel/mutex.h>
 #include <kernel/shm.h>
+#include <kernel/mman.h>
+#include <sys/mman.h>
 
 hashmap_t * _modules_table = NULL;
 sched_mutex_t * _modules_mutex = NULL;
@@ -344,17 +346,36 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 		Elf64_Phdr phdr;
 		read_fs(file, header.e_phoff + header.e_phentsize * i, sizeof(Elf64_Phdr), (uint8_t*)&phdr);
 		if (phdr.p_type == PT_LOAD) {
-			for (uintptr_t i = phdr.p_vaddr; i < phdr.p_vaddr + phdr.p_memsz; i += 0x1000) {
-				union PML * page = mmu_get_page(i, MMU_GET_MAKE);
-				mmu_frame_allocate(page, MMU_FLAG_WRITABLE);
+
+			/* Round down */
+			size_t    pageoffset = (phdr.p_vaddr & 0xFFF);
+			uintptr_t addr   = phdr.p_vaddr - pageoffset;
+			size_t    size   = phdr.p_filesz + pageoffset;
+			off_t     offset = phdr.p_offset - pageoffset;
+			size = (size + 0xFFF) & ~0xFFF;
+
+			uintptr_t mapped_to = 0;
+
+			if (size) {
+				mapped_to = mmap_file(addr, size, PROT_READ|PROT_WRITE|PROT_EXEC /* TODO */, MAP_PRIVATE | MAP_FIXED, file, offset);
+				uintptr_t pad = mapped_to + pageoffset + phdr.p_filesz;
+				if (pad & 0xFFF) {
+					size_t fill = 0x1000 - (pad & 0xFFF);
+					memset((void*)pad, 0, fill);
+				}
+			} else {
+				mapped_to = addr;
 			}
 
-			read_fs(file, phdr.p_offset, phdr.p_filesz, (void*)phdr.p_vaddr);
-			for (size_t i = phdr.p_filesz; i < phdr.p_memsz; ++i) {
-				*(char*)(phdr.p_vaddr + i) = 0;
+			if (phdr.p_memsz > phdr.p_filesz) {
+				uintptr_t start = mapped_to + pageoffset + phdr.p_filesz;
+				uintptr_t end   = mapped_to + pageoffset + phdr.p_memsz;
+				uintptr_t start_page = (start + 0xFFF) & ~(0xFFF);
+				uintptr_t end_page   = (end + 0xFFF) & ~(0xFFF);
+				if (end_page > start_page) {
+					mmap_anon(start_page, end_page - start_page, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE | MAP_FIXED);
+				}
 			}
-
-			arch_clear_icache(phdr.p_vaddr, phdr.p_vaddr + phdr.p_memsz);
 
 			if (phdr.p_vaddr + phdr.p_memsz > heapBase) {
 				heapBase = phdr.p_vaddr + phdr.p_memsz;
