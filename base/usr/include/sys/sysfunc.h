@@ -10,9 +10,6 @@
 #include <_cheader.h>
 
 /* Privileged */
-#define TOARU_SYS_FUNC_SYNC          3
-#define TOARU_SYS_FUNC_LOGHERE       4
-#define TOARU_SYS_FUNC_KDEBUG        7
 #define TOARU_SYS_FUNC_INSMOD        8
 
 /* Unpriviliged */

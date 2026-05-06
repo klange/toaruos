@@ -30,7 +30,6 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/sysfunc.h>
 #include <sys/mman.h>
 #include <syscall.h>
 
@@ -638,12 +637,6 @@ static int object_relocate(elf_t * object) {
 						break;
 #endif
 					default:
-						{
-							char msg[200];
-							snprintf(msg, 200, "Unimplemented relocation (%d) requested, bailing.\n", type);
-							sysfunc(TOARU_SYS_FUNC_LOGHERE, (char**)msg);
-							exit(1);
-						}
 						TRACE_LD("Unknown relocation type: %d", type);
 						break;
 				}

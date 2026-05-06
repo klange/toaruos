@@ -51,29 +51,6 @@ extern int elf_module(char ** args);
 long sys_sysfunc(long fn, char ** args) {
 	/* FIXME: Most of these should be top-level, many are hacks/broken in Misaka */
 	switch (fn) {
-		case TOARU_SYS_FUNC_SYNC:
-			/* FIXME: There is no sync ability in the VFS at the moment.
-			 * XXX: Should this just be an ioctl on individual devices?
-			 *      Or possibly even an ioctl we can send to arbitrary files? */
-			printf("sync: not implemented\n");
-			return -EINVAL;
-
-		case TOARU_SYS_FUNC_LOGHERE:
-			/* FIXME: The entire kernel logging system needs to be revamped as
-			 *        Misaka switched everything to raw printfs, and then also
-			 *        removed most of them for cleanliness... first task would
-			 *        be to reintroduce kernel fprintf() to printf to fs_nodes. */
-			//if (this_core->current_process->user != 0) return -EACCES;
-			printf("\033[32m%s\033[0m", (char*)args);
-			return -EINVAL;
-
-		case TOARU_SYS_FUNC_KDEBUG:
-			/* FIXME: The kernel debugger is completely deprecated and fully removed
-			 *        in Misaka, and I'm not sure I want to add it back... */
-			if (this_core->current_process->user != 0) return -EACCES;
-			printf("kdebug: not implemented\n");
-			return -EINVAL;
-
 		case TOARU_SYS_FUNC_INSMOD:
 			/* Linux has init_module as a system call? */
 			if (this_core->current_process->user != 0) return -EACCES;
