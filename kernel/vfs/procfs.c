@@ -234,6 +234,7 @@ static void proc_status_func(fs_node_t *node) {
 			"SC2:\t%#zx\n"
 			"SC3:\t%#zx\n"
 			"SC4:\t%#zx\n"
+			"SC5:\t%#zx\n"
 			"UserStack:\t%#zx\n"
 			"Path:\t%s\n"
 			"VmSize:\t %ld kB\n"
@@ -265,6 +266,7 @@ static void proc_status_func(fs_node_t *node) {
 			proc->syscall_registers ? arch_syscall_arg2(proc->syscall_registers) : 0,
 			proc->syscall_registers ? arch_syscall_arg3(proc->syscall_registers) : 0,
 			proc->syscall_registers ? arch_syscall_arg4(proc->syscall_registers) : 0,
+			proc->syscall_registers ? arch_syscall_arg5(proc->syscall_registers) : 0,
 			proc->syscall_registers ? arch_stack_pointer(proc->syscall_registers) : 0,
 			proc->cmdline ? proc->cmdline[0] : "(none)",
 			mem_usage, shm_usage, mem_permille,

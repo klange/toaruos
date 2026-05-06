@@ -13,6 +13,7 @@ _Begin_C_Header
 #define DECL_SYSCALL3(fn,p1,p2,p3)       long syscall_##fn(p1,p2,p3)
 #define DECL_SYSCALL4(fn,p1,p2,p3,p4)    long syscall_##fn(p1,p2,p3,p4)
 #define DECL_SYSCALL5(fn,p1,p2,p3,p4,p5) long syscall_##fn(p1,p2,p3,p4,p5)
+#define DECL_SYSCALL6(fn,p1,p2,p3,p4,p5,p6) long syscall_##fn(p1,p2,p3,p4,p5,p6)
 
 #ifdef __x86_64__
 
@@ -70,6 +71,17 @@ _Begin_C_Header
 		long __res = num; __asm__ __volatile__(__SYSCALL_ENTRY_INST \
 				: "=a" (__res) \
 				: "a" (__res), "D" ((long)(p1)), "S"((long)(p2)), "d"((long)(p3)), "r"((long)(p4_)), "r"((long)(p5_)) : __SYSCALL_CLOBBERS ); \
+		return __res; \
+	}
+
+#define DEFN_SYSCALL6(fn, num, P1, P2, P3, P4, P5, P6) \
+	long syscall_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5, P6 p6) { \
+		register long p4_ __asm__("r10") = (long)p4; \
+		register long p5_ __asm__("r8") = (long)p5; \
+		register long p6_ __asm__("r9") = (long)p6; \
+		long __res = num; __asm__ __volatile__(__SYSCALL_ENTRY_INST \
+				: "=a" (__res) \
+				: "a" (__res), "D" ((long)(p1)), "S"((long)(p2)), "d"((long)(p3)), "r"((long)(p4_)), "r"((long)(p5_)), "r"((long)(p6_)) : __SYSCALL_CLOBBERS ); \
 		return __res; \
 	}
 #elif defined(__aarch64__)
@@ -154,6 +166,27 @@ _Begin_C_Header
 			"r" (x3), \
 			"r" (x4), \
 			"r" (x5) \
+		); \
+		return __res; \
+	}
+
+#define DEFN_SYSCALL6(fn, num, P1, P2, P3, P4, P5, P6) \
+	long syscall_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5, P6 p6) { \
+		register long __res __asm__ ("x0") = num; \
+		register long x1 __asm__("x1") = (long)p1; \
+		register long x2 __asm__("x2") = (long)p2; \
+		register long x3 __asm__("x3") = (long)p3; \
+		register long x4 __asm__("x4") = (long)p4; \
+		register long x5 __asm__("x5") = (long)p5; \
+		register long x8 __asm__("x8") = (long)p6; \
+		__asm__ __volatile__("svc 0" : "=r" (__res) : \
+			"r" (__res), \
+			"r" (x1), \
+			"r" (x2), \
+			"r" (x3), \
+			"r" (x4), \
+			"r" (x5), \
+			"r" (x8) \
 		); \
 		return __res; \
 	}

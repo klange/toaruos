@@ -14,6 +14,7 @@ _Begin_C_Header
 # define uregs_syscall_arg3(r)   ((r)->rdx)
 # define uregs_syscall_arg4(r)   ((r)->r10)
 # define uregs_syscall_arg5(r)   ((r)->r8)
+# define uregs_syscall_arg6(r)   ((r)->r9)
 # define uregs_ip(r)             ((r)->rip)
 # define uregs_bp(r)             ((r)->rbp)
 # define UREGS_FMT \
@@ -39,6 +40,7 @@ _Begin_C_Header
 # define uregs_syscall_arg3(r)   ((r)->x3)
 # define uregs_syscall_arg4(r)   ((r)->x4)
 # define uregs_syscall_arg5(r)   ((r)->x5)
+# define uregs_syscall_arg6(r)   ((r)->x8)
 # define uregs_ip(r)             ((r)->elr)
 # define uregs_bp(r)             ((r)->x29)
 # define UREGS_FMT \

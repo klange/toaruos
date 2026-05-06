@@ -1379,7 +1379,7 @@ long sys_getrusage(int who, struct rusage *buf) {
 
 extern long ptrace_handle(long,pid_t,void*,void*);
 
-typedef long (*scall_func)(long,long,long,long,long);
+typedef long (*scall_func)(long,long,long,long,long,long);
 
 static scall_func syscalls[] = {
 	/* System Call Table */
@@ -1503,7 +1503,7 @@ void syscall_handler(struct regs * r) {
 	scall_func func = syscalls[arch_syscall_number(r)];
 	result = func(
 		arch_syscall_arg0(r), arch_syscall_arg1(r), arch_syscall_arg2(r),
-		arch_syscall_arg3(r), arch_syscall_arg4(r));
+		arch_syscall_arg3(r), arch_syscall_arg4(r), arch_syscall_arg5(r));
 
 	if (result == -ERESTARTSYS || result == -ERESTARTSIGSUSPEND) {
 		this_core->current_process->interrupted_system_call = arch_syscall_number(r);
