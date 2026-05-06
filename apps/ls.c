@@ -456,8 +456,9 @@ static int display_dir(char * p) {
 		lstat(tmp, &f->statbuf);
 		if (S_ISLNK(f->statbuf.st_mode)) {
 			f->lstatres = stat(tmp, &f->statbufl);
-			f->link = malloc(4096);
-			readlink(tmp, f->link, 4096);
+			f->link = malloc(f->statbuf.st_size + 1);
+			ssize_t len = readlink(tmp, f->link, f->statbuf.st_size);
+			if (len >= 0) f->link[len] = '\0';
 		}
 
 		list_insert(ents_list, (void *)f);
@@ -605,8 +606,9 @@ int main (int argc, char * argv[]) {
 			} else {
 				if (S_ISLNK(f->statbuf.st_mode)) {
 					f->lstatres = stat(p, &f->statbufl);
-					f->link = malloc(4096);
-					readlink(p, f->link, 4096);
+					f->link = malloc(f->statbuf.st_size + 1);
+					ssize_t len = readlink(p, f->link, f->statbuf.st_size);
+					if (len >= 0) f->link[len] = '\0';
 				}
 				list_insert(files, f);
 			}
