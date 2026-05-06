@@ -237,7 +237,6 @@ DECL_SYSCALL3(recv,int,void*,int);
 DECL_SYSCALL3(send,int,const void*,int);
 DECL_SYSCALL0(gettid);
 DECL_SYSCALL0(yield);
-DECL_SYSCALL2(sysfunc, int, char **);
 DECL_SYSCALL2(shutdown, int, int);
 DECL_SYSCALL2(sleepabs, unsigned long, unsigned long);
 DECL_SYSCALL2(sleep, unsigned long, unsigned long);

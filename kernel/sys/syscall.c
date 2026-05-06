@@ -9,7 +9,6 @@
  */
 #include <stdint.h>
 #include <errno.h>
-#include <sys/sysfunc.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
 #include <sys/time.h>
@@ -45,39 +44,6 @@ int ptr_validate(void * ptr, const char * syscall) {
 }
 
 #define PTRCHECK(addr,size,flags) do { if (!mmu_validate_user_pointer(addr,size,flags)) return -EFAULT; } while (0)
-
-extern int elf_module(char ** args);
-
-long sys_sysfunc(long fn, char ** args) {
-	/* FIXME: Most of these should be top-level, many are hacks/broken in Misaka */
-	switch (fn) {
-		case TOARU_SYS_FUNC_THREADNAME: {
-			/* This should probably be moved to a new system call. */
-			int count = 0;
-			char **arg = args;
-			PTR_VALIDATE(args);
-			if (!args) return -EFAULT;
-			while (*arg) {
-				PTR_VALIDATE(*arg);
-				count++;
-				arg++;
-			}
-			this_core->current_process->cmdline = malloc(sizeof(char*)*(count+1));
-			int i = 0;
-			while (i < count) {
-				this_core->current_process->cmdline[i] = strdup(args[i]);
-				i++;
-			}
-			this_core->current_process->cmdline[i] = NULL;
-			return 0;
-		}
-
-		default:
-			printf("Bad system function: %ld\n", fn);
-			return -EINVAL;
-	}
-	return -EINVAL;
-}
 
 __attribute__((noreturn))
 long sys_exit(long exitcode) {
@@ -1311,6 +1277,7 @@ long sys_set_tls_base(uintptr_t addr) {
 	return 0;
 }
 
+extern int elf_module(char ** args);
 long sys_insmod(char ** args) {
 	if (this_core->current_process->user != USER_ROOT_UID) return -EACCES;
 	PTR_VALIDATE(args);
@@ -1347,7 +1314,6 @@ static scall_func syscalls[] = {
 	[SYS_GETHOSTNAME]  = (scall_func)(uintptr_t)sys_gethostname,
 	[SYS_MKDIR]        = (scall_func)(uintptr_t)sys_mkdir,
 	[SYS_GETTID]       = (scall_func)(uintptr_t)sys_gettid,
-	[SYS_SYSFUNC]      = (scall_func)(uintptr_t)sys_sysfunc,
 	[SYS_IOCTL]        = (scall_func)(uintptr_t)sys_ioctl,
 	[SYS_ACCESS]       = (scall_func)(uintptr_t)sys_access,
 	[SYS_EACCESS]      = (scall_func)(uintptr_t)sys_eaccess,

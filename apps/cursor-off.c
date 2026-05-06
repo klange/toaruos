@@ -14,7 +14,6 @@
  */
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/sysfunc.h>
 
 int main(int argc, char * argv[]) {
 	int fd = open("/dev/port", O_RDWR);

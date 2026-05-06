@@ -13,7 +13,6 @@
 #include <stdio.h>
 
 #include <sys/wait.h>
-#include <sys/sysfunc.h>
 
 DEFN_SYSCALL3(clone, SYS_CLONE, uintptr_t, uintptr_t, void *);
 DEFN_SYSCALL0(gettid, SYS_GETTID);

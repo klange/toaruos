@@ -30,7 +30,6 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/fswait.h>
-#include <sys/sysfunc.h>
 #include <sys/shm.h>
 #include <pthread.h>
 #include <dlfcn.h>

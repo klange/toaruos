@@ -8,7 +8,6 @@
  */
 #include <stdio.h>
 #include <pthread.h>
-#include <sys/sysfunc.h>
 
 __thread volatile int myvalue;
 

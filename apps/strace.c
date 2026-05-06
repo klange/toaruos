@@ -18,7 +18,6 @@
 #include <sys/wait.h>
 #include <sys/signal.h>
 #include <sys/signal_defs.h>
-#include <sys/sysfunc.h>
 #include <sys/utsname.h>
 #include <sys/time.h>
 #include <sys/socket.h>
@@ -54,7 +53,6 @@ const char * syscall_names[] = {
 	[SYS_GETHOSTNAME]  = "gethostname",
 	[SYS_MKDIR]        = "mkdir",
 	[SYS_GETTID]       = "gettid",
-	[SYS_SYSFUNC]      = "sysfunc",
 	[SYS_IOCTL]        = "ioctl",
 	[SYS_ACCESS]       = "access",
 	[SYS_EACCESS]      = "eaccess",
@@ -135,6 +133,7 @@ const char * syscall_names[] = {
 	[SYS_MUNMAP]       = "munmap",
 	[SYS_NPROC]        = "nproc",
 	[SYS_SETTLSBASE]   = "set_tls_base",
+	[SYS_INSMOD]       = "insmod",
 };
 
 char syscall_mask[] = {
@@ -159,7 +158,6 @@ char syscall_mask[] = {
 	[SYS_GETHOSTNAME]  = 1,
 	[SYS_MKDIR]        = 1,
 	[SYS_GETTID]       = 1,
-	[SYS_SYSFUNC]      = 1,
 	[SYS_IOCTL]        = 1,
 	[SYS_ACCESS]       = 1,
 	[SYS_EACCESS]      = 1,
@@ -240,6 +238,7 @@ char syscall_mask[] = {
 	[SYS_MUNMAP]       = 1,
 	[SYS_NPROC]        = 1,
 	[SYS_SETTLSBASE]   = 1,
+	[SYS_INSMOD]       = 1,
 };
 
 static const int syscall_set_net[] = {
@@ -252,7 +251,7 @@ static const int syscall_set_file[] = {
 	SYS_OPEN, SYS_STATF, SYS_LSTAT, SYS_ACCESS, SYS_EXECVE,
 	SYS_GETCWD, SYS_CHDIR, SYS_MKDIR, SYS_SYMLINK, SYS_UNLINK,
 	SYS_CHMOD, SYS_CHOWN, SYS_MOUNT, SYS_READLINK, SYS_RENAME,
-	SYS_TRUNCATE, SYS_EACCESS, SYS_LCHOWN, 0
+	SYS_TRUNCATE, SYS_EACCESS, SYS_LCHOWN, SYS_INSMOD, 0
 };
 
 static const int syscall_set_desc[] = {
@@ -1040,13 +1039,6 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			signal_arg(uregs_syscall_arg1(r)); COMMA;
 			pointer_arg(uregs_syscall_arg2(r));
 			break;
-		case SYS_SYSFUNC:
-			switch (uregs_syscall_arg1(r)) {
-				C(TOARU_SYS_FUNC_THREADNAME);
-				default: int_arg(uregs_syscall_arg1(r)); break;
-			} COMMA;
-			pointer_arg(uregs_syscall_arg2(r));
-			break;
 		case SYS_FSWAIT:
 			int_arg(uregs_syscall_arg1(r)); COMMA;
 			fds_arg(pid, uregs_syscall_arg1(r), uregs_syscall_arg2(r));
@@ -1244,6 +1236,9 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			break;
 		case SYS_SETTLSBASE:
 			pointer_arg(uregs_syscall_arg1(r));
+			break;
+		case SYS_INSMOD:
+			string_array_arg(pid, uregs_syscall_arg1(r));
 			break;
 		/* These have no arguments: */
 		case SYS_YIELD:

@@ -43,7 +43,7 @@
 #define SYS_SEND 40
 #define SYS_GETTID 41
 #define SYS_YIELD 42
-#define SYS_SYSFUNC 43
+#define SYS_INSMOD 43
 #define SYS_SHUTDOWN 44
 #define SYS_SLEEPABS 45
 #define SYS_SLEEP 46
@@ -102,4 +102,3 @@
 #define SYS_MUNMAP 99
 #define SYS_NPROC 100
 #define SYS_SETTLSBASE 101
-#define SYS_INSMOD 102

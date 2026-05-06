@@ -18,7 +18,6 @@
 #include <sys/wait.h>
 #include <sys/signal.h>
 #include <sys/signal_defs.h>
-#include <sys/sysfunc.h>
 #include <sys/utsname.h>
 #include <sys/time.h>
 #include <sys/stat.h>
