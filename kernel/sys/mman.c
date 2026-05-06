@@ -58,6 +58,17 @@ static long mmap_common_checks(uintptr_t addr, size_t length, int prot, int flag
 	return 0;
 }
 
+static void sanity_check(union PML * page) {
+#if defined(__x86_64__)
+	if (page->bits.cow_pending) {
+		arch_fatal_prepare();
+		dprintf("mmap: trying to overwrite existing cow page?\n");
+		arch_dump_traceback();
+		arch_fatal();
+	}
+#endif
+}
+
 long mmap_anon(uintptr_t addr, size_t length, int prot, int flags) {
 	//dprintf("mmap(%#zx, %zu, %d, %d | MAP_ANONYMOUS, -1, 0);\n", addr, length, prot, flags);
 	process_t * proc = this_core->current_process->process;
@@ -77,13 +88,16 @@ long mmap_anon(uintptr_t addr, size_t length, int prot, int flags) {
 	if (prot & PROT_NONE) return addr;
 
 	int mmu_flags = 0;
-	if (!(prot & PROT_EXEC)) mmu_flags |= MMU_FLAG_NOEXECUTE;
+	if (prot & PROT_WRITE) mmu_flags |= MMU_FLAG_WRITABLE;
+	if (!(prot & PROT_EXEC) && !(prot & PROT_WRITE)) mmu_flags |= MMU_FLAG_NOEXECUTE;
 
 	for (uintptr_t i = 0; i < length; i += 0x1000) {
 		union PML * page = mmu_get_page(addr + i, MMU_GET_MAKE);
-		mmu_frame_allocate(page, mmu_flags | MMU_FLAG_WRITABLE);
+		sanity_check(page);
+		mmu_frame_allocate(page, MMU_FLAG_WRITABLE);
 		memset((void*)(addr + i), 0, 0x1000);
-		if (!(prot & PROT_WRITE)) mmu_frame_allocate(page, mmu_flags);
+		mmu_frame_allocate(page, mmu_flags);
+		mmu_invalidate(addr + i);
 	}
 
 	if (prot & PROT_EXEC) {
@@ -94,8 +108,8 @@ long mmap_anon(uintptr_t addr, size_t length, int prot, int flags) {
 }
 
 long mmap_file(uintptr_t addr, size_t length, int prot, int flags, fs_node_t * file, off_t offset) {
-	//dprintf("mmap(%#zx, %zu, %d, %d, *%p, %#zx);\n", addr, length, prot, flags, (void*)file, offset);
 	process_t * proc = this_core->current_process->process;
+	//dprintf("mmap(%#zx, %zu, %d, %d, *%p, %#zx); pid=%d\n", addr, length, prot, flags, (void*)file, offset, proc->id);
 
 	long ret;
 	if ((ret = mmap_common_checks(addr, length, prot, flags))) return ret;
@@ -114,13 +128,19 @@ long mmap_file(uintptr_t addr, size_t length, int prot, int flags, fs_node_t * f
 	if (prot & PROT_NONE) return addr;
 
 	int mmu_flags = 0;
-	if (!(prot & PROT_EXEC)) mmu_flags |= MMU_FLAG_NOEXECUTE;
+	if (prot & PROT_WRITE) mmu_flags |= MMU_FLAG_WRITABLE;
+	if (!(prot & PROT_EXEC) && !(prot & PROT_WRITE)) mmu_flags |= MMU_FLAG_NOEXECUTE;
 
 	for (uintptr_t i = 0; i < length; i += 0x1000) {
 		union PML * page = mmu_get_page(addr + i, MMU_GET_MAKE);
-		mmu_frame_allocate(page, mmu_flags | MMU_FLAG_WRITABLE);
-		read_fs(file, offset + i, 0x1000, (void*)(addr + i));
-		if (!(prot & PROT_WRITE)) mmu_frame_allocate(page, mmu_flags);
+		sanity_check(page);
+		mmu_frame_allocate(page, MMU_FLAG_WRITABLE);
+		ssize_t r = read_fs(file, offset + i, 0x1000, (void*)(addr + i));
+		if (r >= 0 && r < 0x1000) {
+			memset((void*)(addr + i + r), 0, 0x1000 - r);
+		}
+		mmu_frame_allocate(page, mmu_flags);
+		mmu_invalidate(addr + i);
 	}
 
 	if (prot & PROT_EXEC) {
