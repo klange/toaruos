@@ -441,17 +441,23 @@ static int object_relocate(elf_t * object) {
 	}
 
 	/* Find relocation table */
-	for (uintptr_t x = 0; x < object->header.e_shentsize * object->header.e_shnum; x += object->header.e_shentsize) {
-		Elf64_Shdr shdr;
-		/* Load section header */
-		pread(object->file_fd, &shdr, object->header.e_shentsize, object->header.e_shoff + x);
+	if (object->dynamic) {
+		size_t rela_size = 0;
+		size_t pltrel_size = 0;
 
-		/* Relocation table found */
-		if (shdr.sh_type == SHT_REL) {
-			TRACE_LD("Found a REL section, this is not handled.");
-		} else if (shdr.sh_type == SHT_RELA) {
-			Elf64_Rela * table = (Elf64_Rela *)(shdr.sh_addr + object->base);
-			while ((uintptr_t)table - ((uintptr_t)shdr.sh_addr + object->base) < shdr.sh_size) {
+		for (Elf64_Dyn * dyn = object->dynamic; dyn->d_tag; dyn++) {
+			if (dyn->d_tag == DT_RELASZ)   rela_size = dyn->d_un.d_val;
+			if (dyn->d_tag == DT_PLTRELSZ) pltrel_size = dyn->d_un.d_val;
+		}
+
+		for (Elf64_Dyn * dyn = object->dynamic; dyn->d_tag; dyn++) {
+			size_t size = 0;
+			if (dyn->d_tag == DT_RELA) size = rela_size;
+			else if(dyn->d_tag == DT_JMPREL) size = pltrel_size;
+			else continue;
+
+			Elf64_Rela * table = (Elf64_Rela *)(object->base + dyn->d_un.d_ptr);
+			while ((uintptr_t)table - ((uintptr_t)dyn->d_un.d_ptr + object->base) < size) {
 				unsigned int symbol = ELF64_R_SYM(table->r_info);
 				unsigned int type = ELF64_R_TYPE(table->r_info);
 				Elf64_Sym * sym = &object->dyn_symbol_table[symbol];
@@ -641,34 +647,23 @@ static int object_relocate(elf_t * object) {
 
 /* Copy relocations are special and need to be located before other relocations. */
 static void object_find_copy_relocations(elf_t * object) {
+	if (object->dynamic) {
+		size_t rela_size = 0;
+		size_t pltrel_size = 0;
 
-	for (uintptr_t x = 0; x < object->header.e_shentsize * object->header.e_shnum; x += object->header.e_shentsize) {
-		Elf64_Shdr shdr;
-		pread(object->file_fd, &shdr, object->header.e_shentsize, object->header.e_shoff + x);
-
-		/* Relocation table found */
-		if (shdr.sh_type == SHT_REL) {
-			Elf64_Rel * table = (Elf64_Rel *)(shdr.sh_addr + object->base);
-			while ((uintptr_t)table - ((uintptr_t)shdr.sh_addr + object->base) < shdr.sh_size) {
-				unsigned int type = ELF64_R_TYPE(table->r_info);
-#if defined(__x86_64__)
-				if (type == R_X86_64_COPY) {
-#elif defined(__aarch64__)
-				if (type == R_AARCH64_COPY) {
-#else
-# error "Unsupported"
-#endif
-					unsigned int  symbol = ELF64_R_SYM(table->r_info);
-					Elf64_Sym * sym = &object->dyn_symbol_table[symbol];
-					char * symname = (char *)((uintptr_t)object->dyn_string_table + sym->st_name);
-					hashmap_set(glob_dat, symname, (void *)table->r_offset);
-				}
-				table++;
-			}
+		for (Elf64_Dyn * dyn = object->dynamic; dyn->d_tag; dyn++) {
+			if (dyn->d_tag == DT_RELASZ)   rela_size = dyn->d_un.d_val;
+			if (dyn->d_tag == DT_PLTRELSZ) pltrel_size = dyn->d_un.d_val;
 		}
-		if (shdr.sh_type == SHT_RELA) {
-			Elf64_Rela * table = (Elf64_Rela *)(shdr.sh_addr + object->base);
-			while ((uintptr_t)table - ((uintptr_t)shdr.sh_addr + object->base) < shdr.sh_size) {
+
+		for (Elf64_Dyn * dyn = object->dynamic; dyn->d_tag; dyn++) {
+			size_t size = 0;
+			if (dyn->d_tag == DT_RELA) size = rela_size;
+			else if(dyn->d_tag == DT_JMPREL) size = pltrel_size;
+			else continue;
+
+			Elf64_Rela * table = (Elf64_Rela *)(object->base + dyn->d_un.d_ptr);
+			while ((uintptr_t)table - ((uintptr_t)dyn->d_un.d_ptr + object->base) < size) {
 				unsigned int type = ELF64_R_TYPE(table->r_info);
 #if defined(__x86_64__)
 				if (type == R_X86_64_COPY) {
