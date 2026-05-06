@@ -23,7 +23,7 @@
 #include <sys/time.h>
 #include <sys/signal.h>
 
-#include <sys/sysfunc.h>
+#include <syscall.h>
 #include <toaru/list.h>
 #include <toaru/hashmap.h>
 #include <toaru/procfs.h>
@@ -867,7 +867,7 @@ int main (int argc, char * argv[]) {
 	if (optind != argc) return usage(argv);
 
 	/* Assume CPU count doesn't change... */
-	cpu_count = sysfunc(TOARU_SYS_FUNC_NPROC, NULL);
+	cpu_count = syscall_nproc();
 
 	/* Simple log format */
 	if (log_samples) {

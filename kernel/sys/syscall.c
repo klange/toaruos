@@ -105,18 +105,6 @@ long sys_sysfunc(long fn, char ** args) {
 			return 0;
 		}
 
-		case TOARU_SYS_FUNC_SETGSBASE:
-			/* This should be a new system call; see what Linux, et al., call it. */
-			PTR_VALIDATE(args);
-			if (!args) return -EFAULT;
-			PTR_VALIDATE(args[0]);
-			this_core->current_process->thread.context.tls_base = (uintptr_t)args[0];
-			arch_set_tls_base(this_core->current_process->thread.context.tls_base);
-			return 0;
-
-		case TOARU_SYS_FUNC_NPROC:
-			return processor_count;
-
 		default:
 			printf("Bad system function: %ld\n", fn);
 			return -EINVAL;
@@ -1344,6 +1332,18 @@ long sys_munmap(uintptr_t addr, size_t length) {
 	return mmap_unmap(addr, length);
 }
 
+long sys_nproc(void) {
+	return processor_count;
+}
+
+long sys_set_tls_base(uintptr_t addr) {
+	PTR_VALIDATE(addr);
+
+	this_core->current_process->thread.context.tls_base = addr;
+	arch_set_tls_base(this_core->current_process->thread.context.tls_base);
+	return 0;
+}
+
 extern long ptrace_handle(long,pid_t,void*,void*);
 
 typedef long (*scall_func)(long,long,long,long,long,long);
@@ -1437,6 +1437,8 @@ static scall_func syscalls[] = {
 	[SYS_SETREGID]     = (scall_func)(uintptr_t)sys_setregid,
 	[SYS_MMAP]         = (scall_func)(uintptr_t)sys_mmap,
 	[SYS_MUNMAP]       = (scall_func)(uintptr_t)sys_munmap,
+	[SYS_NPROC]        = (scall_func)(uintptr_t)sys_nproc,
+	[SYS_SETTLSBASE]   = (scall_func)(uintptr_t)sys_set_tls_base,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

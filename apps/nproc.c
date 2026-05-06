@@ -7,9 +7,9 @@
  * Copyright (C) 2021 K. Lange
  */
 #include <stdio.h>
-#include <sys/sysfunc.h>
+#include <syscall.h>
 
 int main(int argc, char * argv[]) {
-	printf("%d\n", sysfunc(TOARU_SYS_FUNC_NPROC, NULL));
+	printf("%ld\n", syscall_nproc());
 	return 0;
 }

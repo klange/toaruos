@@ -133,6 +133,8 @@ const char * syscall_names[] = {
 	[SYS_SETREGID]     = "setregid",
 	[SYS_MMAP]         = "mmap",
 	[SYS_MUNMAP]       = "munmap",
+	[SYS_NPROC]        = "nproc",
+	[SYS_SETTLSBASE]   = "set_tls_base",
 };
 
 char syscall_mask[] = {
@@ -236,6 +238,8 @@ char syscall_mask[] = {
 	[SYS_SETREGID]     = 1,
 	[SYS_MMAP]         = 1,
 	[SYS_MUNMAP]       = 1,
+	[SYS_NPROC]        = 1,
+	[SYS_SETTLSBASE]   = 1,
 };
 
 static const int syscall_set_net[] = {
@@ -1043,8 +1047,6 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 				C(TOARU_SYS_FUNC_KDEBUG);
 				C(TOARU_SYS_FUNC_INSMOD);
 				C(TOARU_SYS_FUNC_THREADNAME);
-				C(TOARU_SYS_FUNC_SETGSBASE);
-				C(TOARU_SYS_FUNC_NPROC);
 				default: int_arg(uregs_syscall_arg1(r)); break;
 			} COMMA;
 			pointer_arg(uregs_syscall_arg2(r));
@@ -1244,6 +1246,9 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			pointer_arg(uregs_syscall_arg1(r)); COMMA;
 			uint_arg(uregs_syscall_arg2(r));
 			break;
+		case SYS_SETTLSBASE:
+			pointer_arg(uregs_syscall_arg1(r));
+			break;
 		/* These have no arguments: */
 		case SYS_YIELD:
 		case SYS_FORK:
@@ -1256,6 +1261,7 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 		case SYS_GETGID:
 		case SYS_GETEGID:
 		case SYS_GETPPID:
+		case SYS_NPROC:
 			break;
 		default:
 			fprintf(logfile, "...");

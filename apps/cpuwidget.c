@@ -20,10 +20,10 @@
 
 #include <net/if.h>
 
+#include <syscall.h>
 #include <sys/ioctl.h>
 #include <sys/times.h>
 #include <sys/fswait.h>
-#include <sys/sysfunc.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -554,7 +554,7 @@ int main (int argc, char ** argv) {
 	top    = 100;
 	width  = 640;
 	height = 480;
-	cpu_count = sysfunc(TOARU_SYS_FUNC_NPROC, NULL);
+	cpu_count = syscall_nproc();
 
 	yctx = yutani_init();
 	if (!yctx) {

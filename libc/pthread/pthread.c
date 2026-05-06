@@ -17,6 +17,7 @@
 
 DEFN_SYSCALL3(clone, SYS_CLONE, uintptr_t, uintptr_t, void *);
 DEFN_SYSCALL0(gettid, SYS_GETTID);
+DEFN_SYSCALL1(set_tls_base, SYS_SETTLSBASE, uintptr_t);
 
 struct __pthread {
 	pid_t tid;
@@ -60,7 +61,7 @@ void __make_tls(void) {
 	/* self-pointer start? */
 	char ** tlsSelf = (char **)(tlsSpace);
 	*tlsSelf = (char*)tlsSelf;
-	sysfunc(TOARU_SYS_FUNC_SETGSBASE, (char*[]){(char*)tlsSelf});
+	syscall_set_tls_base((uintptr_t)tlsSelf);
 }
 
 void pthread_exit(void * value) {
@@ -73,7 +74,7 @@ void * __thread_start(void * pthreadbase) {
 	this->tid = gettid();
 	char ** tlsbase = (char**)((char*)this + 4096);
 	*tlsbase = (char*)tlsbase;
-	sysfunc(TOARU_SYS_FUNC_SETGSBASE, (char*[]){(char*)tlsbase});
+	syscall_set_tls_base((uintptr_t)tlsbase);
 	pthread_exit(this->entry(this->arg));
 	return NULL;
 }
