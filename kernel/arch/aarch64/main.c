@@ -24,6 +24,7 @@
 #include <kernel/misc.h>
 #include <kernel/ptrace.h>
 #include <kernel/ksym.h>
+#include <kernel/syscall.h>
 #include <errno.h>
 
 #include <sys/ptrace.h>
@@ -318,16 +319,13 @@ void aarch64_sync_enter(struct regs * r) {
 
 	/* System call */
 	if ((esr >> 26) == 0x15) {
-		//dprintf("pid %d syscall %zd elr=%#zx\n",
-		//	this_core->current_process->id, r->x0, elr);
-		extern void syscall_handler(struct regs *);
 		syscall_handler(r);
 		goto _resume_user;
 	}
 
 	/* KVM is mad at us; usually means our code is broken or we neglected a cache. */
 	if (far == 0x1de7ec7edbadc0de) {
-		printf("kvm: blip (esr=%#zx, elr=%#zx; pid=%d [%s])\n", esr, elr, this_core->current_process->id, this_core->current_process->name);
+		dprintf("kvm: blip (esr=%#zx, elr=%#zx; pid=%d [%s])\n", esr, elr, this_core->current_process->id, this_core->current_process->name);
 		goto _resume_user;
 	}
 
