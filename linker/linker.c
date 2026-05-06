@@ -181,12 +181,13 @@ static elf_t * open_object(const char * path) {
 	hashmap_set(objects_map, (void*)path, object);
 
 	object->file_fd = fd;
+	object->header_size = sizeof(Elf64_Header) + sizeof(object->header_extra);
 
 	/* Read the header */
-	ssize_t r = pread(object->file_fd, &object->header, sizeof(Elf64_Header), 0);
+	ssize_t r = pread(object->file_fd, &object->header, object->header_size, 0);
 
 	/* Header failed to read? */
-	if (r < (ssize_t)sizeof(Elf64_Header)) {
+	if (r < (ssize_t)object->header_size) {
 		last_error = "Failed to read object header.";
 		close(fd);
 		free(object);
@@ -218,22 +219,26 @@ static size_t object_calculate_size(elf_t * object) {
 	uintptr_t end_addr  = 0x0;
 	size_t headers = 0;
 	while (headers < object->header.e_phnum) {
-		Elf64_Phdr phdr;
+		Elf64_Phdr *phdr = (void*)((uintptr_t)&object->header + object->header.e_phoff + object->header.e_phentsize * headers);
+		int free_phdr = 0;
 
-		/* Read the phdr */
-		pread(object->file_fd, &phdr, object->header.e_phentsize, object->header.e_phoff + object->header.e_phentsize * headers);
+		if (object->header.e_phoff + object->header.e_phentsize * headers + object->header.e_phentsize > object->header_size) {
+			phdr = malloc(object->header.e_phentsize);
+			free_phdr = 1;
+			pread(object->file_fd, phdr, object->header.e_phentsize, object->header.e_phoff + object->header.e_phentsize * headers);
+		}
 
-		switch (phdr.p_type) {
+		switch (phdr->p_type) {
 			case PT_LOAD:
 				{
 					/* If this loads lower than our current base... */
-					if (phdr.p_vaddr < base_addr) {
-						base_addr = phdr.p_vaddr;
+					if (phdr->p_vaddr < base_addr) {
+						base_addr = phdr->p_vaddr;
 					}
 
 					/* Or higher than our current end address... */
-					if (phdr.p_memsz + phdr.p_vaddr > end_addr) {
-						end_addr = phdr.p_memsz + phdr.p_vaddr;
+					if (phdr->p_memsz + phdr->p_vaddr > end_addr) {
+						end_addr = phdr->p_memsz + phdr->p_vaddr;
 					}
 				}
 				break;
@@ -242,6 +247,7 @@ static size_t object_calculate_size(elf_t * object) {
 				break;
 		}
 
+		if (free_phdr) free(phdr);
 		headers++;
 	}
 
@@ -259,29 +265,33 @@ static uintptr_t object_load(elf_t * object, uintptr_t base) {
 
 	size_t headers = 0;
 	while (headers < object->header.e_phnum) {
-		Elf64_Phdr phdr;
+		Elf64_Phdr *phdr = (void*)((uintptr_t)&object->header + object->header.e_phoff + object->header.e_phentsize * headers);
+		int free_phdr = 0;
 
-		/* Read the phdr */
-		pread(object->file_fd, &phdr, object->header.e_phentsize, object->header.e_phoff + object->header.e_phentsize * headers);
+		if (object->header.e_phoff + object->header.e_phentsize * headers + object->header.e_phentsize > object->header_size) {
+			phdr = malloc(object->header.e_phentsize);
+			free_phdr = 1;
+			pread(object->file_fd, phdr, object->header.e_phentsize, object->header.e_phoff + object->header.e_phentsize * headers);
+		}
 
-		switch (phdr.p_type) {
+		switch (phdr->p_type) {
 			case PT_LOAD:
 				{
-					size_t    pageoffset = ((base + phdr.p_vaddr) & 0xFFF);
-					uintptr_t addr   = base + phdr.p_vaddr - pageoffset;
-					size_t    size   = phdr.p_filesz + pageoffset;
-					off_t     offset = phdr.p_offset - pageoffset;
+					size_t    pageoffset = ((base + phdr->p_vaddr) & 0xFFF);
+					uintptr_t addr   = base + phdr->p_vaddr - pageoffset;
+					size_t    size   = phdr->p_filesz + pageoffset;
+					off_t     offset = phdr->p_offset - pageoffset;
 					size = (size + 0xFFF) & ~0xFFF;
 
 					int prot = PROT_READ;
-					if (phdr.p_flags & PF_W) prot |= PROT_WRITE;
-					if (phdr.p_flags & PF_X) prot |= PROT_EXEC;
+					if (phdr->p_flags & PF_W) prot |= PROT_WRITE;
+					if (phdr->p_flags & PF_X) prot |= PROT_EXEC;
 
 					char * mapped_to = (char*)addr;
 					if (size) {
 						mapped_to = mmap((void*)addr, size, prot, MAP_PRIVATE | MAP_FIXED, object->file_fd, offset);
-						if (phdr.p_flags & PF_W) {
-							uintptr_t pad = (uintptr_t)mapped_to + pageoffset + phdr.p_filesz;
+						if (phdr->p_flags & PF_W) {
+							uintptr_t pad = (uintptr_t)mapped_to + pageoffset + phdr->p_filesz;
 							if (pad & 0xFFF) {
 								size_t fill = 0x1000 - (pad & 0xFFF);
 								memset((void*)pad, 0, fill);
@@ -289,9 +299,9 @@ static uintptr_t object_load(elf_t * object, uintptr_t base) {
 						}
 					}
 
-					if (phdr.p_memsz > phdr.p_filesz) {
-						uintptr_t start = (uintptr_t)mapped_to + pageoffset + phdr.p_filesz;
-						uintptr_t end   = (uintptr_t)mapped_to + pageoffset + phdr.p_memsz;
+					if (phdr->p_memsz > phdr->p_filesz) {
+						uintptr_t start = (uintptr_t)mapped_to + pageoffset + phdr->p_filesz;
+						uintptr_t end   = (uintptr_t)mapped_to + pageoffset + phdr->p_memsz;
 						uintptr_t start_page = (start + 0xFFF) & ~(0xFFF);
 						uintptr_t end_page   = (end + 0xFFF) & ~(0xFFF);
 						if (end_page > start_page) {
@@ -300,21 +310,22 @@ static uintptr_t object_load(elf_t * object, uintptr_t base) {
 					}
 
 					/* If this expands our end address, be sure to update it */
-					if (end_addr < phdr.p_vaddr + base + phdr.p_memsz) {
-						end_addr = phdr.p_vaddr + base + phdr.p_memsz;
+					if (end_addr < phdr->p_vaddr + base + phdr->p_memsz) {
+						end_addr = phdr->p_vaddr + base + phdr->p_memsz;
 					}
 				}
 				break;
 			case PT_DYNAMIC:
 				{
 					/* Keep a reference to the dynamic section, which is actually loaded by a PT_LOAD normally. */
-					object->dynamic = (Elf64_Dyn *)(base + phdr.p_vaddr);
+					object->dynamic = (Elf64_Dyn *)(base + phdr->p_vaddr);
 				}
 				break;
 			default:
 				break;
 		}
 
+		if (free_phdr) free(phdr);
 		headers++;
 	}
 
