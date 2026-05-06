@@ -60,7 +60,18 @@ int generic_main(void) {
 		if (args_present("root_type")) {
 			root_type = args_value("root_type");
 		}
-		vfs_mount_type(root_type,args_value("root"),"/");
+		if (args_present("migrate")) {
+			if (strcmp(root_type, "tar")) {
+				arch_fatal_prepare();
+				dprintf("migrate: can not migrate from non-tar root\n");
+				arch_fatal();
+			}
+			vfs_mount_type("tmpfs","x,755","/");
+			extern int tarfs_unpack(char * from_file);
+			tarfs_unpack(args_value("root"));
+		} else {
+			vfs_mount_type(root_type,args_value("root"),"/");
+		}
 	}
 
 	const char * boot_arg = NULL;

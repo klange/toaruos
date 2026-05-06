@@ -504,3 +504,100 @@ int tarfs_register_init(void) {
 	return 0;
 }
 
+/**
+ * Unpack a tarfile directly as if it were the root filesystem.
+ *
+ * This is an in-kernel implementation of the former 'migrate'
+ * userspace utility; since it runs before 'init', it avoids
+ * issues with freeing the ramdisk.
+ */
+int tarfs_unpack(char * from_file) {
+	int error = 0;
+	fs_node_t * dev = kopen_error(from_file, 0, &error);
+	if (!dev) {
+		dprintf("migrate: could not open '%s'\n", from_file);
+		return error;
+	}
+
+	struct tarfs * self = calloc(1, sizeof(struct tarfs));
+	self->device = dev;
+	self->length = dev->length;
+
+	struct ustar * file = calloc(1, sizeof(struct ustar));
+	off_t offset = 0;
+	while (offset < self->length) {
+		int status = ustar_from_offset(self, offset, file);
+		if (!status) break;
+
+		size_t file_size = interpret_size(file);
+
+		if (file->type[0] == 'x') goto _next; /* Pax header */
+		if (file->type[0] == '1') goto _next; /* Unsupported hard link */
+
+		char filename_workspace[257];
+		filename_workspace[0] = '/';
+		memset(filename_workspace + 1, 0, 257);
+		strncat(filename_workspace, file->prefix, 155);
+		strncat(filename_workspace, file->filename, 100);
+
+		mode_t mode = interpret_mode(file);
+		fs_node_t * node;
+		int error = 0;
+
+		if (filename_workspace[strlen(filename_workspace)-1] == '/') {
+			filename_workspace[strlen(filename_workspace)-1] = 0;
+		}
+
+		switch (file->type[0]) {
+			case '0': /* Regular file */
+				if (!(error = create_file_fs(filename_workspace, mode, &node))) {
+					chown_fs(node, interpret_uid(file), interpret_gid(file));
+					close_fs(node);
+				} else {
+					dprintf("migrate: error from create: %d\n", error);
+				}
+				break;
+			case '5': /* Directory */
+				if (!(error = mkdir_fs(filename_workspace, mode, &node))) {
+					chown_fs(node, interpret_uid(file), interpret_gid(file));
+					close_fs(node);
+				} else if (error != -EEXIST) {
+					dprintf("migrate: error from mkdir: %d\n", error);
+				}
+				goto _next; /* No contents for directory */
+			case '2':
+				symlink_fs(file->link, filename_workspace);
+				goto _next;
+
+			default:
+				dprintf("migrate: file type '%c' is unsupported.\n", file->type[0]);
+				goto _next;
+		}
+
+		/* Read contents of file */
+		size_t to_write = file_size;
+		size_t written = 0;
+		while (to_write) {
+			uint8_t buf[512];
+			ssize_t r = read_fs(self->device, offset + 512 + written, (to_write < 512) ? to_write : 512, buf);
+			if (r <= 0) break;
+			ssize_t w = write_fs(node, written, r, buf);
+			if (w <= 0) {
+				dprintf("migrate: write error\n");
+				break;
+			}
+			to_write -= w;
+			written += w;
+		}
+
+_next:
+		offset += 512;
+		offset += round_to_512(file_size);
+	}
+	free(file);
+	free(self);
+
+	/* Tell the ramdisk to zero itself. */
+	ioctl_fs(dev, 0x4001, NULL);
+	return 0;
+}
