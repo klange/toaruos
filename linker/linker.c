@@ -299,13 +299,22 @@ static uintptr_t object_load(elf_t * object, uintptr_t base) {
 					off_t     offset = phdr.p_offset - pageoffset;
 					size = (size + 0xFFF) & ~0xFFF;
 
+					int prot = PROT_READ | PROT_WRITE;
+					/* TODO, we want to not map non-writable PHDRs as writable, but
+					 *       we need to be able to modify their contents later to perform
+					 *       relocations? Do we need mprotect for this? */
+					//if (phdr.p_flags & PF_W) prot |= PROT_WRITE;
+					if (phdr.p_flags & PF_X) prot |= PROT_EXEC;
+
 					char * mapped_to = (char*)addr;
 					if (size) {
-						mapped_to = mmap((void*)addr, size, PROT_READ|PROT_WRITE|PROT_EXEC /* TODO */, MAP_PRIVATE | MAP_FIXED, object->file_fd, offset);
-						uintptr_t pad = (uintptr_t)mapped_to + pageoffset + phdr.p_filesz;
-						if (pad & 0xFFF) {
-							size_t fill = 0x1000 - (pad & 0xFFF);
-							memset((void*)pad, 0, fill);
+						mapped_to = mmap((void*)addr, size, prot, MAP_PRIVATE | MAP_FIXED, object->file_fd, offset);
+						if (phdr.p_flags & PF_W) {
+							uintptr_t pad = (uintptr_t)mapped_to + pageoffset + phdr.p_filesz;
+							if (pad & 0xFFF) {
+								size_t fill = 0x1000 - (pad & 0xFFF);
+								memset((void*)pad, 0, fill);
+							}
 						}
 					}
 
@@ -315,7 +324,7 @@ static uintptr_t object_load(elf_t * object, uintptr_t base) {
 						uintptr_t start_page = (start + 0xFFF) & ~(0xFFF);
 						uintptr_t end_page   = (end + 0xFFF) & ~(0xFFF);
 						if (end_page > start_page) {
-							mmap((void*)start_page, end_page - start_page, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS, -1, 0);
+							mmap((void*)start_page, end_page - start_page, prot, MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS, -1, 0);
 						}
 					}
 
@@ -1061,12 +1070,6 @@ nope:
 	TRACE_LD("Placing heap at end");
 	while (end_addr & 0xFFF) {
 		end_addr++;
-	}
-
-	/* Move heap start (kind of like a weird sbrk) */
-	{
-		char * args[] = {(char*)end_addr};
-		sysfunc(TOARU_SYS_FUNC_SETHEAP, args);
 	}
 
 	/* Call constructors for loaded dependencies */

@@ -317,9 +317,6 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 		}
 	}
 
-	uintptr_t execBase = -1;
-	uintptr_t heapBase = 0;
-
 	shm_release_all((process_t *)this_core->current_process);
 	process_close_fds((process_t *)this_core->current_process, PROC_FD_MODE_CLOEXEC);
 
@@ -355,13 +352,18 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 			size = (size + 0xFFF) & ~0xFFF;
 
 			uintptr_t mapped_to = 0;
+			int prot = PROT_READ;
+			if (phdr.p_flags & PF_W) prot |= PROT_WRITE;
+			if (phdr.p_flags & PF_X) prot |= PROT_EXEC;
 
 			if (size) {
-				mapped_to = mmap_file(addr, size, PROT_READ|PROT_WRITE|PROT_EXEC /* TODO */, MAP_PRIVATE | MAP_FIXED, file, offset);
-				uintptr_t pad = mapped_to + pageoffset + phdr.p_filesz;
-				if (pad & 0xFFF) {
-					size_t fill = 0x1000 - (pad & 0xFFF);
-					memset((void*)pad, 0, fill);
+				mapped_to = mmap_file(addr, size, prot, MAP_PRIVATE | MAP_FIXED, file, offset);
+				if (phdr.p_flags & PF_W) {
+					uintptr_t pad = mapped_to + pageoffset + phdr.p_filesz;
+					if (pad & 0xFFF) {
+						size_t fill = 0x1000 - (pad & 0xFFF);
+						memset((void*)pad, 0, fill);
+					}
 				}
 			} else {
 				mapped_to = addr;
@@ -373,22 +375,16 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 				uintptr_t start_page = (start + 0xFFF) & ~(0xFFF);
 				uintptr_t end_page   = (end + 0xFFF) & ~(0xFFF);
 				if (end_page > start_page) {
-					mmap_anon(start_page, end_page - start_page, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE | MAP_FIXED);
+					mmap_anon(start_page, end_page - start_page, prot, MAP_PRIVATE | MAP_FIXED);
 				}
-			}
-
-			if (phdr.p_vaddr + phdr.p_memsz > heapBase) {
-				heapBase = phdr.p_vaddr + phdr.p_memsz;
-			}
-
-			if (phdr.p_vaddr < execBase) {
-				execBase = phdr.p_vaddr;
 			}
 		}
 		/* TODO: Should also be setting up TLS PHDRs. */
 	}
 
-	this_core->current_process->image.heap  = (heapBase + 0xFFF) & (~0xFFF);
+	extern uint32_t rand(void);
+	uintptr_t shake = (rand() & 0x7FFF) * 0x100000;
+	this_core->current_process->image.heap  = 0x100000000 + shake;
 	this_core->current_process->image.entry = header.e_entry;
 
 	close_fs(file);

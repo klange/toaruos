@@ -84,23 +84,6 @@ long sys_sysfunc(long fn, char ** args) {
 			for (char ** aa = args; *aa; ++aa) { PTR_VALIDATE(*aa); }
 			return elf_module(args);
 
-		case TOARU_SYS_FUNC_SETHEAP: {
-			/* I'm not really sure how this should be done...
-			 * traditional brk() would be expected to map everything in-between,
-			 * but we use this to move the heap in ld.so, and we don't want
-			 * the stuff in the middle to be mapped necessarily... */
-			PTR_VALIDATE(args);
-			if (!args) return -EFAULT;
-			if (!PTR_INRANGE(args[0])) return -EFAULT;
-			if (!args[0]) return -EFAULT;
-			volatile process_t * volatile proc = this_core->current_process->process;
-			if (!proc) return -EFAULT;
-			spin_lock(proc->image.lock);
-			proc->image.heap = (uintptr_t)args[0];
-			spin_unlock(proc->image.lock);
-			return 0;
-		}
-
 		case TOARU_SYS_FUNC_THREADNAME: {
 			/* This should probably be moved to a new system call. */
 			int count = 0;
@@ -1332,13 +1315,25 @@ long sys_sbrk(ssize_t size) {
 }
 
 long sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t offset) {
+	/* Exactly one of MAP_SHARED or MAP_PRIVATE must be set. */
+	if (!(flags & (MAP_SHARED | MAP_PRIVATE))) return -EINVAL;
+	if ((flags & MAP_SHARED) && (flags & MAP_PRIVATE)) return -EINVAL;
+
+	/* MAP_ANONYMOUS skips file checks */
 	if (flags & MAP_ANONYMOUS) {
 		return mmap_anon(addr, length, prot, flags);
 	}
 
 	if (!FD_CHECK(fd)) return -EBADF;
+
+	/* File must be something we can actually map. */
 	if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ENODEV;
+
+	/* File must be open at least for reading. */
 	if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EACCES;
+
+	/* SHARED + WRITE requires file was open for write access */
+	if ((flags & MAP_SHARED) && (prot & PROT_WRITE) && !(FD_MODE(fd) & PROC_FD_MODE_WRITE)) return -EACCES;
 
 	return mmap_file(addr, length, prot, flags, FD_ENTRY(fd), offset);
 }

@@ -16,7 +16,6 @@
 #define TOARU_SYS_FUNC_INSMOD        8
 
 /* Unpriviliged */
-#define TOARU_SYS_FUNC_SETHEAP       9
 #define TOARU_SYS_FUNC_THREADNAME   11
 #define TOARU_SYS_FUNC_SETVGACURSOR 13
 #define TOARU_SYS_FUNC_SETGSBASE    14

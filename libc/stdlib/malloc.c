@@ -112,8 +112,6 @@
 /* }}} */
 /* Definitions {{{ */
 
-#define sbrk syscall_sbrk
-
 /*
  * Defines for often-used integral values
  * related to our binning and paging strategy.
@@ -419,7 +417,7 @@ static void * __attribute__ ((malloc)) klmalloc(uintptr_t size) {
 			/*
 			 * Grow the heap for the new bin.
 			 */
-			bin_header = (klmalloc_bin_header*)sbrk(PAGE_SIZE);
+			bin_header = (klmalloc_bin_header*)mmap(NULL, PAGE_SIZE, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
 			bin_header->bin_magic = BIN_MAGIC;
 			assert((uintptr_t)bin_header % PAGE_SIZE == 0);
 
@@ -465,7 +463,7 @@ static void * __attribute__ ((malloc)) klmalloc(uintptr_t size) {
 		 * Round requested size to a set of pages, plus the header size.
 		 */
 		uintptr_t pages = (size + sizeof(klmalloc_big_bin_header)) / PAGE_SIZE + 1;
-		klmalloc_big_bin_header * bin_header = (klmalloc_big_bin_header*)sbrk(PAGE_SIZE * pages);
+		klmalloc_big_bin_header * bin_header = (klmalloc_big_bin_header*)mmap(NULL, PAGE_SIZE * pages, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
 		bin_header->bin_magic = BIN_MAGIC;
 		assert((uintptr_t)bin_header % PAGE_SIZE == 0);
 		/*
