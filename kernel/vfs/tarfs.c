@@ -355,19 +355,10 @@ static ssize_t readlink_tarfs(fs_node_t * node, char * buf, size_t size) {
 	struct ustar * file = malloc(sizeof(struct ustar));
 	ustar_from_offset(self, node->inode, file);
 
-	if (size < strlen(file->link) + 1) {
-		//debug_print(INFO, "Requested read size was only %d, need %d.", size, strlen(file->link)+1);
-		memcpy(buf, file->link, size-1);
-		buf[size-1] = '\0';
-		free(file);
-		return size-1;
-	} else {
-		//debug_print(INFO, "Reading link target is [%s]", file->link);
-		memcpy(buf, file->link, strlen(file->link) + 1);
-		free(file);
-		return strlen(file->link);
-	}
-
+	size_t len = strlen(file->link);
+	if (size < len) len = size;
+	memcpy(buf, file->link, len);
+	return len;
 }
 
 static fs_node_t * file_from_ustar(struct tarfs * self, struct ustar * file, unsigned int offset) {

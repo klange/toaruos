@@ -645,25 +645,16 @@ static ssize_t readlink_dev_tty(fs_node_t * node, char * buf, size_t size) {
 
 
 	char tmp[100];
-	size_t req;
 	if (!pty) {
 		snprintf(tmp, 100, "/dev/null");
 	} else {
 		pty->fill_name(pty, 100, tmp);
 	}
 
-	req = strlen(tmp) + 1;
-
-	if (size < req) {
-		memcpy(buf, tmp, size);
-		buf[size-1] = '\0';
-		return size-1;
-	}
-
-	if (size > req) size = req;
-
-	memcpy(buf, tmp, size);
-	return size-1;
+	size_t len = strlen(tmp);
+	if (size < len) len = size;
+	memcpy(buf, tmp, len);
+	return size;
 }
 
 static fs_node_t * create_dev_tty(void) {

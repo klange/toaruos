@@ -471,7 +471,7 @@ int symlink_fs(const char * target, const char * name) {
 
 ssize_t readlink_fs(fs_node_t *node, char * buf, size_t size) {
 	if (!node) return -ENOENT;
-	if (!node->readlink) return -EPERM;
+	if (!node->readlink) return -EINVAL;
 	return node->readlink(node, buf, size);
 }
 
@@ -885,13 +885,15 @@ fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_de
 	do {
 		if ((node_ptr->flags & FS_SYMLINK) && !((flags & O_NOFOLLOW) && depth == path_depth)) {
 			if (symlink_depth >= MAX_SYMLINK_DEPTH) return *error = ELOOP, free(path), close_fs(node_ptr), NULL;
-			char *symlink_buf = calloc(MAX_SYMLINK_SIZE, 1);
+			char *symlink_buf = calloc(MAX_SYMLINK_SIZE+1, 1);
 
-			int len = readlink_fs(node_ptr, symlink_buf, MAX_SYMLINK_SIZE);
+			ssize_t len = readlink_fs(node_ptr, symlink_buf, MAX_SYMLINK_SIZE);
 			close_fs(node_ptr); /* We don't need the reference to the original symlink anymore.*/
 
 			if (len < 0) return free(symlink_buf), *error = -len, free(path), NULL; /* Could not read symlink */
-			if (!len || symlink_buf[len]) return free(symlink_buf), *error = ENOENT, free(path), NULL; /* Symlink name truncated = same as couldn't read */
+			if (!len) return free(symlink_buf), *error = ENOENT, free(path), NULL;
+
+			symlink_buf[len] = '\0';
 
 			/* Rebuild our path up to this point. This is hella hacky. */
 			char * relpath = path_untokenize(path, path_len, depth);

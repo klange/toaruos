@@ -9,24 +9,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
+#include <errno.h>
 
 #define MAX_LINK_SIZE 4096
 
-static char usage[] =
-"Usage: %s LINK\n";
-
 int main(int argc, char * argv[]) {
-	if (argc != 2) {
-		fprintf(stderr, usage, argv[0]);
-		exit(EXIT_FAILURE);
-	}
+	if (argc != 2) return fprintf(stderr, "usage: %s LINK\n", argv[0]), 2;
 	char * name = argv[1];
 
-	char buf[MAX_LINK_SIZE];
-	if (readlink(name, buf, sizeof(buf)) < 0) {
-		//perror("link");
-		exit(EXIT_FAILURE);
-	}
-	fprintf(stdout, "%s\n", buf);
-	exit(EXIT_SUCCESS);
+	char buf[MAX_LINK_SIZE + 1];
+	ssize_t len = readlink(name, buf, sizeof(buf) - 1);
+	if (len < 0) return fprintf(stderr, "%s: %s: %s\n", argv[0], name, strerror(errno)), 1;
+	buf[len] = '\0';
+	puts(buf);
+	return 0;
 }

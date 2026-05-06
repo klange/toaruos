@@ -98,17 +98,10 @@ static void procfs_entry_close(fs_node_t * node) {
 static ssize_t procfs_entry_readlink(fs_node_t * node, char * buf, size_t size) {
 	procfs_entry_t * entry = (void*)node;
 
-	if (size == 0) return 0;
-
-	if (size >= entry->used + 1) {
-		memcpy(buf, entry->buf, entry->used);
-		buf[entry->used] = '\0';
-		return entry->used;
-	} else {
-		memcpy(buf, entry->buf, size - 1);
-		buf[size-1] = '\0';
-		return size - 2; /* This is a dumb hack... */
-	}
+	size_t len = entry->used;
+	if (size < len) len = size;
+	memcpy(buf, entry->buf, len);
+	return len;
 }
 
 static fs_node_t * procfs_generic_create(const char * name, procfs_populate_t read_func, int flags) {

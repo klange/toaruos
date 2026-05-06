@@ -29,7 +29,8 @@ static int copy_thing(char * tmp, char * tmp2);
 static int copy_link(char * source, char * dest, int mode, int uid, int gid) {
 	//fprintf(stderr, "need to copy link %s to %s\n", source, dest);
 	char tmp[1024];
-	readlink(source, tmp, 1024);
+	ssize_t len = readlink(source, tmp, 1023);
+	if (len >= 0) tmp[len] = '\0';
 	symlink(tmp, dest);
 	chmod(dest, mode);
 	chown(dest, uid, gid);

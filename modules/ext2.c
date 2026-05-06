@@ -1452,16 +1452,11 @@ static int symlink_ext2(fs_node_t * parent, const char * target, const char * na
 static ssize_t readlink_ext2(fs_node_t * node, char * buf, size_t size) {
 	ext2_fs_t * this = (ext2_fs_t *)node->device;
 	ext2_inodetable_t * inode = read_inode(this, node->inode);
-	size_t read_size = inode->size < size ? inode->size : size;
+	size_t read_size = size < inode->size ? size : inode->size;
 	if (inode->size > 60) { //sizeof(_symlink(inode))) {
 		read_ext2(node, 0, read_size, (uint8_t *)buf);
 	} else {
 		memcpy(buf, _symlink(inode), read_size);
-	}
-
-	/* Believe it or not, we actually aren't supposed to include the nul in the length. */
-	if (read_size < size) {
-		buf[read_size] = '\0';
 	}
 
 	free(inode);

@@ -591,7 +591,8 @@ static void load_directory(const char * path, int modifies_history) {
 			if (S_ISLNK(statbuf.st_mode)) {
 				memcpy(&statbufl, &statbuf, sizeof(struct stat));
 				stat(tmp, &statbuf);
-				readlink(tmp, f->link, 256);
+				ssize_t len = readlink(tmp, f->link, 255);
+				if (len >= 0) f->link[len] = '\0';
 			} else {
 				f->link[0] = '\0';
 			}

@@ -93,21 +93,14 @@ static ssize_t readlink_tmpfs(fs_node_t * node, char * buf, size_t size) {
 	spin_lock(t->lock);
 	if (t->type != TMPFS_TYPE_LINK) {
 		spin_unlock(t->lock);
-		printf("tmpfs: not a symlink?\n");
-		return -1;
+		return -EINVAL;
 	}
 
-	if (size < strlen(t->target) + 1) {
-		memcpy(buf, t->target, size-1);
-		buf[size-1] = '\0';
-		spin_unlock(t->lock);
-		return size-2;
-	} else {
-		size_t len = strlen(t->target);
-		memcpy(buf, t->target, len + 1);
-		spin_unlock(t->lock);
-		return len;
-	}
+	size_t len = strlen(t->target);
+	if (size < len) len = size;
+	memcpy(buf, t->target, len);
+	spin_unlock(t->lock);
+	return len;
 }
 
 static struct tmpfs_dir * tmpfs_dir_new(const char * name, struct tmpfs_dir * parent) {
