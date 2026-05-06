@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/sysfunc.h>
@@ -88,7 +89,7 @@ static char * last_error = NULL;
 static int _target_is_suid = 0;
 
 typedef struct elf_object {
-	FILE * file;
+	int file_fd;
 
 	/* Full copy of the header. */
 	Elf64_Header header;
@@ -183,13 +184,13 @@ static elf_t * open_object(const char * path) {
 	}
 
 	/* Open the library. */
-	FILE * f = fopen(file, "re");
+	int fd = open(file, O_RDONLY | O_CLOEXEC);
 
 	/* Free the expanded path, we don't need it anymore. */
 	free(file);
 
 	/* Failed to open? Unlikely, but could mean permissions problems. */
-	if (!f) {
+	if (fd < 0) {
 		last_error = "Could not open library.";
 		return NULL;
 	}
@@ -205,14 +206,15 @@ static elf_t * open_object(const char * path) {
 	memset(object, 0, sizeof(elf_t));
 	hashmap_set(objects_map, (void*)path, object);
 
-	object->file = f;
+	object->file_fd = fd;
 
 	/* Read the header */
-	size_t r = fread(&object->header, sizeof(Elf64_Header), 1, object->file);
+	ssize_t r = pread(object->file_fd, &object->header, sizeof(Elf64_Header), 0);
 
 	/* Header failed to read? */
-	if (!r) {
+	if (r < (ssize_t)sizeof(Elf64_Header)) {
 		last_error = "Failed to read object header.";
+		close(fd);
 		free(object);
 		return NULL;
 	}
@@ -224,6 +226,7 @@ static elf_t * open_object(const char * path) {
 	    object->header.e_ident[3] != ELFMAG3) {
 
 		last_error = "Not an ELF object.";
+		close(fd);
 		free(object);
 		return NULL;
 	}
@@ -244,8 +247,7 @@ static size_t object_calculate_size(elf_t * object) {
 		Elf64_Phdr phdr;
 
 		/* Read the phdr */
-		fseek(object->file, object->header.e_phoff + object->header.e_phentsize * headers, SEEK_SET);
-		fread(&phdr, object->header.e_phentsize, 1, object->file);
+		pread(object->file_fd, &phdr, object->header.e_phentsize, object->header.e_phoff + object->header.e_phentsize * headers);
 
 		switch (phdr.p_type) {
 			case PT_LOAD:
@@ -286,8 +288,7 @@ static uintptr_t object_load(elf_t * object, uintptr_t base) {
 		Elf64_Phdr phdr;
 
 		/* Read the phdr */
-		fseek(object->file, object->header.e_phoff + object->header.e_phentsize * headers, SEEK_SET);
-		fread(&phdr, object->header.e_phentsize, 1, object->file);
+		pread(object->file_fd, &phdr, object->header.e_phentsize, object->header.e_phoff + object->header.e_phentsize * headers);
 
 		switch (phdr.p_type) {
 			case PT_LOAD:
@@ -300,7 +301,7 @@ static uintptr_t object_load(elf_t * object, uintptr_t base) {
 
 					char * mapped_to = (char*)addr;
 					if (size) {
-						mapped_to = mmap((void*)addr, size, PROT_READ|PROT_WRITE|PROT_EXEC /* TODO */, MAP_PRIVATE | MAP_FIXED, fileno(object->file), offset);
+						mapped_to = mmap((void*)addr, size, PROT_READ|PROT_WRITE|PROT_EXEC /* TODO */, MAP_PRIVATE | MAP_FIXED, object->file_fd, offset);
 						uintptr_t pad = (uintptr_t)mapped_to + pageoffset + phdr.p_filesz;
 						if (pad & 0xFFF) {
 							size_t fill = 0x1000 - (pad & 0xFFF);
@@ -472,8 +473,7 @@ static int object_relocate(elf_t * object) {
 	for (uintptr_t x = 0; x < object->header.e_shentsize * object->header.e_shnum; x += object->header.e_shentsize) {
 		Elf64_Shdr shdr;
 		/* Load section header */
-		fseek(object->file, object->header.e_shoff + x, SEEK_SET);
-		fread(&shdr, object->header.e_shentsize, 1, object->file);
+		pread(object->file_fd, &shdr, object->header.e_shentsize, object->header.e_shoff + x);
 
 		/* Relocation table found */
 		if (shdr.sh_type == SHT_REL) {
@@ -673,8 +673,7 @@ static void object_find_copy_relocations(elf_t * object) {
 
 	for (uintptr_t x = 0; x < object->header.e_shentsize * object->header.e_shnum; x += object->header.e_shentsize) {
 		Elf64_Shdr shdr;
-		fseek(object->file, object->header.e_shoff + x, SEEK_SET);
-		fread(&shdr, object->header.e_shentsize, 1, object->file);
+		pread(object->file_fd, &shdr, object->header.e_shentsize, object->header.e_shoff + x);
 
 		/* Relocation table found */
 		if (shdr.sh_type == SHT_REL) {
@@ -796,7 +795,7 @@ static void * do_actual_load(const char * filename, elf_t * lib, int flags) {
 	object_relocate(lib);
 
 	/* We're done with the file. */
-	fclose(lib->file);
+	close(lib->file_fd);
 
 	/* If there was an init_array, call everything in it */
 	if (lib->init_array) {
@@ -1042,7 +1041,7 @@ nope:
 		object_relocate(lib);
 
 		/* Close the underlying file */
-		fclose(lib->file);
+		close(lib->file_fd);
 
 		/* Store constructors for later execution */
 		if (lib->init_array) {
@@ -1058,7 +1057,7 @@ nope:
 	/* Relocate the main object */
 	TRACE_LD("Relocating main object");
 	object_relocate(main_obj);
-	fclose(main_obj->file);
+	close(main_obj->file_fd);
 	TRACE_LD("Placing heap at end");
 	while (end_addr & 0xFFF) {
 		end_addr++;
