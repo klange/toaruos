@@ -302,7 +302,7 @@ static int truncate_tmpfs(fs_node_t * node, size_t size) {
 	/* Is the target size bigger or smaller? */
 	if (size > t->length) {
 		if (old_end_block == new_end_block) {
-			char *buf = tmpfs_file_getset_block(t, old_end_block, 0);
+			char *buf = tmpfs_file_getset_block(t, old_end_block, old_end_size ? 0 : 2);
 			memset(buf + old_end_size, 0, new_end_size - old_end_size);
 		} else {
 			tmpfs_file_getset_block(t, new_end_block, 2);
