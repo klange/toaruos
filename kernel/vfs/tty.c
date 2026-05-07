@@ -527,12 +527,12 @@ int ioctl_pty_slave(fs_node_t * node, unsigned long request, void * argp) {
 	return pty_ioctl(node, pty, request, argp);
 }
 
-int pty_available_input(fs_node_t * node) {
+static ssize_t pty_available_input(fs_node_t * node) {
 	pty_t * pty = (pty_t *)node->device;
 	return ring_buffer_unread(pty->in);
 }
 
-int pty_available_output(fs_node_t * node) {
+static ssize_t pty_available_output(fs_node_t * node) {
 	pty_t * pty = (pty_t *)node->device;
 	return ring_buffer_unread(pty->out);
 }
@@ -657,6 +657,12 @@ static ssize_t readlink_dev_tty(fs_node_t * node, char * buf, size_t size) {
 	return size;
 }
 
+static ssize_t get_size_dev_tty(fs_node_t * node) {
+	pty_t * pty = this_core->current_process->pty;
+	if (!pty) return strlen("/dev/null");
+	return pty->fill_name(pty, 0, NULL);
+}
+
 static fs_node_t * create_dev_tty(void) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
@@ -667,11 +673,12 @@ static fs_node_t * create_dev_tty(void) {
 	fnode->gid  = 0;
 	fnode->flags   = FS_FILE | FS_SYMLINK;
 	fnode->readlink = readlink_dev_tty;
-	fnode->length  = 99; /* maximum potential length */
+	fnode->length  = 99;
 	fnode->nlink   = 1;
 	fnode->ctime   = now();
 	fnode->mtime   = now();
 	fnode->atime   = now();
+	fnode->get_size = get_size_dev_tty;
 	return fnode;
 }
 

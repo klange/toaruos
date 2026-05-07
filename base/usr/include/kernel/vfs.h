@@ -43,7 +43,7 @@ typedef int (*create_type_t) (struct fs_node *, const char *name, mode_t permiss
 typedef int (*unlink_type_t) (struct fs_node *, const char *name);
 typedef int (*mkdir_type_t) (struct fs_node *, const char *name, mode_t permission, struct fs_node **out);
 typedef int (*ioctl_type_t) (struct fs_node *, unsigned long request, void * argp);
-typedef int (*get_size_type_t) (struct fs_node *);
+typedef ssize_t (*get_size_type_t) (struct fs_node *);
 typedef int (*chmod_type_t) (struct fs_node *, mode_t mode);
 typedef int (*symlink_type_t) (struct fs_node *, const char * name, const char * value);
 typedef ssize_t (*readlink_type_t) (struct fs_node *, char * buf, size_t size);

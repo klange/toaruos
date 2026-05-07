@@ -43,7 +43,7 @@ static inline size_t pipe_unread(pipe_device_t * pipe) {
 	}
 }
 
-int pipe_size(fs_node_t * node) {
+ssize_t pipe_size(fs_node_t * node) {
 	pipe_device_t * pipe = (pipe_device_t *)node->device;
 	spin_lock(pipe->ptr_lock);
 	int out = pipe_unread(pipe);
@@ -63,10 +63,10 @@ static inline size_t pipe_available(pipe_device_t * pipe) {
 	}
 }
 
-int pipe_unsize(fs_node_t * node) {
+ssize_t pipe_unsize(fs_node_t * node) {
 	pipe_device_t * pipe = (pipe_device_t *)node->device;
 	spin_lock(pipe->ptr_lock);
-	int out = pipe_available(pipe);
+	ssize_t out = pipe_available(pipe);
 	spin_unlock(pipe->ptr_lock);
 	return out;
 }

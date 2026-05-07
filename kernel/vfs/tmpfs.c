@@ -341,6 +341,11 @@ static void open_tmpfs(fs_node_t * node, unsigned int flags) {
 	t->atime = now();
 }
 
+static ssize_t get_size_tmpfs(fs_node_t * node) {
+	struct tmpfs_file * t = (struct tmpfs_file *)(node->inode);
+	return t->length;
+}
+
 static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	spin_lock(t->lock);
@@ -367,6 +372,7 @@ static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
 	fnode->nlink   = 1;
 	fnode->mount   = t->mount;
 	fnode->device  = t->mount;
+	fnode->get_size = get_size_tmpfs;
 	spin_unlock(t->lock);
 	return fnode;
 }
@@ -709,6 +715,12 @@ _cleanup_src:
 	return ret;
 }
 
+static ssize_t get_size_tmpfsdir(fs_node_t * node) {
+	struct tmpfs_dir * d = (struct tmpfs_dir *)node->inode;
+	return sizeof(struct dirent) * (d->files->length + 2);
+
+}
+
 static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	spin_lock(d->lock);
@@ -736,6 +748,7 @@ static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d) {
 	fnode->mkdir   = mkdir_tmpfs;
 	fnode->nlink   = 1; /* should be "number of children that are directories + 1" */
 	fnode->symlink = symlink_tmpfs;
+	fnode->get_size = get_size_tmpfsdir;
 
 	fnode->chown   = chown_tmpfs;
 	fnode->chmod   = chmod_tmpfs;
