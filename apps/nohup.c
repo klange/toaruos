@@ -13,6 +13,7 @@
 #include <signal.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/stat.h>
 
 #define NOHUP_EXEC_FAILURE     126
 #define NOHUP_INTERNAL_FAILURE 127
@@ -50,12 +51,12 @@ int main(int argc, char ** argv) {
 
 	if (do_what & Redirect_stdout) {
 		asprintf(&file, "nohup.out");
-		int new_stdout = open(file,O_APPEND|O_WRONLY|O_CREAT|O_CLOEXEC,0644);
+		int new_stdout = open(file,O_APPEND|O_WRONLY|O_CREAT|O_CLOEXEC,S_IRUSR|S_IWUSR);
 		if (new_stdout < 0) {
 			if (getenv("HOME")) {
 				free(file);
 				asprintf(&file, "%s/nohup.out", getenv("HOME"));
-				new_stdout = open(file,O_APPEND|O_WRONLY|O_CREAT|O_CLOEXEC,0644);
+				new_stdout = open(file,O_APPEND|O_WRONLY|O_CREAT|O_CLOEXEC,S_IRUSR|S_IWUSR);
 			}
 			if (new_stdout < 0) {
 				fprintf(stderr, "%s: %s: %s\n", argv[0], file, strerror(errno));
