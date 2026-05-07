@@ -454,23 +454,11 @@ long sys_truncate(char * file, off_t size) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
 	if (size < 0) return -EINVAL;
-
 	int error = 0;
 	fs_node_t * fn = kopen_error(file, 0, &error);
 	if (!fn) return -error;
-
-	/* Need write permission */
-	if (!has_permission(fn, W_OK)) {
-		close_fs(fn);
-		return -EACCES;
-	}
-
-	if (!fn->truncate) {
-		close_fs(fn);
-		return -ENOTSUP;
-	}
-
-	long out = fn->truncate(fn, size);
+	if (!has_permission(fn, W_OK)) return close_fs(fn), -EACCES;
+	long out = truncate_fs(fn, size);
 	close_fs(fn);
 	return out;
 }
@@ -479,8 +467,7 @@ long sys_ftruncate(int fd, off_t size) {
 	if (!FD_CHECK(fd)) return -EBADF;
 	if (!(FD_MODE(fd) & PROC_FD_MODE_WRITE)) return -EBADF;
 	if (size < 0) return -EINVAL;
-	if (!FD_ENTRY(fd)->truncate) return -ENOTSUP;
-	return FD_ENTRY(fd)->truncate(FD_ENTRY(fd), size);
+	return truncate_fs(FD_ENTRY(fd), size);
 }
 
 long sys_gettimeofday(struct timeval * tv, void * tz) {
