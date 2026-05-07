@@ -342,6 +342,13 @@ static int do_escape(struct RoffContext * ctx, char *x) {
 				case PAIR('t','i'): fputc('~', ctx->output); break;
 				case PAIR('a','q'): fputc('\'', ctx->output); break;
 				case PAIR('d','q'): fputc('"', ctx->output); break;
+				case PAIR('l','q'): fprintf(ctx->output, "“"); break; /* Left double quote */
+				case PAIR('r','q'): fprintf(ctx->output, "”"); break; /* Right double quote */
+				case PAIR('o','q'): fprintf(ctx->output, "‘"); break; /* Open single quote */
+				case PAIR('c','q'): fprintf(ctx->output, "’"); break; /* Close single quote */
+				case PAIR('l','a'): fprintf(ctx->output, "⟨"); break; /* Left angle bracket */
+				case PAIR('r','a'): fprintf(ctx->output, "⟩"); break; /* Right angle bracket */
+				case PAIR('e','n'): fprintf(ctx->output, "–"); break; /* en-dash */
 				default: fputc('?', ctx->output); break;
 			}
 			return 4;
