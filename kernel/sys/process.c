@@ -1705,7 +1705,7 @@ size_t process_erase_field(off_t field, size_t fieldSize, void * target) {
 
 size_t process_get_tty(process_t * proc, size_t len, char * out) {
 	spin_lock(tree_lock);
-	size_t ret = proc->pty ? proc->pty->fill_name(proc->pty, len, out) : 0;
+	size_t ret = proc->process->pty ? proc->process->pty->fill_name(proc->process->pty, len, out) : 0;
 	spin_unlock(tree_lock);
 	return ret;
 }

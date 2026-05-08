@@ -641,7 +641,7 @@ static int isatty(fs_node_t * node) {
 }
 
 static ssize_t readlink_dev_tty(fs_node_t * node, char * buf, size_t size) {
-	pty_t * pty = this_core->current_process->pty;
+	pty_t * pty = this_core->current_process->process->pty;
 
 
 	char tmp[100];
@@ -658,7 +658,7 @@ static ssize_t readlink_dev_tty(fs_node_t * node, char * buf, size_t size) {
 }
 
 static ssize_t get_size_dev_tty(fs_node_t * node) {
-	pty_t * pty = this_core->current_process->pty;
+	pty_t * pty = this_core->current_process->process->pty;
 	if (!pty) return strlen("/dev/null");
 	return pty->fill_name(pty, 0, NULL);
 }
