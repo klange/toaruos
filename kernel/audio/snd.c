@@ -33,29 +33,10 @@
 
 #define SND_BUF_SIZE 0x4000
 
-static ssize_t snd_dsp_write(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer);
-static int snd_dsp_ioctl(fs_node_t * node, unsigned long request, void * argp);
-static void snd_dsp_open(fs_node_t * node, unsigned int flags);
-static void snd_dsp_close(fs_node_t * node);
-
-static int snd_mixer_ioctl(fs_node_t * node, unsigned long request, void * argp);
-static void snd_mixer_open(fs_node_t * node, unsigned int flags);
-static void snd_mixer_close(fs_node_t * node);
-
 static spin_lock_t _devices_lock;
+static spin_lock_t _buffers_lock;
 
 static list_t _devices;
-static fs_node_t _dsp_fnode = {
-	.name   = "dsp",
-	.device = &_devices,
-	.mask   = 0666,
-	.flags  = FS_CHARDEVICE,
-	.ioctl  = snd_dsp_ioctl,
-	.write  = snd_dsp_write,
-	.open   = snd_dsp_open,
-	.close  = snd_dsp_close,
-};
-static spin_lock_t _buffers_lock;
 static uint32_t _next_device_id = SND_DEVICE_MAIN;
 
 struct dsp_node {
@@ -127,22 +108,6 @@ static int snd_dsp_ioctl(fs_node_t * node, unsigned long request, void * argp) {
 		return dsp->samples;
 	}
 	return -ENOTTY;
-}
-
-static void snd_dsp_open(fs_node_t * node, unsigned int flags) {
-	/*
-	 * XXX(gerow): A process could take the memory of the entire system by opening
-	 * too many of these...
-	 */
-	/* Allocate a buffer for the node and keep a reference for ourselves */
-
-	struct dsp_node * dsp = calloc(sizeof(struct dsp_node),1);
-	dsp->rb = ring_buffer_create(SND_BUF_SIZE);
-	spin_lock(_buffers_lock);
-	dsp->next = buffers_head;
-	buffers_head = dsp;
-	spin_unlock(_buffers_lock);
-	node->device = dsp;
 }
 
 static void snd_cleanup_client(struct dsp_node * dsp) {
@@ -311,11 +276,29 @@ static int readdir_dev_snd(fs_node_t * node, uint64_t index, struct dirent *out)
 	return 0;
 }
 
+static fs_node_t * new_dsp_channel(void) {
+	struct dsp_node * dsp = calloc(1, sizeof(struct dsp_node));
+	dsp->rb = ring_buffer_create(SND_BUF_SIZE);
+	spin_lock(_buffers_lock);
+	dsp->next = buffers_head;
+	buffers_head = dsp;
+	spin_unlock(_buffers_lock);
+
+	fs_node_t * out = calloc(1, sizeof(fs_node_t));
+	strcpy(out->name, "dsp");
+	out->device = dsp;
+	out->mask = 0666;
+	out->flags = FS_CHARDEVICE;
+	out->ioctl = snd_dsp_ioctl;
+	out->write = snd_dsp_write;
+	out->close = snd_dsp_close;
+
+	return out;
+}
+
 static fs_node_t * finddir_dev_snd(fs_node_t * node, const char * name) {
 	if (strcmp(name, "new")) return NULL;
-	fs_node_t * out = calloc(1, sizeof(fs_node_t));
-	memcpy(out, &_dsp_fnode, sizeof(fs_node_t));
-	return out;
+	return new_dsp_channel();
 }
 
 static fs_node_t * init_dev_snd(void) {
