@@ -654,7 +654,7 @@ static ssize_t readlink_dev_tty(fs_node_t * node, char * buf, size_t size) {
 	size_t len = strlen(tmp);
 	if (size < len) len = size;
 	memcpy(buf, tmp, len);
-	return size;
+	return len;
 }
 
 static ssize_t get_size_dev_tty(fs_node_t * node) {
