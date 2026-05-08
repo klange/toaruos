@@ -55,17 +55,8 @@ static fs_node_t _dsp_fnode = {
 	.open   = snd_dsp_open,
 	.close  = snd_dsp_close,
 };
-static fs_node_t _mixer_fnode = {
-	.name  = "mixer",
-	.mask  = 0666,
-	.flags = FS_CHARDEVICE,
-	.ioctl = snd_mixer_ioctl,
-	.open  = snd_mixer_open,
-	.close = snd_mixer_close,
-};
 static spin_lock_t _buffers_lock;
 static uint32_t _next_device_id = SND_DEVICE_MAIN;
-
 
 struct dsp_node {
 	ring_buffer_t * rb;
@@ -253,14 +244,6 @@ static int snd_mixer_ioctl(fs_node_t * node, unsigned long request, void * argp)
 	}
 }
 
-static void snd_mixer_open(fs_node_t * node, unsigned int flags) {
-	return;
-}
-
-static void snd_mixer_close(fs_node_t * node) {
-	return;
-}
-
 int snd_request_buf(snd_device_t * device, uint32_t size, uint8_t *buffer) {
 	static int16_t tmp_buf[0x100];
 
@@ -318,8 +301,72 @@ static snd_device_t * snd_main_device(void) {
 	return NULL;
 }
 
+static int readdir_dev_snd(fs_node_t * node, uint64_t index, struct dirent *out) {
+	if (index < 2) {
+		memset(out, 0, sizeof(struct dirent));
+		out->d_ino = 0;
+		strcpy(out->d_name, ".." + index);
+		return 1;
+	}
+	return 0;
+}
+
+static fs_node_t * finddir_dev_snd(fs_node_t * node, const char * name) {
+	if (strcmp(name, "new")) return NULL;
+	fs_node_t * out = calloc(1, sizeof(fs_node_t));
+	memcpy(out, &_dsp_fnode, sizeof(fs_node_t));
+	return out;
+}
+
+static fs_node_t * init_dev_snd(void) {
+	fs_node_t * out = calloc(1, sizeof(fs_node_t));
+	strcpy(out->name, "snd");
+	out->mask = 0555;
+	out->flags = FS_DIRECTORY;
+	out->length = 1;
+	out->nlink = 1;
+	out->ctime = out->mtime = out->atime = now();
+	out->readdir = readdir_dev_snd;
+	out->finddir = finddir_dev_snd;
+	return out;
+}
+
+static ssize_t readlink_dev_dsp(fs_node_t * node, char * buf, size_t size) {
+	size_t len = strlen("/dev/snd/new");
+	if (size < len) len = size;
+	memcpy(buf, "/dev/snd/new", len);
+	return size;
+}
+
+static ssize_t get_size_dev_dsp(fs_node_t * node) {
+	return strlen("/dev/snd/new");
+}
+
+static fs_node_t * init_dev_dsp(void) {
+	fs_node_t * out = calloc(1, sizeof(fs_node_t));
+	strcpy(out->name, "dsp");
+	out->mask = 0777;
+	out->flags = FS_FILE | FS_SYMLINK;
+	out->length = 1;
+	out->nlink  = 1;
+	out->ctime = out->mtime = out->atime = now();
+	out->get_size = get_size_dev_dsp;
+	out->readlink = readlink_dev_dsp;
+	return out;
+}
+
+static fs_node_t * init_dev_mixer(void) {
+	fs_node_t * out = calloc(1, sizeof(fs_node_t));
+	strcpy(out->name, "mixer");
+	out->mask = 0666;
+	out->flags = FS_CHARDEVICE;
+	out->ioctl = snd_mixer_ioctl;
+	return out;
+}
+
 void snd_install(void) {
-	vfs_mount("/dev/dsp", &_dsp_fnode, "dsp", "");
-	vfs_mount("/dev/mixer", &_mixer_fnode, "mixer", "");
+	vfs_mount("/dev/dsp", init_dev_dsp(), "dsp", "");
+	vfs_mount("/dev/snd", init_dev_snd(), "snd", "");
+	vfs_mount("/dev/mixer", init_dev_mixer(), "mixer", "");
 }
 
