@@ -335,7 +335,7 @@ static ssize_t readlink_dev_dsp(fs_node_t * node, char * buf, size_t size) {
 	size_t len = strlen("/dev/snd/new");
 	if (size < len) len = size;
 	memcpy(buf, "/dev/snd/new", len);
-	return size;
+	return len;
 }
 
 static ssize_t get_size_dev_dsp(fs_node_t * node) {
