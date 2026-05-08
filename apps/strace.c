@@ -1330,7 +1330,7 @@ int main(int argc, char * argv[]) {
 					/* Now look at each comma-separated option */
 					char * option = optarg + 6;
 					char * comma = strstr(option, ",");
-					do {
+					while (1) {
 						if (comma) *comma = '\0';
 
 						if (*option == '%') {
@@ -1367,8 +1367,10 @@ int main(int argc, char * argv[]) {
 								return 1;
 							}
 						}
-						if (comma) { option = comma + 1; }
-					} while (comma);
+						if (!comma) break;
+						option = comma + 1;
+						comma = strstr(option, ",");
+					}
 				} else {
 					char * eq = strstr(optarg, "=");
 					if (eq) *eq = '\0';
