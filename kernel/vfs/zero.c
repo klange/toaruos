@@ -18,16 +18,8 @@ static ssize_t read_null(fs_node_t *node, off_t offset, size_t size, uint8_t *bu
 	return 0;
 }
 
-static ssize_t write_null(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t write_null_zero(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	return size;
-}
-
-static void open_null(fs_node_t * node, unsigned int flags) {
-	return;
-}
-
-static void close_null(fs_node_t * node) {
-	return;
 }
 
 static ssize_t read_zero(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
@@ -35,53 +27,23 @@ static ssize_t read_zero(fs_node_t *node, off_t offset, size_t size, uint8_t *bu
 	return size;
 }
 
-static ssize_t write_zero(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	return size;
-}
-
-static void open_zero(fs_node_t * node, unsigned int flags) {
-	return;
-}
-
-static void close_zero(fs_node_t * node) {
-	return;
-}
-
 static fs_node_t * null_device_create(void) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
-	fnode->inode = 0;
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	strcpy(fnode->name, "null");
-	fnode->uid = 0;
-	fnode->gid = 0;
 	fnode->mask = 0666;
 	fnode->flags   = FS_CHARDEVICE;
 	fnode->read    = read_null;
-	fnode->write   = write_null;
-	fnode->open    = open_null;
-	fnode->close   = close_null;
-	fnode->readdir = NULL;
-	fnode->finddir = NULL;
-	fnode->ioctl   = NULL;
+	fnode->write   = write_null_zero;
 	return fnode;
 }
 
 static fs_node_t * zero_device_create(void) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
-	fnode->inode = 0;
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	strcpy(fnode->name, "zero");
-	fnode->uid = 0;
-	fnode->gid = 0;
 	fnode->mask = 0666;
 	fnode->flags   = FS_CHARDEVICE;
 	fnode->read    = read_zero;
-	fnode->write   = write_zero;
-	fnode->open    = open_zero;
-	fnode->close   = close_zero;
-	fnode->readdir = NULL;
-	fnode->finddir = NULL;
-	fnode->ioctl   = NULL;
+	fnode->write   = write_null_zero;
 	return fnode;
 }
 
