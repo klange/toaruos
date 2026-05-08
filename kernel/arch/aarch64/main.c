@@ -354,7 +354,7 @@ static void spin(void) {
 #define EOI(x) do { \
 	gicc_regs[4] = (x); \
 } while (0)
-void aarch64_interrupt_dispatch(int from_wfi) {
+int aarch64_interrupt_dispatch(int from_wfi) {
 	uint32_t iar = gicc_regs[3];
 	uint32_t irq = iar & 0x3FF;
 	/* Currently we aren't using the CPU value and I'm not sure we have any use for it, we know who we are? */
@@ -365,16 +365,12 @@ void aarch64_interrupt_dispatch(int from_wfi) {
 			update_clock();
 			set_tick();
 			EOI(iar);
-			if (from_wfi) {
-				switch_next();
-			} else {
-				switch_task(1);
-			}
-			return;
+			if (from_wfi) break;
+			switch_task(1);
+			break;
 
 		case 1:
 			EOI(iar);
-			if (from_wfi) switch_next();
 			break;
 
 		/* Arbitrarily chosen SGI for panic signal from another core */
@@ -384,7 +380,7 @@ void aarch64_interrupt_dispatch(int from_wfi) {
 
 		case 1022:
 		case 1023:
-			return;
+			return 1;
 
 		default:
 			if (irq >= 32 && irq < 1022) {
@@ -404,8 +400,10 @@ void aarch64_interrupt_dispatch(int from_wfi) {
 				dprintf("gic: Unhandled interrupt: %d\n", irq);
 				EOI(iar);
 			}
-			return;
+			break;
 	}
+
+	return 0;
 }
 
 void aarch64_irq_enter(struct regs * r) {
@@ -477,13 +475,9 @@ void fpu_enable(void) {
  * @brief Called in a loop by kernel idle tasks.
  */
 void arch_pause(void) {
-
-	/* XXX This actually works even if we're masking interrupts, but
-	 * the interrupt function won't be called, so we'll need to change
-	 * it once we start getting actual hardware interrupts. */
+_try_again:
 	asm volatile ("wfi");
-
-	aarch64_interrupt_dispatch(1);
+	if (aarch64_interrupt_dispatch(1)) goto _try_again;
 }
 
 /**
