@@ -28,6 +28,7 @@
 #include <kernel/mutex.h>
 #include <kernel/shm.h>
 #include <kernel/mman.h>
+#include <sys/auxv.h>
 #include <sys/mman.h>
 
 hashmap_t * _modules_table = NULL;
@@ -254,6 +255,56 @@ _unmap_module:
 extern void process_acquire_big_lock(void);
 extern void process_release_big_lock(void);
 
+static uintptr_t load_from_file(fs_node_t * file, Elf64_Header * header) {
+	uintptr_t phdr_vaddr = 0;
+	for (int i = 0; i < header->e_phnum; ++i) {
+		Elf64_Phdr phdr;
+		read_fs(file, header->e_phoff + header->e_phentsize * i, sizeof(Elf64_Phdr), (uint8_t*)&phdr);
+		if (phdr.p_type == PT_LOAD) {
+			/* Round down */
+			size_t    pageoffset = (phdr.p_vaddr & 0xFFF);
+			uintptr_t addr   = phdr.p_vaddr - pageoffset;
+			size_t    size   = phdr.p_filesz + pageoffset;
+			off_t     offset = phdr.p_offset - pageoffset;
+			size = (size + 0xFFF) & ~0xFFF;
+
+			uintptr_t mapped_to = 0;
+			int prot = PROT_READ;
+			if (phdr.p_flags & PF_W) prot |= PROT_WRITE;
+			if (phdr.p_flags & PF_X) prot |= PROT_EXEC;
+
+			if (size) {
+				mapped_to = mmap_file(addr, size, prot, MAP_PRIVATE | MAP_FIXED, file, offset);
+				if (phdr.p_flags & PF_W) {
+					uintptr_t pad = mapped_to + pageoffset + phdr.p_filesz;
+					if (pad & 0xFFF) {
+						size_t fill = 0x1000 - (pad & 0xFFF);
+						memset((void*)pad, 0, fill);
+					}
+				}
+			} else {
+				mapped_to = addr;
+			}
+
+			if (header->e_phoff >= phdr.p_offset && header->e_phoff < phdr.p_offset + phdr.p_filesz) {
+				uintptr_t offset_into_segment = header->e_phoff - phdr.p_offset;
+				phdr_vaddr = phdr.p_vaddr + offset_into_segment;
+			}
+
+			if (phdr.p_memsz > phdr.p_filesz) {
+				uintptr_t start = mapped_to + pageoffset + phdr.p_filesz;
+				uintptr_t end   = mapped_to + pageoffset + phdr.p_memsz;
+				uintptr_t start_page = (start + 0xFFF) & ~(0xFFF);
+				uintptr_t end_page   = (end + 0xFFF) & ~(0xFFF);
+				if (end_page > start_page) {
+					mmap_anon(start_page, end_page - start_page, prot, MAP_PRIVATE | MAP_FIXED);
+				}
+			}
+		}
+	}
+	return phdr_vaddr;
+}
+
 int elf_exec(const char * path, fs_node_t * file, int argc, const char *const argv[], const char *const env[], int interp) {
 	Elf64_Header header;
 
@@ -282,6 +333,30 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 		return -EINVAL;
 	}
 
+	fs_node_t * interpreter = NULL;
+	Elf64_Header interp_header;
+
+	for (int i = 0; i < header.e_phnum; ++i) {
+		Elf64_Phdr phdr;
+		read_fs(file, header.e_phoff + header.e_phentsize * i, sizeof(Elf64_Phdr), (uint8_t*)&phdr);
+		if (phdr.p_type == PT_INTERP) {
+			/* Must load interpreter */
+			if (phdr.p_filesz < 2 || phdr.p_filesz > 256) return -EINVAL;
+			char * tmp = malloc(phdr.p_filesz);
+			read_fs(file, phdr.p_offset, phdr.p_filesz, (uint8_t*)tmp);
+			if (tmp[phdr.p_filesz-1] != '\0') return free(tmp), -EINVAL;
+
+			int error = 0;
+			interpreter = kopen_error(tmp, 0, &error);
+			if (!interpreter) return free(tmp), -error;
+
+			/* TODO validate interpreter */
+			read_fs(interpreter, 0, sizeof(Elf64_Header), (uint8_t*)&interp_header);
+		}
+	}
+
+	/* Point of no return. */
+
 	if ((file->mask & S_ISUID) && !(this_core->current_process->flags & (PROC_FLAG_TRACE_SYSCALLS | PROC_FLAG_TRACE_SIGNALS))) {
 		/* setuid */
 		this_core->current_process->user = file->uid;
@@ -294,28 +369,6 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 
 	this_core->current_process->saved_user = this_core->current_process->user;
 	this_core->current_process->saved_user_group = this_core->current_process->user_group;
-
-	/* First check if it is dynamic and needs an interpreter */
-	for (int i = 0; i < header.e_phnum; ++i) {
-		Elf64_Phdr phdr;
-		read_fs(file, header.e_phoff + header.e_phentsize * i, sizeof(Elf64_Phdr), (uint8_t*)&phdr);
-		if (phdr.p_type == PT_DYNAMIC) {
-			close_fs(file);
-			unsigned int nargc = argc + 3;
-			const char * args[nargc+1]; /* oh yeah, great, a stack-allocated dynamic array... wonderful... */
-			args[0] = "ld.so";
-			args[1] = "-e";
-			args[2] = strdup(this_core->current_process->name);
-			int j = 3;
-			for (int i = 0; i < argc; ++i, ++j) {
-				args[j] = argv[i];
-			}
-			args[j] = NULL;
-			fs_node_t * file = kopen("/lib/ld.so",0); /* FIXME PT_INTERP value */
-			if (!file) return -EINVAL;
-			return elf_exec(NULL, file, nargc, args, env, 1);
-		}
-	}
 
 	shm_release_all((process_t *)this_core->current_process);
 	process_close_fds((process_t *)this_core->current_process, PROC_FD_MODE_CLOEXEC);
@@ -331,7 +384,6 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	process_release_directory(this_directory);
 	process_release_big_lock();
 
-
 	for (int i = 0; i < NUMSIGNALS; ++i) {
 		if (this_core->current_process->signals[i].handler != 1) {
 			this_core->current_process->signals[i].handler = 0;
@@ -339,60 +391,31 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 		}
 	}
 
-	for (int i = 0; i < header.e_phnum; ++i) {
-		Elf64_Phdr phdr;
-		read_fs(file, header.e_phoff + header.e_phentsize * i, sizeof(Elf64_Phdr), (uint8_t*)&phdr);
-		if (phdr.p_type == PT_LOAD) {
+	/* Load binary */
+	uintptr_t phdr_vaddr = load_from_file(file, &header);
+	uintptr_t entrypoint = header.e_entry;
+	uintptr_t interp_vaddr = 0;
+	close_fs(file);
 
-			/* Round down */
-			size_t    pageoffset = (phdr.p_vaddr & 0xFFF);
-			uintptr_t addr   = phdr.p_vaddr - pageoffset;
-			size_t    size   = phdr.p_filesz + pageoffset;
-			off_t     offset = phdr.p_offset - pageoffset;
-			size = (size + 0xFFF) & ~0xFFF;
-
-			uintptr_t mapped_to = 0;
-			int prot = PROT_READ;
-			if (phdr.p_flags & PF_W) prot |= PROT_WRITE;
-			if (phdr.p_flags & PF_X) prot |= PROT_EXEC;
-
-			if (size) {
-				mapped_to = mmap_file(addr, size, prot, MAP_PRIVATE | MAP_FIXED, file, offset);
-				if (phdr.p_flags & PF_W) {
-					uintptr_t pad = mapped_to + pageoffset + phdr.p_filesz;
-					if (pad & 0xFFF) {
-						size_t fill = 0x1000 - (pad & 0xFFF);
-						memset((void*)pad, 0, fill);
-					}
-				}
-			} else {
-				mapped_to = addr;
-			}
-
-			if (phdr.p_memsz > phdr.p_filesz) {
-				uintptr_t start = mapped_to + pageoffset + phdr.p_filesz;
-				uintptr_t end   = mapped_to + pageoffset + phdr.p_memsz;
-				uintptr_t start_page = (start + 0xFFF) & ~(0xFFF);
-				uintptr_t end_page   = (end + 0xFFF) & ~(0xFFF);
-				if (end_page > start_page) {
-					mmap_anon(start_page, end_page - start_page, prot, MAP_PRIVATE | MAP_FIXED);
-				}
-			}
-		}
-		/* TODO: Should also be setting up TLS PHDRs. */
+	/* We've loaded the binary, now let's load the interpreter! */
+	if (interpreter) {
+		load_from_file(interpreter, &interp_header);
+		entrypoint = interp_header.e_entry;
+		interp_vaddr = interp_header.e_entry; /* hack */
+		close_fs(interpreter);
 	}
 
 	extern uint32_t rand(void);
 	uintptr_t shake = (rand() & 0x7FFF) * 0x100000;
 	this_core->current_process->image.heap  = 0x100000000 + shake;
-	this_core->current_process->image.entry = header.e_entry;
-
-	close_fs(file);
+	this_core->current_process->image.entry = entrypoint;
 
 	// arch_set_...?
 
 	/* Map stack space */
 	uintptr_t userstack = 0x800000000000;
+
+	/* TODO use mmap_addr */
 	for (uintptr_t i = userstack - 512 * 0x400; i < userstack; i += 0x1000) {
 		union PML * page = mmu_get_page(i, MMU_GET_MAKE);
 		mmu_frame_allocate(page, MMU_FLAG_WRITABLE);
@@ -413,12 +436,6 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	} while (l>=0); \
 } while (0)
 
-	/* XXX This should probably be done backwards so we can be
-	 *     sure that we're aligning the stack properly. It
-	 *     doesn't matter too much as our crt0+libc align it
-	 *     correctly for us and environ + auxv detection is
-	 *     based on the addresses of argv, not the actual
-	 *     stack pointer, but it's still weird. */
 	char * argv_ptrs[argc];
 	for (int i = 0; i < argc; ++i) {
 		PUSHSTR(argv[i]);
@@ -438,12 +455,29 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 		envp_ptrs[i] = (char*)userstack;
 	}
 
-	PUSH(uintptr_t, 0);
-	PUSH(uintptr_t, this_core->current_process->user);
-	PUSH(uintptr_t, 11); /* AT_UID */
-	PUSH(uintptr_t, this_core->current_process->real_user);
-	PUSH(uintptr_t, 12); /* AT_EUID */
-	PUSH(uintptr_t, 0);
+	PUSH(uint32_t, rand());
+	PUSH(uint32_t, rand());
+	PUSH(uint32_t, rand());
+	PUSH(uint32_t, rand());
+	uintptr_t rand_offset = userstack;
+
+#define push_auxv(name, value) do { \
+	PUSH(uintptr_t, (uintptr_t)(value)); \
+	PUSH(uintptr_t, (uintptr_t)(name)); \
+} while (0)
+
+	push_auxv(AT_NULL, NULL);
+	push_auxv(AT_RANDOM, rand_offset);
+	push_auxv(AT_EGID, this_core->current_process->user_group);
+	push_auxv(AT_GID,  this_core->current_process->real_user_group);
+	push_auxv(AT_EUID, this_core->current_process->user);
+	push_auxv(AT_UID,  this_core->current_process->real_user);
+	push_auxv(AT_PHNUM, header.e_phnum);
+	push_auxv(AT_PHENT, sizeof(Elf64_Phdr));
+	push_auxv(AT_PHDR, phdr_vaddr);
+	push_auxv(AT_ENTRY,header.e_entry);
+	push_auxv(AT_BASE, interp_vaddr);
+	push_auxv(AT_PAGESZ, 4096);
 
 	PUSH(uintptr_t, 0); /* envp NULL */
 	for (int i = envc; i > 0; i--) {
@@ -458,7 +492,7 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	PUSH(uintptr_t, argc);
 
 	arch_set_kernel_stack(this_core->current_process->image.stack);
-	arch_enter_user(header.e_entry, argc, _argv, _envp, userstack);
+	arch_enter_user(entrypoint, argc, _argv, _envp, userstack);
 
 	task_exit(127 << 8);
 	__builtin_unreachable();

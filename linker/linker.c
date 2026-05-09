@@ -19,7 +19,7 @@
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2016-2021 K. Lange
+ * Copyright (C) 2016-2026 K. Lange
  */
 #include <stdlib.h>
 #include <stdint.h>
@@ -27,10 +27,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/mman.h>
+#include <sys/auxv.h>
 #include <syscall.h>
 
 #include <kernel/elf.h>
@@ -213,17 +215,15 @@ static elf_t * open_object(const char * path) {
 
 /* Calculate the size of an object file by examining its phdrs */
 static size_t object_calculate_size(elf_t * object) {
-
+	Elf64_Phdr *phdr_space = alloca(object->header.e_phentsize);
 	uintptr_t base_addr = (uintptr_t)-1;
 	uintptr_t end_addr  = 0x0;
 	size_t headers = 0;
 	while (headers < object->header.e_phnum) {
 		Elf64_Phdr *phdr = (void*)((uintptr_t)&object->header + object->header.e_phoff + object->header.e_phentsize * headers);
-		int free_phdr = 0;
 
 		if (object->header.e_phoff + object->header.e_phentsize * headers + object->header.e_phentsize > object->header_size) {
-			phdr = malloc(object->header.e_phentsize);
-			free_phdr = 1;
+			phdr = phdr_space;
 			pread(object->file_fd, phdr, object->header.e_phentsize, object->header.e_phoff + object->header.e_phentsize * headers);
 		}
 
@@ -246,7 +246,6 @@ static size_t object_calculate_size(elf_t * object) {
 				break;
 		}
 
-		if (free_phdr) free(phdr);
 		headers++;
 	}
 
@@ -257,19 +256,17 @@ static size_t object_calculate_size(elf_t * object) {
 
 /* Load an object into memory */
 static uintptr_t object_load(elf_t * object, uintptr_t base) {
-
 	uintptr_t end_addr = 0x0;
+	Elf64_Phdr *phdr_space = alloca(object->header.e_phentsize);
 
 	object->base = base;
 
 	size_t headers = 0;
 	while (headers < object->header.e_phnum) {
 		Elf64_Phdr *phdr = (void*)((uintptr_t)&object->header + object->header.e_phoff + object->header.e_phentsize * headers);
-		int free_phdr = 0;
 
 		if (object->header.e_phoff + object->header.e_phentsize * headers + object->header.e_phentsize > object->header_size) {
-			phdr = malloc(object->header.e_phentsize);
-			free_phdr = 1;
+			phdr = phdr_space;
 			pread(object->file_fd, phdr, object->header.e_phentsize, object->header.e_phoff + object->header.e_phentsize * headers);
 		}
 
@@ -324,7 +321,6 @@ static uintptr_t object_load(elf_t * object, uintptr_t base) {
 				break;
 		}
 
-		if (free_phdr) free(phdr);
 		headers++;
 	}
 
@@ -476,7 +472,7 @@ static int object_relocate(elf_t * object) {
 				/* If we need symbol for this, get it. */
 				char * symname = NULL;
 				uintptr_t x = sym->st_shndx == (SHN_ABS ? 0 : object->base) + sym->st_value;
-				if (need_symbol_for_type(type) || (type == 5)) {
+				if (need_symbol_for_type(type)) {
 					symname = (char *)((uintptr_t)object->dyn_string_table + sym->st_name);
 					if (symname && hashmap_has(dumb_symbol_table, symname)) {
 						x = (uintptr_t)hashmap_get(dumb_symbol_table, symname);
@@ -825,6 +821,36 @@ static void * dlopen_ld(const char * filename, int flags) {
 	return ret;
 }
 
+static elf_t * load_from_phdr(uintptr_t *auxv, const char *name, uintptr_t *end_addr_out) {
+	elf_t * obj = calloc(1,sizeof(elf_t));
+
+	obj->header.e_entry = auxv[AT_ENTRY];
+	obj->header_size = sizeof(obj->header);
+	obj->file_fd = -1;
+	obj->dependencies = list_create();
+
+	obj->header.e_phoff = auxv[AT_PHDR];
+	obj->header.e_phentsize = auxv[AT_PHENT];
+	obj->header.e_phnum = auxv[AT_PHNUM];
+
+	uintptr_t end_addr = 0;
+
+	for (size_t i = 0; i < obj->header.e_phnum; ++i) {
+		Elf64_Phdr * phdr = (void*)(obj->header.e_phoff + obj->header.e_phentsize * i);
+		if (phdr->p_type == PT_DYNAMIC) {
+			obj->dynamic = (Elf64_Dyn *)(phdr->p_vaddr);
+		} else if (phdr->p_type == PT_LOAD) {
+			if (end_addr < phdr->p_vaddr + phdr->p_memsz) {
+				end_addr = phdr->p_vaddr + phdr->p_memsz;
+			}
+		}
+	}
+
+	*end_addr_out = end_addr;
+
+	return obj;
+}
+
 /* exposed dlclose() method - XXX not fully implemented */
 static int dlclose_ld(elf_t * lib) {
 	/* TODO close dependencies? Make sure nothing references this. */
@@ -869,27 +895,74 @@ ld_exports_t ld_builtin_exports[] = {
 	{NULL, NULL},
 };
 
+static int usage(char * argv[]) {
+	fprintf(stderr,
+		"usage: %s [-e] [binary [args...]]\n",
+		argv[0]);
+	return -1;
+}
+
 int main(int argc, char * argv[]) {
-	if (argc < 2) {
-		fprintf(stderr,
-				"ld.so - dynamic binary loader\n"
-				"\n"
-				"usage: %s [-e] [EXECUTABLE PATH]\n"
-				"\n"
-				" -e     \033[3mAdjust argument offset\033[0m\n"
-				"\n", argv[0]);
-		return -1;
+	char * file = NULL;
+
+	/* Auxv */
+	int i = argc + 1;
+	while (argv[i]) i++;
+	uintptr_t *auxv = (uintptr_t*)(argv + i + 1);
+
+	uintptr_t auxv_n[32] = {0};
+
+	int show_auxv = !!getenv("LD_SHOW_AUXV");
+	for (uintptr_t *aux = auxv; *aux; aux += 2) {
+		if (aux[0] < 32) auxv_n[aux[0]] = aux[1];
+
+		if (show_auxv) {
+			switch (aux[0]) {
+#define _fmt(n,fstr) case n: fprintf(stderr, "%16s %" fstr "\n", #n ":", aux[1]); break
+				_fmt(AT_UID,"zu");
+				_fmt(AT_EUID,"zu");
+				_fmt(AT_GID,"zu");
+				_fmt(AT_EGID,"zu");
+				_fmt(AT_PAGESZ,"zu");
+				_fmt(AT_RANDOM,"#zx");
+				_fmt(AT_PHDR,"#zx");
+				_fmt(AT_PHENT,"zu");
+				_fmt(AT_PHNUM,"zu");
+				_fmt(AT_BASE,"#zx");
+				_fmt(AT_ENTRY,"#zx");
+				default:
+					fprintf(stderr, "%#zx: %#zx\n", aux[0], aux[1]);
+			}
+		}
 	}
 
-	char * file = argv[1];
-	size_t arg_offset = 1;
+	extern char _start[];
+	if (auxv_n[AT_BASE] && auxv_n[AT_BASE] == (uintptr_t)&_start) {
+		/* We are the interpreter; use whole argv */
+		optind = 0;
+	} else {
+		/* We were invoked directly; process arguments like a normal program. */
+		int opt;
+		while ((opt = getopt(argc, argv, "+e:")) != -1) {
+			switch (opt) {
+				case 'e':
+					file = optarg;
+					break;
+				default:
+					return usage(argv);
+			}
+		}
 
-	if (!strcmp(argv[1], "-e")) {
-		arg_offset = 3;
-		file = argv[2];
+		if (!file) {
+			if (argc == optind) return usage(argv);
+			file = argv[optind];
+		}
 	}
+	_argv_value = argv + optind;
 
-	_argv_value = argv+arg_offset;
+	if (auxv_n[AT_UID] != auxv_n[AT_EUID] || auxv_n[AT_GID] != auxv_n[AT_EGID] || auxv_n[AT_SECURE]) {
+		_target_is_suid = 1;
+	}
 
 	/* Enable tracing if requested */
 	char * trace_ld_env = getenv("LD_DEBUG");
@@ -910,31 +983,22 @@ int main(int argc, char * argv[]) {
 		ex++;
 	}
 
-	/* Technically there's a potential time-of-use probably if we check like this but
-	 * this is a toy linker for a toy OS so the fact that we even need to check suid
-	 * bits at all is outrageous
-	 */
-	struct stat buf;
-	if (stat(file, &buf)) {
-		fprintf(stderr, "%s: target binary '%s' not available\n", argv[0], file);
-	}
-
-	/* Technically there's a way to know we're running suid, but let's check the actual file */
-	if (buf.st_mode & S_ISUID) {
-		_target_is_suid = 1;
-	}
-
 	/* Open the requested main object */
-	elf_t * main_obj = open_object(file);
-	_main_obj = main_obj;
-
-	if (!main_obj) {
-		fprintf(stderr, "%s: error: failed to open object '%s'.\n", argv[0], file);
-		return 1;
+	elf_t * main_obj;
+	if (file) {
+		main_obj = open_object(file);
+		if (!main_obj) {
+			fprintf(stderr, "%s: error: failed to open object '%s'.\n", argv[0], file);
+			return 1;
+		}
+		_main_obj = main_obj;
+		end_addr = object_load(main_obj, 0x0);
+	} else {
+		main_obj = load_from_phdr(auxv_n, argv[0], &end_addr);
+		_main_obj = main_obj;
 	}
 
 	/* Load the main object */
-	end_addr = object_load(main_obj, 0x0);
 	object_postload(main_obj);
 	object_find_copy_relocations(main_obj);
 
@@ -991,8 +1055,8 @@ nope:
 	/* Relocate the main object */
 	TRACE_LD("Relocating main object");
 	object_relocate(main_obj);
-	close(main_obj->file_fd);
-	TRACE_LD("Placing heap at end");
+	if (main_obj->file_fd != -1) close(main_obj->file_fd);
+
 	while (end_addr & 0xFFF) {
 		end_addr++;
 	}
@@ -1041,7 +1105,7 @@ nope:
 	/* Jump to the entry for the main object */
 	TRACE_LD("Jumping to entry point 0x%lx", main_obj->header.e_entry);
 	entry_point_t entry = (entry_point_t)main_obj->header.e_entry;
-	entry(argc-arg_offset,argv+arg_offset,environ);
+	entry(argc-optind,_argv_value,environ);
 
 	return 0;
 }
