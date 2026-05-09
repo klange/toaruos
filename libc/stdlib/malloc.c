@@ -637,4 +637,12 @@ static void * __attribute__ ((malloc)) klcalloc(uintptr_t nmemb, uintptr_t size)
 }
 /* }}} */
 
-
+size_t malloc_usable_size(void *ptr) {
+	if (__builtin_expect(ptr == NULL, 0)) return 0;
+	if ((uintptr_t)ptr % PAGE_SIZE == 0) ptr = (void *)((uintptr_t)ptr - 1);
+	klmalloc_bin_header * header = (klmalloc_bin_header *)((uintptr_t)ptr & (uintptr_t)~PAGE_MASK);
+	if (header->bin_magic != BIN_MAGIC) return 0;
+	uintptr_t bucket_id = header->size;
+	if (bucket_id > (uintptr_t)NUM_BINS) return header->size;
+	return (1UL << (SMALLEST_BIN_LOG + header->size));
+}
