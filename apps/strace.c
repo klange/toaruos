@@ -453,9 +453,6 @@ static void open_flags(int flags) {
 		return;
 	}
 
-	/* That's all that's valid right now */
-	flags &= 0xFFFF;
-
 #define H(flg) do { if (flags & flg) { fprintf(logfile, #flg); flags &= (~flg); if (flags) fprintf(logfile, "|"); } } while (0)
 
 	H(O_WRONLY);
