@@ -22,6 +22,7 @@ enum operations {
 	OP_LIST,
 	OP_READ,
 	OP_WRITE,
+	OP_LIST_DEVICES,
 };
 
 static int show_usage(char *argv[]) {
@@ -55,6 +56,15 @@ static int snd_error(int err, char * argv0, char * mixer_path, uint32_t device_i
 	return 1;
 }
 
+static const char * format_name(uint32_t format) {
+	switch(format) {
+		case SND_FORMAT_L16SLE:
+			return "s16le";
+		default:
+			return "unknown";
+	}
+}
+
 int main(int argc, char * argv[]) {
 	uint32_t device_id = SND_DEVICE_MAIN;
 	uint32_t knob_id   = SND_KNOB_MASTER;
@@ -65,7 +75,7 @@ int main(int argc, char * argv[]) {
 
 	int c;
 
-	while ((c = getopt(argc, argv, "d:lk:rw:m:h?")) != -1) {
+	while ((c = getopt(argc, argv, "d:lk:rw:m:Lh?")) != -1) {
 		switch (c) {
 			case 'd':
 				device_id = atoi(optarg);
@@ -73,6 +83,10 @@ int main(int argc, char * argv[]) {
 			case 'l':
 				if (operation) return show_usage(argv);
 				operation = OP_LIST;
+				break;
+			case 'L':
+				if (operation) return show_usage(argv);
+				operation = OP_LIST_DEVICES;
 				break;
 			case 'k':
 				knob_id = atoi(optarg);
@@ -137,6 +151,30 @@ int main(int argc, char * argv[]) {
 			value.id = knob_id;
 			value.val = (uint32_t)(write_value * SND_KNOB_MAX_VALUE);
 			if (ioctl(mixer, SND_MIXER_WRITE_KNOB, &value) < 0) return snd_error(errno, argv[0], mixer_path, device_id, knob_id);
+			return 0;
+		}
+
+		case OP_LIST_DEVICES: {
+			snd_device_list_t * devlist = calloc(1, sizeof(snd_device_list_t));
+			if (ioctl(mixer, SND_MIXER_GET_DEVICES, devlist) < 0)  return snd_error(errno, argv[0], mixer_path, 0, 0);
+			if (devlist->count == 0) {
+				fprintf(stderr, "%s: no devices\n", argv[0]);
+				return 1;
+			}
+			fprintf(stdout, "%zu device%s:\n", devlist->count, devlist->count == 1 ? "" : "s");
+			devlist = realloc(devlist, sizeof(snd_device_list_t) + sizeof(snd_device_user_t) * devlist->count);
+			devlist->space = devlist->count;
+			if (ioctl(mixer, SND_MIXER_GET_DEVICES, devlist) < 0)  return snd_error(errno, argv[0], mixer_path, 0, 0);
+			size_t entries = devlist->count < devlist->space ? devlist->count : devlist->space;
+			for (size_t i = 0; i < entries; ++i) {
+				fprintf(stdout, "%02u %.256s (%u knob%s; format %s; sample rate %uHz)\n",
+					devlist->devices[i].id,
+					devlist->devices[i].name,
+					devlist->devices[i].num_knobs,
+					devlist->devices[i].num_knobs == 1 ? "" : "s",
+					format_name(devlist->devices[i].playback_format),
+					devlist->devices[i].playback_speed);
+			}
 			return 0;
 		}
 

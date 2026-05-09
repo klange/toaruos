@@ -23,6 +23,7 @@
 #include <kernel/list.h>
 #include <kernel/printf.h>
 #include <kernel/spinlock.h>
+#include <kernel/mmu.h>
 
 #include <kernel/mod/snd.h>
 #include <errno.h>
@@ -202,6 +203,27 @@ static int snd_mixer_ioctl(fs_node_t * node, unsigned long request, void * argp)
 				return -ENODEV;
 			}
 			return device->mixer_write(value->id, value->val);
+		}
+		case SND_MIXER_GET_DEVICES: {
+			if (!argp) return -EINVAL;
+			if (!mmu_validate_user_pointer(argp,sizeof(snd_device_list_t),MMU_PTR_WRITE)) return -EFAULT;
+			snd_device_list_t * arg = argp;
+			if (arg->space && !mmu_validate_user_pointer(argp,sizeof(snd_device_list_t) + arg->space * sizeof(snd_device_user_t), MMU_PTR_WRITE)) return -EFAULT;
+			arg->count = _devices.length;
+			spin_lock(_devices_lock);
+			size_t i = 0;
+			foreach(node, &_devices) {
+				if (i >= arg->space) break;
+				snd_device_t * device = node->value;
+				arg->devices[i].id = device->id;
+				arg->devices[i].playback_speed  = device->playback_speed;
+				arg->devices[i].playback_format = device->playback_format;
+				arg->devices[i].num_knobs = device->num_knobs;
+				memcpy(arg->devices[i].name, device->name, sizeof(device->name));
+				i++;
+			}
+			spin_unlock(_devices_lock);
+			return 0;
 		}
 		default: {
 			return -ENOTTY;

@@ -1,9 +1,6 @@
 #ifndef KERNEL_MOD_SND_H
 #define KERNEL_MOD_SND_H
 
-/* The format isn't really used for anything right now */
-#define SND_FORMAT_L16SLE 0  /* Linear 16-bit signed little endian */
-
 #include <stdint.h>
 #include <kernel/mod/sound.h>
 
