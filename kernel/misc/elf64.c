@@ -348,10 +348,21 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 
 			int error = 0;
 			interpreter = kopen_error(tmp, 0, &error);
-			if (!interpreter) return free(tmp), -error;
+			free(tmp);
+			if (!interpreter) return -error;
 
-			/* TODO validate interpreter */
-			read_fs(interpreter, 0, sizeof(Elf64_Header), (uint8_t*)&interp_header);
+			ssize_t r = read_fs(interpreter, 0, sizeof(Elf64_Header), (uint8_t*)&interp_header);
+			if (r < 0) return close_fs(interpreter), r;
+			if ((size_t)r < sizeof(Elf64_Header)) return close_fs(interpreter), -EINVAL;
+
+			if (interp_header.e_ident[0] != ELFMAG0 ||
+			    interp_header.e_ident[1] != ELFMAG1 ||
+			    interp_header.e_ident[2] != ELFMAG2 ||
+			    interp_header.e_ident[3] != ELFMAG3 ||
+			    interp_header.e_ident[EI_CLASS] != ELFCLASS64 ||
+			    interp_header.e_type != ET_EXEC /* TODO DYN */) {
+				return close_fs(interpreter), -EINVAL;
+			}
 		}
 	}
 
