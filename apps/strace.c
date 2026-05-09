@@ -676,7 +676,7 @@ static void buffer_arg(pid_t pid, uintptr_t buffer, ssize_t count) {
 			else if (buf >= ' ' && buf < '~') fprintf(logfile, "%c", buf);
 			else if (buf == '\r') fprintf(logfile, "\\r");
 			else if (buf == '\n') fprintf(logfile, "\\n");
-			else fprintf(logfile, "\\x%02x", buf);
+			else fprintf(logfile, "\\%o", buf);
 
 			buffer++;
 			x++;
