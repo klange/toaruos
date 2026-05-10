@@ -51,8 +51,8 @@ static long mmap_common_checks(uintptr_t addr, size_t length, int prot, int flag
 #endif
 
 		/* Dumb stuff */
-		if (addr > 0x7FFFffffFFFFUL) return -EINVAL;
-		if (addr + length > 0x7FFFffffFFFFUL) return -EINVAL;
+		if (addr > 0x800000000000UL) return -EINVAL;
+		if (addr + length > 0x800000000000UL) return -EINVAL;
 	}
 
 	return 0;
