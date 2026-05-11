@@ -255,8 +255,14 @@ _unmap_module:
 extern void process_acquire_big_lock(void);
 extern void process_release_big_lock(void);
 
-static uintptr_t load_from_file(fs_node_t * file, Elf64_Header * header) {
+static uintptr_t load_from_file(fs_node_t * file, Elf64_Header * header, uintptr_t *base_out, int is_interp) {
+	uintptr_t base = 0;
 	uintptr_t phdr_vaddr = 0;
+
+	if (header->e_type == ET_DYN) {
+		base = is_interp ? 0x10000000 : 0x20000000;
+	}
+
 	for (int i = 0; i < header->e_phnum; ++i) {
 		Elf64_Phdr phdr;
 		read_fs(file, header->e_phoff + header->e_phentsize * i, sizeof(Elf64_Phdr), (uint8_t*)&phdr);
@@ -274,7 +280,7 @@ static uintptr_t load_from_file(fs_node_t * file, Elf64_Header * header) {
 			if (phdr.p_flags & PF_X) prot |= PROT_EXEC;
 
 			if (size) {
-				mapped_to = mmap_file(addr, size, prot, MAP_PRIVATE | MAP_FIXED, file, offset);
+				mapped_to = mmap_file(base + addr, size, prot, MAP_PRIVATE | MAP_FIXED, file, offset);
 				if (phdr.p_flags & PF_W) {
 					uintptr_t pad = mapped_to + pageoffset + phdr.p_filesz;
 					if (pad & 0xFFF) {
@@ -288,7 +294,7 @@ static uintptr_t load_from_file(fs_node_t * file, Elf64_Header * header) {
 
 			if (header->e_phoff >= phdr.p_offset && header->e_phoff < phdr.p_offset + phdr.p_filesz) {
 				uintptr_t offset_into_segment = header->e_phoff - phdr.p_offset;
-				phdr_vaddr = phdr.p_vaddr + offset_into_segment;
+				phdr_vaddr = mapped_to + pageoffset + offset_into_segment;
 			}
 
 			if (phdr.p_memsz > phdr.p_filesz) {
@@ -302,6 +308,8 @@ static uintptr_t load_from_file(fs_node_t * file, Elf64_Header * header) {
 			}
 		}
 	}
+
+	*base_out = base;
 	return phdr_vaddr;
 }
 
@@ -326,9 +334,7 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	}
 
 	/* This loader can only handle basic executables. */
-	if (header.e_type != ET_EXEC) {
-		printf("(Not an executable)\n");
-		/* TODO: what about DYN? */
+	if (header.e_type != ET_EXEC && header.e_type != ET_DYN) {
 		close_fs(file);
 		return -EINVAL;
 	}
@@ -360,7 +366,7 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 			    interp_header.e_ident[2] != ELFMAG2 ||
 			    interp_header.e_ident[3] != ELFMAG3 ||
 			    interp_header.e_ident[EI_CLASS] != ELFCLASS64 ||
-			    interp_header.e_type != ET_EXEC /* TODO DYN */) {
+			    (interp_header.e_type != ET_EXEC && interp_header.e_type != ET_DYN)) {
 				return close_fs(interpreter), -EINVAL;
 			}
 		}
@@ -403,16 +409,16 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	}
 
 	/* Load binary */
-	uintptr_t phdr_vaddr = load_from_file(file, &header);
-	uintptr_t entrypoint = header.e_entry;
-	uintptr_t interp_vaddr = 0;
+	uintptr_t base_addr;
+	uintptr_t phdr_vaddr = load_from_file(file, &header, &base_addr, 0);
+	uintptr_t entrypoint = header.e_entry + base_addr;
+	uintptr_t interp_base = 0;
 	close_fs(file);
 
 	/* We've loaded the binary, now let's load the interpreter! */
 	if (interpreter) {
-		load_from_file(interpreter, &interp_header);
-		entrypoint = interp_header.e_entry;
-		interp_vaddr = interp_header.e_entry; /* hack */
+		load_from_file(interpreter, &interp_header, &interp_base, 1);
+		entrypoint = interp_base + interp_header.e_entry;
 		close_fs(interpreter);
 	}
 
@@ -425,14 +431,9 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 
 	/* Map stack space */
 	uintptr_t userstack = 0x800000000000;
-
-	/* TODO use mmap_addr */
-	for (uintptr_t i = userstack - 512 * 0x400; i < userstack; i += 0x1000) {
-		union PML * page = mmu_get_page(i, MMU_GET_MAKE);
-		mmu_frame_allocate(page, MMU_FLAG_WRITABLE);
-	}
-
-	this_core->current_process->image.userstack = userstack - 16 * 0x400;
+	size_t    stack_size = 512 * 0x400;
+	mmap_anon(userstack - stack_size, stack_size, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE|MAP_FIXED);
+	this_core->current_process->image.userstack = userstack;
 
 #define PUSH(type,val) do { \
 	userstack -= sizeof(type); \
@@ -477,17 +478,17 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	PUSH(uintptr_t, (uintptr_t)(name)); \
 } while (0)
 
-	push_auxv(AT_NULL, NULL);
+	push_auxv(AT_NULL,   NULL);
 	push_auxv(AT_RANDOM, rand_offset);
-	push_auxv(AT_EGID, this_core->current_process->user_group);
-	push_auxv(AT_GID,  this_core->current_process->real_user_group);
-	push_auxv(AT_EUID, this_core->current_process->user);
-	push_auxv(AT_UID,  this_core->current_process->real_user);
-	push_auxv(AT_PHNUM, header.e_phnum);
-	push_auxv(AT_PHENT, sizeof(Elf64_Phdr));
-	push_auxv(AT_PHDR, phdr_vaddr);
-	push_auxv(AT_ENTRY,header.e_entry);
-	push_auxv(AT_BASE, interp_vaddr);
+	push_auxv(AT_EGID,   this_core->current_process->user_group);
+	push_auxv(AT_GID,    this_core->current_process->real_user_group);
+	push_auxv(AT_EUID,   this_core->current_process->user);
+	push_auxv(AT_UID,    this_core->current_process->real_user);
+	push_auxv(AT_PHNUM,  header.e_phnum);
+	push_auxv(AT_PHENT,  sizeof(Elf64_Phdr));
+	push_auxv(AT_PHDR,   phdr_vaddr);
+	push_auxv(AT_ENTRY,  base_addr + header.e_entry);
+	push_auxv(AT_BASE,   interp_base);
 	push_auxv(AT_PAGESZ, 4096);
 
 	PUSH(uintptr_t, 0); /* envp NULL */

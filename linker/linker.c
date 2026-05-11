@@ -937,7 +937,7 @@ int main(int argc, char * argv[]) {
 	}
 
 	extern char _start[];
-	if (auxv_n[AT_BASE] && auxv_n[AT_BASE] == (uintptr_t)&_start) {
+	if (auxv_n[AT_ENTRY] != (uintptr_t)&_start) {
 		/* We are the interpreter; use whole argv */
 		optind = 0;
 	} else {
