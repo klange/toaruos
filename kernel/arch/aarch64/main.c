@@ -270,6 +270,26 @@ static void enable_el0_cache_maintenance(void) {
 		::: "x0", "x1");
 }
 
+static int map_more_stack(uintptr_t fromAddr) {
+	volatile process_t * volatile proc = this_core->current_process->process;
+	if (!proc) return 0;
+
+	/* Make sure nothing else is going to mess with this process's page tables */
+	spin_lock(proc->image.lock);
+
+	/* Map more stack! */
+	for (uintptr_t i = fromAddr; i < proc->image.userstack; i += 0x1000) {
+		union PML * page = mmu_get_page(i, MMU_GET_MAKE);
+		mmu_frame_allocate(page, MMU_FLAG_WRITABLE);
+	}
+
+	/* Update the saved stack address */
+	proc->image.userstack = fromAddr;
+
+	spin_unlock(proc->image.lock);
+	return 1;
+}
+
 void aarch64_sync_enter(struct regs * r) {
 	uint64_t esr, far, elr, spsr;
 	asm volatile ("mrs %0, ESR_EL1" : "=r"(esr));
@@ -327,6 +347,10 @@ void aarch64_sync_enter(struct regs * r) {
 	if (far == 0x1de7ec7edbadc0de) {
 		dprintf("kvm: blip (esr=%#zx, elr=%#zx; pid=%d [%s])\n", esr, elr, this_core->current_process->id, this_core->current_process->name);
 		goto _resume_user;
+	}
+
+	if (far < 0x800000000000 && far > 0x700000000000) {
+		if (map_more_stack(far & 0xFFFFffffFFFFf000)) goto _resume_user;
 	}
 
 	/* Unexpected fault, eg. page fault. */
