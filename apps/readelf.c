@@ -95,6 +95,7 @@ static char * elf_machineToStr(Elf64_Half machine) {
 	static char buf[64];
 	switch (machine) {
 		case EM_X86_64: return "Advanced Micro Devices X86-64";
+		case EM_AARCH64: return "AArch64";
 		default:
 			sprintf(buf, "unknown (%d)", machine);
 			return buf;
@@ -331,6 +332,18 @@ static char * relocationInfoToStr(Elf64_Xword info) {
 		CASE(R_X86_64_TLSDESC_CALL)
 		CASE(R_X86_64_TLSDESC)
 		CASE(R_X86_64_IRELATIVE)
+		CASE(R_AARCH64_ABS64)
+		CASE(R_AARCH64_ABS32)
+		CASE(R_AARCH64_ADR_PREL_PG_HI21)
+		CASE(R_AARCH64_JUMP26)
+		CASE(R_AARCH64_CALL26)
+		CASE(R_AARCH64_LDST64_ABS_LO12_NC)
+		CASE(R_AARCH64_COPY)
+		CASE(R_AARCH64_GLOB_DAT)
+		CASE(R_AARCH64_JUMP_SLOT)
+		CASE(R_AARCH64_RELATIVE)
+		CASE(R_AARCH64_TLS_TPREL)
+		CASE(R_AARCH64_TLSDESC)
 		default:
 			return "unknown";
 	}

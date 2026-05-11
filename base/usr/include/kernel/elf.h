@@ -85,6 +85,7 @@ typedef int64_t  Elf64_Sxword;
 #define EI_NIDENT      16
 
 #define EM_X86_64      62
+#define EM_AARCH64     183
 
 /**
  * @brief Elf object file header.
