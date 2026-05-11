@@ -264,8 +264,18 @@ typedef struct Elf64_Rela {
 #define R_X86_64_IRELATIVE        37 /**< @brief @p word64 indirect (B + A) */
 
 
-#define R_AARCH64_COPY          1024
-#define R_AARCH64_GLOB_DAT      1025
+#define R_AARCH64_ABS64              257
+#define R_AARCH64_ABS32              258
+#define R_AARCH64_ADR_PREL_PG_HI21   275
+#define R_AARCH64_JUMP26             282
+#define R_AARCH64_CALL26             283
+#define R_AARCH64_LDST64_ABS_LO12_NC 286
+#define R_AARCH64_COPY              1024
+#define R_AARCH64_GLOB_DAT          1025
+#define R_AARCH64_JUMP_SLOT         1026
+#define R_AARCH64_RELATIVE          1027
+#define R_AARCH64_TLS_TPREL         1030
+#define R_AARCH64_TLSDESC           1031
 
 
 /**
