@@ -97,13 +97,6 @@ static void string_arg(pid_t pid, uintptr_t ptr, size_t maxsize) {
 }
 
 #if 0
-extern uintptr_t __ld_symbol_table(void);
-extern uintptr_t __ld_objects_table(void);
-#endif
-
-uintptr_t __ld_symbol_table(void) { return 0; }
-uintptr_t __ld_objects_table(void) { return 0; }
-
 static char * read_string(pid_t pid, uintptr_t ptr) {
 	if (!ptr) return strdup("(null)");
 	size_t len = 0;
@@ -114,92 +107,24 @@ static char * read_string(pid_t pid, uintptr_t ptr) {
 	data_read_bytes(pid, ptr, out, len+1);
 	return out;
 }
-
-#include <toaru/ld_elf.h>
+#endif
 
 static int find_symbol(pid_t pid, uintptr_t addr_in, char ** name, uintptr_t *addr_out, char ** objname) {
 
 	intptr_t  current_max = INTPTR_MAX;
 	uintptr_t current_addr = (uintptr_t)NULL;
-	uintptr_t current_xname = (uintptr_t)NULL;
+	//uintptr_t current_xname = (uintptr_t)NULL;
 	char * current_name = NULL;
 	char * current_obj = NULL;
 	uintptr_t best_base = 0;
 
 	/* Can we cheat and peek at ld.so? */
-	uintptr_t their_symbol_table  = 0; //data_read_ptr(pid, __ld_symbol_table());
-
-	if (their_symbol_table) {
-		hashmap_t map;
-		data_read_bytes(pid, their_symbol_table, (char*)&map, sizeof(hashmap_t));
-
-		/* Cool, now let's look at every entry... */
-		for (size_t i = 0; i < map.size; ++i) {
-			uintptr_t ptr;
-			hashmap_entry_t entry;
-			data_read_bytes(pid, (uintptr_t)map.entries + sizeof(uintptr_t) * i, (char*)&ptr, sizeof(uintptr_t));
-			int j = 0;
-			while (ptr) {
-				data_read_bytes(pid, ptr, (char*)&entry, sizeof(hashmap_entry_t));
-				if (entry.value && addr_in >= (uintptr_t)entry.value) {
-					intptr_t x = addr_in - (uintptr_t)entry.value;
-					if (x < current_max) {
-						current_max = x;
-						current_addr = (uintptr_t)entry.value;
-						current_xname = (uintptr_t)entry.key;
-					}
-				}
-				ptr = (uintptr_t)entry.next;
-				j++;
-			}
-		}
-
-		if (current_xname) {
-			current_name = read_string(pid, current_xname);
-		}
-	}
-
 	if (addr_in < 0x40000000) {
 		current_obj = strdup("libc.so");
 		best_base = 0x10000000;
 	}
 
 	/* Figure out where this object is in the objects map */
-	uintptr_t their_objects_table = 0; //data_read_ptr(pid, __ld_objects_table());
-
-	if (!current_obj && their_objects_table) {
-		hashmap_t map;
-		data_read_bytes(pid, their_objects_table, (char*)&map, sizeof(hashmap_t));
-
-		intptr_t  cmax = INTPTR_MAX;
-		uintptr_t best_name = 0;
-		for (size_t i = 0; i < map.size; ++i) {
-			uintptr_t ptr;
-			hashmap_entry_t entry;
-			data_read_bytes(pid, (uintptr_t)map.entries + sizeof(uintptr_t) * i, (char*)&ptr, sizeof(uintptr_t));
-			while (ptr) {
-				data_read_bytes(pid, ptr, (char*)&entry, sizeof(hashmap_entry_t));
-				if (entry.value) {
-					elf_t obj;
-					data_read_bytes(pid, (uintptr_t)entry.value, (char*)&obj, sizeof(elf_t));
-					if (addr_in >= obj.base) {
-						intptr_t x = addr_in - (uintptr_t)obj.base;
-						if (x < cmax) {
-							cmax = x;
-							best_name = (uintptr_t)entry.key;
-							best_base = obj.base;
-						}
-					}
-				}
-				ptr = (uintptr_t)entry.next;
-			}
-		}
-
-		if (best_name) {
-			current_obj = read_string(pid, best_name);
-		}
-	}
-
 	FILE * f = binary_obj;
 	if (current_obj) {
 		/* Try to open that */
@@ -278,24 +203,7 @@ _bail:
 }
 
 static void show_libs(pid_t pid) {
-	hashmap_t map;
-	uintptr_t their_objects_table = data_read_ptr(pid, __ld_objects_table());
-	data_read_bytes(pid, their_objects_table, (char*)&map, sizeof(hashmap_t));
-	for (size_t i = 0; i < map.size; ++i) {
-		uintptr_t ptr;
-		hashmap_entry_t entry;
-		data_read_bytes(pid, (uintptr_t)map.entries + sizeof(uintptr_t) * i, (char*)&ptr, sizeof(uintptr_t));
-		while (ptr) {
-			data_read_bytes(pid, ptr, (char*)&entry, sizeof(hashmap_entry_t));
-			if (entry.value) {
-				elf_t obj;
-				data_read_bytes(pid, (uintptr_t)entry.value, (char*)&obj, sizeof(elf_t));
-				char * s = read_string(pid, (uintptr_t)entry.key);
-				fprintf(stderr, "%s @ %#zx\n", s, (uintptr_t)obj.base);
-			}
-			ptr = (uintptr_t)entry.next;
-		}
-	}
+	/* TODO */
 }
 
 static void attempt_backtrace(pid_t pid, struct URegs * regs) {
