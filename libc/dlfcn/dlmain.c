@@ -11,8 +11,11 @@
  * Copyright (C) 2026 K. Lange
  */
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <fcntl.h>
+#include <errno.h>
 
 static int usage(char * argv[]) {
 	fprintf(stderr,
@@ -20,6 +23,8 @@ static int usage(char * argv[]) {
 		argv[0]);
 	return 1;
 }
+
+extern int __libc_load_from_file(int fd, const char * name, int argc, char *argv[]);
 
 int ld_so_main(int argc, char * argv[]) {
 	char * file = NULL;
@@ -40,8 +45,13 @@ int ld_so_main(int argc, char * argv[]) {
 		file = argv[optind];
 	}
 
-	fprintf(stderr, "Nothing to do.\n");
+	int fd = open(file, O_RDONLY | O_CLOEXEC);
 
-	return 0;
+	if (fd < 0) {
+		fprintf(stderr, "%s: %s: %s\n", argv[0], file, strerror(errno));
+		return 1;
+	}
+
+	return __libc_load_from_file(fd, file, argc - optind, &argv[optind]);
 }
 

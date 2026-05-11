@@ -56,6 +56,8 @@ static struct DlLib *last_library = NULL;
 static struct DlLib *__libc_ldso = NULL;
 static size_t current_tls_offset = 16;
 static bool is_runtime = false;
+static bool target_is_suid = false;
+static char ** __envp = NULL;
 
 static DEFN_SYSCALL1(_exit,SYS_EXT,int);
 
@@ -66,6 +68,13 @@ static void simple_memcpy(char *a, char * b, size_t sz) {
 		*a++ = *b++;
 		sz--;
 	}
+}
+
+static char * simple_getenv(const char * var) {
+	char ** envp = __envp;
+	size_t len = strlen(var);
+	for (char * e; (e = *envp); envp++) if (!strncmp(*envp,var,len) && e[len] == '=') return &e[len+1];
+	return NULL;
 }
 
 static uintptr_t load_addr(void) {
@@ -332,16 +341,16 @@ _continue:
 static void setup_lib(struct DlLib * app, Elf64_Phdr *phdrs, size_t phnum);
 static size_t calculate_tls_size(struct DlLib * lib);
 
-static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent) {
+static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent, int is_exec) {
 	struct DlLib * lib = calloc(1, sizeof(struct DlLib));
 
 	size_t avail = sizeof(struct Elf64_Header) + 300;
 	Elf64_Header * lib_header = calloc(1, avail);
 	ssize_t r = pread(fd, lib_header, avail, 0);
 	if (r < 0 || (size_t)r < avail) goto _fail_dep;
-	if (lib_header->e_type != ET_DYN) goto _fail_dep;
+	if (lib_header->e_type != ET_DYN && (!is_exec || lib_header->e_type != ET_EXEC)) goto _fail_dep;
 	if (lib_header->e_phoff + lib_header->e_phentsize > avail) {
-		dprintf("%s: need to load more phdrs, failing for now\n", name);
+		dprintf("ld.so: %s: need to load more phdrs, failing for now\n", name);
 		goto _fail_dep;
 	}
 
@@ -361,7 +370,7 @@ static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent)
 		if (phdr->p_vaddr + phdr->p_memsz > end_addr) end_addr = phdr->p_vaddr + phdr->p_memsz;
 	}
 
-	uintptr_t load_addr = (uintptr_t)valloc(end_addr - base_addr);
+	uintptr_t load_addr = is_exec ? 0 : (uintptr_t)valloc(end_addr - base_addr);
 
 	for (size_t i = 0; i < lib_header->e_phnum; ++i) {
 		Elf64_Phdr * phdr = (void*)((uintptr_t)lib_header + lib_header->e_phoff + lib_header->e_phentsize * i);
@@ -406,9 +415,14 @@ static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent)
 
 	Elf64_Phdr * phdrs = (void*)((uintptr_t)lib_header + lib_header->e_phoff);
 
-	lib->next = NULL;
-	last_library->next = lib;
-	last_library = lib;
+	if (is_exec) {
+		all_libraries = lib;
+		lib->next = __libc_ldso;
+	} else {
+		lib->next = NULL;
+		last_library->next = lib;
+		last_library = lib;
+	}
 
 	//dprintf("Setting up %s\n", name);
 	setup_lib(lib, phdrs, lib_header->e_phnum);
@@ -416,7 +430,7 @@ static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent)
 	return lib;
 
 _fail_dep:
-	dprintf("failed to load dependency\n");
+	dprintf("ld.so: failed to load dependency '%s'\n", name);
 	free(lib_header);
 	free(lib);
 	close(fd);
@@ -436,11 +450,17 @@ static struct DlLib * find_lib(const char * name, struct DlLib * parent) {
 		int fd = open(name, O_RDONLY | O_CLOEXEC);
 		if (fd < 0) return NULL;
 
-		return try_load(name, fd, parent);
+		return try_load(name, fd, parent, 0);
 	}
 
 	/* Did not find it, let's go load it. */
 	char * path = "/lib:/usr/lib";
+
+	if (!target_is_suid) {
+		char * p = simple_getenv("LD_LIBRARY_PATH");
+		if (p) path = p;
+	}
+
 	char * xpath = strdup(path);
 	char *p, *last;
 	for ((p = strtok_r(xpath, ":", &last)); p;
@@ -463,7 +483,7 @@ static struct DlLib * find_lib(const char * name, struct DlLib * parent) {
 
 		if (fd < 0) continue; /* set error and break? */
 
-		struct DlLib * maybe = try_load(name, fd, parent);
+		struct DlLib * maybe = try_load(name, fd, parent, 0);
 		if (maybe) {
 			free(xpath);
 			return maybe;
@@ -591,6 +611,39 @@ _continue:
 	return tls_size;
 }
 
+static int run_app(struct DlLib * app, int argc, char * argv[], uintptr_t entryp) {
+	relocate_stuff(app->next);
+	relocate_stuff(app);
+
+	for (struct DlLib * libs = app->next; libs; libs = libs->next) {
+		if (libs->constructed) continue;
+		run_ctors(libs);
+	}
+	run_ctors(app);
+
+	typedef int (*entry_point_t)(int, char *[], char**);
+	entry_point_t entry = (void*)(entryp);
+#ifdef LD_EARLY_DEBUG
+	close(emergency_fd);
+#endif
+	is_runtime = true;
+	return entry(argc, argv, NULL);
+}
+
+__attribute__((visibility("hidden")))
+int __libc_load_from_file(int fd, const char * name, int argc, char *argv[]) {
+	last_library = __libc_ldso;
+
+	struct DlLib * app = try_load(name, fd, NULL, 1);
+
+	if (!app) {
+		dprintf("ld.so: nope\n");
+		return 1;
+	}
+
+	return run_app(app, argc, argv, app->base + app->ehdr->e_entry);
+}
+
 __attribute__((visibility("hidden")))
 int __libc_start(int argc, char *argv[], char *envp[]) {
 #ifdef LD_EARLY_DEBUG
@@ -602,6 +655,8 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 	emergency_fd = syscall__open(_file, O_WRONLY | O_CLOEXEC, 0);
 #endif
 
+	__envp = envp;
+
 	/* Get auxv */
 	int i;
 	for (i = 0; envp[i]; ++i);
@@ -610,6 +665,10 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 	for (i = 0; i<32; ++i) auxv[i] = 0;
 	for (i = 0; auxv_raw[i]; i += 2) {
 		if (auxv_raw[i] < 32) auxv[auxv_raw[i]] = auxv_raw[i+1];
+	}
+
+	if (auxv[AT_UID] != auxv[AT_EUID] || auxv[AT_GID] != auxv[AT_EGID] || auxv[AT_SECURE]) {
+		target_is_suid = true;
 	}
 
 	/* Figure out what to do. */
@@ -637,6 +696,28 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 	simple_relocs(dyn[DT_RELA] + base, dyn[DT_RELASZ], base, (void*)(dyn[DT_SYMTAB] + base));
 	simple_relocs(dyn[DT_JMPREL] + base, dyn[DT_PLTRELSZ], base, (void*)(dyn[DT_SYMTAB] + base));
 
+	bool show_auxv = !!simple_getenv("LD_SHOW_AUXV");
+	if (show_auxv) {
+		for (i = 0; auxv_raw[i]; i += 2) {
+			switch (auxv_raw[i]) {
+#define _fmt(n,fstr) case n: dprintf("%16s %" fstr "\n", #n ":", auxv_raw[i+1]); break
+				_fmt(AT_UID,"zu");
+				_fmt(AT_EUID,"zu");
+				_fmt(AT_GID,"zu");
+				_fmt(AT_EGID,"zu");
+				_fmt(AT_PAGESZ,"zu");
+				_fmt(AT_RANDOM,"#zx");
+				_fmt(AT_PHDR,"#zx");
+				_fmt(AT_PHENT,"zu");
+				_fmt(AT_PHNUM,"zu");
+				_fmt(AT_BASE,"#zx");
+				_fmt(AT_ENTRY,"#zx");
+				default:
+					dprintf("%#zx: %#zx\n", auxv_raw[i], auxv_raw[i+1]);
+			}
+		}
+	}
+
 	extern char ** __argv;
 	__argv = argv;
 
@@ -654,7 +735,6 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 	ldso->strings = (void*)(ldso->base + ldso->dyn[DT_STRTAB]);
 	ldso->syms    = (void*)(ldso->base + ldso->dyn[DT_SYMTAB]);
 	ldso->hash    = (void*)(ldso->base + ldso->dyn[DT_HASH]);
-	//ldso->relocated = true;
 	ldso->tlsbase = current_tls_offset;
 
 	if (!auxv[AT_BASE]) {
@@ -677,41 +757,17 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 	last_library = ldso;
 
 	/* Okay let's try to actually relocate and link the binary the kernel loaded next to us... */
-	{
-		Elf64_Phdr * phdrs = (void*)auxv[AT_PHDR];
-		size_t phnum = auxv[AT_PHNUM];
+	phdrs = (void*)auxv[AT_PHDR];
+	size_t phnum = auxv[AT_PHNUM];
 
-		for (size_t i = 0; i < phnum; ++i) {
-			if (phdrs[i].p_type == PT_PHDR) {
-				app->base = auxv[AT_PHDR] - phdrs[i].p_vaddr;
-				break;
-			}
+	for (size_t i = 0; i < phnum; ++i) {
+		if (phdrs[i].p_type == PT_PHDR) {
+			app->base = auxv[AT_PHDR] - phdrs[i].p_vaddr;
+			break;
 		}
-
-		setup_lib(app, phdrs, phnum);
-
-		relocate_stuff(app->next);
-		relocate_stuff(app);
-
-		for (struct DlLib * libs = app->next; libs; libs = libs->next) {
-			if (libs->constructed) continue;
-			run_ctors(libs);
-		}
-		run_ctors(app);
-
-		typedef int (*entry_point_t)(int, char *[], char**);
-		entry_point_t entry = (void*)(app->base + auxv[AT_ENTRY]);
-
-#ifdef LD_EARLY_DEBUG
-		close(emergency_fd);
-#endif
-
-		is_runtime = true;
-
-		//extern char **environ;
-		//environ = &argv[argc+1];
-		return entry(argc, argv, NULL);
 	}
 
-	return 0;
+	setup_lib(app, phdrs, phnum);
+
+	return run_app(app, argc, argv, auxv[AT_ENTRY]);
 }
