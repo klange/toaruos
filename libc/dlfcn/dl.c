@@ -61,6 +61,7 @@ static bool is_runtime = false;
 static bool target_is_suid = false;
 static char ** __envp = NULL;
 static bool __trace_ld = false;
+static char * __ld_error = NULL;
 
 static DEFN_SYSCALL1(_exit,SYS_EXT,int);
 
@@ -91,11 +92,6 @@ static uintptr_t load_addr(void) {
 	out = (uintptr_t)&__ehdr_start;
 #endif
 	return out;
-}
-
-void __register_frame_info(void) {
-}
-void __deregister_frame_info(void) {
 }
 
 static void simple_relocs(uintptr_t rel, uintptr_t size, uintptr_t base, Elf64_Sym * sym_table) {
@@ -213,11 +209,6 @@ static inline int is_tlsoff(int type) {
 # error "Unknown arch"
 #endif
 }
-
-void _ITM_registerTMCloneTable(void) {}
-void _ITM_deregisterTMCloneTable(void) {}
-void __cxa_finalize(void) {}
-
 
 static void relocate(struct DlLib * lib) {
 	uintptr_t * their_dyn = lib->dyn;
@@ -463,7 +454,10 @@ static struct DlLib * find_lib(const char * name, struct DlLib * parent) {
 
 	if (name[0] == '/') {
 		int fd = open(name, O_RDONLY | O_CLOEXEC);
-		if (fd < 0) return NULL;
+		if (fd < 0) {
+			__ld_error = "failed to open file";
+			return NULL;
+		}
 
 		return try_load(name, fd, parent, 0);
 	}
@@ -507,6 +501,7 @@ static struct DlLib * find_lib(const char * name, struct DlLib * parent) {
 
 	free(xpath);
 
+	__ld_error = "no suitable library found";
 	return NULL;
 }
 
@@ -596,6 +591,15 @@ void * dlsym(struct DlLib * lib, const char * name) {
 	}
 
 	return NULL;
+}
+
+int __attribute__((weak)) dlclose(void * handle) {
+	__ld_error = "dlclose() unimplemented";
+	return -1;
+}
+
+char * dlerror(void) {
+	return __ld_error;
 }
 
 static size_t calculate_tls_size(struct DlLib * lib) {
