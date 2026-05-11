@@ -30,6 +30,8 @@ static DEFN_SYSCALL3(_open,SYS_OPEN,const char*,long,mode_t);
 static int emergency_fd = 0;
 #endif
 
+#define unlikely(cond) __builtin_expect((cond), 0)
+
 struct DlLib {
 	const char   * name;
 	Elf64_Header * ehdr;
@@ -58,6 +60,7 @@ static size_t current_tls_offset = 16;
 static bool is_runtime = false;
 static bool target_is_suid = false;
 static char ** __envp = NULL;
+static bool __trace_ld = false;
 
 static DEFN_SYSCALL1(_exit,SYS_EXT,int);
 
@@ -267,8 +270,10 @@ static void relocate(struct DlLib * lib) {
 					}
 
 					if (resolved) {
-						//dprintf("Resolved symbol '%s' as %#zx\n",
-						//	name, (inlib->base + resolved->st_value));
+						if (unlikely(__trace_ld)) {
+							dprintf("ld.so: %s: Resolved symbol '%s' as %#zx\n",
+								lib->name, name, (inlib->base + resolved->st_value));
+						}
 						x = inlib->base + resolved->st_value;
 						tlsx = inlib->tlsbase + resolved->st_value;
 					} else {
@@ -367,21 +372,24 @@ static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent,
 	for (size_t i = 0; i < lib_header->e_phnum; ++i) {
 		Elf64_Phdr * phdr = (void*)((uintptr_t)lib_header + lib_header->e_phoff + lib_header->e_phentsize * i);
 		if (phdr->p_type != PT_LOAD) continue;
-
-		#if 0
-		dprintf("Load vaddr=%#zx, size=%zu, offset=%zu, filesz=%zu\n",
-			phdr->p_vaddr, phdr->p_memsz, phdr->p_offset, phdr->p_filesz);
-		#endif
-
 		if ((phdr->p_vaddr & ~0xFFF) < base_addr) base_addr = (phdr->p_vaddr & ~0xFFF);
 		if (phdr->p_vaddr + phdr->p_memsz > end_addr) end_addr = phdr->p_vaddr + phdr->p_memsz;
 	}
 
 	uintptr_t load_addr = is_exec ? 0 : (uintptr_t)valloc(end_addr - base_addr);
 
+	if (unlikely(__trace_ld)) {
+		dprintf("ld.so: %s: loading at %#zx\n", name, load_addr);
+	}
+
 	for (size_t i = 0; i < lib_header->e_phnum; ++i) {
 		Elf64_Phdr * phdr = (void*)((uintptr_t)lib_header + lib_header->e_phoff + lib_header->e_phentsize * i);
 		if (phdr->p_type != PT_LOAD) continue;
+
+		if (unlikely(__trace_ld)) {
+			dprintf("ld.so: %s: load vaddr=%#zx, size=%zu, offset=%zu, filesz=%zu\n",
+				name, phdr->p_vaddr, phdr->p_memsz, phdr->p_offset, phdr->p_filesz);
+		}
 
 		size_t    pageoffset = ((load_addr + phdr->p_vaddr) & 0xFFF);
 		uintptr_t addr   = load_addr + phdr->p_vaddr - pageoffset;
@@ -724,6 +732,8 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 			}
 		}
 	}
+
+	__trace_ld = !!simple_getenv("LD_DEBUG");
 
 	extern char ** __argv;
 	__argv = argv;
