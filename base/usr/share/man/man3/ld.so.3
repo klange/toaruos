@@ -1,4 +1,4 @@
-.TH ld.so 3 "April, 2026"
+.TH ld.so 3 "May, 2026"
 
 .SH NAME
 \fBld.so\fP \- dynamic binary loader
@@ -6,18 +6,16 @@
 .SH SYNOPSIS
 \fBld.so\fP \fIbinary\fP [\fIargs\fP]...
 .br
-\fBld.so\fP \fB\-e\fP \fIbinary_path\fP \fBargv0\fP [\fIargs\fP]...
+\fBld.so\fP \fB\-e\fP \fIbinary_path\fP [\fIargs\fP]...
 
 .SH DESCRIPTION
 \fBld.so\fP links and executes dynamic ELF binaries.
 It is normally set as the interpreter for these binaries in ToaruOS, as \fB/lib/ld.so\fP.
-.PP
-Despite its name, this \fBld.so\fP is not a shared object, but rather a static executable.
 
 .SH OPTIONS
 .TP
 .B \-e \fIbinary_path\fP
-Execute \fIbinary_path\fP, but use an alternative name for its \fBargv[0]\fP.
+Execute \fIbinary_path\fP with \fIargs\fP starting from \fIargv[0]\fP.
 
 .SH ENVIRONMENT
 .TP
@@ -25,20 +23,18 @@ Execute \fIbinary_path\fP, but use an alternative name for its \fBargv[0]\fP.
 Determines where dynamic libraries will be searched.
 This should be a :\-separated list of paths.
 If unset, the default is \fB/lib:/usr/lib\fP.
+\fBLD_LIBRARY_PATH\fP will be ignored when running a set-user-ID or set-group-ID binary.
+
+.TP
+.B LD_SHOW_AUXV
+Print information about the auxiliary vector received from the kernel.
 
 .TP
 .B LD_DEBUG
-If set to \fB1\fP or \fByes\fP, logs will be printed to standard error.
+If set, logs will be printed to standard error.
 
-.TP
-.B LD_DISABLE_CTORS
-If set to \fB1\fP or \fByes\fP, constructors (\fIinit_array\fP) will not be run in loaded libraries.
+.SH NOTES
+\fB/lib/ld.so\fP is a symbolic link to \fB/lib/libc.so\fP.
 
 .SH CAVEATS
-This \fBld.so\fP is wildly inaccurate to the specifications for just about everything,
-yet it still manages to mostly work.
-.PP
-No actual sharing of shared objects occurs due to a lack of file\-backed \fBmmap\fP functionality
-in the Misaka kernel, as of writing.
-.PP
 There is no \fBLD_PRELOAD\fP support, no lazy binding, and no ability to unload libraries.
