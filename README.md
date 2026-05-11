@@ -42,7 +42,7 @@ ToaruOS also includes my text editor, [Bim](https://github.com/klange/bim), and 
 - **Yutani** (window compositor), [apps/compositor.c](apps/compositor.c), manages window buffers, layout, and input routing.
 - **Bim** (text editor), [bim/](https://github.com/klange/bim/), is a Vim-inspired editor with syntax highlighting.
 - **Terminal**, [apps/terminal.c](apps/terminal.c), xterm-esque terminal emulator with 24-bit color support.
-- **ld.so** (dynamic linker/loader), [linker/linker.c](linker/linker.c), loads dynamically-linked ELF binaries.
+- **ld.so** (dynamic linker/loader), [libc/dlfcn/dl.c](libc/dlfcn/dl.c), loads dynamically-linked ELF binaries.
 - **Esh** (shell), [apps/esh.c](apps/esh.c), supports pipes, redirections, variables, etc.
 - **Kuroko** (interpreter), [kuroko/](https://kuroko-lang.github.io/), a dynamic bytecode-compiled programming language.
 
