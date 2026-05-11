@@ -96,8 +96,13 @@ static void string_arg(pid_t pid, uintptr_t ptr, size_t maxsize) {
 	fprintf(logfile, "\"...");
 }
 
+#if 0
 extern uintptr_t __ld_symbol_table(void);
 extern uintptr_t __ld_objects_table(void);
+#endif
+
+uintptr_t __ld_symbol_table(void) { return 0; }
+uintptr_t __ld_objects_table(void) { return 0; }
 
 static char * read_string(pid_t pid, uintptr_t ptr) {
 	if (!ptr) return strdup("(null)");
@@ -122,7 +127,7 @@ static int find_symbol(pid_t pid, uintptr_t addr_in, char ** name, uintptr_t *ad
 	uintptr_t best_base = 0;
 
 	/* Can we cheat and peek at ld.so? */
-	uintptr_t their_symbol_table  = data_read_ptr(pid, __ld_symbol_table());
+	uintptr_t their_symbol_table  = 0; //data_read_ptr(pid, __ld_symbol_table());
 
 	if (their_symbol_table) {
 		hashmap_t map;
@@ -155,11 +160,12 @@ static int find_symbol(pid_t pid, uintptr_t addr_in, char ** name, uintptr_t *ad
 	}
 
 	if (addr_in < 0x40000000) {
-		current_obj = strdup("ld.so");
+		current_obj = strdup("libc.so");
+		best_base = 0x10000000;
 	}
 
 	/* Figure out where this object is in the objects map */
-	uintptr_t their_objects_table = data_read_ptr(pid, __ld_objects_table());
+	uintptr_t their_objects_table = 0; //data_read_ptr(pid, __ld_objects_table());
 
 	if (!current_obj && their_objects_table) {
 		hashmap_t map;

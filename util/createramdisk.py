@@ -71,6 +71,7 @@ with tarfile.open('ramdisk.igz','w:gz') as ramdisk:
     ramdisk.addfile(symlink('bin/mandelbrot','julia'))
     ramdisk.addfile(symlink('bin/fgrep','grep'))
     ramdisk.addfile(symlink('bin/cksum','crc32'))
+    ramdisk.addfile(symlink('lib/ld.so','libc.so'))
 
     # Build tools; you'll probably want these.
     ramdisk.add('util/auto-dep.krk',arcname='/bin/auto-dep.krk',filter=file_filter)
@@ -81,7 +82,7 @@ with tarfile.open('ramdisk.igz','w:gz') as ramdisk:
         for d in ('/src','/src/bim'):
             ramdisk.add('.',arcname=d,filter=file_filter,recursive=False)
 
-        for s in ('apps','kernel','linker','lib','libc','boot','modules','tests','tags','bim/bim.c','bim/bim.h'):
+        for s in ('apps','kernel','lib','libc','boot','modules','tests','tags','bim/bim.c','bim/bim.h'):
             if os.path.exists(s): # mostly to skip 'tags' if it's not been built
                 ramdisk.add(s,arcname=f'/src/{s}',filter=file_filter)
 
