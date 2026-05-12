@@ -13,6 +13,7 @@
 #include <stdio.h>
 
 #include <sys/wait.h>
+#include <sys/mman.h>
 
 DEFN_SYSCALL3(clone, SYS_CLONE, uintptr_t, uintptr_t, void *);
 DEFN_SYSCALL0(gettid, SYS_GETTID);
@@ -55,7 +56,7 @@ void * __tls_get_addr(void* input) {
 }
 
 void __make_tls(void) {
-	char * tlsSpace = valloc(4096);
+	char * tlsSpace = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	memset(tlsSpace, 0x0, 4096);
 	/* self-pointer start? */
 	char ** tlsSelf = (char **)(tlsSpace);
@@ -79,7 +80,7 @@ void * __thread_start(void * pthreadbase) {
 }
 
 int pthread_create(pthread_t * thread, pthread_attr_t * attr, void *(*start_routine)(void *), void * arg) {
-	char * stack = valloc(PTHREAD_STACK_SIZE + 8192);
+	char * stack = mmap(NULL, PTHREAD_STACK_SIZE + 8192, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	memset(stack, 0, PTHREAD_STACK_SIZE + 8192);
 	struct __pthread * this = (void*)(stack + PTHREAD_STACK_SIZE);
 	*thread = this;
