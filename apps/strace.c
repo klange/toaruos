@@ -587,6 +587,7 @@ static void sock_opt_arg(int opt) {
 		C(SO_KEEPALIVE);
 		C(SO_REUSEADDR);
 		C(SO_BINDTODEVICE);
+		C(SO_RCVTIMEO);
 		default: fprintf(logfile, "%d", opt); break;
 	}
 }
@@ -1164,6 +1165,9 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 		case SYS_PIPE2:
 			/* Output-filled pointer */
 			break;
+		case SYS_OPENPTY:
+			/* Output-filled pointers */
+			break;
 		case SYS_DUP2:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			fd_arg(pid, uregs_syscall_arg2(r));
@@ -1327,13 +1331,23 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			/* Plus two more when done */
 			break;
+		case SYS_REBOOT:
+			int_arg(uregs_syscall_arg1(r));
+			break;
+		case SYS_GETGROUPS:
+		case SYS_SETGROUPS:
+			uint_arg(uregs_syscall_arg1(r)); COMMA;
+			pointer_arg(uregs_syscall_arg2(r)); /* gid_t array */
+			break;
+		case SYS_TIMES:
+			pointer_arg(uregs_syscall_arg1(r)); /* struct tms */
+			break;
 		/* These have no arguments: */
 		case SYS_YIELD:
 		case SYS_FORK:
 		case SYS_GETEUID:
 		case SYS_GETPID:
 		case SYS_GETUID:
-		case SYS_REBOOT:
 		case SYS_GETTID:
 		case SYS_SETSID:
 		case SYS_GETGID:
@@ -1384,6 +1398,14 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 		case SYS_PIPE2:
 			fds_arg(pid, 2, uregs_syscall_arg1(r)); COMMA;
 			open_flags(uregs_syscall_arg2(r));
+			maybe_errno(r);
+			break;
+		case SYS_OPENPTY:
+			fds_arg(pid, 1, uregs_syscall_arg1(r)); COMMA;
+			fds_arg(pid, 1, uregs_syscall_arg2(r)); COMMA;
+			pointer_arg(uregs_syscall_arg3(r)); COMMA; /* string but unused */
+			pointer_arg(uregs_syscall_arg4(r)); COMMA; /* initial winsz but unused */
+			pointer_arg(uregs_syscall_arg5(r)); /* size of winsz but unused */
 			maybe_errno(r);
 			break;
 		case SYS_GETTIMEOFDAY:
