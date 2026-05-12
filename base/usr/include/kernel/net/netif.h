@@ -36,6 +36,8 @@ typedef struct SockData {
 	size_t unread;
 	char * buf;
 	int nonblocking;
+
+	unsigned long timeout_s, timeout_us;
 } sock_t;
 
 void net_sock_alert(sock_t * sock);

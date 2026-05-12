@@ -26,6 +26,7 @@ _Begin_C_Header
 #define SO_KEEPALIVE 1
 #define SO_REUSEADDR 2
 #define SO_BINDTODEVICE 3
+#define SO_RCVTIMEO 66
 
 typedef size_t socklen_t;
 

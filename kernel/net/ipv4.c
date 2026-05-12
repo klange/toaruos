@@ -754,8 +754,21 @@ static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 
 	if (!sock->rx_queue->length && sock->nonblocking) return -EAGAIN;
 
+	unsigned long s = 0, ss = 0;
+	unsigned long ns = 0, nss = 0;
+
+	if (sock->timeout_s || sock->timeout_us) {
+		relative_time(sock->timeout_s,sock->timeout_us,&s,&ss);
+	}
+
 	while (!sock->rx_queue->length) {
 		int r = process_wait_nodes((process_t *)this_core->current_process, (fs_node_t*[]){(fs_node_t*)sock,NULL}, 200);
+		if (r > 0 && (s || ss)) {
+			relative_time(0,0,&ns,&nss);
+			if (ns > s || (ns == s && nss > ss)) {
+				return -EAGAIN;
+			}
+		}
 		if (r == -EINTR) return -ERESTARTSYS;
 		if (!sock->rx_queue->length) {
 			if (sock->priv[1] == 3) {

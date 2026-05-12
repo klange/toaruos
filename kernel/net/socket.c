@@ -214,6 +214,13 @@ long net_so_socket(struct SockData * sock, int optname, const void *optval, sock
 			sock->_fnode.device = netif;
 			return 0;
 		}
+		case SO_RCVTIMEO: {
+			if (optlen != sizeof(struct timeval)) return -EINVAL;
+			if (!mmu_validate_user_pointer(optval, sizeof(struct timeval), 0)) return -EFAULT;
+			sock->timeout_s = ((struct timeval *)optval)->tv_sec;
+			sock->timeout_us = ((struct timeval *)optval)->tv_usec;
+			return 0;
+		}
 		default:
 			return -ENOPROTOOPT;
 	}
