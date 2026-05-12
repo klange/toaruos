@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <signal.h>
+#include <dirent.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <sys/signal.h>
@@ -832,6 +833,24 @@ static void struct_stat_arg(pid_t pid, uintptr_t ptr) {
 	fprintf(logfile, "...}");
 }
 
+static void struct_dirent_arg(pid_t pid, uintptr_t ptr) {
+	if (!ptr) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+
+	fprintf(logfile, "{");
+
+	fprintf(logfile, "d_ino=");
+	uint_arg(data_read_ptr(pid, ptr + offsetof(struct dirent, d_ino)));
+	COMMA;
+
+	fprintf(logfile, "d_name=");
+	string_arg(pid, ptr + offsetof(struct dirent, d_name));
+
+	fprintf(logfile, "}");
+}
+
 static void signal_arg(int signum) {
 	char signame[SIG2STR_MAX] = {0};
 
@@ -1035,7 +1054,7 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 		case SYS_READDIR:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			int_arg(uregs_syscall_arg2(r)); COMMA;
-			pointer_arg(uregs_syscall_arg3(r));
+			/* Plus one more when done */
 			break;
 		case SYS_KILL:
 			int_arg(uregs_syscall_arg1(r)); COMMA; /* pid_arg? */
@@ -1424,6 +1443,10 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 		case SYS_STAT:
 		case SYS_LSTAT:
 			struct_stat_arg(pid, uregs_syscall_arg2(r));
+			maybe_errno(r);
+			break;
+		case SYS_READDIR:
+			struct_dirent_arg(pid, uregs_syscall_arg3(r));
 			maybe_errno(r);
 			break;
 		/* Most things return -errno, or positive valid result */
