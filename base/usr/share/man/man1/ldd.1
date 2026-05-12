@@ -1,0 +1,28 @@
+.TH LDD 1 "May, 2026"
+
+.SH NAME
+\fBldd\fP \- list dynamic dependencies
+
+.SH SYNOPSIS
+\fBldd\fP \fIfile\fP [\fIignored-args\fP]...
+.br
+\fBldd\fP \fB\-e\fP \fIfile\fP [\fIignored-args\fP]...
+
+.SH DESCRIPTION
+The \fBldd\fP utility loads a binary \fIfile\fP and recursively resolves its dependencies,
+printing the resolved path and load address from this invocation.
+
+.SH NOTES
+This \fBldd\fP is a symbolic link to \fB/lib/libc.so\fP, which operates in "LDD mode"
+whenever it is invoked with a name of \fBldd\fP, or when given the \fB\-\-list\fP
+option argument.
+
+.SH STANDARDS
+None, but GNU and Musl both provide an \fBldd\fP.
+This implementation works more like the Musl one.
+
+.SH CAVEATS
+Only one \fIfile\fP argument is supported.
+
+.SH SEE ALSO
+.BR ld.so (3)

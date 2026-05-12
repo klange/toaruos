@@ -10,12 +10,14 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2026 K. Lange
  */
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <libgen.h>
 
 static int usage(char * argv[]) {
 	fprintf(stderr,
@@ -25,16 +27,26 @@ static int usage(char * argv[]) {
 }
 
 extern int __libc_load_from_file(int fd, const char * name, int argc, char *argv[]);
+extern int __is_ldd;
 
 int ld_so_main(int argc, char * argv[]) {
 	char * file = NULL;
 	int opt;
 
-	while ((opt = getopt(argc, argv, "e:")) != -1) {
+	if (argc && !strcmp(basename(argv[0]),"ldd")) __is_ldd = true;
+
+	while ((opt = getopt(argc, argv, "e:-:")) != -1) {
 		switch (opt) {
 			case 'e':
 				file = optarg;
 				break;
+			case '-':
+				if (!strcmp(optarg,"list")) {
+					__is_ldd = true;
+					break;
+				}
+				fprintf(stderr, "%s: unrecognized option '--%s'\n", argv[0], optarg);
+				// fallthrough
 			default:
 				return usage(argv);
 		}

@@ -49,6 +49,7 @@ struct DlLib {
 	size_t       tlssize;
 	bool         relocated;
 	bool         constructed;
+	char *       exe_path;
 
 	struct DlLib **dependencies;
 };
@@ -62,6 +63,10 @@ static bool target_is_suid = false;
 static char ** __envp = NULL;
 static bool __trace_ld = false;
 static char * __ld_error = NULL;
+static bool __ldso_reported = false;
+
+__attribute__((visibility("protected")))
+bool __is_ldd = false;
 
 static DEFN_SYSCALL1(_exit,SYS_EXT,int);
 
@@ -446,8 +451,24 @@ _fail_dep:
 	return NULL;
 }
 
+static void ldd_report(struct DlLib * lib) {
+	fprintf(stderr, "\t%s", lib->name);
+	if (lib->exe_path) fprintf(stderr, " => %s", lib->exe_path);
+	fprintf(stderr, " (%#zx)\n", lib->base);
+}
+
+static void ldd_failure(const char *name) {
+	fprintf(stderr, "\t%s => not found\n", name);
+}
+
 static struct DlLib * find_lib(const char * name, struct DlLib * parent) {
-	if (!strcmp(name,"libc.so")) return __libc_ldso;
+	if (!strcmp(name,"libc.so")) {
+		if (__is_ldd && !__ldso_reported) {
+			__ldso_reported = true;
+			ldd_report(__libc_ldso);
+		}
+		return __libc_ldso;
+	}
 
 	struct DlLib * ptr = all_libraries;
 	while (ptr) {
@@ -462,7 +483,9 @@ static struct DlLib * find_lib(const char * name, struct DlLib * parent) {
 			return NULL;
 		}
 
-		return try_load(name, fd, parent, 0);
+		struct DlLib * lib = try_load(name, fd, parent, 0);
+		if (__is_ldd && lib) ldd_report(lib);
+		return lib;
 	}
 
 	/* Did not find it, let's go load it. */
@@ -491,15 +514,22 @@ static struct DlLib * find_lib(const char * name, struct DlLib * parent) {
 
 		/* Load file */
 		int fd = open(exe, O_RDONLY | O_CLOEXEC);
-		free(exe);
-
-		if (fd < 0) continue; /* set error and break? */
+		if (fd < 0) {
+			free(exe);
+			continue;
+		}
 
 		struct DlLib * maybe = try_load(name, fd, parent, 0);
-		if (maybe) {
-			free(xpath);
-			return maybe;
+		if (!maybe) {
+			free(exe);
+			continue;
 		}
+
+		maybe->exe_path = exe;
+		if (__is_ldd) ldd_report(maybe);
+
+		free(xpath);
+		return maybe;
 	}
 
 	free(xpath);
@@ -542,6 +572,7 @@ static void setup_lib(struct DlLib * app, Elf64_Phdr *phdrs, size_t phnum) {
 		const char * name = app->strings + d->d_un.d_val;
 		//dprintf("Need '%s'\n", name);
 		struct DlLib * dep = find_lib(name, app);
+		if (__is_ldd && !dep) ldd_failure(name);
 		app->dependencies[count++] = dep;
 	}
 	
@@ -662,6 +693,8 @@ int __libc_load_from_file(int fd, const char * name, int argc, char *argv[]) {
 		dprintf("ld.so: nope\n");
 		return 1;
 	}
+
+	if (__is_ldd) return 0;
 
 	return run_app(app, argc, argv, app->base + app->ehdr->e_entry);
 }
