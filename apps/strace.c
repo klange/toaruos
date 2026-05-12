@@ -942,6 +942,16 @@ static void mmap_flags_arg(int flags) {
 	}
 }
 
+static void access_mode_arg(int flags) {
+	if (!flags) fprintf(logfile,"F_OK");
+	else {
+		H(X_OK);
+		H(W_OK);
+		H(R_OK);
+		if (flags) fprintf(logfile,"%#x",flags);
+	}
+}
+
 static void handle_syscall(pid_t pid, struct URegs * r) {
 	if (uregs_syscall_num(r) >= sizeof(syscall_mask)) return;
 	if (!syscall_mask[uregs_syscall_num(r)]) return;
@@ -1063,12 +1073,9 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			string_arg(pid, uregs_syscall_arg2(r));
 			break;
 		case SYS_ACCESS:
-			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			int_arg(uregs_syscall_arg2(r));
-			break;
 		case SYS_EACCESS:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			int_arg(uregs_syscall_arg2(r));
+			access_mode_arg(uregs_syscall_arg2(r));
 			break;
 		case SYS_PTRACE:
 			switch (uregs_syscall_arg1(r)) {
