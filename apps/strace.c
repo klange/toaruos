@@ -1441,7 +1441,11 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 		case SYS_STATF:
 		case SYS_STAT:
 		case SYS_LSTAT:
-			struct_stat_arg(pid, uregs_syscall_arg2(r));
+			if ((intptr_t)uregs_syscall_result(r) >= 0) {
+				struct_stat_arg(pid, uregs_syscall_arg2(r));
+			} else {
+				pointer_arg(uregs_syscall_arg2(r));
+			}
 			maybe_errno(r);
 			break;
 		case SYS_READDIR:
