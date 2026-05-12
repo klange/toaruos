@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <sys/mman.h>
 
 #include "stdio_internal.h"
 
@@ -64,9 +65,9 @@ FILE * stderr = &_stderr;
 static FILE * _head = NULL;
 
 void __stdio_init_buffers(void) {
-	_stdin.read_buf = malloc(BUFSIZ);
-	_stdout.write_buf = malloc(BUFSIZ);
-	_stderr.write_buf = malloc(BUFSIZ);
+	_stdin.read_buf   = mmap(NULL, BUFSIZ, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	_stdout.write_buf = mmap(NULL, BUFSIZ, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	_stderr.write_buf = mmap(NULL, BUFSIZ, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	_stdin._name = strdup("stdin");
 	_stdout._name = strdup("stdout");
 	_stderr._name = strdup("stderr");
@@ -100,8 +101,13 @@ int setvbuf(FILE * stream, char * buf, int mode, size_t size) {
 	}
 	if (buf) {
 		if (stream->read_buf) {
-			free(stream->read_buf);
+			if (stream->bufflags & STDIO_BUF_READ_FREE) {
+				free(stream->read_buf);
+			} else {
+				munmap(stream->read_buf, BUFSIZ);
+			}
 		}
+		stream->bufflags |= STDIO_BUF_READ_FREE;
 		stream->read_buf = buf;
 		stream->bufsiz = size;
 	}
@@ -249,7 +255,7 @@ FILE * fopen(const char *path, const char *mode) {
 	FILE * out = malloc(sizeof(FILE));
 	memset(out, 0, sizeof(struct _FILE));
 	out->fd = fd;
-	out->read_buf = malloc(BUFSIZ);
+	out->read_buf = mmap(NULL, BUFSIZ, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	out->bufsiz = BUFSIZ;
 	out->available = 0;
 	out->read_from = 0;
@@ -258,7 +264,7 @@ FILE * fopen(const char *path, const char *mode) {
 	out->flags = 0;
 	out->_name = strdup(path);
 
-	out->write_buf = malloc(BUFSIZ);
+	out->write_buf = mmap(NULL, BUFSIZ, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	out->written = 0;
 	out->wbufsiz = BUFSIZ;
 
@@ -311,7 +317,7 @@ FILE * fdopen(int fd, const char *mode){
 	FILE * out = malloc(sizeof(FILE));
 	memset(out, 0, sizeof(struct _FILE));
 	out->fd = fd;
-	out->read_buf = malloc(BUFSIZ);
+	out->read_buf = mmap(NULL, BUFSIZ, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	out->bufsiz = BUFSIZ;
 	out->available = 0;
 	out->read_from = 0;
@@ -323,7 +329,7 @@ FILE * fdopen(int fd, const char *mode){
 	sprintf(tmp, "fd[%d]", fd);
 	out->_name = strdup(tmp);
 
-	out->write_buf = malloc(BUFSIZ);
+	out->write_buf = mmap(NULL, BUFSIZ, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	out->written = 0;
 	out->wbufsiz = BUFSIZ;
 
@@ -342,8 +348,17 @@ int fclose(FILE * stream) {
 	fflush(stream);
 	int out = syscall_close(stream->fd);
 	free(stream->_name);
-	free(stream->read_buf);
-	if (stream->write_buf) free(stream->write_buf);
+	if (stream->bufflags & STDIO_BUF_READ_FREE) {
+		free(stream->read_buf);
+	} else if (stream->read_buf) {
+		munmap(stream->read_buf, BUFSIZ);
+	}
+	stream->read_buf = NULL;
+	if (stream->bufflags & STDIO_BUF_WRITE_FREE) {
+		free(stream->write_buf);
+	} else if (stream->write_buf) {
+		munmap(stream->write_buf, BUFSIZ);
+	}
 	stream->write_buf = NULL;
 	if (stream == &_stdin || stream == &_stdout || stream == &_stderr) {
 		return out;

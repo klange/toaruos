@@ -20,6 +20,7 @@ struct _FILE {
 	int flags;
 
 	pid_t popen_pid;
+	int bufflags;
 };
 
 /* Flag values */
@@ -27,4 +28,6 @@ struct _FILE {
 #define STDIO_ERROR       0x0002
 #define STDIO_UNSEEKABLE  0x0004
 
+#define STDIO_BUF_READ_FREE  1
+#define STDIO_BUF_WRITE_FREE 2
 
