@@ -19,6 +19,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <errno.h>
 
 #include <toaru/hashmap.h>
 
@@ -196,10 +197,20 @@ int collect_password(char * password) {
 }
 
 #define MAX_HTTP_LINE 1024
-void read_http_line(char * buf, FILE * f) {
+int read_http_line(char * buf, FILE * f) {
 	memset(buf, 0x00, MAX_HTTP_LINE);
 
 	fgets(buf, MAX_HTTP_LINE-1, f);
+
+	if (ferror(f)) {
+		if (errno == EAGAIN) {
+			fprintf(stderr, "recieve timed out waiting for headers\n");
+			return 28;
+		}
+		fprintf(stderr, "receive error waiting for headers\n");
+		return 26;
+	}
+
 	char * _r = strchr(buf, '\r');
 	if (_r) {
 		*_r = '\0';
@@ -210,6 +221,8 @@ void read_http_line(char * buf, FILE * f) {
 			*_r = '\0';
 		}
 	}
+
+	return 0;
 }
 
 void bad_response(void) {
@@ -223,7 +236,8 @@ int http_fetch(FILE * f) {
 	/* Parse response */
 	{
 		char buf[MAX_HTTP_LINE];
-		read_http_line(buf, f);
+		int resp = read_http_line(buf, f);
+		if (resp) return resp;
 
 		char * elements[3];
 
@@ -246,7 +260,7 @@ int http_fetch(FILE * f) {
 		fetch_options.out = fopen(fetch_options.output_file, "w+");
 		if (!fetch_options.out) {
 			perror("fopen");
-			return 1;
+			return 25;
 		}
 	}
 
@@ -282,7 +296,7 @@ int http_fetch(FILE * f) {
 	/* determine how many bytes we should read now */
 	if (!hashmap_has(headers, "Content-Length")) {
 		fprintf(stderr, "Don't know how much to read.\n");
-		return 1;
+		return 8;
 	}
 
 	int bytes_to_read = atoi(hashmap_get(headers, "Content-Length"));
@@ -293,6 +307,14 @@ int http_fetch(FILE * f) {
 	while (bytes_to_read > 0) {
 		char buf[1024];
 		size_t r = fread(buf, 1, bytes_to_read < 1024 ? bytes_to_read : 1024, f);
+		if (ferror(f)) {
+			if (errno == EAGAIN) {
+				fprintf(stderr, "received timed out\n");
+				return 28;
+			}
+			fprintf(stderr, "receive error\n");
+			return 26;
+		}
 		fwrite(buf, 1, r, fetch_options.out);
 		fetch_options.size += r;
 		print_progress(0);
@@ -397,6 +419,11 @@ int main(int argc, char * argv[]) {
 		perror("connect");
 		return 1;
 	}
+
+	struct timeval tv;
+	tv.tv_sec = 5;
+	tv.tv_usec = 0;
+	setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(struct timeval));
 
 	FILE * f = fdopen(sock,"w+");
 
