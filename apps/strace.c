@@ -1319,6 +1319,14 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 		case SYS_INSMOD:
 			string_array_arg(pid, uregs_syscall_arg1(r));
 			break;
+		case SYS_SYMLINK:
+			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			string_arg(pid, uregs_syscall_arg2(r));
+			break;
+		case SYS_READLINK:
+			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			/* Plus two more when done */
+			break;
 		/* These have no arguments: */
 		case SYS_YIELD:
 		case SYS_FORK:
@@ -1438,6 +1446,11 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 			break;
 		case SYS_READDIR:
 			struct_dirent_arg(pid, uregs_syscall_arg3(r));
+			maybe_errno(r);
+			break;
+		case SYS_READLINK:
+			buffer_arg(pid, uregs_syscall_arg2(r), uregs_syscall_arg3(r)); COMMA;
+			uint_arg(uregs_syscall_arg3(r));
 			maybe_errno(r);
 			break;
 		/* Most things return -errno, or positive valid result */
