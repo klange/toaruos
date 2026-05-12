@@ -1639,6 +1639,7 @@ int main(int argc, char * argv[]) {
 			fprintf(stderr, "%s: ptrace: %s\n", argv[0], strerror(errno));
 			return 1;
 		}
+		log_hidden = false;
 	}
 
 	int previous_syscall = -1;
