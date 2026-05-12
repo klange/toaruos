@@ -1445,7 +1445,13 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 			maybe_errno(r);
 			break;
 		case SYS_READDIR:
-			struct_dirent_arg(pid, uregs_syscall_arg3(r));
+			if (uregs_syscall_result(r) > 0) {
+				struct_dirent_arg(pid, uregs_syscall_arg3(r));
+			} else if (uregs_syscall_result(r) == 0) {
+				fprintf(logfile, "...");
+			} else {
+				pointer_arg(uregs_syscall_arg3(r));
+			}
 			maybe_errno(r);
 			break;
 		case SYS_READLINK:
