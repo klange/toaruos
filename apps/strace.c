@@ -1596,35 +1596,35 @@ int main(int argc, char * argv[]) {
 		return usage(argv);
 	}
 
-	char *filename = argv[optind];
-	if (!strchr(filename,'/')) {
-		char *path = strdup(getenv("PATH") ?: "/bin:/usr/bin");
-		char *p, *last;
-		for ((p = strtok_r(path, ":", &last)); p;
-		      p = strtok_r(NULL, ":", &last)) {
-			char * exe = NULL;
-			asprintf(&exe, "%s/%s", p, filename);
-			if (!access(exe, X_OK)) {
-				filename = exe;
-				break;
+	if (!p) {
+		char *filename = argv[optind];
+		if (!strchr(filename,'/')) {
+			char *path = strdup(getenv("PATH") ?: "/bin:/usr/bin");
+			char *p, *last;
+			for ((p = strtok_r(path, ":", &last)); p;
+			      p = strtok_r(NULL, ":", &last)) {
+				char * exe = NULL;
+				asprintf(&exe, "%s/%s", p, filename);
+				if (!access(exe, X_OK)) {
+					filename = exe;
+					break;
+				}
+				free(exe);
 			}
-			free(exe);
-		}
-		free(path);
+			free(path);
 
-		if (filename == argv[optind]) {
-			fprintf(stderr, "%s: Cannot find executable '%s'\n", argv[0], filename);
+			if (filename == argv[optind]) {
+				fprintf(stderr, "%s: Cannot find executable '%s'\n", argv[0], filename);
+				return 1;
+			}
+		}
+
+		struct stat sb;
+		if (stat(filename, &sb)) {
+			fprintf(stderr, "%s: Cannot stat '%s': %s\n", argv[0], filename, strerror(errno));
 			return 1;
 		}
-	}
 
-	struct stat sb;
-	if (stat(filename, &sb)) {
-		fprintf(stderr, "%s: Cannot stat '%s': %s\n", argv[0], filename, strerror(errno));
-		return 1;
-	}
-
-	if (!p) {
 		p = fork();
 		if (!p) {
 			if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
