@@ -591,7 +591,13 @@ static int handle_one(int code, char * name) {
 }
 
 static int do_file(char * name, FILE * f, int opti, int argc) {
-	if (linesLen) linesLen = 0;
+	if (linesLen) {
+		while (linesLen) {
+			linesLen--;
+			free(lines[linesLen]);
+		}
+		linesLen = 0;
+	}
 	if (lineLen) lineLen = 0;
 
 	if (!f) {

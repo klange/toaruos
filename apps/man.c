@@ -157,7 +157,7 @@ static int search_section(char * i, char * keyword) {
 	char * dirpath;
 	asprintf(&dirpath, MAN_DIR, i);
 	DIR * dir = opendir(dirpath);
-	if (!dir) return 0; /* Not a valid section? */
+	if (!dir) return free(dirpath), 0; /* Not a valid section? */
 
 	int found = 0;
 	struct dirent * ent;
@@ -237,15 +237,14 @@ static int search_section(char * i, char * keyword) {
  * @returns An allocated array of pointers to strings in a copy of @c str
  */
 static char ** sections_from_string(char * str) {
-	char * working_space = strdup(str); /* Beacuse we modifiy it and it may come from _environ */
 	size_t count = 1;
-	char * c = working_space;
+	char * c = str;
 	for (; *c; ++c) {
 		if (*c == ':') count++;
 	}
 	char ** sects = calloc(sizeof(char*),count+1);
 	size_t i = 0;
-	c = working_space;
+	c = str;
 	while (*c) {
 		sects[i] = c;
 		while (*c && *c != ':') c++;
@@ -311,6 +310,8 @@ int main(int argc, char * argv[]) {
 	if (!section_list) section_list =
 #endif
 			"1:n:l:8:3:0:2:3krk:5:4:9:6:7";
+
+	section_list = strdup(section_list);
 
 	int show_all = 0;
 	int search_names = 0;
@@ -392,5 +393,7 @@ int main(int argc, char * argv[]) {
 		}
 	}
 
+	free(section_list);
+	free(sections);
 	return ret;
 }

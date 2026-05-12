@@ -874,6 +874,7 @@ _cleanup:
 	if (ctx.topic_date) free(ctx.topic_date);
 
 	if (f != stdin) fclose(f);
+	free(line);
 	return ret;
 }
 
