@@ -991,10 +991,6 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			mode_arg(uregs_syscall_arg2(r));
 			break;
 		case SYS_CHOWN:
-			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			int_arg(uregs_syscall_arg2(r)); COMMA;
-			int_arg(uregs_syscall_arg3(r));
-			break;
 		case SYS_LCHOWN:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			int_arg(uregs_syscall_arg2(r)); COMMA;
