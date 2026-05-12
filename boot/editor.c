@@ -69,8 +69,7 @@ int boot_editor(void) {
 					cursor--;
 					len--;
 				} else {
-					cmdline[cursor-1] = '\0';
-					strcat(cmdline,&cmdline[cursor]);
+					memmove(&cmdline[cursor-1], &cmdline[cursor], len - cursor + 1);
 					cursor--;
 					len--;
 				}
