@@ -477,6 +477,15 @@ static void open_flags(int flags) {
 	}
 }
 
+static void one_char(uint8_t buf) {
+	if (buf == '\\') fprintf(logfile, "\\\\");
+	else if (buf == '"') fprintf(logfile, "\\\"");
+	else if (buf >= ' ' && buf <= '~') fprintf(logfile, "%c", buf);
+	else if (buf == '\r') fprintf(logfile, "\\r");
+	else if (buf == '\n') fprintf(logfile, "\\n");
+	else fprintf(logfile, "\\%o", buf);
+}
+
 static void string_arg(pid_t pid, uintptr_t ptr) {
 	if (ptr == 0) {
 		fprintf(logfile, "NULL");
@@ -495,14 +504,7 @@ static void string_arg(pid_t pid, uintptr_t ptr) {
 			fprintf(logfile, "\"");
 			return;
 		}
-
-		if (buf == '\\') fprintf(logfile, "\\\\");
-		else if (buf == '"') fprintf(logfile, "\\\"");
-		else if (buf >= ' ' && buf <= '~') fprintf(logfile, "%c", buf);
-		else if (buf == '\r') fprintf(logfile, "\\r");
-		else if (buf == '\n') fprintf(logfile, "\\n");
-		else fprintf(logfile, "\\x%02x", buf);
-
+		one_char(buf);
 		ptr++;
 		size++;
 		if (size > 30) break;
@@ -689,14 +691,7 @@ static void buffer_arg(pid_t pid, uintptr_t buffer, ssize_t count) {
 		while (x < count && x < 30) {
 			long result = ptrace(PTRACE_PEEKDATA, pid, (void*)buffer, &buf);
 			if (result != 0) break;
-
-			if (buf == '\\') fprintf(logfile, "\\\\");
-			else if (buf == '"') fprintf(logfile, "\\\"");
-			else if (buf >= ' ' && buf < '~') fprintf(logfile, "%c", buf);
-			else if (buf == '\r') fprintf(logfile, "\\r");
-			else if (buf == '\n') fprintf(logfile, "\\n");
-			else fprintf(logfile, "\\%o", buf);
-
+			one_char(buf);
 			buffer++;
 			x++;
 		}
