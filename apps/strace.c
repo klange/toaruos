@@ -25,6 +25,7 @@
 #include <sys/uregs.h>
 #include <sys/resource.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <syscall_nums.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -775,6 +776,47 @@ static void struct_rusage_arg(pid_t pid, uintptr_t ptr) {
 	fprintf(logfile, "}");
 }
 
+static void struct_stat_arg(pid_t pid, uintptr_t ptr) {
+	if (!ptr) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+
+	fprintf(logfile, "{");
+
+	fprintf(logfile, "st_mode=");
+	mode_t mode = data_read_int(pid, ptr + offsetof(struct stat, st_mode));
+	if (mode & S_IFMT) {
+		switch (mode & S_IFMT) {
+			C(S_IFDIR);
+			C(S_IFCHR);
+			C(S_IFBLK);
+			C(S_IFREG);
+			C(S_IFLNK);
+			C(S_IFSOCK);
+			C(S_IFIFO);
+			default: fprintf(logfile,"%0o",mode & S_IFMT);
+		}
+		fprintf(logfile, "|");
+	}
+
+	int flags;
+	if ((flags = (mode & (S_ISUID|S_ISGID|S_ISVTX)))) {
+		H(S_ISUID);
+		H(S_ISGID);
+		H(S_ISVTX);
+		if (mode & 0777) fprintf(logfile,"|");
+	}
+	mode_arg(mode & 0777);
+	COMMA;
+
+	fprintf(logfile, "st_size=");
+	uint_arg(data_read_ptr(pid, ptr + offsetof(struct stat, st_size)));
+	COMMA;
+
+	fprintf(logfile, "...}");
+}
+
 static void signal_arg(int signum) {
 	char signame[SIG2STR_MAX] = {0};
 
@@ -955,11 +997,15 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			break;
 		case SYS_STATF:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			pointer_arg(uregs_syscall_arg2(r));
+			/* Plus one more when done */
+			break;
+		case SYS_STAT:
+			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			/* Plus one more when done */
 			break;
 		case SYS_LSTAT:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			pointer_arg(uregs_syscall_arg2(r));
+			/* Plus one more when done */
 			break;
 		case SYS_READDIR:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
@@ -1351,6 +1397,12 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 			} else {
 				maybe_errno(r);
 			}
+			break;
+		case SYS_STATF:
+		case SYS_STAT:
+		case SYS_LSTAT:
+			struct_stat_arg(pid, uregs_syscall_arg2(r));
+			maybe_errno(r);
 			break;
 		/* Most things return -errno, or positive valid result */
 		default:
