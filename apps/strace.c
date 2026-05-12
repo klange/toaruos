@@ -4,8 +4,9 @@
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2021 K. Lange
+ * Copyright (C) 2021-2026 K. Lange
  */
+#include <stdbool.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,6 +30,7 @@
 #include <netinet/in.h>
 
 static FILE * logfile;
+static bool log_hidden = true;
 
 /* System call names */
 const char * syscall_names[] = {
@@ -886,6 +888,7 @@ static void mmap_flags_arg(int flags) {
 static void handle_syscall(pid_t pid, struct URegs * r) {
 	if (uregs_syscall_num(r) >= sizeof(syscall_mask)) return;
 	if (!syscall_mask[uregs_syscall_num(r)]) return;
+	if (log_hidden && uregs_syscall_num(r) != SYS_EXECVE) return;
 
 	fprintf(logfile, "%s(", syscall_names[uregs_syscall_num(r)]);
 	switch (uregs_syscall_num(r)) {
@@ -1021,6 +1024,7 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			pointer_arg(uregs_syscall_arg4(r));
 			break;
 		case SYS_EXECVE:
+			log_hidden = false;
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			string_array_arg(pid, uregs_syscall_arg2(r)); COMMA;
 			pointer_arg(uregs_syscall_arg3(r));
@@ -1261,6 +1265,7 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 	if (syscall >= (int)sizeof(syscall_mask)) return;
 	if (syscall >= 0 && !syscall_mask[syscall]) return;
+	if (log_hidden) return;
 
 	switch (syscall) {
 		case -1:
@@ -1465,8 +1470,23 @@ int main(int argc, char * argv[]) {
 				fprintf(stderr, "%s: ptrace: %s\n", argv[0], strerror(errno));
 				return 1;
 			}
-			execvp(argv[optind], &argv[optind]);
-			return 1;
+			char *filename = argv[optind];
+			if (!strchr(filename,'/')) {
+				char *path = strdup(getenv("PATH") ?: "/bin:/usr/bin");
+				char *p, *last;
+				for ((p = strtok_r(path, ":", &last)); p;
+				      p = strtok_r(NULL, ":", &last)) {
+					char * exe = NULL;
+					asprintf(&exe, "%s/%s", p, filename);
+					if (!access(exe, X_OK)) {
+						filename = exe;
+						break;
+					}
+					free(exe);
+				}
+				if (filename == argv[optind]) exit(execvp(argv[optind], &argv[optind]));
+			}
+			exit(execv(filename, &argv[optind]));
 		}
 		signal(SIGINT, SIG_IGN);
 	} else {
