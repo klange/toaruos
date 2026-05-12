@@ -250,6 +250,9 @@ static void relocate(struct DlLib * lib) {
 					if (lib != all_libraries && !strcmp(name,"hashmap_create")) {
 						dep = __libc_ldso;
 					}
+					if (!strcmp(name,"xvasprintf")) {
+						dep = __libc_ldso;
+					}
 
 					for (; dep; dep = dep->next) {
 						Elf64_Sym *maybe = elf_sym_lookup(dep->hash, dep->strings, dep->syms, name, hash);
