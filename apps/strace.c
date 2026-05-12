@@ -661,6 +661,21 @@ static void string_array_arg(pid_t pid, uintptr_t array) {
 	fprintf(logfile, "]");
 }
 
+static void envp_arg(pid_t pid, uintptr_t array) {
+	pointer_arg(array);
+
+	/* try to count them */
+	size_t count = 0;
+	while (data_read_ptr(pid, array)) {
+		count += 1;
+		array += sizeof(uintptr_t);
+	}
+
+	if (count) {
+		fprintf(logfile, " /* %zu var%s */", count, "s" + (count==1));
+	}
+}
+
 static void buffer_arg(pid_t pid, uintptr_t buffer, ssize_t count) {
 	if (count < 0) {
 		fprintf(logfile, "...");
@@ -1073,7 +1088,7 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			log_hidden = false;
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			string_array_arg(pid, uregs_syscall_arg2(r)); COMMA;
-			pointer_arg(uregs_syscall_arg3(r));
+			envp_arg(pid, uregs_syscall_arg3(r));
 			break;
 		case SYS_SHM_OBTAIN:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
