@@ -250,12 +250,6 @@ static void relocate(struct DlLib * lib) {
 
 					struct DlLib * dep = (is_copy(type) ? lib->next : all_libraries);
 
-					/* Force protected definition of 'hashmap_create', specifically
-					 * because of Netsurf... */
-					if (lib != all_libraries && !strcmp(name,"hashmap_create")) {
-						dep = __libc_ldso;
-					}
-
 					for (; dep; dep = dep->next) {
 						Elf64_Sym *maybe = elf_sym_lookup(dep->hash, dep->strings, dep->syms, name, hash);
 						if (maybe && maybe->st_shndx != SHN_UNDEF) {
