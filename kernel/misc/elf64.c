@@ -423,8 +423,13 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	}
 
 	extern uint32_t rand(void);
+
+	#if 0
 	uintptr_t shake = (rand() & 0x7FFF) * 0x100000;
 	this_core->current_process->image.heap  = 0x100000000 + shake;
+	#endif
+	/* TODO some stuff breaks with the bigger heap */
+	this_core->current_process->image.heap  = 0x60000000;
 	this_core->current_process->image.entry = entrypoint;
 
 	// arch_set_...?
