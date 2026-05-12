@@ -322,7 +322,6 @@ static ssize_t do_search(ssize_t offset, int direction) {
 			for (ssize_t i = linesLen - term_height - offset + 1 + direction; i < linesLen; ++i) {
 				if (i < 0) continue;
 				if (escape_skipping_search(lines[i], search_string,search_size,NULL)) {
-					fprintf(stderr, "what\n");
 					return linesLen - i - term_height + 1;
 				}
 			}
