@@ -167,7 +167,7 @@ static size_t print_oct(unsigned long long value, unsigned int width, int (*call
 /*
  * vasprintf()
  */
-size_t xvasprintf(int (*callback)(void *, char), void * userData, const char * fmt, va_list args) {
+size_t __printf_internal(int (*callback)(void *, char), void * userData, const char * fmt, va_list args) {
 	char * s;
 	size_t written = 0;
 	for (const char *f = fmt; *f; f++) {
@@ -442,7 +442,7 @@ static int cb_sprintf(void * user, char c) {
 
 int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
 	struct CBData data = {str,size,0};
-	int out = xvasprintf(cb_sprintf, &data, format, ap);
+	int out = __printf_internal(cb_sprintf, &data, format, ap);
 	cb_sprintf(&data, '\0');
 	return out;
 }
@@ -451,7 +451,7 @@ int snprintf(char * str, size_t size, const char * format, ...) {
 	struct CBData data = {str,size,0};
 	va_list args;
 	va_start(args, format);
-	int out = xvasprintf(cb_sprintf, &data, format, args);
+	int out = __printf_internal(cb_sprintf, &data, format, args);
 	va_end(args);
 	cb_sprintf(&data, '\0');
 	return out;
@@ -467,7 +467,7 @@ static int cb_sxprintf(void * user, char c) {
 
 int vsprintf(char *str, const char *format, va_list ap) {
 	struct CBData data = {str,0,0};
-	int out = xvasprintf(cb_sxprintf, &data, format, ap);
+	int out = __printf_internal(cb_sxprintf, &data, format, ap);
 	cb_sxprintf(&data, '\0');
 	return out;
 }
@@ -476,7 +476,7 @@ int sprintf(char * str, const char * format, ...) {
 	struct CBData data = {str,0,0};
 	va_list args;
 	va_start(args, format);
-	int out = xvasprintf(cb_sxprintf, &data, format, args);
+	int out = __printf_internal(cb_sxprintf, &data, format, args);
 	va_end(args);
 	cb_sxprintf(&data, '\0');
 	return out;
@@ -500,7 +500,7 @@ static int cb_asprintf(void * user, char c) {
 
 int vasprintf(char ** buf, const char * fmt, va_list args) {
 	struct CBData data = {NULL,0,0};
-	int out = xvasprintf(cb_asprintf, &data, fmt, args);
+	int out = __printf_internal(cb_asprintf, &data, fmt, args);
 	cb_asprintf(&data, '\0');
 	*buf = data.str;
 	return out;
@@ -524,7 +524,7 @@ static int cb_fprintf(void * user, char c) {
 int fprintf(FILE *stream, const char * fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-	int out = xvasprintf(cb_fprintf, stream, fmt, args);
+	int out = __printf_internal(cb_fprintf, stream, fmt, args);
 	va_end(args);
 	return out;
 }
@@ -532,16 +532,16 @@ int fprintf(FILE *stream, const char * fmt, ...) {
 int printf(const char * fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-	int out = xvasprintf(cb_fprintf, stdout, fmt, args);
+	int out = __printf_internal(cb_fprintf, stdout, fmt, args);
 	va_end(args);
 	return out;
 }
 
 int vfprintf(FILE * stream, const char *fmt, va_list args) {
-	return xvasprintf(cb_fprintf, stream, fmt, args);
+	return __printf_internal(cb_fprintf, stream, fmt, args);
 }
 
 int vprintf(const char *fmt, va_list args) {
-	return xvasprintf(cb_fprintf, stdout, fmt, args);
+	return __printf_internal(cb_fprintf, stdout, fmt, args);
 }
 

@@ -169,7 +169,7 @@ static Elf64_Sym * elf_sym_lookup(Elf64_Word *table, const char *strtab, Elf64_S
 }
 
 
-extern size_t xvasprintf(int (*callback)(void *, char), void * userData, const char * fmt, va_list args);
+extern size_t __printf_internal(int (*callback)(void *, char), void * userData, const char * fmt, va_list args);
 
 static int cb_dprintf(void * user, char c) {
 	write(
@@ -185,7 +185,7 @@ static int cb_dprintf(void * user, char c) {
 static int dprintf(const char * fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-	int out = xvasprintf(cb_dprintf, NULL, fmt, args);
+	int out = __printf_internal(cb_dprintf, NULL, fmt, args);
 	va_end(args);
 	return out;
 }
@@ -253,9 +253,6 @@ static void relocate(struct DlLib * lib) {
 					/* Force protected definition of 'hashmap_create', specifically
 					 * because of Netsurf... */
 					if (lib != all_libraries && !strcmp(name,"hashmap_create")) {
-						dep = __libc_ldso;
-					}
-					if (!strcmp(name,"xvasprintf")) {
 						dep = __libc_ldso;
 					}
 
