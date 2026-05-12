@@ -12,6 +12,7 @@
 #include <math.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/stat.h>
 
 #include <toaru/hashmap.h>
 #include <toaru/list.h>
@@ -463,9 +464,9 @@ Value * json_parse_file_flags(const char * filename, int flags) {
 		return NULL;
 	}
 
-	fseek(f, 0, SEEK_END);
-	size_t size = ftell(f);
-	fseek(f, 0, SEEK_SET);
+	struct stat sb;
+	fstat(fileno(f), &sb);
+	size_t size = sb.st_size;
 
 	char * tmp = malloc(size + 1);
 	fread(tmp, size, 1, f);

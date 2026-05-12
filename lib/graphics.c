@@ -15,6 +15,7 @@
 #include <dlfcn.h>
 
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 
 #if !defined(NO_SSE) && defined(__x86_64__)
 #include <xmmintrin.h>
@@ -493,11 +494,9 @@ int check_sprite_bmp(FILE *f) {
 }
 
 int load_sprite_bmp(sprite_t * sprite, FILE * image) {
-	long image_size= 0;
-
-	fseek(image, 0, SEEK_END);
-	image_size = ftell(image);
-	fseek(image, 0, SEEK_SET);
+	struct stat sb;
+	fstat(fileno(image), &sb);
+	long image_size = sb.st_size;
 
 	if (image_size < 16) {
 		return 1;
@@ -597,11 +596,9 @@ int check_sprite_tga(FILE * f) {
 }
 
 int load_sprite_tga(sprite_t * sprite, FILE * image) {
-	long image_size= 0;
-
-	fseek(image, 0, SEEK_END);
-	image_size = ftell(image);
-	fseek(image, 0, SEEK_SET);
+	struct stat sb;
+	fstat(fileno(image), &sb);
+	long image_size = sb.st_size;
 
 	if (image_size < 16) {
 		return 1;

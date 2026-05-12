@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <sys/stat.h>
 
 #include <toaru/yutani.h>
 
@@ -42,9 +43,9 @@ int set_clipboard_from_file(char * file) {
 	f = fopen(file, "r");
 	if (!f) return 1;
 
-	fseek(f, 0, SEEK_END);
-	size_t size = ftell(f);
-	fseek(f, 0, SEEK_SET);
+	struct stat sb;
+	fstat(fileno(f), &sb);
+	size_t size = sb.st_size;
 
 	char * tmp = malloc(size+1);
 	fread(tmp, 1, size, f);

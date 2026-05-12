@@ -17,6 +17,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/shm.h>
+#include <sys/stat.h>
 
 #include <math.h>
 
@@ -1015,9 +1016,9 @@ struct TT_Font * tt_font_from_file_mem(const char * fileName) {
 	FILE * f = fopen(fileName, "r");
 	if (!f) return NULL;
 
-	fseek(f, 0, SEEK_END);
-	long size = ftell(f);
-	fseek(f, 0, SEEK_SET);
+	struct stat sb;
+	fstat(fileno(f), &sb);
+	long size = sb.st_size;
 
 	uint8_t * buf = malloc(size);
 	fread(buf, 1, size, f);

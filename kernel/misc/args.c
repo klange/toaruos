@@ -129,15 +129,18 @@ _parse_error:
 }
 
 #ifndef _KERNEL_
+#include <stdio.h>
+#include <sys/stat.h>
+
 char * args_from_procfs(void) {
 	/* Open */
 	FILE * f = fopen("/proc/cmdline", "r");
 	if (!f) return NULL;
 
 	/* Determine size */
-	fseek(f, 0, SEEK_END);
-	size_t size = ftell(f);
-	fseek(f, 0, SEEK_SET);
+	struct stat sb;
+	fstat(fileno(f), &sb);
+	size_t size = sb.st_size;
 
 	/* Read */
 	char * cmdline = calloc(size + 1, 1);

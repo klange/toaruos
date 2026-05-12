@@ -1,6 +1,7 @@
 /**
  * @brief Panel Weather Widget
  */
+#include <sys/stat.h>
 #include <toaru/yutani.h>
 #include <toaru/yutani-internal.h>
 #include <toaru/graphics.h>
@@ -52,9 +53,10 @@ static int widget_update_weather(struct PanelWidget * this, int * force_updates)
 	if (weather_temp_str) free(weather_temp_str);
 
 	/* read the entire status file */
-	fseek(f, 0, SEEK_END);
-	size_t size = ftell(f);
-	fseek(f, 0, SEEK_SET);
+	struct stat sb;
+	fstat(fileno(f), &sb);
+	size_t size = sb.st_size;
+
 	char * data = malloc(size + 1);
 	fread(data, size, 1, f);
 	data[size] = 0;

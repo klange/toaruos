@@ -2364,10 +2364,9 @@ static struct font_def fonts[] = {
 static char * precache_shmfont(char * ident, char * name) {
 	FILE * f = fopen(name, "r");
 	if (!f) return NULL;
-	size_t s = 0;
-	fseek(f, 0, SEEK_END);
-	s = ftell(f);
-	fseek(f, 0, SEEK_SET);
+	struct stat sb;
+	fstat(fileno(f), &sb);
+	size_t s = sb.st_size;
 
 	size_t shm_size = s;
 	char * font = shm_obtain(ident, &shm_size);

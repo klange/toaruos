@@ -15,6 +15,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
@@ -463,9 +464,9 @@ int main(int argc, char * argv[]) {
 
 		out_size += strlen(fetch_options.upload_file);
 
-		fseek(in_file, 0, SEEK_END);
-		out_size += ftell(in_file);
-		fseek(in_file, 0, SEEK_SET);
+		struct stat sb;
+		fstat(fileno(in_file), &sb);
+		out_size += sb.st_size;
 
 		fprintf(f,
 			"POST /%s HTTP/1.0\r\n"

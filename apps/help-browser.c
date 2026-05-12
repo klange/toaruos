@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <sys/stat.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -406,9 +407,9 @@ static void navigate(const char * t) {
 		if (!f) {
 			current_topic = strdup("File not found.");
 		} else {
-			fseek(f, 0, SEEK_END);
-			size_t size = ftell(f);
-			fseek(f, 0, SEEK_SET);
+			struct stat sb;
+			fstat(fileno(f), &sb);
+			size_t size = sb.st_size;
 
 			current_topic = malloc(size+1);
 			fread(current_topic, 1, size, f);
