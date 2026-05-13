@@ -20,8 +20,8 @@
 #include <errno.h>
 #include <sys/ioctl.h>
 
-#define DEFAULT_INDENTATION 7
-#define MARGIN_SPACE 5
+static int DEFAULT_INDENTATION = 7;
+static int MARGIN_SPACE = 5;
 static struct winsize w;
 
 static char * only_section = NULL;    /* Global option to print a specific section's contents. */
@@ -900,6 +900,7 @@ static int usage(char * argv[]) {
 		"            " X_S "to standard error, rather than standard output. With -S, this" X_E "\n"
 		"            " X_S "is the default behavior." X_E "\n"
 		" -P         " X_S "Do not output escape sequences to change fonts." X_E "\n"
+		" -I " X_S "spaces  Set the indentation step (default is 7)." X_E "\n"
 		" --help     " X_S "Show this help text." X_E "\n"
 		"\n", argv[0]);
 	return 1;
@@ -914,7 +915,7 @@ int main(int argc, char * argv[]) {
 	error_output = stdout; /* These are errors we want to show up in a pager */
 
 	int opt;
-	while ((opt = getopt(argc, argv, "?W:S:EP-:")) != -1) {
+	while ((opt = getopt(argc, argv, "?W:S:EPI:-:")) != -1) {
 		switch (opt) {
 			case 'W':
 				w.ws_col = atoi(optarg);
@@ -929,6 +930,9 @@ int main(int argc, char * argv[]) {
 				break;
 			case 'P':
 				plain_text = 1;
+				break;
+			case 'I':
+				DEFAULT_INDENTATION = strtoul(optarg, NULL, 10);
 				break;
 			case '-':
 				if (!strcmp(optarg,"help")) {

@@ -1,7 +1,7 @@
 .TH ROFF 1 "March, 2026"
 
 .SH NAME
-roff \- terrible, hacked\-together RUNOFF implementation
+\fBroff\fP \- terrible, hacked\-together RUNOFF implementation
 
 .SH SYNOPSIS
 \fBroff\fP [\fB\-W\fP \fIwidth\fP] [\fB\-S\fP \fIsection\fP] [\fB\-E\fP] [\fB\-P\fP] \fIfile\fP...
@@ -43,6 +43,13 @@ This option is enabled by default when \fB\-S\fP is used.
 .B \-P
 Disable the output of escape sequences to modify the font.
 All output will be plain text.
+
+.TP
+.B \-I \fIspaces\fP
+Set the indentation step to \fIspaces\fP columns.
+The default is 7.
+Setting the indentation step to 0 will cause tagged paragraphs to always
+be merged, and also result in section titles being merged.
 
 .SH BUGS
 Tons.
