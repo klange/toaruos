@@ -409,7 +409,7 @@ void outportsm(unsigned short port, unsigned char * data, unsigned long size) {
                                  ((uint32_t)(c) << 16) | ((uint32_t)(d) << 24))
 #define DRM_FORMAT_XRGB8888     fourcc_code('X', 'R', '2', '4') /* [31:0] x:R:G:B 8:8:8:8 little endian */
 
-static void ramfb_init(void) {
+static void ramfb_init(const char * value) {
 	extern uint8_t * lfb_vid_memory;
 	extern uint16_t lfb_resolution_x;
 	extern uint16_t lfb_resolution_y;
@@ -463,6 +463,21 @@ static void ramfb_init(void) {
 	struct fw_cfg_file file;
 	uint8_t * tmp = (uint8_t *)&file;
 
+	uint16_t res_x = 1440;
+	uint16_t res_y = 900;
+
+	if (value) {
+		char * tmp = strdup(value);
+		char * x = strstr(tmp,"x");
+		if (x) {
+			*x = '\0';
+			res_x = atoi(tmp);
+			res_y = atoi(x+1);
+			dprintf("parsed as %u x %u\n", res_x, res_y);
+		}
+		free(tmp);
+	}
+
 	/* Read count entries */
 	for (unsigned int i = 0; i < count; ++i) {
 		for (unsigned int j = 0; j < sizeof(struct fw_cfg_file); ++j) {
@@ -476,8 +491,8 @@ static void ramfb_init(void) {
 			static volatile struct ramfbcfg tmp;
 			uintptr_t z = mmu_map_to_physical(NULL,(uint64_t)&tmp);
 
-			lfb_resolution_x = 1440;
-			lfb_resolution_y = 900;
+			lfb_resolution_x = res_x;
+			lfb_resolution_y = res_y;
 			lfb_resolution_s = lfb_resolution_x*4;
 			lfb_resolution_b = 32;
 			lfb_memsize = lfb_resolution_s * lfb_resolution_y;
@@ -519,7 +534,7 @@ void arch_framebuffer_initialize(void) {
 	 * lfbvideo calls this expecting it to fill in information
 	 * on a preferred video mode; maybe dtb has that? */
 	if (args_present("ramfb")) {
-		ramfb_init();
+		ramfb_init(args_value("ramfb"));
 	}
 }
 
