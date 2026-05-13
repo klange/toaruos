@@ -1113,7 +1113,7 @@ int wait_for_child(int pgid, char * name, int retpid) {
 	int _stopped = 0;
 
 	do {
-		outpid = waitpid(waitee, &ret_code, WSTOPPED);
+		outpid = waitpid(waitee, &ret_code, WUNTRACED);
 		e = errno;
 		if (outpid == retpid) {
 			ret_code_real = ret_code;
