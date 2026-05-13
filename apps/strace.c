@@ -33,6 +33,44 @@
 
 static FILE * logfile;
 static bool log_hidden = true;
+static bool follow_forks = false;
+
+struct Pid {
+	struct Pid *next;
+	struct Pid *prev;
+	pid_t pid;
+};
+
+static struct Pid *children = NULL;
+static size_t children_count = 0;
+
+static struct Pid * find_pid(pid_t p) {
+	struct Pid * c = children;
+	while (c) {
+		if (c->pid == p) return c;
+		c = c->next;
+	}
+	return NULL;
+}
+
+static int forget_child(struct Pid * child) {
+	if (child->prev) child->prev->next = child->next;
+	if (child->next) child->next->prev = child->prev;
+	if (child == children) children = child->next;
+	children_count--;
+
+	ptrace(PTRACE_DETACH, child->pid, NULL, NULL);
+	free(child);
+
+	return children_count == 0;
+}
+
+static void report_pid(pid_t pid) {
+	if (children_count > 1) {
+		fprintf(logfile, "[pid %d] ", pid);
+	}
+}
+
 
 /* System call names */
 const char * syscall_names[] = {
@@ -972,6 +1010,8 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 	if (!syscall_mask[uregs_syscall_num(r)]) return;
 	if (log_hidden) return;
 
+	report_pid(pid);
+
 	fprintf(logfile, "%s(", syscall_names[uregs_syscall_num(r)]);
 	switch (uregs_syscall_num(r)) {
 		case SYS_OPEN:
@@ -1516,7 +1556,7 @@ int main(int argc, char * argv[]) {
 
 	pid_t p = 0;
 	int opt;
-	while ((opt = getopt(argc, argv, "+ho:e:p:")) != -1) {
+	while ((opt = getopt(argc, argv, "+ho:e:p:f-:")) != -1) {
 		switch (opt) {
 			case 'p':
 				p = atoi(optarg);
@@ -1584,8 +1624,20 @@ int main(int argc, char * argv[]) {
 					return 1;
 				}
 				break;
+			case 'f':
+				follow_forks = true;
+				break;
 			case 'h':
-				return (usage(argv), 0);
+				return usage(argv), 0;
+			case '-':
+				if (!strcmp(optarg,"follow-forks")) {
+					follow_forks = true;
+					break;
+				} else if (!strcmp(optarg, "help")) {
+					return usage(argv), 0;
+				}
+				fprintf(stderr, "%s: Unrecognized option: --%s\n", argv[0], optarg);
+				// fallthrough
 			case '?':
 				return usage(argv);
 		}
@@ -1634,59 +1686,97 @@ int main(int argc, char * argv[]) {
 		}
 		signal(SIGINT, SIG_IGN);
 	} else {
-		if (ptrace(PTRACE_ATTACH, p, NULL, NULL) < 0) {
+		log_hidden = false;
+	}
+
+	/* Set up first child. */
+	children = calloc(1, sizeof(struct Pid));
+	children->pid = p;
+	children_count = 1;
+
+	if (ptrace(PTRACE_ATTACH, p, NULL, NULL) < 0) {
+		fprintf(stderr, "%s: ptrace: %s\n", argv[0], strerror(errno));
+		return 1;
+	}
+
+	if (follow_forks) {
+		if (ptrace(PTRACE_SETOPTIONS, p, NULL, (void*)(uintptr_t)(PTRACE_O_TRACEFORK | PTRACE_O_TRACECLONE)) < 0) {
 			fprintf(stderr, "%s: ptrace: %s\n", argv[0], strerror(errno));
 			return 1;
 		}
-		log_hidden = false;
 	}
 
 	int previous_syscall = -1;
 	while (1) {
 		int status = 0;
-		pid_t res = waitpid(p, &status, WSTOPPED);
+		pid_t res = waitpid(-1, &status, WSTOPPED);
 
 		if (res < 0) {
+			if (errno == ECHILD) break;
 			fprintf(stderr, "%s: waitpid: %s\n", argv[0], strerror(errno));
+		} else if (res == 0) {
+			/* No child process? */
 		} else {
+			/* Do we know about 'res' yet? */
+			struct Pid * child = find_pid(res);
+			if (!child) {
+				child = calloc(1, sizeof(struct Pid));
+				child->next = children;
+				child->pid = res;
+				children->prev = child;
+				children = child;
+				children_count++;
+
+				/* Just in case, only do this if we actually said to. */
+				if (follow_forks) ptrace(PTRACE_SETOPTIONS, res, NULL, (void*)(uintptr_t)(PTRACE_O_TRACEFORK | PTRACE_O_TRACECLONE));
+
+				fprintf(logfile, "Process %d attached\n", res);
+			}
+
 			if (WIFSTOPPED(status)) {
 				if (WSTOPSIG(status) == SIGTRAP) {
 					struct URegs regs;
-					ptrace(PTRACE_GETREGS, p, NULL, &regs);
+					ptrace(PTRACE_GETREGS, res, NULL, &regs);
 
 					/* Event type */
 					int event = (status >> 16) & 0xFF;
 					switch (event) {
 						case PTRACE_EVENT_SYSCALL_ENTER:
-							if (previous_syscall == SYS_EXECVE) finish_syscall(p,SYS_EXECVE,NULL);
+							if (previous_syscall == SYS_EXECVE) finish_syscall(res, SYS_EXECVE,NULL);
 							previous_syscall = uregs_syscall_num(&regs);
 							if (log_hidden && previous_syscall == SYS_EXECVE) log_hidden = false;
-							handle_syscall(p, &regs);
+							handle_syscall(res, &regs);
 							break;
 						case PTRACE_EVENT_SYSCALL_EXIT:
-							finish_syscall(p, previous_syscall, &regs);
+							finish_syscall(res, previous_syscall, &regs);
 							previous_syscall = -1;
 							break;
 						default:
 							fprintf(logfile, "Unknown event.\n");
 							break;
 					}
-					ptrace(PTRACE_CONT, p, NULL, NULL);
+					ptrace(PTRACE_CONT, res, NULL, NULL);
 				} else {
+					report_pid(res);
 					fprintf(logfile, "--- ");
 					signal_arg(WSTOPSIG(status));
 					fprintf(logfile, " ---\n");
 
-					ptrace(PTRACE_CONT, p, NULL, (void*)(uintptr_t)WSTOPSIG(status));
+					ptrace(PTRACE_CONT, res, NULL, (void*)(uintptr_t)WSTOPSIG(status));
 				}
 			} else if (WIFSIGNALED(status)) {
+				report_pid(res);
 				fprintf(logfile, "+++ killed by ");
 				signal_arg(WTERMSIG(status));
 				fprintf(logfile, " +++\n");
-				return 0;
+
+				if (forget_child(child)) return 0;
 			} else if (WIFEXITED(status)) {
+				report_pid(res);
 				fprintf(logfile, "+++ exited with %d +++\n", WEXITSTATUS(status));
-				return 0;
+				if (forget_child(child)) return 0;
+			} else {
+				fprintf(logfile, "??? unrecognized status %x\n", status);
 			}
 		}
 	}
