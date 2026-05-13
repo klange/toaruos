@@ -104,8 +104,8 @@ static int try_filename(char * filename, char * page, char * i) {
 			print_page_name(page, i);
 			asprintf(&systemcmd,
 				!is_gz ?
-				(ROFF_CMD " -S NAME -P '%s' | head -n1") :
-				("gunzip -c '%s' | " ROFF_CMD " -S NAME -P -- - | head -n1"),
+				(ROFF_CMD " -S NAME -P -I1 '%s' | head -n1") :
+				("gunzip -c '%s' | " ROFF_CMD " -S NAME -P -I1 -- - | head -n1"),
 				filename);
 		} else {
 			asprintf(&systemcmd,
@@ -230,8 +230,8 @@ static int search_section(char * i, char * keyword) {
 			char * systemcmd;
 			asprintf(&systemcmd,
 				!is_gz ?
-				(ROFF_CMD " -S NAME -P '%s' | " GREP_CMD "%s") :
-				("gunzip -c '%s' | " ROFF_CMD " -S NAME -- - | " GREP_CMD "%s"),
+				(ROFF_CMD " -S NAME -P -I1 '%s' | " GREP_CMD "%s") :
+				("gunzip -c '%s' | " ROFF_CMD " -S NAME -P -I1 -- - | " GREP_CMD "%s"),
 				filename, keyword, dry_run ? " >/dev/null" : "");
 			int result = system(systemcmd);
 			free(systemcmd);
