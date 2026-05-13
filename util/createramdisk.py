@@ -73,6 +73,8 @@ with tarfile.open('ramdisk.igz','w:gz') as ramdisk:
     ramdisk.addfile(symlink('bin/cksum','crc32'))
     ramdisk.addfile(symlink('lib/ld.so','libc.so'))
     ramdisk.addfile(symlink('bin/ldd','/lib/libc.so'))
+    ramdisk.addfile(symlink('bin/apropos','man'))
+    ramdisk.addfile(symlink('bin/whatis','man'))
 
     # Build tools; you'll probably want these.
     ramdisk.add('util/auto-dep.krk',arcname='/bin/auto-dep.krk',filter=file_filter)

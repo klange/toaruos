@@ -1,14 +1,18 @@
 .TH MAN 1 "March, 2026"
 
 .SH NAME
-man \- Find and display manual pages.
+\fBman\fP, \fBapropos\fP, \fBwhatis\fP \- Find and display manual pages.
 
 .SH SYNOPSIS
 \fBman\fP [\fB\-a\fP] [\fB\-w\fP] [\fB\-S\fP \fIsections\fP] [\fIsection\fP] \fIpage\fP...
-.br
+.sp
 \fBman\fP \fB\-k\fP [\fB\-S\fP \fIsections\fP] \fIkeyword\fP...
 .br
-\fBman\fp \fB--help\fP
+\fBapropos\fP [\fB\-s\fP \fIsections\fP] \fIkeyword\fP...
+.sp
+\fBman\fP \fB\-f\fP [\fB\-S\fP \fIsections\fP] \fIpage\fP...
+.br
+\fBwhatis\fP [\fB\-s\fP \fIsections\fP] \fIpage\fP...
 
 .SH DESCRIPTION
 \fBman\fP looks for man pages in \fB/usr/share/man/man\f(BIsection\fB/\f(BIpage\fB.\f(BIsection\fR, where
@@ -35,27 +39,34 @@ If multiple \fIpage\fP arguments are provided, each will be searched and display
 
 .SS Options
 .TP
-.B \-a
+.B \-a \fRor\fP \-\-all
 Display all matching manual pages, in search order, one after the other, instead of stopping after
 showing the first match.
 
 .TP
-.B \-w
+.B \-w \fRor\fP \-\-where
 Instead of displaying the manual page, print its location.
 
 .TP
-.B \-S \fIsections\fP
+.B \-S \fIsections\fP \fRor\fP \-\-sections=\fIsections\fP
 Specify the \fIsections\fP to look in as a colon\-separated list. This option overrides any value
 retrieved from the \fBMANSECT\fP environment variable.
+Lowercase \fB\-s\fP is also accepted for compatibility.
 
 .TP
-.B \-k
+.B \-k \fIor\fP \-\-apropos
 Search the available manuals for pages whose \fBNAME\fP section contains \fIkeyword\fP.
 This is a wrapper around \fBroff \-S NAME \-P | grep -i\fP.
 .sp
 Each \fIkeyword\fP will be searched separately.
 Any \fIkeyword\fP for which no matching manual was found will result in a diagnostic message.
 There is no cached database of page summaries, so this search may take a moment.
+
+.TP
+.B \-f \fIor\fP \-\-whatis
+Display just the first line of the \fBNAME\fP section, similar to the output from \fB\-k\fP, but
+only for exact matches of manual pages, rather than searching the content.
+This option, or invoking \fBman\fP as \fBwhatis\fP, implies the \fB\-\-all\fP option.
 
 .SH EXAMPLES
 

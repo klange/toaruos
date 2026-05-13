@@ -19,6 +19,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <getopt.h>
+#include <libgen.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 
@@ -39,6 +40,7 @@
 #define GREP_CMD "grep --color -i -- '%s' -"
 
 static int where_is = 0;
+static int what_is = 0;
 
 static int show_help(char * argv[]) {
 #define X_S "\033[3m"
@@ -55,6 +57,8 @@ static int show_help(char * argv[]) {
 		" -w       " X_S "Print the locations of manual pages." X_E "\n"
 		" -S " X_S "list  Limit search to colon-separated list of sections." X_E "\n"
 		" -k       " X_S "Search manual page NAME sections for keywords." X_E "\n"
+		" -f       " X_S "Display a short description from each matching manual." X_E "\n"
+		"          " X_S "This options implies " X_E "-a.\n"
 		" --help   " X_S "Show this help text." X_E "\n"
 		"\n", argv[0], argv[0]);
 	return 0;
@@ -63,6 +67,16 @@ static int show_help(char * argv[]) {
 static int usage(char * argv[]) {
 	fprintf(stderr, "Try '%s --help' or '%s man' for more information.\n", argv[0], argv[0]);
 	return 1;
+}
+
+static void print_page_name(const char * page, const char * i) {
+	int written = fprintf(stdout, "%s (%s)", page, i);
+	while (written < 30) {
+		fprintf(stdout, " ");
+		written++;
+	}
+	fprintf(stdout, " - ");
+	fflush(stdout);
 }
 
 /**
@@ -86,11 +100,20 @@ static int try_filename(char * filename, char * page, char * i) {
 		}
 		int is_gz = strlen(filename) > 3 && !strcmp(filename + strlen(filename)-3,".gz");
 		char * systemcmd;
-		asprintf(&systemcmd,
-			!is_gz ?
-			(ROFF_CMD " '%s' | " MORE_CMD) :
-			("gunzip -c '%s' | " ROFF_CMD " -- - | " MORE_CMD),
-			filename, page, i);
+		if (what_is) {
+			print_page_name(page, i);
+			asprintf(&systemcmd,
+				!is_gz ?
+				(ROFF_CMD " -S NAME -P '%s' | head -n1") :
+				("gunzip -c '%s' | " ROFF_CMD " -S NAME -P -- - | head -n1"),
+				filename);
+		} else {
+			asprintf(&systemcmd,
+				!is_gz ?
+				(ROFF_CMD " '%s' | " MORE_CMD) :
+				("gunzip -c '%s' | " ROFF_CMD " -- - | " MORE_CMD),
+				filename, page, i);
+		}
 		int result = system(systemcmd);
 		if (result) exit(WEXITSTATUS(result));
 		free(systemcmd);
@@ -201,13 +224,7 @@ static int search_section(char * i, char * keyword) {
 			if (!dry_run) {
 				/* If not in dry run, prefix the output without the page and section
 				 * so the user can actually find it. Try to format this nicely. */
-				int written = fprintf(stdout, "%s (%s)", page, i);
-				while (written < 30) {
-					fprintf(stdout, " ");
-					written++;
-				}
-				fprintf(stdout, " - ");
-				fflush(stdout);
+				print_page_name(page, i);
 			}
 
 			char * systemcmd;
@@ -323,19 +340,22 @@ int main(int argc, char * argv[]) {
 	int search_names = 0;
 	int opt;
 
+	if (argc && !strcmp(basename(argv[0]), TOARU_MAN_TOOL_PREFIX "whatis")) what_is = 1;
+	if (argc && !strcmp(basename(argv[0]), TOARU_MAN_TOOL_PREFIX "apropos")) search_names = 1;
+
 	static struct option long_opts[] = {
 		{"apropos",  no_argument, 0, 'k'},
 		{"all",      no_argument, 0, 'a'},
 		{"where",    no_argument, 0, 'w'},
 		{"path",     no_argument, 0, 'w'},
 		{"location", no_argument, 0, 'w'},
+		{"whatis",   no_argument, 0, 'f'},
 		{"sections", required_argument, 0, 'S'},
 		{"help",     no_argument, 0, 1000},
 		{0,0,0,0}
 	};
 
-
-	while ((opt = getopt_long(argc, argv, "awS:k", long_opts, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "awS:s:kf", long_opts, NULL)) != -1) {
 		switch (opt) {
 			case 'a':
 				show_all = 1;
@@ -343,11 +363,15 @@ int main(int argc, char * argv[]) {
 			case 'w':
 				where_is = 1;
 				break;
+			case 's':
 			case 'S':
 				section_list = optarg;
 				break;
 			case 'k':
 				search_names = 1;
+				break;
+			case 'f':
+				what_is = 1;
 				break;
 			case 1000:
 				return show_help(argv);
@@ -355,6 +379,8 @@ int main(int argc, char * argv[]) {
 				return usage(argv);
 		}
 	}
+
+	if (what_is) show_all = 1;
 
 	/* At least one argument is required. */
 	if (optind == argc) {
@@ -369,7 +395,7 @@ int main(int argc, char * argv[]) {
 
 	/* If there is more than one argument and it looks like it might be a section
 	 * then treat it is as such and use it for all of the rest of the arguments. */
-	if (!search_names && optind + 1 != argc && is_section(argv[optind])) {
+	if ((!search_names && !what_is) && optind + 1 != argc && is_section(argv[optind])) {
 		section = argv[optind];
 		optind++;
 	}
@@ -399,7 +425,7 @@ int main(int argc, char * argv[]) {
 
 		if (!found) {
 			fprintf(stderr,
-				search_names
+				(search_names || what_is)
 					? "%s: nothing appropriate\n"
 					: "No manual entry for %s\n",
 				argv[optind]);
