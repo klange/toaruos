@@ -1113,8 +1113,8 @@ int waitpid(int pid, int * status, int options) {
 			if (status) {
 				*status = candidate->status;
 			}
-			candidate->status &= ~0xFF;
 			int pid = candidate->id;
+			if (is_parent) candidate->status &= ~0xFF;
 			if (is_parent && (candidate->flags & PROC_FLAG_FINISHED)) {
 				while (*((volatile int *)&candidate->flags) & PROC_FLAG_RUNNING);
 				proc->time_children += candidate->time_children + candidate->time_total;
@@ -1354,7 +1354,6 @@ void task_exit(long retval) {
 				tracee->tracer = 0;
 				__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_TRACE_SIGNALS | PROC_FLAG_TRACE_SYSCALLS));
 				if (tracee->flags & PROC_FLAG_SUSPENDED) {
-					tracee->status = 0;
 					__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_SUSPENDED));
 					make_process_ready(tracee);
 				}
