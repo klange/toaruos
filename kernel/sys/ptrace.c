@@ -87,7 +87,6 @@ void ptrace_trace(process_t * tracer, process_t * tracee) {
  */
 void ptrace_untrace(process_t * tracer, process_t * tracee) {
 	spin_lock(tracer->wait_lock);
-	__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_TRACE_SYSCALLS | PROC_FLAG_TRACE_SIGNALS));
 
 	if (tracer->tracees) {
 		foreach (node, tracer->tracees) {
@@ -270,6 +269,7 @@ long ptrace_detach(pid_t pid, int sig) {
 
 	/* Mark us not the tracer. */
 	tracee->tracer = 0;
+	__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_TRACE_SYSCALLS | PROC_FLAG_TRACE_SIGNALS));
 
 	signal_and_continue(pid,tracee,sig);
 

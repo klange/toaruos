@@ -1351,11 +1351,13 @@ void task_exit(long retval) {
 			process_t * tracee = n->value;
 			free(n);
 			if (is_valid_process(tracee)) {
-				tracee->tracer = 0;
-				__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_TRACE_SIGNALS | PROC_FLAG_TRACE_SYSCALLS));
-				if (tracee->flags & PROC_FLAG_SUSPENDED) {
-					__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_SUSPENDED));
-					make_process_ready(tracee);
+				if (tracee->tracer == this_core->current_process->id) {
+					tracee->tracer = 0;
+					__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAGS_TRACE));
+					if (tracee->flags & PROC_FLAG_SUSPENDED) {
+						__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_SUSPENDED));
+						make_process_ready(tracee);
+					}
 				}
 			}
 		}

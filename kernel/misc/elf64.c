@@ -374,14 +374,9 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 
 	/* Point of no return. */
 
-	if ((file->mask & S_ISUID) && !(this_core->current_process->flags & (PROC_FLAG_TRACE_SYSCALLS | PROC_FLAG_TRACE_SIGNALS))) {
-		/* setuid */
-		this_core->current_process->user = file->uid;
-	}
-
-	if ((file->mask & S_ISGID) && !(this_core->current_process->flags & (PROC_FLAG_TRACE_SYSCALLS | PROC_FLAG_TRACE_SIGNALS))) {
-		/* setgid */
-		this_core->current_process->user_group = file->gid;
+	if (!(this_core->current_process->flags & (PROC_FLAGS_TRACE)) && !this_core->current_process->tracer) {
+		if (file->mask & S_ISUID) this_core->current_process->user = file->uid; /* set-user-ID */
+		if (file->mask & S_ISGID) this_core->current_process->user_group = file->gid; /* set-group-ID */
 	}
 
 	this_core->current_process->saved_user = this_core->current_process->user;
