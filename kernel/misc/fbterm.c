@@ -32,6 +32,7 @@ static int y = 0;
 static int term_state = 0;
 static char term_buf[1024] = {0};
 static int term_buf_c = 0;
+static int fb_left_margin = 0;
 
 /* Bitmap font details */
 #include "../../apps/terminal-font.h"
@@ -92,7 +93,7 @@ static void fb_write_char(int _x, int _y, int val, int color, int bg_color) {
 		val = 4;
 	}
 
-	int x = 1 + _x * char_width;
+	int x = fb_left_margin + _x * char_width;
 	int y = _y * char_height;
 
 	uint8_t * c = large_font[val];
@@ -108,7 +109,7 @@ static void fb_write_char(int _x, int _y, int val, int color, int bg_color) {
 }
 
 static int fb_get_width(void) {
-	return (lfb_resolution_x - 1) / char_width;
+	return (lfb_resolution_x - fb_left_margin) / char_width;
 }
 
 static int fb_get_height(void) {
@@ -157,6 +158,9 @@ void fbterm_reset(void) {
 }
 
 static void fbterm_init_framebuffer(void) {
+	if (args_value("fbterm-margin")) {
+		fb_left_margin = atoi(args_value("fbterm-margin"));
+	}
 	write_char = fb_write_char;
 	get_width = fb_get_width;
 	get_height = fb_get_height;
