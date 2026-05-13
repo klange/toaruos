@@ -71,7 +71,7 @@ static int usage(char * argv[]) {
 
 static void print_page_name(const char * page, const char * i) {
 	int written = fprintf(stdout, "%s (%s)", page, i);
-	while (written < 30) {
+	while (written < 20) {
 		fprintf(stdout, " ");
 		written++;
 	}
