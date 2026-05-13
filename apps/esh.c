@@ -2777,6 +2777,40 @@ uint32_t shell_cmd_umask(int argc, char * argv[]) {
 	return 0;
 }
 
+uint32_t shell_cmd_for(int argc, char * argv[]) {
+	if (argc < 5) goto _for_usage;
+	if (strcmp(argv[2],"in")) goto _for_usage;
+
+	char * varname = argv[1];
+	size_t num_words = 0;
+	char **words = &argv[3];
+	for (; words[num_words] && strcmp(words[num_words], "do"); num_words++);
+
+	if (!words[num_words]) goto _for_usage;
+	if (!words[num_words+1] || !strcmp(words[num_words+1],"done")) goto _for_usage;
+	if (!words[num_words+2] || strcmp(words[num_words+2],"done")) goto _for_usage;
+
+	char *cmd = words[num_words+1];
+
+	int last_ret = 0;
+
+	for (size_t i = 0; i < num_words; ++i) {
+		setenv(varname, words[i], 1);
+		char * c = cmd;
+		do {
+			char * out = NULL;
+			last_ret = shell_exec(c, strlen(c), NULL, &out, NULL, NULL);
+			c = out;
+		} while (c);
+	}
+
+	return last_ret;
+
+_for_usage:
+	fprintf(stderr, "usage: for [var] in [words...] do 'cmd' done\n");
+	return 1;
+}
+
 void install_commands() {
 	shell_commands = malloc(sizeof(char *) * SHELL_COMMANDS);
 	shell_pointers = malloc(sizeof(shell_command_t) * SHELL_COMMANDS);
@@ -2806,4 +2840,5 @@ void install_commands() {
 	shell_install_command("time",    shell_cmd_time, "time a command");
 	shell_install_command("set",     shell_cmd_set, "set shell options");
 	shell_install_command("umask",   shell_cmd_umask, "set file creation mask");
+	shell_install_command("for",     shell_cmd_for, "run command on words");
 }
