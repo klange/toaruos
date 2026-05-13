@@ -563,7 +563,7 @@ _reprint_prompt:
 					enter_history_mode(7);
 					return 0;
 				default:
-					printf("\r\033[K\033[7munreocgnized command:\033[0m %c", c);
+					printf("\r\033[K\033[7munrecognized command:\033[0m %c", c);
 					fflush(stdout);
 					break;
 			}
