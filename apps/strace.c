@@ -1005,6 +1005,39 @@ static void access_mode_arg(int flags) {
 	}
 }
 
+static void wait_status_ptr_arg(pid_t pid, uintptr_t ptr) {
+	if (!ptr) {
+		pointer_arg(ptr);
+		return;
+	}
+
+	int status = data_read_int(pid, ptr);
+	fprintf(logfile, "{");
+
+	if (WIFEXITED(status)) {
+		fprintf(logfile, "WIFEXITED, WEXITSTATUS=%d", WEXITSTATUS(status));
+	} else if (WIFSIGNALED(status)) {
+		fprintf(logfile, "WIFSIGNALED, WTERMSIG=");
+		signal_arg(WTERMSIG(status));
+	} else if (WIFSTOPPED(status)) {
+		fprintf(logfile, "WIFSTOPPED, WSTOPSIG=");
+		signal_arg(WSTOPSIG(status));
+	}
+
+	fprintf(logfile, "}");
+}
+
+static void wait_options_arg(int flags) {
+	if (!flags) fprintf(logfile, "0");
+	else {
+		H(WNOHANG);
+		H(WUNTRACED);
+		H(WSTOPPED);
+		H(WNOKERN);
+		if (flags) fprintf(logfile, "%#x", flags);
+	}
+}
+
 static void handle_syscall(pid_t pid, struct URegs * r) {
 	if (uregs_syscall_num(r) >= sizeof(syscall_mask)) return;
 	if (!syscall_mask[uregs_syscall_num(r)]) return;
@@ -1180,8 +1213,7 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			break;
 		case SYS_WAITPID:
 			int_arg(uregs_syscall_arg1(r)); COMMA;
-			pointer_arg(uregs_syscall_arg2(r)); COMMA;
-			int_arg(uregs_syscall_arg3(r)); /* TODO waitpid options */
+			/* Plus two more */
 			break;
 		case SYS_EXT:
 			int_arg(uregs_syscall_arg1(r));
@@ -1522,6 +1554,15 @@ static void finish_syscall(pid_t pid, int syscall, struct URegs * r) {
 		case SYS_READLINK:
 			buffer_arg(pid, uregs_syscall_arg2(r), uregs_syscall_arg3(r)); COMMA;
 			uint_arg(uregs_syscall_arg3(r));
+			maybe_errno(r);
+			break;
+		case SYS_WAITPID:
+			if ((intptr_t)uregs_syscall_result(r) >= 0) {
+				wait_status_ptr_arg(pid, uregs_syscall_arg2(r)); COMMA;
+			} else {
+				pointer_arg(uregs_syscall_arg2(r)); COMMA;
+			}
+			wait_options_arg(uregs_syscall_arg3(r));
 			maybe_errno(r);
 			break;
 		/* Most things return -errno, or positive valid result */
