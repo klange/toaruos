@@ -4,7 +4,7 @@
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2018 K. Lange
+ * Copyright (C) 2018-2026 K. Lange
  */
 #include <stdio.h>
 #include <unistd.h>
@@ -148,7 +148,7 @@ const char * pci_class_lookup(unsigned short class_id) {
 			return _pci_classes[i].name;
 		}
 	}
-	return "(unknown)";
+	return NULL;
 }
 
 const char * pci_vendor_lookup(unsigned short vendor_id) {
@@ -273,24 +273,19 @@ int main(int argc, char * argv[]) {
 					start = NULL;
 				}
 			}
-		} else if (numeric) {
-			fprintf(stdout, "%s %s: %s:%s\n", device_bus, device_class, device_vendor, device_code);
 		} else {
-			unsigned short class_id  = strtoul(device_class, NULL, 16);
-			unsigned short vendor_id = strtoul(device_vendor, NULL, 16);
-			unsigned short device_id = strtoul(device_code,   NULL, 16);
-			const char * class_name  = pci_class_lookup(class_id);
-			const char * vendor_name = pci_vendor_lookup(vendor_id);
-			const char * device_name = pci_device_lookup(vendor_id, device_id);
-			if (!vendor_name && !device_name) {
-				fprintf(stdout, "%s %s: %s:%s\n", device_bus, class_name, device_vendor, device_code);
-			} else if (!vendor_name) {
-				fprintf(stdout, "%s %s: %s %s\n", device_bus, class_name, device_vendor, device_name);
-			} else if (!device_name) {
-				fprintf(stdout, "%s %s: %s %s\n", device_bus, class_name, vendor_name, device_code);
-			} else {
-				fprintf(stdout, "%s %s: %s %s\n", device_bus, class_name, vendor_name, device_name);
+			const char * class_name  = NULL;
+			const char * vendor_name = NULL;
+			const char * device_name = NULL;
+			if (!numeric) {
+				unsigned short class_id  = strtoul(device_class, NULL, 16);
+				unsigned short vendor_id = strtoul(device_vendor, NULL, 16);
+				unsigned short device_id = strtoul(device_code,   NULL, 16);
+				class_name  = pci_class_lookup(class_id);
+				vendor_name = pci_vendor_lookup(vendor_id);
+				device_name = pci_device_lookup(vendor_id, device_id);
 			}
+			fprintf(stdout, "%s %s: %s%c%s\n", device_bus, class_name ?: device_class, vendor_name ?: device_vendor, (!vendor_name && !device_name) ? ':' : ' ', device_name ?: device_code);
 		}
 	}
 
