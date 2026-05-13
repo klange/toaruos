@@ -286,53 +286,53 @@ char syscall_mask[] = {
 static const int syscall_set_net[] = {
 	SYS_SOCKET, SYS_SETSOCKOPT, SYS_BIND, SYS_ACCEPT, SYS_LISTEN,
 	SYS_CONNECT, SYS_GETSOCKOPT, SYS_RECV, SYS_SEND, SYS_SHUTDOWN,
-	SYS_GETPEERNAME, SYS_GETSOCKNAME, 0
+	SYS_GETPEERNAME, SYS_GETSOCKNAME, -1
 };
 
 static const int syscall_set_file[] = {
 	SYS_OPEN, SYS_STATF, SYS_LSTAT, SYS_ACCESS, SYS_EXECVE,
 	SYS_GETCWD, SYS_CHDIR, SYS_MKDIR, SYS_SYMLINK, SYS_UNLINK,
 	SYS_CHMOD, SYS_CHOWN, SYS_MOUNT, SYS_READLINK, SYS_RENAME,
-	SYS_TRUNCATE, SYS_EACCESS, SYS_LCHOWN, SYS_INSMOD, 0
+	SYS_TRUNCATE, SYS_EACCESS, SYS_LCHOWN, SYS_INSMOD, -1
 };
 
 static const int syscall_set_desc[] = {
 	SYS_OPEN, SYS_READ, SYS_WRITE, SYS_CLOSE, SYS_STAT, SYS_FSWAIT,
 	SYS_FSWAIT2, SYS_FSWAIT3, SYS_SEEK, SYS_IOCTL, SYS_PIPE, SYS_PIPE2,
 	SYS_DUP2, SYS_READDIR, SYS_OPENPTY, SYS_PREAD, SYS_PWRITE, SYS_FCNTL,
-	SYS_FCHMOD, SYS_FCHOWN, SYS_FTRUNCATE, SYS_DUP3, 0
+	SYS_FCHMOD, SYS_FCHOWN, SYS_FTRUNCATE, SYS_DUP3, -1
 };
 
 static const int syscall_set_memory[] = {
-	SYS_SBRK, SYS_SHM_OBTAIN, SYS_SHM_RELEASE, SYS_MMAP, SYS_MUNMAP, 0
+	SYS_SBRK, SYS_SHM_OBTAIN, SYS_SHM_RELEASE, SYS_MMAP, SYS_MUNMAP, -1
 };
 
 static const int syscall_set_ipc[] = {
-	SYS_SHM_OBTAIN, SYS_SHM_RELEASE, 0
+	SYS_SHM_OBTAIN, SYS_SHM_RELEASE, -1
 };
 
 static const int syscall_set_signal[] = {
 	SYS_SIGNAL, SYS_KILL, SYS_SIGACTION, SYS_SIGPENDING, SYS_SIGPROCMASK,
-	SYS_SIGSUSPEND, SYS_SIGWAIT, SYS_SIGQUEUE, 0
+	SYS_SIGSUSPEND, SYS_SIGWAIT, SYS_SIGQUEUE, -1
 };
 
 static const int syscall_set_process[] = {
-	SYS_EXECVE, SYS_FORK, SYS_CLONE, SYS_WAITPID, SYS_KILL,
-	SYS_SIGQUEUE, 0
+	SYS_EXT, SYS_EXECVE, SYS_FORK, SYS_CLONE, SYS_WAITPID, SYS_KILL,
+	SYS_SIGQUEUE, -1
 };
 
 static const int syscall_set_creds[] = {
 	SYS_GETUID, SYS_GETGID, SYS_GETGROUPS, SYS_GETEGID, SYS_GETEUID,
 	SYS_SETUID, SYS_SETGID, SYS_SETGROUPS, SYS_SETRESUID, SYS_SETREUID,
-	SYS_SETRESGID, SYS_SETREGID, 0
+	SYS_SETRESGID, SYS_SETREGID, -1
 };
 
 static const int syscall_set_stat[] = {
-	SYS_STAT, SYS_STATF, SYS_LSTAT, 0
+	SYS_STAT, SYS_STATF, SYS_LSTAT, -1
 };
 
 static const int syscall_set_clock[] = {
-	SYS_GETTIMEOFDAY, SYS_SETTIMEOFDAY, 0
+	SYS_GETTIMEOFDAY, SYS_SETTIMEOFDAY, -1
 };
 
 struct SyscallSet {
@@ -1591,7 +1591,7 @@ int main(int argc, char * argv[]) {
 							}
 
 							if (syscalls) {
-								for (const int *i = syscalls; *i; i++) {
+								for (const int *i = syscalls; *i != -1; i++) {
 									syscall_mask[*i] = 1;
 								}
 							} else {
