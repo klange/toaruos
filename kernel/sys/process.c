@@ -38,6 +38,7 @@
 #include <kernel/syscall.h>
 #include <kernel/ksym.h>
 #include <kernel/pty.h>
+#include <kernel/ptrace.h>
 #include <sys/wait.h>
 #include <sys/signal_defs.h>
 
@@ -1056,6 +1057,7 @@ int waitpid(int pid, int * status, int options) {
 		volatile process_t * candidate = NULL;
 		int has_children = 0;
 		int is_parent = 0;
+		int candidate_from_trace = 0;
 
 		spin_lock(proc->wait_lock);
 
@@ -1070,14 +1072,15 @@ int waitpid(int pid, int * status, int options) {
 
 			if (wait_candidate(proc->process, pid, options, child)) {
 				has_children = 1;
-				is_parent = 1;
 				if (child->flags & PROC_FLAG_FINISHED) {
+					is_parent = 1;
 					candidate = child;
 					break;
 				}
 				if ((child->flags & PROC_FLAG_SUSPENDED) && ((child->status & 0xFF) == 0x7F)) {
 					int reason = (child->status >> 16) & 0xFF;
 					if ((options & WSTOPPED) || (reason == 0xFF && (options & WUNTRACED))) {
+						is_parent = 1;
 						candidate = child;
 						break;
 					}
@@ -1091,6 +1094,7 @@ int waitpid(int pid, int * status, int options) {
 				if (wait_candidate(proc,pid,options,child)) {
 					has_children = 1;
 					if (child->flags & (PROC_FLAG_SUSPENDED | PROC_FLAG_FINISHED)) {
+						candidate_from_trace = 1;
 						candidate = child;
 						break;
 					}
@@ -1116,6 +1120,9 @@ int waitpid(int pid, int * status, int options) {
 				proc->time_children += candidate->time_children + candidate->time_total;
 				proc->time_sys_children += candidate->time_sys_children + candidate->time_sys;
 				process_delete((process_t*)candidate);
+			}
+			if (candidate_from_trace && candidate->tracer != proc->id) {
+				ptrace_untrace((process_t*)proc, (process_t*)candidate);
 			}
 			return pid;
 		} else {
@@ -1363,6 +1370,7 @@ void task_exit(long retval) {
 
 	if (this_core->current_process->tracer) {
 		process_t * tracer = process_from_pid(this_core->current_process->tracer);
+		this_core->current_process->tracer = 0;
 		if (tracer && tracer != parent) {
 			spin_lock(tracer->wait_lock);
 			wakeup_queue(tracer->wait_queue);
@@ -1424,6 +1432,8 @@ pid_t fork(void) {
 	#endif
 
 	if (parent->flags & PROC_FLAG_IS_TASKLET) new_proc->flags |= PROC_FLAG_IS_TASKLET;
+	if ((parent->flags & PROC_FLAG_TRACE_FORK) && parent->tracer) ptrace_trace(process_from_pid(parent->tracer), new_proc);
+
 	make_process_ready(new_proc);
 	return new_proc->id;
 }
@@ -1472,7 +1482,10 @@ pid_t clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 	new_proc->thread.context.bp = bp;
 	new_proc->thread.context.tls_base = this_core->current_process->thread.context.tls_base;
 	new_proc->thread.context.ip = (uintptr_t)&arch_resume_user;
+
 	if (parent->flags & PROC_FLAG_IS_TASKLET) new_proc->flags |= PROC_FLAG_IS_TASKLET;
+	if ((parent->flags & PROC_FLAG_TRACE_CLONE) && parent->tracer) ptrace_trace(process_from_pid(parent->tracer), new_proc);
+
 	make_process_ready(new_proc);
 	return new_proc->id;
 }

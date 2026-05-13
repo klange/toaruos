@@ -55,7 +55,7 @@
  * @param tracer Process that is the doing the tracing
  * @param tracee Process that is breing traced
  */
-static void _ptrace_trace(process_t * tracer, process_t * tracee) {
+void ptrace_trace(process_t * tracer, process_t * tracee) {
 	spin_lock(tracer->wait_lock);
 	__sync_or_and_fetch(&tracee->flags, (PROC_FLAG_TRACE_SYSCALLS | PROC_FLAG_TRACE_SIGNALS));
 
@@ -63,9 +63,41 @@ static void _ptrace_trace(process_t * tracer, process_t * tracee) {
 		tracer->tracees = list_create("debug tracees", tracer);
 	}
 
-	list_insert(tracer->tracees, tracee);
+	int already = 0;
+	foreach (node, tracer->tracees) {
+		process_t * p = node->value;
+		if (p == tracee) {
+			already = 1;
+			break;
+		}
+	}
+
+	if (!already) list_insert(tracer->tracees, tracee);
 
 	tracee->tracer = tracer->id;
+
+	spin_unlock(tracer->wait_lock);
+}
+
+/**
+ * @brief Remove a tracee from a tracer's tracee list.
+ *
+ * @param tracer Tracer to unlink.
+ * @param tracee Tracee to remove.
+ */
+void ptrace_untrace(process_t * tracer, process_t * tracee) {
+	spin_lock(tracer->wait_lock);
+	__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_TRACE_SYSCALLS | PROC_FLAG_TRACE_SIGNALS));
+
+	if (tracer->tracees) {
+		foreach (node, tracer->tracees) {
+			process_t * p = node->value;
+			if (p == tracee) {
+				list_delete(tracer->tracees, node);
+				break;
+			}
+		}
+	}
 
 	spin_unlock(tracer->wait_lock);
 }
@@ -91,7 +123,7 @@ long ptrace_attach(pid_t pid) {
 	if (!tracee) return -ESRCH;
 	if (tracer->user != 0 && tracer->user != tracee->user) return -EPERM;
 
-	_ptrace_trace(tracer, tracee);
+	ptrace_trace(tracer, tracee);
 
 	return 0;
 }
@@ -116,7 +148,7 @@ long ptrace_self(void) {
 	process_t * tracer = process_get_parent(tracee);
 	if (!tracer) return -EINVAL;
 
-	_ptrace_trace(tracer, tracee);
+	ptrace_trace(tracer, tracee);
 
 	return 0;
 }
@@ -230,6 +262,10 @@ long ptrace_continue(pid_t pid, int sig) {
  */
 long ptrace_detach(pid_t pid, int sig) {
 	process_t * tracee = process_from_pid(pid);
+
+	/* Always remove the tracee from our tracee list, even if we don't think it's ours. */
+	if (tracee) ptrace_untrace((process_t*)this_core->current_process, tracee);
+
 	if (!tracee || (tracee->tracer != this_core->current_process->id) || !(tracee->flags & PROC_FLAG_SUSPENDED)) return -ESRCH;
 
 	/* Mark us not the tracer. */
@@ -429,6 +465,29 @@ long ptrace_singlestep(pid_t pid, int sig) {
 	return 0;
 }
 
+long ptrace_setoptions(pid_t pid, int options) {
+	process_t * tracee = process_from_pid(pid);
+	if (!tracee || (tracee->tracer != this_core->current_process->id)) return -ESRCH;
+
+	unsigned int unwanted_flags = PROC_FLAG_TRACE_FORK | PROC_FLAG_TRACE_CLONE;
+	unsigned int wanted_flags = 0;
+
+	if (options & PTRACE_O_TRACEFORK) {
+		wanted_flags |= PROC_FLAG_TRACE_FORK;
+		unwanted_flags &= ~PROC_FLAG_TRACE_FORK;
+	}
+
+	if (options & PTRACE_O_TRACECLONE) {
+		wanted_flags |= PROC_FLAG_TRACE_CLONE;
+		unwanted_flags &= ~PROC_FLAG_TRACE_CLONE;
+	}
+
+	__sync_or_and_fetch(&tracee->flags, wanted_flags);
+	__sync_and_and_fetch(&tracee->flags, ~unwanted_flags);
+
+	return 0;
+}
+
 /**
  * @brief Handle ptrace system call requests.
  *
@@ -466,6 +525,8 @@ long ptrace_handle(long request, pid_t pid, void * addr, void * data) {
 			return ptrace_detach(pid,(uintptr_t)data);
 		case PTRACE_SETREGS:
 			return ptrace_setregs(pid,data);
+		case PTRACE_SETOPTIONS:
+			return ptrace_setoptions(pid,(uintptr_t)data);
 		default:
 			return -EINVAL;
 	}

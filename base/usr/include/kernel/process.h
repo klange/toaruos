@@ -96,6 +96,8 @@ struct signal_config {
 
 #define PROC_FLAG_TRACE_SYSCALLS     0x40
 #define PROC_FLAG_TRACE_SIGNALS      0x80
+#define PROC_FLAG_TRACE_FORK        0x200
+#define PROC_FLAG_TRACE_CLONE       0x400
 
 #define PROC_FLAG_RESTORE_SIGMASK    0x100
 
