@@ -279,7 +279,7 @@ static const int syscall_set_signal[] = {
 };
 
 static const int syscall_set_process[] = {
-	SYS_EXT, SYS_EXECVE, SYS_FORK, SYS_CLONE, SYS_WAITPID, SYS_KILL,
+	SYS_EXECVE, SYS_FORK, SYS_CLONE, SYS_WAITPID, SYS_KILL,
 	SYS_SIGQUEUE, 0
 };
 
