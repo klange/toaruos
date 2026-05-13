@@ -970,7 +970,7 @@ static void access_mode_arg(int flags) {
 static void handle_syscall(pid_t pid, struct URegs * r) {
 	if (uregs_syscall_num(r) >= sizeof(syscall_mask)) return;
 	if (!syscall_mask[uregs_syscall_num(r)]) return;
-	if (log_hidden && uregs_syscall_num(r) != SYS_EXECVE) return;
+	if (log_hidden) return;
 
 	fprintf(logfile, "%s(", syscall_names[uregs_syscall_num(r)]);
 	switch (uregs_syscall_num(r)) {
@@ -1103,7 +1103,6 @@ static void handle_syscall(pid_t pid, struct URegs * r) {
 			pointer_arg(uregs_syscall_arg4(r));
 			break;
 		case SYS_EXECVE:
-			log_hidden = false;
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			string_array_arg(pid, uregs_syscall_arg2(r)); COMMA;
 			envp_arg(pid, uregs_syscall_arg3(r));
@@ -1661,6 +1660,7 @@ int main(int argc, char * argv[]) {
 						case PTRACE_EVENT_SYSCALL_ENTER:
 							if (previous_syscall == SYS_EXECVE) finish_syscall(p,SYS_EXECVE,NULL);
 							previous_syscall = uregs_syscall_num(&regs);
+							if (log_hidden && previous_syscall == SYS_EXECVE) log_hidden = false;
 							handle_syscall(p, &regs);
 							break;
 						case PTRACE_EVENT_SYSCALL_EXIT:
