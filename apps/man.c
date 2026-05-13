@@ -18,6 +18,7 @@
 #include <stdint.h>
 #include <dirent.h>
 #include <errno.h>
+#include <getopt.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 
@@ -39,7 +40,7 @@
 
 static int where_is = 0;
 
-static int usage(char * argv[]) {
+static int show_help(char * argv[]) {
 #define X_S "\033[3m"
 #define X_E "\033[0m"
 	fprintf(stderr,
@@ -56,6 +57,11 @@ static int usage(char * argv[]) {
 		" -k       " X_S "Search manual page NAME sections for keywords." X_E "\n"
 		" --help   " X_S "Show this help text." X_E "\n"
 		"\n", argv[0], argv[0]);
+	return 0;
+}
+
+static int usage(char * argv[]) {
+	fprintf(stderr, "Try '%s --help' or '%s man' for more information.\n", argv[0], argv[0]);
 	return 1;
 }
 
@@ -316,7 +322,20 @@ int main(int argc, char * argv[]) {
 	int show_all = 0;
 	int search_names = 0;
 	int opt;
-	while ((opt = getopt(argc, argv, "?awS:k-:")) != -1) {
+
+	static struct option long_opts[] = {
+		{"apropos",  no_argument, 0, 'k'},
+		{"all",      no_argument, 0, 'a'},
+		{"where",    no_argument, 0, 'w'},
+		{"path",     no_argument, 0, 'w'},
+		{"location", no_argument, 0, 'w'},
+		{"sections", required_argument, 0, 'S'},
+		{"help",     no_argument, 0, 1000},
+		{0,0,0,0}
+	};
+
+
+	while ((opt = getopt_long(argc, argv, "awS:k", long_opts, NULL)) != -1) {
 		switch (opt) {
 			case 'a':
 				show_all = 1;
@@ -330,13 +349,8 @@ int main(int argc, char * argv[]) {
 			case 'k':
 				search_names = 1;
 				break;
-			case '-':
-				if (!strcmp(optarg,"help")) {
-					usage(argv);
-					return 0;
-				}
-				fprintf(stderr, "%s: '--%s' is not a recognized long option.\n", argv[0], optarg);
-				/* fallthrough */
+			case 1000:
+				return show_help(argv);
 			case '?':
 				return usage(argv);
 		}
