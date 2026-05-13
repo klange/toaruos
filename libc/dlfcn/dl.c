@@ -2,7 +2,22 @@
  * @file libc/dlfcn/dl.c
  * @brief ld.so entry point
  *
- * Self-relocates ld.so (actually libc.so).
+ * This is the ELF dynamic linker. It self-relocates, examines auxv
+ * entries to figure out what to do, loads and relocates dependencies
+ * and a main binary (if any), and so on.
+ *
+ * This dynamic linker is near full rewrite of the old one that used
+ * to live at @ref linker/linker.c - this one does much more normal
+ * symbol resolution (rather than relying on a single shared table
+ * of symbols), exists as a shared object (it's actually just the
+ * libc.so), and deal with binaries that the kernel has already
+ * alongside it.
+ *
+ * The symbol resolution, which better than it was previously, is
+ * still not completely correct. We don't handle loading libraries
+ * with @c dlopen flags or properly handle the flags to @c dlsym.
+ * The only supported relocation types are ones that have been seen
+ * in our own collection of applications and libraries.
  *
  * @copyright
  * This file is part of ToaruOS and is released under the terms
@@ -33,45 +48,54 @@ static int emergency_fd = 0;
 #define unlikely(cond) __builtin_expect((cond), 0)
 
 struct DlLib {
-	const char   * name;
-	Elf64_Header * ehdr;
-	Elf64_Phdr   * phdr;
-	size_t       phnum;
-	Elf64_Dyn    * full_dyn;
-	Elf64_Sym    * syms;
-	const char   * strings;
-	Elf64_Word   * hash;
-	struct DlLib * next;
-	struct DlLib * next_syms;
-	uintptr_t    base;
-	uintptr_t    dyn[32];
-	uintptr_t    tlsbase;
-	size_t       tlssize;
-	bool         relocated;
-	bool         constructed;
-	char *       exe_path;
+	const char   * name;      /* Loaded name. */
+	Elf64_Header * ehdr;      /* Start of Elf header. */
+	Elf64_Phdr   * phdr;      /* Start of program headers. */
+	size_t       phnum;       /* Number of program headers. */
+	Elf64_Dyn    * full_dyn;  /* Pointer to the actual DYNAMIC section. */
+	Elf64_Sym    * syms;      /* Start of symbol table. */
+	const char   * strings;   /* Start of string table. */
+	Elf64_Word   * hash;      /* Pointer to SysV symbol hashmap. */
+	struct DlLib * next;      /* Next app/library in chain. */
+	uintptr_t    base;        /* Loaded base address. */
+	uintptr_t    dyn[32];     /* Direct map of DT tags to values. */
+	uintptr_t    tlsbase;     /* Static TLS offset.*/
+	size_t       tlssize;     /* How much space is reserved for static TLS. */
+	bool         relocated;   /* Whether this library has had relocations applied already. */
+	bool         constructed; /* Whether this library's constructors have been called. */
+	char *       exe_path;    /* Full path of a library resolved in @c find_lib. */
 
-	struct DlLib **dependencies;
+	struct DlLib **dependencies; /* Allocated array of dependencies. */
+	size_t       depcount;
 };
 
-static struct DlLib *all_libraries = NULL;
-static struct DlLib *last_library = NULL;
-static struct DlLib *__libc_ldso = NULL;
-static size_t current_tls_offset = 16;
-static bool is_runtime = false;
-static bool target_is_suid = false;
-static char ** __envp = NULL;
-static bool __trace_ld = false;
-static char * __ld_error = NULL;
-static bool __ldso_reported = false;
+static struct DlLib *all_libraries = NULL; /* Head of library chain. Usually ends up as the main app. */
+static struct DlLib *last_library = NULL;  /* Tail of library chain. */
+static struct DlLib *__libc_ldso = NULL;   /* Our own DlLib object. */
+static size_t current_tls_offset = 16;     /* How much space we've reserved in static TLS. */
+static bool is_runtime = false;            /* Whether we've finished loading and are now in runtime mode. */
+static bool target_is_suid = false;        /* Whether the auxv indicate a set-user-id or set-group-id binary ("secure mode"). */
+static char ** __envp = NULL;              /* Environment for use with @c simple_getenv. */
+static bool __trace_ld = false;            /* Whether LD_DEBUG was set. */
+static char * __ld_error = NULL;           /* Last error for @c dlerror. */
+static bool __ldso_reported = false;       /* Whether ldd has reported libc.so yet. */
 
 __attribute__((visibility("protected")))
-bool __is_ldd = false;
+bool __is_ldd = false;                     /* Whether we are operating as the 'ldd' utility. */
 
 static DEFN_SYSCALL1(_exit,SYS_EXT,int);
 
-extern char __ehdr_start[] __attribute__((weak, visibility("hidden")));
-
+/**
+ * @brief Simple memcpy.
+ *
+ * Used before we've self-relocated, before we can make a
+ * symbolic reference to the real memcpy.
+ *
+ * @param a Destination.
+ * @param b Source.
+ * @param sz Size to copy.
+ * @returns Nothing.
+ */
 static void simple_memcpy(char *a, char * b, size_t sz) {
 	while (sz) {
 		*a++ = *b++;
@@ -79,6 +103,14 @@ static void simple_memcpy(char *a, char * b, size_t sz) {
 	}
 }
 
+/**
+ * @brief Simple getenv.
+ *
+ * Used for all internal LD_ variable checks.
+ *
+ * @param var Environment variable name to look up.
+ * @returns Pointer to environment variable value or NULL if not set.
+ */
 static char * simple_getenv(const char * var) {
 	char ** envp = __envp;
 	size_t len = strlen(var);
@@ -86,6 +118,15 @@ static char * simple_getenv(const char * var) {
 	return NULL;
 }
 
+/**
+ * @brief Obtain own base address.
+ *
+ * Magic. On some platforms, we need to do silly tricks to ensure
+ * we're getting the right resolved PC-relative address, which is
+ * weird but whatever. Otherwise, this is the address of the start
+ * of our headers which ld helpfully makes a symbol for but only
+ * if we ask for one.
+ */
 static uintptr_t load_addr(void) {
 	uintptr_t out;
 #if defined(__aarch64__)
@@ -94,11 +135,24 @@ static uintptr_t load_addr(void) {
 	"  add %0, %0, #:lo12:__ehdr_start\n"
 	:"=r"(out));
 #else
+	extern char __ehdr_start[] __attribute__((weak, visibility("hidden")));
 	out = (uintptr_t)&__ehdr_start;
 #endif
 	return out;
 }
 
+/**
+ * @brief Perform local relocations.
+ *
+ * This is the self-relocating part of ld.so/libc.so.
+ * Does not perform any symbolic lookup; all symbolis resolved
+ * here must be local.
+ *
+ * @param rel        Pointer to RELA table to process.
+ * @param size       Size of table.
+ * @param base       Base address to relocate to.
+ * @param sym_table  Symbol table to use for index lookups.
+ */
 static void simple_relocs(uintptr_t rel, uintptr_t size, uintptr_t base, Elf64_Sym * sym_table) {
 	Elf64_Rela * table = (Elf64_Rela *)rel;
 
@@ -149,6 +203,16 @@ static void simple_relocs(uintptr_t rel, uintptr_t size, uintptr_t base, Elf64_S
 	}
 }
 
+/**
+ * @brief Calculate SysV symbol hash.
+ *
+ * This was copied from some Solaris docs.
+ * Our binaries and libraries dont't currently have
+ * GNU hashes, so we only support the SysV ones.
+ *
+ * @param _name Symbol name to hash.
+ * @returns Hash value.
+ */
 static Elf64_Word elf_hash(const char *_name) {
 	const unsigned char *name = (void*)_name;
 	Elf64_Word h = 0, g;
@@ -160,6 +224,18 @@ static Elf64_Word elf_hash(const char *_name) {
 	return h;
 }
 
+/**
+ * @brief Lookup a symbol by name in a given symbol table/hash table.
+ *
+ * Look up a symbol in a particular library by its hash/sym/str tables.
+ *
+ * @param table Hash table.
+ * @param strtab String table.
+ * @param symtab Symbol table.
+ * @param name Symbol to look for.
+ * @param h Hash of symbol name.
+ * @returns Pointer into @p symtab or NULL if not found.
+ */
 static Elf64_Sym * elf_sym_lookup(Elf64_Word *table, const char *strtab, Elf64_Sym *symtab, const char *name, Elf64_Word h) {
 	Elf64_Word nbuckets = table[0];
 	for (size_t i = table[2 + h % nbuckets]; i; i = table[2 + nbuckets + i]) {
@@ -171,6 +247,16 @@ static Elf64_Sym * elf_sym_lookup(Elf64_Word *table, const char *strtab, Elf64_S
 
 extern size_t __printf_internal(int (*callback)(void *, char), void * userData, const char * fmt, va_list args);
 
+/**
+ * @brief Debug print callback.
+ *
+ * Writes, character by character, debug messages, either
+ * to standard error or the "emergency file descriptor".
+ *
+ * @param user Unused.
+ * @param c    Character to write.
+ * @returns 0 (implicit success)
+ */
 static int cb_dprintf(void * user, char c) {
 	write(
 #ifdef LD_EARLY_DEBUG
@@ -182,6 +268,19 @@ static int cb_dprintf(void * user, char c) {
 	return 0;
 }
 
+/**
+ * @brief Debug print.
+ *
+ * Print formatted messages to standard error or another
+ * emergency log file. This is used instead of the stdio
+ * interface so as to not interface with any existing
+ * buffering setup, and so that it can be used before
+ * constructors are run.
+ *
+ * @param fmt Format string
+ * @param ... Var args.
+ * @returns Bytes written.
+ */
 static int dprintf(const char * fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
@@ -190,11 +289,21 @@ static int dprintf(const char * fmt, ...) {
 	return out;
 }
 
+/**
+ * @brief TLS descriptor callback.
+ *
+ * Resolves TLS entries. All of our TLS entries
+ * are static, so this always just returns the
+ * value embedded at the calling address.
+ */
 __attribute__((unused))
 static size_t __tlsdesc_static(size_t * a) {
 	return a[1];
 }
 
+/**
+ * @brief Is this a COPY relocation for this arch?
+ */
 static inline int is_copy(int type) {
 #if defined(__aarch64__)
 	return type == R_AARCH64_COPY;
@@ -205,6 +314,9 @@ static inline int is_copy(int type) {
 #endif
 }
 
+/**
+ * @brief Is this a TLS offset relocation for this arch?
+ */
 static inline int is_tlsoff(int type) {
 #if defined(__aarch64__)
 	return type == R_AARCH64_TLS_TPREL;
@@ -215,6 +327,14 @@ static inline int is_tlsoff(int type) {
 #endif
 }
 
+/**
+ * @brief Perform relocations for one library.
+ *
+ * Resolves symbols and applies all supported relocations
+ * for a given library.
+ *
+ * @param lib Library to relocate.
+ */
 static void relocate(struct DlLib * lib) {
 	uintptr_t * their_dyn = lib->dyn;
 	uintptr_t   their_base = lib->base;
@@ -242,9 +362,8 @@ static void relocate(struct DlLib * lib) {
 				x = sym->st_shndx == (SHN_ABS ? 0 : their_base) + sym->st_value;
 
 				if ((sym->st_info >> 4) == STB_LOCAL) {
-					//dprintf("Local\n");
+					/* Nothing to look up for local symbol; use offset fetched above. */
 				} else {
-					/* Try to resolve it from libc ?*/
 					const char *name = strtab + sym->st_name;
 					Elf64_Word hash = elf_hash(name);
 
@@ -341,32 +460,56 @@ _continue:
 }
 
 static void setup_lib(struct DlLib * app, Elf64_Phdr *phdrs, size_t phnum);
-static size_t calculate_tls_size(struct DlLib * lib);
 
+/**
+ * @brief Attempt to load (map) an opened library.
+ *
+ * Parses the headers for a library from an opened file and maps the library
+ * into memory. Recursively attempts to do the same for any unloaded dependencies.
+ * Does not perform relocations - that happens later.
+ *
+ * @param name Loaded name of library.
+ * @param fd   File descriptor of opened library file.
+ * @param parent (Unused, but should be the library that caused this one to be loaded.)
+ * @param is_exec If this is an executable (from a direct call to ld.so with a command line.)
+ * @returns DlLib object or NULL if loading failed.
+ */
 static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent, int is_exec) {
 	struct DlLib * lib = calloc(1, sizeof(struct DlLib));
-
 	size_t avail = sizeof(struct Elf64_Header) + 300;
 	Elf64_Header * lib_header = calloc(1, avail);
 	ssize_t r = pread(fd, lib_header, avail, 0);
+
+	/* Read failed or not big enough to be a valid ELF object. */
 	if (r < 0 || (size_t)r < avail) goto _fail_dep;
+
+	/* Check file type. Only a main executable specified on the commandline is allowed to be
+	 * an ET_EXEC; everything else must be an ET_DYN. */
 	if (lib_header->e_type != ET_DYN && (!is_exec || lib_header->e_type != ET_EXEC)) goto _fail_dep;
 	if (lib_header->e_phoff + lib_header->e_phentsize > avail) {
 		dprintf("ld.so: %s: need to load more phdrs, failing for now\n", name);
 		goto _fail_dep;
 	}
 
-	uintptr_t base_addr = (uintptr_t)-1;
-	uintptr_t end_addr = 0x0;
+	uintptr_t load_addr = 0;
 
-	for (size_t i = 0; i < lib_header->e_phnum; ++i) {
-		Elf64_Phdr * phdr = (void*)((uintptr_t)lib_header + lib_header->e_phoff + lib_header->e_phentsize * i);
-		if (phdr->p_type != PT_LOAD) continue;
-		if ((phdr->p_vaddr & ~0xFFF) < base_addr) base_addr = (phdr->p_vaddr & ~0xFFF);
-		if (phdr->p_vaddr + phdr->p_memsz > end_addr) end_addr = phdr->p_vaddr + phdr->p_memsz;
+	if (!is_exec) {
+		uintptr_t base_addr = (uintptr_t)-1;
+		uintptr_t end_addr = 0x0;
+
+		/* Calculate the maximum extents of the loadable segments. */
+		for (size_t i = 0; i < lib_header->e_phnum; ++i) {
+			Elf64_Phdr * phdr = (void*)((uintptr_t)lib_header + lib_header->e_phoff + lib_header->e_phentsize * i);
+			if (phdr->p_type != PT_LOAD) continue;
+			if ((phdr->p_vaddr & ~0xFFF) < base_addr) base_addr = (phdr->p_vaddr & ~0xFFF);
+			if (phdr->p_vaddr + phdr->p_memsz > end_addr) end_addr = phdr->p_vaddr + phdr->p_memsz;
+		}
+
+		/* We use @c valloc so that we can potentially call @c free later; we'll override
+		 * the whole mapping with calls to @c mmap along the way, but this does mean we're
+		 * losing space on gaps... oh well. */
+		load_addr = (uintptr_t)valloc(end_addr - base_addr);
 	}
-
-	uintptr_t load_addr = is_exec ? 0 : (uintptr_t)valloc(end_addr - base_addr);
 
 	if (unlikely(__trace_ld)) {
 		dprintf("ld.so: %s: loading at %#zx\n", name, load_addr);
@@ -381,6 +524,7 @@ static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent,
 				name, phdr->p_vaddr, phdr->p_memsz, phdr->p_offset, phdr->p_filesz);
 		}
 
+		/* Page align everything, aligning base addresses down, sizes up. */
 		size_t    pageoffset = ((load_addr + phdr->p_vaddr) & 0xFFF);
 		uintptr_t addr   = load_addr + phdr->p_vaddr - pageoffset;
 		size_t    size   = phdr->p_filesz + pageoffset;
@@ -391,7 +535,10 @@ static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent,
 		if (phdr->p_flags & PF_W) prot |= PROT_WRITE;
 		if (phdr->p_flags & PF_X) prot |= PROT_EXEC;
 
+		/* Map it. */
 		char * mapped_to = mmap((void*)addr, size, prot, MAP_PRIVATE | MAP_FIXED, fd, offset);
+
+		/* Only try to zero out extra space in the last page if we can write to the resulting segment. */
 		if (phdr->p_flags & PF_W) {
 			uintptr_t pad = (uintptr_t)mapped_to + pageoffset + phdr->p_filesz;
 			if (pad & 0xFFF) {
@@ -400,6 +547,8 @@ static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent,
 			}
 		}
 
+		/* Map any extra pages specified by memsz. Newly mapped pages will be zerod by the kernel, so
+		 * we don't need to do that ourselves. */
 		if (phdr->p_memsz > phdr->p_filesz) {
 			uintptr_t start = (uintptr_t)mapped_to + pageoffset + phdr->p_filesz;
 			uintptr_t end   = (uintptr_t)mapped_to + pageoffset + phdr->p_memsz;
@@ -411,8 +560,10 @@ static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent,
 		}
 	}
 
+	/* Once we've called @c mmap we can close the file. */
 	close(fd);
 
+	/* Set up the DlLib object for the new library. */
 	lib->name = strdup(name);
 	lib->ehdr = lib_header;
 	lib->base = load_addr;
@@ -420,6 +571,7 @@ static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent,
 
 	Elf64_Phdr * phdrs = (void*)((uintptr_t)lib_header + lib_header->e_phoff);
 
+	/* Link it into our list of libraries. */
 	if (is_exec) {
 		all_libraries = lib;
 		lib->next = __libc_ldso;
@@ -429,7 +581,7 @@ static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent,
 		last_library = lib;
 	}
 
-	//dprintf("Setting up %s\n", name);
+	/* And then load any dependencies. */
 	setup_lib(lib, phdrs, lib_header->e_phnum);
 
 	return lib;
@@ -442,16 +594,50 @@ _fail_dep:
 	return NULL;
 }
 
+/**
+ * @brief Report a library as ldd.
+ *
+ * Prints a line describing a loaded library's name, possibly
+ * file path, and address.
+ *
+ * @param lib Library to report.
+ */
 static void ldd_report(struct DlLib * lib) {
 	fprintf(stderr, "\t%s", lib->name);
 	if (lib->exe_path) fprintf(stderr, " => %s", lib->exe_path);
 	fprintf(stderr, " (%#zx)\n", lib->base);
 }
 
+/**
+ * @brief Report a failure as ldd.
+ *
+ * Writes a line saying a library was not found.
+ *
+ * @param name Name of missing library.
+ */
 static void ldd_failure(const char *name) {
 	fprintf(stderr, "\t%s => not found\n", name);
 }
 
+/**
+ * @brief Resolve and load libraries by name.
+ *
+ * Looks for libraries, either from absolute paths or by
+ * searching in @c LD_LIBRARY_PATH (or the fallback set
+ * of @c /lib:/usr/lib if that isn't set or we are in
+ * "secure mode"). When a suitable library is found, it
+ * is then loaded.
+ *
+ * If @p name refers to a library that has already been loaded,
+ * then the existing library object is returned and no further
+ * loading happens.
+ *
+ * TODO This doesn't handle any of the fun rpath/origin things.
+ *
+ * @param name Name of library to look for.
+ * @param parent (Unused, but should be library that caused this one to be searched.)
+ * @returns DlLib object or NULL on failure.
+ */
 static struct DlLib * find_lib(const char * name, struct DlLib * parent) {
 	if (!strcmp(name,"libc.so")) {
 		if (__is_ldd && !__ldso_reported) {
@@ -467,6 +653,7 @@ static struct DlLib * find_lib(const char * name, struct DlLib * parent) {
 		ptr = ptr->next;
 	}
 
+	/* TODO: Should this also accept relative paths? Check the spec... */
 	if (name[0] == '/') {
 		int fd = open(name, O_RDONLY | O_CLOEXEC);
 		if (fd < 0) {
@@ -483,11 +670,12 @@ static struct DlLib * find_lib(const char * name, struct DlLib * parent) {
 	char * path = "/lib:/usr/lib";
 
 	if (!target_is_suid) {
+		/* Only check @c LD_LIBRARY_PATH if we aren't in "secure mode". */
 		char * p = simple_getenv("LD_LIBRARY_PATH");
 		if (p) path = p;
 	}
 
-	char * xpath = strdup(path);
+	char * xpath = strdup(path); /* Because strtok will modify it. */
 	char *p, *last;
 	for ((p = strtok_r(xpath, ":", &last)); p;
 	      p = strtok_r(NULL, ":", &last)) {
@@ -503,19 +691,21 @@ static struct DlLib * find_lib(const char * name, struct DlLib * parent) {
 			continue;
 		}
 
-		/* Load file */
+		/* Open file. */
 		int fd = open(exe, O_RDONLY | O_CLOEXEC);
 		if (fd < 0) {
 			free(exe);
 			continue;
 		}
 
+		/* Load library. */
 		struct DlLib * maybe = try_load(name, fd, parent, 0);
 		if (!maybe) {
 			free(exe);
 			continue;
 		}
 
+		/* Attach resolved path so we can report it. */
 		maybe->exe_path = exe;
 		if (__is_ldd) ldd_report(maybe);
 
@@ -529,6 +719,56 @@ static struct DlLib * find_lib(const char * name, struct DlLib * parent) {
 	return NULL;
 }
 
+/**
+ * @brief Calculate size of static TLS variables.
+ *
+ * Figure out how much space the static TLS variables
+ * will take from a given library so we can reserve space
+ * and assign offsets into the thread struct.
+ *
+ * @param lib Library to examine.
+ * @returns Total size of TLS variables.
+ */
+static size_t calculate_tls_size(struct DlLib * lib) {
+	uintptr_t * their_dyn = lib->dyn;
+	uintptr_t   their_base = lib->base;
+	Elf64_Sym  *symtab = lib->syms;
+
+	size_t tls_size = 0;
+
+	size_t size = their_dyn[DT_RELASZ];
+	uintptr_t reltable = their_base + their_dyn[DT_RELA];
+	for (int i = 0; i < 2; ++i) {
+		Elf64_Rela *table  = (void*)reltable;
+		while ((uintptr_t)table - reltable < size) {
+			Elf64_Word symbol = ELF64_R_SYM(table->r_info);
+			Elf64_Word type   = ELF64_R_TYPE(table->r_info);
+			Elf64_Sym  *sym   = symbol ? &symtab[symbol] : NULL;
+			if (!is_tlsoff(type)) goto _continue;
+			tls_size += sym->st_size;
+_continue:
+			table++;
+		}
+		if (i == 1) break;
+		reltable = their_base + their_dyn[DT_JMPREL];
+		size  = their_dyn[DT_PLTRELSZ];
+	}
+	lib->tlssize = tls_size;
+	return tls_size;
+}
+
+/**
+ * @brief Fill out a DlLib object and load dependencies.
+ *
+ * Caches values from the DYNAMIC section, examines
+ * dependencies from @c DT_NEEDED entries, loads any
+ * that haven't already been loaded, and calculates
+ * the size of static TLS data for later relocation.
+ *
+ * @param app   DlLib to set up.
+ * @param phdrs Source of program headers for this library/app.
+ * @param phnum Number of program headers for this library/app.
+ */
 static void setup_lib(struct DlLib * app, Elf64_Phdr *phdrs, size_t phnum) {
 	app->phdr  = phdrs;
 	app->phnum = phnum;
@@ -555,21 +795,36 @@ static void setup_lib(struct DlLib * app, Elf64_Phdr *phdrs, size_t phnum) {
 		count++;
 	}
 
+	/* We don't use this yet, but it's critical for correct handling
+	 * of some symbol resolution that we'll get around to eventually. */
 	app->dependencies = calloc(count, sizeof(struct DlLib *));
+	app->depcount = count;
 	count = 0;
 
 	for (Elf64_Dyn *d = app->full_dyn; d->d_tag; d++) {
 		if (d->d_tag != DT_NEEDED) continue;
 		const char * name = app->strings + d->d_un.d_val;
-		//dprintf("Need '%s'\n", name);
 		struct DlLib * dep = find_lib(name, app);
 		if (__is_ldd && !dep) ldd_failure(name);
 		app->dependencies[count++] = dep;
 	}
-	
+
 	current_tls_offset += calculate_tls_size(app);
 }
 
+/**
+ * @brief Relocate a library and every library after it in the chain.
+ *
+ * Performs relocations on every library that hasn't already been
+ * marked as relocated, starting from @p lib. Those libraries are
+ * then marked as relocated so they won't be relocated again. In
+ * some situations, a library (mostly us, the libc) may need to be
+ * relocated multiple times, so @c relocate is used directly without
+ * setting the @c relocated flag, allowing a future call to this
+ * function to relocate it again.
+ *
+ * @param lib First library to relocate.
+ */
 static void relocate_stuff(struct DlLib *lib) {
 	for (; lib; lib = lib->next) {
 		if (lib->relocated) continue;
@@ -578,6 +833,13 @@ static void relocate_stuff(struct DlLib *lib) {
 	}
 }
 
+/**
+ * @brief Run constructors for a library.
+ *
+ * Marks the library as constructed and runs its constructors.
+ *
+ * @param lib Library to run constructors from.
+ */
 static void run_ctors(struct DlLib * lib) {
 	lib->constructed = true;
 	uintptr_t __init_array_start = lib->base + lib->dyn[DT_INIT_ARRAY];
@@ -627,34 +889,18 @@ char * dlerror(void) {
 	return __ld_error;
 }
 
-static size_t calculate_tls_size(struct DlLib * lib) {
-	uintptr_t * their_dyn = lib->dyn;
-	uintptr_t   their_base = lib->base;
-	Elf64_Sym  *symtab = lib->syms;
-
-	size_t tls_size = 0;
-
-	size_t size = their_dyn[DT_RELASZ];
-	uintptr_t reltable = their_base + their_dyn[DT_RELA];
-	for (int i = 0; i < 2; ++i) {
-		Elf64_Rela *table  = (void*)reltable;
-		while ((uintptr_t)table - reltable < size) {
-			Elf64_Word symbol = ELF64_R_SYM(table->r_info);
-			Elf64_Word type   = ELF64_R_TYPE(table->r_info);
-			Elf64_Sym  *sym   = symbol ? &symtab[symbol] : NULL;
-			if (!is_tlsoff(type)) goto _continue;
-			tls_size += sym->st_size;
-_continue:
-			table++;
-		}
-		if (i == 1) break;
-		reltable = their_base + their_dyn[DT_JMPREL];
-		size  = their_dyn[DT_PLTRELSZ];
-	}
-	lib->tlssize = tls_size;
-	return tls_size;
-}
-
+/**
+ * @brief Actually execute code.
+ *
+ * Finish relocations, run all necessary constructors, and finally
+ * jump to the entry point of the main application.
+ *
+ * @param app    Main application (the one whose entry point we'll jump to).
+ * @param argc   Argument count.
+ * @param argv   Argument vector.
+ * @param entryp Entry point address.
+ * @returns Whatever the entry point returns, if it does.
+ */
 static int run_app(struct DlLib * app, int argc, char * argv[], uintptr_t entryp) {
 	relocate_stuff(app->next);
 	relocate_stuff(app);
@@ -674,6 +920,22 @@ static int run_app(struct DlLib * app, int argc, char * argv[], uintptr_t entryp
 	return entry(argc, argv, NULL);
 }
 
+/**
+ * @brief Load a main binary from an opened file.
+ *
+ * Used when ld.so is called directly with a path to a binary on the
+ * command line. Performs the loading that would normally be done by
+ * the kernel. If we're not running in ldd mode, also runs the app
+ * normally - completing relocations, running constructors, and
+ * jumping to its entry point.
+ *
+ * @param fd   Opened file to load (and run).
+ * @param name Name of the binary for tracing.
+ * @param argc Argument count to pass to entry point.
+ * @param argv Argument vector to pass to entry point.
+ * @returns Whatever the entry point returns, if it does, or 1
+ *          in the case of failure to load the requested file.
+ */
 __attribute__((visibility("hidden")))
 int __libc_load_from_file(int fd, const char * name, int argc, char *argv[]) {
 	last_library = __libc_ldso;
@@ -690,9 +952,22 @@ int __libc_load_from_file(int fd, const char * name, int argc, char *argv[]) {
 	return run_app(app, argc, argv, app->base + app->ehdr->e_entry);
 }
 
+/**
+ * @brief Entry point of ld.so.
+ *
+ * This is the entry point called by the kernel when ld.so (libc.so)
+ * is used as an interpreter or called as a main executable.
+ *
+ * Our ABI provides the normal platform argc/argv (and envp) arguments
+ * in their C calling convention registers, which is probably very
+ * weird but it works and I'm not going to change it any time soon.
+ */
 __attribute__((visibility("hidden")))
 int __libc_start(int argc, char *argv[], char *envp[]) {
 #ifdef LD_EARLY_DEBUG
+	/* Set this if you expect ld.so to fail on init, before
+	 * any files have been opened. Tries to ensure we have
+	 * something to write logs to. */
 # if defined(__aarch64__)
 	char _file[] = "/dev/ttyS0";
 # else
@@ -713,6 +988,7 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 		if (auxv_raw[i] < 32) auxv[auxv_raw[i]] = auxv_raw[i+1];
 	}
 
+	/* Should we be in 'secure mode'? */
 	if (auxv[AT_UID] != auxv[AT_EUID] || auxv[AT_GID] != auxv[AT_EGID] || auxv[AT_SECURE]) {
 		target_is_suid = true;
 	}
