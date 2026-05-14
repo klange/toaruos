@@ -653,8 +653,7 @@ static struct DlLib * find_lib(const char * name, struct DlLib * parent) {
 		ptr = ptr->next;
 	}
 
-	/* TODO: Should this also accept relative paths? Check the spec... */
-	if (name[0] == '/') {
+	if (strchr(name, '/')) {
 		int fd = open(name, O_RDONLY | O_CLOEXEC);
 		if (fd < 0) {
 			__ld_error = "failed to open file";
