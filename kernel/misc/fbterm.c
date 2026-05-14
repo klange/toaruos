@@ -46,24 +46,44 @@ static int fb_left_margin = 0;
 /**
  * @brief Basic 16-color ANSI palette with Tango colors.
  */
-static uint32_t term_colors[] = {
-	0xFF000000,
-	0xFFCC0000,
-	0xFF4E9A06,
-	0xFFC4A000,
-	0xFF3465A4,
-	0xFF75507B,
-	0xFF06989A,
-	0xFFD3D7CF,
+static uint32_t * term_colors;
 
-	0xFF555753,
-	0xFFEF2929,
-	0xFF8AE234,
-	0xFFFCE94F,
-	0xFF729FCF,
-	0xFFAD7FA8,
-	0xFF34E2E2,
-	0xFFEEEEEC,
+static uint32_t palette_tango[] = {
+	/* black  */ 0xFF000000,
+	/* red    */ 0xFFcc0000,
+	/* green  */ 0xFF3e9a06,
+	/* brown  */ 0xFFc4a000,
+	/* navy   */ 0xFF3465a4,
+	/* purple */ 0xFF75507b,
+	/* d cyan */ 0xFF06989a,
+	/* gray   */ 0xFFbbbbbb, /* slightly dimmer than the userspace terminal, so bold stands out more */
+	/* d gray */ 0xFF555753,
+	/* red    */ 0xFFef2929,
+	/* green  */ 0xFF8ae234,
+	/* yellow */ 0xFFfce94f,
+	/* blue   */ 0xFF729fcf,
+	/* magenta*/ 0xFFad7fa8,
+	/* cyan   */ 0xFF34e2e2,
+	/* white  */ 0xFFFFFFFF,
+};
+
+static uint32_t palette_vga[] = {
+	/* black  */ 0xFF000000,
+	/* red    */ 0xFFaa0000,
+	/* green  */ 0xFF00aa00,
+	/* brown  */ 0xFFaa5500,
+	/* navy   */ 0xFF0000aa,
+	/* purple */ 0xFFaa00aa,
+	/* d cyan */ 0xFF00aaaa,
+	/* gray   */ 0xFFaaaaaa,
+	/* d gray */ 0xFF555555,
+	/* red    */ 0xFFff5555,
+	/* green  */ 0xFF55ff55,
+	/* yellow */ 0xFFffff55,
+	/* blue   */ 0xFF5555ff,
+	/* magenta*/ 0xFFff55ff,
+	/* cyan   */ 0xFF55ffff,
+	/* white  */ 0xFFffffff,
 };
 
 static int ansi_to_vga[] = {
@@ -158,8 +178,15 @@ void fbterm_reset(void) {
 }
 
 static void fbterm_init_framebuffer(void) {
-	if (args_value("fbterm-margin")) {
-		fb_left_margin = atoi(args_value("fbterm-margin"));
+	char *left_margin_val, *palette_val;
+	if ((left_margin_val = args_value("fbterm-margin"))) {
+		fb_left_margin = atoi(left_margin_val);
+	}
+	term_colors = palette_tango;
+	if ((palette_val = args_value("fbterm-palette"))) {
+		if (!strcmp(palette_val, "vga")) {
+			term_colors = palette_vga;
+		}
 	}
 	write_char = fb_write_char;
 	get_width = fb_get_width;
