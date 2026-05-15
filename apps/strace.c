@@ -1791,6 +1791,7 @@ int main(int argc, char * argv[]) {
 				/* Just in case, only do this if we actually said to. */
 				if (follow_forks) ptrace(PTRACE_SETOPTIONS, res, NULL, (void*)(uintptr_t)(PTRACE_O_TRACEFORK | PTRACE_O_TRACECLONE));
 
+				interrupt_log(res);
 				fprintf(logfile, "Process %d attached\n", res);
 			}
 
