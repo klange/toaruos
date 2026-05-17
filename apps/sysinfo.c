@@ -36,8 +36,6 @@
 #include <toaru/graphics.h>
 #include <toaru/termemu.h>
 
-#include "toaru_logo.h"
-
 #define NUM_DATA_LINES 30
 
 char data_lines[NUM_DATA_LINES][100];
@@ -117,22 +115,26 @@ int main(int argc, char * argv[]) {
 	prog_lines[i] = "free -ut";
 	sprintf(data_lines[i++], C_A "RAM: " C_O);
 
+	sprite_t logo;
+	if (load_sprite(&logo, "/usr/share/icons/sysinfo-logo.png")) {
+		fprintf(stderr, "%s: failed to load OS icon\n", argv[0]);
+		return 1;
+	}
+
 	int j = 0;
-	for (unsigned int y = 0; y < gimp_image.height; y += 2) {
-		for (unsigned int x = 0; x < gimp_image.width; x += 1) {
-			unsigned char r_t = gimp_image.pixel_data[(x + y * gimp_image.width) * 4];
-			unsigned char g_t = gimp_image.pixel_data[(x + y * gimp_image.width) * 4 + 1];
-			unsigned char b_t = gimp_image.pixel_data[(x + y * gimp_image.width) * 4 + 2];
-			unsigned char a_t = gimp_image.pixel_data[(x + y * gimp_image.width) * 4 + 3];
-			unsigned char r_b = 0;
-			unsigned char g_b = 0;
-			unsigned char b_b = 0;
-			unsigned char a_b = 0;
-			if (y != gimp_image.height - 1) {
-				r_b = gimp_image.pixel_data[(x + (y + 1) * gimp_image.width) * 4];
-				g_b = gimp_image.pixel_data[(x + (y + 1) * gimp_image.width) * 4 + 1];
-				b_b = gimp_image.pixel_data[(x + (y + 1) * gimp_image.width) * 4 + 2];
-				a_b = gimp_image.pixel_data[(x + (y + 1) * gimp_image.width) * 4 + 3];
+	for (int y = 0; y < logo.height; y += 2) {
+		for (int x = 0; x < logo.width; x += 1) {
+			unsigned char r_t, g_t, b_t, a_t, r_b, g_b, b_b, a_b;
+			r_t = _RED(SPRITE((&logo),x,y));
+			g_t = _GRE(SPRITE((&logo),x,y));
+			b_t = _BLU(SPRITE((&logo),x,y));
+			a_t = _ALP(SPRITE((&logo),x,y));
+			r_b = g_b = b_b = a_b = 0;
+			if (y != logo.height - 1) {
+				r_b = _RED(SPRITE((&logo),x,y+1));
+				g_b = _GRE(SPRITE((&logo),x,y+1));
+				b_b = _BLU(SPRITE((&logo),x,y+1));
+				a_b = _ALP(SPRITE((&logo),x,y+1));
 			}
 
 			uint32_t out = alpha_blend_rgba(
@@ -173,7 +175,7 @@ int main(int argc, char * argv[]) {
 	}
 
 	while (j < i) {
-		for (int x = 0; x < (int)gimp_image.width; x++) {
+		for (int x = 0; x < logo.width; x++) {
 			printf(" ");
 		}
 		print_thing(j);
