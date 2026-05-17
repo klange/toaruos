@@ -147,23 +147,6 @@ static void klfree(void * ptr);
 static int volatile mem_lock = 0;
 static const char * _lock_holder;
 
-#ifdef assert
-#undef assert
-#define assert(statement) ((statement) ? (void)0 : _malloc_assert(__FILE__, __LINE__, __FUNCTION__, #statement))
-#endif
-
-#define WRITE(x) syscall_write(2, (char*)x, sizeof(x))
-#define WRITEV(x) syscall_write(2, (char*)x, strlen(x))
-static void _malloc_assert(const char * file, int line, const char * func, const char *x) {
-	WRITEV(func);
-	WRITE(" in ");
-	WRITEV(file);
-	WRITE(" failed assertion: ");
-	WRITEV(x);
-	WRITE("\n");
-	exit(1);
-}
-
 extern int __libc_is_multicore;
 
 static inline void _yield(void) {
