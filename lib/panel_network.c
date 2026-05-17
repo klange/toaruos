@@ -70,6 +70,7 @@ static void check_network(const char * if_name) {
 
 	uint32_t flags;
 	if (!ioctl(netdev, SIOCGIFFLAGS, &flags)) {
+		if (flags & IFF_LOOPBACK) return; /* Ignore loopback */
 		if (!(flags & IFF_UP)) {
 			snprintf(netstat_data[netstat_count], 1023, "%s: disconnected", if_name);
 			netif_disconnected(if_name);
@@ -104,7 +105,6 @@ static int widget_update_network(struct PanelWidget * this, int * force_updates)
 	struct dirent * ent;
 	while ((ent = readdir(d))) {
 		if (ent->d_name[0] == '.') continue;
-		if (!strcmp(ent->d_name, "lo")) continue; /* Ignore loopback */
 		check_network(ent->d_name);
 	}
 
