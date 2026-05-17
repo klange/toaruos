@@ -1,6 +1,6 @@
 .TH libtoaru_procfs 3 "March, 2026"
 .SH NAME
-libtoaru_procfs \- common utilities for dealing with ToaruOS's /procfs
+libtoaru_procfs \- common utilities for dealing with ToaruOS's /proc fs
 .SH SYNOPSIS
  \fB#include <toaru/procfs.h>\fP
 .sp
@@ -15,7 +15,7 @@ libtoaru_procfs \- common utilities for dealing with ToaruOS's /procfs
  \fIint\fP \fBprocfs_free\fP(\fIstruct process*\fP);
 .SH DESCRIPTION
 This library is used by various utilities to facilitate iterating over
-entries in the \fB/procfs\fP virtual directory.
+entries in the \fB/proc\fP virtual directory.
 .PP
 The library provides a callback\-driven interface that collects
 information on each process into a struct, with options to control
