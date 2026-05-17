@@ -52,40 +52,53 @@ long sys_exit(long exitcode) {
 }
 
 long sys_write(int fd, char * ptr, unsigned long len) {
-	if (FD_CHECK(fd)) {
-		PTRCHECK(ptr,len,MMU_PTR_NULL);
-		fs_node_t * node = FD_ENTRY(fd);
-		if (!(FD_MODE(fd) & PROC_FD_MODE_WRITE)) return -EBADF;
-		if (!len) return 0;
-		int64_t out = write_fs(node, FD_OFFSET(fd), len, (uint8_t*)ptr);
-		if (out > 0) FD_OFFSET(fd) += out;
-		return out;
-	}
-	return -EBADF;
+	if (!FD_CHECK(fd)) return -EBADF;
+	PTRCHECK(ptr,len,MMU_PTR_NULL);
+
+	fs_node_t * node = FD_ENTRY(fd);
+	if (!(FD_MODE(fd) & PROC_FD_MODE_WRITE)) return -EBADF;
+	if (!len) return 0;
+
+	int64_t out = write_fs(node, FD_OFFSET(fd), len, (uint8_t*)ptr);
+	if (out > 0) FD_OFFSET(fd) += out;
+	return out;
 }
 
 long sys_pwrite(int fd, void * ptr, size_t count, off_t offset) {
-	if (FD_CHECK(fd)) {
-		if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ESPIPE;
-		PTRCHECK(ptr,count,MMU_PTR_NULL);
-		fs_node_t * node = FD_ENTRY(fd);
-		if (!(FD_MODE(fd) & PROC_FD_MODE_WRITE)) return -EBADF;
-		if (!count) return 0;
-		return write_fs(node, offset, count, (uint8_t*)ptr);
-	}
-	return -EBADF;
+	if (!FD_CHECK(fd)) return -EBADF;
+	if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ESPIPE;
+	PTRCHECK(ptr,count,MMU_PTR_NULL);
+
+	fs_node_t * node = FD_ENTRY(fd);
+	if (!(FD_MODE(fd) & PROC_FD_MODE_WRITE)) return -EBADF;
+	if (!count) return 0;
+
+	return write_fs(node, offset, count, (uint8_t*)ptr);
+}
+
+long sys_read(int fd, char * ptr, unsigned long len) {
+	if (!FD_CHECK(fd)) return -EBADF;
+	PTRCHECK(ptr,len,MMU_PTR_NULL|MMU_PTR_WRITE);
+
+	fs_node_t * node = FD_ENTRY(fd);
+	if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
+	if (!len) return 0;
+
+	int64_t out = read_fs(node, FD_OFFSET(fd), len, (uint8_t *)ptr);
+	if (out > 0) FD_OFFSET(fd) += out;
+	return out;
 }
 
 long sys_pread(int fd, void * ptr, size_t count, off_t offset) {
-	if (FD_CHECK(fd)) {
-		if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ESPIPE;
-		PTRCHECK(ptr,count,MMU_PTR_NULL|MMU_PTR_WRITE);
-		fs_node_t * node = FD_ENTRY(fd);
-		if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
-		if (!count) return 0;
-		return read_fs(node, offset, count, (uint8_t *)ptr);
-	}
-	return -EBADF;
+	if (!FD_CHECK(fd)) return -EBADF;
+	if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ESPIPE;
+	PTRCHECK(ptr,count,MMU_PTR_NULL|MMU_PTR_WRITE);
+
+	fs_node_t * node = FD_ENTRY(fd);
+	if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
+	if (!count) return 0;
+
+	return read_fs(node, offset, count, (uint8_t *)ptr);
 }
 
 static long stat_node(fs_node_t * fn, struct stat * f) {
@@ -124,30 +137,33 @@ static long stat_node(fs_node_t * fn, struct stat * f) {
 }
 
 long sys_stat(int fd, struct stat * st) {
-	PTR_VALIDATE(st);
+	PTRCHECK(st,sizeof(struct stat),MMU_PTR_WRITE);
 	if (!st) return -EFAULT;
-	if (FD_CHECK(fd)) {
-		return stat_node(FD_ENTRY(fd), st);
-	}
-	return -EBADF;
+	if (!FD_CHECK(fd)) return -EBADF;
+	return stat_node(FD_ENTRY(fd), st);
 }
 
-long sys_statf(char * file, struct stat * st) {
-	int result;
+static long do_stat_path(char *file, struct stat *st, int flags) {
 	PTR_VALIDATE(file);
-	PTR_VALIDATE(st);
-
+	PTRCHECK(st,sizeof(struct stat),MMU_PTR_WRITE);
 	if (!file || !st) return -EFAULT;
-
 	int error = 0;
-	fs_node_t * fn = kopen_error(file, 0, &error);
+	fs_node_t * fn = kopen_error(file, flags, &error);
 	if (!fn) {
 		memset(st, 0, sizeof(struct stat));
 		return -error;
 	}
-	result = stat_node(fn, st);
+	long result = stat_node(fn, st);
 	close_fs(fn);
 	return result;
+}
+
+long sys_statf(char * file, struct stat * st) {
+	return do_stat_path(file, st, 0);
+}
+
+long sys_lstat(char * file, struct stat * st) {
+	return do_stat_path(file, st, O_NOFOLLOW);
 }
 
 long sys_symlink(char * target, char * name) {
@@ -159,7 +175,7 @@ long sys_symlink(char * target, char * name) {
 
 long sys_readlink(const char * file, char * ptr, long len) {
 	PTR_VALIDATE(file);
-	PTRCHECK(ptr,len,0);
+	PTRCHECK(ptr,len,MMU_PTR_WRITE);
 	if (!file) return -EFAULT;
 	int error = 0;
 	fs_node_t * node = kopen_error((char *) file, O_NOFOLLOW, &error);
@@ -167,21 +183,6 @@ long sys_readlink(const char * file, char * ptr, long len) {
 	long rv = readlink_fs(node, ptr, len);
 	close_fs(node);
 	return rv;
-}
-
-long sys_lstat(char * file, struct stat * st) {
-	PTR_VALIDATE(file);
-	PTR_VALIDATE(st);
-	if (!file || !st) return -EFAULT;
-	int error = 0;
-	fs_node_t * fn = kopen_error(file, O_NOFOLLOW, &error);
-	if (!fn) {
-		memset(st, 0, sizeof(struct stat));
-		return -error;
-	}
-	long result = stat_node(fn, st);
-	close_fs(fn);
-	return result;
 }
 
 static mode_t modify_mode(mode_t mode_in) {
@@ -269,64 +270,49 @@ long sys_open(const char * file, long flags, mode_t mode_in) {
 }
 
 long sys_close(int fd) {
-	if (FD_CHECK(fd)) {
-		close_fs(FD_ENTRY(fd));
-		FD_ENTRY(fd) = NULL;
-		return 0;
-	}
-	return -EBADF;
+	if (!FD_CHECK(fd)) return -EBADF;
+
+	close_fs(FD_ENTRY(fd));
+	FD_ENTRY(fd) = NULL;
+	return 0;
 }
 
 long sys_seek(int fd, long offset, long whence) {
-	if (FD_CHECK(fd)) {
-		if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ESPIPE;
-		switch (whence) {
-			case 0:
-				FD_OFFSET(fd) = offset;
-				break;
-			case 1:
-				FD_OFFSET(fd) += offset;
-				break;
-			case 2:
-				FD_OFFSET(fd) = FD_ENTRY(fd)->length + offset;
-				break;
-			default:
-				return -EINVAL;
-		}
-		return FD_OFFSET(fd);
-	}
-	return -EBADF;
-}
+	if (!FD_CHECK(fd)) return -EBADF;
+	if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ESPIPE;
 
-long sys_read(int fd, char * ptr, unsigned long len) {
-	if (FD_CHECK(fd)) {
-		PTRCHECK(ptr,len,MMU_PTR_NULL|MMU_PTR_WRITE);
-		fs_node_t * node = FD_ENTRY(fd);
-		if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
-		if (!len) return 0;
-		int64_t out = read_fs(node, FD_OFFSET(fd), len, (uint8_t *)ptr);
-		if (out > 0) FD_OFFSET(fd) += out;
-		return out;
+	switch (whence) {
+		case 0:
+			FD_OFFSET(fd) = offset;
+			break;
+		case 1:
+			FD_OFFSET(fd) += offset;
+			break;
+		case 2:
+			FD_OFFSET(fd) = FD_ENTRY(fd)->length + offset;
+			break;
+		default:
+			return -EINVAL;
 	}
-	return -EBADF;
+
+	return FD_OFFSET(fd);
 }
 
 long sys_ioctl(int fd, unsigned long request, void * argp) {
-	if (FD_CHECK(fd)) {
-		PTR_VALIDATE(argp);
-		return ioctl_fs(FD_ENTRY(fd), request, argp);
-	}
-	return -EBADF;
+	if (!FD_CHECK(fd)) return -EBADF;
+	PTR_VALIDATE(argp);
+
+	return ioctl_fs(FD_ENTRY(fd), request, argp);
 }
 
 long sys_readdir(int fd, long index, struct dirent * entry) {
-	if (FD_CHECK(fd)) {
-		PTRCHECK(entry,sizeof(struct dirent),MMU_PTR_WRITE);
-		fs_node_t * node = FD_ENTRY(fd);
-		if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
-		return readdir_fs(node, (uint64_t)index, entry);
-	}
-	return -EBADF;
+	if (!FD_CHECK(fd)) return -EBADF;
+	PTRCHECK(entry,sizeof(struct dirent),MMU_PTR_WRITE);
+
+	fs_node_t * node = FD_ENTRY(fd);
+	if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
+
+	return readdir_fs(node, (uint64_t)index, entry);
 }
 
 long sys_mkdir(char * path, uint64_t mode) {
