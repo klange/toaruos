@@ -32,7 +32,7 @@
  *       Thinking this should work like the VFS, with method tables for different
  *       protocol handlers, but a lot of this stuff is also just generic...
  */
-extern long net_ipv4_socket(int,int);
+extern long net_ipv4_socket(int,int,int,int);
 
 void net_sock_alert(sock_t * sock) {
 	spin_lock(sock->alert_lock);
@@ -176,7 +176,7 @@ static void sock_raw_close(sock_t * sock) {
 /**
  * Raw sockets
  */
-long net_raw_socket(int type, int protocol) {
+long net_raw_socket(int type, int protocol, int flags, int nb) {
 	if (type != SOCK_RAW) return -ESOCKTNOSUPPORT;
 	if (this_core->current_process->user != 0) return -EACCES;
 
@@ -190,16 +190,26 @@ long net_raw_socket(int type, int protocol) {
 	list_insert(net_raw_sockets_list, sock);
 	spin_unlock(net_raw_sockets_lock);
 
-	int fd = process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, PROC_FD_MODE__RW);
-	return fd;
+	if (nb) sock->nonblocking = 1;
+
+	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, flags | PROC_FD_MODE__RW);
 }
 
 long net_socket(int domain, int type, int protocol) {
+	int flags = 0;
+	int nonblocking = 0;
+
+	if (type & SOCK_NONBLOCK) nonblocking = 1;
+	if (type & SOCK_CLOEXEC)  flags |= PROC_FD_MODE_CLOEXEC;
+	if (type & SOCK_CLOFORK)  flags |= PROC_FD_MODE_CLOFORK;
+
+	type &= ~(SOCK_NONBLOCK | SOCK_CLOEXEC | SOCK_CLOFORK);
+
 	switch (domain) {
 		case AF_INET:
-			return net_ipv4_socket(type, protocol);
+			return net_ipv4_socket(type, protocol, flags, nonblocking);
 		case AF_RAW:
-			return net_raw_socket(type, protocol);
+			return net_raw_socket(type, protocol, flags, nonblocking);
 		default:
 			return -EAFNOSUPPORT;
 	}

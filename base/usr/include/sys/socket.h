@@ -16,6 +16,11 @@ _Begin_C_Header
 #define SOCK_DGRAM  2
 #define SOCK_RAW    3
 
+
+#define SOCK_NONBLOCK (1 << 18)
+#define SOCK_CLOEXEC  (1 << 19)
+#define SOCK_CLOFORK  (1 << 20)
+
 #define IPPROTO_IP  0
 #define IPPROTO_ICMP 1
 #define IPPROTO_TCP 6

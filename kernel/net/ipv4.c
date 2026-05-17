@@ -297,15 +297,17 @@ static long sock_icmp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 	return 0;
 }
 
-static int icmp_socket(void) {
+static int icmp_socket(int flags, int nb) {
 	if (hashmap_has(icmp_sockets, (void*)(uintptr_t)this_core->current_process->id)) return -EINVAL;
 	sock_t * sock = net_sock_create();
 	sock->sock_recv = sock_icmp_recv;
 	sock->sock_send = sock_icmp_send;
 	sock->sock_close = sock_icmp_close;
 	sock->priv32[0] = this_core->current_process->id;
+	sock->nonblocking = nb;
 	hashmap_set(icmp_sockets, (void*)(uintptr_t)sock->priv32[0], sock);
-	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, PROC_FD_MODE__RW);
+
+	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, flags | PROC_FD_MODE__RW);
 }
 
 #define TCP_FLAGS_FIN (1 << 0)
@@ -643,7 +645,7 @@ static long sock_udp_bind(sock_t * sock, const struct sockaddr *addr, socklen_t 
 	return 0;
 }
 
-static int udp_socket(void) {
+static int udp_socket(int flags, int nb) {
 	printf("udp socket...\n");
 	sock_t * sock = net_sock_create();
 	sock->sock_recv = sock_udp_recv;
@@ -651,7 +653,9 @@ static int udp_socket(void) {
 	sock->sock_close = sock_udp_close;
 	sock->sock_bind = sock_udp_bind;
 	sock->sock_getsockname = sock_udp_getsockname;
-	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, PROC_FD_MODE__RW);
+	sock->nonblocking = nb;
+
+	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, flags | PROC_FD_MODE__RW);
 }
 
 static spin_lock_t tcp_port_lock = {0};
@@ -1072,7 +1076,7 @@ long sock_tcp_getpeername(sock_t * sock, struct sockaddr *addr, socklen_t * addr
 	return 0;
 }
 
-static int tcp_socket(void) {
+static int tcp_socket(int flags, int nb) {
 	printf("tcp socket...\n");
 	sock_t * sock = net_sock_create();
 	sock->sock_recv = sock_tcp_recv;
@@ -1083,22 +1087,21 @@ static int tcp_socket(void) {
 	sock->sock_getpeername = sock_tcp_getpeername;
 	sock->_fnode.read = sock_tcp_read;
 	sock->_fnode.write = sock_tcp_write;
-	int fd = process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, PROC_FD_MODE__RW);
-	FD_MODE(fd) = PROC_FD_MODE__RW;
-	return fd;
+
+	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, flags | PROC_FD_MODE__RW);
 }
 
-long net_ipv4_socket(int type, int protocol) {
+long net_ipv4_socket(int type, int protocol, int flags, int nb) {
 	/* Ignore protocol, make socket for 'type' only... */
 	switch (type) {
 		case SOCK_DGRAM:
 			if (!protocol || protocol == IPPROTO_UDP)
-				return udp_socket();
+				return udp_socket(flags, nb);
 			if (protocol == IPPROTO_ICMP)
-				return icmp_socket();
+				return icmp_socket(flags, nb);
 			return -EINVAL;
 		case SOCK_STREAM:
-			return tcp_socket();
+			return tcp_socket(flags, nb);
 		default:
 			return -EINVAL;
 	}
