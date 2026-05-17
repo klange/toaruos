@@ -210,6 +210,11 @@ long sys_open(const char * file, long flags, mode_t mode_in) {
 		open_fs(node, flags);
 	}
 
+	if ((flags & O_NOFOLLOW) && (node->flags & FS_SYMLINK)) {
+		close_fs(node);
+		return -ELOOP;
+	}
+
 	if (!(flags & O_WRONLY) || (flags & O_RDWR)) {
 		if (node && !has_permission(node, R_OK)) {
 			close_fs(node);
