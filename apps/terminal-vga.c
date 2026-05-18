@@ -680,6 +680,18 @@ static void handle_mouse_event(mouse_device_packet_t * packet) {
 
 		redraw_mouse();
 		return;
+	} else if (packet->buttons & MOUSE_SCROLL_UP) {
+		if (current_terminal()->active_buffer == 0) {
+			termemu_scroll_up(current_terminal(), 5);
+		} else if (current_terminal()->mouse_on & TERMEMU_MOUSE_ALTSCRL) {
+			handle_input_s("\033[A");
+		}
+	} else if (packet->buttons & MOUSE_SCROLL_DOWN) {
+		if (current_terminal()->active_buffer == 0) {
+			termemu_scroll_down(current_terminal(), 5);
+		} else if (current_terminal()->mouse_on & TERMEMU_MOUSE_ALTSCRL) {
+			handle_input_s("\033[B");
+		}
 	}
 	if (mouse_is_dragging) {
 		if (packet->buttons & LEFT_CLICK) {
