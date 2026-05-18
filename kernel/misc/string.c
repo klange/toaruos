@@ -502,3 +502,30 @@ int atoi(const char * c) {
 	return out * sign;
 }
 
+/**
+ * @brief Quick dumb hex parser.
+ *
+ * @param c String of hexadecimal characters, optionally prefixed with '0x'
+ * @return Unsigned integer interpretation of @p c
+ */
+uintptr_t xtoi(const char * c) {
+	uintptr_t out = 0;
+	if (c[0] == '0' && c[1] == 'x') {
+		c += 2;
+	}
+
+	while (*c) {
+		out *= 0x10;
+		if (*c >= '0' && *c <= '9') {
+			out += (*c - '0');
+		} else if (*c >= 'a' && *c <= 'f') {
+			out += (*c - 'a' + 0xa);
+		} else if (*c >= 'A' && *c <= 'F') {
+			out += (*c - 'A' + 0xa);
+		}
+		c++;
+	}
+
+	return out;
+}
+
