@@ -157,8 +157,8 @@ static void draw_square(int x, int y) {
 	}
 }
 
+static uint64_t logo_squares = 0x981818181818FFFFUL;
 void fbterm_draw_logo(void) {
-	uint64_t logo_squares = 0x981818181818FFFFUL;
 	for (size_t y = 0; y < 8; ++y) {
 		for (size_t x = 0; x < 8; ++x) {
 			if (logo_squares & (1 << x)) {
@@ -178,7 +178,7 @@ void fbterm_reset(void) {
 }
 
 static void fbterm_init_framebuffer(void) {
-	char *left_margin_val, *palette_val;
+	char *left_margin_val, *palette_val, *logo_val;
 	if ((left_margin_val = args_value("fbterm-margin"))) {
 		fb_left_margin = atoi(left_margin_val);
 	}
@@ -187,6 +187,9 @@ static void fbterm_init_framebuffer(void) {
 		if (!strcmp(palette_val, "vga")) {
 			term_colors = palette_vga;
 		}
+	}
+	if ((logo_val = args_value("fbterm-logo"))) {
+		logo_squares = xtoi(logo_val);
 	}
 	write_char = fb_write_char;
 	get_width = fb_get_width;
