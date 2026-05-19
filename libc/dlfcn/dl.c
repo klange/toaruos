@@ -358,6 +358,17 @@ static void relocate(struct DlLib * lib) {
 			Elf64_Sym * resolved = NULL;
 			struct DlLib * inlib = NULL;
 
+			for (size_t j = 0; j < lib->phnum; ++j) {
+				if (lib->phdr[j].p_type != PT_LOAD) continue;
+				if (lib->phdr[j].p_vaddr > table->r_offset) continue;
+				if (table->r_offset - lib->phdr[j].p_vaddr >= lib->phdr[j].p_memsz) continue;
+				if (!(lib->phdr[j].p_flags & PF_W)) {
+					if (__trace_ld) dprintf("ld.so: %s: Ignoring illegal relocation in read-only segment (%#zx)\n", lib->name, table->r_offset + lib->base);
+					goto _continue;
+				}
+				break;
+			}
+
 			if (sym) {
 				x = sym->st_shndx == (SHN_ABS ? 0 : their_base) + sym->st_value;
 
