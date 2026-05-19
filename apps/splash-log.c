@@ -21,37 +21,22 @@
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2018-2021 K. Lange
+ * Copyright (C) 2018-2026 K. Lange
  */
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdint.h>
 #include <string.h>
-#include <signal.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/ioctl.h>
+#include <errno.h>
 #include <sys/utsname.h>
 #include <sys/times.h>
 #include <sys/fswait.h>
 
-#include <kernel/video.h>
 #include <toaru/pex.h>
 #include <toaru/hashmap.h>
 
 #define TIMEOUT_SECS 2
-
-static FILE * console;
-
-static void update_message(char * c) {
-	fprintf(console, "%s\n", c);
-}
-
-static FILE * pex_endpoint = NULL;
-static void open_socket(void) {
-	pex_endpoint = pex_bind("splash");
-	if (!pex_endpoint) exit(1);
-}
 
 static void say_hello(void) {
 	/* Get our release version */
@@ -60,11 +45,8 @@ static void say_hello(void) {
 	/* Strip git tag */
 	char * tmp = strstr(u.release, "-");
 	if (tmp) *tmp = '\0';
-	/* Setup hello message */
-	char hello_msg[512];
-	snprintf(hello_msg, 511, "ToaruOS %s is starting up...", u.release);
-	/* Add it to the log */
-	update_message(hello_msg);
+
+	printf("ToaruOS %s is starting up...\n", u.release);
 }
 
 #include "../kernel/misc/args.c"
@@ -72,6 +54,13 @@ static hashmap_t * get_cmdline(void) {
 	char * results = args_from_procfs();
 	if (results) free(results);
 	return kernel_args_map;
+}
+
+static void handle_message(pex_packet_t *p) {
+	p->data[p->size] = '\0';
+	char *msg = (char*)p->data + (p->data[0] == ':' ? 1 : 0);
+	printf("%s\n", msg);
+	free(p);
 }
 
 int main(int argc, char * argv[]) {
@@ -83,16 +72,18 @@ int main(int argc, char * argv[]) {
 	if (!fork()) {
 		hashmap_t * cmdline = get_cmdline();
 
-		int quiet = 0;
-		char * last_message = NULL;
+		int quiet = !hashmap_has(cmdline, "debug");
+		pex_packet_t *last_message = NULL;
 		clock_t start = times(NULL);
 
-		if (!hashmap_has(cmdline, "debug")) {
-			quiet = 1;
-		}
+		FILE * pex_endpoint = pex_bind("splash");
+		if (!pex_endpoint) return fprintf(stderr, "%s: %s: %s\n", argv[0], "pex", strerror(errno)), 1;
 
-		open_socket();
-		console = fopen("/dev/console","a");
+		int console = open("/dev/console",O_APPEND|O_WRONLY);
+		if (console == -1) return fprintf(stderr, "%s: %s: %s\n", argv[0], "/dev/console", strerror(errno)), 1;
+
+		dup2(console, STDOUT_FILENO);
+		close(console);
 
 		if (!quiet) say_hello();
 
@@ -113,30 +104,18 @@ int main(int argc, char * argv[]) {
 					return 0;
 				}
 
-				if (!quiet) {
-					p->data[p->size] = '\0';
-					update_message((char*)p->data + (p->data[0] == ':' ? 1 : 0));
-				}
-
-				if (last_message) {
-					free(last_message);
-					last_message = NULL;
-				}
-
 				if (quiet) {
-					last_message = strdup((char*)p->data + (p->data[0] == ':' ? 1 : 0));
+					free(last_message);
+					last_message = p;
+				} else {
+					handle_message(p);
 				}
-
-				free(p);
 			} else if (quiet && times(NULL) - start > TIMEOUT_SECS * 1000000L) {
 				quiet = 0;
+				printf("Startup is taking a while, enabling log.%s\n", last_message ? " Last message was:" :"");
 				if (last_message) {
-					update_message("Startup is taking a while, enabling log. Last message was:");
-					update_message(last_message);
-					free(last_message);
+					handle_message(last_message);
 					last_message = NULL;
-				} else {
-					update_message("Startup is taking a while, enabling log.");
 				}
 			}
 		}
