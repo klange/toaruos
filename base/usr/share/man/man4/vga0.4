@@ -1,0 +1,84 @@
+.TH vga0 4 "May, 2026"
+
+.SH NAME
+\fB/dev/vga0\fP \- VGA/EGA text mode interface
+
+.SH DESCRIPTION
+\fB/dev/vga0\fP provides an interface for userspace to write to
+a VGA/EGA text mode display, or an emulation thereof.
+
+.SH USAGE
+Open the device for reading and writing and inquire about its dimensions:
+
+    #include <fcntl.h>
+    #include <unistd.h>
+    #include <sys/ioctl.h>
+    #include <kernel/video.h>
+
+    int vga_text_fd = open("/dev/vga0", O_RDWR);
+    ioctl(vga_text_fd, IO_VID_WIDTH,  &term_width);
+    ioctl(vga_text_fd, IO_VID_HEIGHT, &term_height);
+
+Then, use
+.IR pwrite (2)
+to write to cells as you would VGA text mode memory.
+Writes must be aligned to even offsets and be of even length, representing
+the \fBunsigned short\fP cell elements of a VGA text mode display.
+.PP
+The following example will write a smiley face (character 1 in code page 437) to the
+upper left of the display:
+
+    pwrite(vga_text_fd, &(unsigned short)1, 2, 0);
+
+When the device is backed by a true text mode display, supported attributes,
+characters, and font rendition is dependent on the underlying hardware.
+.PP
+When the device is backed by an emulated text mode display, a preset pallette
+of 16 colors is available and the font covers code page 437.
+
+.SH IOCTL
+This device supports some
+.IR ioctl (2)
+methods:
+
+.TP
+.B IO_VID_WIDTH
+Places the width of the text mode display, in columns, into its \fBint *\fP argument.
+.sp
+On a real text mode display, this is likely to only ever be 80, as the backend device driver
+does not support larger text modes, nor does it check for them.
+On an emulated text mode display, this will fill the screen.
+
+.TP
+.B IO_VID_HEIGHT
+Places the height of the text mode display, in rows, into its \fBint *\fP argument.
+.sp
+On a real text mode display, this is likely to only ever be 25, as the backend device driver
+does not support larger text modes, nor does it check for them.
+On an emulated text mode display, this will fill the screen.
+
+.TP
+.B IO_VGA_MOUSE_ADJ
+Places a pair of divisors into its \fBint[2]\fP argument that should be applied
+to coordinates received from an absolutely-positioned mouse device.
+The first of this pair applies to \fBx\fP coordinates, and the second applies to \fBy\fP
+cooardinates.
+.sp
+On a real text mode display, the coordinates returned by the mouse driver may
+be quite large, so the corresponding divisors returned by this call will
+also be large.
+On an emulated text mode display, the coordinates returned by the mouse driver
+are mapped to the pixel size of the display, so the divisors returned by
+this call are representative of the size of a single cell.
+
+.SH NOTES
+No read interface is provided.
+
+.SH HISTORY
+Previous versions of this device file supported a memory\-mapped interface similar
+to the one for graphical framebuffes, but this has since been removed in favor
+of a file\-based interface that provided necessary flexibility for emulation.
+
+.SH SEE ALSO
+.BR terminal\-vga (1),
+.BR console (4)
