@@ -170,6 +170,9 @@ $(BASE)/lib/libc.so: ${LIBC_OBJS} | $(CRTS)
 $(BASE)/lib/crt%.o: libc/arch/${ARCH}/crt%.S
 	${AS} -o $@ $<
 
+$(BASE)/lib/Scrt%.o: libc/arch/${ARCH}/Scrt%.S
+	${AS} -o $@ $<
+
 $(BASE)/usr/lib/%: $(TOOLCHAIN)/local/${TARGET}/lib/% | dirs
 	cp -a $< $@
 	-$(STRIP) $@
