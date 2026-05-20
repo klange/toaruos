@@ -2,13 +2,25 @@
 .SH NAME
 pstree \- Display running processes as a tree.
 .SH SYNOPSIS
-\fBpstree\fP [\fB\-a\fP] [\fB\-p\fP] [\fB\-g\fP] [\fB\-T\fP] [\fB\-h\fP] [\fB\-H\fP \fIpid\fP] [\fB\-C\fP \fImode\fP] [\fIpid\fP]
+\fBpstree\fP [\fB\-a\fP] [\fB\-A|\-U|\-G\fP] [\fB\-p\fP] [\fB\-g\fP] [\fB\-T\fP] [\fB\-h\fP] [\fB\-H\fP \fIpid\fP] [\fB\-C\fP \fImode\fP] [\fIpid\fP]
 .SH DESCRIPTION
 Displays running proceses as a true, using Unicode box drawing characters.
 
 .TP
 .B \-a
 Display the full command line for each process. This also limits each line to one process.
+
+.TP
+.B \-A
+Use ASCII characters to draw the tree.
+
+.TP
+.B \-U
+Use Unicode box drawing characters to draw the tree (default).
+
+.TP
+.B \-G
+Use DEC box drawing sequences to draw the tree.
 
 .TP
 .B \-p

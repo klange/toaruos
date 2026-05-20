@@ -26,6 +26,14 @@ uint8_t find_pid(void * proc_v, void * pid_v) {
 	return (uint8_t)(p->pid == i);
 }
 
+#define BS "\033(0"
+#define BE "\033(B"
+static char * line_forms_utf8[]  = {   "─┬─",       "───",       "│",       " ├─",       " └─"};
+static char * line_forms_ascii[] = {   "-+-",       "---",       "|",       " |-",       " `-"};
+static char * line_forms_vt100[] = {BS "qwq" BE, BS "qqq" BE, BS "x" BE, BS " tq" BE, BS " mq" BE};
+#undef BS
+#undef BE
+
 enum ColorMode {
 	COLOR_MODE_NONE = 0,
 	COLOR_MODE_AGE = 1,
@@ -43,6 +51,7 @@ struct PstreeContext {
 	int show_pgids;
 	int hide_threads;
 	int show_cmdline;
+	char ** line_forms;
 
 	enum ColorMode color_mode;
 	tree_t * procs;
@@ -80,25 +89,25 @@ void print_process_tree_node(struct PstreeContext * ctx, tree_node_t * node, siz
 
 	if (!indented && depth) {
 		if (more) {
-			printf("─┬─");
+			printf(ctx->line_forms[0]);
 			lines_set(ctx, depth+1);
 		} else {
-			printf("───");
+			printf(ctx->line_forms[1]);
 		}
 		depth += 3;
 	} else if (indented) {
 		for (int i = 0; i < (int)depth; ++i) {
 			if (lines_get(ctx, i)) {
-				printf("│");
+				printf(ctx->line_forms[2]);
 			} else {
 				printf(" ");
 			}
 		}
 		if (more) {
-			printf(" ├─");
+			printf(ctx->line_forms[3]);
 			lines_set(ctx, depth+1);
 		} else {
-			printf(" └─");
+			printf(ctx->line_forms[4]);
 		}
 		depth += 3;
 	}
@@ -264,10 +273,21 @@ int main (int argc, char * argv[]) {
 
 	struct PstreeContext ctx = {0};
 
-	while ((opt = getopt(argc, argv, "aTpghH:C:-:")) != -1) {
+	ctx.line_forms = line_forms_utf8;
+
+	while ((opt = getopt(argc, argv, "aTpghH:C:AUG-:")) != -1) {
 		switch (opt) {
 			case 'a':
 				ctx.show_cmdline = 1;
+				break;
+			case 'A':
+				ctx.line_forms = line_forms_ascii;
+				break;
+			case 'U':
+				ctx.line_forms = line_forms_utf8;
+				break;
+			case 'G':
+				ctx.line_forms = line_forms_vt100;
 				break;
 			case 'p':
 				ctx.show_pids = 1;
