@@ -82,7 +82,7 @@ LIBC_OBJS += $(patsubst %.c,%.o,$(wildcard libc/arch/${ARCH}/*.c))
 
 GCC_SHARED = $(BASE)/usr/lib/libgcc_s.so.1 $(BASE)/usr/lib/libgcc_s.so
 
-CRTS  = $(BASE)/lib/crt0.o $(BASE)/lib/crti.o $(BASE)/lib/crtn.o
+CRTS  = $(BASE)/lib/crt0.o $(BASE)/lib/Scrt0.o $(BASE)/lib/crti.o $(BASE)/lib/crtn.o
 
 LC = $(BASE)/lib/libc.so $(GCC_SHARED)
 
@@ -148,7 +148,7 @@ clean:
 	-rm -f $(APPS_Y) $(LIBS_Y) $(KRK_MODS_Y) $(KRK_MODS) $(TESTS_Y)
 	-rm -f $(APPS_X) $(LIBS_X) $(KRK_MODS_X) $(APPS_KRK_X) $(APPS_SH_X) $(TESTS_X)
 	-rm -f $(BIM_FILES) $(BASE)/bin/bim
-	-rm -f $(BASE)/lib/crt0.o $(BASE)/lib/crti.o $(BASE)/lib/crtn.o
+	-rm -f $(CRTS)
 	-rm -f $(BASE)/lib/libc.so $(BASE)/lib/libc.a
 	-rm -f $(LIBC_OBJS) $(BASE)/lib/libkuroko.so $(BASE)/lib/libm.so
 	-rm -f $(BASE)/bin/kuroko
