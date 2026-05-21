@@ -1161,6 +1161,7 @@ void menu_bar_show_menu(yutani_t * yctx, yutani_window_t * window, struct menu_b
 				if (e == _entries) break;
 				if (*e->title == '\t' || *e->title == '\v') break;
 				offset += string_width(e->title) + 11;
+				i++;
 			}
 			if (e == _entries) break;
 			for (; e->title; e++) {
@@ -1168,9 +1169,11 @@ void menu_bar_show_menu(yutani_t * yctx, yutani_window_t * window, struct menu_b
 				if (*e->title != '\t' && *e->title != '\v') break;
 				if (!tabs || (tab_width < 4)) continue;
 				offset += tab_width;
+				i++;
 			}
 			if (e == _entries) break;
 			offset += extra;
+			i++;
 		}
 	} else {
 		struct menu_bar_entries * e = self->entries;
