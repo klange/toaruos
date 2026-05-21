@@ -406,6 +406,9 @@ void arch_framebuffer_initialize(void) {
 	}
 }
 
+typedef int (*main_func_t)(struct multiboot*, uint32_t, void *, uint64_t);
+static int kmain_rel(struct multiboot * mboot, uint32_t mboot_mag, void* esp, uint64_t base);
+
 /**
  * @brief x86-64 multiboot C entrypoint.
  *
@@ -413,6 +416,8 @@ void arch_framebuffer_initialize(void) {
  */
 int kmain(struct multiboot * mboot, uint32_t mboot_mag, void* esp, uint64_t base) {
 	extern Elf64_Rela _rela_start[], _rela_end[];
+
+	/* Relocate once so mmu_early_init can work properly */
 	for (Elf64_Rela * rela = _rela_start; rela < _rela_end; ++rela) {
 		switch (ELF64_R_TYPE(rela->r_info)) {
 			case R_X86_64_RELATIVE:
@@ -421,6 +426,30 @@ int kmain(struct multiboot * mboot, uint32_t mboot_mag, void* esp, uint64_t base
 		}
 	}
 
+	extern uintptr_t mmu_early_init(uintptr_t);
+	uintptr_t nbase = mmu_early_init(base);
+
+	/* Relocate again for new high address */
+	for (Elf64_Rela * rela = _rela_start; rela < _rela_end; ++rela) {
+		switch (ELF64_R_TYPE(rela->r_info)) {
+			case R_X86_64_RELATIVE:
+				*(uint64_t*)(rela->r_offset + nbase) = nbase + rela->r_addend;
+				break;
+		}
+	}
+
+	/* Fix the stack. */
+	asm volatile (
+		"addq %0, %%rsp\n"
+		:: "r"(MODULE_BASE_START - base)
+	);
+
+	/* Call _kmain_rel with fixed offset. */
+	main_func_t _kmain_rel = (main_func_t)(uintptr_t)(MODULE_BASE_START - base + (uintptr_t)&kmain_rel);
+	return _kmain_rel(mboot,mboot_mag,esp,nbase);
+}
+
+static int kmain_rel(struct multiboot * mboot, uint32_t mboot_mag, void* esp, uint64_t base) {
 	/* The debug log is over /dev/ttyS0, but skips the PTY interface; it's available
 	 * as soon as we can call printf(), which is as soon as we get to long mode. */
 	early_log_initialize();
@@ -439,6 +468,9 @@ int kmain(struct multiboot * mboot, uint32_t mboot_mag, void* esp, uint64_t base
 
 	/* Time the TSC and get the initial boot time from the RTC. */
 	arch_clock_initialize();
+
+	/* Used by the multiboot setup to figure out where the ramdisk ends */
+	highest_kernel_address = (uintptr_t)&end - base;
 
 	/* Parse multiboot data so we can get memory map, modules, command line, etc. */
 	if (mboot_mag == 0x36d76289) {

@@ -209,6 +209,7 @@ union PML heap_base_pd[512] _pagemap;
 union PML heap_base_pt[512*3] _pagemap;
 union PML low_base_pmls[34][512] _pagemap;
 union PML twom_high_pds[64][512] _pagemap;
+union PML kbase_pmls[65][512] _pagemap;
 
 /**
  * @brief Maps a frame address to a virtual address.
@@ -831,7 +832,7 @@ void mmu_free(union PML * from) {
 }
 
 union PML * mmu_get_kernel_directory(void) {
-	return mmu_map_from_physical((uintptr_t)&init_page_region[0]);
+	return (union PML*)&init_page_region[0];
 }
 
 /**
@@ -848,12 +849,14 @@ union PML * mmu_get_kernel_directory(void) {
  *                will be used and no userspace mappings will be present.
  */
 void mmu_set_directory(union PML * new_pml) {
-	if (!new_pml) new_pml = mmu_map_from_physical((uintptr_t)&init_page_region[0]);
+	if (!new_pml) new_pml = (union PML*)&init_page_region[0];
 	this_core->current_pml = new_pml;
+
+	uintptr_t pml_phys = mmu_map_to_physical(new_pml, (uintptr_t)new_pml);
 
 	asm volatile (
 		"movq %0, %%cr3"
-		: : "r"((uintptr_t)new_pml & PHYS_MASK));
+		: : "r"((uintptr_t)pml_phys));
 }
 
 /**
@@ -967,6 +970,85 @@ void mmu_unmap_user(uintptr_t addr, size_t size) {
 static char * heapStart = NULL;
 extern char end[];
 
+static uintptr_t module_base_address = MODULE_BASE_START;
+static uintptr_t mmu_k2p_base = 0;
+
+/**
+ * @brief Set up early upper page mapping so we can jump to it.
+ *
+ * Maps the kernel to -2GiB before we've set up the rest of
+ * the paging structures, and while the kernel is still mapped
+ * in the lower half.
+ *
+ * @param base Load address of the kernel, so we can skip the
+ *             lower parts of memory and maybe reclaim them.
+ * @returns The new load base address for relocation.
+ */
+uintptr_t mmu_early_init(uintptr_t base) {
+	/* Uppermost */
+	init_page_region[0][511].raw = (uintptr_t)&high_base_pml | KERNEL_PML_ACCESS;
+
+	high_base_pml[510].raw = (uintptr_t)(&kbase_pmls[0]) | KERNEL_PML_ACCESS;
+	for (size_t j = 0; j < 2; ++j) {
+		kbase_pmls[0][j].raw = (uintptr_t)(&kbase_pmls[1+j]) | KERNEL_PML_ACCESS;
+	}
+
+	uintptr_t _end = (uintptr_t)&end - base;
+
+	if (_end & PAGE_LOW_MASK) {
+		_end = (_end & PAGE_SIZE_MASK) + PAGE_SIZE;
+	}
+
+	for (size_t i = 0; i < _end / PAGE_SIZE; ++i) {
+		kbase_pmls[1+i/512][i].raw = (uintptr_t)(PAGE_SIZE * i + base) | KERNEL_PML_ACCESS;
+	}
+
+	module_base_address = (uintptr_t)MODULE_BASE_START + _end;
+	mmu_k2p_base = base;
+
+	return MODULE_BASE_START;
+}
+
+static uintptr_t k2p(void * x) {
+	return ((uintptr_t)x - MODULE_BASE_START + mmu_k2p_base);
+}
+
+/**
+ * @brief Sets up a page directory with a low kernel mapping.
+ *
+ * This is called once for SMP setup, and only if we do SMP setup,
+ * to prepare an environment for APs to start in. They will quickly
+ * jump to the high mapping as soon as they reach long mode, and
+ * then we don't use this mapping again later.
+ *
+ * @param page Physical address of a new page directory (one level).
+ */
+void mmu_populate_low(uintptr_t page) {
+	union PML * pml = (void*)mmu_map_from_physical(page);
+	memcpy(pml, &init_page_region, 0x1000);
+
+	low_base_pmls[0][0].raw = k2p(&low_base_pmls[1]) | USER_PML_ACCESS;
+
+	for (size_t j = 0; j < 2; ++j) {
+		low_base_pmls[1][j].raw = k2p(&low_base_pmls[2+j]) | KERNEL_PML_ACCESS;
+	}
+
+	uintptr_t _end = k2p(&end);
+	if (_end & PAGE_LOW_MASK) {
+		_end = (_end & PAGE_SIZE_MASK) + PAGE_SIZE;
+	}
+
+	for (size_t i = 0; i < _end / PAGE_SIZE; ++i) {
+		low_base_pmls[2+i/512][i].raw = (uintptr_t)(PAGE_SIZE * i) | KERNEL_PML_ACCESS;
+	}
+
+	/* Unmap null */
+	low_base_pmls[2][0].raw = 0;
+
+	/* Now map our new low base */
+	pml[0].raw = k2p(&low_base_pmls[0]) | USER_PML_ACCESS;
+}
+
 /**
  * @brief Prepare virtual page mappings for use by the kernel.
  *
@@ -996,41 +1078,18 @@ void mmu_init(size_t memsize, uintptr_t firstFreePage) {
 		: : : "rax");
 
 	/* Map the high base PDP */
-	init_page_region[0][511].raw = (uintptr_t)&high_base_pml | KERNEL_PML_ACCESS;
-	init_page_region[0][510].raw = (uintptr_t)&heap_base_pml | KERNEL_PML_ACCESS;
+	init_page_region[0][510].raw = k2p(&heap_base_pml) | KERNEL_PML_ACCESS;
 
 	/* Identity map from -128GB in the boot PML using 2MiB pages */
 	for (size_t i = 0; i < 64; ++i) {
-		high_base_pml[i].raw = (uintptr_t)&twom_high_pds[i] | KERNEL_PML_ACCESS;
+		high_base_pml[i].raw = k2p(&twom_high_pds[i]) | KERNEL_PML_ACCESS;
 		for (uintptr_t j = 0; j < 512; ++j) {
 			twom_high_pds[i][j].raw = ((i << 30) + (j << 21)) | LARGE_PAGE_BIT | KERNEL_PML_ACCESS;
 		}
 	}
 
-	/* Map low base PDP */
-	low_base_pmls[0][0].raw = (uintptr_t)&low_base_pmls[1] | USER_PML_ACCESS;
-
-	/* How much memory do we need to map low for our *kernel* to fit? */
-	uintptr_t endPtr = ((uintptr_t)&end + PAGE_LOW_MASK) & PAGE_SIZE_MASK;
-
-	/* How many pages does that need? */
-	size_t lowPages = endPtr >> PAGE_SHIFT;
-
-	/* And how many 512-page blocks does that fit in? */
-	size_t pdCount = (lowPages + ENTRY_MASK) >> 9;
-
-	for (size_t j = 0; j < pdCount; ++j) {
-		low_base_pmls[1][j].raw = (uintptr_t)&low_base_pmls[2+j] | KERNEL_PML_ACCESS;
-		for (int i = 0; i < 512; ++i) {
-			low_base_pmls[2+j][i].raw = (uintptr_t)(LARGE_PAGE_SIZE * j + PAGE_SIZE * i) | KERNEL_PML_ACCESS;
-		}
-	}
-
-	/* Unmap null */
-	low_base_pmls[2][0].raw = 0;
-
-	/* Now map our new low base */
-	init_page_region[0][0].raw = (uintptr_t)&low_base_pmls[0] | USER_PML_ACCESS;
+	/* Ensure we don't have a lingering low mapping. */
+	init_page_region[0][0].raw = 0;
 
 	/* Set up the page allocator bitmap... */
 	nframes = (memsize >> 12);
@@ -1040,10 +1099,10 @@ void mmu_init(size_t memsize, uintptr_t firstFreePage) {
 	size_t pagesOfFrames = bytesOfFrames >> 12;
 
 	/* Set up heap map for that... */
-	heap_base_pml[0].raw = (uintptr_t)&heap_base_pd | KERNEL_PML_ACCESS;
-	heap_base_pd[0].raw  = (uintptr_t)&heap_base_pt[0] | KERNEL_PML_ACCESS;
-	heap_base_pd[1].raw  = (uintptr_t)&heap_base_pt[512] | KERNEL_PML_ACCESS;
-	heap_base_pd[2].raw  = (uintptr_t)&heap_base_pt[1024] | KERNEL_PML_ACCESS;
+	heap_base_pml[0].raw = k2p(&heap_base_pd) | KERNEL_PML_ACCESS;
+	heap_base_pd[0].raw  = k2p(&heap_base_pt[0]) | KERNEL_PML_ACCESS;
+	heap_base_pd[1].raw  = k2p(&heap_base_pt[512]) | KERNEL_PML_ACCESS;
+	heap_base_pd[2].raw  = k2p(&heap_base_pt[1024]) | KERNEL_PML_ACCESS;
 
 	if (pagesOfFrames > 512*3) {
 		printf("Warning: Too much available memory for current setup. Need %zu pages to represent allocation bitmap.\n", pagesOfFrames);
@@ -1053,8 +1112,6 @@ void mmu_init(size_t memsize, uintptr_t firstFreePage) {
 		heap_base_pt[i].raw = (firstFreePage + (i << 12)) | KERNEL_PML_ACCESS;
 	}
 
-	asm volatile ("" : : : "memory");
-	this_core->current_pml = mmu_map_from_physical((uintptr_t)this_core->current_pml);
 	asm volatile ("" : : : "memory");
 
 	/* We are now in the new stuff. */
@@ -1177,8 +1234,6 @@ void * mmu_map_mmio_region(uintptr_t physical_address, size_t size) {
 
 	return out;
 }
-
-static uintptr_t module_base_address = MODULE_BASE_START;
 
 /**
  * @brief Obtain space to load a module in the -2GiB region.

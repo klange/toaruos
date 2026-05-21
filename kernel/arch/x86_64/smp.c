@@ -82,8 +82,9 @@ static void __ap_bootstrap_landing(void) {
 		"ltr %%ax\n"
 		".extern _ap_stack_base\n"
 		"mov _ap_stack_base(%%rip),%%rsp\n"
-		".extern ap_main\n"
-		"callq ap_main\n"
+		".extern _ap_entrypoint\n"
+		"mov _ap_entrypoint(%%rip),%%rax\n"
+		"call %%rax\n"
 		: : : "memory"
 	);
 }
@@ -99,6 +100,8 @@ extern void fpu_initialize(void);
 extern void idt_ap_install(void);
 extern void pat_initialize(void);
 extern process_t * spawn_kidle(int);
+extern void mmu_populate_low(uintptr_t);
+extern void ap_refresh_gdt(void);
 extern union PML init_page_region[];
 
 /**
@@ -126,6 +129,7 @@ static void short_delay(unsigned long amount) {
 static volatile int _ap_current = 0;       /**< The AP we're currently starting up; shared between @c ap_main and @c smp_initialize */
 static volatile int _ap_startup_flag = 0;  /**< Simple lock, shared between @c ap_main and @c smp_initialize */
 uintptr_t _ap_stack_base = 0;              /**< Stack address for this AP to use on startup; used by @c __ap_boostrap */
+uintptr_t _ap_entrypoint = 0;              /**< Address of ap_main after relocation, so we can store it in a register. */
 uintptr_t lapic_final = 0;                 /**< MMIO region to use for APIC access. */
 
 #define cpuid(in,a,b,c,d) do { asm volatile ("cpuid" : "=a"(a),"=b"(b),"=c"(c),"=d"(d) : "a"(in)); } while(0)
@@ -205,6 +209,7 @@ static void lapic_timer_initialize(void) {
  * we do the rest of the core setup.
  */
 void ap_main(void) {
+	ap_refresh_gdt();
 
 	/* Set the GS base to point to our 'this_core' struct. */
 	arch_set_core_base((uintptr_t)&processor_local_data[_ap_current]);
@@ -405,8 +410,12 @@ _toomany:
 	uintptr_t tmp_space = mmu_allocate_a_frame() << 12;
 	memcpy(mmu_map_from_physical(tmp_space), mmu_map_from_physical(0x1000), 0x1000);
 
-	*(uint32_t*)(&_ap_bootstrap_start[0xb])  = (uintptr_t)&init_page_region;
-	*(uint32_t*)(&_ap_bootstrap_start[0x37]) = (uintptr_t)&_ap_premain;
+	uintptr_t tmp_page = mmu_allocate_a_frame() << 12;
+	mmu_populate_low(tmp_page);
+	_ap_entrypoint = (uintptr_t)&ap_main;
+
+	*(uint32_t*)(&_ap_bootstrap_start[0xb])  = tmp_page;
+	*(uint32_t*)(&_ap_bootstrap_start[0x37]) = (uintptr_t)mmu_map_to_physical(this_core->current_pml, (uintptr_t)&_ap_premain);
 
 	/* Map the bootstrap code */
 	memcpy(mmu_map_from_physical(0x1000), &_ap_bootstrap_start, (uintptr_t)&_ap_bootstrap_end - (uintptr_t)&_ap_bootstrap_start);

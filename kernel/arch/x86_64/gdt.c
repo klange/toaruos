@@ -11,6 +11,7 @@
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/process.h>
+#include <kernel/mmu.h>
 
 /**
  * @brief 64-bit TSS
@@ -98,8 +99,19 @@ void gdt_install(void) {
 	);
 }
 
+/* Sets the high-mapped GDT pointer. */
+void ap_refresh_gdt(void) {
+	asm volatile (
+		"lgdt %0\n"
+		: : "m"(gdt[0].pointer) : "rax", "memory"
+	);
+}
+
+/* Sets up an initial gdt for APs where the kernel is still mapped low. */
 void gdt_copy_to_trampoline(int ap, char * trampoline) {
-	memcpy(trampoline, &gdt[ap].pointer, sizeof(gdt[ap].pointer));
+	gdt_pointer_t * ptr = (void*)trampoline;
+	ptr->limit = gdt[ap].pointer.limit;
+	ptr->base = mmu_map_to_physical(this_core->current_pml, gdt[ap].pointer.base);
 }
 
 void arch_set_kernel_stack(uintptr_t stack) {

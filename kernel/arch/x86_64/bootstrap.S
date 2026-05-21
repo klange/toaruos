@@ -99,16 +99,6 @@ mb2_tag_fb:
 .word 0
 .long 8
 
-/* Relocatable tag */
-.align 8
-.word 10
-.word 0
-.long 24
-.long 0x100000  /* Start */
-.long 0x1000000 /* Maximum load address */
-.long 4096      /* Request page alignment */
-.long 1         /* Load at lowest available */
-
 /* End tag */
 .align 8
 .word 0

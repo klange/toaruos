@@ -300,26 +300,20 @@ static void dump_traceback(uintptr_t ip, uintptr_t bp) {
 
 	while (bp && ip && depth < max_depth) {
 		dprintf(" 0x%016zx ", ip);
-		if (ip >= 0xffffffff80000000UL) {
-			char * name = NULL;
-			struct LoadedModule * mod = find_module(ip, &name);
-			if (mod) {
-				dprintf("\a in module '%s', base address %#zx (offset %#zx)\n",
-					name, mod->baseAddress, ip - mod->baseAddress);
-			} else {
-				dprintf("\a (unknown)\n");
-			}
-		} else if (ip >= (uintptr_t)&end && ip <= 0x800000000000) {
+		if (ip <= 0x800000000000) {
 			dprintf("\a in userspace\n");
-		} else if (ip <= (uintptr_t)&end) {
-			/* Find symbol match */
-			char * name;
+		} else if (ip >= 0xffffffff80000000UL) {
+			char * name = NULL;
 			uintptr_t addr = matching_symbol(ip, &name);
-			if (!addr) {
-				dprintf("\a (no match)\n");
-			} else {
-				dprintf("\a %s+0x%zx\n", name, ip-addr);
+			struct LoadedModule * mod = find_module(ip, &name);
+			if (addr && (!mod || addr >= mod->baseAddress)) {
+				dprintf("\a %s+0x%zx", name, ip-addr);
 			}
+			if (mod) {
+				dprintf("\a in module '%s', base address %#zx (offset %#zx)",
+					name, mod->baseAddress, ip - mod->baseAddress);
+			}
+			dprintf("\a\n");
 		} else {
 			dprintf("\a (unknown)\n");
 		}
