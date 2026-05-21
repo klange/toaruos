@@ -14,7 +14,7 @@
 	(this_core->current_process->fds->modes[(FD)])
 
 #define PTR_INRANGE(PTR) \
-	((uintptr_t)(PTR) > this_core->current_process->image.entry && ((uintptr_t)(PTR) < 0x8000000000000000))
+	((uintptr_t)(PTR) < 0x8000000000000000)
 #define PTR_VALIDATE(PTR) \
 	do { if (ptr_validate((void *)(PTR), __func__)) return -EFAULT; } while (0)
 extern int ptr_validate(void * ptr, const char * syscall);
