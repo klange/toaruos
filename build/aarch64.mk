@@ -1,15 +1,13 @@
 ARCH=aarch64
 
 ARCH_KERNEL_CFLAGS = -z max-page-size=0x1000 -nostdlib -mgeneral-regs-only -mno-outline-atomics -ffixed-x18 --sysroot=base
+ARCH_KERNEL_LINK_FLAGS =  -Wl,-static,-pie,--no-dynamic-linker,-z,notext,-E
 ARCH_USER_CFLAGS = -Wno-psabi --sysroot=base -z max-page-size=0x1000 
 
 TARGET=aarch64-unknown-toaru
 
 all: system
 system: misaka-kernel ramdisk.igz bootstub kernel8.img | $(BUILD_KRK)
-
-misaka-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o kernel/arch/aarch64/link.ld
-	${CC} -g -T kernel/arch/${ARCH}/link.ld ${KERNEL_CFLAGS} -o $@ ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
 
 BOOTSTUB_OBJS  = $(patsubst %.c,%.o,$(wildcard kernel/arch/aarch64/bootstub/*.c))
 BOOTSTUB_OBJS += $(patsubst %.S,%.o,$(wildcard kernel/arch/aarch64/bootstub/*.S))

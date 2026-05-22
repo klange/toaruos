@@ -25,6 +25,7 @@
 #include <kernel/ptrace.h>
 #include <kernel/ksym.h>
 #include <kernel/syscall.h>
+#include <kernel/elf.h>
 #include <errno.h>
 
 #include <sys/ptrace.h>
@@ -540,10 +541,33 @@ void aarch64_processor_data(void) {
 
 static void symbols_install(void) {
 	ksym_install();
-	kernel_symbol_t * k = (kernel_symbol_t *)&kernel_symbols_start;
-	while ((uintptr_t)k < (uintptr_t)&kernel_symbols_end) {
-		ksym_bind(k->name, (void*)k->addr);
-		k = (kernel_symbol_t *)((uintptr_t)k + sizeof *k + strlen(k->name) + 1);
+
+	extern char __ehdr_start[];
+	Elf64_Header * ehdr = (void*)&__ehdr_start;
+	Elf64_Phdr *phdrs = (void*)((char*)ehdr + ehdr->e_phoff);
+	Elf64_Dyn  *dyn = NULL;
+
+	for (size_t i = 0; i < ehdr->e_phnum; ++i) {
+		if (phdrs[i].p_type != PT_DYNAMIC) continue;
+		dyn = (void*)phdrs[i].p_vaddr;
+		break;
+	}
+
+	uintptr_t dyn_t[32] = {0};
+	for (; dyn && dyn->d_tag; dyn++) {
+		if (dyn->d_tag < 32) dyn_t[dyn->d_tag] = dyn->d_un.d_val;
+	}
+
+	if (dyn_t[DT_SYMTAB] && dyn_t[DT_STRTAB]) {
+		Elf64_Sym * syms = (void*)dyn_t[DT_SYMTAB];
+		char * strs = (void*)dyn_t[DT_STRTAB];
+
+		extern char __dynsym_end[];
+		for (; syms && (uintptr_t)syms < (uintptr_t)__dynsym_end; syms++) {
+			if (syms->st_name && ((syms->st_info >> 4) != STB_LOCAL)) {
+				ksym_bind(strs + syms->st_name, (void*)syms->st_value);
+			}
+		}
 	}
 }
 

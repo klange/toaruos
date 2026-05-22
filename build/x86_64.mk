@@ -66,11 +66,6 @@ shell: system
 		-fw_cfg name=opt/org.toaruos.gettyargs,string="-a local /dev/ttyS1 115200 ${TERM}" \
 		-fw_cfg name=opt/org.toaruos.bootmode,string=headless
 
-misaka-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o kernel/arch/x86_64/link.ld
-	${CC} -g -T kernel/arch/${ARCH}/link.ld ${KERNEL_CFLAGS} ${ARCH_KERNEL_LINK_FLAGS} -o $@.64 ${KERNEL_ASMOBJS} ${KERNEL_OBJS}
-	cp $@.64 $@
-	${STRIP} $@
-
 # Loader stuff, legacy CDs
 fatbase/ramdisk.igz: ramdisk.igz
 	cp $< $@

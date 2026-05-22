@@ -22,14 +22,11 @@ SECTIONS
 	{
 		data = .;
 		*(.data)
-		*(.symbols)
-		PROVIDE(kernel_symbols_start = .);
-		PROVIDE(kernel_symbols_end = .);
-		PROVIDE(bss_start = .);
 	}
 
 	.bss BLOCK(4K) : ALIGN(4K)
 	{
+		PROVIDE(bss_start = .);
 		bss = .;
 		*(COMMON)
 		*(.bss)

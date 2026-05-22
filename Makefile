@@ -31,9 +31,7 @@ KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/*/*.c))
 KERNEL_OBJS += $(patsubst %.c,%.o,$(wildcard kernel/arch/${ARCH}/*.c))
 
 # Assembly sources only come from the arch-dependent directory
-KERNEL_ASMOBJS  = $(filter-out kernel/symbols.o,$(patsubst %.S,%.o,$(wildcard kernel/arch/${ARCH}/*.S)))
-
-# These sources are used to determine if we should update symbols.o
+KERNEL_ASMOBJS  = $(patsubst %.S,%.o,$(wildcard kernel/arch/${ARCH}/*.S))
 KERNEL_SOURCES  = $(wildcard kernel/*.c) $(wildcard kernel/*/*.c) $(wildcard kernel/${ARCH}/*/*.c)
 KERNEL_SOURCES += $(wildcard kernel/arch/${ARCH}/*.S)
 
@@ -88,6 +86,11 @@ LC = $(BASE)/lib/libc.so $(GCC_SHARED)
 
 .PHONY: all system clean run shell
 
+misaka-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/arch/${ARCH}/link.ld
+	${CC} -g -T kernel/arch/${ARCH}/link.ld ${KERNEL_CFLAGS} ${ARCH_KERNEL_LINK_FLAGS} -o $@.64 ${KERNEL_ASMOBJS} ${KERNEL_OBJS}
+	cp $@.64 $@
+	${STRIP} $@
+
 $(BASE)/mod/%.ko: modules/%.c | dirs
 	${CC} -c ${KERNEL_CFLAGS} -fno-pie -mcmodel=large  -o $@ $<
 
@@ -127,11 +130,6 @@ $(BASE)/lib/libkuroko.so: $(KRK_SRC) | $(LC)
 
 kernel/sys/version.o: ${KERNEL_SOURCES}
 
-kernel/symbols.o: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} util/gensym.krk
-	-rm -f kernel/symbols.o
-	${NM} -g -f p ${KERNEL_ASMOBJS} ${KERNEL_OBJS} | kuroko util/gensym.krk > kernel/symbols.S
-	${CC} -c kernel/symbols.S -o $@
-
 kernel/%.o: kernel/%.S
 	${CC} -c $< -o $@
 
@@ -143,7 +141,7 @@ kernel/%.o: kernel/%.c ${HEADERS}
 clean:
 	-rm -f ${KERNEL_ASMOBJS}
 	-rm -f ${KERNEL_OBJS} $(MODULES)
-	-rm -f kernel/symbols.o kernel/symbols.S misaka-kernel misaka-kernel.64
+	-rm -f misaka-kernel misaka-kernel.64
 	-rm -f ramdisk.tar ramdisk.igz 
 	-rm -f $(APPS_Y) $(LIBS_Y) $(KRK_MODS_Y) $(KRK_MODS) $(TESTS_Y)
 	-rm -f $(APPS_X) $(LIBS_X) $(KRK_MODS_X) $(APPS_KRK_X) $(APPS_SH_X) $(TESTS_X)
