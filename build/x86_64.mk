@@ -2,6 +2,7 @@ ARCH=x86_64
 
 ARCH_KERNEL_CFLAGS  = -mno-red-zone -fno-omit-frame-pointer -mfsgsbase -fPIE
 ARCH_KERNEL_CFLAGS += -mgeneral-regs-only -z max-page-size=0x1000 -nostdlib
+ARCH_KERNEL_LINK_FLAGS =  -Wl,-static,-pie,--no-dynamic-linker,-z,notext,-z,norelro,-E
 ARCH_USER_CFLAGS += -z max-page-size=0x1000
 
 TARGET=x86_64-pc-toaru
@@ -65,8 +66,8 @@ shell: system
 		-fw_cfg name=opt/org.toaruos.gettyargs,string="-a local /dev/ttyS1 115200 ${TERM}" \
 		-fw_cfg name=opt/org.toaruos.bootmode,string=headless
 
-misaka-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
-	${CC} -g -T kernel/arch/${ARCH}/link.ld ${KERNEL_CFLAGS} -Wl,-static,-pie,--no-dynamic-linker,-z,notext,-z,norelro -o $@.64 ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o
+misaka-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/symbols.o kernel/arch/x86_64/link.ld
+	${CC} -g -T kernel/arch/${ARCH}/link.ld ${KERNEL_CFLAGS} ${ARCH_KERNEL_LINK_FLAGS} -o $@.64 ${KERNEL_ASMOBJS} ${KERNEL_OBJS}
 	cp $@.64 $@
 	${STRIP} $@
 

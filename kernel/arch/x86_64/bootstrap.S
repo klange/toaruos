@@ -17,7 +17,7 @@
 
 .extern bss_start
 .extern end
-.extern phys
+.extern __ehdr_start
 
 /* Multiboot 1 header */
 .set MB_MAGIC,              0x1BADB002
@@ -35,7 +35,7 @@ multiboot_header:
 .long MB_FLAGS
 .long MB_CHECKSUM
 .long multiboot_header /* header_addr */
-.long phys             /* load_addr */
+.long __ehdr_start     /* load_addr */
 .long bss_start        /* load_end_addr */
 .long end              /* bss_end_addr */
 .long start            /* entry_addr */
@@ -65,7 +65,7 @@ mb2_tag_addr:
 .word 0
 .long 24
 .long multiboot2_header
-.long phys
+.long __ehdr_start
 .long bss_start
 .long end
 

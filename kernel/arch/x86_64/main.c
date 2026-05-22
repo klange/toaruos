@@ -51,6 +51,8 @@ extern void mmu_init(size_t memsize, uintptr_t firstFreePage);
 struct multiboot * mboot_struct = NULL;
 int mboot_is_2 = 0;
 
+static uintptr_t dyn[32];
+
 static int _serial_debug = 1;
 #define EARLY_LOG_DEVICE 0x3F8
 static size_t _early_log_write(size_t size, uint8_t * buffer) {
@@ -223,10 +225,17 @@ void mboot_unmark_valid_memory(void) {
 
 static void symbols_install(uint64_t base) {
 	ksym_install();
-	kernel_symbol_t * k = (kernel_symbol_t *)&kernel_symbols_start;
-	while ((uintptr_t)k < (uintptr_t)&kernel_symbols_end) {
-		ksym_bind(k->name, (void*)(k->addr + base));
-		k = (kernel_symbol_t *)((uintptr_t)k + sizeof *k + strlen(k->name) + 1);
+
+	if (dyn[DT_SYMTAB] && dyn[DT_STRTAB]) {
+		Elf64_Sym * syms = (void*)(dyn[DT_SYMTAB] + base);
+		char * strs = (void*)(dyn[DT_STRTAB] + base);
+
+		extern char __dynsym_end[];
+		for (; syms && (uintptr_t)syms < (uintptr_t)__dynsym_end; syms++) {
+			if (syms->st_name && ((syms->st_info >> 4) != STB_LOCAL)) {
+				ksym_bind(strs + syms->st_name, (void*)(syms->st_value + base));
+			}
+		}
 	}
 }
 
@@ -415,7 +424,24 @@ static int kmain_rel(struct multiboot * mboot, uint32_t mboot_mag, void* esp, ui
  * Called by the x86-64 longmode bootstrap.
  */
 int kmain(struct multiboot * mboot, uint32_t mboot_mag, void* esp, uint64_t base) {
-	extern Elf64_Rela _rela_start[], _rela_end[];
+	/* Locate DYNAMIC section */
+	extern Elf64_Header __ehdr_start[];
+	Elf64_Dyn *_dyn = NULL;
+	Elf64_Phdr *phdrs = (void*)((uintptr_t)&__ehdr_start + __ehdr_start->e_phoff);
+	for (size_t i = 0; i < __ehdr_start->e_phnum; ++i) {
+		if (phdrs[i].p_type != PT_DYNAMIC) continue;
+		_dyn = (void*)(phdrs[i].p_vaddr + base);
+		break;
+	}
+
+	/* Process DYNAMIC section into a more digestable format. */
+	for (; _dyn && _dyn->d_tag; _dyn++) {
+		if (_dyn->d_tag < 32) dyn[_dyn->d_tag] = _dyn->d_un.d_val;
+	}
+
+	/* Extract dynamic relocations. */
+	Elf64_Rela *_rela_start = (void*)(dyn[DT_RELA] + base);
+	Elf64_Rela *_rela_end = (void*)(dyn[DT_RELA] + dyn[DT_RELASZ] + base);
 
 	/* Relocate once so mmu_early_init can work properly */
 	for (Elf64_Rela * rela = _rela_start; rela < _rela_end; ++rela) {

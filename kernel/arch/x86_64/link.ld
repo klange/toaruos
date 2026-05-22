@@ -4,6 +4,8 @@ ENTRY(start)
 SECTIONS
 {
 	. = 1M;
+	__ehdr_start = .;
+	. = 1M + SIZEOF_HEADERS;
 	phys = .;
 
 	.text BLOCK(4K) : ALIGN(4K)
@@ -13,38 +15,32 @@ SECTIONS
 		code = .;
 		*(.text)
 		*(.shit)
-	}
+	} :text
 
 	.rodata BLOCK(4K) : ALIGN(4K)
 	{
 		*(.rodata)
-	}
-	.rela.dyn BLOCK(4K) : ALIGN(4K)
+	} :text
+
+	.dynsym : {
+		KEEP(*(.dynsym))
+		__dynsym_end = .;
+	} :text
+
+	.dynstr : {
+		KEEP(*(.dynstr))
+	} :text
+
+	.dynamic BLOCK(4K) : ALIGN(4K)
 	{
-		_rela_start = .;
-		*(.rela)
-		*(.rela.text)
-		*(.rela.got)
-		*(.rela.plt)
-		*(.rela.bss)
-		*(.rela.ifunc)
-		*(.rela.text.*)
-		*(.rela.data)
-		*(.rela.data.*)
-		*(.rela.rodata)
-		*(.rela.rodata*)
-		*(.rela.dyn)
-		_rela_end = .;
-	}
+		*(.dynamic)
+	} :data :dynamic
 
 	.data BLOCK(4K) : ALIGN(4K)
 	{
 		data = .;
 		*(.data)
-		*(.symbols)
-		PROVIDE(kernel_symbols_start = .);
-		PROVIDE(kernel_symbols_end = .);
-	}
+	} :data
 
 	.bss BLOCK(4K) : ALIGN(4K)
 	{
@@ -53,7 +49,7 @@ SECTIONS
 		*(COMMON)
 		*(.bss)
 		*(.stack)
-	}
+	} :data
 
 	end = .;
 
@@ -64,4 +60,10 @@ SECTIONS
 		*(.note.gnu.build-id)
 	}
 
+}
+
+PHDRS {
+	text PT_LOAD FILEHDR PHDRS;
+	data PT_LOAD;
+	dynamic PT_DYNAMIC;
 }
