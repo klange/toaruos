@@ -978,11 +978,7 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 	/* Set this if you expect ld.so to fail on init, before
 	 * any files have been opened. Tries to ensure we have
 	 * something to write logs to. */
-# if defined(__aarch64__)
 	char _file[] = "/dev/ttyS0";
-# else
-	char _file[] = "/dev/ttyS1";
-#endif
 	emergency_fd = syscall__open(_file, O_WRONLY | O_CLOEXEC, 0);
 #endif
 
