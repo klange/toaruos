@@ -471,6 +471,7 @@ int copy_page_maybe(union PML * pt_in, union PML * pt_out, size_t l, uintptr_t a
 		} else if (refcount_inc(pt_in[l].bits.page)) {
 			char * page_in = mmu_map_from_physical((uintptr_t)pt_in[l].bits.page << PAGE_SHIFT);
 			uintptr_t newPage = mmu_first_frame() << PAGE_SHIFT;
+			mmu_frame_set(newPage);
 			char * page_out = mmu_map_from_physical(newPage);
 			memcpy(page_out,page_in,PAGE_SIZE);
 			assert(mem_refcounts[newPage >> PAGE_SHIFT] == 0);
@@ -495,6 +496,7 @@ int copy_page_maybe(union PML * pt_in, union PML * pt_out, size_t l, uintptr_t a
 		/* There are too many references to fit in our refcount table, so just make a new page. */
 		char * page_in = mmu_map_from_physical((uintptr_t)pt_in[l].bits.page << PAGE_SHIFT);
 		uintptr_t newPage = mmu_first_frame() << PAGE_SHIFT;
+		mmu_frame_set(newPage);
 		char * page_out = mmu_map_from_physical(newPage);
 		memcpy(page_out,page_in,PAGE_SIZE);
 		assert(mem_refcounts[newPage >> PAGE_SHIFT] == 0);
