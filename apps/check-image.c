@@ -26,7 +26,7 @@ int main (int argc, char * argv[]) {
 
 	int ret = 0;
 	while (optind < argc) {
-		sprite_t * image = calloc(sizeof(sprite_t),1);
+		sprite_t * image = calloc(1, sizeof(sprite_t));
 		if (load_sprite(image, argv[optind])) {
 			if (!quiet) {
 				fprintf(stdout, "%s: invalid\n", argv[optind]);

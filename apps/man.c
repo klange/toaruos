@@ -265,7 +265,7 @@ static char ** sections_from_string(char * str) {
 	for (; *c; ++c) {
 		if (*c == ':') count++;
 	}
-	char ** sects = calloc(sizeof(char*),count+1);
+	char ** sects = calloc(count + 1, sizeof(char*));
 	size_t i = 0;
 	c = str;
 	while (*c) {

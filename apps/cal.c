@@ -46,8 +46,8 @@ static void previous_month(struct tm * target) {
 static void print_calendars(struct tm *today, struct tm *target, int count, int highlight_today, int is_year) {
 	/* Now turn our time back into the actual time. */
 	time_t target_time;
-	struct tm * actual = calloc(sizeof(struct tm), count);
-	struct tm ** timeinfo = calloc(sizeof(struct tm*), count);
+	struct tm * actual = calloc(count, sizeof(struct tm));
+	struct tm ** timeinfo = calloc(count, sizeof(struct tm*));
 
 	for (int i = 0; i < count; ++i) {
 		target_time = mktime(target);
@@ -72,9 +72,9 @@ static void print_calendars(struct tm *today, struct tm *target, int count, int 
 	}
 	printf("\n");
 
-	int * days_in_month = calloc(sizeof(int), count);
-	int * mday = calloc(sizeof(int), count);
-	int * wday = calloc(sizeof(int), count);
+	int * days_in_month = calloc(count, sizeof(int));
+	int * mday = calloc(count, sizeof(int));
+	int * wday = calloc(count, sizeof(int));
 
 	/* Figure out how many days are in each of months we are going
 	 * to display, and what day of the week each starts on */

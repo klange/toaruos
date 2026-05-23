@@ -384,7 +384,7 @@ static int yutani_pick_animation(uint32_t flags, int direction) {
  * Initializes a window of the particular size for a given client.
  */
 static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int width, int height, uintptr_t owner, uint32_t flags) {
-	yutani_server_window_t * win = calloc(sizeof(yutani_server_window_t),1);
+	yutani_server_window_t * win = calloc(1, sizeof(yutani_server_window_t));
 
 	win->wid = next_wid();
 	win->owner = owner;
@@ -2655,7 +2655,7 @@ int main(int argc, char * argv[]) {
 			}
 		}
 
-		pex_packet_t * p = calloc(PACKET_SIZE, 1);
+		pex_packet_t * p = calloc(1, PACKET_SIZE);
 		pex_listen(server, p);
 
 		yutani_msg_t * m = (yutani_msg_t *)p->data;

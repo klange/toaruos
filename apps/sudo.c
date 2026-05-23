@@ -79,7 +79,7 @@ static int sudo_loop(int (*prompt_callback)(char * username, char * password, in
 		}
 
 		if (need_password) {
-			char * password = calloc(sizeof(char) * 1024, 1);
+			char * password = calloc(1024, sizeof(char));
 
 			if (prompt_callback(username, password, fails, argv)) {
 				free(username);

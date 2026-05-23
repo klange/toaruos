@@ -53,7 +53,7 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 
 	if (!f) return NULL;
 
-	p_t * proc = calloc(sizeof(p_t),1);
+	p_t * proc = calloc(1, sizeof(p_t));
 
 	while ((len = getline(&line, &avail, f)) != -1) {
 		if (len && line[len-1] == '\n') line[len-1] = '\0';

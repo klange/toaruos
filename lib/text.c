@@ -991,7 +991,7 @@ struct TT_Font * tt_font_from_file(const char * fileName) {
 	FILE * f = fopen(fileName, "r");
 	if (!f) return NULL;
 
-	struct TT_Font * font = calloc(sizeof(struct TT_Font), 1);
+	struct TT_Font * font = calloc(1, sizeof(struct TT_Font));
 	font->filePtr = f;
 	font->privFlags = 1;
 
@@ -1005,7 +1005,7 @@ _fail_close:
 }
 
 struct TT_Font * tt_font_from_memory(uint8_t * buffer) {
-	struct TT_Font * font = calloc(sizeof(struct TT_Font), 1);
+	struct TT_Font * font = calloc(1, sizeof(struct TT_Font));
 	font->privFlags = 0;
 	font->buffer = buffer;
 	if (!tt_font_load(font)) return NULL;

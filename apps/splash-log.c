@@ -92,7 +92,7 @@ int main(int argc, char * argv[]) {
 			int index = fswait2(1, pex_fd, 100);
 
 			if (index == 0) {
-				pex_packet_t * p = calloc(PACKET_SIZE, 1);
+				pex_packet_t * p = calloc(1, PACKET_SIZE);
 				pex_listen(pex_endpoint, p);
 
 				if (p->size < 4)  { free(p); continue; } /* Ignore blank messages, erroneous line feeds, etc. */

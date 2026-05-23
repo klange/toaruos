@@ -301,7 +301,7 @@ static void _box_blur_horizontal(gfx_context_t * _src, int radius) {
 	int w = _src->width;
 	int h = _src->height;
 	int half_radius = radius / 2;
-	uint32_t * out_color = calloc(sizeof(uint32_t), w);
+	uint32_t * out_color = calloc(w, sizeof(uint32_t));
 
 	for (int y = 0; y < h; y++) {
 		int hits = 0;
@@ -354,7 +354,7 @@ static void _box_blur_vertical(gfx_context_t * _src, int radius) {
 	int h = _src->height;
 	int half_radius = radius / 2;
 
-	uint32_t * out_color = calloc(sizeof(uint32_t), h);
+	uint32_t * out_color = calloc(h, sizeof(uint32_t));
 
 	for (int x = 0; x < w; x++) {
 		int hits = 0;

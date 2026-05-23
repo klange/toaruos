@@ -162,7 +162,7 @@ int main(int argc, char * argv[]) {
 					m = yutani_poll_async(yctx);
 				}
 			} else if (index == 1) {
-				pex_packet_t * p = calloc(PACKET_SIZE, 1);
+				pex_packet_t * p = calloc(1, PACKET_SIZE);
 				pex_listen(pex_endpoint, p);
 
 				JSON_Value * msg = json_parse((char*)p->data);

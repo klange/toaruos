@@ -1250,8 +1250,8 @@ KRK_Method(MenuBar,__init__) {
 	NO_REINIT(MenuBar);
 
 	size_t count = entries->values.count;
-	struct menu_bar * out = calloc(sizeof(struct menu_bar), 1);
-	out->entries = calloc(sizeof(struct menu_bar_entries), count + 1);
+	struct menu_bar * out = calloc(1, sizeof(struct menu_bar));
+	out->entries = calloc(count + 1, sizeof(struct menu_bar_entries));
 
 	for (size_t i = 0; i < count; ++i) {
 		KrkValue entry = entries->values.values[i];
