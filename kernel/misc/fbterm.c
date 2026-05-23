@@ -258,7 +258,6 @@ static void process_char(char ch) {
 				case 'm': {
 					char * arg = &term_buf[0];
 					char * next;
-					int argC = 0;
 					int isBold = 0;
 					do {
 						next = strchr(arg, ';');
@@ -291,7 +290,6 @@ static void process_char(char ch) {
 							bg_color = tmp;
 						}
 						arg = next;
-						argC++;
 					} while (arg);
 					break;
 				}
