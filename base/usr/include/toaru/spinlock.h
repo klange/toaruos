@@ -1,4 +1,5 @@
 #pragma once
+#include <syscall.h>
 
 #ifndef spin_lock
 static void spin_lock(int volatile * lock) {
