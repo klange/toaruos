@@ -47,7 +47,7 @@ int ptr_validate(void * ptr, const char * syscall) {
 
 __attribute__((noreturn))
 long sys_exit(long exitcode) {
-	task_exit(exitcode << 8);
+	task_exit(((unsigned char)exitcode) << 8);
 	__builtin_unreachable();
 }
 
