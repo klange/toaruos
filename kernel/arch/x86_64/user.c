@@ -36,6 +36,8 @@ void arch_enter_user(uintptr_t entrypoint, int argc, char * argv[], char * envp[
 	ret.rflags = (1 << 21) | (1 << 9);
 	ret.rsp = stack;
 
+	ret.rsp = (ret.rsp & (uintptr_t)-16) - 8;
+
 	update_process_times_on_exit();
 
 	asm volatile (
@@ -120,7 +122,7 @@ void arch_enter_signal_handler(struct signal_config * config, siginfo_t * cause,
 	ret.ss = 0x20 | 0x03;
 	ret.rip = config->handler;
 	ret.rflags = (1 << 21) | (1 << 9);
-	ret.rsp = (r->rsp - 128) & 0xFFFFFFFFFFFFFFF0; /* ensure considerable alignment */
+	ret.rsp = ((r->rsp - 128) & (uintptr_t)-16) - 8; /* ensure considerable alignment */
 
 	uintptr_t ucontext_addr = 0;
 	uintptr_t sainfo_addr = 0;
@@ -131,6 +133,7 @@ void arch_enter_signal_handler(struct signal_config * config, siginfo_t * cause,
 
 		/* Bottom of ucontext_t */
 		PUSH(ret.rsp, uintptr_t, 0); /* TODO uc_link */
+		ucontext_addr = ret.rsp;
 	}
 
 	PUSH(ret.rsp, struct regs, *r);
