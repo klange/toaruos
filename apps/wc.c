@@ -68,7 +68,7 @@ int main(int argc, char * argv[]) {
 		int chars = 0;
 		int words = 0;
 		int ch;
-		uint32_t state, c;
+		uint32_t state = 0, c = 0;
 		int new_word = 1;
 
 		while (!feof(f)) {
