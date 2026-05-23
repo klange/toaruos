@@ -178,15 +178,21 @@ int elf_module(char ** args) {
 			uintptr_t target = table[rela].r_offset + targetSection->sh_addr;
 			switch (ELF64_R_TYPE(table[rela].r_info)) {
 #if defined(__x86_64__)
-				case R_X86_64_64:
-					T64 = S + A;
+				case R_X86_64_64: {
+					uint64_t sa = S + A;
+					memcpy((void*)target, &sa, sizeof(uint64_t));
 					break;
-				case R_X86_64_32:
-					T32 = S + A;
+				}
+				case R_X86_64_32: {
+					uint32_t sa = S + A;
+					memcpy((void*)target, &sa, sizeof(uint32_t));
 					break;
-				case R_X86_64_PC32:
-					T32 = S + A - P;
+				}
+				case R_X86_64_PC32: {
+					uint32_t samp = S + A - P;
+					memcpy((void*)target, &samp, sizeof(uint32_t));
 					break;
+				}
 #elif defined(__aarch64__)
 				case R_AARCH64_ADR_PREL_PG_HI21: {
 					T32 = T32 | aarch64_imm_adr( ((S + A) >> 12) - (P >> 12) );
