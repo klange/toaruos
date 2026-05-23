@@ -112,8 +112,8 @@ int elf_module(char ** args) {
 			sectionHeader->sh_addr = (uintptr_t)(module_load_address + sectionHeader->sh_offset);
 			if (sectionHeader->sh_addralign &&
 				(sectionHeader->sh_addr & (sectionHeader->sh_addralign -1))) {
-				dprintf("mod: probably not aligned correctly: %#zx %ld\n",
-					sectionHeader->sh_addr, sectionHeader->sh_addralign);
+				dprintf("mod: (%s, %#zx) probably not aligned correctly: %#zx %ld\n",
+					args[0], sectionHeader->sh_offset, sectionHeader->sh_addr, sectionHeader->sh_addralign);
 			}
 		}
 	}
