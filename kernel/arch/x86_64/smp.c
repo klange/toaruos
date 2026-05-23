@@ -84,7 +84,7 @@ static void __ap_bootstrap_landing(void) {
 		"mov _ap_stack_base(%%rip),%%rsp\n"
 		".extern _ap_entrypoint\n"
 		"mov _ap_entrypoint(%%rip),%%rax\n"
-		"call %%rax\n"
+		"call *%%rax\n"
 		: : : "memory"
 	);
 }
