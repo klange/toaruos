@@ -1,8 +1,6 @@
 .section .init
-	pop %rbp
-	ret
+	ret $0x0
 
 .section .fini
-	pop %rbp
-	ret
+	ret $0x0
 
