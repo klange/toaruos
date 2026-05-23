@@ -70,47 +70,52 @@ uint16_t calculate_ipv4_checksum(struct ipv4_packet * p) {
 	return ~(sum & 0xFFFF) & 0xFFFF;
 }
 
-uint16_t calculate_tcp_checksum(struct tcp_check_header * p, struct tcp_header * h, void * d, size_t payload_size) {
+uint16_t calculate_tcp_checksum(void * p, void * h, void * d, size_t payload_size) {
 	uint32_t sum = 0;
-	uint16_t * s = (uint16_t *)p;
 
 	/* TODO: Checksums for options? */
 	for (int i = 0; i < 6; ++i) {
-		sum += ntohs(s[i]);
+		uint16_t _s;
+		memcpy(&_s, ((char*)p) + (i * 2), 2);
+		sum += ntohs(_s);
 		if (sum > 0xFFFF) {
 			sum = (sum >> 16) + (sum & 0xFFFF);
 		}
 	}
 
-	s = (uint16_t *)h;
 	for (int i = 0; i < 10; ++i) {
-		sum += ntohs(s[i]);
+		uint16_t _s;
+		memcpy(&_s, ((char*)h) + (i * 2), 2);
+		sum += ntohs(_s);
 		if (sum > 0xFFFF) {
 			sum = (sum >> 16) + (sum & 0xFFFF);
 		}
 	}
 
-	uint16_t d_words = payload_size / 2;
+	if (d) {
+		uint16_t d_words = payload_size / 2;
 
-	s = (uint16_t *)d;
-	for (unsigned int i = 0; i < d_words; ++i) {
-		sum += ntohs(s[i]);
-		if (sum > 0xFFFF) {
-			sum = (sum >> 16) + (sum & 0xFFFF);
+		for (unsigned int i = 0; i < d_words; ++i) {
+			uint16_t _s;
+			memcpy(&_s, ((char*)d) + (i * 2), 2);
+			sum += ntohs(_s);
+			if (sum > 0xFFFF) {
+				sum = (sum >> 16) + (sum & 0xFFFF);
+			}
 		}
-	}
 
-	if (d_words * 2 != payload_size) {
-		uint8_t * t = (uint8_t *)d;
-		uint8_t tmp[2];
-		tmp[0] = t[d_words * sizeof(uint16_t)];
-		tmp[1] = 0;
+		if (d_words * 2 != payload_size) {
+			uint8_t * t = (uint8_t *)d;
+			uint8_t tmp[2];
+			tmp[0] = t[d_words * sizeof(uint16_t)];
+			tmp[1] = 0;
 
-		uint16_t * f = (uint16_t *)tmp;
+			uint16_t * f = (uint16_t *)tmp;
 
-		sum += ntohs(f[0]);
-		if (sum > 0xFFFF) {
-			sum = (sum >> 16) + (sum & 0xFFFF);
+			sum += ntohs(f[0]);
+			if (sum > 0xFFFF) {
+				sum = (sum >> 16) + (sum & 0xFFFF);
+			}
 		}
 	}
 
