@@ -1002,7 +1002,7 @@ uintptr_t mmu_early_init(uintptr_t base) {
 	}
 
 	for (size_t i = 0; i < _end / PAGE_SIZE; ++i) {
-		kbase_pmls[1+i/512][i].raw = (uintptr_t)(PAGE_SIZE * i + base) | KERNEL_PML_ACCESS;
+		kbase_pmls[1+i/512][i%512].raw = (uintptr_t)(PAGE_SIZE * i + base) | KERNEL_PML_ACCESS;
 	}
 
 	module_base_address = (uintptr_t)MODULE_BASE_START + _end;
@@ -1041,7 +1041,7 @@ void mmu_populate_low(uintptr_t page) {
 	}
 
 	for (size_t i = 0; i < _end / PAGE_SIZE; ++i) {
-		low_base_pmls[2+i/512][i].raw = (uintptr_t)(PAGE_SIZE * i) | KERNEL_PML_ACCESS;
+		low_base_pmls[2+i/512][i%512].raw = (uintptr_t)(PAGE_SIZE * i) | KERNEL_PML_ACCESS;
 	}
 
 	/* Unmap null */
