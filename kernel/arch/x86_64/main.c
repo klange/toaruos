@@ -195,7 +195,6 @@ static void multiboot_initialize(struct multiboot * mboot) {
 }
 
 void mboot_unmark_valid_memory(void) {
-	size_t frames_marked = 0;
 	if (mboot_is_2) {
 		struct MB2_MemoryMap * mmap = mboot2_find_tag(mboot_struct, 6);
 		char * entry = mmap->entries;
@@ -204,7 +203,6 @@ void mboot_unmark_valid_memory(void) {
 			if (this->type == 1) {
 				for (uintptr_t base = this->base_addr; base < this->base_addr + (this->length & 0xFFFFffffFFFFf000); base += 0x1000) {
 					mmu_frame_clear(base);
-					frames_marked++;
 				}
 			}
 			entry += mmap->entry_size;
@@ -215,7 +213,6 @@ void mboot_unmark_valid_memory(void) {
 			if (mmap->type == 1) {
 				for (uintptr_t base = mmap->base_addr; base < mmap->base_addr + (mmap->length & 0xFFFFffffFFFFf000); base += 0x1000) {
 					mmu_frame_clear(base);
-					frames_marked++;
 				}
 			}
 			mmap = (mboot_memmap_t *) ((uintptr_t)mmap + mmap->size + sizeof(uint32_t));
