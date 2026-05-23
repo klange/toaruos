@@ -267,7 +267,7 @@ static void finish_boot(void) {
 
 	/* Jump to entry with register arguments */
 	__asm__ __volatile__ (
-		"jmp %0" :: "r"(_xmain), "a"(MULTIBOOT_EAX_MAGIC), "b"(finalHeader));
+		"jmp *%0" :: "r"(_xmain), "a"(MULTIBOOT_EAX_MAGIC), "b"(finalHeader));
 
 	__builtin_unreachable();
 }
