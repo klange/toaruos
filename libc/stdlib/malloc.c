@@ -147,15 +147,9 @@ static void klfree(void * ptr);
 static int volatile mem_lock = 0;
 static const char * _lock_holder;
 
-extern int __libc_is_multicore;
-
-static inline void _yield(void) {
-	if (!__libc_is_multicore) syscall_yield();
-}
-
 static void spin_lock(int volatile * lock, const char * caller) {
 	while(__sync_lock_test_and_set(lock, 0x01)) {
-		_yield();
+		syscall_yield();
 	}
 	_lock_holder = caller;
 }
