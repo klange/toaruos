@@ -962,6 +962,13 @@ int __libc_load_from_file(int fd, const char * name, int argc, char *argv[]) {
 	return run_app(app, argc, argv, app->base + app->ehdr->e_entry);
 }
 
+static uintptr_t auxv[32];
+
+unsigned long getauxval(unsigned long type) {
+	if (type < 32) return auxv[type];
+	return 0;
+}
+
 /**
  * @brief Entry point of ld.so.
  *
@@ -988,8 +995,6 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 	int i;
 	for (i = 0; envp[i]; ++i);
 	uintptr_t * auxv_raw = (void*)(envp + i + 1);
-	uintptr_t auxv[32];
-	for (i = 0; i<32; ++i) auxv[i] = 0;
 	for (i = 0; auxv_raw[i]; i += 2) {
 		if (auxv_raw[i] < 32) auxv[auxv_raw[i]] = auxv_raw[i+1];
 	}

@@ -23,3 +23,12 @@
 #define AT_RANDOM    25
 #define AT_EXECFN    31
 
+#ifndef __kernel__
+#include <_cheader.h>
+
+_Begin_C_Header
+
+extern unsigned long getauxval(unsigned long type);
+
+_End_C_Header
+#endif
