@@ -289,7 +289,8 @@ static void mount_ramdisk(uintptr_t addr, size_t len) {
 	if (data[0] == 0x1F && data[1] == 0x8B) {
 		/* Yes - decompress it first */
 		dprintf("multiboot: Decompressing initial ramdisk...\n");
-		uint32_t decompressedSize = *(uint32_t*)mmu_map_from_physical(addr + len - sizeof(uint32_t));
+		uint32_t decompressedSize;
+		memcpy(&decompressedSize, mmu_map_from_physical(addr + len - sizeof(uint32_t)), sizeof(uint32_t));
 		size_t pageCount = (((size_t)decompressedSize + 0xFFF) & ~(0xFFF)) >> 12;
 		uintptr_t physicalAddress = mmu_allocate_n_frames(pageCount) << 12;
 
