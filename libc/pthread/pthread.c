@@ -56,10 +56,10 @@ void * __tls_get_addr(void* input) {
 }
 
 void __make_tls(void) {
-	char * tlsSpace = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-	memset(tlsSpace, 0x0, 4096);
+	char * tlsSpace = mmap(NULL, 8192, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	memset(tlsSpace, 0x0, 8192);
 	/* self-pointer start? */
-	char ** tlsSelf = (char **)(tlsSpace);
+	char ** tlsSelf = (char **)(tlsSpace+4096);
 	*tlsSelf = (char*)tlsSelf;
 	syscall_set_tls_base((uintptr_t)tlsSelf);
 }

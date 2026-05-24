@@ -69,16 +69,25 @@ struct DlLib {
 	size_t       depcount;
 };
 
+#ifdef __x86_64__
+#define ARCH_TLS_OFFSET_INIT 0
+#define TLS_DOWN
+#else
+#define ARCH_TLS_OFFSET_INIT 16
+#undef TLS_DOWN
+#endif
+static size_t current_tls_offset = ARCH_TLS_OFFSET_INIT;     /* How much space we've reserved in static TLS. */
+
 static struct DlLib *all_libraries = NULL; /* Head of library chain. Usually ends up as the main app. */
 static struct DlLib *last_library = NULL;  /* Tail of library chain. */
 static struct DlLib *__libc_ldso = NULL;   /* Our own DlLib object. */
-static size_t current_tls_offset = 16;     /* How much space we've reserved in static TLS. */
 static bool is_runtime = false;            /* Whether we've finished loading and are now in runtime mode. */
 static bool target_is_suid = false;        /* Whether the auxv indicate a set-user-id or set-group-id binary ("secure mode"). */
 static char ** __envp = NULL;              /* Environment for use with @c simple_getenv. */
 static bool __trace_ld = false;            /* Whether LD_DEBUG was set. */
 static char * __ld_error = NULL;           /* Last error for @c dlerror. */
 static bool __ldso_reported = false;       /* Whether ldd has reported libc.so yet. */
+
 
 __attribute__((visibility("protected")))
 bool __is_ldd = false;                     /* Whether we are operating as the 'ldd' utility. */
@@ -395,7 +404,11 @@ static void relocate(struct DlLib * lib) {
 								lib->name, name, (inlib->base + resolved->st_value));
 						}
 						x = inlib->base + resolved->st_value;
+#ifdef TLS_DOWN
+						tlsx = resolved->st_value - inlib->tlsbase;
+#else
 						tlsx = inlib->tlsbase + resolved->st_value;
+#endif
 					} else {
 						if ((sym->st_info >> 4) != STB_WEAK) {
 							dprintf("ld.so: could not resolve symbol '%s' in %s\n", name, lib->name);
@@ -578,7 +591,6 @@ static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent,
 	lib->name = strdup(name);
 	lib->ehdr = lib_header;
 	lib->base = load_addr;
-	lib->tlsbase = current_tls_offset;
 
 	Elf64_Phdr * phdrs = (void*)((uintptr_t)lib_header + lib_header->e_phoff);
 
@@ -730,41 +742,40 @@ static struct DlLib * find_lib(const char * name, struct DlLib * parent) {
 }
 
 /**
- * @brief Calculate size of static TLS variables.
+ * @brief Calculate the size of TLS data.
  *
- * Figure out how much space the static TLS variables
- * will take from a given library so we can reserve space
- * and assign offsets into the thread struct.
+ * Locates the TLS segment for the library and sets up the
+ * TLS offset appropriately, growing up or down depending
+ * on the platform.
  *
- * @param lib Library to examine.
- * @returns Total size of TLS variables.
+ * @param lib Library to set up.
  */
-static size_t calculate_tls_size(struct DlLib * lib) {
-	uintptr_t * their_dyn = lib->dyn;
-	uintptr_t   their_base = lib->base;
-	Elf64_Sym  *symtab = lib->syms;
+static void calculate_tls_size(struct DlLib * lib) {
+	if (lib->phdr) {
+		for (size_t i = 0; i < lib->phnum; ++i) {
+			if (lib->phdr[i].p_type == PT_TLS) {
 
-	size_t tls_size = 0;
+				/* TODO */
+				if (lib->phdr[i].p_filesz != 0) fprintf(stderr, "ld.so: warning: initialized TLS segment not supported\n");
 
-	size_t size = their_dyn[DT_RELASZ];
-	uintptr_t reltable = their_base + their_dyn[DT_RELA];
-	for (int i = 0; i < 2; ++i) {
-		Elf64_Rela *table  = (void*)reltable;
-		while ((uintptr_t)table - reltable < size) {
-			Elf64_Word symbol = ELF64_R_SYM(table->r_info);
-			Elf64_Word type   = ELF64_R_TYPE(table->r_info);
-			Elf64_Sym  *sym   = symbol ? &symtab[symbol] : NULL;
-			if (!is_tlsoff(type)) goto _continue;
-			tls_size += sym->st_size;
-_continue:
-			table++;
+				lib->tlssize = lib->phdr[i].p_memsz;
+#ifdef TLS_DOWN
+				current_tls_offset += lib->tlssize;
+				if (lib->phdr[i].p_align) {
+					while (current_tls_offset & (lib->phdr[i].p_align -1)) current_tls_offset++;
+				}
+				lib->tlsbase = current_tls_offset;
+#else
+				if (lib->phdr[i].p_align) {
+					while (current_tls_offset & (lib->phdr[i].p_align -1)) current_tls_offset++;
+				}
+				lib->tlsbase = current_tls_offset;
+				current_tls_offset += lib->tlssize;
+#endif
+				return;
+			}
 		}
-		if (i == 1) break;
-		reltable = their_base + their_dyn[DT_JMPREL];
-		size  = their_dyn[DT_PLTRELSZ];
 	}
-	lib->tlssize = tls_size;
-	return tls_size;
 }
 
 /**
@@ -819,7 +830,7 @@ static void setup_lib(struct DlLib * app, Elf64_Phdr *phdrs, size_t phnum) {
 		app->dependencies[count++] = dep;
 	}
 
-	current_tls_offset += calculate_tls_size(app);
+	calculate_tls_size(app);
 }
 
 /**
@@ -1070,9 +1081,9 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 	ldso->strings = (void*)(ldso->base + ldso->dyn[DT_STRTAB]);
 	ldso->syms    = (void*)(ldso->base + ldso->dyn[DT_SYMTAB]);
 	ldso->hash    = (void*)(ldso->base + ldso->dyn[DT_HASH]);
-	ldso->tlsbase = current_tls_offset;
 
 	if (!auxv[AT_BASE]) {
+		calculate_tls_size(ldso);
 		run_ctors(ldso);
 		extern void _init(void);
 		_init();
@@ -1081,12 +1092,12 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 		return syscall__exit(ld_so_main(argc, argv));
 	}
 
-	current_tls_offset += calculate_tls_size(ldso);
-
 	struct DlLib * app = calloc(1, sizeof (struct DlLib));
 	app->name = argv[0];
 	app->next = ldso;
-	app->tlsbase = current_tls_offset;
+
+	calculate_tls_size(app);
+	calculate_tls_size(ldso);
 
 	all_libraries = app;
 	last_library = ldso;
