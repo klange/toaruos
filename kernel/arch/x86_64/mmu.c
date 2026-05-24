@@ -986,6 +986,7 @@ static uintptr_t mmu_k2p_base = 0;
  *             lower parts of memory and maybe reclaim them.
  * @returns The new load base address for relocation.
  */
+__attribute__((no_sanitize_undefined))
 uintptr_t mmu_early_init(uintptr_t base) {
 	/* Uppermost */
 	init_page_region[0][511].raw = (uintptr_t)&high_base_pml | KERNEL_PML_ACCESS;

@@ -421,6 +421,7 @@ static int kmain_rel(struct multiboot * mboot, uint32_t mboot_mag, void* esp, ui
  *
  * Called by the x86-64 longmode bootstrap.
  */
+__attribute__((no_sanitize_undefined))
 int kmain(struct multiboot * mboot, uint32_t mboot_mag, void* esp, uint64_t base) {
 	/* Locate DYNAMIC section */
 	extern Elf64_Header __ehdr_start[];
@@ -535,6 +536,9 @@ static int kmain_rel(struct multiboot * mboot, uint32_t mboot_mag, void* esp, ui
 
 	/* Start up other cores and enable an appropriate preempt source. */
 	smp_initialize();
+
+	extern int __ubsan_enabled;
+	__ubsan_enabled = 1;
 
 	/* Decompress and mount all initial ramdisks. */
 	mount_multiboot_ramdisks(mboot_struct);
