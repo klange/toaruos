@@ -196,10 +196,6 @@ ToaruOS is regularly mirrored to multiple Git hosting sites.
 - Bitbucket: [klange/toaruos](https://bitbucket.org/klange/toaruos)
 - ToaruOS.org: [klange/toaruos](https://git.toaruos.org/klange/toaruos)
 
-### IRC
-
-`#toaruos` on Libera (`irc.libera.chat`)
-
 ## FAQs
 
 ### Is ToaruOS self-hosting?
