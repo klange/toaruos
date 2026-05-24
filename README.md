@@ -185,9 +185,7 @@ While most of ToaruOS is written entirely by myself, be sure to include other au
 
 Some components of ToaruOS, such as [Kuroko](https://github.com/kuroko-lang/kuroko/blob/9f6160092ecece0f2c18b63c066151cbe0ded1bb/LICENSE) or [bim](https://github.com/klange/toaruos/blob/master/apps/bim.c#L3) have different but compatible terms.
 
-## Community
-
-### Mirrors
+## Mirrors
 
 ToaruOS is regularly mirrored to multiple Git hosting sites.
 
