@@ -635,6 +635,7 @@ yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int height
 	win->user_data = NULL;
 	win->ctx = y;
 	win->mouse_state = -1;
+	win->icon = NULL;
 	free(mm);
 
 	hashmap_set(y->windows, (void*)(uintptr_t)win->wid, win);
@@ -697,6 +698,7 @@ void yutani_close(yutani_t * y, yutani_window_t * win) {
 		shm_release(key);
 	}
 
+	if (win->icon) free(win->icon);
 	hashmap_remove(y->windows, (void*)(uintptr_t)win->wid);
 	free(win);
 }
@@ -876,6 +878,12 @@ void yutani_window_advertise_icon(yutani_t * yctx, yutani_window_t * window, cha
 	if (icon) {
 		memcpy(&strings[strlen(name)+1], icon, strlen(icon)+1);
 		iconx = strlen(name)+1;
+
+		/* Update the icon attached to the window object, if it is different. */
+		if (!window->icon || strcmp(window->icon, icon)) {
+			free(window->icon);
+			window->icon = strdup(icon);
+		}
 	}
 
 	yutani_msg_buildx_window_advertise_alloc(m, length);

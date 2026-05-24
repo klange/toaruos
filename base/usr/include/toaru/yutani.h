@@ -82,6 +82,8 @@ typedef struct yutani_window {
 	yutani_t * ctx;
 
 	int32_t mouse_state;
+
+	char *icon;
 } yutani_window_t;
 
 typedef struct yutani_message {
