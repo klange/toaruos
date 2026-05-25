@@ -89,7 +89,7 @@ static char * __ld_error = NULL;           /* Last error for @c dlerror. */
 static bool __ldso_reported = false;       /* Whether ldd has reported libc.so yet. */
 
 
-__attribute__((visibility("protected")))
+__attribute__((visibility("hidden")))
 bool __is_ldd = false;                     /* Whether we are operating as the 'ldd' utility. */
 
 static DEFN_SYSCALL1(_exit,SYS_EXT,int);
