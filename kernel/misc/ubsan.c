@@ -1,3 +1,37 @@
+/**
+ * @file  kernel/misc/ubsan.c
+ * @brief Callbacks for -fsanitize=undefined
+ *
+ * Rudimentary bindings for GCC (and possibly clang) undefined
+ * behavior sanitizer. The available bindings here are based on
+ * what was emitted from a test build of the x86-64 kernel and
+ * might not represent all of the possible things that could
+ * show up.
+ *
+ * Upon entry, each binding checks if reports are enabled and then
+ * disables reports to ensure no infinite recursion happens (in
+ * case reporting, in itself, leads to a report). Reports are then
+ * written to the configured console, a traceback is dumped, and
+ * reporting is re-enabled.
+ *
+ * There's no locking, and reporting is not checked and disabled
+ * in an atomic manner, so you probably want to run without SMP.
+ *
+ * How to use:
+ *
+ * - Build the whole kernel with @c -fsanitize=undefined
+ * - Ensure that @c __ubsan_enabled is set to 1 where you want
+ *   to start reporting UB.
+ * - Boot with serial logging enabled.
+ *
+ * Be prepared for the kernel to grow massively in size - a typical
+ * build goes from ~300K to nearly 2M.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2026 K. Lange
+ */
 #include <kernel/printf.h>
 #include <kernel/misc.h>
 
