@@ -1,6 +1,6 @@
 # ToaruOS
 
-ToaruOS is a complete, indepednent operating system for x86-64 PCs and ARMv8 VM environments.
+ToaruOS is a complete, independent operating system for x86-64 PCs and ARMv8 VM environments.
 
 The OS includes an SMP-capable modular kernel, C standard library with dynamic linker, a composited desktop environment, a [dynamic bytecode-compiled programming language](https://github.com/kuroko-lang/kuroko), [advanced code editor](https://github.com/klange/bim), and a rapidly expanding collection of POSIX utilities,
 all of which is original to the project and has no third-party dependencies.
