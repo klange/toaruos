@@ -10,24 +10,11 @@ DEFN_SYSCALL3(open,  SYS_OPEN, const char *, long, mode_t);
 
 int open(const char *name, int flags, ...) {
 	va_list argp;
-	int mode = 0;
-	int result;
+	mode_t mode = 0;
 	va_start(argp, flags);
 	if (flags & O_CREAT) mode = va_arg(argp, mode_t);
 	va_end(argp);
 
-	result = syscall_open(name, flags, mode);
-	if (result == -1) {
-		/* Not sure this is necessary */
-		if (flags & O_CREAT) {
-			errno = EACCES;
-		} else {
-			errno = ENOENT;
-		}
-	} else if (result < 0) {
-		errno = -result;
-		result = -1;
-	}
-	return result;
+	__sets_errno(syscall_open(name, flags, mode));
 }
 
