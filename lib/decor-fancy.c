@@ -16,6 +16,7 @@
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
 #include <toaru/text.h>
+#include <toaru/icon_cache.h>
 
 #define TTK_FANCY_PATH "/usr/share/ttk/fancy/"
 
@@ -41,6 +42,8 @@ static int ll_width = BASE_SIZE * TOTAL_SCALE;
 static int lr_width = BASE_SIZE * TOTAL_SCALE;
 
 static struct TT_Font * _tt_font = NULL;
+static int always_left_align = 0;
+static int use_window_icons = 1;
 
 #define BUTTON_CLOSE 0
 #define BUTTON_MAXIMIZE 1
@@ -206,14 +209,26 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 
 	int buttons_width = (!(window->decorator_flags & DECOR_FLAG_NO_MAXIMIZE)) ? 72 : 28;
 	int usable_width = width - bounds.width - (2 * buttons_width + 10) * TOTAL_SCALE;
+	int left_width = 0;
+
+	if (use_window_icons) {
+		sprite_t * icon = icon_get_16(window->icon ?: "applications-generic");
+		if (icon) {
+			int x = bounds.left_width + 8 * TOTAL_SCALE;
+			int y = (TEXT_OFFSET + 2) * TOTAL_SCALE;
+			draw_sprite_scaled_alpha(ctx, icon, x, y, 16, 16, (decors_active == ACTIVE) ? 1.0 : 0.7);
+			left_width = 18 * TOTAL_SCALE;
+			usable_width -= left_width;
+		}
+	}
 
 	tt_set_size(_tt_font, 12 * TOTAL_SCALE);
 	int title_width = tt_string_width(_tt_font, title);
-	if (title_width > usable_width) {
+	if (title_width > usable_width || always_left_align) {
 		usable_width += buttons_width * TOTAL_SCALE;
 		if (usable_width > 0) {
 			char * tmp_title = tt_ellipsify(title, 12 * TOTAL_SCALE, _tt_font, usable_width, &title_width);
-			int title_offset = bounds.left_width + 10 * TOTAL_SCALE;
+			int title_offset = bounds.left_width + 10 * TOTAL_SCALE + left_width;
 			tt_draw_string(ctx, _tt_font, title_offset, (TEXT_OFFSET + 14) * TOTAL_SCALE, tmp_title, title_color);
 			free(tmp_title);
 		}
@@ -303,5 +318,10 @@ void decor_init() {
 	decor_get_bounds = get_bounds_fancy;
 
 	_tt_font = tt_font_from_shm("sans-serif.bold");
+
+	/* TODO: Replace these environment variables with a more robust
+	 *       (and runtime-modifiable) configuration system. */
+	always_left_align = !!getenv("WM_LEFT_ALIGN"); /* Opt-in config. */
+	use_window_icons = !getenv("WM_NO_ICONS"); /* Opt-out config. */
 }
 
