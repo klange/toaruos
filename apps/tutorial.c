@@ -351,7 +351,7 @@ int main(int argc, char * argv[]) {
 
 	load_page(0);
 
-	yutani_window_advertise_icon(yctx, window, title_str, "star");
+	yutani_window_advertise_icon(yctx, window, title_str, "help");
 
 	ctx = init_graphics_yutani_double_buffer(window);
 	setup_buttons();
