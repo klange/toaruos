@@ -2358,6 +2358,15 @@ KRK_Module(_yutani2) {
 	BIND_FUNC(module,decor_render);
 	BIND_FUNC(module,decor_handle_event);
 	BIND_FUNC(module,decor_show_default_menu);
+#define CONST(n) krk_attachNamedValue(&module->fields, #n, INTEGER_VAL(n))
+	CONST(DECOR_OTHER);
+	CONST(DECOR_CLOSE);
+	CONST(DECOR_RESIZE);
+	CONST(DECOR_MAXIMIZE);
+	CONST(DECOR_RIGHT);
+	CONST(DECOR_MINIMIZE);
+	CONST(DECOR_REDRAW);
+#undef CONST
 
 	BIND_FUNC(module,rgb);
 
