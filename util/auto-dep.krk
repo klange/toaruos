@@ -44,6 +44,7 @@ class Classifier:
 
     def __init__(self, filename: str):
         self.export_dynamic_hint = False
+        self.pie_hint = False
         self.filename  = filename
         self.includes, self.libs = self._depends()
 
@@ -80,8 +81,15 @@ class Classifier:
         for l in lines:
             if l.startswith('#include'):
                 depends.extend(k for k in list(self.dependency_hints.keys()) if l.startswith('#include ' + k))
-            elif l.startswith('/* auto-dep: export-dynamic */'):
-                self.export_dynamic_hint = True
+            elif l.startswith('/* auto-dep:') or l.startswith(' * @auto-dep '):
+                let hints = l[l.find('auto-dep')+9:].replace('*/','').strip().split(',')
+                for hint in hints:
+                    if hint == 'export-dynamic':
+                        self.export_dynamic_hint = True
+                    else if hint == 'pie':
+                        self.pie_hint = True
+                    else:
+                        print(f"auto-dep: \[[31mwarning\[[0m: {self.filename}: unrecognized auto-dep hint '{hint}'", file=fileio.stderr)
         depends = self._calculate([], depends)
         depends = self._sort(depends)
         let includes  = []
@@ -93,6 +101,17 @@ class Classifier:
             if dep[1]:
                 libraries.append(dep[1])
         return includes, libraries
+
+    def build_hints(self):
+        let hints = []
+
+        if self.export_dynamic_hint:
+            hints.append('-rdynamic')
+
+        if self.pie_hint:
+            hints.append('-fPIE -pie')
+
+        return ' '.join(hints)
 
 
 def todep(name: str) -> (bool, str):
@@ -139,7 +158,7 @@ if __name__ == "__main__":
             headers=" ".join([toheader(x) for x in c.libs]),
             libraries=" ".join([x for x in c.libs]),
             includes=" ".join([x for x in c.includes if x is not None]),
-            extra="-rdynamic" if c.export_dynamic_hint else "",
+            extra=c.build_hints()
             ))
     elif command == "--buildlib":
         let libname = basename(filename).replace('.c++','').replace(".c","")
@@ -162,7 +181,7 @@ if __name__ == "__main__":
             libraries=" ".join([x for x in c.libs]),
             includes=" ".join([x for x in c.includes if x is not None]),
             comp="$(CC) $(CFLAGS)" if '.c++' not in filename else "$(CXX) $(CXXFLAGS)",
-            extra="-rdynamic" if c.export_dynamic_hint else ""
+            extra=c.build_hints()
             ))
     elif command == "--makelib":
         let libname = basename(filename).replace('.c++','').replace(".c","")
