@@ -111,7 +111,7 @@ static void vmware_get_hb(vmware_cmd * cmd) {
 
 static void mouse_off(void) {
 	/* Disable the absolute mouse */
-	vmware_cmd cmd;
+	vmware_cmd cmd = {0};
 	cmd.bx = ABSPOINTER_RELATIVE;
 	cmd.command = CMD_ABSPOINTER_COMMAND;
 	vmware_send(&cmd);
@@ -126,7 +126,7 @@ static void mouse_absolute(void) {
 	 * falls back to the PS/2 (or USB, I guess) device anyway,
 	 * so instead of using that we just... turn it off.
 	 */
-	vmware_cmd cmd;
+	vmware_cmd cmd = {0};
 
 	/* Enable */
 	cmd.bx = ABSPOINTER_ENABLE;
@@ -156,7 +156,7 @@ static void vmware_mouse(uint8_t byte) {
 	vmware_mouse_byte = byte;
 
 	/* Read status byte. */
-	vmware_cmd cmd;
+	vmware_cmd cmd = {0};
 	cmd.bx = 0;
 	cmd.command = CMD_ABSPOINTER_STATUS;
 	vmware_send(&cmd);
@@ -235,7 +235,7 @@ static void vmware_mouse(uint8_t byte) {
 }
 
 static int detect_device(void) {
-	vmware_cmd cmd;
+	vmware_cmd cmd = {0};
 
 	/* read version */
 	cmd.bx = ~VMWARE_MAGIC;
@@ -253,7 +253,7 @@ static int detect_device(void) {
 
 
 static int open_msg_channel(uint32_t proto) {
-	vmware_cmd cmd;
+	vmware_cmd cmd = {0};
 	cmd.cx = CMD_MESSAGE | 0x00000000; /* CMD_MESSAGE */
 	cmd.bx = proto;
 	vmware_send(&cmd);
