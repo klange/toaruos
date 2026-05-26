@@ -33,11 +33,6 @@ static void (*callback_close)(yutani_window_t *) = NULL;
 static void (*callback_resize)(yutani_window_t *) = NULL;
 static void (*callback_maximize)(yutani_window_t *) = NULL;
 
-static int close_enough(struct yutani_msg_window_mouse_event * me) {
-	return (me->command == YUTANI_MOUSE_EVENT_RAISE &&
-			sqrt(pow(me->new_x - me->old_x, 2.0) + pow(me->new_y - me->old_y, 2.0)) < 10.0);
-}
-
 static struct TT_Font * tt_font = NULL;
 
 static void render_decorations_simple(yutani_window_t * window, gfx_context_t * ctx, char * title, int decors_active) {
@@ -304,6 +299,7 @@ static yutani_scale_direction_t check_resize_direction(struct yutani_msg_window_
 
 static yutani_scale_direction_t old_resize_direction = SCALE_NONE;
 int decor_hover_button = 0;
+int decor_down_button  = 0;
 yutani_window_t * decor_hover_window = NULL;
 
 static uint64_t precise_current_time(void) {
@@ -380,6 +376,7 @@ int decor_handle_event_flags(yutani_t * yctx, yutani_msg_t * m, int flags) {
 								}
 								return DECOR_OTHER;
 							}
+							decor_down_button = button;
 						}
 						if (_decor_max_on_up &&
 							(me->command == YUTANI_MOUSE_EVENT_RAISE || me->command == YUTANI_MOUSE_EVENT_CLICK))  {
@@ -430,7 +427,8 @@ int decor_handle_event_flags(yutani_t * yctx, yutani_msg_t * m, int flags) {
 								old_resize_direction = SCALE_NONE;
 							}
 						}
-						if (me->command == YUTANI_MOUSE_EVENT_CLICK || close_enough(me)) {
+						if (me->command == YUTANI_MOUSE_EVENT_CLICK ||
+								(me->command == YUTANI_MOUSE_EVENT_RAISE && button && decor_down_button == button)) {
 							/* Determine if we clicked on a button */
 							switch (button) {
 								case DECOR_CLOSE:
@@ -450,6 +448,7 @@ int decor_handle_event_flags(yutani_t * yctx, yutani_msg_t * m, int flags) {
 							}
 							decor_hover_window = NULL;
 							decor_hover_button = 0;
+							decor_down_button = 0;
 							yutani_internal_refocus(yctx, window);
 							return button;
 						}
