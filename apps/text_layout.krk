@@ -266,11 +266,13 @@ class MyWindow(Window):
 
     def mouse_event(self, msg):
         let decResponse = decor_handle_event(msg)
-        if decResponse == 2:
+        if decResponse == DECOR_CLOSE:
             self.close()
             return True
-        else if decResponse == 5:
+        else if decResponse == DECOR_RIGHT:
             decor_show_default_menu(self, self.x + msg.new_x, self.y + msg.new_y)
+        else if decResponse == DECOR_REDRAW:
+            self.draw()
         self.mb.mouse_event(self, msg)
         let nc = msg.new_x, msg.new_y
         if nc != self.cursor:

@@ -1,9 +1,5 @@
 #!/bin/kuroko
-from _yutani2 import (YutaniCtx, Font, rgb, MenuBar, decor_get_bounds, decor_render,
-                      MenuList, MenuEntry, decor_handle_event, decor_show_default_menu,
-                      Sprite, TTContour, TransformMatrix, MenuEntrySubmenu, TTShape,
-                      MenuEntryToggle)
-
+from _yutani2 import *
 from yutani_mainloop import Window, yctx as y, AsyncMainloop, Task, sleep
 import math
 import random
@@ -184,11 +180,13 @@ class MyWindow(Window):
 
     def mouse_event(self, msg):
         let decResponse = decor_handle_event(msg)
-        if decResponse == 2:
+        if decResponse == DECOR_CLOSE:
             self.close()
             return True
-        else if decResponse == 5:
+        else if decResponse == DECOR_RIGHT:
             decor_show_default_menu(self, self.x + msg.new_x, self.y + msg.new_y)
+        else if decResponse == DECOR_REDRAW:
+            self.draw()
         self.mb.mouse_event(self, msg)
         let nc = msg.new_x, msg.new_y
         if cursor != nc:

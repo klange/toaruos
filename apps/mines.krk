@@ -7,8 +7,7 @@ Visual design is based on the Gnome "Mines".
 '''
 import math
 import random
-from _yutani2 import (Font, rgb, decor_get_bounds, decor_render, decor_handle_event, decor_show_default_menu,
-    MenuBar, MenuEntry, MenuEntrySeparator, MenuList, MenuEntrySubmenu)
+from _yutani2 import *
 from yutani_mainloop import Window, AsyncMainloop
 
 let app_name = 'Mines'
@@ -287,11 +286,13 @@ class MinesWindow(Window):
 
     def mouse_event(self, msg):
         let decResponse = decor_handle_event(msg)
-        if decResponse == 2:
+        if decResponse == DECOR_CLOSE:
             self.close()
             return True
-        else if decResponse == 5:
+        else if decResponse == DECOR_RIGHT:
             decor_show_default_menu(self, self.x + msg.new_x, self.y + msg.new_y)
+        else if decResponse == DECOR_REDRAW:
+            self.draw()
 
         let bounds = decor_get_bounds(self)
         let x, y = msg.new_x, msg.new_y
