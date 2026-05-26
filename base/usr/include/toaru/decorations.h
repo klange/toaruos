@@ -47,6 +47,7 @@ extern void (*decor_render_decorations)(yutani_window_t *, gfx_context_t *, char
 extern int  (*decor_check_button_press)(yutani_window_t *, int x, int y);
 extern int  (*decor_get_bounds)(yutani_window_t *, struct decor_bounds *);
 extern int decor_hover_button;
+extern int decor_down_button;
 extern yutani_window_t * decor_hover_window;
 
 /*

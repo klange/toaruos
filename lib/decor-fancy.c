@@ -238,13 +238,14 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 	}
 
 	uint32_t h_color = rgb(100,100,100);
+	uint32_t d_color = rgb(50,50,50);
 	uint32_t i_color = (decor_hover_window == window && decor_hover_button) ? ACTIVE_COLOR : title_color;
 
 	if (width + (BUTTON_OFFSET - 28) * TOTAL_SCALE > bounds.left_width) {
 		if (decor_hover_window == window && decor_hover_button == DECOR_CLOSE) {
 			draw_rounded_rectangle(ctx,
 				width + (BUTTON_OFFSET - 28 - BUTTON_PAD) * TOTAL_SCALE,
-				(16 - BUTTON_OFFSET - BUTTON_PAD) * TOTAL_SCALE, 8 + BUTTON_PAD * 2, 8 + BUTTON_PAD * 2, 4, h_color);
+				(16 - BUTTON_OFFSET - BUTTON_PAD) * TOTAL_SCALE, 8 + BUTTON_PAD * 2, 8 + BUTTON_PAD * 2, 4, (decor_down_button == DECOR_CLOSE) ? d_color : h_color);
 		}
 		draw_sprite_alpha_paint(ctx, sprites[BUTTON_CLOSE],
 			width + (BUTTON_OFFSET - 28) * TOTAL_SCALE,
@@ -255,7 +256,7 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 				if (decor_hover_window == window && decor_hover_button == DECOR_MAXIMIZE) {
 					draw_rounded_rectangle(ctx,
 						width + (BUTTON_OFFSET - 50 - BUTTON_PAD) * TOTAL_SCALE,
-						(16 - BUTTON_OFFSET - BUTTON_PAD) * TOTAL_SCALE, 8 + BUTTON_PAD * 2, 8 + BUTTON_PAD * 2, 4, h_color);
+						(16 - BUTTON_OFFSET - BUTTON_PAD) * TOTAL_SCALE, 8 + BUTTON_PAD * 2, 8 + BUTTON_PAD * 2, 4, (decor_down_button == DECOR_MAXIMIZE) ? d_color : h_color);
 				}
 				draw_sprite_alpha_paint(ctx, sprites[(window->decorator_flags & DECOR_FLAG_TILED) ? BUTTON_UNMAXIMIZE : BUTTON_MAXIMIZE],
 					width + (BUTTON_OFFSET - 50) * TOTAL_SCALE,
@@ -265,7 +266,7 @@ static void render_decorations_fancy(yutani_window_t * window, gfx_context_t * c
 					if (decor_hover_window == window && decor_hover_button == DECOR_MINIMIZE) {
 						draw_rounded_rectangle(ctx,
 							width + (BUTTON_OFFSET - 72 - BUTTON_PAD) * TOTAL_SCALE,
-							(16 - BUTTON_OFFSET - BUTTON_PAD) * TOTAL_SCALE, 8 + BUTTON_PAD * 2, 8 + BUTTON_PAD * 2, 4, h_color);
+							(16 - BUTTON_OFFSET - BUTTON_PAD) * TOTAL_SCALE, 8 + BUTTON_PAD * 2, 8 + BUTTON_PAD * 2, 4, (decor_down_button == DECOR_MINIMIZE) ? d_color : h_color);
 					}
 					draw_sprite_alpha_paint(ctx, sprites[BUTTON_MINIMIZE],
 						width + (BUTTON_OFFSET - 72) * TOTAL_SCALE,

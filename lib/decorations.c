@@ -355,6 +355,9 @@ int decor_handle_event_flags(yutani_t * yctx, yutani_msg_t * m, int flags) {
 					}
 					if (within_decors(window, me->new_x, me->new_y)) {
 						int button = decor_check_button_press(window, me->new_x, me->new_y);
+						if (decor_down_button != button && (me->command == YUTANI_MOUSE_EVENT_CLICK || me->command == YUTANI_MOUSE_EVENT_RAISE)) {
+							decor_down_button = 0;
+						}
 						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
 							if (!button || button == DECOR_OTHER) {
 								/* Resize edges */
@@ -376,7 +379,12 @@ int decor_handle_event_flags(yutani_t * yctx, yutani_msg_t * m, int flags) {
 								}
 								return DECOR_OTHER;
 							}
-							decor_down_button = button;
+							if (button && button != decor_down_button) {
+								decor_down_button = button;
+								yutani_internal_refocus(yctx, window);
+								return DECOR_REDRAW;
+							}
+							decor_down_button = 0;
 						}
 						if (_decor_max_on_up &&
 							(me->command == YUTANI_MOUSE_EVENT_RAISE || me->command == YUTANI_MOUSE_EVENT_CLICK))  {
@@ -459,6 +467,9 @@ int decor_handle_event_flags(yutani_t * yctx, yutani_msg_t * m, int flags) {
 							return DECOR_REDRAW;
 						}
 					} else {
+						if (decor_down_button && (me->command == YUTANI_MOUSE_EVENT_CLICK || me->command == YUTANI_MOUSE_EVENT_RAISE)) {
+							decor_down_button = 0;
+						}
 						if (old_resize_direction != SCALE_NONE) {
 							yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESET);
 							old_resize_direction = SCALE_NONE;
