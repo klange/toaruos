@@ -518,9 +518,24 @@ extern uint8_t vbe_info_bpp;
 
 extern void bios_text_mode(void);
 
+static int str_contains(const char *haystack, const char * needle) {
+	while (*haystack) {
+		const char *h = haystack;
+		const char *n = needle;
+		while (*n) {
+			if (*h != *n) break;
+			h++;
+			n++;
+		}
+		if (!*n) return 1;
+		haystack++;
+	}
+	return 0;
+}
+
 void boot(void) {
 	/* Did we ask for VGA text mode and are currently in a video mode? */
-	if (boot_mode == 5) {
+	if (str_contains(cmdline, "vid=text")) {
 		bios_text_mode();
 	}
 

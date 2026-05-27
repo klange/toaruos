@@ -40,7 +40,7 @@ char * LINK_TEXT = "https://toaruos.org - https://github.com/klange/toaruos";
 #define DEFAULT_ROOT_CMDLINE "root=/dev/ram0 "
 #define DEFAULT_GRAPHICAL_CMDLINE "start=live-session "
 #define DEFAULT_SINGLE_CMDLINE "start=\"terminal -F\" "
-#define DEFAULT_TEXT_CMDLINE "start=--vga vid=text "
+#define DEFAULT_TEXT_CMDLINE "start=--vga "
 #define DEFAULT_VID_CMDLINE "vid=auto "
 #define MIGRATE_CMDLINE "migrate "
 #define DEFAULT_HEADLESS_CMDLINE "start=--headless "
@@ -55,9 +55,7 @@ struct bootmode boot_mode_names[] = {
 	{2, "video",    "Configure Video Output"},
 	{3, "single",   "Single-User Graphical Terminal"},
 	{4, "headless", "Headless"},
-#ifndef EFI_PLATFORM
-	{5, "vga",      "VGA Text Mode"},
-#endif
+	{5, "vga",      "Text-Mode Console"},
 };
 
 int base_sel = 0;
@@ -93,10 +91,6 @@ int kmain() {
 			"(Requires VMware driver) Enables support for",
 			"automatically setting display size in VMware");
 
-	BOOT_OPTION(_qemubug,     0, "QEMU PS/2 workaround",
-			"Work around a bug in QEMU's PS/2 controller",
-			"prior to 6.0.50.");
-
 	BOOT_OPTION(_migrate,     1, "Writable root",
 			"Migrates the ramdisk from tarball to an in-memory",
 			"temporary filesystem at boot. Needed for packages.");
@@ -104,6 +98,14 @@ int kmain() {
 	BOOT_OPTION(_lfbwc,       1, "WC framebuffer",
 			"Enables write-combining PAT configuration for",
 			"framebuffers. Toggle if graphics are slow.");
+
+#ifndef EFI_PLATFORM
+	BOOT_OPTION(_true_vga,    0, "VGA text mode",
+			"When using the Text-Mode Console, use the real VGA",
+			"text mode instead of emulated text mode.");
+#else
+	int _true_vga = 0;
+#endif
 
 	while (1) {
 		/* Loop over rendering the menu */
@@ -163,12 +165,15 @@ int kmain() {
 			strcat(cmdline, "nosmp ");
 		}
 
-		if (_qemubug) {
-			strcat(cmdline, "sharedps2 ");
-		}
-
 		if (_lfbwc) {
 			strcat(cmdline, "lfbwc ");
+		}
+
+		if (_true_vga) {
+			strcat(cmdline, "vid=text ");
+		} else {
+			strcat(cmdline, "emulvga ");
+			strcat(cmdline, _video_command_line);
 		}
 
 		if (!boot_edit) break;
