@@ -1,0 +1,153 @@
+import fileio
+import os
+import stat
+from util import pack_into
+
+let users = {
+    'root': 0,
+    'local': 1000,
+    'guest': 1001,
+}
+
+let restricted_files = {
+    'etc/master.passwd': 0o600,
+    'etc/sudoers': 0o600,
+    'tmp/': 0o777,
+    'var/': 0o755,
+    'bin/sudo': 0o4555,
+    'bin/gsudo': 0o4555,
+    'bin/newgrp': 0o4555,
+}
+
+def pad_to(buf, length):
+    let nbuf = bytearray(length)
+    for x in range(length):
+        if x < len(buf):
+            nbuf[x] = buf[x]
+    return nbuf
+
+let output = fileio.open('ramdisk.tar','wb')
+
+def do_file(p, fn, recurse=True):
+    let sr = os.stat(p)
+    # Fill in the metadata
+    let data = bytearray(512)
+    let uid = 0
+    let user = 'root'
+    let mode = sr.st_mode & 0o7777
+    if fn.startswith('home/'):
+        let comp = fn.split('/')
+        user = comp[1]
+        uid = users.get(user,0)
+        if len(comp) == 3 and comp[2] == '':
+            mode &= ~0o7
+    else if fn in restricted_files:
+        mode = restricted_files[fn]
+
+    if fn.startswith('src/'):
+        uid = users.get('local',0)
+        if fn.endswith('.so') or fn.endswith('.o') or fn.endswith('.sys'):
+            return
+
+    if fn.startswith('src/kuroko/kuroko'):
+        return
+
+    if fn.startswith('usr/include/kuroko') and stat.S_ISLNK(sr.st_mode):
+        return
+
+    pack_into('100s', data, 0,   pad_to(fn.encode(),100))
+    pack_into('7s',   data, 100, format(mode, '07o').encode())
+    pack_into('7s',   data, 108, format(uid, '07o').encode()) # uid
+    pack_into('7s',   data, 116, format(uid, '07o').encode()) # gid
+    pack_into('11s',  data, 124, ('0'*11).encode())
+    pack_into('11s',  data, 136, ('0'*11).encode())
+    pack_into('6s',   data, 148, ('0'*6).encode())
+
+    pack_into('7s',    data, 257, b'ustar  ')
+
+    # Fill in the rest of the metadata
+    if stat.S_ISDIR(sr.st_mode):
+        pack_into('1s',   data, 156, b'5')
+    else if stat.S_ISLNK(sr.st_mode):
+        pack_into('1s',   data, 156, b'2')
+        pack_into('100s', data, 157, pad_to(os.readlink(p).encode(), 100))
+    else if stat.S_ISREG(sr.st_mode):
+        pack_into('11s',  data, 124, format(sr.st_size, '011o').encode())
+        pack_into('1s',   data, 156, b'0')
+    else:
+        os.exit(1)
+
+    output.write(bytes(data))
+
+    if stat.S_ISDIR(sr.st_mode):
+        if recurse:
+            recurse_directory(p, fn)
+    else if stat.S_ISREG(sr.st_mode):
+        with fileio.open(p,'rb') as rf:
+            let last_read = 512
+            while True:
+                let buf = rf.read(512)
+                if not buf:
+                    break
+                last_read = len(buf)
+                output.write(buf)
+            if last_read != 512:
+                output.write(bytes(512 - last_read))
+
+def recurse_directory(dirname, prefix=''):
+    let names = []
+    with fileio.opendir(dirname) as d:
+        for f in d:
+            let n = f['name']
+            if n == '.' or n == '..':
+                continue
+
+            # Figure out the name
+            let p = dirname + '/' + n
+            let sr = os.stat(p)
+            if stat.S_ISDIR(sr.st_mode):
+                n += '/'
+            let fn = prefix + n
+
+            names.append((n, p, fn))
+
+    for n, p, fn in sorted(names):
+        do_file(p, fn)
+
+def artificial_symlink(fn, dest, uid=0, gid=0, mode=0o777):
+    # Fill in the metadata
+    let data = bytearray(512)
+    pack_into('100s', data, 0,   pad_to(fn.encode(),100))
+    pack_into('7s',   data, 100, format(mode, '07o').encode())
+    pack_into('7s',   data, 108, format(uid, '07o').encode()) # uid
+    pack_into('7s',   data, 116, format(gid, '07o').encode()) # gid
+    pack_into('11s',  data, 124, ('0'*11).encode())
+    pack_into('11s',  data, 136, ('0'*11).encode())
+    pack_into('6s',   data, 148, ('0'*6).encode())
+    pack_into('7s',    data, 257, b'ustar  ')
+    pack_into('1s',   data, 156, b'2')
+    pack_into('100s', data, 157, pad_to(dest.encode(), 100))
+    output.write(bytes(data))
+
+
+do_file('base','/',False)
+recurse_directory('base')
+artificial_symlink('bin/sh','esh')
+artificial_symlink('bin/mandelbrot','julia')
+artificial_symlink('bin/fgrep','grep')
+artificial_symlink('bin/cksum','crc32')
+artificial_symlink('lib/ld.so','libc.so')
+artificial_symlink('bin/ldd','/lib/libc.so')
+artificial_symlink('bin/apropos','man')
+artificial_symlink('bin/whatis','man')
+
+do_file('util/auto-dep.krk','bin/auto-dep.krk')
+do_file('kuroko/src/kuroko','usr/include/kuroko/')
+
+if os.environ.get('NO_SRC_DIR') != '1':
+    do_file('base','src/',False)
+    do_file('base','src/bim/',False)
+    for s in ('apps/','kernel/','lib/','libc/','boot/','modules/','tests/','tags','bim/bim.c','bim/bim.h'):
+        if os.access(s,os.F_OK):
+            do_file(s,'src/' + s)
+    do_file('kuroko/src','src/kuroko/')

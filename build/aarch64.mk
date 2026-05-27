@@ -7,7 +7,7 @@ ARCH_USER_CFLAGS = -Wno-psabi --sysroot=base -z max-page-size=0x1000
 TARGET=aarch64-unknown-toaru
 
 all: system
-system: misaka-kernel ramdisk.igz bootstub kernel8.img | $(BUILD_KRK)
+system: misaka-kernel ramdisk.igz bootstub kernel8.img | $(TOOLCHAIN)/local/bin/kuroko
 
 BOOTSTUB_OBJS  = $(patsubst %.c,%.o,$(wildcard kernel/arch/aarch64/bootstub/*.c))
 BOOTSTUB_OBJS += $(patsubst %.S,%.o,$(wildcard kernel/arch/aarch64/bootstub/*.S))
@@ -69,9 +69,4 @@ shell-hvf: shell
 
 debug: system
 	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session vid=auto" ${EMU_RAMDISK} ${EMU_KERNEL} -d int 2>&1
-
-BUILD_KRK=$(TOOLCHAIN)/local/bin/kuroko
-$(TOOLCHAIN)/local/bin/kuroko: kuroko/src/*.c
-	mkdir -p $(TOOLCHAIN)/local/bin
-	cc -Ikuroko/src -DKRK_BUNDLE_LIBS="BUNDLED(os);BUNDLED(fileio);" -DNO_RLINE -DKRK_STATIC_ONLY -DKRK_DISABLE_THREADS -o "${TOOLCHAIN}/local/bin/kuroko" kuroko/src/*.c kuroko/src/modules/module_os.c kuroko/src/modules/module_fileio.c
 
