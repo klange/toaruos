@@ -20,16 +20,13 @@ int vsscanf(const char *str, const char *format, va_list ap) {
 			int _long = 0;
 
 			if (*format == 'l') {
+				_long = 1;
 				format++;
-				if (*format == 'l') {
-					_long = 1;
-					if (__libc_debug) fprintf(stderr, "%s: \033[33;3mWarning\033[0m: Need to scan a large pointer (%d)\n", _argv_0, _long);
-					format++;
-				}
+				if (__libc_debug) fprintf(stderr, "%s: \033[33;3mWarning\033[0m: Need to scan a large pointer (%d)\n", _argv_0, _long);
 			}
 
 			if (*format == 'd') {
-				int i = 0;
+				long i = 0;
 				int sign = 1;
 				while (isspace(*str)) str++;
 				if (*str == '-') {
@@ -40,21 +37,34 @@ int vsscanf(const char *str, const char *format, va_list ap) {
 					i = i * 10 + *str - '0';
 					str++;
 				}
-				int * out = (int *)va_arg(ap, int*);
-				if (__libc_debug) fprintf(stderr, "%s: sscanf: out %d\n", _argv_0, i);
+				i *= sign;
+				if (__libc_debug) fprintf(stderr, "%s: sscanf: out %ld\n", _argv_0, i);
+				if (_long) {
+					void * out = (void *)va_arg(ap, long*);
+					memcpy(out, &i, sizeof(long));
+				} else {
+					int _i = i;
+					void * out = (void *)va_arg(ap, int*);
+					memcpy(out, &_i, sizeof(int));
+				}
 				count++;
-				*out = i * sign;
 			} else if (*format == 'u') {
-				unsigned int i = 0;
+				unsigned long i = 0;
 				while (isspace(*str)) str++;
 				while (*str && *str >= '0' && *str <= '9') {
 					i = i * 10 + *str - '0';
 					str++;
 				}
-				unsigned int * out = (unsigned int *)va_arg(ap, unsigned int*);
-				if (__libc_debug) fprintf(stderr, "%s: sscanf: out %d\n", _argv_0, i);
+				if (__libc_debug) fprintf(stderr, "%s: sscanf: out %lu\n", _argv_0, i);
+				if (_long) {
+					void * out = (void *)va_arg(ap, unsigned long*);
+					memcpy(out, &i, sizeof(unsigned long));
+				} else {
+					unsigned int _i = i;
+					void * out = (void *)va_arg(ap, unsigned int*);
+					memcpy(out, &_i, sizeof(unsigned int));
+				}
 				count++;
-				*out = i;
 			}
 		} else {
 			/* Expect exact character? */
