@@ -268,7 +268,7 @@ DECL_SYSCALL1(times, struct tms*);
 DECL_SYSCALL4(ptrace, int, int, void*, void*);
 DECL_SYSCALL2(settimeofday, void *, void *);
 DECL_SYSCALL0(nproc);
-DECL_SYSCALL1(insmod, char**);
+DECL_SYSCALL3(insmod, int, int, char**);
 
 _End_C_Header
 

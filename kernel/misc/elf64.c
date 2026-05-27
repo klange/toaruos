@@ -59,93 +59,95 @@ static uint32_t aarch64_imm_12(uint32_t val) {
 	return (val & 0xFFF) << 10;
 }
 
-int elf_module(char ** args) {
+int elf_module(fs_node_t *file, int argc, char ** argv) {
 	int error = 0;
 	Elf64_Header header;
 
-	fs_node_t * file = kopen_error(args[0],0,&error);
-
-	if (!file) {
-		return -error;
-	}
-
-	read_fs(file, 0, sizeof(Elf64_Header), (uint8_t*)&header);
-
-	if (header.e_ident[0] != ELFMAG0 ||
+	ssize_t header_size = read_fs(file, 0, sizeof(Elf64_Header), (uint8_t*)&header);
+	if (header_size != sizeof(Elf64_Header) ||
+	    header.e_ident[0] != ELFMAG0 ||
 	    header.e_ident[1] != ELFMAG1 ||
 	    header.e_ident[2] != ELFMAG2 ||
-	    header.e_ident[3] != ELFMAG3) {
-		printf("Invalid file: Bad header.\n");
-		close_fs(file);
-		return -EINVAL;
+	    header.e_ident[3] != ELFMAG3 ||
+	    header.e_ident[EI_CLASS] != ELFCLASS64 ||
+	    header.e_type != ET_REL ||
+	    !header.e_shnum ||
+	    header.e_shentsize != sizeof(Elf64_Shdr)) {
+		return -ENOEXEC;
 	}
 
-	if (header.e_ident[EI_CLASS] != ELFCLASS64) {
-		printf("(Wrong Elf class)\n");
-		close_fs(file);
-		return -EINVAL;
-	}
-
-	if (header.e_type != ET_REL) {
-		printf("(Not a relocatable object)\n");
-		close_fs(file);
+	Elf64_Shdr * shdrs = malloc(header.e_shentsize * header.e_shnum);
+	if (read_fs(file, header.e_shoff, header.e_shentsize * header.e_shnum, (void*)shdrs) != header.e_shentsize * header.e_shnum) {
+		free(shdrs);
 		return -EINVAL;
 	}
 
 	mutex_acquire(_modules_mutex);
 
-	/* Just slap the whole thing into memory, why not... */
-	char * module_load_address = mmu_map_module(file->length);
-	read_fs(file, 0, file->length, (void*)module_load_address);
+	char * module_load_address = NULL;
+	size_t module_size = 0;
+	struct Module * moduleData = NULL;
 
-	/**
-	 * Set up section header entries to have correct loaded addresses, and map
-	 * any NOBITS sections to new memory. We'll page-align anything, which
-	 * should be good enough for any object files we make...
+	/*
+	 * Loop over sections in two passes:
+	 * First we calculate how much space we'll need to allocate for the module.
+	 * Then we actually read the module / zero out NOBITS sections.
 	 */
-	for (unsigned int i = 0; i < header.e_shnum; ++i) {
-		Elf64_Shdr * sectionHeader = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * i);
-		if (sectionHeader->sh_type == SHT_NOBITS) {
-			sectionHeader->sh_addr = (uintptr_t)mmu_map_module(sectionHeader->sh_size);
-			memset((void*)sectionHeader->sh_addr, 0, sectionHeader->sh_size);
-		} else {
-			sectionHeader->sh_addr = (uintptr_t)(module_load_address + sectionHeader->sh_offset);
-			if (sectionHeader->sh_addralign &&
-				(sectionHeader->sh_addr & (sectionHeader->sh_addralign -1))) {
-				dprintf("mod: (%s, %#zx) probably not aligned correctly: %#zx %ld\n",
-					args[0], sectionHeader->sh_offset, sectionHeader->sh_addr, sectionHeader->sh_addralign);
+	for (int j = 0; j < 2; ++j) {
+		size_t current_offset = 0;
+		for (unsigned int i = 0; i < header.e_shnum; ++i) {
+
+			/* Align this section as requested. */
+			if (current_offset & (shdrs[i].sh_addralign - 1)) {
+				current_offset = (current_offset + (shdrs[i].sh_addralign - 1)) & ~(shdrs[i].sh_addralign - 1);
 			}
+
+			if (module_load_address) {
+				/* Second pass, actually load. */
+				uintptr_t addr = (uintptr_t)module_load_address + current_offset;
+				shdrs[i].sh_addr = addr;
+
+				if (shdrs[i].sh_type == SHT_NOBITS) {
+					memset((char*)addr, 0, shdrs[i].sh_size);
+				} else {
+					if (read_fs(file, shdrs[i].sh_offset, shdrs[i].sh_size, (void*)addr) != (ssize_t)shdrs[i].sh_size) {
+						error = -EINVAL;
+						goto _unmap_module;
+					}
+				}
+			}
+
+			current_offset += shdrs[i].sh_size;
+		}
+
+		/* Ensure the size we allocate is page aligned. */
+		if (current_offset & (4095)) {
+			current_offset = (current_offset + 4095) & ~4095;
+		}
+
+		if (!module_load_address) {
+			/* First pass, allocate space. */
+			module_size = current_offset;
+			module_load_address = mmu_map_module(module_size);
 		}
 	}
 
-	struct Module * moduleData = NULL;
-
-	/**
-	 * Let's start loading symbols...
-	 */
 	for (unsigned int i = 0; i < header.e_shnum; ++i) {
-		Elf64_Shdr * sectionHeader = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * i);
-		if (sectionHeader->sh_type != SHT_SYMTAB) continue;
-		Elf64_Shdr * strtab_hdr = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * sectionHeader->sh_link);
-		char * symNames = (char*)strtab_hdr->sh_addr;
-		Elf64_Sym * symTable = (Elf64_Sym*)sectionHeader->sh_addr;
-		/* Uh, we should be able to figure out how many symbols we have by doing something less dumb than
-		 * just checking the size of the section, right? */
-		for (unsigned int sym = 0; sym < sectionHeader->sh_size / sizeof(Elf64_Sym); ++sym) {
-			/* Unlike the previous implementation of this module loader in toaru32,
-			 * we specifically do not support binding symbols directly from newly
-			 * loaded modules. If a module wants to expose symbols, it should use
-			 * @c ksym_bind to supply new symbol names to the symbol table. */
+		if (shdrs[i].sh_type != SHT_SYMTAB) continue;
+		char * strtab = (char*)shdrs[shdrs[i].sh_link].sh_addr;
+		Elf64_Sym * syms = (Elf64_Sym*)shdrs[i].sh_addr;
 
-			if (symTable[sym].st_shndx > 0 && symTable[sym].st_shndx < SHN_LOPROC) {
-				Elf64_Shdr * sh_hdr = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * symTable[sym].st_shndx);
-				symTable[sym].st_value = symTable[sym].st_value + sh_hdr->sh_addr;
-			} else if (symTable[sym].st_shndx == SHN_UNDEF) {
-				symTable[sym].st_value = (uintptr_t)ksym_lookup(symNames + symTable[sym].st_name);
+		for (unsigned int j = 0; j < shdrs[i].sh_size / sizeof(Elf64_Sym); ++j) {
+			if (syms[j].st_shndx > 0 && syms[j].st_shndx < SHN_LOPROC) {
+				/* Local */
+				syms[j].st_value += shdrs[syms[j].st_shndx].sh_addr;
+			} else if (syms[j].st_shndx == SHN_UNDEF) {
+				/* Undefined global. */
+				syms[j].st_value = (uintptr_t)ksym_lookup(strtab + syms[j].st_name);
 			}
 
-			if (symTable[sym].st_name && !strcmp(symNames + symTable[sym].st_name, "metadata")) {
-				moduleData = (void*)symTable[sym].st_value;
+			if (syms[j].st_name && !strcmp(strtab + syms[j].st_name, "metadata")) {
+				moduleData = (void*)syms[j].st_value;
 			}
 		}
 	}
@@ -156,16 +158,16 @@ int elf_module(char ** args) {
 	}
 
 	for (unsigned int i = 0; i < header.e_shnum; ++i) {
-		Elf64_Shdr * sectionHeader = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * i);
+		Elf64_Shdr * sectionHeader = &shdrs[i];
 		if (sectionHeader->sh_type != SHT_RELA) continue;
 
 		Elf64_Rela * table = (Elf64_Rela*)sectionHeader->sh_addr;
 
 		/* Get the section these relocations apply to */
-		Elf64_Shdr * targetSection = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * sectionHeader->sh_info);
+		Elf64_Shdr * targetSection = &shdrs[sectionHeader->sh_info];
 
 		/* Get the symbol table */
-		Elf64_Shdr * symbolSection = (Elf64_Shdr*)(module_load_address + header.e_shoff + header.e_shentsize * sectionHeader->sh_link);
+		Elf64_Shdr * symbolSection = &shdrs[sectionHeader->sh_link];
 		Elf64_Sym * symbolTable = (Elf64_Sym *)symbolSection->sh_addr;
 
 #define S (symbolTable[ELF64_R_SYM(table[rela].r_info)].st_value)
@@ -236,23 +238,19 @@ int elf_module(char ** args) {
 	loadedData->metadata = moduleData;
 	loadedData->baseAddress = (uintptr_t)module_load_address;
 	loadedData->fileSize = file->length;
-	loadedData->loadedSize = (uintptr_t)mmu_map_module(0) - (uintptr_t)module_load_address;
+	loadedData->loadedSize = module_size;
 
-	close_fs(file);
+	free(shdrs);
 
 	hashmap_set(_modules_table, moduleData->name, loadedData);
 	mutex_release(_modules_mutex);
 
 	/* Count arguments */
-	int argc = 0;
-	for (char ** aa = args; *aa; ++aa) ++argc;
-
-	return moduleData->init(argc, args);
+	return moduleData->init(argc, argv);
 
 _unmap_module:
-	close_fs(file);
-
-	mmu_unmap_module((uintptr_t)module_load_address, (uintptr_t)mmu_map_module(0) - (uintptr_t)module_load_address);
+	free(shdrs);
+	mmu_unmap_module((uintptr_t)module_load_address, module_size);
 
 	mutex_release(_modules_mutex);
 	return -error;

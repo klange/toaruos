@@ -1,12 +1,21 @@
-.TH INSMOD 1 "March, 2026"
+.TH INSMOD 1 "May, 2026"
+
 .SH NAME
 \fBinsmod\fP \- load kernel modules
+
 .SH SYNOPSIS
-\fBinsmod\fP \fImodule\fP [\fIarg\fP]...
+\fBinsmod\fP [\fB\-p\fP] \fImodule\fP [\fIarg\fP]...
+
 .SH DESCRIPTION
 Load the specified \fImodule\fP into the kernel.
 .PP
 Modules are ELF static objects that extend kernel functionality, generally with new device drivers.
+
+.SS Options
+.TP
+.B \-p
+Search for a module name (without a file extension) in the configured module directory.
+
 .SH ARGUMENTS
 Modules accept arguments in much the same way normal executables do.
 .PP
@@ -15,6 +24,7 @@ end of the of the argument list) and will calculate the number of arguments by
 scanning for \fBNULL\fP.
 .PP
 Modules do not receive an environment or auxiliary vector.
+
 .SH EXIT STATUS
 .TP
 0

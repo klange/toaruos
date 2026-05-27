@@ -1255,14 +1255,17 @@ long sys_set_tls_base(uintptr_t addr) {
 	return 0;
 }
 
-extern int elf_module(char ** args);
-long sys_insmod(char ** args) {
-	if (this_core->current_process->user != USER_ROOT_UID) return -EACCES;
-	PTR_VALIDATE(args);
-	for (char ** aa = args; *aa; ++aa) {
-		PTR_VALIDATE(*aa);
+extern int elf_module(fs_node_t * file, int argc, char ** args);
+long sys_insmod(int fd, int argc, char **argv) {
+	if (this_core->current_process->user != USER_ROOT_UID) return -EPERM;
+	if (argc < 1) return -EINVAL;
+	PTRCHECK(argv, sizeof(char*) * argc, 0);
+	for (int i = 0; i < argc; ++i) {
+		PTR_VALIDATE(argv[i]);
 	}
-	return elf_module(args);
+	if (!FD_CHECK(fd)) return -EBADF;
+	if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
+	return elf_module(FD_ENTRY(fd), argc, argv);
 }
 
 extern long ptrace_handle(long,pid_t,void*,void*);

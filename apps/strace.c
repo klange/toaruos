@@ -306,14 +306,14 @@ static const int syscall_set_file[] = {
 	SYS_OPEN, SYS_STATF, SYS_LSTAT, SYS_ACCESS, SYS_EXECVE,
 	SYS_GETCWD, SYS_CHDIR, SYS_MKDIR, SYS_SYMLINK, SYS_UNLINK,
 	SYS_CHMOD, SYS_CHOWN, SYS_MOUNT, SYS_READLINK, SYS_RENAME,
-	SYS_TRUNCATE, SYS_EACCESS, SYS_LCHOWN, SYS_INSMOD, -1
+	SYS_TRUNCATE, SYS_EACCESS, SYS_LCHOWN, -1
 };
 
 static const int syscall_set_desc[] = {
 	SYS_OPEN, SYS_READ, SYS_WRITE, SYS_CLOSE, SYS_STAT, SYS_FSWAIT,
 	SYS_FSWAIT2, SYS_FSWAIT3, SYS_SEEK, SYS_IOCTL, SYS_PIPE, SYS_PIPE2,
 	SYS_DUP2, SYS_READDIR, SYS_OPENPTY, SYS_PREAD, SYS_PWRITE, SYS_FCNTL,
-	SYS_FCHMOD, SYS_FCHOWN, SYS_FTRUNCATE, SYS_DUP3, -1
+	SYS_FCHMOD, SYS_FCHOWN, SYS_FTRUNCATE, SYS_DUP3, SYS_INSMOD, -1
 };
 
 static const int syscall_set_memory[] = {
@@ -1405,7 +1405,9 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			pointer_arg(uregs_syscall_arg1(r));
 			break;
 		case SYS_INSMOD:
-			string_array_arg(pid, uregs_syscall_arg1(r));
+			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			int_arg(uregs_syscall_arg2(r)); COMMA;
+			string_array_arg(pid, uregs_syscall_arg3(r));
 			break;
 		case SYS_SYMLINK:
 			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
