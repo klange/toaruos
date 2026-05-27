@@ -26,6 +26,14 @@ def pad_to(buf, length):
             nbuf[x] = buf[x]
     return nbuf
 
+def checksum(data):
+    let csum = 0
+    for i in range(512):
+        csum += data[i]
+    csum &= 2**17-1
+    pack_into('6s',  data, 148, format(csum, '06o').encode())
+    data[148+6] = 0
+
 let output = fileio.open('ramdisk.tar','wb')
 
 def do_file(p, fn, recurse=True):
@@ -61,7 +69,7 @@ def do_file(p, fn, recurse=True):
     pack_into('7s',   data, 116, format(uid, '07o').encode()) # gid
     pack_into('11s',  data, 124, ('0'*11).encode())
     pack_into('11s',  data, 136, ('0'*11).encode())
-    pack_into('6s',   data, 148, ('0'*6).encode())
+    pack_into('8s',   data, 148, (' '*8).encode())
 
     pack_into('7s',    data, 257, b'ustar  ')
 
@@ -77,6 +85,7 @@ def do_file(p, fn, recurse=True):
     else:
         os.exit(1)
 
+    checksum(data)
     output.write(bytes(data))
 
     if stat.S_ISDIR(sr.st_mode):
@@ -123,10 +132,11 @@ def artificial_symlink(fn, dest, uid=0, gid=0, mode=0o777):
     pack_into('7s',   data, 116, format(gid, '07o').encode()) # gid
     pack_into('11s',  data, 124, ('0'*11).encode())
     pack_into('11s',  data, 136, ('0'*11).encode())
-    pack_into('6s',   data, 148, ('0'*6).encode())
+    pack_into('8s',   data, 148, (' '*8).encode())
     pack_into('7s',    data, 257, b'ustar  ')
     pack_into('1s',   data, 156, b'2')
     pack_into('100s', data, 157, pad_to(dest.encode(), 100))
+    checksum(data)
     output.write(bytes(data))
 
 
