@@ -1336,7 +1336,7 @@ void termemu_selection_click(term_state_t * state, int new_x, int new_y) {
 			state->selection_end_x++;
 		}
 		state->selection_start_xx = state->selection_end_x;
-		state->selection = 1;
+		state->selection = 2;
 	} else {
 		state->last_click = get_ticks();
 		state->selection_start_x = new_x;
@@ -1351,9 +1351,29 @@ void termemu_selection_click(term_state_t * state, int new_x, int new_y) {
 
 void termemu_selection_drag(term_state_t * state, int new_x, int new_y) {
 	termemu_mark_selection(state);
+	if (state->selection == 2) {
+		if (new_y < state->selection_start_y ||
+			(new_y == state->selection_start_y &&
+			 new_x < state->selection_start_x)) {
+			while (new_x > 0) {
+				term_cell_t * c = termemu_cell_at(state, new_x - 1, new_y);
+				if (!c || c->c == ' ' || !c->c) break;
+				new_x--;
+			}
+		} else if (new_y > state->selection_start_y ||
+			(new_y == state->selection_start_y &&
+			 new_x > state->selection_start_xx)) {
+			while (new_x < state->width - 1) {
+				term_cell_t * c = termemu_cell_at(state, new_x + 1, new_y);
+				if (!c || c->c == ' ' || !c->c) break;
+				new_x++;
+			}
+		}
+	} else {
+		state->selection = 1;
+	}
 	state->selection_end_x = new_x;
 	state->selection_end_y = new_y;
-	state->selection = 1;
 	termemu_flip_selection(state);
 }
 
