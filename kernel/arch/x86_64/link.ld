@@ -40,11 +40,11 @@ SECTIONS
 	{
 		data = .;
 		*(.data)
+		PROVIDE(bss_start = ALIGN(4K));
 	} :data
 
 	.bss BLOCK(4K) : ALIGN(4K)
 	{
-		PROVIDE(bss_start = .);
 		bss = .;
 		*(COMMON)
 		*(.bss)
