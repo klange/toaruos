@@ -94,8 +94,8 @@ misaka-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/arch/${ARCH}/link.ld
 $(BASE)/mod/%.ko: modules/%.c | dirs
 	${CC} -c ${KERNEL_CFLAGS} -fno-pie -mcmodel=large  -o $@ $<
 
-ramdisk.tar: $(wildcard $(BASE)/* $(BASE)/*/* $(BASE)/*/*/* $(BASE)/*/*/*/* $(BASE)/*/*/*/*/*) $(APPS_X) $(LIBS_X) $(KRK_MODS_X) $(BASE)/bin/kuroko $(BASE)/bin/bim $(BIM_FILES) $(BASE)/lib/libm.so $(APPS_KRK_X) $(KRK_MODS) $(APPS_SH_X) $(MODULES) $(BASE)/etc/issue $(BASE)/etc/os-release | $(TOOLCHAIN)/local/bin/kuroko
-	kuroko util/tarfile.krk
+ramdisk.tar: $(wildcard $(BASE)/* $(BASE)/*/* $(BASE)/*/*/* $(BASE)/*/*/*/* $(BASE)/*/*/*/*/*) $(APPS_X) $(LIBS_X) $(KRK_MODS_X) $(BASE)/bin/kuroko $(BASE)/bin/bim $(BIM_FILES) $(BASE)/lib/libm.so $(APPS_KRK_X) $(KRK_MODS) $(APPS_SH_X) $(MODULES) $(BASE)/etc/issue $(BASE)/etc/os-release util/createramdisk.krk | $(TOOLCHAIN)/local/bin/kuroko
+	kuroko util/createramdisk.krk
 
 ramdisk.igz: ramdisk.tar
 	gzip -c $< > $@
