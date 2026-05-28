@@ -59,6 +59,7 @@ class MineButton:
         self.hilight = 0
         self.action = action
         self.text = ""
+        self.win = False
 
     def focus_enter(self):
         self.hilight = 1
@@ -84,7 +85,10 @@ class MineButton:
         self.x, self.y, self.width, self.height = x, y, w, h
         let color = rgb(255,255,255)
         if self.revealed and self.is_mine:
-            color = frgb(0.4,0.4,0.4)
+            if self.win:
+                color = frgb(0.7,0.7,0.7)
+            else:
+                color = frgb(0.4,0.4,0.4)
         else if self.revealed:
             color = good_color(self.mines)
         else if self.hilight == 1:
@@ -93,7 +97,7 @@ class MineButton:
             color = frgb(0.3,0.3,0.3)
         window.rect(x+1, y+1, w-2, h-2, color, radius=3)
         let text = self.text
-        if not self.revealed and self.flagged:
+        if (not self.revealed or self.win) and self.flagged:
             text = '⚑' # U+2691
         if text:
             self.font.draw_string(window,text,x+self.width//2-self.font.width(text)//2,int(y+self.height * 0.75))
@@ -252,6 +256,7 @@ class MinesWindow(Window):
         if n_flagged == self.mine_count and n_revealed + n_flagged == self.field_size ** 2:
             self.subtitleText = "You win."
             for b in buttons:
+                b.win = True
                 b.reveal()
         else:
             self.subtitleText = f'⚑ {n_flagged} / {self.mine_count}'
