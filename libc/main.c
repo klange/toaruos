@@ -16,8 +16,8 @@ extern void _init();
 extern void _fini();
 
 char ** environ = NULL;
+int __environ_size = 0;
 
-_hidden int __environ_size = 0;
 _hidden int __libc_debug = 0;
 
 /* This is exported. */

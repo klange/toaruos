@@ -12,13 +12,13 @@
 #include <string.h>
 #include <errno.h>
 
-extern int _environ_size;
+extern int __environ_size;
 
 int main(int argc, char ** argv) {
 	int start = 1;
 
 	if (start < argc && !strcmp(argv[start],"-i")) {
-		for (int i = 0; i < _environ_size; ++i) {
+		for (int i = 0; i < __environ_size; ++i) {
 			environ[i] = NULL;
 		}
 		start++;
