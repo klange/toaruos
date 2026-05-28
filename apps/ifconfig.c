@@ -25,7 +25,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-extern char * _argv_0;
+static char * _argv_0;
 
 static void ip_ntoa(const uint32_t src_addr, char * out) {
 	snprintf(out, 16, "%d.%d.%d.%d",
@@ -205,6 +205,7 @@ static int _set_address(int netdev, const char * cmd, const char * arg, const ch
 #define command_with_address(cmd, itype) if (!strcmp(argv[i], cmd)) { if (_set_address(netdev, argv[i], argv[i+1], #itype, itype)) { return 1; } i++; continue; }
 
 int main(int argc, char * argv[]) {
+	_argv_0 = argv[0];
 	/* Figure out what we're trying to do. */
 	if (argc < 2) return print_all_interfaces();
 
