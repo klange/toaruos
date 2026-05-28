@@ -163,10 +163,8 @@ class MinesWindow(Window):
         self.new_game((9,10))
 
     def new_game(self, action):
-
         self.first_click = True
         self.field_size, self.mine_count = action
-        self.subtitleText = f'There are {self.mine_count} mines.'
         self.mines = []
         let i = 0
         while len(self.mines) < self.mine_count:
@@ -178,6 +176,7 @@ class MinesWindow(Window):
             if i > 50:
                 print("Board generation failed")
                 return
+        self.subtitleText = f'⚑ 0 / {self.mine_count}'
 
         def check_neighbors(r, c):
             let n = []
@@ -254,6 +253,8 @@ class MinesWindow(Window):
             self.subtitleText = "You win."
             for b in buttons:
                 b.reveal()
+        else:
+            self.subtitleText = f'⚑ {n_flagged} / {self.mine_count}'
 
     def draw(self):
         self.fill(rgb(204,204,204))
