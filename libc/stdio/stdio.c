@@ -9,8 +9,9 @@
 #include <sys/mman.h>
 
 #include "stdio_internal.h"
+#include "../internal.h"
 
-FILE _stdin = {
+_hidden FILE __stdin = {
 	.fd = 0,
 	.read_buf = NULL,
 	.available = 0,
@@ -26,7 +27,7 @@ FILE _stdin = {
 	.flags = 0,
 };
 
-FILE _stdout = {
+_hidden FILE __stdout = {
 	.fd = 1,
 	.read_buf = NULL,
 	.available = 0,
@@ -42,7 +43,7 @@ FILE _stdout = {
 	.flags = 0,
 };
 
-FILE _stderr = {
+_hidden FILE __stderr = {
 	.fd = 2,
 	.read_buf = NULL,
 	.available = 0,
@@ -58,19 +59,19 @@ FILE _stderr = {
 	.flags = 0,
 };
 
-FILE * stdin = &_stdin;
-FILE * stdout = &_stdout;
-FILE * stderr = &_stderr;
+FILE * stdin  = &__stdin;
+FILE * stdout = &__stdout;
+FILE * stderr = &__stderr;
 
 static FILE * _head = NULL;
 
 void __stdio_init_buffers(void) {
-	_stdin.read_buf   = mmap(NULL, BUFSIZ, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-	_stdout.write_buf = mmap(NULL, BUFSIZ, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-	_stderr.write_buf = mmap(NULL, BUFSIZ, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-	_stdin._name = strdup("stdin");
-	_stdout._name = strdup("stdout");
-	_stderr._name = strdup("stderr");
+	__stdin.read_buf   = mmap(NULL, BUFSIZ, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	__stdout.write_buf = mmap(NULL, BUFSIZ, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	__stderr.write_buf = mmap(NULL, BUFSIZ, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	__stdin._name = strdup("stdin");
+	__stdout._name = strdup("stdout");
+	__stderr._name = strdup("stderr");
 }
 
 void __stdio_cleanup(void) {
@@ -84,9 +85,9 @@ void __stdio_cleanup(void) {
 #if 0
 static char * stream_id(FILE * stream) {
 	static char out[] = "stream\0\0\0\0\0\0";
-	if (stream == &_stdin) return "stdin";
-	if (stream == &_stdout) return "stdout";
-	if (stream == &_stderr) return "stderr";
+	if (stream == &__stdin) return "stdin";
+	if (stream == &__stdout) return "stdout";
+	if (stream == &__stderr) return "stderr";
 	sprintf(out, "stream %d", fileno(stream));
 	return out;
 }
@@ -360,7 +361,7 @@ int fclose(FILE * stream) {
 		munmap(stream->write_buf, BUFSIZ);
 	}
 	stream->write_buf = NULL;
-	if (stream == &_stdin || stream == &_stdout || stream == &_stderr) {
+	if (stream == &__stdin || stream == &__stdout || stream == &__stderr) {
 		return out;
 	} else {
 

@@ -17,8 +17,10 @@ extern void _fini();
 
 char ** environ = NULL;
 
-int __environ_size = 0;
-int __libc_debug = 0;
+_hidden int __environ_size = 0;
+_hidden int __libc_debug = 0;
+
+/* This is exported. */
 char ** __argv = NULL;
 
 static char ** __get_argv(void) {
@@ -32,7 +34,8 @@ void _exit(int val){
 	__builtin_unreachable();
 }
 
-int __libc_is_multicore = 0;
+int __libc_is_multicore = 0; /* exported */
+
 static int __libc_init_called = 0;
 
 __attribute__((constructor))

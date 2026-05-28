@@ -5,13 +5,11 @@
 
 #include "../internal.h"
 
-/* Make these visible in case we want to poke them elsewhere.
- * Should be fine since we use names that are reserved for us as the libc. */
-int volatile __atexit_lock = 0;
-void (*__atexit_handlers[32])(void) = {NULL};
-int __atexit_count = 0;
+_hidden int volatile __atexit_lock = 0;
+_hidden void (*__atexit_handlers[32])(void) = {NULL};
+_hidden int __atexit_count = 0;
 
-void __atexit_run(void) {
+_hidden void __atexit_run(void) {
 	spin_lock(&__atexit_lock);
 	if (__atexit_count) {
 		/* atexit handlers can very well call atexit() themselves,
