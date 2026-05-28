@@ -19,6 +19,8 @@
 #include <errno.h>
 #include <libgen.h>
 
+#include "internal.h"
+
 static int usage(char * argv[]) {
 	fprintf(stderr,
 		"usage: %s [-e] [binary [args...]]\n",
@@ -26,10 +28,8 @@ static int usage(char * argv[]) {
 	return 1;
 }
 
-extern int __libc_load_from_file(int fd, const char * name, int argc, char *argv[]);
-extern int __is_ldd;
-
-int ld_so_main(int argc, char * argv[]) {
+__attribute__((visibility("hidden")))
+int __ld_so_main(int argc, char * argv[]) {
 	char * file = NULL;
 	int opt;
 

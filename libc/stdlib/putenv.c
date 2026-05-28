@@ -4,7 +4,7 @@
 #include <errno.h>
 
 extern char ** environ;
-extern int _environ_size;
+extern int __environ_size;
 
 static int why_no_strnstr(char * a, char * b, int n) {
 	for (int i = 0; (i < n) && (a[i]) && (b[i]); ++i) {
@@ -70,26 +70,26 @@ int putenv(char * string) {
 	int s = c - string;
 
 	int i;
-	for (i = 0; i < (_environ_size - 1) && environ[i]; ++i) {
+	for (i = 0; i < (__environ_size - 1) && environ[i]; ++i) {
 		if (!why_no_strnstr(string, environ[i], s) && environ[i][s] == '=') {
 			environ[i] = string;
 			return 0;
 		}
 	}
 	/* Not found */
-	if (i == _environ_size - 1) {
-		int _new_environ_size = _environ_size * 2;
-		char ** new_environ = malloc(sizeof(char*) * _new_environ_size);
+	if (i == __environ_size - 1) {
+		int _new__environ_size = __environ_size * 2;
+		char ** new_environ = malloc(sizeof(char*) * _new__environ_size);
 		int j = 0;
-		while (j < _new_environ_size && environ[j]) {
+		while (j < _new__environ_size && environ[j]) {
 			new_environ[j] = environ[j];
 			j++;
 		}
-		while (j < _new_environ_size) {
+		while (j < _new__environ_size) {
 			new_environ[j] = NULL;
 			j++;
 		}
-		_environ_size = _new_environ_size;
+		__environ_size = _new__environ_size;
 		environ = new_environ;
 	}
 

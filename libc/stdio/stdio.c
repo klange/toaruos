@@ -93,7 +93,7 @@ static char * stream_id(FILE * stream) {
 #endif
 
 extern int __libc_debug;
-extern char * _argv_0;
+extern char ** __argv;
 
 int setvbuf(FILE * stream, char * buf, int mode, size_t size) {
 	if (mode != _IOLBF) {
@@ -147,8 +147,8 @@ static size_t write_bytes(FILE * f, char * buf, size_t len) {
 static size_t read_bytes(FILE * f, char * out, size_t len) {
 	size_t r_out = 0;
 
-	//fprintf(stderr, "%s: Read %d bytes from %s\n", _argv_0, len, stream_id(f));
-	//fprintf(stderr, "%s: off[%d] avail[%d] read[%d]\n", _argv_0, f->offset, f->available, f->read_from);
+	//fprintf(stderr, "%s: Read %d bytes from %s\n", __argv[0], len, stream_id(f));
+	//fprintf(stderr, "%s: off[%d] avail[%d] read[%d]\n", __argv[0], f->offset, f->available, f->read_from);
 
 	while (len > 0) {
 		if (f->ungetc >= 0) {
@@ -185,12 +185,12 @@ static size_t read_bytes(FILE * f, char * out, size_t len) {
 
 		if (f->available == 0) {
 			/* EOF condition */
-			//fprintf(stderr, "%s: no bytes available, returning read value of %d\n", _argv_0, r_out);
+			//fprintf(stderr, "%s: no bytes available, returning read value of %d\n", __argv[0], r_out);
 			f->flags |= STDIO_EOF;
 			return r_out;
 		}
 
-		//fprintf(stderr, "%s: reading until %d reaches %d or %d reaches 0\n", _argv_0, f->read_from, f->offset, len);
+		//fprintf(stderr, "%s: reading until %d reaches %d or %d reaches 0\n", __argv[0], f->read_from, f->offset, len);
 		while (f->read_from < f->offset && len > 0 && f->available > 0) {
 			*out = f->read_buf[f->read_from];
 			len--;
@@ -201,7 +201,7 @@ static size_t read_bytes(FILE * f, char * out, size_t len) {
 		}
 	}
 
-	//fprintf(stderr, "%s: read completed, returning read value of %d\n", _argv_0, r_out);
+	//fprintf(stderr, "%s: read completed, returning read value of %d\n", __argv[0], r_out);
 	return r_out;
 }
 
@@ -382,9 +382,9 @@ static char * _whence_str(int whence) {
 
 int fseek(FILE * stream, long offset, int whence) {
 	if (stream->read_from && whence == SEEK_CUR) {
-		if (_argv_0 && strcmp(_argv_0, "ld.so")) {
+		if (__argv[0] && strcmp(__argv[0], "ld.so")) {
 			if (__libc_debug) {
-				fprintf(stderr, "%s: fseek(%s, %ld, %s)\n", _argv_0, stream->_name, offset, _whence_str(whence));
+				fprintf(stderr, "%s: fseek(%s, %ld, %s)\n", __argv[0], stream->_name, offset, _whence_str(whence));
 				fprintf(stderr, "\033[33;3mWARNING\033[0m: seeking when offset is currently %d\n", stream->read_from);
 				fprintf(stderr, "\033[33;3mWARNING\033[0m: this may not be reflected in kernel\n");
 			}
@@ -410,8 +410,8 @@ int fseek(FILE * stream, long offset, int whence) {
 }
 
 long ftell(FILE * stream) {
-	if (_argv_0 && strcmp(_argv_0, "ld.so") && __libc_debug) {
-		fprintf(stderr, "%s: ftell(%s)\n", _argv_0, stream->_name);
+	if (__argv[0] && strcmp(__argv[0], "ld.so") && __libc_debug) {
+		fprintf(stderr, "%s: ftell(%s)\n", __argv[0], stream->_name);
 	}
 	if (stream->written) {
 		fflush(stream);

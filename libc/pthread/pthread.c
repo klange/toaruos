@@ -15,6 +15,8 @@
 #include <sys/wait.h>
 #include <sys/mman.h>
 
+#include "internal.h"
+
 DEFN_SYSCALL3(clone, SYS_CLONE, uintptr_t, uintptr_t, void *);
 DEFN_SYSCALL0(gettid, SYS_GETTID);
 DEFN_SYSCALL1(set_tls_base, SYS_SETTLSBASE, uintptr_t);
@@ -35,7 +37,7 @@ static inline void _yield(void) {
 int clone(uintptr_t a,uintptr_t b,void* c) {
 	__sets_errno(syscall_clone(a,b,c));
 }
-int gettid() {
+int gettid(void) {
 	return syscall_gettid(); /* never fails */
 }
 
@@ -69,7 +71,7 @@ void pthread_exit(void * value) {
 	__builtin_unreachable();
 }
 
-void * __thread_start(void * pthreadbase) {
+static void * __thread_start(void * pthreadbase) {
 	struct __pthread * this = pthreadbase;
 	this->tid = gettid();
 	char ** tlsbase = (char**)((char*)this + 4096);

@@ -1,3 +1,4 @@
+#include <signal.h>
 #include <sys/signal.h>
 #include <sys/signal_defs.h>
 #include <string.h>

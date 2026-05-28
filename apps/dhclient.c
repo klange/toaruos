@@ -245,7 +245,7 @@ static void time_diff(struct timeval *start, struct timeval *end, time_t *sec_di
 	}
 }
 
-extern char * _argv_0;
+static char * _argv_0 = NULL;
 
 static int configure_interface(const char * if_name) {
 	/* Open a raw socket. */
@@ -431,6 +431,7 @@ static int configure_interface_with_backoff(const char * if_name) {
 }
 
 int main(int argc, char * argv[]) {
+	_argv_0 = argv[0];
 	int retval = 0;
 
 	if (argc > 1) {

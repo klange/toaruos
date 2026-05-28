@@ -1,5 +1,5 @@
 #include <ctype.h>
 
 int ispunct(int c) {
-    return isgraph(c) && !isalnum(c);
+	return isgraph(c) && !isalnum(c);
 }

@@ -55,6 +55,7 @@ struct flock {
 #ifndef __kernel__
 extern int open (const char *, int, ...);
 extern int fcntl(int fd, int cmd, ...);
+extern int creat(const char *path, mode_t mode);
 #endif
 
 _End_C_Header

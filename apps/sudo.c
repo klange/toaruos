@@ -12,7 +12,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014 K. Lange
  */
-
+#define _TOARU_SOURCE
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -31,8 +31,6 @@
 #define MINUTES * 60
 
 #define SUDO_TIME 5 MINUTES
-
-extern int setgroups(int size, const gid_t list[]);
 
 static int sudo_loop(int (*prompt_callback)(char * username, char * password, int failures, char * argv[]), char * argv[]) {
 

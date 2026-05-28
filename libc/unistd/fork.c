@@ -1,12 +1,12 @@
+#define _TOARU_SOURCE
 #include <unistd.h>
 #include <syscall.h>
 #include <syscall_nums.h>
 #include <errno.h>
 
-DEFN_SYSCALL0(fork, SYS_FORK);
+#include "../internal.h"
 
-extern void __libc_take_malloc_lock(void);
-extern void __libc_release_malloc_lock(void);
+DEFN_SYSCALL0(fork, SYS_FORK);
 
 pid_t _Fork(void) {
 	__sets_errno(syscall_fork());

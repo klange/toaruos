@@ -1,3 +1,5 @@
+#include "internal.h"
+
 int __cxa_atexit(void (*fn)(void *), void * arg, void *d) {
 	return 0;
 }

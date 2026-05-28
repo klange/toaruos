@@ -382,12 +382,8 @@ int atoi(const char * s) {
 	return neg ? n : -n;
 }
 
-size_t lfind(const char * str, const char accept) {
+static size_t lfind(const char * str, const char accept) {
 	return (size_t)strchr(str, accept);
-}
-
-size_t rfind(const char * str, const char accept) {
-	return (size_t)strrchr(str, accept);
 }
 
 char * strtok_r(char * str, const char * delim, char ** saveptr) {

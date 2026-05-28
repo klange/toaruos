@@ -6,6 +6,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2026 K. Lange
  */
+#define _TOARU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
@@ -13,8 +14,6 @@
 #include <string.h>
 #include <pwd.h>
 #include <toaru/auth.h>
-
-extern int setgroups(int size, const gid_t list[]);
 
 static int usage(char * argv[]) {
 	fprintf(stderr, "usage: %s [-l] [group]\n", argv[0]);

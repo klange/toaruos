@@ -83,6 +83,10 @@ extern mode_t umask(mode_t mask);
 extern int chmod(const char *path, mode_t mode);
 extern int fchmod(int fd, mode_t mode);
 
+#ifdef _TOARU_SOURCE
+extern mode_t __mode_calculate(const char * c, mode_t original, mode_t mask, int flags);
+#endif
+
 __redirect(stat,__statns);
 __redirect(lstat,__lstatns);
 __redirect(fstat,__fstatns);

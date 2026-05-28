@@ -3,6 +3,8 @@
 /* Header-only */
 #include <toaru/spinlock.h>
 
+#include "../internal.h"
+
 /* Make these visible in case we want to poke them elsewhere.
  * Should be fine since we use names that are reserved for us as the libc. */
 int volatile __atexit_lock = 0;

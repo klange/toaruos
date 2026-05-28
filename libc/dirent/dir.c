@@ -5,6 +5,7 @@
 #include <syscall.h>
 #include <syscall_nums.h>
 #include <errno.h>
+#include <dirent.h>
 #include <bits/dirent.h>
 #include <_cheader.h>
 

@@ -1,6 +1,11 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <unistd.h>
+
+#include "internal.h"
+#include "pthread/internal.h"
+#include "stdio/stdio_internal.h"
 
 #include <syscall.h>
 #include <syscall_nums.h>
@@ -11,17 +16,14 @@ extern void _init();
 extern void _fini();
 
 char ** environ = NULL;
-int _environ_size = 0;
-char * _argv_0 = NULL;
-int __libc_debug = 0;
 
+int __environ_size = 0;
+int __libc_debug = 0;
 char ** __argv = NULL;
-extern char ** __get_argv(void) {
+
+static char ** __get_argv(void) {
 	return __argv;
 }
-
-extern void __stdio_init_buffers(void);
-extern void __stdio_cleanup(void);
 
 void _exit(int val){
 	_fini();
@@ -29,8 +31,6 @@ void _exit(int val){
 	syscall_exit(val);
 	__builtin_unreachable();
 }
-
-extern void __make_tls(void);
 
 int __libc_is_multicore = 0;
 static int __libc_init_called = 0;
@@ -63,7 +63,7 @@ static void _libc_init(void) {
 		environ[1] = NULL;
 		environ[2] = NULL;
 		environ[3] = NULL;
-		_environ_size = 4;
+		__environ_size = 4;
 	} else {
 		/* Find actual size */
 		int size = 0;
@@ -75,20 +75,20 @@ static void _libc_init(void) {
 		}
 
 		if (size < 4) {
-			_environ_size = 4;
+			__environ_size = 4;
 		} else {
 			/* Multiply by two */
-			_environ_size = size * 2;
+			__environ_size = size * 2;
 		}
 
-		char ** new_environ = malloc(sizeof(char*) * _environ_size);
+		char ** new_environ = malloc(sizeof(char*) * __environ_size);
 		int i = 0;
-		while (i < _environ_size && environ[i]) {
+		while (i < __environ_size && environ[i]) {
 			new_environ[i] = environ[i];
 			i++;
 		}
 
-		while (i < _environ_size) {
+		while (i < __environ_size) {
 			new_environ[i] = NULL;
 			i++;
 		}
@@ -96,23 +96,9 @@ static void _libc_init(void) {
 		environ = new_environ;
 	}
 	if (getenv("__LIBC_DEBUG")) __libc_debug = 1;
-	_argv_0 = __get_argv()[0];
 }
 
 void pre_main(int argc, char * argv[], char ** envp, int (*main)(int,char**)) {
-	if (!__get_argv()) {
-		/* Statically loaded, must set __argv so __get_argv() works */
-		__argv = argv;
-		/* Run our initializers, because I'm pretty sure the kernel didn't... */
-		if (!__libc_init_called) {
-			extern uintptr_t __init_array_start __attribute__((weak));
-			extern uintptr_t __init_array_end __attribute__((weak));
-			for (uintptr_t * constructor = &__init_array_start; constructor < &__init_array_end; ++constructor) {
-				void (*constr)(void) = (void*)*constructor;
-				constr();
-			}
-		}
-	}
 	_init();
 	exit(main(argc, argv));
 }

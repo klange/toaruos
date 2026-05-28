@@ -4,8 +4,8 @@
 #include <stdio.h>
 
 #if 0
-extern char * _argv_0;
-#define MATH do { if (getenv("LIBM_DEBUG")) { fprintf(stderr, "%s called math function %s\n", _argv_0, __func__); } } while (0)
+extern char ** __argv;
+#define MATH do { if (getenv("LIBM_DEBUG")) { fprintf(stderr, "%s called math function %s\n", __argv[0], __func__); } } while (0)
 #else
 #define MATH (void)0
 #endif

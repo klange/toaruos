@@ -1,3 +1,4 @@
+#define _TOARU_SOURCE
 #include <sys/stat.h>
 
 mode_t __mode_calculate(const char * c, mode_t original, mode_t mask, int flags) {

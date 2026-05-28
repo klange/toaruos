@@ -1,8 +1,9 @@
+#include <unistd.h>
 #include <stdio.h>
 
-extern char * _argv_0;
+extern char ** __argv;
 
 unsigned int alarm(unsigned int seconds) {
-	fprintf(stderr, "%s: alarm requested (%d seconds)\n", _argv_0, seconds);
+	fprintf(stderr, "%s: alarm requested (%d seconds)\n", __argv[0], seconds);
 	return 0;
 }

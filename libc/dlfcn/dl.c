@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <dlfcn.h>
 #include <sys/stat.h>
 #include <sys/reboot.h>
 #include <sys/auxv.h>
@@ -39,6 +40,9 @@
 
 #include <syscall.h>
 #include <syscall_nums.h>
+
+#include "internal.h"
+#include "../stdio/stdio_internal.h"
 
 #ifdef LD_EARLY_DEBUG
 static DEFN_SYSCALL3(_open,SYS_OPEN,const char*,long,mode_t);
@@ -252,9 +256,6 @@ static Elf64_Sym * elf_sym_lookup(Elf64_Word *table, const char *strtab, Elf64_S
 	}
 	return NULL;
 }
-
-
-extern size_t __printf_internal(int (*callback)(void *, char), void * userData, const char * fmt, va_list args);
 
 /**
  * @brief Debug print callback.
@@ -886,7 +887,8 @@ void * dlopen(const char * filename, int flags) {
 	return res;
 }
 
-void * dlsym(struct DlLib * lib, const char * name) {
+void * dlsym(void *_lib, const char * name) {
+	struct DlLib * lib = _lib;
 	Elf64_Word hash = elf_hash(name);
 
 	if (lib == NULL) lib = all_libraries;
@@ -1088,8 +1090,7 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 		extern void _init(void);
 		_init();
 
-		extern int ld_so_main(int, char**);
-		return syscall__exit(ld_so_main(argc, argv));
+		return syscall__exit(__ld_so_main(argc, argv));
 	}
 
 	struct DlLib * app = calloc(1, sizeof (struct DlLib));

@@ -108,7 +108,9 @@
 #include <limits.h>
 #include <string.h>
 #include <stdlib.h>
+#include <malloc.h>
 #include <sys/mman.h>
+#include "../internal.h"
 /* }}} */
 /* Definitions {{{ */
 

@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <math.h>
 
-extern char * _argv_0;
-#define BAD do { if (getenv("LIBM_DEBUG")) { fprintf(stderr, "%s called bad math function %s\n", _argv_0, __func__); } } while (0)
+extern char ** __argv;
+#define BAD do { if (getenv("LIBM_DEBUG")) { fprintf(stderr, "%s called bad math function %s\n", __argv[0], __func__); } } while (0)
 
 double acos(double x) {
 	BAD;

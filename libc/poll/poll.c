@@ -3,7 +3,7 @@
 #include <errno.h>
 #include <sys/fswait.h>
 
-extern char * _argv_0;
+extern char ** __argv;
 
 static char * poll_print_flags(int flags) {
 	static char buf[100];
@@ -36,14 +36,14 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 		if (fds[i].events & (~POLLIN)) {
 			if (fds[i].events == (POLLIN | POLLPRI)) continue;
 			if (__libc_debug) {
-				fprintf(stderr, "%s: poll: unsupported bit set in fds: %s\n", _argv_0, poll_print_flags(fds[i].events));
+				fprintf(stderr, "%s: poll: unsupported bit set in fds: %s\n", __argv[0], poll_print_flags(fds[i].events));
 			}
 			if ((fds[i].events & POLLOUT) && nfds == 1) {
 				fds[i].revents |= POLLOUT;
 				return 1;
 			}
 			//if (fds[i].events & POLLIN) continue;
-			//fprintf(stderr, "%s: poll: the above error is fatal\n", _argv_0);
+			//fprintf(stderr, "%s: poll: the above error is fatal\n", __argv[0]);
 			//return -EINVAL;
 		}
 	}

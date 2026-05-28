@@ -1,7 +1,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-extern void __atexit_run(void);
+#include "../internal.h"
+
 void exit(int val) {
 	__atexit_run();
 	_exit(val);

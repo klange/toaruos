@@ -5,9 +5,6 @@
 #include <string.h>
 #include <sys/types.h>
 
-extern char * _argv_0;
-extern int __libc_debug;
-
 struct SortableArray {
 	void * data;
 	size_t size;

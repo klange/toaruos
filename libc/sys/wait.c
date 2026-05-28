@@ -1,3 +1,4 @@
+#include <sys/wait.h>
 #include <syscall.h>
 #include <syscall_nums.h>
 #include <errno.h>

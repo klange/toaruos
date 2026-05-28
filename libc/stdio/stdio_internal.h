@@ -1,3 +1,6 @@
+#pragma once
+#include <va_list.h>
+
 struct _FILE {
 	int fd;
 
@@ -30,4 +33,8 @@ struct _FILE {
 
 #define STDIO_BUF_READ_FREE  1
 #define STDIO_BUF_WRITE_FREE 2
+
+extern void __stdio_init_buffers(void);
+extern void __stdio_cleanup(void);
+extern size_t __printf_internal(int (*callback)(void *, char), void * userData, const char * fmt, va_list args);
 

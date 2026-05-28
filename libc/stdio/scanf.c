@@ -2,11 +2,11 @@
 #include <ctype.h>
 #include <string.h>
 
-extern char * _argv_0;
+extern char ** __argv;
 extern int __libc_debug;
 
 int vsscanf(const char *str, const char *format, va_list ap) {
-	if (__libc_debug) fprintf(stderr, "%s: sscanf(\"%s\", format=\"%s\", ...);\n", _argv_0, str, format);
+	if (__libc_debug) fprintf(stderr, "%s: sscanf(\"%s\", format=\"%s\", ...);\n", __argv[0], str, format);
 	int count = 0;
 	while (*format) {
 		if (*format == ' ') {
@@ -22,7 +22,7 @@ int vsscanf(const char *str, const char *format, va_list ap) {
 			if (*format == 'l') {
 				_long = 1;
 				format++;
-				if (__libc_debug) fprintf(stderr, "%s: \033[33;3mWarning\033[0m: Need to scan a large pointer (%d)\n", _argv_0, _long);
+				if (__libc_debug) fprintf(stderr, "%s: \033[33;3mWarning\033[0m: Need to scan a large pointer (%d)\n", __argv[0], _long);
 			}
 
 			if (*format == 'd') {
@@ -38,7 +38,7 @@ int vsscanf(const char *str, const char *format, va_list ap) {
 					str++;
 				}
 				i *= sign;
-				if (__libc_debug) fprintf(stderr, "%s: sscanf: out %ld\n", _argv_0, i);
+				if (__libc_debug) fprintf(stderr, "%s: sscanf: out %ld\n", __argv[0], i);
 				if (_long) {
 					void * out = (void *)va_arg(ap, long*);
 					memcpy(out, &i, sizeof(long));
@@ -55,7 +55,7 @@ int vsscanf(const char *str, const char *format, va_list ap) {
 					i = i * 10 + *str - '0';
 					str++;
 				}
-				if (__libc_debug) fprintf(stderr, "%s: sscanf: out %lu\n", _argv_0, i);
+				if (__libc_debug) fprintf(stderr, "%s: sscanf: out %lu\n", __argv[0], i);
 				if (_long) {
 					void * out = (void *)va_arg(ap, unsigned long*);
 					memcpy(out, &i, sizeof(unsigned long));
@@ -80,7 +80,7 @@ int vsscanf(const char *str, const char *format, va_list ap) {
 }
 
 int vfscanf(FILE * stream, const char *format, va_list ap) {
-	if (__libc_debug) fprintf(stderr, "%s: fscanf(%d, format=%s, ...);\n", _argv_0, fileno(stream), format);
+	if (__libc_debug) fprintf(stderr, "%s: fscanf(%d, format=%s, ...);\n", __argv[0], fileno(stream), format);
 	int count = 0;
 	while (*format) {
 		if (*format == ' ') {

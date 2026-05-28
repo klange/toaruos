@@ -19,7 +19,7 @@ extern void pthread_exit(void * value);
 extern int pthread_kill(pthread_t thread, int sig);
 
 extern int clone(uintptr_t,uintptr_t,void*);
-extern int gettid();
+extern int gettid(void);
 
 extern void pthread_cleanup_push(void (*routine)(void *), void *arg);
 extern void pthread_cleanup_pop(int execute);

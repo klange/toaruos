@@ -76,6 +76,7 @@ extern int getopt(int argc, char * const argv[], const char * optstring);
 extern char * optarg;
 extern int optind, opterr, optopt;
 
+extern int link(const char *target, const char *linkpath);
 extern int unlink(const char * pathname);
 
 /* Unimplemented stubs */
@@ -127,7 +128,16 @@ extern long pathconf(const char *path, int name);
 
 extern int getgroups(int size, gid_t list[]);
 
+#ifdef _TOARU_SOURCE
+extern pid_t _Fork(void);
+extern int setgroups(int size, const gid_t list[]);
+#endif
+
 ssize_t pread(int fd, void *buf, size_t count, off_t offset);
 ssize_t pwrite(int fd, const void *buf, size_t count, off_t offset);
+
+#if !defined(_POSIX_C_SOURCE) || _POSIX_C_SOURCE < 200809L
+extern char *getwd(char *buf);
+#endif
 
 _End_C_Header
