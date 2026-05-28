@@ -8,7 +8,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014-2017 K. Lange
  */
-
+#define _TOARU_SOURCE
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
