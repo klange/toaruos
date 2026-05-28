@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-const char * signal_names[] = {
+static const char * signal_names[] = {
 	[0] = "EXIT",
 	[SIGHUP] = "HUP",
 	[SIGINT] = "INT",
