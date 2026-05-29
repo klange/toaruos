@@ -43,6 +43,7 @@
 
 #include "internal.h"
 #include "../stdio/stdio_internal.h"
+#include "../internal.h"
 
 #ifdef LD_EARLY_DEBUG
 static DEFN_SYSCALL3(_open,SYS_OPEN,const char*,long,mode_t);
@@ -91,10 +92,10 @@ static char ** __envp = NULL;              /* Environment for use with @c simple
 static bool __trace_ld = false;            /* Whether LD_DEBUG was set. */
 static char * __ld_error = NULL;           /* Last error for @c dlerror. */
 static bool __ldso_reported = false;       /* Whether ldd has reported libc.so yet. */
+static bool __libc_in_chain = false;       /* if the libc is in all_libraries linked list */
 
-
-__attribute__((visibility("hidden")))
-bool __is_ldd = false;                     /* Whether we are operating as the 'ldd' utility. */
+_hidden bool __is_ldd = false;             /* Whether we are operating as the 'ldd' utility. */
+_hidden char * __ld_preload = NULL;        /* LD_PRELOAD value */
 
 static DEFN_SYSCALL1(_exit,SYS_EXT,int);
 
@@ -485,6 +486,8 @@ _continue:
 }
 
 static void setup_lib(struct DlLib * app, Elf64_Phdr *phdrs, size_t phnum);
+static void do_preloads(void);
+static void calculate_tls_size(struct DlLib * app);
 
 /**
  * @brief Attempt to load (map) an opened library.
@@ -598,7 +601,14 @@ static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent,
 	/* Link it into our list of libraries. */
 	if (is_exec) {
 		all_libraries = lib;
-		lib->next = __libc_ldso;
+		last_library = lib;
+
+		lib->next = NULL;
+		lib->phdr = phdrs;
+		lib->phnum = lib_header->e_phnum;
+
+		calculate_tls_size(lib);
+		do_preloads();
 	} else {
 		lib->next = NULL;
 		last_library->next = lib;
@@ -667,6 +677,11 @@ static struct DlLib * find_lib(const char * name, struct DlLib * parent) {
 		if (unlikely(__is_ldd) && !__ldso_reported) {
 			__ldso_reported = true;
 			ldd_report(__libc_ldso);
+		}
+		if (!__libc_in_chain) {
+			last_library->next = __libc_ldso;
+			last_library = __libc_ldso;
+			__libc_in_chain = true;
 		}
 		return __libc_ldso;
 	}
@@ -752,6 +767,8 @@ static struct DlLib * find_lib(const char * name, struct DlLib * parent) {
  * @param lib Library to set up.
  */
 static void calculate_tls_size(struct DlLib * lib) {
+	if (lib->tlssize || lib->tlsbase) return;
+
 	if (lib->phdr) {
 		for (size_t i = 0; i < lib->phnum; ++i) {
 			if (lib->phdr[i].p_type == PT_TLS) {
@@ -887,9 +904,38 @@ void * dlopen(const char * filename, int flags) {
 	return res;
 }
 
+/**
+ * @brief Determine which library owns an address.
+ *
+ * Examines the loaded libraries and looks for one
+ * with a PT_LOAD segment that contains this address.
+ *
+ * @param from Address to look for.
+ * @returns Library for that address, or NULL if none.
+ */
+static struct DlLib * lib_at(uintptr_t from) {
+	for (struct DlLib * me = all_libraries; me; me = me->next) {
+		for (size_t i = 0; i < me->phnum; i++) {
+			if (me->phdr[i].p_type != PT_LOAD) continue;
+			if (from - me->base >= me->phdr[i].p_vaddr &&
+				from - me->base - me->phdr[i].p_vaddr < me->phdr[i].p_memsz) {
+				return me;
+			}
+		}
+	}
+	return NULL;
+}
+
 void * dlsym(void *_lib, const char * name) {
 	struct DlLib * lib = _lib;
 	Elf64_Word hash = elf_hash(name);
+
+	if (lib == RTLD_NEXT) {
+		uintptr_t from = (uintptr_t)__builtin_return_address(0);
+		/* figure out who asked */
+		lib = lib_at(from);
+		if (lib) lib = lib->next;
+	}
 
 	if (lib == NULL) lib = all_libraries;
 
@@ -928,6 +974,10 @@ static int run_app(struct DlLib * app, int argc, char * argv[], uintptr_t entryp
 	relocate_stuff(app->next);
 	relocate_stuff(app);
 
+	/* Must call this before other constructors to set up environ,
+	 * stdio, etc. */
+	__libc_init();
+
 	for (struct DlLib * libs = app->next; libs; libs = libs->next) {
 		if (libs->constructed) continue;
 		run_ctors(libs);
@@ -941,6 +991,34 @@ static int run_app(struct DlLib * app, int argc, char * argv[], uintptr_t entryp
 #endif
 	is_runtime = true;
 	return entry(argc, argv, NULL);
+}
+
+/**
+ * @brief Process LD_PRELOAD
+ *
+ * Load each of the requested libraries from LD_PRELOAD.
+ */
+static void do_preloads(void) {
+	if (__ld_preload) {
+		char * p = __ld_preload;
+		while (*p) {
+			while (*p == ' ' || *p == ':') p++;
+			if (!*p) break;
+
+			char *n = p;
+			while (*n && *n != ' ' && *n != ':') n++;
+			char s = *n;
+			*n = '\0';
+
+			if (!find_lib(p, NULL)) {
+				dprintf("ld.so: '%s' from LD_PRELOAD could not be loaded: %s\n",
+					p, __ld_error);
+			}
+
+			*n = s;
+			p = n;
+		}
+	}
 }
 
 /**
@@ -961,8 +1039,6 @@ static int run_app(struct DlLib * app, int argc, char * argv[], uintptr_t entryp
  */
 __attribute__((visibility("hidden")))
 int __libc_load_from_file(int fd, const char * name, int argc, char *argv[]) {
-	last_library = __libc_ldso;
-
 	struct DlLib * app = try_load(name, fd, NULL, 1);
 
 	if (!app) {
@@ -1065,6 +1141,7 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 	}
 
 	__trace_ld = !!simple_getenv("LD_DEBUG");
+	if (!target_is_suid) __ld_preload = simple_getenv("LD_PRELOAD");
 
 	extern char ** __argv;
 	__argv = argv;
@@ -1087,21 +1164,16 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 	if (!auxv[AT_BASE]) {
 		calculate_tls_size(ldso);
 		run_ctors(ldso);
-		extern void _init(void);
-		_init();
-
+		__libc_init();
 		return syscall__exit(__ld_so_main(argc, argv));
 	}
 
 	struct DlLib * app = calloc(1, sizeof (struct DlLib));
 	app->name = argv[0];
-	app->next = ldso;
+	app->next = NULL;
 
 	calculate_tls_size(app);
 	calculate_tls_size(ldso);
-
-	all_libraries = app;
-	last_library = ldso;
 
 	/* Okay let's try to actually relocate and link the binary the kernel loaded next to us... */
 	phdrs = (void*)auxv[AT_PHDR];
@@ -1114,6 +1186,9 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 		}
 	}
 
+	all_libraries = app;
+	last_library = app;
+	do_preloads();
 	setup_lib(app, phdrs, phnum);
 
 	return run_app(app, argc, argv, auxv[AT_ENTRY]);

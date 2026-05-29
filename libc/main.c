@@ -37,9 +37,8 @@ void _exit(int val){
 int __libc_is_multicore = 0; /* exported */
 
 static int __libc_init_called = 0;
-
-__attribute__((constructor))
-static void _libc_init(void) {
+void __libc_init(void) {
+	if (__libc_init_called) return;
 	__libc_init_called = 1;
 	__make_tls();
 	__stdio_init_buffers();

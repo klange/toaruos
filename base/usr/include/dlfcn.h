@@ -10,6 +10,7 @@ _Begin_C_Header
 #define RTLD_GLOBAL (1 << 2)
 
 #define RTLD_DEFAULT ((void*)0)
+#define RTLD_NEXT    ((void*)1)
 
 /* Provided by ld.so, but also defined by libc.so for linking */
 extern void * dlopen(const char *, int);

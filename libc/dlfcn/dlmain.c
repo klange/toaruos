@@ -23,9 +23,24 @@
 
 static int usage(char * argv[]) {
 	fprintf(stderr,
-		"usage: %s [-e] [binary [args...]]\n",
+		"usage: %s [-e exe] [args...]\n",
 		argv[0]);
 	return 1;
+}
+
+static int help(char * argv[]) {
+	usage(argv);
+	fprintf(stderr,
+		"\nSupported options:\n"
+		"\n"
+		" -e exe            Use 'exe' as the binary to load\n"
+		"                   instead of the first argument.\n"
+		" --list            List dependencies (act as ldd).\n"
+		" --preload libs    Preload libraries.\n"
+		"\n"
+		" --help            Show this help text.\n"
+	);
+	return 0;
 }
 
 __attribute__((visibility("hidden")))
@@ -35,26 +50,38 @@ int __ld_so_main(int argc, char * argv[]) {
 
 	if (argc && !strcmp(basename(argv[0]),"ldd")) __is_ldd = true;
 
-	while ((opt = getopt(argc, argv, "e:-:")) != -1) {
+	struct option long_opts[] = {
+		{"exe",     required_argument, 0, 'e'},
+		{"list",    no_argument,       0, 1000},
+		{"help",    no_argument,       0, 1001},
+		{"preload", required_argument, 0, 1002},
+		{0,0,0,0}
+	};
+
+	while ((opt = getopt_long(argc, argv, "+e:", long_opts, NULL)) != -1) {
 		switch (opt) {
 			case 'e':
 				file = optarg;
 				break;
-			case '-':
-				if (!strcmp(optarg,"list")) {
-					__is_ldd = true;
-					break;
-				}
-				fprintf(stderr, "%s: unrecognized option '--%s'\n", argv[0], optarg);
-				// fallthrough
+			case 1000: /* --list */
+				__is_ldd = true;
+				break;
+			case 1001: /* --help */
+				return help(argv);
+			case 1002: /* --preload */
+				__ld_preload = optarg;
+				break;
 			default:
 				return usage(argv);
 		}
 	}
 
+	int _optind = optind;
+	optind = 0;
+
 	if (!file) {
-		if (argc == optind) return usage(argv);
-		file = argv[optind];
+		if (argc == _optind) return usage(argv);
+		file = argv[_optind];
 	}
 
 	int fd = open(file, O_RDONLY | O_CLOEXEC);
@@ -64,6 +91,6 @@ int __ld_so_main(int argc, char * argv[]) {
 		return 1;
 	}
 
-	return __libc_load_from_file(fd, file, argc - optind, &argv[optind]);
+	return __libc_load_from_file(fd, file, argc - _optind, &argv[_optind]);
 }
 
