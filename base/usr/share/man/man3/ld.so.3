@@ -14,8 +14,17 @@ It is normally set as the interpreter for these binaries in ToaruOS, as \fB/lib/
 
 .SH OPTIONS
 .TP
-.B \-e \fIbinary_path\fP
+.B \-e \fIbinary_path\fP \fRor\fP \-\-exe \fIbinary_path\fP
 Execute \fIbinary_path\fP with \fIargs\fP starting from \fIargv[0]\fP.
+
+.TP
+.B \-\-list
+Operate as
+.IR ldd (1).
+
+.TP
+.B \-\-preload \fIlibraries\fP
+Same as settings \fBLD_PRELOAD\fP.
 
 .SH ENVIRONMENT
 .TP
@@ -33,8 +42,10 @@ Print information about the auxiliary vector received from the kernel.
 .B LD_DEBUG
 If set, logs will be printed to standard error.
 
+.TP
+.B LD_PRELOAD
+A list of libraries, separated by spaces or colons, to load before everything else.
+
 .SH NOTES
 \fB/lib/ld.so\fP is a symbolic link to \fB/lib/libc.so\fP.
 
-.SH CAVEATS
-There is no \fBLD_PRELOAD\fP support, no lazy binding, and no ability to unload libraries.
