@@ -16,6 +16,7 @@ extern pid_t getppid(void);
 extern int close(int fd);
 
 extern pid_t fork(void);
+extern pid_t _Fork(void);
 
 extern int execl(const char *path, const char *arg, ...);
 extern int execlp(const char *file, const char *arg, ...);
@@ -129,7 +130,6 @@ extern long pathconf(const char *path, int name);
 extern int getgroups(int size, gid_t list[]);
 
 #ifdef _TOARU_SOURCE
-extern pid_t _Fork(void);
 extern int setgroups(int size, const gid_t list[]);
 #endif
 
