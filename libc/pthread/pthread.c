@@ -2,6 +2,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2012-2018 K. Lange
  */
+#define _TOARU_SOURCE
 #include <stdlib.h>
 #include <stdint.h>
 #include <syscall.h>
@@ -11,14 +12,14 @@
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <sched.h>
 
 #include <sys/wait.h>
 #include <sys/mman.h>
 
 #include "internal.h"
 
-DEFN_SYSCALL3(clone, SYS_CLONE, uintptr_t, uintptr_t, void *);
-DEFN_SYSCALL0(gettid, SYS_GETTID);
 DEFN_SYSCALL1(set_tls_base, SYS_SETTLSBASE, uintptr_t);
 
 struct __pthread {
@@ -33,13 +34,6 @@ static inline void _yield(void) {
 }
 
 #define PTHREAD_STACK_SIZE 0x100000
-
-int clone(uintptr_t a,uintptr_t b,void* c) {
-	__sets_errno(syscall_clone(a,b,c));
-}
-int gettid(void) {
-	return syscall_gettid(); /* never fails */
-}
 
 void * __tls_get_addr(void* input) {
 #ifdef __x86_64__

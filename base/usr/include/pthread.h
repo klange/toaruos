@@ -18,9 +18,6 @@ extern int pthread_create(pthread_t * thread, pthread_attr_t * attr, void *(*sta
 extern void pthread_exit(void * value);
 extern int pthread_kill(pthread_t thread, int sig);
 
-extern int clone(uintptr_t,uintptr_t,void*);
-extern int gettid(void);
-
 extern void pthread_cleanup_push(void (*routine)(void *), void *arg);
 extern void pthread_cleanup_pop(int execute);
 
