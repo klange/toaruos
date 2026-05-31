@@ -17,6 +17,7 @@ typedef struct {
 extern int pthread_create(pthread_t * thread, pthread_attr_t * attr, void *(*start_routine)(void *), void * arg);
 extern void pthread_exit(void * value);
 extern int pthread_kill(pthread_t thread, int sig);
+extern pthread_t pthread_self(void);
 
 extern void pthread_cleanup_push(void (*routine)(void *), void *arg);
 extern void pthread_cleanup_pop(int execute);

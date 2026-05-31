@@ -22,18 +22,10 @@
 
 DEFN_SYSCALL1(set_tls_base, SYS_SETTLSBASE, uintptr_t);
 
-struct __pthread {
-	pid_t tid;
-	void * (*entry)(void*);
-	void * arg;
-};
-
 extern int __libc_is_multicore;
 static inline void _yield(void) {
 	if (!__libc_is_multicore) syscall_yield();
 }
-
-#define PTHREAD_STACK_SIZE 0x100000
 
 void * __tls_get_addr(void* input) {
 #ifdef __x86_64__
@@ -51,9 +43,22 @@ void * __tls_get_addr(void* input) {
 #endif
 }
 
+pthread_t pthread_self(void) {
+	uintptr_t threadbase;
+#if defined(__x86_64__)
+	asm ("mov %%fs:0, %0" :"=r"(threadbase));
+#elif defined(__aarch64__)
+	asm volatile ("mrs %0,TPIDR_EL0" :"=r"(threadbase));
+#else
+# error "Unknown arch."
+#endif
+	return (struct __pthread*)(void*)(threadbase - 4096);
+}
+
 void __make_tls(void) {
 	char * tlsSpace = mmap(NULL, 8192, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-	memset(tlsSpace, 0x0, 8192);
+	struct __pthread * this = (void*)tlsSpace;
+	this->tid = getpid();
 	/* self-pointer start? */
 	char ** tlsSelf = (char **)(tlsSpace+4096);
 	*tlsSelf = (char*)tlsSelf;
@@ -77,7 +82,6 @@ static void * __thread_start(void * pthreadbase) {
 
 int pthread_create(pthread_t * thread, pthread_attr_t * attr, void *(*start_routine)(void *), void * arg) {
 	char * stack = mmap(NULL, PTHREAD_STACK_SIZE + 8192, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-	memset(stack, 0, PTHREAD_STACK_SIZE + 8192);
 	struct __pthread * this = (void*)(stack + PTHREAD_STACK_SIZE);
 	*thread = this;
 	this->entry = start_routine;
