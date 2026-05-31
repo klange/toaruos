@@ -32,8 +32,8 @@ struct huff_ring {
 /**
  * Fixed Huffman code tables, generated later.
  */
-struct huff fixed_lengths;
-struct huff fixed_dists;
+static struct huff fixed_lengths;
+static struct huff fixed_dists;
 
 /**
  * Read a little-endian short from the input.
