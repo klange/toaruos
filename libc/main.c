@@ -97,8 +97,12 @@ void __libc_init(void) {
 	if (getenv("__LIBC_DEBUG")) __libc_debug = 1;
 }
 
-void pre_main(int argc, char * argv[], char ** envp, int (*main)(int,char**)) {
+void __libc_start_main(int argc, char * argv[], char ** envp, int (*main)(int,char**)) {
 	_init();
 	exit(main(argc, argv));
 }
 
+/* This is what we used to call __libc_start_main, and we maintain this weak alias
+ * for compatibility with older binaries, as it is referenced in the old startup
+ * code that they all use; new binaries are free to define 'pre_main' differently. */
+void pre_main(int, char*[], char**, int (*)(int,char*)) __attribute__((weak,alias("__libc_start_main")));

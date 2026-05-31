@@ -3,4 +3,4 @@
 
 _start:
 	adr x3, main
-	bl	pre_main
+	bl	__libc_start_main

@@ -4,5 +4,5 @@
 _start:
 	adrp x3, :got:main
 	ldr     x3, [x3, #:got_lo12:main]
-	bl	pre_main
+	bl	__libc_start_main
 
