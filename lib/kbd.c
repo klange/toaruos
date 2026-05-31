@@ -27,7 +27,7 @@
 
 #define SET_UNSET(a,b,c) (a) = (c) ? ((a) | (b)) : ((a) & ~(b))
 
-char key_method[] = {
+static char key_method[] = {
 	/* 00 */ 0,    spec, norm, norm, norm, norm, norm, norm,
 	/* 08 */ norm, norm, norm, norm, norm, norm, norm, norm,
 	/* 10 */ norm, norm, norm, norm, norm, norm, norm, norm,
@@ -46,7 +46,7 @@ char key_method[] = {
 	/* 78 */ spec, spec, spec, spec, spec, spec, spec, spec,
 };
 
-char kbd_us[128] = {
+static char kbd_us[128] = {
 	0, 27,
 	'1','2','3','4','5','6','7','8','9','0',
 	'-','=','\b',
@@ -85,7 +85,7 @@ char kbd_us[128] = {
 	0, /* everything else */
 };
 
-char kbd_us_l2[128] = {
+static char kbd_us_l2[128] = {
 	0, 27,
 	'!','@','#','$','%','^','&','*','(',')',
 	'_','+','\b',
