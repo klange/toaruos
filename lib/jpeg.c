@@ -100,7 +100,7 @@ static int xy_to_lin(int x, int y) {
 	return x + y * 8;
 }
 
-struct huffman_table {
+static struct huffman_table {
 	uint8_t lengths[16];
 	uint8_t elements[256];
 } huffman_tables[256] = {0};
