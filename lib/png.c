@@ -15,21 +15,12 @@
 /**
  * Read 32-bit big-endian value from file.
  */
-unsigned int read_32(FILE * f) {
+static unsigned int read_32(FILE * f) {
 	unsigned char a = fgetc(f);
 	unsigned char b = fgetc(f);
 	unsigned char c = fgetc(f);
 	unsigned char d = fgetc(f);
 	return (a << 24) | (b << 16) | (c << 8) | d;
-}
-
-/**
- * Read 16-bit big-endian value from file.
- */
-unsigned int read_16(FILE * f) {
-	unsigned char a = fgetc(f);
-	unsigned char b = fgetc(f);
-	return (a << 8) | b;
 }
 
 /**
