@@ -1,3 +1,10 @@
 #include <errno.h>
+#include <pthread.h>
 
-int errno = 0;
+#include "../pthread/internal.h"
+
+int * __errno_addr(void) {
+	return pthread_self()->err_addr;
+}
+
+int __errno __asm__("errno") = 0;

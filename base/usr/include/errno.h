@@ -137,7 +137,8 @@ _Begin_C_Header
 #define ERESTARTSIGSUSPEND 511
 
 #ifndef _KERNEL_
-extern int errno;
+extern __const int * __errno_addr(void);
+#define errno (*__errno_addr())
 #define __sets_errno(...) long ret = __VA_ARGS__; if (ret < 0) { errno = -ret; ret = -1; } return ret
 #define __sets_errno_type(tp,...) long ret = __VA_ARGS__; if (ret < 0) { errno = -ret; return (tp)-1; } return (tp)ret
 #endif

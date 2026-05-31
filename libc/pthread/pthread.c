@@ -59,6 +59,7 @@ void __make_tls(void) {
 	char * tlsSpace = mmap(NULL, 8192, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	struct __pthread * this = (void*)tlsSpace;
 	this->tid = getpid();
+	this->err_addr = &__errno;
 	/* self-pointer start? */
 	char ** tlsSelf = (char **)(tlsSpace+4096);
 	*tlsSelf = (char*)tlsSelf;
@@ -73,6 +74,7 @@ void pthread_exit(void * value) {
 static void * __thread_start(void * pthreadbase) {
 	struct __pthread * this = pthreadbase;
 	this->tid = gettid();
+	this->err_addr = &this->thread_err_val;
 	char ** tlsbase = (char**)((char*)this + 4096);
 	*tlsbase = (char*)tlsbase;
 	syscall_set_tls_base((uintptr_t)tlsbase);

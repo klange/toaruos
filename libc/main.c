@@ -4,7 +4,6 @@
 #include <unistd.h>
 
 #include "internal.h"
-#include "pthread/internal.h"
 #include "stdio/stdio_internal.h"
 
 #include <syscall.h>
@@ -40,7 +39,6 @@ static int __libc_init_called = 0;
 void __libc_init(void) {
 	if (__libc_init_called) return;
 	__libc_init_called = 1;
-	__make_tls();
 	__stdio_init_buffers();
 	__libc_is_multicore = syscall_nproc();
 

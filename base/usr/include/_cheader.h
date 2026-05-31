@@ -11,3 +11,4 @@
 #endif
 
 #define __redirect(symbol,truename) __typeof__(symbol) symbol __asm__(#truename)
+#define __const __attribute__((const))

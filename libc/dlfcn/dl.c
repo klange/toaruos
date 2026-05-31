@@ -43,6 +43,7 @@
 
 #include "internal.h"
 #include "../stdio/stdio_internal.h"
+#include "../pthread/internal.h"
 #include "../internal.h"
 
 #ifdef LD_EARLY_DEBUG
@@ -1144,6 +1145,7 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 
 	__trace_ld = !!simple_getenv("LD_DEBUG");
 	if (!target_is_suid) __ld_preload = simple_getenv("LD_PRELOAD");
+	__make_tls();
 
 	extern char ** __argv;
 	__argv = argv;
