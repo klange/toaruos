@@ -12,7 +12,6 @@
 DEFN_SYSCALL1(exit,  SYS_EXT, int);
 
 extern void _init();
-extern void _fini();
 
 char ** environ = NULL;
 int __environ_size = 0;
@@ -27,11 +26,11 @@ static char ** __get_argv(void) {
 }
 
 void _exit(int val){
-	_fini();
-	__stdio_cleanup();
 	syscall_exit(val);
 	__builtin_unreachable();
 }
+
+void _Exit(int val) __attribute__((weak, alias("_exit")));
 
 int __libc_is_multicore = 0; /* exported */
 
