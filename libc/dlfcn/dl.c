@@ -890,6 +890,8 @@ static void run_ctors(struct DlLib * lib) {
 }
 
 void * dlopen(const char * filename, int flags) {
+	if (filename == NULL) return all_libraries;
+
 	struct DlLib * res = find_lib(filename, NULL);
 
 	if (res) {
