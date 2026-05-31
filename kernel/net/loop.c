@@ -15,7 +15,7 @@
 #include <kernel/list.h>
 #include <kernel/net/netif.h>
 #include <kernel/net/eth.h>
-#include <errno.h>
+#include <bits/errno.h>
 
 #include <sys/socket.h>
 #include <net/if.h>

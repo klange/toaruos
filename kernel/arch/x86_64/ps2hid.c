@@ -16,7 +16,7 @@
 #include <kernel/mouse.h>
 #include <kernel/misc.h>
 #include <kernel/args.h>
-#include <errno.h>
+#include <bits/errno.h>
 
 #include <kernel/arch/x86_64/ports.h>
 #include <kernel/arch/x86_64/regs.h>

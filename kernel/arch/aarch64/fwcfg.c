@@ -13,7 +13,7 @@
 #include <kernel/gzip.h>
 #include <kernel/mmu.h>
 #include <kernel/vfs.h>
-#include <errno.h>
+#include <bits/errno.h>
 
 #include <kernel/arch/aarch64/dtb.h>
 

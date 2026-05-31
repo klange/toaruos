@@ -21,7 +21,7 @@
  * Copyright (C) 2012 Markus Schober
  * Copyright (C) 2015 Dale Weiler
  */
-#include <errno.h>
+#include <bits/errno.h>
 #include <kernel/assert.h>
 #include <kernel/process.h>
 #include <kernel/printf.h>

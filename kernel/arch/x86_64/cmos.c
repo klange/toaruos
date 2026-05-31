@@ -13,7 +13,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2021 K. Lange
  */
-#include <errno.h>
+#include <bits/errno.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/process.h>

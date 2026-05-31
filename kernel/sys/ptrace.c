@@ -24,7 +24,7 @@
  * Copyright (C) 2021-2022 K. Lange
  */
 #include <stdint.h>
-#include <errno.h>
+#include <bits/errno.h>
 #include <sys/ptrace.h>
 #include <kernel/printf.h>
 #include <kernel/process.h>

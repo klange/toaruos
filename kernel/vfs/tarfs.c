@@ -7,7 +7,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2018 K. Lange
  */
-#include <errno.h>
+#include <bits/errno.h>
 #include <kernel/types.h>
 #include <kernel/vfs.h>
 #include <kernel/printf.h>

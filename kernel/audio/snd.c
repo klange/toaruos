@@ -26,7 +26,7 @@
 #include <kernel/mmu.h>
 
 #include <kernel/mod/snd.h>
-#include <errno.h>
+#include <bits/errno.h>
 
 /* Utility macros */
 #define N_ELEMENTS(arr) (sizeof(arr) / sizeof((arr)[0]))

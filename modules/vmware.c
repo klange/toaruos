@@ -20,7 +20,7 @@
  * Copyright (C) 2017-2021 K. Lange
  */
 
-#include <errno.h>
+#include <bits/errno.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <kernel/vfs.h>

@@ -26,7 +26,7 @@
 #include <kernel/ksym.h>
 #include <kernel/syscall.h>
 #include <kernel/elf.h>
-#include <errno.h>
+#include <bits/errno.h>
 
 #include <sys/ptrace.h>
 

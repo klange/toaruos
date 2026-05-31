@@ -8,7 +8,7 @@
  * Copyright (C) 2026 K. Lange
  */
 #include <stdint.h>
-#include <errno.h>
+#include <bits/errno.h>
 #include <sys/mman.h>
 #include <kernel/process.h>
 #include <kernel/vfs.h>

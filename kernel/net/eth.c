@@ -18,7 +18,7 @@
 #include <kernel/net/netif.h>
 #include <kernel/net/eth.h>
 #include <kernel/net/ipv4.h>
-#include <errno.h>
+#include <bits/errno.h>
 
 #include <sys/socket.h>
 

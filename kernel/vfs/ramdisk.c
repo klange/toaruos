@@ -18,7 +18,7 @@
  * Copyright (C) 2014-2021 K. Lange
  */
 
-#include <errno.h>
+#include <bits/errno.h>
 #include <kernel/types.h>
 #include <kernel/vfs.h>
 #include <kernel/printf.h>

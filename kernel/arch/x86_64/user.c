@@ -8,7 +8,7 @@
  * Copyright (C) 2021 K. Lange
  */
 #include <stdint.h>
-#include <errno.h>
+#include <bits/errno.h>
 #include <kernel/process.h>
 #include <kernel/string.h>
 #include <kernel/mmu.h>

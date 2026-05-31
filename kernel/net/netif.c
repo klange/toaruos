@@ -17,7 +17,7 @@
 #include <kernel/hashmap.h>
 #include <kernel/net/netif.h>
 
-#include <errno.h>
+#include <bits/errno.h>
 
 static hashmap_t * interfaces = NULL;
 extern list_t * net_raw_sockets_list;

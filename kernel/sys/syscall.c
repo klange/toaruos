@@ -8,7 +8,7 @@
  * Copyright (C) 2011-2021 K. Lange
  */
 #include <stdint.h>
-#include <errno.h>
+#include <bits/errno.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
 #include <sys/time.h>

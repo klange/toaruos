@@ -11,7 +11,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2014-2021 K. Lange <klange@toaruos.org>
  */
-#include <errno.h>
+#include <bits/errno.h>
 #include <kernel/types.h>
 #include <kernel/vfs.h>
 #include <kernel/printf.h>

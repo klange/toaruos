@@ -21,7 +21,7 @@
  * Copyright (C) 2015-2021 K. Lange
  */
 
-#include <errno.h>
+#include <bits/errno.h>
 #include <kernel/types.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>

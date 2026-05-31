@@ -8,7 +8,7 @@
  * Copyright (C) 2013-2021 K. Lange
  */
 #include <stddef.h>
-#include <errno.h>
+#include <bits/errno.h>
 #include <kernel/vfs.h>
 #include <kernel/pipe.h>
 #include <kernel/string.h>

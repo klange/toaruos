@@ -29,7 +29,7 @@
 #include <kernel/arch/x86_64/cmos.h>
 #include <kernel/arch/x86_64/pml.h>
 
-#include <errno.h>
+#include <bits/errno.h>
 
 extern void arch_clock_initialize(void);
 

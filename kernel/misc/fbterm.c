@@ -17,7 +17,7 @@
 #include <kernel/mmu.h>
 #include <kernel/video.h>
 #include <kernel/vfs.h>
-#include <errno.h>
+#include <bits/errno.h>
 
 /* Whether to scroll or wrap when cursor reaches the bottom. */
 static int fbterm_scroll = 0;

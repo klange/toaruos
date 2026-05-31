@@ -12,7 +12,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2021-2023 K. Lange
  */
-#include <errno.h>
+#include <bits/errno.h>
 #include <kernel/types.h>
 #include <kernel/symboltable.h>
 #include <kernel/printf.h>

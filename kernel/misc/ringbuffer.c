@@ -12,7 +12,7 @@
  */
 #include <stdint.h>
 #include <stddef.h>
-#include <errno.h>
+#include <bits/errno.h>
 #include <kernel/types.h>
 #include <kernel/ringbuffer.h>
 #include <kernel/process.h>

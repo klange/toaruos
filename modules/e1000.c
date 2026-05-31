@@ -25,7 +25,7 @@
 #include <kernel/net/netif.h>
 #include <kernel/net/eth.h>
 #include <kernel/module.h>
-#include <errno.h>
+#include <bits/errno.h>
 
 #if defined(__x86_64__)
 #include <kernel/arch/x86_64/irq.h>

@@ -8,7 +8,7 @@
  * Copyright (C) 2021 K. Lange
  */
 #include <stdarg.h>
-#include <errno.h>
+#include <bits/errno.h>
 #include <kernel/process.h>
 #include <kernel/vfs.h>
 #include <kernel/string.h>
