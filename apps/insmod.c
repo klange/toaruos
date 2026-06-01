@@ -12,7 +12,7 @@
 #include <fcntl.h>
 #include <err.h>
 #include <errno.h>
-#include <syscall.h>
+#include <sys/insmod.h>
 
 static int usage(char * argv[]) {
 	fprintf(stderr, "usage: %s [-p] module [args...]\n", argv[0]);
@@ -62,8 +62,8 @@ int main(int argc, char * argv[]) {
 	int fd = open(module, O_RDONLY);
 	if (fd < 0) err(2, "open: %s", module);
 
-	int status = syscall_insmod(fd, argc - optind, &argv[optind]);
-	if (status < 0) errx(2, "%s: %s", argv[optind], strerror(-status));
+	int status = insmod(fd, argc - optind, &argv[optind]);
+	if (status == 1) err(2, "%s", argv[optind]);
 
 	return 0;
 }
