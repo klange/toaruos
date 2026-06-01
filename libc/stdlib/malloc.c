@@ -160,11 +160,11 @@ static void spin_unlock(int volatile * lock) {
 	__sync_lock_release(lock);
 }
 
-void __libc_take_malloc_lock(void) {
+_hidden void __libc_take_malloc_lock(void) {
 	spin_lock(&mem_lock, "fork");
 }
 
-void __libc_release_malloc_lock(void) {
+_hidden void __libc_release_malloc_lock(void) {
 	spin_unlock(&mem_lock);
 }
 

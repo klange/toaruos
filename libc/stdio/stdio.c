@@ -65,7 +65,7 @@ FILE * stderr = &__stderr;
 
 static FILE * _head = NULL;
 
-void __stdio_init_buffers(void) {
+_hidden void __stdio_init_buffers(void) {
 	__stdin.read_buf   = mmap(NULL, BUFSIZ, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	__stdout.write_buf = mmap(NULL, BUFSIZ, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	__stderr.write_buf = mmap(NULL, BUFSIZ, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
@@ -74,7 +74,7 @@ void __stdio_init_buffers(void) {
 	__stderr._name = strdup("stderr");
 }
 
-void __stdio_cleanup(void) {
+_hidden void __stdio_cleanup(void) {
 	if (stdout) fflush(stdout);
 	if (stderr) fflush(stderr);
 	while (_head) {

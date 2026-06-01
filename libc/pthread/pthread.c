@@ -55,7 +55,7 @@ pthread_t pthread_self(void) {
 	return (struct __pthread*)(void*)(threadbase - 4096);
 }
 
-void __make_tls(void) {
+_hidden void __make_tls(void) {
 	char * tlsSpace = mmap(NULL, 8192, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	struct __pthread * this = (void*)tlsSpace;
 	this->tid = getpid();

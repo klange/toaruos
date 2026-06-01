@@ -35,7 +35,7 @@ void _Exit(int val) __attribute__((weak, alias("_exit")));
 int __libc_is_multicore = 0; /* exported */
 
 static int __libc_init_called = 0;
-void __libc_init(void) {
+_hidden void __libc_init(void) {
 	if (__libc_init_called) return;
 	__libc_init_called = 1;
 	__stdio_init_buffers();
