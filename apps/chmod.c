@@ -18,7 +18,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
-extern mode_t __mode_calculate(const char *, mode_t, mode_t, int);
+#include <toaru/modecalc.h>
 
 static int usage(char * argv[]) {
 	fprintf(stderr, "usage: %s [-R] mode file...\n", argv[0]);
@@ -62,7 +62,7 @@ int main(int argc, char * argv[]) {
 
 	if (argc < optind + 1) return usage(argv);
 
-	if (__mode_calculate(argv[optind], 0, 0, 0) == (mode_t)-1) {
+	if (mode_calc(argv[optind], 0, 0, 0) == (mode_t)-1) {
 		fprintf(stderr, "%s: unsupported mode '%s'\n", argv[0], argv[optind]);
 		return 2;
 	}
@@ -84,7 +84,7 @@ int main(int argc, char * argv[]) {
 		}
 
 		mode_t old_mode = _stat.st_mode & 07777;
-		mode_t new_mode = __mode_calculate(argv[optind], old_mode, mask, S_ISDIR(_stat.st_mode) ? 2 : 0);
+		mode_t new_mode = mode_calc(argv[optind], old_mode, mask, S_ISDIR(_stat.st_mode) ? 2 : 0);
 		char old_mode_desc[10];
 		char new_mode_desc[10];
 

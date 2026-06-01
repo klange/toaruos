@@ -41,6 +41,7 @@
 #include <toaru/kbd.h>
 #include <toaru/rline.h>
 #include <toaru/decodeutf8.h>
+#include <toaru/modecalc.h>
 
 #ifndef environ
 extern char **environ;
@@ -2732,8 +2733,6 @@ uint32_t shell_cmd_set(int argc, char * argv[]) {
 	return 0;
 }
 
-extern mode_t __mode_calculate(const char *, mode_t, mode_t, int);
-
 uint32_t shell_cmd_umask(int argc, char * argv[]) {
 	int optind = 1;
 	int symbolic = 0;
@@ -2745,7 +2744,7 @@ uint32_t shell_cmd_umask(int argc, char * argv[]) {
 	}
 
 	if (optind < argc) {
-		mode_t new_mode = __mode_calculate(argv[optind], 0777 & (~mode), 0, 1);
+		mode_t new_mode = mode_calc(argv[optind], 0777 & (~mode), 0, 1);
 		if (new_mode == (mode_t)-1) fprintf(stderr, "%s: invalid mask '%s'\n", argv[0], argv[optind]);
 		else mode = new_mode;
 	}

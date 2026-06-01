@@ -1,7 +1,14 @@
-#define _TOARU_SOURCE
+/**
+ * @brief Decode mode strings used in various utilities.
+ *
+ * @copyright
+ * This file is part of ToaruOS and is released under the terms
+ * of the NCSA / University of Illinois License - see LICENSE.md
+ * Copyright (C) 2026 K. Lange
+ */
 #include <sys/stat.h>
 
-mode_t __mode_calculate(const char * c, mode_t original, mode_t mask, int flags) {
+static mode_t mode_calc(const char * c, mode_t original, mode_t mask, int flags) {
 	if (*c >= '0' && *c <= '7') {
 		mode_t out = 0;
 		while (*c >= '0' && *c <= '7') {

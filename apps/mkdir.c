@@ -16,6 +16,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <toaru/modecalc.h>
+
 int makedir(const char * dir, mode_t mode, mode_t mask, mode_t parent_mask, int parents) {
 	char * tmp = strdup(dir);
 	if (parents) {
@@ -43,8 +45,6 @@ int makedir(const char * dir, mode_t mode, mode_t mask, mode_t parent_mask, int 
 	return out;
 }
 
-extern mode_t __mode_calculate(const char *, mode_t, mode_t, int);
-
 int main(int argc, char ** argv) {
 	int retval = 0;
 	int parents = 0;
@@ -57,7 +57,7 @@ int main(int argc, char ** argv) {
 	while ((opt = getopt(argc, argv, "m:p")) != -1) {
 		switch (opt) {
 			case 'm':
-				mode = __mode_calculate(optarg, 0777, mask, 0);
+				mode = mode_calc(optarg, 0777, mask, 0);
 				mask = mask & ~mode;
 				break;
 			case 'p':
