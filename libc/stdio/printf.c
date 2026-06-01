@@ -262,6 +262,15 @@ size_t __printf_internal(int (*callback)(void *, char), void * userData, const c
 						if (s == NULL) {
 							s = "(null)";
 						}
+						if (arg_width && align && precision == -1) {
+							/* TODO precision > -1 */
+							size_t len = strlen(s);
+							while (len < arg_width) {
+								OUT(' ');
+								len++;
+								count++;
+							}
+						}
 						if (precision >= 0) {
 							while (*s && precision > 0) {
 								OUT(*s++);

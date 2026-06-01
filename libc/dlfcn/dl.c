@@ -1131,7 +1131,7 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 	if (show_auxv) {
 		for (i = 0; auxv_raw[i]; i += 2) {
 			switch (auxv_raw[i]) {
-#define _fmt(n,fstr) case n: dprintf("%16s %" fstr "\n", #n ":", auxv_raw[i+1]); break
+#define _fmt(n,fstr) case n: dprintf("%-16s %" fstr "\n", #n ":", auxv_raw[i+1]); break
 				_fmt(AT_UID,"zu");
 				_fmt(AT_EUID,"zu");
 				_fmt(AT_GID,"zu");
