@@ -7,9 +7,9 @@
  * Copyright (C) 2021 K. Lange
  */
 #include <stdio.h>
-#include <syscall.h>
+#include <unistd.h>
 
 int main(int argc, char * argv[]) {
-	printf("%ld\n", syscall_nproc());
+	printf("%ld\n", sysconf(_SC_NPROCESSORS_ONLN));
 	return 0;
 }

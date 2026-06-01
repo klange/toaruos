@@ -36,7 +36,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <syscall.h>
 #include <unistd.h>
 #include <wait.h>
 #include <fcntl.h>

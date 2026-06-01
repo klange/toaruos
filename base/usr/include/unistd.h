@@ -144,4 +144,7 @@ ssize_t pwrite(int fd, const void *buf, size_t count, off_t offset);
 extern char *getwd(char *buf);
 #endif
 
+extern long sysconf(int name);
+#include <bits/sysconf.h>
+
 _End_C_Header

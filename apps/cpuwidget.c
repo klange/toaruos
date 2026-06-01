@@ -20,7 +20,6 @@
 
 #include <net/if.h>
 
-#include <syscall.h>
 #include <sys/ioctl.h>
 #include <sys/times.h>
 #include <sys/fswait.h>
@@ -554,7 +553,7 @@ int main (int argc, char ** argv) {
 	top    = 100;
 	width  = 640;
 	height = 480;
-	cpu_count = syscall_nproc();
+	cpu_count = sysconf(_SC_NPROCESSORS_ONLN);
 
 	yctx = yutani_init();
 	if (!yctx) {
