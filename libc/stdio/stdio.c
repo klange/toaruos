@@ -8,8 +8,8 @@
 #include <errno.h>
 #include <sys/mman.h>
 
-#include "stdio_internal.h"
-#include "../internal.h"
+#include <libc/internal.h>
+#include <libc/stdio/stdio_internal.h>
 
 _hidden FILE __stdin = {
 	.fd = 0,

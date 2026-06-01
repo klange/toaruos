@@ -19,7 +19,7 @@
 #include <errno.h>
 #include <libgen.h>
 
-#include "internal.h"
+#include <libc/dlfcn/internal.h>
 
 static int usage(char * argv[]) {
 	fprintf(stderr,

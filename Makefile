@@ -72,7 +72,7 @@ BIM_FILES += $(patsubst bim/themes/%,$(BASE)/usr/share/bim/themes/%,$(wildcard b
 BIM_FILES += $(patsubst bim/site/%,$(BASE)/usr/share/bim/site/%,$(wildcard bim/site/*.krk))
 
 CFLAGS= -O2 -std=gnu11 -I. -Iapps -fplan9-extensions -Wall -Wextra -Wno-unused-parameter ${ARCH_USER_CFLAGS}
-LIBC_CFLAGS = -O2 -std=gnu11 -fno-builtin -Wall -Wextra -Wno-unused-parameter -Wmissing-prototypes ${ARCH_USER_CFLAGS}
+LIBC_CFLAGS = -O2 -std=gnu11 -I. -fno-builtin -Wall -Wextra -Wno-unused-parameter -Wmissing-prototypes ${ARCH_USER_CFLAGS}
 
 LIBC_OBJS  = $(patsubst %.c,%.o,$(wildcard libc/*.c))
 LIBC_OBJS += $(patsubst %.c,%.o,$(wildcard libc/*/*.c))

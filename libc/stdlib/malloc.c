@@ -110,7 +110,7 @@
 #include <stdlib.h>
 #include <malloc.h>
 #include <sys/mman.h>
-#include "../internal.h"
+#include <libc/internal.h>
 /* }}} */
 /* Definitions {{{ */
 

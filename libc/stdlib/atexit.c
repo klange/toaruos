@@ -3,7 +3,7 @@
 /* Header-only */
 #include <toaru/spinlock.h>
 
-#include "../internal.h"
+#include <libc/internal.h>
 
 _hidden int volatile __atexit_lock = 0;
 _hidden void (*__atexit_handlers[32])(void) = {NULL};

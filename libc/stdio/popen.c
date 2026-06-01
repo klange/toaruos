@@ -5,7 +5,7 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 
-#include "stdio_internal.h"
+#include <libc/stdio/stdio_internal.h>
 
 FILE * popen(const char * command, const char * type) {
 	if (!type || (*type != 'r' && *type != 'w') || type[1]) {

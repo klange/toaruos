@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <va_list.h>
 
-#include "stdio_internal.h"
+#include <libc/stdio/stdio_internal.h>
 
 #define OUT(c) do { callback(userData, (c)); written++; } while (0)
 static size_t print_dec(unsigned long long value, unsigned int width, int (*callback)(void*,char), void * userData, int fill_zero, int align_right, int precision) {

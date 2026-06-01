@@ -18,7 +18,7 @@
 #include <sys/wait.h>
 #include <sys/mman.h>
 
-#include "internal.h"
+#include <libc/pthread/internal.h>
 
 DEFN_SYSCALL1(set_tls_base, SYS_SETTLSBASE, uintptr_t);
 

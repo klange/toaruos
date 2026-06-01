@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "internal.h"
-#include "stdio/stdio_internal.h"
+#include <libc/internal.h>
+#include <libc/stdio/stdio_internal.h>
 
 #include <syscall.h>
 #include <sys/syscall.h>

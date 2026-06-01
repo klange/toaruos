@@ -41,10 +41,10 @@
 #include <syscall.h>
 #include <sys/syscall.h>
 
-#include "internal.h"
-#include "../stdio/stdio_internal.h"
-#include "../pthread/internal.h"
-#include "../internal.h"
+#include <libc/dlfcn/internal.h>
+#include <libc/stdio/stdio_internal.h>
+#include <libc/pthread/internal.h>
+#include <libc/internal.h>
 
 #ifdef LD_EARLY_DEBUG
 static DEFN_SYSCALL3(_open,SYS_OPEN,const char*,long,mode_t);

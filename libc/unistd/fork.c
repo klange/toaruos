@@ -3,7 +3,7 @@
 #include <sys/syscall.h>
 #include <errno.h>
 
-#include "../internal.h"
+#include <libc/internal.h>
 
 DEFN_SYSCALL0(fork, SYS_FORK);
 
