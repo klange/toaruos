@@ -39,7 +39,7 @@
 #include <kernel/elf.h>
 
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 
 #include "internal.h"
 #include "../stdio/stdio_internal.h"

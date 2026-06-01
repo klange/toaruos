@@ -1,4 +1,4 @@
- #pragma once
+#pragma once
 
 #define SYS_EXT 0
 #define SYS_GETEUID 1

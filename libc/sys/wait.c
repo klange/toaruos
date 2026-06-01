@@ -1,6 +1,6 @@
 #include <sys/wait.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <errno.h>
 
 DEFN_SYSCALL3(waitpid, SYS_WAITPID, int, int *, int);

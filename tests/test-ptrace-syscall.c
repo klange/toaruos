@@ -13,7 +13,7 @@
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/uregs.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 
 int main(int argc, char * argv[]) {
 	pid_t p = fork();

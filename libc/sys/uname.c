@@ -1,6 +1,6 @@
 #include <sys/utsname.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <errno.h>
 
 DEFN_SYSCALL1(uname, SYS_UNAME, struct utsname *);

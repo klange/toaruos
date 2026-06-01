@@ -1,6 +1,6 @@
 #include <errno.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <sys/stat.h>
 #include <string.h>
 

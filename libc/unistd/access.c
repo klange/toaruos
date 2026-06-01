@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 
 DEFN_SYSCALL2(access, SYS_ACCESS, char *, int);
 

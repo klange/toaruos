@@ -1,6 +1,6 @@
 #include <sys/mman.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <errno.h>
 
 DEFN_SYSCALL6(mmap, SYS_MMAP, void*, size_t, int, int, int, off_t);

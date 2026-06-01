@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 
 DEFN_SYSCALL4(pwrite, SYS_PWRITE, int, const void *, size_t, off_t);
 

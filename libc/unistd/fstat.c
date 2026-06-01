@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <errno.h>
 
 DEFN_SYSCALL2(stat, SYS_STAT, int, void *);

@@ -1,7 +1,7 @@
 #include <signal.h>
 #include <sys/signal.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <errno.h>
 
 DEFN_SYSCALL1(sigsuspend, SYS_SIGSUSPEND,const sigset_t *);

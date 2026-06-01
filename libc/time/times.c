@@ -1,7 +1,7 @@
 #include <sys/times.h>
 #include <errno.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 
 DEFN_SYSCALL1(times, SYS_TIMES, struct tms *);
 

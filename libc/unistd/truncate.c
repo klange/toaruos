@@ -2,7 +2,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 
 DEFN_SYSCALL2(truncate, SYS_TRUNCATE, char *, off_t);
 

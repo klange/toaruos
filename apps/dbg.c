@@ -21,7 +21,6 @@
 #include <sys/utsname.h>
 #include <sys/time.h>
 #include <sys/stat.h>
-#include <syscall_nums.h>
 
 #include <toaru/rline.h>
 #include <toaru/hashmap.h>

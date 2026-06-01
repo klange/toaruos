@@ -1,5 +1,5 @@
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <sys/resource.h>
 #include <errno.h>
 

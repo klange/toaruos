@@ -1,6 +1,6 @@
 #include <signal.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <errno.h>
 
 DEFN_SYSCALL2(signal, SYS_SIGNAL, int, void *);

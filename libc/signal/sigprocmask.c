@@ -1,7 +1,7 @@
 #include <signal.h>
 #include <sys/signal.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <errno.h>
 
 DEFN_SYSCALL3(sigprocmask, SYS_SIGPROCMASK, int, const sigset_t * restrict, sigset_t* restrict);

@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>

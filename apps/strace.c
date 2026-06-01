@@ -27,7 +27,7 @@
 #include <sys/resource.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 

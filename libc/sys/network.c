@@ -17,7 +17,7 @@
 #include <netinet/in.h>
 
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 
 DEFN_SYSCALL3(socket, SYS_SOCKET, int, int, int);
 DEFN_SYSCALL5(setsockopt, SYS_SETSOCKOPT, int,int,int,const void*,size_t);

@@ -4,7 +4,7 @@
 #include <errno.h>
 
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 
 DEFN_SYSCALL3(open,  SYS_OPEN, const char *, long, mode_t);
 

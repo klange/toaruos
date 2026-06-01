@@ -1,6 +1,6 @@
 #include <signal.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <errno.h>
 
 DEFN_SYSCALL3(sigqueue, SYS_SIGQUEUE, pid_t, int, uintptr_t);

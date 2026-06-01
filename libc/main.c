@@ -7,7 +7,7 @@
 #include "stdio/stdio_internal.h"
 
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 
 DEFN_SYSCALL1(exit,  SYS_EXT, int);
 

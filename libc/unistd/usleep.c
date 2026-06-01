@@ -1,6 +1,6 @@
 #include <unistd.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <errno.h>
 
 DEFN_SYSCALL2(sleep,  SYS_SLEEP, unsigned long, unsigned long);

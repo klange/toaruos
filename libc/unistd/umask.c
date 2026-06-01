@@ -1,6 +1,6 @@
 #include <sys/stat.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <errno.h>
 
 DEFN_SYSCALL1(umask, SYS_UMASK, int);

@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 
 DEFN_SYSCALL3(write, SYS_WRITE, int, char *, size_t);
 

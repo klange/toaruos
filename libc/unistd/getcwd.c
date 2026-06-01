@@ -3,7 +3,7 @@
 #include <string.h>
 #include <errno.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 
 DEFN_SYSCALL2(getcwd, SYS_GETCWD, char *, size_t);
 

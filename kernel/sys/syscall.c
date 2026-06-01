@@ -17,7 +17,7 @@
 #include <sys/signal.h>
 #include <sys/resource.h>
 #include <sys/mman.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <kernel/printf.h>
 #include <kernel/process.h>
 #include <kernel/string.h>

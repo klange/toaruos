@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <signal.h>
 #include <pthread.h>
 #include <errno.h>

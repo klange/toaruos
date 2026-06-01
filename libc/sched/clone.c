@@ -1,7 +1,7 @@
 #define _TOARU_SOURCE
 #include <sched.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <errno.h>
 
 DEFN_SYSCALL3(clone, SYS_CLONE, uintptr_t, uintptr_t, void *);

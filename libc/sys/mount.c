@@ -1,6 +1,6 @@
 #include <sys/mount.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <errno.h>
 
 DEFN_SYSCALL5(mount, SYS_MOUNT, char *, char *, char *, unsigned long, void *);

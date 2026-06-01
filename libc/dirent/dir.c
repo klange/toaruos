@@ -3,7 +3,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <errno.h>
 #include <dirent.h>
 #include <bits/dirent.h>

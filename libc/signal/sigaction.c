@@ -1,7 +1,7 @@
 #include <signal.h>
 #include <sys/signal.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <errno.h>
 
 DEFN_SYSCALL3(sigaction, SYS_SIGACTION, int, struct sigaction*, struct sigaction*);

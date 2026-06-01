@@ -1,6 +1,6 @@
 #include <sys/shm.h>
 #include <syscall.h>
-#include <syscall_nums.h>
+#include <sys/syscall.h>
 #include <errno.h>
 
 DEFN_SYSCALL2(shm_obtain,  SYS_SHM_OBTAIN, const char *, size_t *);
