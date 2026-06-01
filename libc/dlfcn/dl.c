@@ -31,6 +31,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <dlfcn.h>
+#include <pthread.h>
 #include <sys/stat.h>
 #include <sys/reboot.h>
 #include <sys/auxv.h>
@@ -976,6 +977,11 @@ char * dlerror(void) {
 static int run_app(struct DlLib * app, int argc, char * argv[], uintptr_t entryp) {
 	relocate_stuff(app->next);
 	relocate_stuff(app);
+
+	/* If a legacy app defined errno, ours will have been relocated to match;
+	 * we set the address in the thread pointer early for the dynamic linker,
+	 * but we need to re-adjust here. */
+	pthread_self()->err_addr = &__errno;
 
 	/* Must call this before other constructors to set up environ,
 	 * stdio, etc. */
