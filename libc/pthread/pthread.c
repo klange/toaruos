@@ -5,7 +5,7 @@
 #define _TOARU_SOURCE
 #include <stdlib.h>
 #include <stdint.h>
-#include <syscall.h>
+#include <libc/syscall.h>
 #include <sys/syscall.h>
 #include <signal.h>
 #include <pthread.h>

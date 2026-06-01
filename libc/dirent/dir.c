@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <string.h>
-#include <syscall.h>
+#include <libc/syscall.h>
 #include <sys/syscall.h>
 #include <errno.h>
 #include <dirent.h>

@@ -16,7 +16,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-#include <syscall.h>
+#include <libc/syscall.h>
 #include <sys/syscall.h>
 
 DEFN_SYSCALL3(socket, SYS_SOCKET, int, int, int);

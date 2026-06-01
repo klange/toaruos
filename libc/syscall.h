@@ -4,16 +4,22 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
+#include <sys/times.h>
+#include <sys/signal.h>
+#include <sys/resource.h>
+
+#include <libc/internal.h>
 
 _Begin_C_Header
 
-#define DECL_SYSCALL0(fn)                long syscall_##fn()
-#define DECL_SYSCALL1(fn,p1)             long syscall_##fn(p1)
-#define DECL_SYSCALL2(fn,p1,p2)          long syscall_##fn(p1,p2)
-#define DECL_SYSCALL3(fn,p1,p2,p3)       long syscall_##fn(p1,p2,p3)
-#define DECL_SYSCALL4(fn,p1,p2,p3,p4)    long syscall_##fn(p1,p2,p3,p4)
-#define DECL_SYSCALL5(fn,p1,p2,p3,p4,p5) long syscall_##fn(p1,p2,p3,p4,p5)
-#define DECL_SYSCALL6(fn,p1,p2,p3,p4,p5,p6) long syscall_##fn(p1,p2,p3,p4,p5,p6)
+#define DECL_SYSCALL0(fn)                   _hidden long syscall_##fn(void)
+#define DECL_SYSCALL1(fn,p1)                _hidden long syscall_##fn(p1)
+#define DECL_SYSCALL2(fn,p1,p2)             _hidden long syscall_##fn(p1,p2)
+#define DECL_SYSCALL3(fn,p1,p2,p3)          _hidden long syscall_##fn(p1,p2,p3)
+#define DECL_SYSCALL4(fn,p1,p2,p3,p4)       _hidden long syscall_##fn(p1,p2,p3,p4)
+#define DECL_SYSCALL5(fn,p1,p2,p3,p4,p5)    _hidden long syscall_##fn(p1,p2,p3,p4,p5)
+#define DECL_SYSCALL6(fn,p1,p2,p3,p4,p5,p6) _hidden long syscall_##fn(p1,p2,p3,p4,p5,p6)
 
 #ifdef __x86_64__
 
@@ -26,7 +32,7 @@ _Begin_C_Header
 #endif
 
 #define DEFN_SYSCALL0(fn, num) \
-	long syscall_##fn() { \
+	long syscall_##fn(void) { \
 		long a = num; __asm__ __volatile__(__SYSCALL_ENTRY_INST : "=a" (a) : "a" ((long)a) : __SYSCALL_CLOBBERS); \
 		return a; \
 	}
@@ -269,6 +275,36 @@ DECL_SYSCALL4(ptrace, int, int, void*, void*);
 DECL_SYSCALL2(settimeofday, void *, void *);
 DECL_SYSCALL0(nproc);
 DECL_SYSCALL3(insmod, int, int, char**);
+
+DECL_SYSCALL0(getppid);
+DECL_SYSCALL1(set_tls_base, uintptr_t);
+DECL_SYSCALL1(sigpending, sigset_t *);
+DECL_SYSCALL1(sigsuspend,const sigset_t *);
+DECL_SYSCALL2(eaccess, char *, int);
+DECL_SYSCALL2(fchmod, int, int);
+DECL_SYSCALL2(ftruncate, int, off_t);
+DECL_SYSCALL2(getrusage, int, struct rusage*);
+DECL_SYSCALL2(munmap, void*, size_t);
+DECL_SYSCALL2(pipe2, int *, int);
+DECL_SYSCALL2(rename, const char *, const char *);
+DECL_SYSCALL2(setregid, gid_t, gid_t);
+DECL_SYSCALL2(setreuid, uid_t, uid_t);
+DECL_SYSCALL2(sigwait, const sigset_t *,int *);
+DECL_SYSCALL2(truncate, char *, off_t);
+DECL_SYSCALL3(dup3, int, int, int);
+DECL_SYSCALL3(fchown, int, int, int);
+DECL_SYSCALL3(fcntl, int, int, long);
+DECL_SYSCALL3(getpeername, int,void*,size_t*);
+DECL_SYSCALL3(getsockname, int,void*,size_t*);
+DECL_SYSCALL3(lchown, const char *, uid_t, gid_t);
+DECL_SYSCALL3(setresgid, gid_t, gid_t, gid_t);
+DECL_SYSCALL3(setresuid, uid_t, uid_t, uid_t);
+DECL_SYSCALL3(sigaction, int, struct sigaction*, struct sigaction*);
+DECL_SYSCALL3(sigprocmask, int, const sigset_t * restrict, sigset_t* restrict);
+DECL_SYSCALL3(sigqueue, pid_t, int, uintptr_t);
+DECL_SYSCALL4(pread, int, void *, size_t, off_t);
+DECL_SYSCALL4(pwrite, int, const void *, size_t, off_t);
+DECL_SYSCALL6(mmap, void*, size_t, int, int, int, off_t);
 
 _End_C_Header
 

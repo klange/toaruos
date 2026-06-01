@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include <syscall.h>
+#include <libc/syscall.h>
 #include <signal.h>
 
 void abort(void) {

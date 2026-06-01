@@ -1,4 +1,4 @@
-#include <syscall.h>
+#include <libc/syscall.h>
 #include <sys/syscall.h>
 #include <sys/resource.h>
 #include <errno.h>

@@ -1,6 +1,6 @@
 #include <unistd.h>
 #include <errno.h>
-#include <syscall.h>
+#include <libc/syscall.h>
 #include <sys/syscall.h>
 
 DEFN_SYSCALL3(seek, SYS_SEEK, int, long, int);

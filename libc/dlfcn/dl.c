@@ -38,7 +38,7 @@
 #include <va_list.h>
 #include <kernel/elf.h>
 
-#include <syscall.h>
+#include <libc/syscall.h>
 #include <sys/syscall.h>
 
 #include <libc/dlfcn/internal.h>

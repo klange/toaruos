@@ -1,5 +1,5 @@
 #include <unistd.h>
-#include <syscall.h>
+#include <libc/syscall.h>
 #include <errno.h>
 
 unsigned int sleep(unsigned int seconds) {

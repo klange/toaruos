@@ -6,7 +6,7 @@
 #include <libc/internal.h>
 #include <libc/stdio/stdio_internal.h>
 
-#include <syscall.h>
+#include <libc/syscall.h>
 #include <sys/syscall.h>
 
 DEFN_SYSCALL1(exit,  SYS_EXT, int);

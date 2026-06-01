@@ -1,6 +1,6 @@
 #define _TOARU_SOURCE
 #include <unistd.h>
-#include <syscall.h>
+#include <libc/syscall.h>
 #include <sys/syscall.h>
 
 DEFN_SYSCALL0(gettid, SYS_GETTID);

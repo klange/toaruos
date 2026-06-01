@@ -1,6 +1,6 @@
 #include <signal.h>
 #include <sys/signal.h>
-#include <syscall.h>
+#include <libc/syscall.h>
 #include <sys/syscall.h>
 #include <errno.h>
 

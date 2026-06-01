@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include <syscall.h>
+#include <libc/syscall.h>
 #include <sys/syscall.h>
 
 DEFN_SYSCALL2(symlink, SYS_SYMLINK, const char *, const char *);

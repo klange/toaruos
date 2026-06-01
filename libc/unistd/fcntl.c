@@ -2,7 +2,7 @@
 #include <fcntl.h>
 #include <va_list.h>
 #include <stdint.h>
-#include <syscall.h>
+#include <libc/syscall.h>
 #include <sys/syscall.h>
 
 DEFN_SYSCALL3(fcntl, SYS_FCNTL, int, int, long);

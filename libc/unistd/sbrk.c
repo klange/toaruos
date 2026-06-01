@@ -1,6 +1,6 @@
 #include <unistd.h>
 #include <sys/syscall.h>
-#include <syscall.h>
+#include <libc/syscall.h>
 #include <errno.h>
 
 DEFN_SYSCALL1(sbrk,  SYS_SBRK, int);

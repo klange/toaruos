@@ -1,4 +1,4 @@
-#include <syscall.h>
+#include <libc/syscall.h>
 #include <sys/syscall.h>
 #include <sys/fswait.h>
 #include <errno.h>

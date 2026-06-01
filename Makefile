@@ -160,7 +160,7 @@ clean:
 	-rm -f $(GCC_SHARED)
 	-rm -f boot/efi/*.o boot/bios/*.o
 
-libc/%.o: libc/%.c base/usr/include/syscall.h 
+libc/%.o: libc/%.c libc/syscall.h
 	$(CC) ${LIBC_CFLAGS} -fPIC -c -o $@ $<
 
 .PHONY: libc

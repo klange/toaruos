@@ -102,7 +102,7 @@
 **/
 
 /* Includes {{{ */
-#include <syscall.h>
+#include <libc/syscall.h>
 #include <assert.h>
 #include <stdint.h>
 #include <limits.h>

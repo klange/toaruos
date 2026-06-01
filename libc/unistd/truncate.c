@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/types.h>
-#include <syscall.h>
+#include <libc/syscall.h>
 #include <sys/syscall.h>
 
 DEFN_SYSCALL2(truncate, SYS_TRUNCATE, char *, off_t);
