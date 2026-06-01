@@ -1,7 +1,7 @@
 /**
  * @brief (Try to) reboot the system.
  *
- * Note that only root can syscall_reboot, and this doesn't
+ * Note that only root can reboot, and this doesn't
  * do any fancy setuid stuff.
  *
  * @copyright
