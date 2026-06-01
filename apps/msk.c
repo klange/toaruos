@@ -489,7 +489,7 @@ static int list_packages(int argc, char * argv[]) {
 		char * name = node->value;
 		if (!strlen(name)) continue; /* skip empty section */
 		char * desc = confreader_get(msk_manifest, name, "description");
-		fprintf(stderr, " %c %20s %s\n", hashmap_has(msk_installed, name) ? 'I' : ' ', name, desc);
+		fprintf(stderr, " %c %-20s %s\n", hashmap_has(msk_installed, name) ? 'I' : ' ', name, desc);
 		/* TODO: Installation status */
 	}
 
