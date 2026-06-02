@@ -422,6 +422,7 @@ static int usage(char * argv[]) {
 		"  -s --syms            Display symbol table\n"
 		"  -d --dynamic         Display dynamic section\n"
 		"  -r --relocs          Display relocations\n"
+		"  -W --wide            Show full symbol names\n"
 		"  -H --help            Show this help text\n"
 		" Aliases:\n"
 		"  --segments   Same as --program-headers\n"

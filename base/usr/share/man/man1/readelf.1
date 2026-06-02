@@ -5,7 +5,7 @@
 
 .SH SYNOPSIS
 \fBreadelf\fP [\fB\-a\fP] [\fB\-h\fP] [\fB\-l\fP] [\fB\-S\fP] [\fB\-e\fP] [\fB\-s\fP]
-[\fB\-d\fP] [\fB\-r\fP] \fIfile\fP...
+[\fB\-d\fP] [\fB\-r\fP] [\fB\-W\fP] \fIfile\fP...
 
 .SH DESCRIPTION
 \fBreadelf\fP prints information about ELF binaries.
@@ -43,6 +43,10 @@ Display infromation from the dynamic section.
 .TP
 .B \-r \fRor\fP \-\-relocs
 Display information about relocations.
+
+.TP
+.B \-W \fRor\fP \-\-wide
+Display the full names of symbols instead of truncating them.
 
 .SH NOTES
 This implementation attempts to replicate the format of the \fBbinutils\fP version
