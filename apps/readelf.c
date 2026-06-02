@@ -173,7 +173,7 @@ static char * dynamicTagToStr(Elf64_Dyn * dynEntry, char * dynstr) {
 			break;
 		case DT_NEEDED:
 			name = "(NEEDED)";
-			sprintf(extra, "[shared lib = %s]", dynstr + dynEntry->d_un.d_val);
+			sprintf(extra, "Shared library: [%s]", dynstr + dynEntry->d_un.d_val);
 			break;
 		case DT_PLTRELSZ:
 			name = "(PLTRELSZ)";
@@ -195,9 +195,11 @@ static char * dynamicTagToStr(Elf64_Dyn * dynEntry, char * dynstr) {
 			break;
 		case DT_RELASZ:
 			name = "(RELASZ)";
+			sprintf(extra, "%ld (bytes)", dynEntry->d_un.d_val);
 			break;
 		case DT_RELAENT:
 			name = "(RELAENT)";
+			sprintf(extra, "%ld (bytes)", dynEntry->d_un.d_val);
 			break;
 		case DT_STRSZ:
 			name = "(STRSZ)";
@@ -460,6 +462,7 @@ int main(int argc, char * argv[]) {
 		{"dynamic",         no_argument, 0, 'd'},
 		{"relocs",          no_argument, 0, 'r'},
 		{"help",            no_argument, 0, 'H'},
+		{"wide",            no_argument, 0, 'W'},
 
 		{"segments",        no_argument, 0, 'l'}, /* Alias for --program-headers */
 		{"sections",        no_argument, 0, 'S'}, /* Alias for --section-headers */
@@ -468,9 +471,10 @@ int main(int argc, char * argv[]) {
 	};
 
 	int show_bits = 0;
+	int wide_output = 0;
 	int index, c;
 
-	while ((c = getopt_long(argc, argv, "ahlSesdrH", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "ahlSesdrHW", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
@@ -502,6 +506,9 @@ int main(int argc, char * argv[]) {
 				break;
 			case 'r':
 				show_bits |= SHOW_RELOCATIONS;
+				break;
+			case 'W':
+				wide_output = 1;
 				break;
 			case '?':
 				break;
@@ -674,7 +681,7 @@ int main(int argc, char * argv[]) {
 				if (sectionHeader.sh_size > 0x40000000) continue;
 				if (sectionHeader.sh_type != SHT_DYNAMIC) continue;
 
-				printf("\nDynamic section at offset 0x%lx contains (up to) %lu entries:\n",
+				printf("\nDynamic section at offset 0x%lx contains %lu entries:\n",
 					sectionHeader.sh_offset, sectionHeader.sh_size / sectionHeader.sh_entsize);
 				printf("  Tag        Type                         Name/Value\n");
 
@@ -717,7 +724,12 @@ int main(int argc, char * argv[]) {
 				printf("\nRelocation section '%s' at offset 0x%lx contains %lu entries:\n",
 					string_from_table(stringTable, sectionHeader.sh_name), sectionHeader.sh_offset,
 					sectionHeader.sh_size / sizeof(Elf64_Rela));
-				printf("  Offset          Info           Type           Sym. Value    Sym. Name + Addend\n");
+
+				if (wide_output) {
+					printf("    Offset             Info             Type               Symbol's Value  Symbol's Name + Addend\n");
+				} else {
+					printf("  Offset          Info           Type           Sym. Value    Sym. Name + Addend\n");
+				}
 
 				/* Section this relocation is in */
 				Elf64_Shdr shdr_this;
@@ -747,9 +759,15 @@ int main(int argc, char * argv[]) {
 					Elf64_Shdr shdr;
 					size_t offset = ELF64_R_SYM(relocations[i].r_info);
 					Elf64_Xword value = 42;
-					printf("%012lx  %012lx %-17.17s ",
-						relocations[i].r_offset, relocations[i].r_info,
-						relocationInfoToStr(ELF64_R_TYPE(relocations[i].r_info)));
+					if (wide_output) {
+						printf("%016lx  %016lx %-22s ",
+							relocations[i].r_offset, relocations[i].r_info,
+							relocationInfoToStr(ELF64_R_TYPE(relocations[i].r_info)));
+					} else {
+						printf("%012lx  %012lx %-17.17s ",
+							relocations[i].r_offset, relocations[i].r_info,
+							relocationInfoToStr(ELF64_R_TYPE(relocations[i].r_info)));
+					}
 					const char * symName = "(null)";
 					uint64_t off = relocations[i].r_addend;
 					char * sign = "";
@@ -774,7 +792,13 @@ int main(int argc, char * argv[]) {
 						}
 
 						value = this->st_value + relocations[i].r_addend;
-						printf("%016lx %s", value, symName);
+						printf("%016lx ", value);
+
+						if (wide_output || strlen(symName) <= 22) {
+							printf("%s", symName);
+						} else {
+							printf("%.17s[...]", symName);
+						}
 						sign = (*sign) ? " - " : " + ";
 					}
 					printf("%s%lx\n", sign, off);
@@ -795,7 +819,7 @@ int main(int argc, char * argv[]) {
 				if (sectionHeader.sh_size > 0x40000000) continue;
 				if (sectionHeader.sh_type != SHT_DYNSYM && sectionHeader.sh_type != SHT_SYMTAB) continue;
 
-				printf("\nSymbol table '%s' contains %lu entries.\n",
+				printf("\nSymbol table '%s' contains %lu entries:\n",
 					string_from_table(stringTable, sectionHeader.sh_name),
 					sectionHeader.sh_size / sizeof(Elf64_Sym));
 				printf("   Num:    Value          Size Type    Bind   Vis      Ndx Name\n");
@@ -821,13 +845,18 @@ int main(int argc, char * argv[]) {
 						symname = string_from_table(strtab, symtab[i].st_name);
 					}
 
-					printf("%6u: %016lx %6lu %-7.7s %-6.6s %-7.7s %4s %s\n",
+					printf("%6u: %016lx %5lu %-7.7s %-6.6s %-7.7s %4s ",
 						i, symtab[i].st_value, symtab[i].st_size,
 						symbolTypeToStr(symtab[i].st_info & 0xF),
 						symbolBindToStr(symtab[i].st_info >> 4),
 						symbolVisToStr(symtab[i].st_other),
-						symbolNdxToStr(symtab[i].st_shndx),
-						symname);
+						symbolNdxToStr(symtab[i].st_shndx));
+
+					if (wide_output || strlen(symname) <= 21) {
+						printf("%s\n", symname);
+					} else {
+						printf("%.16s[...]\n", symname);
+					}
 				}
 
 				free(strtab);
