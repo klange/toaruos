@@ -149,3 +149,8 @@ int pthread_join(pthread_t thread, void **retval) {
 	}
 	return result;
 }
+
+int pthread_detach(pthread_t thread) {
+	/* TODO */
+	return 0;
+}
