@@ -33,6 +33,10 @@ _Begin_C_Header
 #define SO_BINDTODEVICE 3
 #define SO_RCVTIMEO 66
 
+#define SHUT_RD   0
+#define SHUT_WR   1
+#define SHUT_RDWR 2
+
 typedef size_t socklen_t;
 
 struct sockaddr {
