@@ -34,7 +34,7 @@ static int help(char * argv[]) {
 		" Supported options:\n"
 		"  -A --print-file-name   " X_S "Print the file name on each line." X_E "\n"
 		"  -D --dynamic           " X_S "Show dynamic symbols." X_E "\n"
-		"  -H --help              " X_S "Show this help text." X_E "\n"
+		"  -h --help              " X_S "Show this help text." X_E "\n"
 		"  -W --no-weak           " X_S "Skip weak symbols." X_E "\n"
 		"  -U --defined-only      " X_S "Show only defined symbols." X_E "\n"
 		"  -u --undefined-only    " X_S "Show only undefined symbols." X_E "\n"
