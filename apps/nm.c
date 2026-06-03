@@ -125,8 +125,9 @@ struct SortContext {
 	int reverse;
 };
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) && (!defined(_POSIX_VERSION) || _POSIX_VERSION < 202405L)
 #define sort_args void *c, const void *a, const void *b
+#define qsort_r(a,b,c,d,e) qsort_r(a,b,c,e,d)
 #else
 #define sort_args const void *a, const void *b, void *c
 #endif
@@ -317,12 +318,7 @@ int main(int argc, char * argv[]) {
 				struct SortContext sort_ctx;
 				sort_ctx.strtab = strtab;
 				sort_ctx.reverse = reverse;
-				qsort_r(symtab, sectionHeader.sh_size / sizeof(Elf64_Sym), sizeof(Elf64_Sym),
-#if defined(__APPLE__)
-					&sort_ctx, sorter);
-#else
-					sorter, &sort_ctx);
-#endif
+				qsort_r(symtab, sectionHeader.sh_size / sizeof(Elf64_Sym), sizeof(Elf64_Sym), sorter, &sort_ctx);
 			}
 
 			for (unsigned int i = 0; i < sectionHeader.sh_size / sizeof(Elf64_Sym); ++i) {
