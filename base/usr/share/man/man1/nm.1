@@ -17,6 +17,7 @@
 [\fB\-r\fP]
 [\fB\-S\fP]
 [\fB\-P\fP]
+[\fB\-t\fP \fIradix\fP]
 [\fB\-\-quiet\fP]
 [\fB\-\-size\-sort\fP]
 \fIfile\fP...
@@ -71,12 +72,25 @@ Sort the symbols by their addresses.
 Use the POSIX output format.
 
 .TP
+.B \-t \fIradix\fP \fRor\fP \-\-radix=\fIradix\fP
+Format numeric output with the given \fIradix\fP which must be one of \fBd\fP (decimal),
+\fBo\fP (octal), or \fBx\fP (hexadecimal).
+
+.TP
 .B \-\-quiet
 Do not print diagnostic messages about symbols not being present.
 
 .TP
 .B \-\-size\-sort
 Sort symbols by their size.
+
+.SH NOTES
+Only 64-bit ELF binaries are supported, and information may be limited compared to other implementations.
+Archive files are not supported.
+
+.SH STANDARDS
+The \fB\-A\fP, \fB\-g\fP, \fB\-P\fP, \fB\-t\fP, \fB\-u\fP, and \fB\-v\fP options are described in POSIX.1-2024.
+The other options are intended to match their meanings in GNU Binutils.
 
 .SH SEE ALSO
 .BR readelf (1)

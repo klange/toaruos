@@ -9,6 +9,8 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2026 K. Lange
  */
+#define _GNU_SOURCE
+#define _TOARU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -42,6 +44,7 @@ static int help(char * argv[]) {
 		"  -S --print-size        " X_S "Print the sizes of symbols." X_E "\n"
 		"  -n --numeric-sort      " X_S "Sort symbols by address." X_E "\n"
 		"  -P --portability       " X_S "Use the POSIX output format." X_E "\n"
+		"  -t --radix=" X_S "radix       Format numbers (d, o, x)" X_E "\n"
 		"     --quiet             " X_S "Do not print message for lack of symbols." X_E "\n"
 		"     --size-sort         " X_S "Sort by symbol size and skip undefined." X_E "\n"
 		"     --help              " X_S "Show this help text." X_E "\n"
@@ -51,7 +54,7 @@ static int help(char * argv[]) {
 }
 
 static int usage(char * argv[]) {
-	fprintf(stderr, "usage: %s [-hAWuUgDprSnP] <file...>\n", argv[0]);
+	fprintf(stderr, "usage: %s [-hAWuUgDprSnP] [-t <radix>] <file...>\n", argv[0]);
 	return 1;
 }
 
@@ -122,21 +125,27 @@ struct SortContext {
 	int reverse;
 };
 
-static int comp_sym(const void *a, const void *b, void *c) {
+#if defined(__APPLE__)
+#define sort_args void *c, const void *a, const void *b
+#else
+#define sort_args const void *a, const void *b, void *c
+#endif
+
+static int comp_sym(sort_args) {
 	struct SortContext * ctx = c;
 	const Elf64_Sym * left = ctx->reverse ? b : a;
 	const Elf64_Sym * right = ctx->reverse ? a : b;
 	return strcmp(string_from_table(ctx->strtab, left->st_name), string_from_table(ctx->strtab, right->st_name));
 }
 
-static int comp_size(const void *a, const void *b, void *c) {
+static int comp_size(sort_args) {
 	struct SortContext * ctx = c;
 	const Elf64_Sym * left = ctx->reverse ? b : a;
 	const Elf64_Sym * right = ctx->reverse ? a : b;
 	return left->st_size - right->st_size;
 }
 
-static int comp_addr(const void *a, const void *b, void *c) {
+static int comp_addr(sort_args) {
 	struct SortContext * ctx = c;
 	const Elf64_Sym * left = ctx->reverse ? b : a;
 	const Elf64_Sym * right = ctx->reverse ? a : b;
@@ -158,6 +167,7 @@ int main(int argc, char * argv[]) {
 		{"print-size",      no_argument, 0, 'S'},
 		{"numeric-sort",    no_argument, 0, 'n'},
 		{"portability",     no_argument, 0, 'P'},
+		{"radix",           required_argument, 0, 't'},
 		{"quiet",           no_argument, 0, 1000},
 		{"size-sort",       no_argument, 0, 1001},
 		{0,0,0,0}
@@ -167,17 +177,18 @@ int main(int argc, char * argv[]) {
 	int skip_undefined = 0;
 	int skip_defined = 0;
 	int skip_local = 0;
-	int (*sorter)(const void*,const void*,void*) = comp_sym;
+	int (*sorter)(sort_args) = comp_sym;
 	int reverse = 0;
 	int quiet = 0;
 	int print_size = 0;
 	int posix_format = 0;
 	int print_file = 0;
+	char radix = 'x';
 	Elf64_Word want_section = SHT_SYMTAB;
 
 	int index, c;
 
-	while ((c = getopt_long(argc, argv, "hAWuUgDprSnvP", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "hAWuUgDprSnvPt:", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
@@ -218,6 +229,9 @@ int main(int argc, char * argv[]) {
 			case 'P':
 				posix_format = 1;
 				break;
+			case 't':
+				radix = *optarg;
+				break;
 			case 1000:
 				quiet = 1;
 				break;
@@ -233,6 +247,7 @@ int main(int argc, char * argv[]) {
 	}
 
 	if (optind >= argc) return usage(argv);
+	if (radix != 'd' && radix != 'o' && radix != 'x') return usage(argv);
 
 	int out = 0;
 	int print_names = 0;
@@ -302,7 +317,12 @@ int main(int argc, char * argv[]) {
 				struct SortContext sort_ctx;
 				sort_ctx.strtab = strtab;
 				sort_ctx.reverse = reverse;
-				qsort_r(symtab, sectionHeader.sh_size / sizeof(Elf64_Sym), sizeof(Elf64_Sym), sorter, &sort_ctx);
+				qsort_r(symtab, sectionHeader.sh_size / sizeof(Elf64_Sym), sizeof(Elf64_Sym),
+#if defined(__APPLE__)
+					&sort_ctx, sorter);
+#else
+					sorter, &sort_ctx);
+#endif
 			}
 
 			for (unsigned int i = 0; i < sectionHeader.sh_size / sizeof(Elf64_Sym); ++i) {
@@ -333,24 +353,28 @@ int main(int argc, char * argv[]) {
 
 				if (posix_format) {
 					if (print_file) printf("%s: ", argv[optind]);
+					char fmt[] = " %lx";
+					fmt[3] = radix;
 					printf("%s %c", symname, type);
 					if (symtab[i].st_shndx != SHN_UNDEF) {
-						printf(" %lx", symtab[i].st_value);
+						printf(fmt, symtab[i].st_value);
 						if (symtab[i].st_size) {
-							printf(" %lx", symtab[i].st_size);
+							printf(fmt, symtab[i].st_size);
 						}
 					}
 					printf("\n");
 				} else {
 					if (print_file) printf("%s:", argv[optind]);
+					char fmt[] = "%16lx ";
+					fmt[4] = radix;
 					if (symtab[i].st_shndx == SHN_UNDEF) {
 						printf("                 ");
 					} else {
 						if (print_size || sorter != comp_size) {
-							printf("%016lx ", symtab[i].st_value);
+							printf(fmt, symtab[i].st_value);
 						}
 						if (print_size || sorter == comp_size) {
-							printf("%016lx ", symtab[i].st_size);
+							printf(fmt, symtab[i].st_size);
 						}
 					}
 
