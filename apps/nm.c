@@ -44,6 +44,7 @@ static int help(char * argv[]) {
 		"  -S --print-size        " X_S "Print the sizes of symbols." X_E "\n"
 		"  -n --numeric-sort      " X_S "Sort symbols by address." X_E "\n"
 		"  -P --portability       " X_S "Use the POSIX output format." X_E "\n"
+		"  -j --just-symbols      " X_S "Print only symbol names." X_E "\n"
 		"  -t --radix=" X_S "radix       Format numbers (d, o, x)" X_E "\n"
 		"     --quiet             " X_S "Do not print message for lack of symbols." X_E "\n"
 		"     --size-sort         " X_S "Sort by symbol size and skip undefined." X_E "\n"
@@ -54,7 +55,7 @@ static int help(char * argv[]) {
 }
 
 static int usage(char * argv[]) {
-	fprintf(stderr, "usage: %s [-hAWuUgDprSnP] [-t <radix>] <file...>\n", argv[0]);
+	fprintf(stderr, "usage: %s [-hAWuUgDprSnPj] [-t <radix>] <file...>\n", argv[0]);
 	return 1;
 }
 
@@ -168,6 +169,7 @@ int main(int argc, char * argv[]) {
 		{"print-size",      no_argument, 0, 'S'},
 		{"numeric-sort",    no_argument, 0, 'n'},
 		{"portability",     no_argument, 0, 'P'},
+		{"just-symbols",    no_argument, 0, 'j'},
 		{"radix",           required_argument, 0, 't'},
 		{"quiet",           no_argument, 0, 1000},
 		{"size-sort",       no_argument, 0, 1001},
@@ -184,12 +186,14 @@ int main(int argc, char * argv[]) {
 	int print_size = 0;
 	int posix_format = 0;
 	int print_file = 0;
+	int just_symbols = 0;
+	int print_names = 0;
 	char radix = 'x';
 	Elf64_Word want_section = SHT_SYMTAB;
 
 	int index, c;
 
-	while ((c = getopt_long(argc, argv, "hAWuUgDprSnvPt:", long_opts, &index)) != -1) {
+	while ((c = getopt_long(argc, argv, "hAWuUgDprSnvPjt:", long_opts, &index)) != -1) {
 		if (!c) {
 			if (long_opts[index].flag == 0) {
 				c = long_opts[index].val;
@@ -230,6 +234,9 @@ int main(int argc, char * argv[]) {
 			case 'P':
 				posix_format = 1;
 				break;
+			case 'j':
+				just_symbols = 1;
+				break;
 			case 't':
 				radix = *optarg;
 				break;
@@ -251,9 +258,8 @@ int main(int argc, char * argv[]) {
 	if (radix != 'd' && radix != 'o' && radix != 'x') return usage(argv);
 
 	int out = 0;
-	int print_names = 0;
 
-	if (!print_file && optind + 1 < argc) {
+	if (!print_file && !just_symbols && optind + 1 < argc) {
 		print_names = 1;
 	}
 
@@ -347,7 +353,9 @@ int main(int argc, char * argv[]) {
 
 				char type = sym_type(&symtab[i], sym_shdr, stringTable);
 
-				if (posix_format) {
+				if (just_symbols) {
+					printf("%s\n", symname);
+				} else if (posix_format) {
 					if (print_file) printf("%s: ", argv[optind]);
 					char fmt[] = " %lx";
 					fmt[3] = radix;

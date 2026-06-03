@@ -16,6 +16,7 @@
 [\fB\-r\fP]
 [\fB\-S\fP]
 [\fB\-P\fP]
+[\fB\-j\fP]
 [\fB\-t\fP \fIradix\fP]
 [\fB\-\-quiet\fP]
 [\fB\-\-size\-sort\fP]
@@ -69,6 +70,11 @@ Sort the symbols by their addresses.
 .TP
 .B \-P \fRor\fP \-\-portability
 Use the POSIX output format.
+
+.TP
+.B \-j \fRor\fP \-\-just-symbols
+Print only the symbol names.
+Other options affecting output format (eg. \fB\-A\fP, \fB\-S\fP, etc.) are generally ignored.
 
 .TP
 .B \-t \fIradix\fP \fRor\fP \-\-radix=\fIradix\fP
