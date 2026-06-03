@@ -297,9 +297,9 @@ static char * dynamicTagToStr(Elf64_Dyn * dynEntry, char * dynstr) {
 	return buf;
 }
 
-static char * relocationInfoToStr(Elf64_Xword info) {
-	static char buf[1000];
 #define CASE(o) case o: return #o;
+static char * relocationInfoToStr_x86_64(Elf64_Xword info) {
+	static char buf[1000];
 	switch (info) {
 		CASE(R_X86_64_NONE)
 		CASE(R_X86_64_64)
@@ -335,6 +335,15 @@ static char * relocationInfoToStr(Elf64_Xword info) {
 		CASE(R_X86_64_TLSDESC_CALL)
 		CASE(R_X86_64_TLSDESC)
 		CASE(R_X86_64_IRELATIVE)
+		default:
+			snprintf(buf, 1000, "unknown (%lu)", info);
+			return buf;
+	}
+}
+
+static char * relocationInfoToStr_aarch64(Elf64_Xword info) {
+	static char buf[1000];
+	switch (info) {
 		CASE(R_AARCH64_ABS64)
 		CASE(R_AARCH64_ABS32)
 		CASE(R_AARCH64_ADR_PREL_PG_HI21)
@@ -355,7 +364,18 @@ static char * relocationInfoToStr(Elf64_Xword info) {
 			snprintf(buf, 1000, "unknown (%lu)", info);
 			return buf;
 	}
+}
 #undef CASE
+
+static char * relocationInfoToStr(int machine, Elf64_Xword info) {
+	static char buf[1000];
+	switch (machine) {
+		case EM_X86_64: return relocationInfoToStr_x86_64(info);
+		case EM_AARCH64: return relocationInfoToStr_aarch64(info);
+		default:
+			snprintf(buf, 1000, "unknown (%lu)", info);
+			return buf;
+	}
 }
 
 static char * symbolTypeToStr(int type) {
@@ -763,11 +783,11 @@ int main(int argc, char * argv[]) {
 					if (wide_output) {
 						printf("%016lx  %016lx %-22s ",
 							relocations[i].r_offset, relocations[i].r_info,
-							relocationInfoToStr(ELF64_R_TYPE(relocations[i].r_info)));
+							relocationInfoToStr(header.e_machine, ELF64_R_TYPE(relocations[i].r_info)));
 					} else {
 						printf("%012lx  %012lx %-17.17s ",
 							relocations[i].r_offset, relocations[i].r_info,
-							relocationInfoToStr(ELF64_R_TYPE(relocations[i].r_info)));
+							relocationInfoToStr(header.e_machine, ELF64_R_TYPE(relocations[i].r_info)));
 					}
 					const char * symName = "(null)";
 					uint64_t off = relocations[i].r_addend;
