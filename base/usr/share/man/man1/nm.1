@@ -1,0 +1,82 @@
+.TH NM 1 "June, 2026"
+
+.SH NAME
+\fBnm\fP \- print symbol information
+
+.SH SYNOPSIS
+\fBnm\fP
+[\fB\-A\fP]
+[\fB\-D\fP]
+[\fB\-H\fP]
+[\fB\-W\fP]
+[\fB\-U\fP]
+[\fB\-u\fP]
+[\fB\-g\fP]
+[\fB\-p\fP]
+[\fB\-n\fP|\fB\-v\fP]
+[\fB\-r\fP]
+[\fB\-S\fP]
+[\fB\-P\fP]
+[\fB\-\-quiet\fP]
+[\fB\-\-size\-sort\fP]
+\fIfile\fP...
+
+.SH DESCRIPTION
+Lists the symbols in an ELF file.
+
+.SS Options
+
+.TP
+.B \-A \fRor\fP \-\-print-file\-name
+Precede each output line with the name of the file.
+
+.TP
+.B \-D \fRor\fP \-\-dynamic
+Print dynamic symbols (from \fBDYNSYM\fP sections).
+
+.TP
+.B \-W \fRor\fP \-\-no-weak
+Skip weak symbols.
+
+.TP
+.B \-U \fRor\fP \-\-defined-only
+Show only defined symbols.
+
+.TP
+.B \-u \fRor\fP \-\-undefined-only
+Show only undefined symbols.
+
+.TP
+.B \-g \fRor\fP \-\-extern\-only
+Show only global symbols.
+
+.TP
+.B \-p \fRor\fP \-\-no\-sort
+Do not sort symbols; show them in the order they appear in the symbol tables.
+
+.TP
+.B \-r \fRor\fP \-\-reverse\-sort
+Reverse the sort order.
+
+.TP
+.B \-S \fRor\fP \-\-print-size
+Print the size of each symbol along with its address.
+
+.TP
+.B \-n \fRor\fP \-v \fRor\fP \-\-numeric-sort
+Sort the symbols by their addresses.
+
+.TP
+.B \-P \fRor\fP \-\-portability
+Use the POSIX output format.
+
+.TP
+.B \-\-quiet
+Do not print diagnostic messages about symbols not being present.
+
+.TP
+.B \-\-size\-sort
+Sort symbols by their size.
+
+.SH SEE ALSO
+.BR readelf (1)
