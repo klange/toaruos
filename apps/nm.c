@@ -365,7 +365,7 @@ int main(int argc, char * argv[]) {
 					printf("\n");
 				} else {
 					if (print_file) printf("%s:", argv[optind]);
-					char fmt[] = "%16lx ";
+					char fmt[] = "%016lx ";
 					fmt[4] = radix;
 					if (symtab[i].st_shndx == SHN_UNDEF) {
 						printf("                 ");
