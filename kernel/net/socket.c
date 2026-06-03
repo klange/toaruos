@@ -231,6 +231,12 @@ long net_so_socket(struct SockData * sock, int optname, const void *optval, sock
 			sock->timeout_us = ((struct timeval *)optval)->tv_usec;
 			return 0;
 		}
+		case SO_REUSEADDR: {
+			if (optlen != sizeof(int)) return -EINVAL;
+			if (!mmu_validate_user_pointer(optval, sizeof(int), 0)) return -EFAULT;
+			/* TODO actually do something */
+			return 0;
+		}
 		default:
 			return -ENOPROTOOPT;
 	}
