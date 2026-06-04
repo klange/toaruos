@@ -113,7 +113,6 @@ void idt_install(void) {
 	idt_set_gate(124, _isr124, 0x08, 0x8E, 0); /* Bad TLB shootdown. */
 	idt_set_gate(125, _isr125, 0x08, 0x8E, 0); /* Halts everyone. */
 	idt_set_gate(126, _isr126, 0x08, 0x8E, 0); /* Does nothing, used to exit wait-for-interrupt sleep. */
-	idt_set_gate(127, _isr127, 0x08, 0x8E, 1); /* Legacy system call entry point, called by userspace. */
 
 	asm volatile (
 		"lidt %0"
@@ -615,7 +614,6 @@ void isr_handler_inner(struct regs * r) {
 
 		/* Local interrupts that make it here. */
 		case 123: _local_timer(r); return;
-		case 127: syscall_handler(r); return;
 
 		/* Other interrupts that don't make it here:
 		 *   124: TLB shootdown, we just reload CR3 in the handler.

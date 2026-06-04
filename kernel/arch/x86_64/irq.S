@@ -86,9 +86,6 @@ IRQ 13, 45
 IRQ 14, 46
 IRQ 15, 47
 
-/* syscall entry point */
-ISR_NOERR 127
-
 .global _isr123
 .type _isr123, @function
 _isr123:

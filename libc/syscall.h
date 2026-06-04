@@ -23,13 +23,8 @@ _Begin_C_Header
 
 #ifdef __x86_64__
 
-#ifdef __SYSCALL_INT7F
-#  define __SYSCALL_ENTRY_INST "int $0x7F"
-#  define __SYSCALL_CLOBBERS   "memory"
-#else
-#  define __SYSCALL_ENTRY_INST "syscall"
-#  define __SYSCALL_CLOBBERS   "rcx", "r11", "memory"
-#endif
+#define __SYSCALL_ENTRY_INST "syscall"
+#define __SYSCALL_CLOBBERS   "rcx", "r11", "memory"
 
 #define DEFN_SYSCALL0(fn, num) \
 	long syscall_##fn(void) { \
