@@ -161,7 +161,7 @@ ToaruOS is regularly mirrored to multiple Git hosting sites.
 - Gitlab: [toaruos/toaruos](https://gitlab.com/toaruos/toaruos)
 - GitHub: [klange/toaruos](https://github.com/klange/toaruos)
 - Bitbucket: [klange/toaruos](https://bitbucket.org/klange/toaruos)
-- ToaruOS.org: [klange/toaruos](https://git.toaruos.org/klange/toaruos)
+- sourcehut: [~klange/toaruos](https://sr.ht/~klange/toaruos/)
 
 ## FAQs
 
