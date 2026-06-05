@@ -68,8 +68,7 @@ In an indeterminate order, the C library, kernel, userspace librares and applica
 - **kernel** - The Misaka kernel.
 - **kuroko** - Submodule checkout of the Kuroko interpreter.
 - **lib** - Userspace libraries.
-- **libc** - C standard library implementation.
-- **linker** - Userspace dynamic linker/loader, implements shared library support.
+- **libc** - C standard library and dynamic linker implementation.
 - **modules** - Loadable driver modules for the kernel.
 - **tests** - Test utilities that are not normally built.
 - **util** - Utility scripts, staging directory for the toolchain (binutils/gcc).
