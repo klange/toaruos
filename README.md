@@ -152,7 +152,7 @@ You may redistribute code under the NCSA license, as well as make modifications 
 
 While most of ToaruOS is written entirely by myself, be sure to include other authors where relevant, such as with [Mike's audio subsystem](https://github.com/klange/toaruos/blob/master/kernel/audio/snd.c) or [Dale's string functions](https://github.com/klange/toaruos/blob/master/kernel/misc/string.c).
 
-Some components of ToaruOS, such as [Kuroko](https://github.com/kuroko-lang/kuroko/blob/9f6160092ecece0f2c18b63c066151cbe0ded1bb/LICENSE) or [bim](https://github.com/klange/toaruos/blob/master/apps/bim.c#L3) have different but compatible terms.
+Some components of ToaruOS, such as [Kuroko](https://github.com/kuroko-lang/kuroko/blob/9f6160092ecece0f2c18b63c066151cbe0ded1bb/LICENSE) or [bim](https://github.com/klange/bim/blob/master/LICENSE) have different but compatible terms.
 
 ## Mirrors
 
