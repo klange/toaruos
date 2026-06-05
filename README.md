@@ -171,7 +171,7 @@ The kernel and all userspace libraries and applications native to the operating 
 
 ### Is ToaruOS a Linux distribution?
 
-No. ToaruOS is a completely independent project, and all code in this repository - which is the entire codebase of the operating system, including its kernel, bootloaders, libraries, and applications - is original, written by myself and a handful of contributors over the course of ten years.
+No. ToaruOS is a completely independent project, and all code in this repository - which is the entire codebase of the operating system, including its kernel, bootloaders, libraries, and applications - is original, written by myself and a handful of contributors over the course of fifteen years.
 The complete source history, going back to when ToaruOS was nothing more than a baremetal "hello world" can be tracked through this git repository.
 
 ### Is ToaruOS POSIX-compliant?
