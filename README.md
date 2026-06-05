@@ -176,7 +176,7 @@ The complete source history, going back to when ToaruOS was nothing more than a 
 
 ### Is ToaruOS POSIX-compliant?
 
-POSIX coverage remains very incomplete.
+POSIX coverage remains very incomplete. While ToaruOS was always intended to be a Unix-like, POSIX conformance was not originally a goal for the project, though it has been of greater interest to me since the publication of POSIX.1-2024.
 
 ### Are contributions accepted?
 
