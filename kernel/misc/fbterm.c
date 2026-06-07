@@ -93,6 +93,7 @@ static int ansi_to_vga[] = {
 
 static uint32_t fg_color = FG_COLOR;
 static uint32_t bg_color = BG_COLOR;
+static int fb_scale = 1;
 
 static inline void set_point(int x, int y, uint32_t value) {
 	if (lfb_resolution_b == 32) {
@@ -109,36 +110,38 @@ static inline void set_point(int x, int y, uint32_t value) {
 }
 
 static void fb_write_char(int _x, int _y, int val, int color, int bg_color) {
-	if (val > 255) {
-		val = 4;
-	}
+	if (val > 255) val = 4; /* Replacement character */
 
-	int x = fb_left_margin + _x * char_width;
-	int y = _y * char_height;
+	int x = fb_left_margin + _x * char_width * fb_scale;
+	int y = _y * char_height * fb_scale;
 
 	uint8_t * c = large_font[val];
 	for (uint8_t i = 0; i < char_height; ++i) {
-		for (uint8_t j = 0; j < char_width; ++j) {
-			if (c[i] & (1 << (LARGE_FONT_MASK-j))) {
-				set_point(x+j,y+i,term_colors[color]);
-			} else {
-				set_point(x+j,y+i,term_colors[bg_color]);
+		for (int ii = 0; ii < fb_scale; ++ii) { /* Line doubling */
+			for (uint8_t j = 0; j < char_width; ++j) {
+				for (int jj = 0; jj < fb_scale; ++jj) { /* Column doubling */
+					set_point(
+						x + j * fb_scale + jj,
+						y + i * fb_scale + ii,
+						term_colors[(c[i] & (1 << (LARGE_FONT_MASK-j))) ? color : bg_color]
+					);
+				}
 			}
 		}
 	}
 }
 
 static int fb_get_width(void) {
-	return (lfb_resolution_x - fb_left_margin) / char_width;
+	return (lfb_resolution_x - fb_left_margin) / (char_width * fb_scale);
 }
 
 static int fb_get_height(void) {
-	return lfb_resolution_y / char_height;
+	return lfb_resolution_y / (char_height * fb_scale);
 }
 
 static void fb_get_cursor_adj(int *x, int *y) {
-	*x = char_width;
-	*y = char_height;
+	*x = char_width * fb_scale;
+	*y = char_height * fb_scale;
 }
 
 static void fb_scroll_terminal(void) {
@@ -178,7 +181,7 @@ void fbterm_reset(void) {
 }
 
 static void fbterm_init_framebuffer(void) {
-	char *left_margin_val, *palette_val, *logo_val;
+	char *left_margin_val, *palette_val, *logo_val, *scale;
 	if ((left_margin_val = args_value("fbterm-margin"))) {
 		fb_left_margin = atoi(left_margin_val);
 	}
@@ -190,6 +193,11 @@ static void fbterm_init_framebuffer(void) {
 	}
 	if ((logo_val = args_value("fbterm-logo"))) {
 		logo_squares = xtoi(logo_val);
+	}
+	if ((scale = args_value("fbterm-scale"))) {
+		fb_scale = atoi(scale);
+		if (fb_scale < 1) fb_scale = 1;
+		if (fb_scale > 16) fb_scale = 16;
 	}
 	write_char = fb_write_char;
 	get_width = fb_get_width;
