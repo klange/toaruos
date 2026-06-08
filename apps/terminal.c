@@ -2268,6 +2268,7 @@ static void _menu_action_show_about(struct MenuEntry * self) {
 			"--at", coords,
 			"--",
 			"© 2013-2026 K. Lange",
+			"-",
 			"Part of ToaruOS, which is free software",
 			"released under the NCSA/University of Illinois",
 			"license.",

@@ -1500,6 +1500,7 @@ static void _menu_action_about(struct MenuEntry * entry) {
 			"--at", coords,
 			"--",
 			"© 2018-2026 K. Lange",
+			"-",
 			"Part of ToaruOS, which is free software",
 			"released under the NCSA/University of Illinois",
 			"license.",
