@@ -230,7 +230,6 @@ jmp_to_long:
     or $0x80000000, %eax
     mov %eax, %cr0
 
-super_duper_bullshit:
     popl %ecx
 
     lea (_lgdt_instr+3)(%ecx), %eax
