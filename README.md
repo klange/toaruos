@@ -2,7 +2,7 @@
 
 ToaruOS is a complete, independent operating system for x86-64 PCs and ARMv8 VM environments.
 
-The OS includes an SMP-capable modular kernel, C standard library with dynamic linker, a composited desktop environment, a [dynamic bytecode-compiled programming language](https://github.com/kuroko-lang/kuroko), [advanced code editor](https://github.com/klange/bim), and a rapidly expanding collection of POSIX utilities,
+The OS includes an SMP-capable modular kernel, C standard library with dynamic linker, a composited desktop environment, a [dynamic bytecode-compiled programming language](https://github.com/kuroko-lang/kuroko), [advanced code editor](https://github.com/toaruos/bim), and a rapidly expanding collection of POSIX utilities,
 all of which is original to the project and has no third-party dependencies.
 
 ![Screenshot](https://klange.dev/s/screenshot2026_03_24.png)
@@ -23,7 +23,7 @@ In early 2022, the OS was further ported to aarch64.
 - **Misaka** (kernel), [kernel/](kernel/), a hybrid modular kernel, and the core of the operating system.
 - **Yutani** (window compositor), [apps/compositor.c](apps/compositor.c), manages window buffers, layout, and input routing.
 - **Kuroko** (interpreter), [kuroko/](https://kuroko-lang.github.io/), a dynamic bytecode-compiled programming language.
-- **Bim** (text editor), [bim/](https://github.com/klange/bim/), is a Vim-inspired editor with syntax highlighting.
+- **Bim** (text editor), [bim/](https://github.com/toaruos/bim/), is a Vim-inspired editor with syntax highlighting.
 - **Terminal**, [apps/terminal.c](apps/terminal.c), xterm-esque terminal emulator with 24-bit color support.
 - **ld.so** (dynamic linker/loader), [libc/dlfcn/dl.c](libc/dlfcn/dl.c), loads dynamically-linked ELF binaries.
 
@@ -151,7 +151,7 @@ You may redistribute code under the NCSA license, as well as make modifications 
 
 While most of ToaruOS is written entirely by myself, be sure to include other authors where relevant, such as with [Mike's audio subsystem](https://github.com/klange/toaruos/blob/master/kernel/audio/snd.c) or [Dale's string functions](https://github.com/klange/toaruos/blob/master/kernel/misc/string.c).
 
-Some components of ToaruOS, such as [Kuroko](https://github.com/kuroko-lang/kuroko/blob/9f6160092ecece0f2c18b63c066151cbe0ded1bb/LICENSE) or [bim](https://github.com/klange/bim/blob/master/LICENSE) have different but compatible terms.
+Some components of ToaruOS, such as [Kuroko](https://github.com/kuroko-lang/kuroko/blob/9f6160092ecece0f2c18b63c066151cbe0ded1bb/LICENSE) or [bim](https://github.com/toaruos/bim/blob/master/LICENSE) have different but compatible terms.
 
 ## Mirrors
 
