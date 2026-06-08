@@ -538,12 +538,29 @@ static void _menu_action_help(struct MenuEntry * entry) {
 
 static void _menu_action_about(struct MenuEntry * entry) {
 	/* Show About dialog */
-	char about_cmd[1024] = "\0";
-	strcat(about_cmd, "about \"About System Monitor\" /usr/share/icons/48/system-monitor.png \"System Monitor\" \"© 2021-2023 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaruos\" ");
-	char coords[100];
-	sprintf(coords, "%d %d &", (int)wina->x + (int)wina->width / 2, (int)wina->y + (int)wina->height / 2);
-	strcat(about_cmd, coords);
-	system(about_cmd);
+	if (!fork()) {
+		char coords[50];
+		snprintf(coords, 50, "%d,%d", (int)wina->x + (int)wina->width / 2, (int)wina->y + (int)wina->height / 2);
+		char *args[] = {
+			"about-dialog",
+			"--title-about", "System Monitor",
+			"--logo", "system-monitor",
+			"--icon", "star",
+			"--name", "System Monitor",
+			"--at", coords,
+			"--",
+			"© 2021-2023 K. Lange",
+			"Part of ToaruOS, which is free software",
+			"released under the NCSA/University of Illinois",
+			"license.",
+			"-",
+			"%https://toaruos.org",
+			"%https://github.com/klange/toaruos",
+			NULL
+		};
+		_Exit(execvp("about-dialog", args));
+		__builtin_unreachable();
+	}
 	render_base();
 }
 

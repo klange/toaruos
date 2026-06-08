@@ -2256,12 +2256,29 @@ static void _menu_action_toggle_paste_bracketing(struct MenuEntry * self) {
 }
 
 static void _menu_action_show_about(struct MenuEntry * self) {
-	char about_cmd[1024] = "\0";
-	strcat(about_cmd, "about \"About Terminal\" /usr/share/icons/48/utilities-terminal.png \"ToaruOS Terminal\" \"© 2013-2026 K. Lange\n-\nPart of ToaruOS, which is free software\nreleased under the NCSA/University of Illinois\nlicense.\n-\n%https://toaruos.org\n%https://github.com/klange/toaruos\" ");
-	char coords[100];
-	sprintf(coords, "%d %d &", (int)window->x + (int)window->width / 2, (int)window->y + (int)window->height / 2);
-	strcat(about_cmd, coords);
-	system(about_cmd);
+	if (!fork()) {
+		char coords[50];
+		snprintf(coords, 50, "%d,%d", (int)window->x + (int)window->width / 2, (int)window->y + (int)window->height / 2);
+		char *args[] = {
+			"about-dialog",
+			"--title-about", "Terminal",
+			"--logo", "utilities-terminal",
+			"--icon", "star",
+			"--name", "ToaruOS Terminal",
+			"--at", coords,
+			"--",
+			"© 2013-2026 K. Lange",
+			"Part of ToaruOS, which is free software",
+			"released under the NCSA/University of Illinois",
+			"license.",
+			"-",
+			"%https://toaruos.org",
+			"%https://github.com/klange/toaruos",
+			NULL
+		};
+		_Exit(execvp("about-dialog", args));
+		__builtin_unreachable();
+	}
 	render_decors();
 }
 
