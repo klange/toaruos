@@ -9,4 +9,4 @@
 	url = ../../kuroko-lang/kuroko
 [submodule "bim"]
 	path = bim
-	url = ../bim
+	url = ../../toaruos/bim
