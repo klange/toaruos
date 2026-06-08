@@ -151,6 +151,7 @@ class MinesWindow(Window):
                 '--logo', 'mines',
                 '--icon', 'star',
                 '--name', f'{app_name} {app_version}',
+                '--at', f'{self.x + self.width//2},{self.y + self.height//2}',
                 '--',
                 '© 2017-2026 K. Lange',
                 '-',
