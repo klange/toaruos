@@ -2,22 +2,19 @@
  * @file libc/dlfcn/dl.c
  * @brief ld.so entry point
  *
- * This is the ELF dynamic linker. It self-relocates, examines auxv
- * entries to figure out what to do, loads and relocates dependencies
- * and a main binary (if any), and so on.
+ * This is the ELF dynamic linker.
  *
- * This dynamic linker is near full rewrite of the old one that used
+ * This dynamic linker is a near full rewrite of the old one that used
  * to live at @ref linker/linker.c - this one does much more normal
  * symbol resolution (rather than relying on a single shared table
- * of symbols), exists as a shared object (it's actually just the
- * libc.so), and deal with binaries that the kernel has already
- * alongside it.
+ * of symbols), exists as a shared object (it *is* libc.so, with ld.so
+ * as a symbolic link), and deals with binaries that the kernel has
+ * already loaded alongside it.
  *
- * The symbol resolution, which better than it was previously, is
- * still not completely correct. We don't handle loading libraries
- * with @c dlopen flags or properly handle the flags to @c dlsym.
- * The only supported relocation types are ones that have been seen
- * in our own collection of applications and libraries.
+ * The symbol resolution, while better than it was previously, is
+ * still not completely correct. We don't do lazy relocations in any
+ * capacity, @c dlopen does not support flags to control visibility,
+ * and it's likely that some relocation types aren't supported.
  *
  * @copyright
  * This file is part of ToaruOS and is released under the terms
