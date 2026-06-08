@@ -1833,14 +1833,14 @@ static void resize_finish(int width, int height) {
 }
 
 /* Insert a mouse event sequence into the PTY */
-static void mouse_event(int button, int x, int y) {
+static void mouse_event(int button, int x, int y, int release) {
 	if (current_terminal()->mouse_on & TERMEMU_MOUSE_SGR) { /* FIXME */
 		char buf[100];
-		sprintf(buf,"\033[<%d;%d;%d%c", button == 3 ? 0 : button, x+1, y+1, button == 3 ? 'm' : 'M');
+		sprintf(buf,"\033[<%d;%d;%d%c", button, x+1, y+1, release ? 'm' : 'M');
 		handle_input_s(buf);
 	} else {
 		char buf[7];
-		sprintf(buf, "\033[M%c%c%c", button + 32, x + 33, y + 33);
+		sprintf(buf, "\033[M%c%c%c", (release ? 3 : button) + 32, x + 33, y + 33);
 		handle_input_s(buf);
 	}
 }
@@ -2040,40 +2040,40 @@ static void * handle_incoming(void) {
 					if ((current_terminal()->mouse_on & TERMEMU_MOUSE_ENABLE) && !(me->modifiers & YUTANI_KEY_MODIFIER_SHIFT)) {
 
 						if (me->buttons & YUTANI_MOUSE_SCROLL_UP) {
-							mouse_event(32+32, new_x, new_y);
+							mouse_event(32+32, new_x, new_y, 0);
 						} else if (me->buttons & YUTANI_MOUSE_SCROLL_DOWN) {
-							mouse_event(32+32+1, new_x, new_y);
+							mouse_event(32+32+1, new_x, new_y, 0);
 						}
 
 						if (me->buttons != button_state) {
 							/* Figure out what changed */
 							if (me->buttons & YUTANI_MOUSE_BUTTON_LEFT &&
 									!(button_state & YUTANI_MOUSE_BUTTON_LEFT))
-								mouse_event(0, new_x, new_y);
+								mouse_event(0, new_x, new_y, 0);
 							if (me->buttons & YUTANI_MOUSE_BUTTON_MIDDLE &&
 									!(button_state & YUTANI_MOUSE_BUTTON_MIDDLE))
-								mouse_event(1, new_x, new_y);
+								mouse_event(1, new_x, new_y, 0);
 							if (me->buttons & YUTANI_MOUSE_BUTTON_RIGHT &&
 									!(button_state & YUTANI_MOUSE_BUTTON_RIGHT))
-								mouse_event(2, new_x, new_y);
+								mouse_event(2, new_x, new_y, 0);
 							if (!(me->buttons & YUTANI_MOUSE_BUTTON_LEFT) &&
 									button_state & YUTANI_MOUSE_BUTTON_LEFT)
-								mouse_event(3, new_x, new_y);
+								mouse_event(0, new_x, new_y, 1);
 							if (!(me->buttons & YUTANI_MOUSE_BUTTON_MIDDLE) &&
 									button_state & YUTANI_MOUSE_BUTTON_MIDDLE)
-								mouse_event(3, new_x, new_y);
+								mouse_event(1, new_x, new_y, 1);
 							if (!(me->buttons & YUTANI_MOUSE_BUTTON_RIGHT) &&
 									button_state & YUTANI_MOUSE_BUTTON_RIGHT)
-								mouse_event(3, new_x, new_y);
+								mouse_event(2, new_x, new_y, 1);
 							last_mouse_x = new_x;
 							last_mouse_y = new_y;
 							button_state = me->buttons;
 						} else if (current_terminal()->mouse_on & TERMEMU_MOUSE_DRAG) {
 							/* Report motion for pressed buttons */
 							if (last_mouse_x == new_x && last_mouse_y == new_y) break;
-							if (button_state & YUTANI_MOUSE_BUTTON_LEFT) mouse_event(32, new_x, new_y);
-							if (button_state & YUTANI_MOUSE_BUTTON_MIDDLE) mouse_event(33, new_x, new_y);
-							if (button_state & YUTANI_MOUSE_BUTTON_RIGHT) mouse_event(34, new_x, new_y);
+							if (button_state & YUTANI_MOUSE_BUTTON_LEFT) mouse_event(32, new_x, new_y, 0);
+							if (button_state & YUTANI_MOUSE_BUTTON_MIDDLE) mouse_event(33, new_x, new_y, 0);
+							if (button_state & YUTANI_MOUSE_BUTTON_RIGHT) mouse_event(34, new_x, new_y, 0);
 							last_mouse_x = new_x;
 							last_mouse_y = new_y;
 						}

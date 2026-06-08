@@ -619,14 +619,14 @@ static int check_for_exit(void) {
 	return 0;
 }
 
-static void mouse_event(int button, int x, int y) {
-	if (current_terminal()->mouse_on & TERMEMU_MOUSE_SGR) {
+static void mouse_event(int button, int x, int y, int release) {
+	if (current_terminal()->mouse_on & TERMEMU_MOUSE_SGR) { /* FIXME */
 		char buf[100];
-		sprintf(buf,"\033[<%d;%d;%d%c", button == 3 ? 0 : button, x+1, y+1, button == 3 ? 'm' : 'M');
+		sprintf(buf,"\033[<%d;%d;%d%c", button, x+1, y+1, release ? 'm' : 'M');
 		handle_input_s(buf);
 	} else {
 		char buf[7];
-		sprintf(buf, "\033[M%c%c%c", button + 32, x + 33, y + 33);
+		sprintf(buf, "\033[M%c%c%c", (release ? 3 : button) + 32, x + 33, y + 33);
 		handle_input_s(buf);
 	}
 }
@@ -657,24 +657,24 @@ static void handle_mouse_event(mouse_device_packet_t * packet) {
 	if (current_terminal()->mouse_on & TERMEMU_MOUSE_ENABLE) {
 		/* TODO: Handle shift */
 		if (packet->buttons & MOUSE_SCROLL_UP) {
-			mouse_event(32+32, mouse_x, mouse_y);
+			mouse_event(32+32, mouse_x, mouse_y, 0);
 		} else if (packet->buttons & MOUSE_SCROLL_DOWN) {
-			mouse_event(32+32+1, mouse_x, mouse_y);
+			mouse_event(32+32+1, mouse_x, mouse_y, 0);
 		}
 
 		if (packet->buttons != button_state) {
-			if (packet->buttons & LEFT_CLICK && !(button_state & LEFT_CLICK)) mouse_event(0, mouse_x, mouse_y);
-			if (packet->buttons & MIDDLE_CLICK && !(button_state & MIDDLE_CLICK)) mouse_event(1, mouse_x, mouse_y);
-			if (packet->buttons & RIGHT_CLICK && !(button_state & MIDDLE_CLICK)) mouse_event(2, mouse_x, mouse_y);
-			if (!(packet->buttons & LEFT_CLICK) && (button_state & LEFT_CLICK)) mouse_event(3, mouse_x, mouse_y);
-			if (!(packet->buttons & MIDDLE_CLICK) && (button_state & MIDDLE_CLICK)) mouse_event(3, mouse_x, mouse_y);
-			if (!(packet->buttons & RIGHT_CLICK) && (button_state & MIDDLE_CLICK)) mouse_event(3, mouse_x, mouse_y);
+			if (packet->buttons & LEFT_CLICK && !(button_state & LEFT_CLICK)) mouse_event(0, mouse_x, mouse_y, 0);
+			if (packet->buttons & MIDDLE_CLICK && !(button_state & MIDDLE_CLICK)) mouse_event(1, mouse_x, mouse_y, 0);
+			if (packet->buttons & RIGHT_CLICK && !(button_state & MIDDLE_CLICK)) mouse_event(2, mouse_x, mouse_y, 0);
+			if (!(packet->buttons & LEFT_CLICK) && (button_state & LEFT_CLICK)) mouse_event(0, mouse_x, mouse_y, 1);
+			if (!(packet->buttons & MIDDLE_CLICK) && (button_state & MIDDLE_CLICK)) mouse_event(1, mouse_x, mouse_y, 1);
+			if (!(packet->buttons & RIGHT_CLICK) && (button_state & MIDDLE_CLICK)) mouse_event(2, mouse_x, mouse_y, 1);
 			button_state = packet->buttons;
 		} else if (current_terminal()->mouse_on & TERMEMU_MOUSE_DRAG) {
 			if (old_x != mouse_x || old_y != mouse_y) {
-				if (button_state & LEFT_CLICK) mouse_event(32, mouse_x, mouse_y);
-				if (button_state & MIDDLE_CLICK) mouse_event(33, mouse_x, mouse_y);
-				if (button_state & RIGHT_CLICK) mouse_event(34, mouse_x, mouse_y);
+				if (button_state & LEFT_CLICK) mouse_event(32, mouse_x, mouse_y, 0);
+				if (button_state & MIDDLE_CLICK) mouse_event(33, mouse_x, mouse_y, 0);
+				if (button_state & RIGHT_CLICK) mouse_event(34, mouse_x, mouse_y, 0);
 			}
 		}
 
