@@ -189,7 +189,7 @@ struct ColorFormat {
 
 struct VbeMode {
 	uint16_t attributes;
-	uint16_t old_shit;
+	uint16_t window_a_b;
 	uint16_t granularity;
 	uint16_t window_size;
 	uint32_t segments;

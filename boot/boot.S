@@ -430,7 +430,7 @@ drive_params_bps:
 .global vbe_info
 vbe_info:
 	.word 0 /* attributes */
-	.word 0 /* old shit (window a/b) */
+	.word 0 /* window a/b */
 	.word 0 /* Granulatory of banks, don't care. */
 	.word 0 /* Window size, don't care. */
 	.long 0 /* Segments... */
@@ -468,7 +468,7 @@ vbe_info_fbaddr:
 	.long 0 /* Framebuffer address */
 	.long 0 /* Extra memory offset */
 	.word 0 /* Extra memory size */
-	.zero 206 /* Other crap */
+	.zero 206 /* Unused fields */
 
 .align 4
 vbe_cont_info:
