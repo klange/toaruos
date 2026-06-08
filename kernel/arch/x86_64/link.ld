@@ -14,7 +14,7 @@ SECTIONS
 		*(.bootstrap)
 		code = .;
 		*(.text)
-		*(.shit)
+		*(.ap_bootstrap)
 	} :text
 
 	.rodata BLOCK(4K) : ALIGN(4K)

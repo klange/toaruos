@@ -24,7 +24,7 @@ __attribute__((used))
 __attribute__((naked))
 static void __ap_bootstrap(void) {
 	asm volatile (
-		".section .shit\n"
+		".section .ap_bootstrap\n"
 		".code16\n"
 		".org 0x0\n"
 		".global _ap_bootstrap_start\n"
