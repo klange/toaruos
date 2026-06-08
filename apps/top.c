@@ -183,7 +183,7 @@ void print_header(void) {
 	printf(T_H);
 	for (int * c = columns; *c; ++c) {
 		if (*c == sort_column) printf(T_S);
-		printf("%*s ", ColumnDescriptions[*c].width, ColumnDescriptions[*c].title);
+		printf(ColumnDescriptions[*c].formatter == FORMATTER_STRING ? "%-*s " : "%*s ", ColumnDescriptions[*c].width, ColumnDescriptions[*c].title);
 		if (*c == sort_column) printf(T_R);
 	}
 	if (sort_column == COLUMN_NONE) {
