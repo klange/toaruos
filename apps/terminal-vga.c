@@ -665,10 +665,10 @@ static void handle_mouse_event(mouse_device_packet_t * packet) {
 		if (packet->buttons != button_state) {
 			if (packet->buttons & LEFT_CLICK && !(button_state & LEFT_CLICK)) mouse_event(0, mouse_x, mouse_y, 0);
 			if (packet->buttons & MIDDLE_CLICK && !(button_state & MIDDLE_CLICK)) mouse_event(1, mouse_x, mouse_y, 0);
-			if (packet->buttons & RIGHT_CLICK && !(button_state & MIDDLE_CLICK)) mouse_event(2, mouse_x, mouse_y, 0);
+			if (packet->buttons & RIGHT_CLICK && !(button_state & RIGHT_CLICK)) mouse_event(2, mouse_x, mouse_y, 0);
 			if (!(packet->buttons & LEFT_CLICK) && (button_state & LEFT_CLICK)) mouse_event(0, mouse_x, mouse_y, 1);
 			if (!(packet->buttons & MIDDLE_CLICK) && (button_state & MIDDLE_CLICK)) mouse_event(1, mouse_x, mouse_y, 1);
-			if (!(packet->buttons & RIGHT_CLICK) && (button_state & MIDDLE_CLICK)) mouse_event(2, mouse_x, mouse_y, 1);
+			if (!(packet->buttons & RIGHT_CLICK) && (button_state & RIGHT_CLICK)) mouse_event(2, mouse_x, mouse_y, 1);
 			button_state = packet->buttons;
 		} else if (current_terminal()->mouse_on & TERMEMU_MOUSE_DRAG) {
 			if (old_x != mouse_x || old_y != mouse_y) {
