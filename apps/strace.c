@@ -189,6 +189,7 @@ const char * syscall_names[] = {
 	[SYS_NPROC]        = "nproc",
 	[SYS_SETTLSBASE]   = "set_tls_base",
 	[SYS_INSMOD]       = "insmod",
+	[SYS_GETSID]       = "getsid",
 };
 
 char syscall_mask[] = {
@@ -294,6 +295,7 @@ char syscall_mask[] = {
 	[SYS_NPROC]        = 1,
 	[SYS_SETTLSBASE]   = 1,
 	[SYS_INSMOD]       = 1,
+	[SYS_GETSID]       = 1,
 };
 
 static const int syscall_set_net[] = {
@@ -1427,6 +1429,10 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			break;
 		case SYS_TIMES:
 			pointer_arg(uregs_syscall_arg1(r)); /* struct tms */
+			break;
+		case SYS_GETPGID:
+		case SYS_GETSID:
+			int_arg(uregs_syscall_arg1(r));
 			break;
 		/* These have no arguments: */
 		case SYS_YIELD:

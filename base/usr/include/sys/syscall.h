@@ -102,3 +102,4 @@
 #define SYS_MUNMAP 99
 #define SYS_NPROC 100
 #define SYS_SETTLSBASE 101
+#define SYS_GETSID 102

@@ -300,6 +300,7 @@ DECL_SYSCALL3(sigqueue, pid_t, int, uintptr_t);
 DECL_SYSCALL4(pread, int, void *, size_t, off_t);
 DECL_SYSCALL4(pwrite, int, const void *, size_t, off_t);
 DECL_SYSCALL6(mmap, void*, size_t, int, int, int, off_t);
+DECL_SYSCALL1(getsid, pid_t);
 
 _End_C_Header
 

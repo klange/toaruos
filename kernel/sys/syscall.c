@@ -641,6 +641,12 @@ long sys_setsid(void) {
 	return this_core->current_process->session;
 }
 
+long sys_getsid(pid_t pid) {
+	process_t * proc = pid == 0 ? (process_t*)this_core->current_process : process_from_pid(pid);
+	if (!proc) return -ESRCH;
+	return proc->session;
+}
+
 long sys_setpgid(pid_t pid, pid_t pgid) {
 	if (pgid < 0) {
 		return -EINVAL;
@@ -1363,6 +1369,7 @@ static scall_func syscalls[] = {
 	[SYS_NPROC]        = (scall_func)(uintptr_t)sys_nproc,
 	[SYS_SETTLSBASE]   = (scall_func)(uintptr_t)sys_set_tls_base,
 	[SYS_INSMOD]       = (scall_func)(uintptr_t)sys_insmod,
+	[SYS_GETSID]       = (scall_func)(uintptr_t)sys_getsid,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

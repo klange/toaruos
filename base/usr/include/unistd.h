@@ -112,6 +112,7 @@ extern pid_t setsid(void);
 extern int setpgid(pid_t, pid_t);
 extern pid_t getpgid(pid_t);
 extern pid_t getpgrp(void);
+extern pid_t getsid(pid_t);
 
 extern unsigned int alarm(unsigned int seconds);
 
