@@ -1032,6 +1032,32 @@ _extra_stuff:
 	}
 }
 
+struct CellImage {
+	int gc;
+	unsigned int width;
+	unsigned int height;
+	char data[];
+};
+
+static uint32_t invert_color(uint32_t color) {
+	/* Extract */
+	uint32_t a = _ALP(color);
+	uint32_t r = _RED(color);
+	uint32_t g = _GRE(color);
+	uint32_t b = _BLU(color);
+	/* Unpremultiply */
+	if (a) {
+		r *= 255 / a;
+		g *= 255 / a;
+		b *= 255 / a;
+	}
+	/* Invert colors */
+	r = 0xFF - r;
+	g = 0xFF - g;
+	b = 0xFF - b;
+	/* Premultiply again */
+	return premultiply(rgba(r,g,b,a));
+}
 
 /* Redraw an embedded image cell */
 static void redraw_cell_image(term_state_t * state, uint16_t x, uint16_t y, term_cell_t * cell, int inverted) {
@@ -1039,38 +1065,16 @@ static void redraw_cell_image(term_state_t * state, uint16_t x, uint16_t y, term
 	/* Avoid setting cells out of range. */
 	if (x >= state->width || y >= state->height) return;
 
+	uint32_t default_bg = term_colors[TERM_DEFAULT_BG] | (TERM_DEFAULT_OPAC << 24);
+
 	/* Draw the image data */
-	uint32_t * data = (uint32_t *)((uintptr_t)cell->bg << 32 | cell->fg);
-	if (inverted) {
-		for (uint32_t yy = 0; yy < term->char_height; ++yy) {
-			for (uint32_t xx = 0; xx < term->char_width; ++xx) {
-				/* Extract */
-				uint32_t a = _ALP(*data);
-				uint32_t r = _RED(*data);
-				uint32_t g = _GRE(*data);
-				uint32_t b = _BLU(*data);
-				/* Unpremultiply */
-				if (a) {
-					r *= 255 / a;
-					g *= 255 / a;
-					b *= 255 / a;
-				}
-				/* Invert colors */
-				r = 0xFF - r;
-				g = 0xFF - g;
-				b = 0xFF - b;
-				/* Premultiply again */
-				uint32_t color = premultiply(rgba(r,g,b,a));
-				term_set_point(x * term->char_width + xx, y * term->char_height + yy, color);
-				data++;
-			}
-		}
-	} else {
-		for (uint32_t yy = 0; yy < term->char_height; ++yy) {
-			for (uint32_t xx = 0; xx < term->char_width; ++xx) {
-				term_set_point(x * term->char_width + xx, y * term->char_height + yy, *data);
-				data++;
-			}
+	struct CellImage * image = (struct CellImage *)((uintptr_t)cell->bg << 32 | cell->fg);
+	uint32_t * data = (uint32_t*)image->data;
+	for (uint32_t yy = 0; yy < term->char_height; ++yy) {
+		for (uint32_t xx = 0; xx < term->char_width; ++xx) {
+			uint32_t c = (yy < image->height && xx < image->width) ? data[yy * image->width + xx] : default_bg;
+			if (inverted) c = invert_color(c);
+			term_set_point(x * term->char_width + xx, y * term->char_height + yy, c);
 		}
 	}
 
@@ -1121,7 +1125,10 @@ static void flush_unused_images(term_state_t * state) {
 	struct Terminal_Private * term = state->priv;
 	if (!term->images_list->length) return;
 
-	list_t * tmp = list_create();
+	foreach(node, term->images_list) {
+		struct CellImage * img = node->value;
+		img->gc = 0;
+	}
 
 	/* Go through scrollback, too */
 	if (state->scrollback_list) {
@@ -1130,8 +1137,8 @@ static void flush_unused_images(term_state_t * state) {
 			for (unsigned int x = 0; x < row->width; ++x) {
 				term_cell_t * cell = &row->cells[x];
 				if (cell->flags & ANSI_EXT_IMG) {
-					uint32_t * data = (uint32_t *)((uintptr_t)cell->bg << 32 | cell->fg);
-					list_insert(tmp, data);
+					struct CellImage * img = (struct CellImage *)((uintptr_t)cell->bg << 32 | cell->fg);
+					img->gc = 1;
 				}
 			}
 		}
@@ -1141,8 +1148,8 @@ static void flush_unused_images(term_state_t * state) {
 		for (int x = 0; x < state->width; ++x) {
 			term_cell_t * cell = &state->term_buffer_a[y * state->width + x];
 			if (cell->flags & ANSI_EXT_IMG) {
-				uint32_t * data = (uint32_t *)((uintptr_t)cell->bg << 32 | cell->fg);
-				list_insert(tmp, data);
+				struct CellImage * img = (struct CellImage *)((uintptr_t)cell->bg << 32 | cell->fg);
+				img->gc = 1;
 			}
 		}
 	}
@@ -1151,19 +1158,26 @@ static void flush_unused_images(term_state_t * state) {
 		for (int x = 0; x < state->width; ++x) {
 			term_cell_t * cell = &state->term_buffer_b[y * state->width + x];
 			if (cell->flags & ANSI_EXT_IMG) {
-				uint32_t * data = (uint32_t *)((uintptr_t)cell->bg << 32 | cell->fg);
-				list_insert(tmp, data);
+				struct CellImage * img = (struct CellImage *)((uintptr_t)cell->bg << 32 | cell->fg);
+				img->gc = 1;
 			}
 		}
 	}
 
-	foreach(node, term->images_list) {
-		if (!list_find(tmp, node->value)) {
-			free(node->value);
+	list_t * tmp = list_create();
+
+	while (term->images_list->length) {
+		node_t * n = list_dequeue(term->images_list);
+		struct CellImage * img = n->value;
+		if (!img->gc) {
+			free(img);
+			free(n);
+		} else {
+			list_append(tmp, n);
 		}
 	}
 
-	list_free(term->images_list);
+	free(term->images_list);
 	term->images_list = tmp;
 }
 
@@ -1177,8 +1191,13 @@ static void term_scroll(term_state_t * state, int how_much) {
 /* ANSI callback to set cell image data. */
 static void term_set_cell_contents(term_state_t * state, int x, int y, char * data) {
 	struct Terminal_Private * term = state->priv;
-	char * cell_data = malloc(term->char_width * term->char_height * sizeof(uint32_t));
-	memcpy(cell_data, data, term->char_width * term->char_height * sizeof(uint32_t));
+	struct CellImage *cell_data = malloc(sizeof(struct CellImage) + term->char_width * term->char_height * sizeof(uint32_t));
+
+	cell_data->gc = 0;
+	cell_data->width = term->char_width;
+	cell_data->height = term->char_height;
+
+	memcpy(&cell_data->data, data, term->char_width * term->char_height * sizeof(uint32_t));
 	list_insert(term->images_list, cell_data);
 
 	term_cell_t * cell = &state->term_buffer[y * state->width + x];
