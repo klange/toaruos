@@ -37,7 +37,7 @@ def checksum(data):
 let output = fileio.open('ramdisk.tar','wb')
 
 def do_file(p, fn, recurse=True):
-    let sr = os.stat(p)
+    let sr = os.lstat(p)
     # Fill in the metadata
     let data = bytearray(512)
     let uid = 0
@@ -113,7 +113,7 @@ def recurse_directory(dirname, prefix=''):
 
             # Figure out the name
             let p = dirname + '/' + n
-            let sr = os.stat(p)
+            let sr = os.lstat(p)
             if stat.S_ISDIR(sr.st_mode):
                 n += '/'
             let fn = prefix + n
