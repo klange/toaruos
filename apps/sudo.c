@@ -64,7 +64,7 @@ static int sudo_loop(int (*prompt_callback)(char * username, char * password, in
 		char * username = strdup(p->pw_name);
 
 		char token_file[64];
-		sprintf(token_file, "/var/sudoers/%d", me); /* TODO: Restrict to this session? */
+		sprintf(token_file, "/var/sudoers/%d-%d", me, getsid(0));
 
 		if (need_password) {
 			struct stat buf;
