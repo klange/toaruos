@@ -35,8 +35,18 @@ static char * title_str = "About";
 static char * version_str = "";
 static char ** body_text = NULL;
 
+static int desired_height(void) {
+	int text_offset = 0;
+	for (char ** str = body_text; *str; ++str) text_offset += (**str == '-') ? 10 : 20;
+	return 50 + logo->height + text_offset;
+}
+
 static int center_x(int x) {
 	return (width - x) / 2;
+}
+
+static int center_y(int y) {
+	return (height - y) / 2;
 }
 
 static void draw_string(int y, const char * string, int mode, uint32_t color) {
@@ -61,11 +71,15 @@ static void redraw(void) {
 	decor_get_bounds(window, &bounds);
 
 	draw_fill(ctx, rgb(204,204,204));
-	draw_sprite(ctx, logo, bounds.left_width + center_x(logo->width), bounds.top_height + 10);
 
-	draw_string(0, version_str, MARKUP_TEXT_STATE_BOLD, rgb(0,0,0));
+	int fill_height = desired_height();
+	int offset = center_y(fill_height);
 
-	int offset = 20;
+	draw_sprite(ctx, logo, bounds.left_width + center_x(logo->width), bounds.top_height + 10 + offset);
+
+	draw_string(offset, version_str, MARKUP_TEXT_STATE_BOLD, rgb(0,0,0));
+
+	offset += 20;
 
 	for (char ** str = body_text; *str; ++str) {
 		if (**str == '-') {
@@ -193,9 +207,7 @@ int main(int argc, char * argv[]) {
 
 	logo = image_or_icon(logo_path);
 
-	int text_offset = 0;
-	for (char ** str = body_text; *str; ++str) text_offset += (**str == '-') ? 10 : 20;
-	height = 50 + logo->height + text_offset;
+	height = desired_height();
 
 	if (parent_window) {
 		window = yutani_window_create_flags(yctx, width + bounds.width, height + bounds.height, YUTANI_WINDOW_FLAG_DIALOG_ANIMATION | YUTANI_WINDOW_FLAG_PARENT_WID, (yutani_window_t*)&parent_window);
