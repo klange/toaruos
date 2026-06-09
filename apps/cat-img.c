@@ -4,7 +4,7 @@
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2016-2018 K. Lange
+ * Copyright (C) 2016-2026 K. Lange
  */
 #include <stdlib.h>
 #include <stdio.h>
@@ -58,11 +58,6 @@ int usage(char * argv[]) {
 }
 
 int main (int argc, char * argv[]) {
-	if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO)) {
-		fprintf(stderr, "Can't cat-img to a non-terminal.\n");
-		exit(1);
-	}
-
 	int opt;
 	int no_newline = 0;
 	int scale_to_cell_height = 0;
@@ -88,10 +83,18 @@ int main (int argc, char * argv[]) {
 		return usage(argv);
 	}
 
+	if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO)) {
+		fprintf(stderr, "%s: can't cat-img to a non-terminal.\n", argv[0]);
+		return 1;
+	}
+
 	int w, h;
 	get_cell_sizes(&w, &h);
 
-	if (!w || !h) return 1;
+	if (!w || !h) {
+		fprintf(stderr, "%s: terminal has no pixel size.\n", argv[0]);
+		return 1;
+	}
 
 	int ret = 0;
 
