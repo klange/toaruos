@@ -645,6 +645,15 @@ static void sock_opt_arg(int opt) {
 	}
 }
 
+static void shutdown_arg(int opt) {
+	switch (opt) {
+		C(SHUT_RD);
+		C(SHUT_WR);
+		C(SHUT_RDWR);
+		default: fprintf(logfile, "%d", opt); break;
+	}
+}
+
 static int data_read_bytes(pid_t pid, uintptr_t addr, char * buf, size_t size) {
 	for (unsigned int i = 0; i < size; ++i) {
 		if (ptrace(PTRACE_PEEKDATA, pid, (void*)addr++, &buf[i])) {
@@ -1352,7 +1361,7 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			break;
 		case SYS_SHUTDOWN:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			int_arg(uregs_syscall_arg2(r)); /* TODO SHUT_... */
+			shutdown_arg(uregs_syscall_arg2(r));
 			break;
 		case SYS_SETSOCKOPT:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
