@@ -536,9 +536,10 @@ static void _ansi_put(term_state_t * s, char c) {
 			} else if (c == 's') {
 				s->img_collected = 0;
 				s->escape = 6;
-				s->img_size = sizeof(uint32_t) * callbacks->get_cell_width(s) * callbacks->get_cell_height(s);
-				if (!s->img_data) {
-					s->img_data = malloc(s->img_size);
+				size_t want = sizeof(uint32_t) * callbacks->get_cell_width(s) * callbacks->get_cell_height(s);
+				if (want != s->img_size) {
+					s->img_size = want;
+					s->img_data = realloc(s->img_data, s->img_size);
 				}
 				memset(s->img_data, 0x00, s->img_size);
 			} else {
