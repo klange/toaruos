@@ -636,8 +636,10 @@ int main(int argc, char * argv[]) {
 						struct yutani_msg_window_focus_change * wf = (void*)m->data;
 						yutani_window_t * win = hashmap_get(yctx->windows, (void*)(uintptr_t)wf->wid);
 						if (win == main_window) {
-							win->focused = wf->focused;
-							redraw_packages();
+							if (win->focused != wf->focused) {
+								win->focused = wf->focused;
+								redraw_packages();
+							}
 							redraw_window();
 						}
 					}
