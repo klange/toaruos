@@ -41,19 +41,7 @@ static long mmap_common_checks(uintptr_t addr, size_t length, int prot, int flag
 	if (length == 0) return -EINVAL;
 
 	if (length > 0x800000000) return -ENOMEM;
-
-	if (flags & MAP_FIXED) {
-#ifdef __x86_64__
-		/* Deal with our dumb low mapping of the x86-64 kernel. */
-		extern char end[];
-		uintptr_t endPtr = ((uintptr_t)&end + 0xFFF) & 0xFFF;
-		if (addr < endPtr) return -EINVAL;
-#endif
-
-		/* Dumb stuff */
-		if (addr > 0x800000000000UL) return -EINVAL;
-		if (addr + length > 0x800000000000UL) return -EINVAL;
-	}
+	if ((flags & MAP_FIXED) && addr > 0x800000000000UL - length) return -EINVAL;
 
 	return 0;
 }
