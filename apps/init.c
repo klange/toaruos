@@ -59,8 +59,7 @@ int start_options(char * args[]) {
 
 	/* Child process... */
 	if (!cpid) {
-		/* Pass environment from init to child */
-		execve(args[0], args, environ);
+		execv(args[0], args);
 		/* exec failed, exit this subprocess */
 		exit(0);
 	}
