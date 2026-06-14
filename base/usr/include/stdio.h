@@ -45,6 +45,8 @@ extern int vsprintf(char * buf, const char *fmt, va_list args);
 extern int vsnprintf(char * buf, size_t size, const char *fmt, va_list args);
 extern int vfprintf(FILE * device, const char *format, va_list ap);
 extern int vprintf(const char *format, va_list ap);
+extern int dprintf(int fd, const char *format, ...);
+extern int vdprintf(int fd, const char *format, va_list ap);
 
 extern int puts(const char *s);
 extern int fputs(const char *s, FILE *stream);

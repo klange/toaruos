@@ -257,46 +257,18 @@ static Elf64_Sym * elf_sym_lookup(Elf64_Word *table, const char *strtab, Elf64_S
 	return NULL;
 }
 
-/**
- * @brief Debug print callback.
- *
- * Writes, character by character, debug messages, either
- * to standard error or the "emergency file descriptor".
- *
- * @param user Unused.
- * @param c    Character to write.
- * @returns 0 (implicit success)
- */
-static int cb_dprintf(void * user, char c) {
-	write(
-#ifdef LD_EARLY_DEBUG
-	emergency_fd,
-#else
-	STDERR_FILENO,
-#endif
-	&c, 1);
-	return 0;
-}
-
-/**
- * @brief Debug print.
- *
- * Print formatted messages to standard error or another
- * emergency log file. This is used instead of the stdio
- * interface so as to not interface with any existing
- * buffering setup, and so that it can be used before
- * constructors are run.
- *
- * @param fmt Format string
- * @param ... Var args.
- * @returns Bytes written.
- */
-static int dprintf(const char * fmt, ...) {
+static int __dl_dprintf(const char * fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-	int out = __printf_internal(cb_dprintf, NULL, fmt, args);
+	int ret = vdprintf(
+#ifdef LD_EARLY_DEBUG
+		emergency_fd,
+#else
+		STDERR_FILENO,
+#endif
+		fmt, args);
 	va_end(args);
-	return out;
+	return ret;
 }
 
 /**
@@ -373,7 +345,7 @@ static void relocate(struct DlLib * lib) {
 				if (lib->phdr[j].p_vaddr > table->r_offset) continue;
 				if (table->r_offset - lib->phdr[j].p_vaddr >= lib->phdr[j].p_memsz) continue;
 				if (!(lib->phdr[j].p_flags & PF_W)) {
-					if (__trace_ld) dprintf("ld.so: %s: Ignoring illegal relocation in read-only segment (%#zx)\n", lib->name, table->r_offset + lib->base);
+					if (__trace_ld) __dl_dprintf("ld.so: %s: Ignoring illegal relocation in read-only segment (%#zx)\n", lib->name, table->r_offset + lib->base);
 					goto _continue;
 				}
 				break;
@@ -401,7 +373,7 @@ static void relocate(struct DlLib * lib) {
 
 					if (resolved) {
 						if (unlikely(__trace_ld)) {
-							dprintf("ld.so: %s: Resolved symbol '%s' as %#zx\n",
+							__dl_dprintf("ld.so: %s: Resolved symbol '%s' as %#zx\n",
 								lib->name, name, (inlib->base + resolved->st_value));
 						}
 						x = inlib->base + resolved->st_value;
@@ -412,7 +384,7 @@ static void relocate(struct DlLib * lib) {
 #endif
 					} else {
 						if ((sym->st_info >> 4) != STB_WEAK) {
-							dprintf("ld.so: could not resolve symbol '%s' in %s\n", name, lib->name);
+							__dl_dprintf("ld.so: could not resolve symbol '%s' in %s\n", name, lib->name);
 						}
 						goto _continue;
 					}
@@ -470,7 +442,7 @@ static void relocate(struct DlLib * lib) {
 # error "Unknown arch"
 #endif
 				default:
-					dprintf("ld.so: unhandled relocation type %d\n", type);
+					__dl_dprintf("ld.so: unhandled relocation type %d\n", type);
 					break;
 			}
 
@@ -514,7 +486,7 @@ static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent,
 	 * an ET_EXEC; everything else must be an ET_DYN. */
 	if (lib_header->e_type != ET_DYN && (!is_exec || lib_header->e_type != ET_EXEC)) goto _fail_dep;
 	if (lib_header->e_phoff + lib_header->e_phentsize > avail) {
-		dprintf("ld.so: %s: need to load more phdrs, failing for now\n", name);
+		__dl_dprintf("ld.so: %s: need to load more phdrs, failing for now\n", name);
 		goto _fail_dep;
 	}
 
@@ -539,7 +511,7 @@ static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent,
 	}
 
 	if (unlikely(__trace_ld)) {
-		dprintf("ld.so: %s: loading at %#zx\n", name, load_addr);
+		__dl_dprintf("ld.so: %s: loading at %#zx\n", name, load_addr);
 	}
 
 	for (size_t i = 0; i < lib_header->e_phnum; ++i) {
@@ -547,7 +519,7 @@ static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent,
 		if (phdr->p_type != PT_LOAD) continue;
 
 		if (unlikely(__trace_ld)) {
-			dprintf("ld.so: %s: load vaddr=%#zx, size=%zu, offset=%zu, filesz=%zu\n",
+			__dl_dprintf("ld.so: %s: load vaddr=%#zx, size=%zu, offset=%zu, filesz=%zu\n",
 				name, phdr->p_vaddr, phdr->p_memsz, phdr->p_offset, phdr->p_filesz);
 		}
 
@@ -620,7 +592,7 @@ static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent,
 	return lib;
 
 _fail_dep:
-	dprintf("ld.so: failed to load dependency '%s'\n", name);
+	__dl_dprintf("ld.so: failed to load dependency '%s'\n", name);
 	free(lib_header);
 	free(lib);
 	close(fd);
@@ -1017,7 +989,7 @@ static void do_preloads(void) {
 			*n = '\0';
 
 			if (!find_lib(p, NULL)) {
-				dprintf("ld.so: '%s' from LD_PRELOAD could not be loaded: %s\n",
+				__dl_dprintf("ld.so: '%s' from LD_PRELOAD could not be loaded: %s\n",
 					p, __ld_error);
 			}
 
@@ -1048,7 +1020,7 @@ int __libc_load_from_file(int fd, const char * name, int argc, char *argv[]) {
 	struct DlLib * app = try_load(name, fd, NULL, 1);
 
 	if (!app) {
-		dprintf("ld.so: nope\n");
+		__dl_dprintf("ld.so: nope\n");
 		return 1;
 	}
 
@@ -1128,7 +1100,7 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 	if (show_auxv) {
 		for (i = 0; auxv_raw[i]; i += 2) {
 			switch (auxv_raw[i]) {
-#define _fmt(n,fstr) case n: dprintf("%-16s %" fstr "\n", #n ":", auxv_raw[i+1]); break
+#define _fmt(n,fstr) case n: __dl_dprintf("%-16s %" fstr "\n", #n ":", auxv_raw[i+1]); break
 				_fmt(AT_UID,"zu");
 				_fmt(AT_EUID,"zu");
 				_fmt(AT_GID,"zu");
@@ -1141,7 +1113,7 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 				_fmt(AT_BASE,"#zx");
 				_fmt(AT_ENTRY,"#zx");
 				default:
-					dprintf("%#zx: %#zx\n", auxv_raw[i], auxv_raw[i+1]);
+					__dl_dprintf("%#zx: %#zx\n", auxv_raw[i], auxv_raw[i+1]);
 			}
 		}
 	}

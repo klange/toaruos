@@ -2,6 +2,8 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
 #include <va_list.h>
 
 #include <libc/stdio/stdio_internal.h>
@@ -554,5 +556,51 @@ int vfprintf(FILE * stream, const char *fmt, va_list args) {
 
 int vprintf(const char *fmt, va_list args) {
 	return __printf_internal(cb_fprintf, stdout, fmt, args);
+}
+
+#define DPRINTF_BUFSIZ 80
+struct dprintf_ctx {
+	int fd;
+	int err;
+	unsigned int i;
+	char buf[DPRINTF_BUFSIZ];
+};
+
+static int cb_dprintf(void * user, char c) {
+	struct dprintf_ctx * ctx = user;
+	if (ctx->err) return 0; /* should be 1, but none of these callbacks do that */
+
+	ctx->buf[ctx->i++] = c;
+
+	if (c == '\n' || ctx->i == DPRINTF_BUFSIZ) {
+		if (write(ctx->fd, ctx->buf, ctx->i) == -1) ctx->err = errno;
+		ctx->i = 0;
+	}
+
+	return 0;
+}
+
+int vdprintf(int fd, const char * fmt, va_list args) {
+	struct dprintf_ctx ctx = {0};
+	ctx.fd = fd;
+
+	int out = __printf_internal(cb_dprintf, &ctx, fmt, args);
+
+	if (ctx.i && write(fd, ctx.buf, ctx.i) == -1) ctx.err = errno;
+
+	if (ctx.err) {
+		errno = ctx.err;
+		return -1;
+	}
+
+	return out;
+}
+
+int dprintf(int fd, const char * fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	int out = vdprintf(fd, fmt, args);
+	va_end(args);
+	return out;
 }
 
