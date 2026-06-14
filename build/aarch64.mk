@@ -57,6 +57,12 @@ run: system
 hvf: EMU_CPU = host -accel hvf
 hvf: run
 
+vga: system
+	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=--vga emulvga ramfb vid=preset" ${EMU_RAMDISK} ${EMU_KERNEL}
+
+vga-hvf: EMU_CPU = host -accel hvf
+vga-hvf: vga
+
 shell: system
 	@${QEMU} -M ${EMU_MACH} -m ${RAM} -smp ${SMP} -cpu ${EMU_CPU} -no-reboot -display none -serial mon:stdio -d guest_errors \
 		-net user -netdev hubport,id=u1,hubid=0, -device e1000e,netdev=u1 \
