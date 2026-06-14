@@ -38,6 +38,9 @@ typedef struct SockData {
 	int nonblocking;
 
 	unsigned long timeout_s, timeout_us;
+
+	long (*sock_accept)(struct SockData * sock, struct sockaddr *addr, socklen_t *addrlen);
+	long (*sock_listen)(struct SockData * sock, int backlog);
 } sock_t;
 
 void net_sock_alert(sock_t * sock);

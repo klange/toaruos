@@ -292,12 +292,16 @@ long net_bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 
 long net_accept(int sockfd, struct sockaddr * addr, socklen_t * addrlen) {
 	CHECK_SOCK(sockfd);
-	return -EINVAL;
+	sock_t * node = (sock_t*)FD_ENTRY(sockfd);
+	if (!node->sock_accept) return -EINVAL;
+	return node->sock_accept(node, addr, addrlen);
 }
 
 long net_listen(int sockfd, int backlog) {
 	CHECK_SOCK(sockfd);
-	return -EINVAL;
+	sock_t * node = (sock_t*)FD_ENTRY(sockfd);
+	if (!node->sock_listen) return -EINVAL;
+	return node->sock_listen(node, backlog);
 }
 
 long net_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
