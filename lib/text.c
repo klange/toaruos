@@ -798,13 +798,14 @@ void tt_draw_glyph(gfx_context_t * ctx, struct TT_Font * font, int x, int y, uns
 	free(contour);
 }
 
-int tt_string_width(struct TT_Font * font, const char * s) {
+int tt_stringn_width(struct TT_Font * font, const char * s, size_t n) {
 	float x_offset = 0;
 	uint32_t cp = 0;
 	uint32_t istate = 0;
 
-	for (const unsigned char * c = (const unsigned char*)s; *c; ++c) {
-		if (!decode(&istate, &cp, *c)) {
+	for (size_t i = 0; i < n; ++i) {
+		unsigned char c = s[i];
+		if (!decode(&istate, &cp, c)) {
 			unsigned int glyph = tt_glyph_for_codepoint(font, cp);
 			x_offset += tt_xadvance_for_glyph(font, glyph) * font->scale;
 		}
@@ -813,19 +814,28 @@ int tt_string_width(struct TT_Font * font, const char * s) {
 	return x_offset;
 }
 
-int tt_string_width_int(struct TT_Font * font, const char * s) {
+int tt_stringn_width_int(struct TT_Font * font, const char * s, size_t n) {
 	int x_offset = 0;
 	uint32_t cp = 0;
 	uint32_t istate = 0;
 
-	for (const unsigned char * c = (const unsigned char*)s; *c; ++c) {
-		if (!decode(&istate, &cp, *c)) {
+	for (size_t i = 0; i < n; ++i) {
+		unsigned char c = s[i];
+		if (!decode(&istate, &cp, c)) {
 			unsigned int glyph = tt_glyph_for_codepoint(font, cp);
 			x_offset += tt_xadvance_for_glyph(font, glyph) * font->scale;
 		}
 	}
 
 	return x_offset;
+}
+
+int tt_string_width(struct TT_Font * font, const char * s) {
+	return tt_stringn_width(font, s, strlen(s));
+}
+
+int tt_string_width_int(struct TT_Font * font, const char * s) {
+	return tt_stringn_width_int(font, s, strlen(s));
 }
 
 float tt_glyph_width(struct TT_Font * font, unsigned int glyph) {
@@ -833,7 +843,7 @@ float tt_glyph_width(struct TT_Font * font, unsigned int glyph) {
 }
 
 __attribute__((visibility("protected")))
-struct TT_Contour * tt_prepare_string_into(struct TT_Contour * contour, struct TT_Font * font, float x, float y, const char * s, float * out_width) {
+struct TT_Contour * tt_prepare_stringn_into(struct TT_Contour * contour, struct TT_Font * font, float x, float y, const char * s, size_t n, float * out_width) {
 	if (contour == NULL) {
 		contour = tt_contour_start(0, 0);
 	}
@@ -842,8 +852,9 @@ struct TT_Contour * tt_prepare_string_into(struct TT_Contour * contour, struct T
 	uint32_t cp = 0;
 	uint32_t istate = 0;
 
-	for (const unsigned char * c = (const unsigned char*)s; *c; ++c) {
-		if (!decode(&istate, &cp, *c)) {
+	for (size_t i = 0; i < n; ++i) {
+		unsigned char c = s[i];
+		if (!decode(&istate, &cp, c)) {
 			unsigned int glyph = tt_glyph_for_codepoint(font, cp);
 			contour = tt_draw_glyph_into(contour,font,x_offset,y,glyph);
 			x_offset += tt_xadvance_for_glyph(font, glyph) * font->scale;
@@ -856,13 +867,13 @@ struct TT_Contour * tt_prepare_string_into(struct TT_Contour * contour, struct T
 }
 
 __attribute__((visibility("protected")))
-struct TT_Contour * tt_prepare_string(struct TT_Font * font, float x, float y, const char * s, float * out_width) {
-	return tt_prepare_string_into(NULL, font, x, y, s, out_width);
+struct TT_Contour * tt_prepare_stringn(struct TT_Font * font, float x, float y, const char * s, size_t n, float * out_width) {
+	return tt_prepare_stringn_into(NULL, font, x, y, s, n, out_width);
 }
 
-int tt_draw_string(gfx_context_t * ctx, struct TT_Font * font, int x, int y, const char * s, uint32_t color) {
+int tt_draw_stringn(gfx_context_t * ctx, struct TT_Font * font, int x, int y, const char * s, size_t n, uint32_t color) {
 	float width;
-	struct TT_Contour * contour = tt_prepare_string(font,x,y,s,&width);
+	struct TT_Contour * contour = tt_prepare_stringn(font,x,y,s,n,&width);
 	if (contour->edgeCount) {
 		struct TT_Shape * shape = tt_contour_finish(contour);
 		tt_path_paint(ctx, shape, color);
@@ -871,7 +882,6 @@ int tt_draw_string(gfx_context_t * ctx, struct TT_Font * font, int x, int y, con
 	free(contour);
 	return width;
 }
-
 
 static int tt_font_load(struct TT_Font * font) {
 	if (tt_seek(font, 4)) {
@@ -1487,3 +1497,19 @@ _finish:
 	if (out_width) *out_width = width;
 	return out;
 }
+
+
+
+/* Old NUL-terminated string wrappers. */
+struct TT_Contour * tt_prepare_string_into(struct TT_Contour * contour, struct TT_Font * font, float x, float y, const char * s, float * out_width) {
+	return tt_prepare_stringn_into(contour, font, x, y, s, strlen(s), out_width);
+}
+
+struct TT_Contour * tt_prepare_string(struct TT_Font * font, float x, float y, const char * s, float * out_width) {
+	return tt_prepare_stringn_into(NULL, font, x, y, s, strlen(s), out_width);
+}
+
+int tt_draw_string(gfx_context_t * ctx, struct TT_Font * font, int x, int y, const char * s, uint32_t color) {
+	return tt_draw_stringn(ctx,font,x,y,s,strlen(s),color);
+}
+

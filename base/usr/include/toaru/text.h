@@ -22,6 +22,11 @@ extern int tt_xadvance_for_glyph(struct TT_Font * font, unsigned int ind);
 extern float tt_glyph_width(struct TT_Font * font, unsigned int glyph);
 extern sprite_t * tt_bake_glyph(struct TT_Font * font, unsigned int glyph, uint32_t color, int *_x, int *_y, float xadjust);
 
+/* Normal API */
+extern int tt_stringn_width(struct TT_Font * font, const char * s, size_t n);
+extern int tt_stringn_width_int(struct TT_Font * font, const char * s, size_t n);
+extern int tt_draw_stringn(gfx_context_t * ctx, struct TT_Font * font, int x, int y, const char * s, size_t n, uint32_t color);
+
 /* Convenience functions for dealing with whole strings */
 extern int tt_string_width(struct TT_Font * font, const char * s);
 extern int tt_string_width_int(struct TT_Font * font, const char * s);
@@ -50,6 +55,8 @@ extern int tt_path_contains(const struct TT_Shape * shape, float x, float y);
 
 /* Internal methods to draw paths into vector contours */
 extern struct TT_Contour * tt_draw_glyph_into(struct TT_Contour * contour, struct TT_Font * font, float x_offset, float y_offset, unsigned int glyph);
+extern struct TT_Contour * tt_prepare_stringn(struct TT_Font * font, float x, float y, const char * s, size_t n, float * out_width);
+extern struct TT_Contour * tt_prepare_stringn_into(struct TT_Contour * contour, struct TT_Font * font, float x, float y, const char * s, size_t n, float * out_width);
 extern struct TT_Contour * tt_prepare_string(struct TT_Font * font, float x, float y, const char * s, float * out_width);
 extern struct TT_Contour * tt_prepare_string_into(struct TT_Contour * contour, struct TT_Font * font, float x, float y, const char * s, float * out_width);
 
