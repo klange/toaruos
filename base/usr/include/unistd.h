@@ -23,9 +23,12 @@ extern int execlp(const char *file, const char *arg, ...);
 extern int execle(const char *path, const char *arg, ...);
 extern int execv(const char *path, char *const argv[]);
 extern int execvp(const char *file, char *const argv[]);
-extern int execvpe(const char *file, char *const argv[], char *const envp[]);
 extern int execve(const char *name, char * const argv[], char * const envp[]);
 extern void _exit(int status);
+
+#if defined(_GNU_SOURCE) || defined(_BSD_SOURCE) || defined(_TOARU_SOURCE)
+extern int execvpe(const char *file, char *const argv[], char *const envp[]);
+#endif
 
 extern int setuid(uid_t uid);
 extern int setgid(gid_t gid);

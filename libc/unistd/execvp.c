@@ -17,7 +17,7 @@ int execve(const char *name, char * const argv[], char * const envp[]) {
 	__sets_errno(syscall_execve((char*)name,(char**)argv,(char**)envp));
 }
 
-int execvpe(const char *file, char *const argv[], char *const envp[]) {
+static int __execvpe(const char *file, char *const argv[], char *const envp[]) {
 	if (file && (!strstr(file, "/"))) {
 		int was_eacces = 0;
 		char * path = getenv("PATH") ?: DEFAULT_PATH;
@@ -50,8 +50,10 @@ int execvpe(const char *file, char *const argv[], char *const envp[]) {
 	return -1;
 }
 
+extern int execvpe(const char *file, char *const argv[], char *const envp[]) __attribute__((weak,alias("__execvpe")));
+
 int execvp(const char *file, char *const argv[]) {
-	return execvpe(file, argv, environ);
+	return __execvpe(file, argv, environ);
 }
 
 int execv(const char * file, char * const argv[]) {
