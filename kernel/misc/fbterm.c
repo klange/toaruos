@@ -94,18 +94,20 @@ static int ansi_to_vga[] = {
 static uint32_t fg_color = FG_COLOR;
 static uint32_t bg_color = BG_COLOR;
 static int fb_scale = 1;
+static uint8_t * fb_mapped = NULL;
 
 static inline void set_point(int x, int y, uint32_t value) {
 	if (lfb_resolution_b == 32) {
-		((uint32_t*)lfb_vid_memory)[y * (lfb_resolution_s/4) + x] = value;
+		((uint32_t*)fb_mapped)[y * (lfb_resolution_s/4) + x] = value;
 		#ifdef __aarch64__
-		/* TODO just map it uncached in the first place... */
-		asm volatile ("dc cvac, %0\n" :: "r"((uintptr_t)&((uint32_t*)lfb_vid_memory)[y * (lfb_resolution_s/4) + x]) : "memory");
+		if (fb_mapped == lfb_vid_memory) {
+			asm volatile ("dc cvac, %0\n" :: "r"((uintptr_t)&((uint32_t*)fb_mapped)[y * (lfb_resolution_s/4) + x]) : "memory");
+		}
 		#endif
 	} else if (lfb_resolution_b == 24) {
-		lfb_vid_memory[y * lfb_resolution_s + x * 3 + 0] = (value >> 0) & 0xFF;
-		lfb_vid_memory[y * lfb_resolution_s + x * 3 + 1] = (value >> 8) & 0xFF;
-		lfb_vid_memory[y * lfb_resolution_s + x * 3 + 2] = (value >> 16) & 0xFF;
+		fb_mapped[y * lfb_resolution_s + x * 3 + 0] = (value >> 0) & 0xFF;
+		fb_mapped[y * lfb_resolution_s + x * 3 + 1] = (value >> 8) & 0xFF;
+		fb_mapped[y * lfb_resolution_s + x * 3 + 2] = (value >> 16) & 0xFF;
 	}
 }
 
@@ -145,8 +147,8 @@ static void fb_get_cursor_adj(int *x, int *y) {
 }
 
 static void fb_scroll_terminal(void) {
-	memmove(lfb_vid_memory, lfb_vid_memory + sizeof(uint32_t) * lfb_resolution_x * char_height, (lfb_resolution_y - char_height) * lfb_resolution_x * 4);
-	memset(lfb_vid_memory + sizeof(uint32_t) * (lfb_resolution_y - char_height) * lfb_resolution_x, 0x00, char_height * lfb_resolution_x * 4);
+	memmove(fb_mapped, fb_mapped + sizeof(uint32_t) * lfb_resolution_x * char_height, (lfb_resolution_y - char_height) * lfb_resolution_x * 4);
+	memset(fb_mapped + sizeof(uint32_t) * (lfb_resolution_y - char_height) * lfb_resolution_x, 0x00, char_height * lfb_resolution_x * 4);
 }
 
 static void draw_square(int x, int y) {
@@ -204,6 +206,21 @@ static void fbterm_init_framebuffer(void) {
 	get_height = fb_get_height;
 	scroll_terminal = fb_scroll_terminal;
 	get_cursor_adj = fb_get_cursor_adj;
+
+	extern int lfb_use_write_combining;
+	if (lfb_use_write_combining) {
+		/* Re-map video memory in our device space */
+		size_t map_size = lfb_memsize;
+		if (map_size & 0xFFF) map_size = (map_size + 0xFFF) & ~0xFFF;
+		fb_mapped = mmu_map_mmio_region(((uintptr_t)(lfb_vid_memory) & 0xFFFFFFFF), map_size);
+		for (uintptr_t i = 0; i < lfb_memsize; i += 0x1000) {
+			union PML * page = mmu_get_page((uintptr_t)fb_mapped + i, MMU_GET_MAKE);
+			mmu_frame_allocate(page, MMU_FLAG_KERNEL | MMU_FLAG_WRITABLE | MMU_FLAG_WC);
+		}
+	} else {
+		fb_mapped = lfb_vid_memory;
+	}
+
 	fbterm_draw_logo();
 }
 
