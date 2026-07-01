@@ -136,7 +136,7 @@ static const char * color_str(const char * name, struct stat * sb) {
 		int slen = strlen(name);
 		struct MatchColor * matches = ls_match_colors;
 		while (matches) {
-			if (slen >= matches->match_len && !strcmp(name + slen - matches->match_len, matches->matcher)) {
+			if (slen >= matches->match_len && !strcasecmp(name + slen - matches->match_len, matches->matcher)) {
 				return matches->color;
 			}
 			matches = matches->next;
