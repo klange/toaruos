@@ -8,5 +8,4 @@ if stat -Lq /usr/local/bin then export PATH="/usr/local/bin:$PATH"
 
 set -o complete-hints
 
-export LS_COLORS="*.tar=1;31:*.tgz=1;31:*.gz=1;31:${LS_COLORS}"
-export LS_COLORS="*.png=1;35:*.jpg=1;35:*.bmp=1;35:${LS_COLORS}"
+export LS_COLORS=`dircolors.krk`
