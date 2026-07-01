@@ -1,4 +1,4 @@
-.TH LS 1 "March, 2026"
+.TH LS 1 "July, 2026"
 
 .SH NAME
 ls \- list directory contents
@@ -67,11 +67,116 @@ prior to ToaruOS 2.3.
 Format output into columns. This should match the formatting of most
 other OSes, though we do not perform smart column sizing like GNU coreutils.
 
+.TP
+.B \-\-color\fR[=\fP\fIWHEN\fP\fR]\fP
+Enable color.
+With \fIWHEN\fP, either \fBalways\fP, \fBnever\fP, or \fBauto\fP.
+\fBauto\fP is the default and will enable color when the output is a terminal.
+
+The \fBLS_COLORS\fP environment variable can be used to configure the colors, with mostly the same format as GNU.
+
 .SH EXIT STATUS
 .IP 0
 Normally.
 .IP 1
-If a requested path could not be accessed.
+If a requested path could not be accessed or some other error occurred.
+
+.SH ENVIRONMENT
+
+.TP
+.B LS_COLORS
+A colon-separated list of \fItype\fP=\fIcolor\fP pairs.
+.sp
+The \fItype\fP may be a \fB*\fP followed by a string to match at the end of a file name, or one of the following special values:
+.RS
+
+.TP
+.B lc
+The sequence to print before each color.
+Since escape sequences are not supported, overriding this value is not recommended.
+
+.TP
+.B rc
+The sequence to print after each color, eg. "\fBm\fP".
+
+.TP
+.B rs
+The color string to use to reset the color, eg. "\fB0\fP".
+
+.TP
+.B ec
+The full sequence printed after colored text.
+This should generally be left unset, and the sequence \fBlc rs rc\fP will be used.
+
+.TP
+.B di
+Directory.
+
+.TP
+.B ln
+Symbolic link.
+
+.TP
+.B bd
+Block device.
+
+.TP
+.B cd
+Character device.
+
+.TP
+.B or
+Dangling symbolic link.
+
+.TP
+.B ex
+Executable.
+
+.TP
+.B su
+Set-user-ID file.
+
+.TP
+.B sg
+Set-group-ID file.
+
+.TP
+.B pi
+Pipe.
+
+.TP
+.B so
+Socket.
+
+.TP
+.B no
+Normal text (currently unused).
+
+.TP
+.B fi
+Regular file. Used if no other specification matches.
+
+.TP
+.B mi
+Missing target of a dangling symbolic link.
+
+.TP
+.B st
+Directory with sticky bit set.
+
+.TP
+.B ow
+Directory with \fBw+o\fP.
+
+.TP
+.B tw
+Directory with \fBw+o\fP and sticky bit.
+.RE
+
+.TP
+.B LS_COLSEP
+Set the minimum separation between columns.
+The default is 1.
 
 .SH AUTHOR
 This \fIls\fP was written by K. Lange <klange@toaruos.org>

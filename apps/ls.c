@@ -7,7 +7,7 @@
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2018 K. Lange
+ * Copyright (C) 2013-2026 K. Lange
  */
 #include <fcntl.h>
 #include <stdint.h>
@@ -34,32 +34,70 @@
 #include <toaru/list.h>
 #include <toaru/decodeutf8.h>
 
-/*
- * Minimum padding between columns.
- *
- * This used to be 2. If you're building
- * from source, you can change it back.
- * 1 makes our output identical to macOS.
- */
-#define MIN_COL_SPACING 1
+struct NamedColor {
+	char * name;
+	char * color;
+};
 
-#define EXE_COLOR		"1;32"
-#define DIR_COLOR		"1;34"
-#define SYMLINK_COLOR	"1;36"
-#define REG_COLOR		"0"
-#define MEDIA_COLOR		""
-#define SYM_COLOR		""
-#define BROKEN_COLOR	"1;"
-#define DEVICE_COLOR	"1;33;40"
-#define SETUID_COLOR	"37;41"
-#define SETGID_COLOR	"30;43"
+enum ColorNames {
+	LS_COLOR_LEFT,
+	LS_COLOR_RIGHT,
+	LS_COLOR_END,
+	LS_COLOR_RESET,
+	LS_COLOR_DIR,
+	LS_COLOR_SYM,
+	LS_COLOR_BDEV,
+	LS_COLOR_CDEV,
+	LS_COLOR_ORPHAN,
+	LS_COLOR_EXE,
+	LS_COLOR_SETUID,
+	LS_COLOR_SETGID,
 
-#define DEFAULT_TERM_WIDTH 0
-#define DEFAULT_TERM_HEIGHT 0
+	LS_COLOR_PIPE,
+	LS_COLOR_SOCK,
+	LS_COLOR_NORM,
+	LS_COLOR_FILE,
+	LS_COLOR_MISS,
+	LS_COLOR_ST,
+	LS_COLOR_OW,
+	LS_COLOR_TW,
+
+	LS_COLOR_MAX,
+};
+
+struct NamedColor ls_base_colors[] = {
+	[LS_COLOR_LEFT]   = {"lc", "\033["},   /* left of color */
+	[LS_COLOR_RIGHT]  = {"rc", "m"},       /* right of color */
+	[LS_COLOR_END]    = {"ec", NULL},      /* end color */
+	[LS_COLOR_RESET]  = {"rs", "0"},       /* reset color */
+	[LS_COLOR_DIR]    = {"di", "1;34"},    /* directory */
+	[LS_COLOR_SYM]    = {"ln", "1;36"},    /* symlink */
+	[LS_COLOR_BDEV]   = {"bd", "1;33;40"}, /* block device */
+	[LS_COLOR_CDEV]   = {"cd", "1;33;40"}, /* char device */
+	[LS_COLOR_ORPHAN] = {"or", "1;31"},    /* dangling symlink */
+	[LS_COLOR_EXE]    = {"ex", "1;32"},    /* executable */
+	[LS_COLOR_SETUID] = {"su", "37;41"},   /* setuid */
+	[LS_COLOR_SETGID] = {"sg", "30;43"},   /* setgid */
+	[LS_COLOR_PIPE]   = {"pi", "1;33"},    /* pipe */
+	[LS_COLOR_SOCK]   = {"so", "1;35"},    /* socket */
+	[LS_COLOR_NORM]   = {"no", NULL},      /* normal */
+	[LS_COLOR_FILE]   = {"fi", NULL},      /* file */
+	[LS_COLOR_MISS]   = {"mi", NULL},      /* missing target of symlink */
+	[LS_COLOR_ST]     = {"st", NULL},      /* sticky bit */
+	[LS_COLOR_OW]     = {"ow", NULL},      /* other-writable */
+	[LS_COLOR_TW]     = {"tw", NULL},      /* other-writable + sticky */
+};
+
+struct MatchColor {
+	char * matcher;
+	char * color;
+	int match_len;
+	struct MatchColor * next;
+};
+
+struct MatchColor * ls_match_colors = NULL;
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
-
-#define LINE_LEN 4096
 
 static int human_readable = 0;
 static int stdout_is_tty = 1;
@@ -67,14 +105,16 @@ static int this_year = 0;
 static int show_hidden = 0;
 static int long_mode   = 0;
 static int print_dir   = 0;
-static int term_width = DEFAULT_TERM_WIDTH;
-static int term_height = DEFAULT_TERM_HEIGHT;
+static int term_width = 0;
+static int term_height = 0;
 static int columns = 1;
 static int in_order = 0;
 static int show_inode = 0;
 static int show_size = 0;
 static int one_column = 0;
 static int show_slash = 0;
+static int use_color = 0;
+static int min_col_spacing = 1;
 
 struct tfile {
 	char * name;
@@ -84,28 +124,42 @@ struct tfile {
 	int lstatres;
 };
 
-static const char * color_str(struct stat * sb) {
-	if (S_ISDIR(sb->st_mode)) {
-		/* Directory */
-		return DIR_COLOR;
+#define LS_C(type) (ls_base_colors[LS_COLOR_ ## type].color)
+
+static const char * color_str(const char * name, struct stat * sb) {
+	if (S_ISREG(sb->st_mode)) {
+		if ((sb->st_mode & S_ISUID) && LS_C(SETUID)) return LS_C(SETUID);
+		if ((sb->st_mode & S_ISGID) && LS_C(SETGID)) return LS_C(SETGID);
+		if ((sb->st_mode & 0111) && LS_C(EXE)) return LS_C(EXE);
+
+		int slen = strlen(name);
+		struct MatchColor * matches = ls_match_colors;
+		while (matches) {
+			if (slen >= matches->match_len && !strcmp(name + slen - matches->match_len, matches->matcher)) {
+				return matches->color;
+			}
+			matches = matches->next;
+		}
+
+		return LS_C(FILE);
+	} else if (S_ISDIR(sb->st_mode)) {
+		if ((sb->st_mode & S_ISVTX) && (sb->st_mode & S_IWOTH) && LS_C(TW)) return LS_C(TW);
+		if ((sb->st_mode & S_ISVTX) && LS_C(ST)) return LS_C(ST);
+		if ((sb->st_mode & S_IWOTH) && LS_C(OW)) return LS_C(OW);
+		return LS_C(DIR);
 	} else if (S_ISLNK(sb->st_mode)) {
-		/* Symbolic Link */
-		return SYMLINK_COLOR;
-	} else if (sb->st_mode & S_ISUID) {
-		/* setuid - sudo, etc. */
-		return SETUID_COLOR;
-	} else if (sb->st_mode & S_ISGID) {
-		return SETGID_COLOR;
-	} else if (sb->st_mode & 0111) {
-		/* Executable */
-		return EXE_COLOR;
-	} else if (S_ISBLK(sb->st_mode) || S_ISCHR(sb->st_mode) || S_ISFIFO(sb->st_mode)) {
-		/* Device file */
-		return DEVICE_COLOR;
-	} else {
-		/* Regular file */
-		return REG_COLOR;
+		return LS_C(SYM);
+	} else if (S_ISBLK(sb->st_mode)) {
+		return LS_C(BDEV);
+	} else if (S_ISCHR(sb->st_mode)) {
+		return LS_C(CDEV);
+	} else if (S_ISFIFO(sb->st_mode)) {
+		return LS_C(PIPE);
+	} else if (S_ISSOCK(sb->st_mode)) {
+		return LS_C(SOCK);
 	}
+
+	return LS_C(FILE);
 }
 
 static int filecmp(const void * c1, const void * c2) {
@@ -164,11 +218,11 @@ static void prefixes(int *colwidth, struct tfile * file) {
 static void print_entry(struct tfile * file, int *colwidth) {
 	prefixes(colwidth,file);
 
-	const char * ansi_color_str = color_str(&file->statbuf);
+	const char * ansi_color_str = color_str(file->name, &file->statbuf);
 
 	/* Print the file name */
-	if (stdout_is_tty) {
-		printf("\033[%sm%s\033[0m", ansi_color_str, file->name);
+	if (use_color && ansi_color_str) {
+		printf("%s%s%s%s%s", LS_C(LEFT), ansi_color_str, LS_C(RIGHT), file->name, LS_C(END));
 	} else {
 		printf("%s", file->name);
 	}
@@ -258,7 +312,7 @@ static void update_column_widths(int * widths, struct tfile * file) {
 static void print_entry_long(int * widths, int * colwidth, struct tfile * file) {
 	prefixes(colwidth, file);
 
-	const char * ansi_color_str = color_str(&file->statbuf);
+	const char * ansi_color_str = color_str(file->name, &file->statbuf);
 	mode_t mode = file->statbuf.st_mode;
 
 	/* file permissions */
@@ -301,23 +355,26 @@ static void print_entry_long(int * widths, int * colwidth, struct tfile * file) 
 	}
 	printf("%s ", time_buf);
 
+	if (S_ISLNK(file->statbuf.st_mode) && file->lstatres && LS_C(ORPHAN)) {
+		ansi_color_str = LS_C(ORPHAN);
+	}
+
 	/* Print the file name */
-	if (stdout_is_tty) {
-		printf("\033[%sm%s\033[0m", ansi_color_str, file->name);
-		if (show_slash && S_ISDIR(file->statbuf.st_mode)) {
-			printf("/");
-		}
-		if (S_ISLNK(file->statbuf.st_mode)) {
-			const char * s = file->lstatres == 0 ? color_str(&file->statbufl) : "1;31";
-			printf(" -> \033[%sm%s\033[0m", s, file->link);
-		}
+	if (use_color && ansi_color_str) {
+		printf("%s%s%s%s%s", LS_C(LEFT), ansi_color_str, LS_C(RIGHT), file->name, LS_C(END));
 	} else {
 		printf("%s", file->name);
-		if (show_slash && S_ISDIR(file->statbuf.st_mode)) {
-			printf("/");
-		}
-		if (S_ISLNK(file->statbuf.st_mode)) {
-			printf(" -> %s", file->link);
+	}
+	if (show_slash && S_ISDIR(file->statbuf.st_mode)) {
+		printf("/");
+	}
+	if (S_ISLNK(file->statbuf.st_mode)) {
+		printf(" -> ");
+		const char * s = file->lstatres == 0 ? color_str(file->link, &file->statbufl) : LS_C(MISS);
+		if (use_color && s) {
+			printf("%s%s%s%s%s", LS_C(LEFT), s, LS_C(RIGHT), file->link, LS_C(END));
+		} else {
+			printf("%s", file->link);
 		}
 	}
 
@@ -344,6 +401,7 @@ static int show_help(int argc, char * argv[]) {
 			" -s  --size            " X_S "show size (in block) before file names" X_E "\n"
 			" -x                    " X_S "sort entries across columns instead of down" X_E "\n"
 			" -C                    " X_S "format output by columns (default)" X_E "\n"
+			" --color[=when]        " X_S "specify when to enable color output" X_E "\n"
 			" --help                " X_S "show this help text" X_E "\n"
 			"\n", argv[0], argv[0]);
 	return 0;
@@ -396,8 +454,8 @@ static void display_tfiles(struct tfile ** ents_array, int numents) {
 		}
 	} else {
 		/* Determine the gridding dimensions */
-		int col_ext = total_width + MIN_COL_SPACING;
-		int cols = ((term_width + MIN_COL_SPACING) / col_ext);
+		int col_ext = total_width + min_col_spacing;
+		int cols = ((term_width + min_col_spacing) / col_ext);
 		if (cols == 0) cols = 1;
 
 		/* Print the entries */
@@ -408,7 +466,7 @@ static void display_tfiles(struct tfile ** ents_array, int numents) {
 				print_entry(ents_array[i], ent_max_len);
 				for (int j = 1; j < cols; ++j) {
 					if (i + j * rows >= numents) break;
-					for (int t = 0; t < MIN_COL_SPACING; ++t) printf(" ");
+					for (int t = 0; t < min_col_spacing; ++t) printf(" ");
 					print_entry(ents_array[i + j * rows], ent_max_len);
 				}
 				printf("\n");
@@ -417,7 +475,7 @@ static void display_tfiles(struct tfile ** ents_array, int numents) {
 			for (int i = 0; i < numents;) {
 				print_entry(ents_array[i++], ent_max_len);
 				for (int j = 0; (i < numents) && (j < (cols-1)); j++) {
-					for (int t = 0; t < MIN_COL_SPACING; ++t) printf(" ");
+					for (int t = 0; t < min_col_spacing; ++t) printf(" ");
 					print_entry(ents_array[i++], ent_max_len);
 				}
 				printf("\n");
@@ -490,6 +548,64 @@ static int display_dir(char * p) {
 	return 0;
 }
 
+static void setup_colors(void) {
+	char * ls_colors = getenv("LS_COLORS");
+	if (ls_colors) {
+		ls_colors = strdup(ls_colors); /* So we can maintain a buffer */
+		char * c, * next;
+		for (c = ls_colors; c && *c; c = next) {
+			if ((next = strchr(c, ':'))) {
+				*next = '\0';
+				next++;
+			}
+
+			char * eq = strchr(c, '=');
+			if (!eq) continue;
+			*eq = '\0';
+
+			/* TODO: Parse escape sequences */
+
+			if (!*c) continue;
+
+			if (*c != '*') {
+				for (int i = 0; i < LS_COLOR_MAX; ++i) {
+					if (!strcmp(c, ls_base_colors[i].name)) {
+						ls_base_colors[i].color = eq + 1;
+						break;
+					}
+				}
+			} else {
+				struct MatchColor * new_color = malloc(sizeof(struct MatchColor));
+				new_color->matcher = c + 1;
+				new_color->color = eq + 1;
+				new_color->match_len = strlen(c+1);
+				new_color->next = ls_match_colors;
+				ls_match_colors = new_color;
+			}
+		}
+	}
+
+	if (!LS_C(END)) {
+		char * color_end;
+		asprintf(&color_end, "%s%s%s", LS_C(LEFT), LS_C(RESET), LS_C(RIGHT));
+		LS_C(END) = color_end;
+	}
+
+	if (!LS_C(MISS) && LS_C(ORPHAN)) {
+		LS_C(MISS) = LS_C(ORPHAN);
+	}
+
+	if (LS_C(SYM) && !strcmp(LS_C(SYM), "target")) {
+		/* Not supported, reset to default */
+		LS_C(SYM) = "1;36";
+	}
+
+	char * ls_colsep = getenv("LS_COLSEP");
+	if (ls_colsep) {
+		min_col_spacing = atoi(ls_colsep);
+	}
+}
+
 int main (int argc, char * argv[]) {
 	char * p = ".";
 
@@ -502,8 +618,12 @@ int main (int argc, char * argv[]) {
 		{"inode", no_argument, 0, 'i'},
 		{"kibibytes", no_argument, 0, 'k'},
 		{"size", no_argument, 0, 's'},
+		{"color", optional_argument, 0, 1000},
 		{0,0,0,0},
 	};
+
+	stdout_is_tty = isatty(STDOUT_FILENO);
+	use_color = stdout_is_tty; /* we default to 'auto' */
 
 	int opt, index;
 	while ((opt = getopt_long(argc, argv, "aAfFhiklpsxC1?", long_opts, &index)) != -1) {
@@ -554,6 +674,23 @@ int main (int argc, char * argv[]) {
 				one_column = 1;
 				break;
 
+			case 1000:
+				if (optarg) {
+					if (!strcmp(optarg, "never") || !strcmp(optarg,"n")) {
+						use_color = 0;
+					} else if (!strcmp(optarg, "auto")) {
+						use_color = stdout_is_tty;
+					} else if (!strcmp(optarg, "always")) {
+						use_color = 1;
+					} else {
+						fprintf(stderr, "%s: --color= must be one of 'never', 'auto', or 'always'\n", argv[0]);
+						return 1;
+					}
+				} else {
+					use_color = 1; /* --color is equivalent to --color=always */
+				}
+				break;
+
 			case '-':
 				if (index == 0) return show_help(argc, argv);
 				/* fallthrough */
@@ -565,7 +702,6 @@ int main (int argc, char * argv[]) {
 	if (optind < argc) p = argv[optind];
 	if (optind + 1 < argc) print_dir = 1;
 
-	stdout_is_tty = isatty(STDOUT_FILENO);
 
 	if (long_mode) {
 		struct tm * timeinfo;
@@ -583,6 +719,8 @@ int main (int argc, char * argv[]) {
 		term_height = w.ws_row;
 		term_width -= 1; /* And this just helps clean up our math */
 	}
+
+	setup_colors();
 
 	int out = 0;
 
