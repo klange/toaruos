@@ -548,37 +548,146 @@ static int display_dir(char * p) {
 	return 0;
 }
 
+static void parse_escaped(char **input, char **output, int eq_ends) {
+	char * i = *input;
+	char * o = *output;
+
+	while (1) {
+		if (*i == 0) break;
+		if (*i == ':') break;
+		if (eq_ends && *i == '=') break;
+
+		if (*i == '\\') {
+			i++;
+			if (*i == 0) break;
+			switch (*i) {
+				case '0' ... '7': {
+					/* octal string */
+					int n = 0;
+					while (*i && (*i >= '0' && *i <= '7')) n = (n << 3) + (*i++ - '0');
+					*o++ = n;
+					break;
+				}
+				case 'x': {
+					/* hex string */
+					i++;
+					int n = 0;
+					while (*i && ((*i >= '0' && *i <= '9') || (*i >= 'a' && *i <= 'f') || (*i >= 'A' && *i <= 'F'))) {
+						if (*i >= '0' && *i <= '9') n = (n << 4) + (*i - '0');
+						if (*i >= 'a' && *i <= 'f') n = (n << 4) + (*i - 'a' + 0xa);
+						if (*i >= 'A' && *i <= 'F') n = (n << 4) + (*i - 'A' + 0xa);
+						i++;
+					}
+					*o++ = n;
+					break;
+				}
+				case 'a': *o++ = '\a'; i++; break;
+				case 'b': *o++ = '\b'; i++; break;
+				case 'e': *o++ = 27;   i++; break;
+				case 'f': *o++ = '\f'; i++; break;
+				case 'n': *o++ = '\n'; i++; break;
+				case 'r': *o++ = '\r'; i++; break;
+				case 't': *o++ = '\t'; i++; break;
+				case 'v': *o++ = '\v'; i++; break;
+				case '?': *o++ = 127;  i++; break;
+				case '_': *o++ = ' ';  i++; break;
+				default:  *o++ = *i;   i++; break;
+			}
+		} else if (*i == '^') {
+			i++;
+			if (*i == '?') {
+				*o++ = 127;
+				i++;
+			} else if (*i >= '@' && *i <= '~') {
+				*o++ = (*i) & 037;
+				i++;
+			} else {
+				*o++ = '^';
+			}
+		} else {
+			*o++ = *i++;
+		}
+	}
+
+	*output = o;
+	*input = i;
+}
+
+static char * parse_color_type(char **input, char **output) {
+	char * i = *input;
+	char * o = *output;
+	char * s = o;
+
+	if (*i == ':') {
+		*input = i + 1;
+		return NULL;
+	}
+
+	if (*i == '*') {
+		parse_escaped(&i, &o, 1);
+	} else {
+		while (*i && *i != ':' && *i != '=') {
+			*o++ = *i++;
+		}
+	}
+
+	if (!*i) {
+		*input = i;
+		return NULL;
+	}
+
+	*input = i + 1;
+
+	if (*i != '=') return NULL;
+
+	*o++ = '\0';
+	*output = o;
+	return s;
+}
+
+static char * parse_color_val(char **input, char **output) {
+	char * i = *input;
+	char * o = *output;
+	char * s = o;
+
+	if (*i == ':') {
+		/* NULL, continue */
+		*input = i + 1;
+		return NULL;
+	}
+
+	parse_escaped(&i, &o, 0);
+
+	*o++ = '\0';
+	*output = o;
+	*input = i;
+	return s;
+}
+
 static void setup_colors(void) {
 	char * ls_colors = getenv("LS_COLORS");
 	if (ls_colors) {
-		ls_colors = strdup(ls_colors); /* So we can maintain a buffer */
-		char * c, * next;
-		for (c = ls_colors; c && *c; c = next) {
-			if ((next = strchr(c, ':'))) {
-				*next = '\0';
-				next++;
-			}
+		char * colors_buf = calloc(strlen(ls_colors)+1, 1);
+		char * buf = colors_buf;
+		char * c = ls_colors;
 
-			char * eq = strchr(c, '=');
-			if (!eq) continue;
-			*eq = '\0';
+		while (*c) {
+			char * type = parse_color_type(&c, &buf);
+			if (!type) continue; /* null entry */
+			char * color_val = parse_color_val(&c, &buf);
 
-			/* TODO: Parse escape sequences */
-
-			if (!*c) continue;
-
-			if (*c != '*') {
+			if (*type != '*') {
 				for (int i = 0; i < LS_COLOR_MAX; ++i) {
-					if (!strcmp(c, ls_base_colors[i].name)) {
-						ls_base_colors[i].color = eq + 1;
+					if (!strcmp(type, ls_base_colors[i].name)) {
+						ls_base_colors[i].color = color_val;
 						break;
 					}
 				}
 			} else {
 				struct MatchColor * new_color = malloc(sizeof(struct MatchColor));
-				new_color->matcher = c + 1;
-				new_color->color = eq + 1;
-				new_color->match_len = strlen(c+1);
+				new_color->matcher = type + 1;
+				new_color->color = color_val;
+				new_color->match_len = strlen(type + 1);
 				new_color->next = ls_match_colors;
 				ls_match_colors = new_color;
 			}

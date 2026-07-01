@@ -87,13 +87,14 @@ If a requested path could not be accessed or some other error occurred.
 .B LS_COLORS
 A colon-separated list of \fItype\fP=\fIcolor\fP pairs.
 .sp
+Escape sequences are supported in both \fItype\fP and \fIcolor\fP.
+.sp
 The \fItype\fP may be a \fB*\fP followed by a string to match at the end of a file name, or one of the following special values:
 .RS
 
 .TP
 .B lc
-The sequence to print before each color.
-Since escape sequences are not supported, overriding this value is not recommended.
+The sequence to print before each color, eg. "\fB\\033[\fP".
 
 .TP
 .B rc
