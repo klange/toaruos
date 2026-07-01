@@ -127,11 +127,18 @@ struct tfile {
 
 #define LS_C(type) (ls_base_colors[LS_COLOR_ ## type].color)
 
+static int color_empty(const char * color) {
+	if (!color) return 1;
+	if (!*color) return 1;
+	if (color[0] == '0' && (!color[1] || (color[1] == '0' && !color[2]))) return 1;
+	return 0;
+}
+
 static const char * color_str(const char * name, struct stat * sb) {
 	if (S_ISREG(sb->st_mode)) {
-		if ((sb->st_mode & S_ISUID) && LS_C(SETUID)) return LS_C(SETUID);
-		if ((sb->st_mode & S_ISGID) && LS_C(SETGID)) return LS_C(SETGID);
-		if ((sb->st_mode & 0111) && LS_C(EXE)) return LS_C(EXE);
+		if ((sb->st_mode & S_ISUID) && !color_empty(LS_C(SETUID))) return LS_C(SETUID);
+		if ((sb->st_mode & S_ISGID) && !color_empty(LS_C(SETGID))) return LS_C(SETGID);
+		if ((sb->st_mode & 0111) && !color_empty(LS_C(EXE))) return LS_C(EXE);
 
 		int slen = strlen(name);
 		struct MatchColor * matches = ls_match_colors;
@@ -144,9 +151,9 @@ static const char * color_str(const char * name, struct stat * sb) {
 
 		return LS_C(FILE);
 	} else if (S_ISDIR(sb->st_mode)) {
-		if ((sb->st_mode & S_ISVTX) && (sb->st_mode & S_IWOTH) && LS_C(TW)) return LS_C(TW);
-		if ((sb->st_mode & S_ISVTX) && LS_C(ST)) return LS_C(ST);
-		if ((sb->st_mode & S_IWOTH) && LS_C(OW)) return LS_C(OW);
+		if ((sb->st_mode & S_ISVTX) && (sb->st_mode & S_IWOTH) && !color_empty(LS_C(TW))) return LS_C(TW);
+		if ((sb->st_mode & S_ISVTX) && !color_empty(LS_C(ST))) return LS_C(ST);
+		if ((sb->st_mode & S_IWOTH) && !color_empty(LS_C(OW))) return LS_C(OW);
 		return LS_C(DIR);
 	} else if (S_ISLNK(sb->st_mode)) {
 		return LS_C(SYM);
@@ -713,7 +720,7 @@ static void setup_colors(void) {
 		LS_C(END) = color_end;
 	}
 
-	if (!LS_C(MISS) && LS_C(ORPHAN)) {
+	if (color_empty(LS_C(MISS)) && !color_empty(LS_C(ORPHAN))) {
 		LS_C(MISS) = LS_C(ORPHAN);
 	}
 
