@@ -115,6 +115,7 @@ static int one_column = 0;
 static int show_slash = 0;
 static int use_color = 0;
 static int min_col_spacing = 1;
+static int use_sym_target = 0;
 
 struct tfile {
 	char * name;
@@ -219,6 +220,14 @@ static void print_entry(struct tfile * file, int *colwidth) {
 	prefixes(colwidth,file);
 
 	const char * ansi_color_str = color_str(file->name, &file->statbuf);
+
+	if (S_ISLNK(file->statbuf.st_mode)) {
+		if (file->lstatres && LS_C(ORPHAN)) {
+			ansi_color_str = LS_C(ORPHAN);
+		} else if (!file->lstatres && use_sym_target) {
+			ansi_color_str = color_str(file->link, &file->statbufl);
+		}
+	}
 
 	/* Print the file name */
 	if (use_color && ansi_color_str) {
@@ -355,8 +364,12 @@ static void print_entry_long(int * widths, int * colwidth, struct tfile * file) 
 	}
 	printf("%s ", time_buf);
 
-	if (S_ISLNK(file->statbuf.st_mode) && file->lstatres && LS_C(ORPHAN)) {
-		ansi_color_str = LS_C(ORPHAN);
+	if (S_ISLNK(file->statbuf.st_mode)) {
+		if (file->lstatres && LS_C(ORPHAN)) {
+			ansi_color_str = LS_C(ORPHAN);
+		} else if (!file->lstatres && use_sym_target) {
+			ansi_color_str = color_str(file->link, &file->statbufl);
+		}
 	}
 
 	/* Print the file name */
@@ -705,7 +718,7 @@ static void setup_colors(void) {
 	}
 
 	if (LS_C(SYM) && !strcmp(LS_C(SYM), "target")) {
-		/* Not supported, reset to default */
+		use_sym_target = 1;
 		LS_C(SYM) = "1;36";
 	}
 
