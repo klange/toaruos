@@ -8,9 +8,6 @@ cd ~
 # Start toast daemon
 toastd --really # Daemonizes
 
-# If we haven't shown the tutorial yet, show it.
-if not stat -q ~/.tutorial-shown then show-tutorial.sh
-
 # Login toast notifications
 show-toasts.krk &
 

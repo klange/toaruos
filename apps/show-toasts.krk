@@ -4,7 +4,19 @@ import os
 import fileio
 import time
 
-time.sleep(2)
+time.sleep(1)
+
+try:
+    let user = os.environ.get('USER', 'local')
+    let home = os.environ.get('HOME', f'/home/{user}')
+    let path = f'{home}/.tutorial-shown'
+    if not os.access(path, os.F_OK):
+        let sock = os.open("/dev/pex/toast",os.O_WRONLY)
+        let msg = '{"icon":"/usr/share/icons/48/help.png","body":"<b>Welcome to ToaruOS!</b><br>Run <b><mono>tutorial</mono></b> to view the<br>system walkthrough."}'
+        os.write(sock,msg.encode())
+        os.open(path, os.O_WRONLY | os.O_CREAT, mode=0o644)
+
+time.sleep(1)
 
 try:
     let meminfo = {}
