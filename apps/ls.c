@@ -435,7 +435,7 @@ static int show_usage(int argc, char * argv[]) {
 	return 1;
 }
 
-static void display_tfiles(struct tfile ** ents_array, int numents) {
+static void display_tfiles(struct tfile ** ents_array, int numents, int print_total) {
 	int ent_max_len[4] = {0,0,0,0};
 	size_t total_blocks = 0;
 	for (int i = 0; i < numents; i++) {
@@ -457,7 +457,7 @@ static void display_tfiles(struct tfile ** ents_array, int numents) {
 	}
 	if (show_slash) total_width += 1;
 
-	if (long_mode || show_size) {
+	if (print_total) {
 		/* || a few other things as well we don't have yet */
 		printf("total %zu\n", total_blocks);
 	}
@@ -561,7 +561,7 @@ static int display_dir(char * p) {
 	if (!in_order) qsort(file_arr, index, sizeof(struct tfile *), filecmp_notypesort);
 
 	TRACE("displaying");
-	display_tfiles(file_arr, index);
+	display_tfiles(file_arr, index, long_mode || show_size);
 
 	free(file_arr);
 
@@ -910,7 +910,7 @@ int main (int argc, char * argv[]) {
 		}
 
 		if (first_directory) {
-			display_tfiles(file_arr, first_directory);
+			display_tfiles(file_arr, first_directory, 0);
 		}
 
 		for (int i = first_directory; i < index; ++i) {
