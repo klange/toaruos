@@ -17,6 +17,24 @@ The output of this logfile can instead be written to a file with the \fB\-o\fP o
 .PP
 The set of system calls to print a log line for can be controlled with the \fB\-e\fP option,
 which has a cumbersome interface for compatibility with other implementations of this utility.
+.PP
+Each system call reported in a log line includes extracted information about the arguments.
+Arguments that can be read before the system call is completed will be printed upon entry,
+up until the first argument that requires \fBstrace\fP to wait, then the remaining arguments
+will be printed once the system call has finished, along with its result. For system calls
+whose result may be interpreted as an error number, such an error number is also displayed
+by name. This generally means that \fBstrace\fP will print a comma and then pause while the
+traced process blocks, for example on a \fIread\fP, and then may print more data before
+finally printing a closing parenthesis and a return value.
+.PP
+The format for log lines attempts to replicate the format of C code representative of the
+original call.
+
+.SS Options
+
+.TP
+.B \-f \fRor\fP \-\-follow\-forks
+Follow forked children.
 
 .TP
 .B \-p \fIpid\fP
@@ -154,18 +172,6 @@ System calls related to getting or setting wall clocks:
 .IR settimeofday .
 
 .RE
-.PP
-Each system call reported in a log line includes extracted information about the arguments.
-Arguments that can be read before the system call is completed will be printed upon entry,
-up until the first argument that requires \fBstrace\fP to wait, then the remaining arguments
-will be printed once the system call has finished, along with its result. For system calls
-whose result may be interpreted as an error number, such an error number is also displayed
-by name. This generally means that \fBstrace\fP will print a comma and then pause while the
-traced process blocks, for example on a \fIread\fP, and then may print more data before
-finally printing a closing parenthesis and a return value.
-.PP
-The format for log lines attempts to replicate the format of C code representative of the
-original call.
 
 .SH NOTES
 This \fBstrace\fP is inspired by the more common one for Linux, however, as the ABI for

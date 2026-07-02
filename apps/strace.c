@@ -1624,7 +1624,8 @@ static int usage(char * argv[]) {
 
 	fprintf(stderr,
 			"\n"
-			"  -p PID       " T_I "Trace an existing process." T_O "\n");
+			"  -p PID       " T_I "Trace an existing process." T_O "\n"
+			"  -f           " T_I "Follow forks." T_O "\n");
 	return 1;
 }
 
