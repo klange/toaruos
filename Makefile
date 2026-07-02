@@ -159,6 +159,7 @@ clean:
 	-rm -f $(BASE)/bin/kuroko
 	-rm -f $(GCC_SHARED)
 	-rm -f boot/efi/*.o boot/bios/*.o
+	-rm -f $(BASE)/etc/issue $(BASE)/etc/os-release
 
 libc/%.o: libc/%.c libc/syscall.h
 	$(CC) ${LIBC_CFLAGS} -fPIC -c -o $@ $<
