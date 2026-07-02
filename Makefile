@@ -100,11 +100,11 @@ ramdisk.tar: $(wildcard $(BASE)/* $(BASE)/*/* $(BASE)/*/*/* $(BASE)/*/*/*/* $(BA
 ramdisk.igz: ramdisk.tar
 	gzip -c $< > $@
 
-$(BASE)/etc/issue: kernel/sys/version.c util/generate-etc-issue.sh
-	sh util/generate-etc-issue.sh > $@
+$(BASE)/etc/issue: kernel/sys/version.c util/generate-etc-issue.krk | dirs
+	kuroko util/generate-etc-issue.krk > $@
 
-$(BASE)/etc/os-release: kernel/sys/version.c util/generate-etc-os-release.sh
-	sh util/generate-etc-os-release.sh > $@
+$(BASE)/etc/os-release: kernel/sys/version.c util/generate-etc-os-release.krk | dirs
+	kuroko util/generate-etc-os-release.krk > $@
 
 $(BASE)/usr/share/bim/%.krk: bim/%.krk
 	mkdir -p $(dir $@)

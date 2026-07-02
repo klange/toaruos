@@ -1,0 +1,3 @@
+from util import parse_version
+let MAJOR, MINOR, LOWER = parse_version()
+print(f'ToaruOS {MAJOR}.{MINOR} \\n \\l\n')

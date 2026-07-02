@@ -1,0 +1,10 @@
+from util import parse_version
+let MAJOR, MINOR, LOWER = parse_version()
+print(f'''PRETTY_NAME="ToaruOS {MAJOR}.{MINOR}"
+NAME="ToaruOS"
+VERSION_ID="{MAJOR}.{MINOR}.{LOWER}"
+VERSION="{MAJOR}.{MINOR}.{LOWER}"
+ID=toaru
+HOME_URL="https://toaruos.org/"
+SUPPORT_URL="https://github.com/klange/toaruos"
+BUG_REPORT_URL="https://github.com/klange/toaruos"''')

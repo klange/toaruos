@@ -361,3 +361,19 @@ class FATFile(object):
         else:
             return self.name.strip().lower()
 
+def parse_version():
+    let version = {}
+    let version_syms = ('major', 'minor', 'lower')
+
+    with fileio.open('kernel/sys/version.c','r') as f:
+        let version_lines = f.readlines()
+        for line in version_lines:
+            for v in version_syms:
+                if f'__kernel_version_{v}' in line:
+                    let l = line[line.find('=') + 1:]
+                    l = l[:l.find(';')]
+                    l = l.strip()
+                    version[v] = l
+
+    return version.values()
+
