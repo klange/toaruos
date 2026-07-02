@@ -582,7 +582,7 @@ static void load_directory(const char * path, int modifies_history) {
 
 			/* Calculate absolute path to file */
 			char tmp[strlen(path)+strlen(ent->d_name)+2];
-			sprintf(tmp, "%s/%s", path, ent->d_name);
+			sprintf(tmp, "%s%s%s", path, strcmp(path,"/") ? "/" : "", ent->d_name);
 			lstat(tmp, &statbuf);
 
 			f->size = statbuf.st_size;
@@ -603,8 +603,10 @@ static void load_directory(const char * path, int modifies_history) {
 
 			if (S_ISDIR(statbuf.st_mode)) {
 				/* Is this /cdrom? */
-				if (!strcmp(tmp,"//cdrom")) {
+				if (!strcmp(tmp,"/cdrom")) {
 					sprintf(f->icon, "cd");
+				} else if (!strcmp(tmp, home)) {
+					sprintf(f->icon, "home");
 				} else {
 					sprintf(f->icon, "folder");
 				}
@@ -1540,6 +1542,7 @@ static void launch_application_menu(struct MenuEntry * self) {
  * Perform the appropriate action to open a File
  */
 static void open_file(struct File * f) {
+		int base_is_root = !strcmp(current_directory, "/"); /* avoid redundant slash */
 	if (f->type == 1) {
 		char tmp[1024];
 		if (is_desktop_background) {
@@ -1548,14 +1551,13 @@ static void open_file(struct File * f) {
 			launch_application(tmp);
 		} else {
 			/* In normal mode, navigate to this directory. */
-			sprintf(tmp,"%s/%s", current_directory, f->name);
+			sprintf(tmp,"%s%s%s", current_directory, base_is_root ? "" : "/", f->name);
 			load_directory(tmp, 1);
 			reinitialize_contents();
 			redraw_window();
 		}
 	} else if (f->launcher[0]) {
 		if (is_picker_dialog) {
-			int base_is_root = !strcmp(current_directory, "/"); /* avoid redundant slash */
 			for (int i = 0; i < file_pointers_len; ++i) {
 				if (file_pointers[i]->selected) {
 					printf("%s%s%s\n", current_directory, base_is_root ? "" : "/",
