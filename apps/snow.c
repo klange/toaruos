@@ -12,6 +12,7 @@
 #include <time.h>
 #include <sched.h>
 #include <math.h>
+#include <getopt.h>
 
 #include <sys/fswait.h>
 #include <sys/time.h>
@@ -103,6 +104,32 @@ static uint64_t precise_time_since(uint64_t start_time) {
 }
 
 int main (int argc, char ** argv) {
+
+	struct option long_opts[] = {
+		{"no-ad",  no_argument, 0, 1000},
+		{"sprite", required_argument, 0, 1001},
+		{0,0,0,0},
+	};
+
+	char * sprite_path = "/usr/share/icons/snowflake.png";
+	int no_ad = 0;
+
+	int opt;
+	while ((opt = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
+		switch (opt) {
+			case 1000:
+				no_ad = 1;
+				break;
+
+			case 1001:
+				sprite_path = optarg;
+				break;
+
+			case '?':
+				return 1;
+		}
+	}
+
 	srand(time(NULL));
 	memset(&flakes, 0, sizeof(flakes));
 
@@ -112,12 +139,13 @@ int main (int argc, char ** argv) {
 		return 1;
 	}
 
-	load_sprite(&snowflake, "/usr/share/snowflake.bmp");
+	if (load_sprite(&snowflake, sprite_path)) {
+		fprintf(stderr, "%s: could not load sprite '%s'\n", argv[0], sprite_path);
+		return 1;
+	}
 
 	wina = yutani_window_create(yctx, 100, 100);
-	if (argc < 2 || strcmp(argv[1],"--no-ad")) {
-		yutani_window_advertise(yctx, wina, "snow");
-	}
+	if (!no_ad) yutani_window_advertise(yctx, wina, "snow");
 	yutani_special_request(yctx, wina, YUTANI_SPECIAL_REQUEST_MAXIMIZE);
 	yutani_window_update_shape(yctx, wina, 256);
 
