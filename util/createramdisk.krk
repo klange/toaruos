@@ -161,3 +161,6 @@ if os.environ.get('NO_SRC_DIR') != '1':
         if os.access(s,os.F_OK):
             do_file(s,'src/' + s)
     do_file('kuroko/src','src/kuroko/')
+    do_file('base','src/util/',False)
+    for s in ('createramdisk.krk','generate-etc-issue.krk','generate-etc-os-release.krk','__init__.krk'):
+        do_file(f'util/{s}',f'src/util/{s}')
