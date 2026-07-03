@@ -77,7 +77,7 @@ int main(int argc, char ** argv) {
 							putchar('\n');
 							break;
 						case 'r':
-							putchar('r');
+							putchar('\r');
 							break;
 						case 't':
 							putchar('\t');
