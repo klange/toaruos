@@ -37,6 +37,7 @@ static bool log_hidden = true;
 static bool follow_forks = false;
 static int print_timestamps = 0;
 static pid_t unfinished_child = 0;
+static size_t string_max_len = 32;
 
 struct Pid {
 	struct Pid *next;
@@ -549,7 +550,7 @@ static void one_char(uint8_t buf) {
 	else fprintf(logfile, "\\%o", buf);
 }
 
-static void string_arg(pid_t pid, uintptr_t ptr) {
+static void string_arg_n(pid_t pid, uintptr_t ptr, size_t max) {
 	if (ptr == 0) {
 		fprintf(logfile, "NULL");
 		return;
@@ -570,10 +571,18 @@ static void string_arg(pid_t pid, uintptr_t ptr) {
 		one_char(buf);
 		ptr++;
 		size++;
-		if (size > 30) break;
+		if (size >= max) break;
 	} while (buf);
 
 	fprintf(logfile, "\"...");
+}
+
+static void string_arg(pid_t pid, uintptr_t ptr) {
+	string_arg_n(pid, ptr, string_max_len);
+}
+
+static void filename_arg(pid_t pid, uintptr_t ptr) {
+	string_arg_n(pid, ptr, SIZE_MAX);
 }
 
 #define C(arg) case arg: fprintf(logfile, #arg); break
@@ -761,7 +770,7 @@ static void buffer_arg(pid_t pid, uintptr_t buffer, ssize_t count) {
 		ssize_t x = 0;
 		uint8_t buf = 0;
 		fprintf(logfile, "\"");
-		while (x < count && x < 30) {
+		while (x < count && (size_t)x < string_max_len) {
 			long result = ptrace(PTRACE_PEEKDATA, pid, (void*)buffer, &buf);
 			if (result != 0) break;
 			one_char(buf);
@@ -1082,7 +1091,7 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 	fprintf(logfile, "%s(", syscall_names[uregs_syscall_num(r)]);
 	switch (uregs_syscall_num(r)) {
 		case SYS_OPEN:
-			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			open_flags(uregs_syscall_arg2(r));
 			if (uregs_syscall_arg2(r) & O_CREAT) {
 				COMMA;
@@ -1090,17 +1099,17 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			}
 			break;
 		case SYS_CHMOD:
-			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			mode_arg(uregs_syscall_arg2(r));
 			break;
 		case SYS_CHOWN:
 		case SYS_LCHOWN:
-			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			int_arg(uregs_syscall_arg2(r)); COMMA;
 			int_arg(uregs_syscall_arg3(r));
 			break;
 		case SYS_TRUNCATE:
-			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			int_arg(uregs_syscall_arg2(r));
 			break;
 		case SYS_READ:
@@ -1139,7 +1148,7 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			}
 			break;
 		case SYS_STATF:
-			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			/* Plus one more when done */
 			break;
 		case SYS_STAT:
@@ -1147,7 +1156,7 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			/* Plus one more when done */
 			break;
 		case SYS_LSTAT:
-			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			/* Plus one more when done */
 			break;
 		case SYS_READDIR:
@@ -1165,7 +1174,7 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			uint_arg(uregs_syscall_arg3(r)); /* sigval, which is an untagged union */
 			break;
 		case SYS_CHDIR:
-			string_arg(pid, uregs_syscall_arg1(r));
+			filename_arg(pid, uregs_syscall_arg1(r));
 			break;
 		case SYS_GETCWD:
 			/* output is first arg */
@@ -1183,16 +1192,16 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			/* plus one more when done */
 			break;
 		case SYS_MKDIR:
-			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			mode_arg(uregs_syscall_arg2(r));
 			break;
 		case SYS_RENAME:
-			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			string_arg(pid, uregs_syscall_arg2(r));
+			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			filename_arg(pid, uregs_syscall_arg2(r));
 			break;
 		case SYS_ACCESS:
 		case SYS_EACCESS:
-			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			access_mode_arg(uregs_syscall_arg2(r));
 			break;
 		case SYS_PTRACE:
@@ -1210,7 +1219,7 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			pointer_arg(uregs_syscall_arg4(r));
 			break;
 		case SYS_EXECVE:
-			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			string_array_arg(pid, uregs_syscall_arg2(r)); COMMA;
 			envp_arg(pid, uregs_syscall_arg3(r));
 			break;
@@ -1310,7 +1319,7 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			mode_arg(uregs_syscall_arg1(r));
 			break;
 		case SYS_UNLINK:
-			string_arg(pid, uregs_syscall_arg1(r));
+			filename_arg(pid, uregs_syscall_arg1(r));
 			break;
 		case SYS_GETTIMEOFDAY:
 			/* two output args */
@@ -1431,11 +1440,11 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			string_array_arg(pid, uregs_syscall_arg3(r));
 			break;
 		case SYS_SYMLINK:
-			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			string_arg(pid, uregs_syscall_arg2(r));
+			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			filename_arg(pid, uregs_syscall_arg2(r));
 			break;
 		case SYS_READLINK:
-			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			/* Plus two more when done */
 			break;
 		case SYS_REBOOT:
@@ -1556,7 +1565,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			maybe_errno(r);
 			break;
 		case SYS_GETCWD:
-			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			uint_arg(uregs_syscall_arg2(r));
 			maybe_errno(r);
 			break;
@@ -1638,6 +1647,9 @@ static int usage(char * argv[]) {
 			"  -f           " T_I "Follow forks." T_O "\n"
 			"  -t           " T_I "Print timestamps." T_O "\n"
 			"  -tt          " T_I "... with microsecond precision." T_O "\n"
+			"  -s strsize   " T_I "Truncate strings and buffer (but not filenames) at 'strsize' characters. (default is 32)" T_O "\n"
+			"\n"
+			"See 'man strace' for further information.\n"
 	);
 	return 1;
 }
@@ -1647,7 +1659,7 @@ int main(int argc, char * argv[]) {
 
 	pid_t p = 0;
 	int opt;
-	while ((opt = getopt(argc, argv, "+ho:e:p:ft-:")) != -1) {
+	while ((opt = getopt(argc, argv, "+ho:e:p:fts:-:")) != -1) {
 		switch (opt) {
 			case 'p':
 				p = atoi(optarg);
@@ -1720,6 +1732,9 @@ int main(int argc, char * argv[]) {
 				break;
 			case 't':
 				print_timestamps += 1;
+				break;
+			case 's':
+				string_max_len = strtoul(optarg, NULL, 10);
 				break;
 			case 'h':
 				return usage(argv), 0;

@@ -41,9 +41,14 @@ Follow forked children.
 Attach to an existing process rather than starting a new one.
 
 .TP
-.B \-t
+.B \-t[t]
 Print timestamps before each log entry (possibly after a PID).
 Specify twice for higher precision.
+
+.TP
+.B \-s \fIstrsize\fP
+Limit the printing of strings and buffers to \fIstrsize\fP characters before truncating.
+Filenames are always printed in full.
 
 .TP
 .B \-o \fIlogfile\fP
