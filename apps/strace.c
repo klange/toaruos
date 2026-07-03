@@ -16,6 +16,7 @@
 #include <getopt.h>
 #include <signal.h>
 #include <dirent.h>
+#include <time.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <sys/signal.h>
@@ -34,6 +35,7 @@
 static FILE * logfile;
 static bool log_hidden = true;
 static bool follow_forks = false;
+static int print_timestamps = 0;
 static pid_t unfinished_child = 0;
 
 struct Pid {
@@ -81,6 +83,14 @@ static void report_pid(struct Pid *child) {
 	interrupt_log(child->pid);
 	if (children_count > 1) {
 		fprintf(logfile, "[pid %d] ", child->pid);
+	}
+	if (print_timestamps) {
+		struct timeval now;
+		gettimeofday(&now, NULL);
+		struct tm * timeinfo = localtime((time_t *)&now.tv_sec);
+		char timebuf[100];
+		strftime(timebuf, 100, "%T", timeinfo);
+		fprintf(logfile, print_timestamps > 1 ? "%s.%06lu " : "%s ", timebuf, now.tv_usec);
 	}
 }
 
@@ -1625,7 +1635,10 @@ static int usage(char * argv[]) {
 	fprintf(stderr,
 			"\n"
 			"  -p PID       " T_I "Trace an existing process." T_O "\n"
-			"  -f           " T_I "Follow forks." T_O "\n");
+			"  -f           " T_I "Follow forks." T_O "\n"
+			"  -t           " T_I "Print timestamps." T_O "\n"
+			"  -tt          " T_I "... with microsecond precision." T_O "\n"
+	);
 	return 1;
 }
 
@@ -1634,7 +1647,7 @@ int main(int argc, char * argv[]) {
 
 	pid_t p = 0;
 	int opt;
-	while ((opt = getopt(argc, argv, "+ho:e:p:f-:")) != -1) {
+	while ((opt = getopt(argc, argv, "+ho:e:p:ft-:")) != -1) {
 		switch (opt) {
 			case 'p':
 				p = atoi(optarg);
@@ -1704,6 +1717,9 @@ int main(int argc, char * argv[]) {
 				break;
 			case 'f':
 				follow_forks = true;
+				break;
+			case 't':
+				print_timestamps += 1;
 				break;
 			case 'h':
 				return usage(argv), 0;
