@@ -922,6 +922,34 @@ void * dlsym(void *_lib, const char * name) {
 	return NULL;
 }
 
+int dladdr(const void * __restrict addr, Dl_info_t * __restrict dlip) {
+	struct DlLib * lib = lib_at((uintptr_t)addr);
+	if (!lib) return 0;
+
+	dlip->dli_fbase = (void*)lib->base;
+	dlip->dli_fname = lib->exe_path ?: lib->name;
+
+	dlip->dli_sname = NULL;
+	dlip->dli_saddr = NULL;
+
+	if (lib->hash && lib->syms && lib->strings) {
+		size_t sym_count = lib->hash[1];
+		for (size_t i = 0; i < sym_count; ++i) {
+			if (lib->syms[i].st_shndx == SHN_UNDEF) continue;
+			if ((lib->syms[i].st_info >> 4) == STB_LOCAL) continue;
+			if (!lib->syms[i].st_value) continue;
+			uintptr_t saddr = lib->base + lib->syms[i].st_value;
+			if (saddr > (uintptr_t)addr || saddr < (uintptr_t)dlip->dli_saddr) continue;
+
+			dlip->dli_sname = lib->strings + lib->syms[i].st_name;
+			dlip->dli_saddr = (void*)saddr;
+			if (saddr == (uintptr_t)addr) break;
+		}
+	}
+
+	return 1;
+}
+
 int __attribute__((weak)) dlclose(void * handle) {
 	__ld_error = "dlclose() unimplemented";
 	return -1;
