@@ -35,6 +35,9 @@ static void term_mirror_copy(term_state_t * state, uint16_t x, uint16_t y, term_
 static void term_mirror_copy_inverted(term_state_t * state, uint16_t x, uint16_t y, term_cell_t * from);
 static void term_cell_set(term_state_t * state, uint16_t x, uint16_t y, uint32_t c, uint32_t fg, uint32_t bg, uint32_t flags);
 static void term_draw_cursor(term_state_t * state);
+static void term_unset_tabstop(term_state_t * s, int i);
+static void term_set_tabstop(term_state_t * s, int i);
+static int  term_next_tabstop(term_state_t * s, int x);
 
 static wchar_t box_chars[] = L"▒␉␌␍␊°±␤␋┘┐┌└┼⎺⎻─⎼⎽├┤┴┬│≤≥";
 
@@ -159,6 +162,10 @@ static void _ansi_put(term_state_t * s, char c) {
 				 * to inform the app to reset things it owns (buffers, cursors).
 				 */
 				termemu_full_reset(s);
+			} else if (c == 'H') {
+				s->escape = 0;
+				s->buflen = 0;
+				term_set_tabstop(s, s->x);
 			} else {
 				/* This isn't a bracket, we're not actually escaped!
 				 * Get out of here! */
@@ -460,6 +467,13 @@ static void _ansi_put(term_state_t * s, char c) {
 					case 'd':
 						term_set_csr(s, s->x, argc < 1 ? 0 : (atoi(argv[0]) - 1));
 						break;
+					case 'g':
+						if (argc && atoi(argv[0]) == 3) {
+							memset(&s->tabstops, 0, sizeof(uint64_t) * 16);
+						} else if (!argc || atoi(argv[0]) == 0) {
+							term_unset_tabstop(s, s->x);
+						}
+						break;
 					default:
 						/* Meh */
 						break;
@@ -567,6 +581,34 @@ void termemu_put(term_state_t * s, char c) {
 	spin_unlock(&s->lock);
 }
 
+static void term_unset_tabstop(term_state_t * s, int i) {
+	if (i < 0) return;
+	if (i >= 16 * 64) return;
+	int field = i / 64;
+	int bit = i % 64;
+	s->tabstops[field] &= ~(1UL << bit);
+}
+
+static void term_set_tabstop(term_state_t * s, int i) {
+	if (i < 0) return;
+	if (i >= 16 * 64) return;
+	int field = i / 64;
+	int bit = i % 64;
+	s->tabstops[field] |= (1UL << bit);
+}
+
+static int term_next_tabstop(term_state_t * s, int x) {
+	if (x < 1) x = 1;
+	if (x >= 16 * 64) return s->width - 1;
+	while (x < s->width && x < 16 * 64) {
+		x++;
+		int field = x / 64;
+		int bit = x % 64;
+		if (s->tabstops[field] & (1UL << bit)) return x;
+	}
+	return s->width - 1;
+}
+
 term_state_t * termemu_init(int w, int h, int max_scrollback, term_callbacks_t * callbacks_in) {
 	term_state_t * s = calloc(1, sizeof(term_state_t));
 
@@ -592,6 +634,8 @@ term_state_t * termemu_init(int w, int h, int max_scrollback, term_callbacks_t *
 	s->max_scrollback = max_scrollback;
 	s->scrollback_list = list_create();
 	s->scrollback_offset = 0;
+
+	for (int i = 8; i < 16 * 64; i += 8) term_set_tabstop(s, i);
 
 	return s;
 }
@@ -1083,7 +1127,7 @@ static void term_write(term_state_t * state, char c) {
 
 			case '\t':
 				term_undraw_cursor(state);
-				state->x += (8 - state->x % 8);
+				state->x = term_next_tabstop(state, state->x);
 				term_normalize_x(state, 0);
 				term_draw_cursor(state);
 				return;
@@ -1403,6 +1447,8 @@ void termemu_full_reset(term_state_t * s) {
 	memset(s->term_buffer_a, 0x00, s->width * s->height * sizeof(term_cell_t));
 	memset(s->term_buffer_b, 0x00, s->width * s->height * sizeof(term_cell_t));
 	memset(s->term_mirror,   0x00, s->width * s->height * sizeof(term_cell_t));
+	memset(s->tabstops, 0, sizeof(uint64_t) * 16);
+	for (int i = 8; i < 16 * 64; i += 8) term_set_tabstop(s, i);
 	if (s->callbacks->full_reset) s->callbacks->full_reset(s);
 	if (s->callbacks->state_change) s->callbacks->state_change(s);
 }

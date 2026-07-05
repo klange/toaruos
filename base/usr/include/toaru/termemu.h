@@ -88,6 +88,8 @@ typedef struct TermemuState {
 	size_t max_scrollback;
 	list_t * scrollback_list;
 	ssize_t scrollback_offset;
+
+	uint64_t tabstops[16];
 } term_state_t;
 
 /* Triggers escape mode. */
