@@ -1,0 +1,178 @@
+.TH TEST 1 "July, 2026"
+
+.SH NAME
+\fBtest\fP \- evaluate expression
+
+.SH SYNOPSIS
+\fBtest\fP \fIexpression\fP
+.br
+\fB[\fP \fIexpression\fP \fB]\fP
+
+.SH DESCRIPTION
+The \fBtest\fP utility evaluates various expressions:
+
+.SS Modifiers and base cases
+
+.TP
+.B test \fR(with no argument)\fP
+Returns 1.
+
+.TP
+.B test \fIstring\fP
+With one argument, returns 0 if \fIstring\fP is non-empty, 1 otherwise.
+
+.TP
+.B test ! \fIexpression\fP
+Returns the inverse of \fIexpression\fP.
+
+.SS Unary Operators
+
+.TP
+.B -b \fIpath\fP
+0 if \fIpath\fP is a block device.
+
+.TP
+.B -c \fIpath\fP
+0 if \fIpath\fP is a character device..
+
+.TP
+.B -d \fIpath\fP
+0 if \fIpath\fP is directory.
+
+.TP
+.B -e \fIpath\fP
+0 if \fIpath\fP exists.
+
+.TP
+.B -f \fIpath\fP
+0 if \fIpath\fP is regular file.
+
+.TP
+.B -g \fIpath\fP
+0 if \fIpath\fP has the set-group-id bit set.
+
+.TP
+.B -h \fIpath\fP \fRor\fP -L \fIpath\fP
+0 if \fIpath\fP is symbolic link.
+
+.TP
+.B -p \fIpath\fP
+0 if \fIpath\fP is a pipe.
+
+.TP
+.B -r \fIpath\fP
+0 if \fIpath\fP is readable
+
+.TP
+.B -S \fIpath\fP
+0 if \fIpath\fP is a socket.
+
+.TP
+.B -s \fIpath\fP
+0 if \fIpath\fP is a non-empty file.
+
+.TP
+.B -u \fIpath\fP
+0 if \fIpath\fP has the set-user-id bit set.
+
+.TP
+.B -w \fIpath\fP
+0 if \fIpath\fP is writable.
+
+.TP
+.B -x \fIpath\fP
+0 if \fIpath\fP is executable.
+
+.TP
+.B -n \fIstring\fP
+0 if \fIstring\fP is non-empty.
+
+.TP
+.B -z \fIstring\fP
+0 if \fIstring\fP is an empty string.
+
+.TP
+.B -t \fIfile_descriptor\fP
+0 if \fIfile_descriptor\fP is an open file descriptor that is a terminal.
+
+.SS Binary Operators
+
+Dealing with files:
+
+.TP
+.I left\fB -ef \fPright
+0 if \fIleft\fP and \fIright\fP both refer to the same file.
+
+.TP
+.I left\fB -nt \fPright
+0 if \fIleft\fP is newer than \fIright\fP, or \fIleft\fP exists but \fIright\fP does not.
+
+.TP
+.I left\fB -ot \fPright
+0 if \fIleft\fP is older than \fIright\fP, or \fIright\fP exists but \fIleft\fP does not.
+
+.PP
+Dealing with strings:
+
+.TP
+.I left\fB = \fPright
+0 if \fIleft\fP and \fIright\fP compare equal.
+
+.TP
+.I left\fB != \fPright
+0 if \fIleft\fP and \fIright\fP compare unequal.
+
+.TP
+.I left\fB > \fPright
+0 if \fIleft\fP is lexicographically greater than \fIright\fP.
+
+.TP
+.I left\fB < \fPright
+0 if \fIleft\fP is lexicographically less than \fIright\fP.
+
+.PP
+Dealing with integers:
+
+.TP
+.I left\fB -eq \fPright
+0 if \fIleft\fP and \fIright\fP compare equal.
+
+.TP
+.I left\fB -ne \fPright
+0 if \fIleft\fP and \fIright\fP compare unequal.
+
+.TP
+.I left\fB -gt \fPright
+0 if \fIleft\fP is greater than \fIright\fP.
+
+.TP
+.I left\fB -ge \fPright
+0 if \fIleft\fP is greater than or equal to \fIright\fP.
+
+.TP
+.I left\fB -lt \fPright
+0 if \fIleft\fP is less than \fIright\fP.
+
+.TP
+.I left\fB -le \fPright
+0 if \fIleft\fP is less than or equal to \fIright\fP.
+
+.SH EXIT STATUS
+
+.TP
+.B 0
+If the expression evaluates as true.
+
+.TP
+.B 1
+If the expression evaluates as false.
+
+.TP
+.B 2
+If an error occurred.
+
+.SH STANDARDS
+POSIX.1-2024.
+
+This implementation complies only with the latest standard and is missing \fB\-o\fP, \fB\-a\fP, and \fB()\fP operations.
+

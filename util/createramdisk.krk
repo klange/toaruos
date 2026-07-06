@@ -150,6 +150,7 @@ artificial_symlink('lib/ld.so','libc.so')
 artificial_symlink('bin/ldd','/lib/libc.so')
 artificial_symlink('bin/apropos','man')
 artificial_symlink('bin/whatis','man')
+artificial_symlink('bin/[','test')
 
 do_file('util/auto-dep.krk','bin/auto-dep.krk')
 do_file('kuroko/src/kuroko','usr/include/kuroko/')
