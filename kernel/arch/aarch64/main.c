@@ -8,7 +8,6 @@
  * Copyright (C) 2021-2022 K. Lange
  */
 #include <stdint.h>
-#include <kernel/symboltable.h>
 #include <kernel/process.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>

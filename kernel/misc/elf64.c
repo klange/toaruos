@@ -14,7 +14,6 @@
  */
 #include <bits/errno.h>
 #include <kernel/types.h>
-#include <kernel/symboltable.h>
 #include <kernel/printf.h>
 #include <kernel/string.h>
 #include <kernel/elf.h>

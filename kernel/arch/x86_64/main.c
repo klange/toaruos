@@ -7,7 +7,6 @@
  */
 #include <kernel/types.h>
 #include <kernel/multiboot.h>
-#include <kernel/symboltable.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
 #include <kernel/pci.h>

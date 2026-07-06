@@ -22,9 +22,6 @@ SECTIONS
 	{
 		data = .;
 		*(.data)
-		*(.symbols)
-		PROVIDE(kernel_symbols_start = .);
-		PROVIDE(kernel_symbols_end = .);
 		PROVIDE(bss_start = .);
 	}
 
