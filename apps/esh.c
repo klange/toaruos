@@ -2815,6 +2815,43 @@ _for_usage:
 	return 1;
 }
 
+static int mini_which(char * file) {
+	shell_command_t func = shell_find(file);
+	if (func) return printf("%s is a shell builtin\n", file), 0;
+	if (strstr(file, "/")) {
+		if (!access(file, X_OK)) return printf("%s is %s\n", file, file), 0;
+	} else {
+		char * path = getenv("PATH") ?: "/bin:/usr/bin";
+		char * xpath = strdup(path);
+		char * p, * last;
+		int found = 0;
+		for ((p = strtok_r(xpath, ":", &last)); p; p = strtok_r(NULL, ":", &last)) {
+			char * exe = NULL;
+			asprintf(&exe, "%s/%s", p, file);
+			if (access(exe, X_OK)) {
+				free(exe);
+				continue;
+			}
+			found = 1;
+			printf("%s is %s\n", file, exe);
+			free(exe);
+			break;
+		}
+		free(xpath);
+		if (found) return 0;
+	}
+	fprintf(stderr, "esh: type: %s: not found\n", file);
+	return 1;
+}
+
+uint32_t shell_cmd_type(int argc, char * argv[]) {
+	int res = 0;
+	for (int i = 1; i < argc; ++i) {
+		res |= mini_which(argv[i]);
+	}
+	return res;
+}
+
 void install_commands() {
 	shell_commands = malloc(sizeof(char *) * SHELL_COMMANDS);
 	shell_pointers = malloc(sizeof(shell_command_t) * SHELL_COMMANDS);
@@ -2845,4 +2882,5 @@ void install_commands() {
 	shell_install_command("set",     shell_cmd_set, "set shell options");
 	shell_install_command("umask",   shell_cmd_umask, "set file creation mask");
 	shell_install_command("for",     shell_cmd_for, "run command on words");
+	shell_install_command("type",    shell_cmd_type, "note whether a command is a built-in or not");
 }
