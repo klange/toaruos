@@ -11,7 +11,7 @@
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2022 K. Lange
+ * Copyright (C) 2013-2026 K. Lange
  */
 #define _XOPEN_SOURCE 500
 #define _POSIX_C_SOURCE 200809L
@@ -1937,7 +1937,7 @@ void sort_commands() {
 }
 
 void show_version(void) {
-	printf("esh 1.11.0\n");
+	printf("esh 1.12.0\n");
 }
 
 int show_usage(int argc, char * argv[]) {
