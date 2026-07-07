@@ -29,6 +29,7 @@
 #include <fcntl.h>
 #include <ctype.h>
 #include <wchar.h>
+#include <libgen.h>
 
 #include <sys/time.h>
 #include <sys/wait.h>
@@ -55,6 +56,8 @@ extern char **environ;
 
 /* A shell command is like a C program */
 typedef uint32_t(*shell_command_t) (int argc, char ** argv);
+
+const char * esh_name = "esh";
 
 /* We have a static array that fits a certain number of them. */
 int SHELL_COMMANDS = 64;
@@ -1060,7 +1063,7 @@ void run_cmd(char ** args) {
 		i = execvp(*args, args);
 		if (i != 0) {
 			if (errno == ENOENT) {
-				fprintf(stderr, "%s: Command not found\n", *args);
+				fprintf(stderr, "%s: %s: command not found\n", esh_name, *args);
 				for (struct alternative * alt = cmd_alternatives; alt->command; alt++) {
 					if (!strcmp(*args, alt->command)) {
 						fprintf(stderr, "Consider this alternative:\n\n\t%s -- \033[3m%s\033[0m\n\n",
@@ -1070,11 +1073,11 @@ void run_cmd(char ** args) {
 					}
 				}
 			} else if (errno == ELOOP) {
-				fprintf(stderr, "esh: %s: Bad interpreter (maximum recursion depth reached)\n", *args);
+				fprintf(stderr, "%s: %s: Bad interpreter (maximum recursion depth reached)\n", esh_name, *args);
 			} else if (errno) {
-				fprintf(stderr, "esh: %s: %s\n", *args, strerror(errno));
+				fprintf(stderr, "%s: %s: %s\n", esh_name, *args, strerror(errno));
 			} else {
-				fprintf(stderr, "esh: %s: Invalid executable\n", *args);
+				fprintf(stderr, "%s: %s: Invalid executable\n", esh_name, *args);
 			}
 			i = 127;
 		}
@@ -1210,7 +1213,7 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer, char
 		if (x > 0 && x <= rline_history_count) {
 			buffer = rline_history_get(x - 1);
 		} else {
-			fprintf(stderr, "esh: !%d: event not found\n", x);
+			fprintf(stderr, "%s: !%d: event not found\n", esh_name, x);
 			return 0;
 		}
 	}
@@ -1398,7 +1401,7 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer, char
 						if (!*p) {
 							argbuilder_discard(&ab);
 							list_destroy(args);
-							fprintf(stderr, "esh: unterminated ` sequence\n");
+							fprintf(stderr, "%s: unterminated ` sequence\n", esh_name);
 							return 127;
 						}
 						*p = '\0';
@@ -1512,7 +1515,7 @@ _done:
 			} else {
 				if (ab.capacity) argbuilder_discard(&ab);
 				list_destroy(args);
-				fprintf(stderr, "Syntax error: Unterminated quoted string.\n");
+				fprintf(stderr, "%s: syntax error: unterminated quoted string.\n", esh_name);
 				return 127;
 			}
 		}
@@ -1581,7 +1584,7 @@ _done:
 
 		if (!strcmp(c, PIPE_TOKEN)) {
 			if (arg_starts[cmdi] == &argv[i]) {
-				fprintf(stderr, "Syntax error: Unexpected pipe token\n");
+				fprintf(stderr, "%s: syntax error: unexpected pipe token\n", esh_name);
 				return 2;
 			}
 			argv[i] = 0;
@@ -1712,7 +1715,7 @@ _nope:
 	}
 
 	if (!*arg_starts[cmdi]) {
-		fprintf(stderr, "Syntax error: Unexpected end of input\n");
+		fprintf(stderr, "%s: syntax error: unexpected end of input\n", esh_name);
 		list_free(extra_env);
 		free(extra_env);
 		list_destroy(args);
@@ -1776,7 +1779,7 @@ _nope:
 			if (output_files[cmdi]) {
 				int fd = open(output_files[cmdi], file_args[cmdi], 0666);
 				if (fd < 0) {
-					fprintf(stderr, "sh: %s: %s\n", output_files[cmdi], strerror(errno));
+					fprintf(stderr, "%s: %s: %s\n", esh_name, output_files[cmdi], strerror(errno));
 					exit(1);
 				} else {
 					dup2(fd, STDOUT_FILENO);
@@ -1785,7 +1788,7 @@ _nope:
 			if (err_files[cmdi]) {
 				int fd = open(err_files[cmdi], err_args[cmdi], 0666);
 				if (fd < 0) {
-					fprintf(stderr, "sh: %s: %s\n", err_files[cmdi], strerror(errno));
+					fprintf(stderr, "%s: %s: %s\n", esh_name, err_files[cmdi], strerror(errno));
 					exit(1);
 				} else {
 					dup2(fd, STDERR_FILENO);
@@ -1811,7 +1814,7 @@ _nope:
 				fcntl(old_out, F_SETFD, FD_CLOEXEC);
 				int fd = open(output_files[cmdi], file_args[cmdi], 0666);
 				if (fd < 0) {
-					fprintf(stderr, "sh: %s: %s\n", output_files[cmdi], strerror(errno));
+					fprintf(stderr, "%s: %s: %s\n", esh_name, output_files[cmdi], strerror(errno));
 					return -1;
 				} else {
 					dup2(fd, STDOUT_FILENO);
@@ -1822,7 +1825,7 @@ _nope:
 				fcntl(old_err, F_SETFD, FD_CLOEXEC);
 				int fd = open(err_files[cmdi], err_args[cmdi], 0666);
 				if (fd < 0) {
-					fprintf(stderr, "sh: %s: %s\n", err_files[cmdi], strerror(errno));
+					fprintf(stderr, "%s: %s: %s\n", esh_name, err_files[cmdi], strerror(errno));
 					return -1;
 				} else {
 					dup2(fd, STDERR_FILENO);
@@ -1843,7 +1846,7 @@ _nope:
 				if (output_files[cmdi]) {
 					int fd = open(output_files[cmdi], file_args[cmdi], 0666);
 					if (fd < 0) {
-						fprintf(stderr, "sh: %s: %s\n", output_files[cmdi], strerror(errno));
+						fprintf(stderr, "%s: %s: %s\n", esh_name, output_files[cmdi], strerror(errno));
 						exit(1);
 					} else {
 						dup2(fd, STDOUT_FILENO);
@@ -1852,7 +1855,7 @@ _nope:
 				if (err_files[cmdi]) {
 					int fd = open(err_files[cmdi], err_args[cmdi], 0666);
 					if (fd < 0) {
-						fprintf(stderr, "sh: %s: %s\n", err_files[cmdi], strerror(errno));
+						fprintf(stderr, "%s: %s: %s\n", esh_name, err_files[cmdi], strerror(errno));
 						exit(1);
 					} else {
 						dup2(fd, STDERR_FILENO);
@@ -2026,6 +2029,7 @@ void source_eshrc(void) {
 int main(int argc, char ** argv) {
 
 	pid = getpid();
+	esh_name = basename(argv[0]);
 
 	signal(SIGINT, sig_break_loop);
 
@@ -2238,12 +2242,12 @@ uint32_t shell_cmd_if(int argc, char * argv[]) {
 	}
 
 	if (!then_args) {
-		fprintf(stderr, "%s: syntax error: expected 'then' clause\n", argv[0]);
+		fprintf(stderr, "%s: syntax error: expected 'then' clause\n", esh_name);
 		return 1;
 	}
 
 	if (else_args && else_args < then_args) {
-		fprintf(stderr, "%s: syntax error: 'else' clause before 'then' clase\n", argv[0]);
+		fprintf(stderr, "%s: syntax error: 'else' clause before 'then' clase\n", esh_name);
 		return 1;
 	}
 
@@ -2325,7 +2329,7 @@ uint32_t shell_cmd_while(int argc, char * argv[]) {
 	}
 
 	if (!do_args) {
-		fprintf(stderr, "%s: syntax error: expected 'do' clause\n", argv[0]);
+		fprintf(stderr, "%s: syntax error: expected 'do' clause\n", esh_name);
 		return 1;
 	}
 
@@ -2374,7 +2378,7 @@ uint32_t shell_cmd_while(int argc, char * argv[]) {
 uint32_t shell_cmd_export_cmd(int argc, char * argv[]) {
 
 	if (argc < 3) {
-		fprintf(stderr, "%s: syntax error: not enough arguments\n", argv[0]);
+		fprintf(stderr, "%s: syntax error: not enough arguments\n", esh_name);
 		return 1;
 	}
 
@@ -2454,7 +2458,7 @@ uint32_t shell_cmd_source(int argc, char * argv[]) {
 	FILE * f = fopen(argv[1], "re");
 
 	if (!f) {
-		fprintf(stderr, "%s: %s: %s\n", argv[0], argv[1], strerror(errno));
+		fprintf(stderr, "%s: %s: %s\n", esh_name, argv[1], strerror(errno));
 		return 1;
 	}
 
@@ -2469,7 +2473,7 @@ uint32_t shell_cmd_exec(int argc, char * argv[]) {
 
 uint32_t shell_cmd_not(int argc, char * argv[]) {
 	if (argc < 2) {
-		fprintf(stderr, "%s: expected command argument\n", argv[0]);
+		fprintf(stderr, "%s: %s: expected command argument\n", esh_name, argv[0]);
 		return 1;
 	}
 	int ret_code = 0;
@@ -2490,12 +2494,12 @@ uint32_t shell_cmd_not(int argc, char * argv[]) {
 
 uint32_t shell_cmd_unset(int argc, char * argv[]) {
 	if (argc < 2) {
-		fprintf(stderr, "%s: expected command argument\n", argv[0]);
+		fprintf(stderr, "%s: %s: expected command argument\n", esh_name, argv[0]);
 		return 1;
 	}
 
 	if (unsetenv(argv[1]) < 0) {
-		fprintf(stderr, "%s: unsetenv: %s\n", argv[0], strerror(errno));
+		fprintf(stderr, "%s: %s: unsetenv: %s\n", esh_name, argv[0], strerror(errno));
 		return 1;
 	}
 
@@ -2571,7 +2575,7 @@ int get_available_job(int argc, char * argv[]) {
 uint32_t shell_cmd_fg(int argc, char * argv[]) {
 	int pid = get_available_job(argc,argv);
 	if (!pid || !hashmap_has(job_hash, (void*)(intptr_t)pid)) {
-		fprintf(stderr, "no current job\n");
+		fprintf(stderr, "%s: %s: no current job\n", esh_name, argv[0]);
 		return 1;
 	}
 
@@ -2579,7 +2583,7 @@ uint32_t shell_cmd_fg(int argc, char * argv[]) {
 
 	if (kill(-pid, SIGCONT) < 0) {
 		reset_pgrp();
-		fprintf(stderr, "no current job / bad pid\n");
+		fprintf(stderr, "%s: %s: no current job / bad pid\n", esh_name, argv[0]);
 		if (hashmap_has(job_hash, (void*)(intptr_t)pid)) {
 			hashmap_remove(job_hash, (void*)(intptr_t)pid);
 			hashmap_remove(desc_hash, (void*)(intptr_t)pid);
@@ -2597,12 +2601,12 @@ static void describe_job(pid_t pid) {
 uint32_t shell_cmd_bg(int argc, char * argv[]) {
 	int pid = get_available_job(argc,argv);
 	if (!pid || !hashmap_has(job_hash, (void*)(intptr_t)pid)) {
-		fprintf(stderr, "no current job\n");
+		fprintf(stderr, "%s: %s: no current job\n", esh_name, argv[0]);
 		return 1;
 	}
 
 	if (kill(-pid, SIGCONT) < 0) {
-		fprintf(stderr, "no current job / bad pid\n");
+		fprintf(stderr, "%s: %s: no current job / bad pid\n", esh_name, argv[0]);
 		if (hashmap_has(job_hash, (void*)(intptr_t)pid)) {
 			hashmap_remove(job_hash, (void*)(intptr_t)pid);
 			hashmap_remove(desc_hash, (void*)(intptr_t)pid);
@@ -2732,7 +2736,7 @@ uint32_t shell_cmd_set(int argc, char * argv[]) {
 	} else if (!strcmp(argv[2], "no-syntax-color")) {
 		esh_syntax_color = 0;
 	} else {
-		fprintf(stderr, "'%s' is not a recognized option\n", argv[2]);
+		fprintf(stderr, "%s: %s: '%s' is not a recognized option\n", esh_name, argv[0], argv[2]);
 		return 2;
 	}
 
@@ -2751,7 +2755,7 @@ uint32_t shell_cmd_umask(int argc, char * argv[]) {
 
 	if (optind < argc) {
 		mode_t new_mode = mode_calc(argv[optind], 0777 & (~mode), 0, 1);
-		if (new_mode == (mode_t)-1) fprintf(stderr, "%s: invalid mask '%s'\n", argv[0], argv[optind]);
+		if (new_mode == (mode_t)-1) fprintf(stderr, "%s: %s: invalid mask '%s'\n", esh_name, argv[0], argv[optind]);
 		else mode = new_mode;
 	}
 
@@ -2841,7 +2845,7 @@ static int mini_which(char * file) {
 		free(xpath);
 		if (found) return 0;
 	}
-	fprintf(stderr, "esh: type: %s: not found\n", file);
+	fprintf(stderr, "%s: type: %s: not found\n", esh_name, file);
 	return 1;
 }
 
