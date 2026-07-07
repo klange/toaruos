@@ -2852,6 +2852,9 @@ uint32_t shell_cmd_type(int argc, char * argv[]) {
 	return res;
 }
 
+#define TEST_IS_ESH
+#include "test.c"
+
 void install_commands() {
 	shell_commands = malloc(sizeof(char *) * SHELL_COMMANDS);
 	shell_pointers = malloc(sizeof(shell_command_t) * SHELL_COMMANDS);
@@ -2883,4 +2886,6 @@ void install_commands() {
 	shell_install_command("umask",   shell_cmd_umask, "set file creation mask");
 	shell_install_command("for",     shell_cmd_for, "run command on words");
 	shell_install_command("type",    shell_cmd_type, "note whether a command is a built-in or not");
+	shell_install_command("test",    shell_cmd_test, "evaluate expression");
+	shell_install_command("[",       shell_cmd_test, "evaluate expression");
 }
