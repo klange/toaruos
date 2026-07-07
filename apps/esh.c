@@ -128,7 +128,11 @@ void reset_pgrp() {
 	set_pgrp(my_pgid);
 }
 
+shell_command_t shell_find(char * str);
+
 void shell_install_command(char * name, shell_command_t func, char * desc) {
+	if (shell_find(name)) return;
+
 	if (shell_commands_len == SHELL_COMMANDS-1) {
 		SHELL_COMMANDS *= 2;
 		shell_commands = realloc(shell_commands, sizeof(char *) * SHELL_COMMANDS);
@@ -1043,7 +1047,7 @@ static struct alternative cmd_alternatives[] = {
 };
 
 void run_cmd(char ** args) {
-	int i = execvp(*args, args);
+	int i;
 	shell_command_t func = shell_find(*args);
 	if (func) {
 		int argc = 0;
@@ -1052,6 +1056,7 @@ void run_cmd(char ** args) {
 		}
 		i = func(argc, args);
 	} else {
+		i = execvp(*args, args);
 		if (i != 0) {
 			if (errno == ENOENT) {
 				fprintf(stderr, "%s: Command not found\n", *args);
