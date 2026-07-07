@@ -2204,6 +2204,26 @@ uint32_t shell_cmd_exit(int argc, char * argv[]) {
 }
 
 uint32_t shell_cmd_help(int argc, char * argv[]) {
+	if (argc > 1) {
+		int ret = 0;
+		for (int j = 1; j < argc; ++j) {
+			int found = 0;
+			for (int i = 0; i < shell_commands_len; ++i) {
+				if (!shell_descript[i]) continue;
+				if (!strcmp(shell_commands[i], argv[j])) {
+					printf("%s - %s\n", shell_commands[i], shell_descript[i]);
+					found = 1;
+					break;
+				}
+			}
+			if (!found) {
+				fprintf(stderr, "%s: %s: not found\n", esh_name, argv[j]);
+				ret = 1;
+			}
+		}
+		return ret;
+	}
+
 	show_version();
 	printf("\nThis shell is not POSIX-compliant, please be careful.\n\n");
 	printf("Built-in commands:\n");
