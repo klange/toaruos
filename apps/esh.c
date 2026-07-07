@@ -556,6 +556,7 @@ void tab_complete_func(rline_context_t * c) {
 		!strcmp(argv[command_adj], "sudo") ||
 		!strcmp(argv[command_adj], "gsudo") ||
 		!strcmp(argv[command_adj], "time") ||
+		!strcmp(argv[command_adj], "type") ||
 		/* TODO: Both of these may take additional arguments... */
 		!strcmp(argv[command_adj], "strace") ||
 		!strcmp(argv[command_adj], "dbg")
