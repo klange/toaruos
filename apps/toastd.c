@@ -27,7 +27,6 @@ typedef struct JSON_Value JSON_Value;
 
 static yutani_t * yctx;
 static FILE * pex_endpoint = NULL;
-static sprite_t background_sprite;
 static list_t * windows = NULL;
 static list_t * garbage = NULL;
 
@@ -38,7 +37,10 @@ struct ToastNotification {
 };
 
 #define PAD_RIGHT 10
-#define PAD_TOP   48
+#define PAD_TOP   32
+#define TOAST_WIDTH  310
+#define TOAST_HEIGHT 110
+
 
 static void handle_msg(JSON_Value * msg) {
 	if (msg->type != JSON_TYPE_OBJECT) {
@@ -59,14 +61,14 @@ static void handle_msg(JSON_Value * msg) {
 
 	/* At this point, we're going to show something, at least... */
 	yutani_window_t * win = yutani_window_create_flags(yctx,
-		background_sprite.width,
-		background_sprite.height,
-		YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS | YUTANI_WINDOW_FLAG_ALT_ANIMATION);
+		TOAST_WIDTH,
+		TOAST_HEIGHT,
+		YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS | YUTANI_WINDOW_FLAG_ALT_ANIMATION | YUTANI_WINDOW_FLAG_BLUR_BEHIND);
 
 	yutani_set_stack(yctx, win, YUTANI_ZORDER_OVERLAY);
 
 	/* TODO: We need to figure out how to place this... */
-	yutani_window_move(yctx, win, yctx->display_width - background_sprite.width - PAD_RIGHT, PAD_TOP + background_sprite.height * windows->length);
+	yutani_window_move(yctx, win, yctx->display_width - TOAST_WIDTH - PAD_RIGHT, PAD_TOP + TOAST_HEIGHT * windows->length);
 
 	struct ToastNotification * notification = malloc(sizeof(struct ToastNotification));
 	notification->window = win;
@@ -84,7 +86,9 @@ static void handle_msg(JSON_Value * msg) {
 	 * We won't even both double buffering... */
 	gfx_context_t * ctx = init_graphics_yutani(win);
 	draw_fill(ctx, rgba(0,0,0,0));
-	draw_sprite(ctx, &background_sprite, 0, 0);
+	draw_rounded_rectangle(ctx,0,10, ctx->width,   ctx->height-20,   11, premultiply(rgba(120,120,120,150)));
+	draw_rounded_rectangle(ctx,1,11, ctx->width-2, ctx->height-22, 10, premultiply(rgba(0,0,0,150)));
+
 	int textOffset = 0;
 
 	/* Does it have an icon? */
@@ -96,11 +100,11 @@ static void handle_msg(JSON_Value * msg) {
 			/* Is this a reasonable icon to display? */
 			if (myIcon.width < 100) {
 				textOffset = myIcon.width + 8; /* Sounds like a fine padding... */
-				draw_sprite(ctx, &myIcon, 10, (background_sprite.height - myIcon.height) / 2);
+				draw_sprite(ctx, &myIcon, 10, (ctx->height - myIcon.height) / 2);
 			} else {
 				int h = myIcon.height * 100 / myIcon.width;
 				textOffset = 100 + 8;
-				draw_sprite_scaled(ctx, &myIcon, 10, (background_sprite.height - h) / 2, 100, h);
+				draw_sprite_scaled(ctx, &myIcon, 10, (ctx->height - h) / 2, 100, h);
 			}
 			free(myIcon.bitmap);
 		}
@@ -140,7 +144,6 @@ int main(int argc, char * argv[]) {
 		}
 		/* Set up our text rendering and sprite contexts... */
 		markup_text_init();
-		load_sprite(&background_sprite, "/usr/share/ttk/toast/default.png");
 		windows = list_create();
 		garbage = list_create();
 
@@ -217,7 +220,7 @@ int main(int argc, char * argv[]) {
 					int index = 0;
 					foreach(node, windows) {
 						struct ToastNotification * notification = node->value;
-						if (notification->window && notification->window->y > PAD_TOP + background_sprite.height * index) {
+						if (notification->window && notification->window->y > PAD_TOP + TOAST_HEIGHT * index) {
 							yutani_window_move(yctx, notification->window, notification->window->x, notification->window->y - 4);
 						}
 
