@@ -65,8 +65,7 @@ static void window_finish_minimize(yutani_globals_t * yg, yutani_server_window_t
 
 #define ENABLE_BLUR_BEHIND
 #ifdef ENABLE_BLUR_BEHIND
-#define BLUR_CLIP_MAX 20
-#define BLUR_KERNEL   10
+static const int blur_radius = 10;
 static char * blur_texture = NULL;
 static gfx_context_t * blur_ctx = NULL;
 static gfx_context_t * clip_ctx = NULL;
@@ -1167,11 +1166,18 @@ static void redraw_windows(yutani_globals_t * yg) {
 	/* If the mouse has moved, that counts as two damage regions */
 	if ((yg->last_mouse_x != tmp_mouse_x) || (yg->last_mouse_y != tmp_mouse_y)) {
 		has_updates = 2;
-		gfx_add_clip(yg->backend_ctx, yg->last_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, yg->last_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
-		gfx_add_clip(yg->backend_ctx, tmp_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X, tmp_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y, MOUSE_WIDTH, MOUSE_HEIGHT);
+		int lm_x = yg->last_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X;
+		int lm_y = yg->last_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y;
+		int tm_x = tmp_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X;
+		int tm_y = tmp_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_X;
 #ifdef ENABLE_BLUR_BEHIND
-		gfx_add_clip(clip_ctx, yg->last_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X - BLUR_CLIP_MAX, yg->last_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y - BLUR_CLIP_MAX, MOUSE_WIDTH + BLUR_CLIP_MAX * 2, MOUSE_HEIGHT + BLUR_CLIP_MAX * 2);
-		gfx_add_clip(clip_ctx, tmp_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X - BLUR_CLIP_MAX, tmp_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y - BLUR_CLIP_MAX, MOUSE_WIDTH + BLUR_CLIP_MAX * 2, MOUSE_HEIGHT + BLUR_CLIP_MAX * 2);
+		gfx_add_clip(yg->backend_ctx, lm_x - blur_radius, lm_y - blur_radius, MOUSE_WIDTH + blur_radius * 2, MOUSE_HEIGHT + blur_radius * 2);
+		gfx_add_clip(yg->backend_ctx, tm_x - blur_radius, tm_y - blur_radius, MOUSE_WIDTH + blur_radius * 2, MOUSE_HEIGHT + blur_radius * 2);
+		gfx_add_clip(clip_ctx, lm_x - blur_radius * 2, lm_y - blur_radius * 2, MOUSE_WIDTH + blur_radius * 4, MOUSE_HEIGHT + blur_radius * 4);
+		gfx_add_clip(clip_ctx, tm_x - blur_radius * 2, tm_y - blur_radius * 2, MOUSE_WIDTH + blur_radius * 4, MOUSE_HEIGHT + blur_radius * 4);
+#else
+		gfx_add_clip(yg->backend_ctx, lm_x, lm_y, MOUSE_WIDTH, MOUSE_HEIGHT);
+		gfx_add_clip(yg->backend_ctx, tm_x, tm_y, MOUSE_WIDTH, MOUSE_HEIGHT);
 #endif
 	}
 
@@ -1211,9 +1217,11 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 		/* We add a clip region for each window in the update queue */
 		has_updates = 1;
-		gfx_add_clip(yg->backend_ctx, rect->x, rect->y, rect->width, rect->height);
 #ifdef ENABLE_BLUR_BEHIND
-		gfx_add_clip(clip_ctx, rect->x - BLUR_CLIP_MAX, rect->y - BLUR_CLIP_MAX, rect->width + BLUR_CLIP_MAX * 2, rect->height + BLUR_CLIP_MAX * 2);
+		gfx_add_clip(yg->backend_ctx, rect->x - blur_radius, rect->y - blur_radius, rect->width + blur_radius * 2, rect->height + blur_radius * 2);
+		gfx_add_clip(clip_ctx, rect->x - blur_radius * 2, rect->y - blur_radius * 2, rect->width + blur_radius * 4, rect->height + blur_radius * 4);
+#else
+		gfx_add_clip(yg->backend_ctx, rect->x, rect->y, rect->width, rect->height);
 #endif
 		free(rect);
 		free(win);
