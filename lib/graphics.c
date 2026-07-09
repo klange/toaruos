@@ -1283,14 +1283,20 @@ void draw_rounded_rectangle_pattern(gfx_context_t * ctx, int32_t x, int32_t y, u
 			if (dist > (double)(radius-1)) {
 				alpha = 1.0 - (dist - (double)(radius-1));
 			}
-			int _x = clamp(x + width - radius + px, 0, ctx->width-1);
-			int _y = clamp(y + height - radius + py, 0, ctx->height-1);
-			int _z = clamp(y + radius - py - 1, 0, ctx->height-1);
-			GFX(ctx, _x, _y) = alpha_blend_rgba(GFX(ctx, _x, _y), pattern(_x,_y,alpha,extra));
-			GFX(ctx, _x, _z) = alpha_blend_rgba(GFX(ctx, _x, _z), pattern(_x,_z,alpha,extra));
-			_x = clamp(x + radius - px - 1, 0, ctx->width-1);
-			GFX(ctx, _x, _y) = alpha_blend_rgba(GFX(ctx, _x, _y), pattern(_x,_y,alpha,extra));
-			GFX(ctx, _x, _z) = alpha_blend_rgba(GFX(ctx, _x, _z), pattern(_x,_z,alpha,extra));
+			int _x = x + width - radius + px;
+			int _X = x + radius - px - 1;
+			int _y = y + height - radius + py;
+			int _z = y + radius - py - 1;
+
+			if (_y >= 0 && _y < ctx->height) {
+				if (_x >= 0 && _x < ctx->width) GFX(ctx, _x, _y) = alpha_blend_rgba(GFX(ctx, _x, _y), pattern(_x,_y,alpha,extra));
+				if (_X >= 0 && _X < ctx->width) GFX(ctx, _X, _y) = alpha_blend_rgba(GFX(ctx, _X, _y), pattern(_X,_y,alpha,extra));
+			}
+
+			if (_z >= 0 && _z < ctx->height) {
+				if (_x >= 0 && _x < ctx->width) GFX(ctx, _x, _z) = alpha_blend_rgba(GFX(ctx, _x, _z), pattern(_x,_z,alpha,extra));
+				if (_X >= 0 && _X < ctx->width) GFX(ctx, _X, _z) = alpha_blend_rgba(GFX(ctx, _X, _z), pattern(_X,_z,alpha,extra));
+			}
 		}
 	}
 }
