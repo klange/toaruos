@@ -8,6 +8,7 @@
  */
 #include <signal.h>
 #include <dirent.h>
+#include <unistd.h>
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
@@ -201,38 +202,12 @@ void get_default_wallpaper(void) {
 }
 
 void set_wallpaper(void) {
-	char * home = getenv("HOME");
-	if (!home) {
-		/* That should not happen... */
-		fprintf(stderr, "Failed to read HOME envvar\n");
-		return;
-	}
-	/* get the PID of the destkop file-browser */
-	char * pid_path;
-	asprintf(&pid_path, "%s/.wallpaper.pid", home);
-	FILE * f = fopen(pid_path,"r");
-	free(pid_path);
-	if (!f) {
-		/* TODO show an error dialog */
-		fprintf(stderr, "Failed to read wallpaper PID\n");
-		return;
-	}
-	char data[30];
-	fgets(data, 30, f);
-	fclose(f);
-	int pid = atoi(data);
+	pid_t child = fork();
 
-	/* write the config file */
-	char * path;
-	asprintf(&path, "%s/.wallpaper.conf", home);
-	FILE * conf = fopen(path,"w");
-	free(path);
-	fprintf(conf,"wallpaper=%s\n", wallpaper_path);
-	fprintf(stderr, "Setting wallpaper to %s\n", wallpaper_path);
-	fclose(conf);
-
-	/* signal the desktop */
-	kill(pid, SIGUSR1);
+	if (!child) {
+		char * args[] = {"set-wallpaper.sh", wallpaper_path, NULL};
+		exit(execvp(args[0], args));
+	}
 }
 
 void read_wallpapers(void) {
