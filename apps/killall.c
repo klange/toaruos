@@ -64,28 +64,30 @@ int main (int argc, char * argv[]) {
 
 	struct KillallContext ctx = {argv, -1, SIGTERM, 0};
 
-	int c;
-	while ((c = getopt(argc, argv, "s:-:")) != -1) {
-		switch (c) {
-			case 's':
-				for (char *s = optarg; *s; s++) {
-					*s = toupper(*s);
-				}
-				if (str2sig(optarg, &ctx.signum)) {
-					fprintf(stderr,"%s: %s: invalid signal specification\n",argv[0],optarg);
-					return 1;
-				}
-				break;
-			case '-':
-				if (!strcmp(optarg, "help")) {
-					show_usage(argc, argv);
-					return 0;
-				}
-				fprintf(stderr, "%s: '--%s' is not a recognized long option.\n", argv[0],optarg);
-				/* fall through */
-			case '?':
-				return show_usage(argc, argv);
+	int optind = 1;
+	for (; optind < argc; ++optind) {
+		if (!strcmp(argv[optind],"--")) {
+			optind++;
+			break;
 		}
+
+		if (*argv[optind] != '-') break;
+
+		char * optarg = &argv[optind][1]; /* -SIGNAL */
+		if (*optarg == '-') {
+			optarg++;
+			if (!strcmp(optarg,"help")) return show_usage(argc, argv), 0;
+			else if (!strcmp(optarg,"signal")) optarg = argv[++optind]; /* --signal SIGNAL */
+			else if (strstr(optarg,"signal=") == optarg) optarg += 7; /* --signal=SIGNAL */
+			else return fprintf(stderr, "%s: --%s: unrecognized option\n", argv[0], optarg), 1;
+		} else if (*optarg == 's') { /* -sSIGNAL */
+			optarg++;
+			if (!*optarg) optarg = argv[++optind]; /* -s SIGNAL */
+			if (!optarg) return fprintf(stderr, "%s: -s: missing argument\n", argv[0]), 1;
+		}
+
+		for (char *c = optarg; *c; c++) *c = toupper(*c);
+		if (str2sig(optarg, &ctx.signum)) return fprintf(stderr,"%s: %s: invalid signal specification\n",argv[0],optarg), 1;
 	}
 
 	if (optind >= argc) {
