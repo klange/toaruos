@@ -8,8 +8,6 @@
 #include <toaru/panel.h>
 #include <toaru/icon_cache.h>
 
-#define GRADIENT_HEIGHT 24
-#define GRADIENT_AT(y) premultiply(rgba(72, 167, 255, ((24-(y))*160)/24))
 #define MAX_TEXT_WIDTH 180
 #define MIN_TEXT_WIDTH 50
 #define TOTAL_CELL_WIDTH (title_width)
@@ -75,14 +73,15 @@ static int widget_draw_windowlist(struct PanelWidget * this, gfx_context_t * ctx
 				break;
 			}
 
+			gfx_context_t * subctx = init_graphics_subregion(ctx, i, 0, w, ctx->height-1);
+
 			/* Hilight the focused window */
 			if (ad->flags & 1) {
 				/* This is the focused window */
-				for (int y = 0; y < GRADIENT_HEIGHT; ++y) {
-					for (int x = i; x < i + w; ++x) {
-						GFX(ctx, x, y) = alpha_blend_rgba(GFX(ctx, x, y), GRADIENT_AT(y));
-					}
-				}
+				struct gradient_definition bg = {subctx->height-1, 0, rgb(93,163,236), rgb(56,137,220)};
+				draw_rounded_rectangle_pattern(subctx, 0, 1, w, subctx->height-1, 3, gfx_vertical_gradient_pattern, &bg);
+			} else if (j == focused_app) {
+				draw_rounded_rectangle(subctx, 0, 1, w, subctx->height - 1, 3, this->pctx->color_widget_bg_base);
 			}
 
 			uint32_t text_color = this->pctx->color_text_normal;
@@ -94,17 +93,15 @@ static int widget_draw_windowlist(struct PanelWidget * this, gfx_context_t * ctx
 				/* Ellipsifiy the title */
 				char * s = tt_ellipsify(ad->name, 14, this->pctx->font, title_width - 4, NULL);
 				sprite_t * icon = icon_get_48(ad->icon);
-				gfx_context_t * subctx = init_graphics_subregion(ctx, i, 0, w, ctx->height-1);
 				draw_sprite_scaled_alpha(subctx, icon, w - 48 - 2, 0, 48, 48, (ad->flags & 1) ? 1.0 : 0.7);
-				tt_draw_string_shadow(subctx, this->pctx->font, s, 14, 2, 6, text_color, rgb(0,0,0), 4);
-				free(subctx);
+				tt_draw_string_shadow(subctx, this->pctx->font, s, 14, 2, 6, text_color, this->pctx->color_text_shadow, 2);
 				free(s);
 			} else {
 				sprite_t * icon = icon_get_16(ad->icon);
-				gfx_context_t * subctx = init_graphics_subregion(ctx, i, 0, w, ctx->height-1);
 				draw_sprite_scaled(subctx, icon, 6, 6, 16, 16);
-				free(subctx);
 			}
+
+			free(subctx);
 
 			ad->left = this->left + i;
 

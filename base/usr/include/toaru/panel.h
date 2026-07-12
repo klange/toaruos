@@ -35,6 +35,13 @@ struct PanelContext {
 	struct TT_Font * font_mono_bold;
 
 	int extra_widget_spacing;
+
+	uint32_t color_widget_bg_base;
+	uint32_t color_widget_bg_active;
+	uint32_t color_bg_fill;
+	uint32_t color_text_shadow;
+
+	int true_blur;
 };
 
 struct PanelWidget {

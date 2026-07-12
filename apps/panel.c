@@ -71,7 +71,10 @@ static gfx_context_t * a2ctx = NULL;
 static yutani_window_t * alt_f2 = NULL;
 
 static size_t bg_size;
-static char * bg_blob;
+static char * bg_blob = NULL;
+static int do_background_refresh = 0;
+static char * prev_bg_blob = NULL;
+static uint64_t bg_timer = 0;
 
 /* External interface for widgets */
 list_t * window_list = NULL;
@@ -510,8 +513,47 @@ static void handle_key_event(struct yutani_msg_key_event * ke) {
 	}
 }
 
+static uint64_t precise_current_time(void) {
+	struct timeval t;
+	gettimeofday(&t, NULL);
+
+	time_t sec_diff = t.tv_sec;
+	suseconds_t usec_diff = t.tv_usec;
+
+	return (uint64_t)((uint64_t)sec_diff * 1000LL + usec_diff / 1000);
+}
+
+static uint64_t precise_time_since(uint64_t start_time) {
+
+	uint64_t now = precise_current_time();
+	uint64_t diff = now - start_time; /* Milliseconds */
+
+	return diff;
+}
+
 void redraw(void) {
-	memcpy(ctx->backbuffer, bg_blob, bg_size);
+	if (prev_bg_blob) {
+		uint64_t ellapsed = precise_time_since(bg_timer);
+		if (ellapsed > 1000) {
+			free(prev_bg_blob);
+			prev_bg_blob = NULL;
+			ellapsed = 1000.0;
+			memcpy(ctx->backbuffer, bg_blob, bg_size);
+		} else {
+			uint32_t blend = rgb((ellapsed / 1000.0) * 255,0,0);
+			uint32_t * o = (uint32_t*)ctx->backbuffer;
+			uint32_t * a = (uint32_t*)prev_bg_blob;
+			uint32_t * b = (uint32_t*)bg_blob;
+			for (size_t i = 0 ; i < bg_size; i += sizeof(uint32_t)) {
+				*o = alpha_blend(*a,*b,blend);
+				o++;
+				a++;
+				b++;
+			}
+		}
+	} else {
+		memcpy(ctx->backbuffer, bg_blob, bg_size);
+	}
 
 	foreach(widget_node, widgets_enabled) {
 		struct PanelWidget * widget = widget_node->value;
@@ -598,8 +640,126 @@ static void update_window_list(void) {
 	redraw();
 }
 
-static void redraw_panel_background(gfx_context_t * ctx, int width, int height) {
-	draw_fill(ctx, rgba(0,0,0,0xF2));
+#define WALLPAPER_PATH "/usr/share/wallpaper.jpg"
+
+/* TODO: Share this with file-browser */
+static void blorp_wallpaper(uint32_t *outputs) {
+	sprite_t * wallpaper = malloc(sizeof(sprite_t));
+	char * wallpaper_path = WALLPAPER_PATH;
+	int free_it = 0;
+	char * home = getenv("HOME");
+	if (home) {
+		char tmp[512];
+		sprintf(tmp, "%s/.wallpaper.conf", home);
+		FILE * c = fopen(tmp, "r");
+		if (c) {
+			char line[1024];
+			while (!feof(c)) {
+				fgets(line, 1024, c);
+				char * nl = strchr(line, '\n');
+				if (nl) *nl = '\0';
+				if (line[0] == ';') {
+					continue;
+				}
+				if (strstr(line, "wallpaper=") == line) {
+					free_it = 1;
+					wallpaper_path = strdup(line+strlen("wallpaper="));
+					break;
+				}
+			}
+			fclose(c);
+		}
+	}
+
+	load_sprite(wallpaper, wallpaper_path);
+	if (free_it) free(wallpaper_path);
+
+	/* Blur it */
+	gfx_context_t * ctx = init_graphics_sprite(wallpaper);
+	blur_context_box(ctx, 20);
+	blur_context_box(ctx, 20);
+	blur_context_box(ctx, 20);
+
+	/* Extract six points */
+	for (int i = 0; i < 6; ++i) {
+		int32_t x = (ctx->width / 5) * i;
+		if (x >= ctx->width) x = ctx->width - 1;
+		outputs[i] = GFX(ctx, x, 0);
+	}
+
+	sprite_free(wallpaper);
+	free(ctx);
+}
+
+struct FillCtx {
+	gfx_context_t * ctx;
+	uint32_t * colors;
+};
+
+static uint32_t fill_pattern(int32_t x, int32_t y, double alpha, void * extra) {
+	struct FillCtx * fctx = extra;
+
+	float _x = (float)x / (float)fctx->ctx->width;
+
+	int32_t under = (int)(_x * 5);
+	if (under < 0) under = 0;
+	if (under > 4) under = 4;
+
+	uint32_t blend = rgb((_x * 5 - (float)under) * 255,0,0);
+	return alpha_blend(fctx->colors[under], fctx->colors[under+1], blend);
+}
+
+static void refresh_background(void) {
+	uint32_t colors[6];
+	blorp_wallpaper(colors);
+
+	/* Figure out if the selected colors are dark or light */
+	int brightness = 0;
+	for (int i = 0; i < 6; ++i) {
+		brightness += _RED(colors[i]);
+		brightness += _GRE(colors[i]);
+		brightness += _BLU(colors[i]);
+	}
+
+	if (brightness < 3000) {
+		/* Light text, for dark backgrounds. */
+		panel_context.color_text_normal    = rgb(255,255,255);
+		panel_context.color_text_hilighted = rgb(255,255,255);
+		panel_context.color_text_focused   = rgb(255,255,255);
+		panel_context.color_text_shadow    = rgb(0,0,0);
+		panel_context.color_icon_normal    = rgb(255,255,255);
+		panel_context.color_widget_bg_base   = rgba(255,255,255,20);
+		panel_context.color_widget_bg_active = rgba(255,255,255,70);
+		panel_context.color_bg_fill = rgba(0,0,0,50);
+	} else {
+		/* Dark text, for light backgrounds. */
+		panel_context.color_text_normal    = rgb(0,0,0);
+		panel_context.color_text_hilighted = rgb(0,0,0);
+		panel_context.color_text_focused   = rgb(0,0,0);
+		panel_context.color_icon_normal    = rgb(0,0,0);
+		panel_context.color_text_shadow    = rgb(255,255,255);
+		panel_context.color_widget_bg_base   = rgba(0,0,0,20);
+		panel_context.color_widget_bg_active = rgba(0,0,0,70);
+		panel_context.color_bg_fill = rgba(255,255,255,50);
+	}
+
+	if (panel_context.true_blur) {
+		draw_fill(ctx, 0); /* Fully blank */
+	} else {
+		struct FillCtx fctx = {ctx, colors};
+		draw_rounded_rectangle_pattern(ctx, 0, 0, ctx->width, ctx->height, 0, fill_pattern, &fctx);
+	}
+
+	draw_rounded_rectangle(ctx, 0, 0, ctx->width, ctx->height, 0, panel_context.color_bg_fill);
+
+	panel_context.color_special        = rgb(93,163,236);
+	panel_context.font_size_default    = 14;
+	panel_context.extra_widget_spacing = 12;
+
+	/* Copy the prerendered background so we can redraw it quickly */
+	bg_size = panel->width * panel->height * sizeof(uint32_t);
+	bg_blob = realloc(bg_blob, bg_size);
+	memcpy(bg_blob, ctx->backbuffer, bg_size);
 }
 
 static void resize_finish(int xwidth, int xheight) {
@@ -610,12 +770,7 @@ static void resize_finish(int xwidth, int xheight) {
 
 	width = xwidth;
 
-	redraw_panel_background(ctx, xwidth, xheight);
-
-	/* Copy the prerendered background so we can redraw it quickly */
-	bg_size = panel->width * panel->height * sizeof(uint32_t);
-	bg_blob = realloc(bg_blob, bg_size);
-	memcpy(bg_blob, ctx->backbuffer, bg_size);
+	refresh_background();
 
 	widgets_layout();
 	update_window_list();
@@ -648,6 +803,11 @@ static void sig_usr2(int sig) {
 	signal(SIGUSR2, sig_usr2);
 }
 
+static void sig_usr1(int sig) {
+	do_background_refresh = 1;
+	signal(SIGUSR1, sig_usr1);
+}
+
 static int mouse_event_ignore(struct PanelWidget * this, struct yutani_msg_window_mouse_event * evt) {
 	return 0;
 }
@@ -664,20 +824,12 @@ static int widget_leave_generic(struct PanelWidget * this, struct yutani_msg_win
 
 void panel_highlight_widget(struct PanelWidget * this, gfx_context_t * ctx, int active) {
 	if (this->highlighted || active) {
-		draw_rounded_rectangle(ctx, 3, 3, ctx->width - 6, ctx->height - 6, 11, premultiply(rgba(120,120,120,active ? 180 : 150)));
+		draw_rounded_rectangle(ctx, 3, 3, ctx->width - 6, ctx->height - 6, 11, 
+		active ? panel_context.color_widget_bg_active : panel_context.color_widget_bg_base);
 	}
 }
 
 static int widget_draw_generic(struct PanelWidget * this, gfx_context_t * ctx) {
-	draw_rounded_rectangle(
-		ctx, 0, 0, ctx->width, ctx->height, 7, premultiply(rgba(120,120,120,150)));
-	if (this->highlighted) {
-		draw_rounded_rectangle(
-			ctx, 1, 1, ctx->width-2, ctx->height-2, 6, premultiply(rgba(120,160,230,220)));
-	} else {
-		draw_rounded_rectangle(
-			ctx, 1, 1, ctx->width-2, ctx->height-2, 6, ALTTAB_BACKGROUND);
-	}
 	return 0;
 }
 
@@ -794,39 +946,34 @@ int main (int argc, char ** argv) {
 	panel_context.font_mono      = tt_font_from_shm("monospace");
 	panel_context.font_mono_bold = tt_font_from_shm("monospace.bold");
 
+	/* Use a solid baked gradient from the wallpaper, instead of a true transparent + blurred background */
+	panel_context.true_blur = 0;
+
+	char * env_enable_blur = getenv("PANEL_TRUE_BLUR");
+	if (env_enable_blur && *env_enable_blur) panel_context.true_blur = 1;
+
 	/* For convenience, store the display size */
 	width  = yctx->display_width;
 	height = yctx->display_height;
 
-	panel_context.color_text_normal    = rgb(230,230,230);
-	panel_context.color_text_hilighted = rgb(142,216,255);
-	panel_context.color_text_focused   = rgb(255,255,255);
-	panel_context.color_icon_normal    = rgb(230,230,230);
-	panel_context.color_special        = rgb(93,163,236);
-	panel_context.font_size_default    = 14;
-	panel_context.extra_widget_spacing = 12;
-
 	/* Create the panel window */
-	panel = yutani_window_create_flags(yctx, width, PANEL_HEIGHT, YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS | YUTANI_WINDOW_FLAG_ALT_ANIMATION);
+	uint32_t panel_flags = YUTANI_WINDOW_FLAG_NO_STEAL_FOCUS | YUTANI_WINDOW_FLAG_ALT_ANIMATION;
+	if (panel_context.true_blur) panel_flags |= YUTANI_WINDOW_FLAG_BLUR_BEHIND;
+	panel = yutani_window_create_flags(yctx, width, PANEL_HEIGHT, panel_flags);
 	panel_context.basewindow = panel;
 
 	/* And move it to the top layer */
 	yutani_set_stack(yctx, panel, YUTANI_ZORDER_TOP);
-	yutani_window_update_shape(yctx, panel, YUTANI_SHAPE_THRESHOLD_CLEAR);
 
 	/* Initialize graphics context against the window */
 	ctx = init_graphics_yutani_double_buffer(panel);
 
 	/* Draw the background */
-	redraw_panel_background(ctx, panel->width, panel->height);
-
-	/* Copy the prerendered background so we can redraw it quickly */
-	bg_size = panel->width * panel->height * sizeof(uint32_t);
-	bg_blob = malloc(bg_size);
-	memcpy(bg_blob, ctx->backbuffer, bg_size);
+	refresh_background();
 
 	/* Catch SIGINT */
 	signal(SIGINT, sig_int);
+	signal(SIGUSR1, sig_usr1);
 	signal(SIGUSR2, sig_usr2);
 
 	widgets_enabled = list_create();
@@ -886,7 +1033,17 @@ int main (int argc, char ** argv) {
 
 	while (_continue) {
 
-		int index = fswait2(1,fds,force_updates ? 50 : 200); /* ~20 fps? */
+		if (do_background_refresh) {
+			if (!panel_context.true_blur) {
+				prev_bg_blob = realloc(prev_bg_blob, bg_size);
+				memcpy(prev_bg_blob, bg_blob, bg_size);
+				bg_timer = precise_current_time();
+			}
+			refresh_background();
+			do_background_refresh = 0;
+		}
+
+		int index = fswait2(1,fds,prev_bg_blob ? 10 : (force_updates ? 50 : 200)); /* ~20 fps? */
 
 		if (index == 0) {
 			/* Respond to Yutani events */
@@ -943,6 +1100,8 @@ int main (int argc, char ** argv) {
 				redraw_alttab();
 			}
 			update_periodic_widgets(&force_updates);
+		} else if (prev_bg_blob) {
+			redraw();
 		}
 	}
 
