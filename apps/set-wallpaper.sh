@@ -13,3 +13,4 @@ echo "wallpaper=$NEW_WALLPAPER" > $HOME/.wallpaper.conf
 export-cmd DESKTOP cat $HOME/.wallpaper.pid
 if [ -z "$DESKTOP" ] then exec sh -c "echo '$0: No wallpaper running?'"
 kill -SIGUSR1 $DESKTOP
+killall -SIGUSR1 panel
