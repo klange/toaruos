@@ -674,8 +674,14 @@ static void blorp_wallpaper(uint32_t *outputs) {
 	load_sprite(wallpaper, wallpaper_path);
 	if (free_it) free(wallpaper_path);
 
-	/* Blur it */
-	gfx_context_t * ctx = init_graphics_sprite(wallpaper);
+	sprite_t * blurrable = create_sprite(
+		wallpaper->width,
+		wallpaper->height < 10 ? wallpaper->height : 10,
+		ALPHA_EMBEDDED);
+	gfx_context_t * ctx = init_graphics_sprite(blurrable);
+	draw_sprite(ctx, wallpaper, 0, 0);
+	sprite_free(wallpaper);
+
 	blur_context_box(ctx, 20);
 	blur_context_box(ctx, 20);
 	blur_context_box(ctx, 20);
@@ -687,7 +693,7 @@ static void blorp_wallpaper(uint32_t *outputs) {
 		outputs[i] = GFX(ctx, x, 0);
 	}
 
-	sprite_free(wallpaper);
+	sprite_free(blurrable);
 	free(ctx);
 }
 
