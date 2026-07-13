@@ -58,6 +58,7 @@ static int mouse_is_dragging = 0;
 static int mouse_r[2] = {820, 2621};
 static int old_x = 0;
 static int old_y = 0;
+static int need_refresh = 0;
 
 struct input_data {
 	size_t len;
@@ -790,6 +791,12 @@ static term_state_t * terminal_create(int term_width, int term_height, int max_s
 	return out;
 }
 
+static void sig_cont(int sig) {
+	(void)sig;
+	need_refresh = 1;
+	signal(SIGCONT, sig_cont);
+}
+
 int main(int argc, char ** argv) {
 	static struct option long_opts[] = {
 		{"login",      no_argument,       0, 'l'},
@@ -858,6 +865,8 @@ int main(int argc, char ** argv) {
 		read(kfd, tmp, 1);
 	}
 
+	signal(SIGCONT, sig_cont);
+
 	size_t fds_size = 1;
 	int * fds = malloc(sizeof(int));
 	int * res = malloc(sizeof(int));
@@ -870,7 +879,10 @@ int main(int argc, char ** argv) {
 	unsigned char buf[4096];
 	while (!exit_application) {
 		if (check_for_exit()) break;
-
+		if (need_refresh) {
+			refresh_display(active_terminal);
+			need_refresh = 0;
+		}
 
 		if (fds_size != 3 + terminals->length) {
 			fds_size = 3 + terminals->length;
