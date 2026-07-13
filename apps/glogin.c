@@ -80,6 +80,8 @@ int main (int argc, char ** argv) {
 				if (!strcmp(buf,"RESTART")) {
 					TRACE("Client requested system restart, rebooting.");
 					system("reboot");
+				} else if (!strcmp(buf,"DISCONNECT")) {
+					exit(0);
 				} else if (!strcmp(buf,"Hello")) {
 					TRACE("Hello received from client.");
 				} else if (!strncmp(buf,"USER ",5)) {

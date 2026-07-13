@@ -521,6 +521,11 @@ collect_events:
 
 			}
 
+			if (!strcmp(username, "disconnect")) {
+				fprintf(stdout, "DISCONNECT\n");
+				goto _success;
+			}
+
 			fprintf(stdout, "USER %s\n", username);
 			fprintf(stdout, "PASS %s\n", password);
 			fprintf(stdout, "AUTH\n");
