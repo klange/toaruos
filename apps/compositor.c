@@ -993,6 +993,27 @@ static void yutani_screenshot(yutani_globals_t * yg) {
 	yg->screenshot_frame = 0;
 
 	/* raw screenshots */
+	gfx_context_t * ctx;
+	unsigned long flags = GFX_WRITE_FORMAT_TARGA;
+
+	gfx_context_t _window;
+
+	switch (task) {
+		case YUTANI_SCREENSHOT_FULL:
+			ctx = yg->backend_ctx;
+			flags |= GFX_WRITE_FLAG_BACKBUF;
+			break;
+		case YUTANI_SCREENSHOT_WINDOW:
+			_window.width = yg->focused_window->width;
+			_window.height = yg->focused_window->height;
+			_window.buffer = (char*)yg->focused_window->buffer;
+			ctx = &_window;
+			flags |= GFX_WRITE_FLAG_ALPHA;
+			break;
+		default:
+			/* Invalid state */
+			return;
+	}
 
 	char fname[1024];
 	struct tm * timeinfo;
@@ -1007,63 +1028,7 @@ static void yutani_screenshot(yutani_globals_t * yg) {
 		return;
 	}
 
-	uint32_t * buffer = NULL;
-	int width, height;
-	int alpha;
-
-	if (task == YUTANI_SCREENSHOT_FULL) {
-		buffer = (void *)yg->backend_ctx->backbuffer;
-		width = yg->width;
-		height = yg->height;
-		alpha = 0;
-	} else if (task == YUTANI_SCREENSHOT_WINDOW) {
-		yutani_server_window_t * window = yg->focused_window;
-		buffer = (void *)window->buffer;
-		width = window->width;
-		height = window->height;
-		alpha = 1;
-	}
-
-	if (buffer) {
-
-		struct {
-			uint8_t id_length;
-			uint8_t color_map_type;
-			uint8_t image_type;
-
-			uint16_t color_map_first_entry;
-			uint16_t color_map_length;
-			uint8_t color_map_entry_size;
-
-			uint16_t x_origin;
-			uint16_t y_origin;
-			uint16_t width;
-			uint16_t height;
-			uint8_t  depth;
-			uint8_t  descriptor;
-		} __attribute__((packed)) header = {
-			0, /* No image ID field */
-			0, /* No color map */
-			2, /* Uncompressed truecolor */
-			0, 0, 0, /* No color map */
-			0, 0, /* Don't care about origin */
-			width, height, alpha ? 32 : 24,
-			alpha ? 8 : 0,
-		};
-		fwrite(&header, 1, sizeof(header), f);
-
-		for (int y = height-1; y>=0; y--) {
-			for (int x = 0; x < width; ++x) {
-				uint8_t buf[4] = {
-					_BLU(buffer[y * width + x]),
-					_GRE(buffer[y * width + x]),
-					_RED(buffer[y * width + x]),
-					_ALP(buffer[y * width + x]),
-				};
-				fwrite(buf, 1, alpha ? 4 : 3, f);
-			}
-		}
-	}
+	gfx_buffer_write(f, ctx, flags);
 	fclose(f);
 
 

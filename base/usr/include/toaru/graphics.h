@@ -1,6 +1,7 @@
 #pragma once
 
 #include <_cheader.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
 
@@ -135,6 +136,16 @@ extern void gfx_matrix_rotate(gfx_matrix_t, double rotation);
 extern void gfx_matrix_shear(gfx_matrix_t matrix, double x, double y);
 extern int gfx_matrix_invert(gfx_matrix_t m, gfx_matrix_t inverse);
 extern void gfx_apply_matrix(double x, double y, gfx_matrix_t matrix, double *out_x, double *out_y);
+
+#define GFX_WRITE_FORMAT         0x00000007
+#define  GFX_WRITE_FORMAT_TARGA  0x00000001
+/*       reserved _FORMAT_PNG    0x00000002 */
+/*       reserved _FORMAT_JPG    0x00000003 */
+
+#define GFX_WRITE_FLAG_BACKBUF  0x00000010
+#define GFX_WRITE_FLAG_ALPHA    0x00000020
+
+extern int gfx_buffer_write(FILE*, gfx_context_t*, unsigned long);
 
 
 _End_C_Header

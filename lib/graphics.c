@@ -1383,3 +1383,45 @@ void draw_line_aa(gfx_context_t * ctx, int x_1, int x_2, int y_1, int y_2, uint3
 	draw_line_aa_points(ctx,&v,&w,color,thickness);
 }
 
+int gfx_buffer_write(FILE * out, gfx_context_t * ctx, unsigned long flags) {
+	uint32_t * buffer = (uint32_t*)((flags & GFX_WRITE_FLAG_BACKBUF) ? ctx->backbuffer : ctx->buffer);
+	int width = ctx->width;
+	int height = ctx->height;
+	int alpha = !!(flags & GFX_WRITE_FLAG_ALPHA);
+
+	if (!(flags & GFX_WRITE_FORMAT)) {
+		flags |= GFX_WRITE_FORMAT_TARGA;
+	}
+
+	if ((flags & GFX_WRITE_FORMAT) != GFX_WRITE_FORMAT_TARGA) {
+		/* Invalid format */
+		return 1;
+	}
+
+	if (buffer) {
+		struct TgaHeader header = {
+			0, /* No image ID field */
+			0, /* No color map */
+			2, /* Uncompressed truecolor */
+			0, 0, 0, /* No color map */
+			0, 0, /* Don't care about origin */
+			width, height, alpha ? 32 : 24,
+			alpha ? 8 : 0,
+		};
+		fwrite(&header, 1, sizeof(header), out);
+
+		for (int y = height-1; y>=0; y--) {
+			for (int x = 0; x < width; ++x) {
+				uint8_t buf[4] = {
+					_BLU(buffer[y * width + x]),
+					_GRE(buffer[y * width + x]),
+					_RED(buffer[y * width + x]),
+					_ALP(buffer[y * width + x]),
+				};
+				fwrite(buf, 1, alpha ? 4 : 3, out);
+			}
+		}
+	}
+
+	return 0;
+}
