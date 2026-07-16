@@ -39,6 +39,7 @@
 #include <kernel/ksym.h>
 #include <kernel/pty.h>
 #include <kernel/ptrace.h>
+#include <kernel/args.h>
 #include <sys/wait.h>
 #include <sys/signal_defs.h>
 
@@ -1250,9 +1251,11 @@ int process_alert_node_locked(process_t * process, void * value) {
 	must_have_lock(sleep_lock);
 
 	if (!is_valid_process(process)) {
-		dprintf("core %d (pid=%d %s) attempted to alert invalid process %#zx\n",
-			this_core->cpu_id, this_core->current_process->id, this_core->current_process->name,
-			(uintptr_t)process);
+		if (args_present("debug")) {
+			dprintf("core %d (pid=%d %s) attempted to alert invalid process %#zx\n",
+				this_core->cpu_id, this_core->current_process->id, this_core->current_process->name,
+				(uintptr_t)process);
+		}
 		return 0;
 	}
 
