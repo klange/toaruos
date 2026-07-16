@@ -32,6 +32,28 @@
 
 #define DEFAULT_TCP_WINDOW_SIZE 65535
 
+/* priv slots */
+#define SOCK_PRIV_IPV4_PORT  0
+#define SOCK_PRIV_TCP_STATE  1
+#define SOCK_PRIV_TCP_IDENT  2
+
+/* priv32 slots */
+#define SOCK_PRIV32_ICMP_IDENT 0
+
+#define SOCK_PRIV32_TCP_SEQ_NUM 0
+#define SOCK_PRIV32_TCP_ACK_NUM 1
+
+#define SOCK_PRIV32_IPV4_TTL 2 /* Shared */
+
+enum {
+	TCP_STATE_NONE, /* Not doing anything. */
+	TCP_STATE_WAITING, /* Sent SYN, waiting on response */
+	TCP_STATE_ACKED, /* Received ACK for SYN */
+	TCP_STATE_FIN, /* Received FIN, shut down */
+
+	TCP_STATE_BOUND, /* Socket is bound and waiting to listen */
+};
+
 static int _debug __attribute__((unused)) = 0;
 
 static void ip_ntoa(const uint32_t src_addr, char * out) {
@@ -169,7 +191,7 @@ int net_ipv4_send(struct ipv4_packet * response, fs_node_t * nic) {
 
 static void sock_ipv4_control_common(sock_t * sock, struct msghdr * msg, struct ipv4_packet * src, int proto) {
 	/* TODO Other options; priv32[2] should be for flags? */
-	if (sock->priv32[2] && msg->msg_controllen > sizeof(struct cmsghdr) + 1) {
+	if (sock->priv32[SOCK_PRIV32_IPV4_TTL] && msg->msg_controllen > sizeof(struct cmsghdr) + 1) {
 		struct cmsghdr * out = msg->msg_control;
 		out->cmsg_len = sizeof(struct cmsghdr) + 1;
 		out->cmsg_level = IPPROTO_IP;
@@ -225,7 +247,7 @@ static void icmp_handle(struct ipv4_packet * packet, const char * src, const cha
 }
 
 static void sock_icmp_close(sock_t * sock) {
-	hashmap_remove(icmp_sockets, (void*)(uintptr_t)sock->priv32[0]);
+	hashmap_remove(icmp_sockets, (void*)(uintptr_t)sock->priv32[SOCK_PRIV32_ICMP_IDENT]);
 }
 
 static long sock_icmp_recv(sock_t * sock, struct msghdr * msg, int flags) {
@@ -292,7 +314,7 @@ static long sock_icmp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 
 	memcpy(response->payload, msg->msg_iov[0].iov_base, msg->msg_iov[0].iov_len);
 	struct icmp_header * micmp = (struct icmp_header*)response->payload;
-	micmp->identifier = htons(sock->priv32[0]);
+	micmp->identifier = htons(sock->priv32[SOCK_PRIV32_ICMP_IDENT]);
 	micmp->csum = 0;
 	micmp->csum = htons(icmp_checksum(response));
 
@@ -308,9 +330,9 @@ static int icmp_socket(int flags, int nb) {
 	sock->sock_recv = sock_icmp_recv;
 	sock->sock_send = sock_icmp_send;
 	sock->sock_close = sock_icmp_close;
-	sock->priv32[0] = this_core->current_process->id;
+	sock->priv32[SOCK_PRIV32_ICMP_IDENT] = this_core->current_process->id;
 	sock->nonblocking = nb;
-	hashmap_set(icmp_sockets, (void*)(uintptr_t)sock->priv32[0], sock);
+	hashmap_set(icmp_sockets, (void*)(uintptr_t)sock->priv32[SOCK_PRIV32_ICMP_IDENT], sock);
 
 	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, flags | PROC_FD_MODE__RW);
 }
@@ -340,8 +362,8 @@ static int tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet, 
 	}
 #endif
 
-	if (sock->priv32[1] != 0 && !isSynAck &&
-		sock->priv32[1] != ntohl(tcp->seq_number)) {
+	if (sock->priv32[SOCK_PRIV32_TCP_ACK_NUM] != 0 && !isSynAck &&
+		sock->priv32[SOCK_PRIV32_TCP_ACK_NUM] != ntohl(tcp->seq_number)) {
 #if 0
 		int _debug __attribute__((unused)) = 1;
 		printf("tcp: suspicious of their seq number?\n");
@@ -353,12 +375,12 @@ static int tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet, 
 		retval = 0;
 		send_thrice = 1;
 	} else {
-		sock->priv32[0] = isSynAck ? 1 : sock->priv32[0];
-		sock->priv32[1] = (ntohl(tcp->seq_number) + payload_len) & 0xFFFFFFFF;
-		sock->priv[1] = 2;
+		sock->priv32[SOCK_PRIV32_TCP_SEQ_NUM] = isSynAck ? 1 : sock->priv32[SOCK_PRIV32_TCP_SEQ_NUM];
+		sock->priv32[SOCK_PRIV32_TCP_ACK_NUM] = (ntohl(tcp->seq_number) + payload_len) & 0xFFFFFFFF;
+		sock->priv[SOCK_PRIV_TCP_STATE] = TCP_STATE_ACKED; /* received ack for syn */
 	}
 
-	sock->priv[2]++;
+	sock->priv[SOCK_PRIV_TCP_IDENT]++;
 
 #if 0
 	printf("tcp: their ack = %u our seq = %u\n",
@@ -376,7 +398,7 @@ static int tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet, 
 	response->source = ((struct EthernetDevice*)nic->device)->ipv4_addr;
 	response->ttl = 64;
 	response->protocol = IPV4_PROT_TCP;
-	response->ident = htons(sock->priv[2]);
+	response->ident = htons(sock->priv[SOCK_PRIV_TCP_IDENT]);
 	response->flags_fragment = htons(0x0);
 	response->version_ihl = 0x45;
 	response->dscp_ecn = 0;
@@ -386,16 +408,16 @@ static int tcp_ack(fs_node_t * nic, sock_t * sock, struct ipv4_packet * packet, 
 	int flags = TCP_FLAGS_ACK;
 	if (ntohs(tcp->flags) & TCP_FLAGS_FIN) {
 		/* Other side is closed now */
-		sock->priv32[1]++;
-		sock->priv[1] = 3;
+		sock->priv32[SOCK_PRIV32_TCP_ACK_NUM]++;
+		sock->priv[SOCK_PRIV_TCP_STATE] = TCP_STATE_FIN;
 	}
 
 	/* Stick TCP header into payload */
 	struct tcp_header * tcp_header = (struct tcp_header*)&response->payload;
-	tcp_header->source_port = htons(sock->priv[0]);
+	tcp_header->source_port = htons(sock->priv[SOCK_PRIV_IPV4_PORT]);
 	tcp_header->destination_port = tcp->source_port;
-	tcp_header->seq_number = htonl(sock->priv32[0]);
-	tcp_header->ack_number = htonl(sock->priv32[1]);
+	tcp_header->seq_number = htonl(sock->priv32[SOCK_PRIV32_TCP_SEQ_NUM]);
+	tcp_header->ack_number = htonl(sock->priv32[SOCK_PRIV32_TCP_ACK_NUM]);
 	tcp_header->flags = htons(flags | 0x5000);
 	tcp_header->window_size = htons(window_size);
 	tcp_header->checksum = 0;
@@ -455,7 +477,7 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic, size_t size) 
 				/* What kind of packet is this? Is it something we were expecting? */
 				struct tcp_header * tcp = (struct tcp_header*)&packet->payload;
 
-				if (sock->priv[1] == 1) {
+				if (sock->priv[SOCK_PRIV_TCP_STATE] == TCP_STATE_WAITING) {
 					/* Awaiting SYN ACK, is this one? */
 					if ((ntohs(tcp->flags) & (TCP_FLAGS_SYN | TCP_FLAGS_ACK)) == (TCP_FLAGS_SYN | TCP_FLAGS_ACK)) {
 						printf("tcp: synack\n");
@@ -463,10 +485,10 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic, size_t size) 
 							net_sock_add(sock, packet, ntohs(packet->length));
 						}
 					} else if ((ntohs(tcp->flags) & (TCP_FLAGS_RST))) {
-						sock->priv[1] = 0;
+						sock->priv[SOCK_PRIV_TCP_STATE] = 0;
 						net_sock_alert(sock);
 					}
-				} else if (sock->priv[1] == 2) {
+				} else if (sock->priv[SOCK_PRIV_TCP_STATE] == TCP_STATE_ACKED) {
 					size_t packet_len = ntohs(packet->length) - sizeof(struct ipv4_packet);
 					size_t hlen = ((ntohs(tcp->flags) & 0xF000) >> 12) * 4;
 					size_t payload_len = packet_len - hlen;
@@ -478,6 +500,10 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic, size_t size) 
 					} else if (ntohs(tcp->flags) & TCP_FLAGS_FIN) {
 						tcp_ack(nic, sock, packet, 0, 0);
 					}
+				} else if (sock->priv[SOCK_PRIV_TCP_STATE] == TCP_STATE_BOUND) {
+					/* Bound socket, need to see if we have something for this client... */
+					dprintf("hit to bound tcp socket\n");
+
 				}
 			}
 			break;
@@ -492,16 +518,16 @@ static int udp_get_port(sock_t * sock) {
 	spin_lock(udp_port_lock);
 	int out = next_port++;
 	hashmap_set(udp_sockets, (void*)(uintptr_t)out, sock);
-	sock->priv[0] = out;
+	sock->priv[SOCK_PRIV_IPV4_PORT] = out;
 	spin_unlock(udp_port_lock);
 	return out;
 }
 
 long sock_udp_getsockname(sock_t * sock, struct sockaddr *addr, socklen_t * addrlen) {
-	if (!sock->priv[0]) return -EINVAL;
+	if (!sock->priv[SOCK_PRIV_IPV4_PORT]) return -EINVAL;
 	/* TODO do we even record the "bound" address? */
 	struct sockaddr_in out = {
-		AF_INET, htons(sock->priv[0]), { 0 }, {0},
+		AF_INET, htons(sock->priv[SOCK_PRIV_IPV4_PORT]), { 0 }, {0},
 	};
 
 	memcpy(addr, &out, *addrlen < sizeof(struct sockaddr_in) ? *addrlen : sizeof(struct sockaddr_in));
@@ -525,9 +551,9 @@ static long sock_udp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 
 	if (!name->sin_port) return -EADDRNOTAVAIL; /* 0 is still 0 in both endians */
 
-	if (sock->priv[0] == 0) {
+	if (sock->priv[SOCK_PRIV_IPV4_PORT] == 0) {
 		udp_get_port(sock);
-		printf("udp: assigning port %d to socket\n", sock->priv[0]);
+		printf("udp: assigning port %d to socket\n", sock->priv[SOCK_PRIV_IPV4_PORT]);
 	}
 
 
@@ -556,7 +582,7 @@ static long sock_udp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 
 	/* Stick UDP header into payload */
 	struct udp_packet * udp_packet = (struct udp_packet*)&response->payload;
-	udp_packet->source_port = htons(sock->priv[0]);
+	udp_packet->source_port = htons(sock->priv[SOCK_PRIV_IPV4_PORT]);
 	udp_packet->destination_port = name->sin_port;
 	udp_packet->length = htons(sizeof(struct udp_packet) + msg->msg_iov[0].iov_len);
 	udp_packet->checksum = 0;
@@ -570,7 +596,7 @@ static long sock_udp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 
 static long sock_udp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	printf("udp: recv called\n");
-	if (!sock->priv[0]) {
+	if (!sock->priv[SOCK_PRIV_IPV4_PORT]) {
 		printf("udp: recv() but socket has no port\n");
 		return -EINVAL;
 	}
@@ -610,17 +636,17 @@ static long sock_udp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 }
 
 static void sock_udp_close(sock_t * sock) {
-	if (sock->priv[0]) {
-		printf("udp: removing port %d from bound map\n", sock->priv[0]);
+	if (sock->priv[SOCK_PRIV_IPV4_PORT]) {
+		printf("udp: removing port %d from bound map\n", sock->priv[SOCK_PRIV_IPV4_PORT]);
 		spin_lock(udp_port_lock);
-		hashmap_remove(udp_sockets, (void*)(uintptr_t)sock->priv[0]);
+		hashmap_remove(udp_sockets, (void*)(uintptr_t)sock->priv[SOCK_PRIV_IPV4_PORT]);
 		spin_unlock(udp_port_lock);
 	}
 }
 
 
 static long sock_udp_bind(sock_t * sock, const struct sockaddr *addr, socklen_t addrlen) {
-	if (sock->priv[0]) return -EINVAL; /* Already bound */
+	if (sock->priv[SOCK_PRIV_IPV4_PORT]) return -EINVAL; /* Already bound */
 
 	/* Get port */
 	const struct sockaddr_in * addr_in = (const struct sockaddr_in *)addr;
@@ -642,7 +668,7 @@ static long sock_udp_bind(sock_t * sock, const struct sockaddr *addr, socklen_t 
 		return -EADDRINUSE;
 	}
 	hashmap_set(udp_sockets, (void*)(uintptr_t)port, sock);
-	sock->priv[0] = port;
+	sock->priv[SOCK_PRIV_IPV4_PORT] = port;
 	spin_unlock(udp_port_lock);
 
 	/* Totally ignore the NIC stuff */
@@ -665,10 +691,10 @@ static int udp_socket(int flags, int nb) {
 
 static spin_lock_t tcp_port_lock = {0};
 static void sock_tcp_close(sock_t * sock) {
-	if (sock->priv[0]) {
-		printf("tcp: removing port %d from bound map\n", sock->priv[0]);
+	if (sock->priv[SOCK_PRIV_IPV4_PORT]) {
+		printf("tcp: removing port %d from bound map\n", sock->priv[SOCK_PRIV_IPV4_PORT]);
 		spin_lock(tcp_port_lock);
-		hashmap_remove(tcp_sockets, (void*)(uintptr_t)sock->priv[0]);
+		hashmap_remove(tcp_sockets, (void*)(uintptr_t)sock->priv[SOCK_PRIV_IPV4_PORT]);
 		spin_unlock(tcp_port_lock);
 
 		size_t total_length = sizeof(struct ipv4_packet) + sizeof(struct tcp_header);
@@ -681,8 +707,8 @@ static void sock_tcp_close(sock_t * sock) {
 		response->source = ((struct EthernetDevice*)nic->device)->ipv4_addr;
 		response->ttl = 64;
 		response->protocol = IPV4_PROT_TCP;
-		sock->priv[2]++;
-		response->ident = htons(sock->priv[2]);
+		sock->priv[SOCK_PRIV_TCP_IDENT]++;
+		response->ident = htons(sock->priv[SOCK_PRIV_TCP_IDENT]);
 		response->flags_fragment = htons(0x0);
 		response->version_ihl = 0x45;
 		response->dscp_ecn = 0;
@@ -691,10 +717,10 @@ static void sock_tcp_close(sock_t * sock) {
 
 		/* Stick TCP header into payload */
 		struct tcp_header * tcp_header = (struct tcp_header*)&response->payload;
-		tcp_header->source_port = htons(sock->priv[0]);
+		tcp_header->source_port = htons(sock->priv[SOCK_PRIV_IPV4_PORT]);
 		tcp_header->destination_port = ((struct sockaddr_in*)&sock->dest)->sin_port;
-		tcp_header->seq_number = htonl(sock->priv32[0]);
-		tcp_header->ack_number = htonl(sock->priv32[1]);
+		tcp_header->seq_number = htonl(sock->priv32[SOCK_PRIV32_TCP_SEQ_NUM]);
+		tcp_header->ack_number = htonl(sock->priv32[SOCK_PRIV32_TCP_ACK_NUM]);
 		tcp_header->flags = htons(TCP_FLAGS_FIN | TCP_FLAGS_ACK | 0x5000);
 		tcp_header->window_size = htons(DEFAULT_TCP_WINDOW_SIZE);
 		tcp_header->checksum = 0;
@@ -720,13 +746,13 @@ static int tcp_get_port(sock_t * sock) {
 	spin_lock(tcp_port_lock);
 	int out = next_tcp_port++;
 	hashmap_set(tcp_sockets, (void*)(uintptr_t)out, sock);
-	sock->priv[0] = out;
+	sock->priv[SOCK_PRIV_IPV4_PORT] = out;
 	spin_unlock(tcp_port_lock);
 	return out;
 }
 
 static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
-	if (!sock->priv[0]) {
+	if (!sock->priv[SOCK_PRIV_IPV4_PORT]) {
 		printf("tcp: recv() but socket has no port\n");
 		return -EINVAL;
 	}
@@ -757,7 +783,7 @@ static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 		}
 	}
 
-	if (!sock->rx_queue->length && sock->priv[1] == 3) {
+	if (!sock->rx_queue->length && sock->priv[SOCK_PRIV_TCP_STATE] == TCP_STATE_FIN) {
 		return 0; /* EOF */
 	}
 
@@ -780,7 +806,7 @@ static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 		}
 		if (r == -EINTR) return -ERESTARTSYS;
 		if (!sock->rx_queue->length) {
-			if (sock->priv[1] == 3) {
+			if (sock->priv[SOCK_PRIV_TCP_STATE] == TCP_STATE_FIN) {
 				/* Socket was closed while waiting */
 				return 0;
 			}
@@ -829,7 +855,7 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 	ip_ntoa(ntohl(dest->sin_addr.s_addr), deststr);
 	printf("tcp: connect requested to %s port %d\n", deststr, ntohs(dest->sin_port));
 
-	if (sock->priv[1] != 0) {
+	if (sock->priv[SOCK_PRIV_TCP_STATE] != TCP_STATE_NONE) {
 		printf("tcp: socket is already connected?\n");
 		return -EINVAL;
 	}
@@ -838,10 +864,10 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 
 	/* Get a port */
 	tcp_get_port(sock);
-	printf("tcp: connecting from ephemeral port %d\n", (int)sock->priv[0]);
+	printf("tcp: connecting from ephemeral port %d\n", (int)sock->priv[SOCK_PRIV_IPV4_PORT]);
 
 	/* Mark as awaiting connection, send initial SYN */
-	sock->priv[1] = 1;
+	sock->priv[SOCK_PRIV_TCP_STATE] = TCP_STATE_WAITING;
 
 	memcpy(&sock->dest, addr, addrlen);
 
@@ -856,8 +882,8 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 	response->source = ((struct EthernetDevice*)nic->device)->ipv4_addr;
 	response->ttl = 64;
 	response->protocol = IPV4_PROT_TCP;
-	sock->priv[2] = rand();
-	response->ident = htons(sock->priv[2]);
+	sock->priv[SOCK_PRIV_TCP_IDENT] = rand();
+	response->ident = htons(sock->priv[SOCK_PRIV_TCP_IDENT]);
 	response->flags_fragment = htons(0x0);
 	response->version_ihl = 0x45;
 	response->dscp_ecn = 0;
@@ -866,7 +892,7 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 
 	/* Stick TCP header into payload */
 	struct tcp_header * tcp_header = (struct tcp_header*)&response->payload;
-	tcp_header->source_port = htons(sock->priv[0]);
+	tcp_header->source_port = htons(sock->priv[SOCK_PRIV_IPV4_PORT]);
 	tcp_header->destination_port = dest->sin_port;
 	tcp_header->seq_number = 0;
 	tcp_header->ack_number = 0;
@@ -903,7 +929,7 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 			return -EINTR;
 		}
 		relative_time(0,0,&ns,&nss);
-		if (sock->priv[1] == 0) {
+		if (sock->priv[SOCK_PRIV_TCP_STATE] == TCP_STATE_NONE) {
 			free(response);
 			return -ECONNREFUSED;
 		}
@@ -982,8 +1008,8 @@ static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 		response->source = ((struct EthernetDevice*)nic->device)->ipv4_addr;
 		response->ttl = 64;
 		response->protocol = IPV4_PROT_TCP;
-		sock->priv[2]++;
-		response->ident = htons(sock->priv[2]);
+		sock->priv[SOCK_PRIV_TCP_IDENT]++;
+		response->ident = htons(sock->priv[SOCK_PRIV_TCP_IDENT]);
 		response->flags_fragment = htons(0x0);
 		response->version_ihl = 0x45;
 		response->dscp_ecn = 0;
@@ -992,16 +1018,16 @@ static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 
 		/* Stick TCP header into payload */
 		struct tcp_header * tcp_header = (struct tcp_header*)&response->payload;
-		tcp_header->source_port = htons(sock->priv[0]);
+		tcp_header->source_port = htons(sock->priv[SOCK_PRIV_IPV4_PORT]);
 		tcp_header->destination_port = ((struct sockaddr_in*)&sock->dest)->sin_port;
-		tcp_header->seq_number = htonl(sock->priv32[0]);
-		tcp_header->ack_number = htonl(sock->priv32[1]);
+		tcp_header->seq_number = htonl(sock->priv32[SOCK_PRIV32_TCP_SEQ_NUM]);
+		tcp_header->ack_number = htonl(sock->priv32[SOCK_PRIV32_TCP_ACK_NUM]);
 		tcp_header->flags = htons(TCP_FLAGS_PSH | TCP_FLAGS_ACK | 0x5000);
 		tcp_header->window_size = htons(DEFAULT_TCP_WINDOW_SIZE);
 		tcp_header->checksum = 0;
 		tcp_header->urgent = 0;
 
-		sock->priv32[0] += size_to_send;
+		sock->priv32[SOCK_PRIV32_TCP_SEQ_NUM] += size_to_send;
 
 		/* Calculate checksum */
 		struct tcp_check_header check_hd = {
@@ -1055,7 +1081,7 @@ ssize_t sock_tcp_write(fs_node_t *node, off_t offset, size_t size, uint8_t *buff
 	return sock_tcp_send((sock_t*)node, &_header, 0);
 }
 
-long sock_tcp_getsockname(sock_t * sock, struct sockaddr *addr, socklen_t * addrlen) {
+static long sock_tcp_getsockname(sock_t * sock, struct sockaddr *addr, socklen_t * addrlen) {
 	in_addr_t ip4_addr = 0;
 	fs_node_t * nic = net_if_route(((struct sockaddr_in*)&sock->dest)->sin_addr.s_addr);
 	if (nic) {
@@ -1063,7 +1089,7 @@ long sock_tcp_getsockname(sock_t * sock, struct sockaddr *addr, socklen_t * addr
 	}
 
 	struct sockaddr_in out = {
-		AF_INET, htons(sock->priv[0]), { ip4_addr }, {0},
+		AF_INET, htons(sock->priv[SOCK_PRIV_IPV4_PORT]), { ip4_addr }, {0},
 	};
 
 	memcpy(addr, &out, *addrlen < sizeof(struct sockaddr_in) ? *addrlen : sizeof(struct sockaddr_in));
@@ -1071,7 +1097,7 @@ long sock_tcp_getsockname(sock_t * sock, struct sockaddr *addr, socklen_t * addr
 	return 0;
 }
 
-long sock_tcp_getpeername(sock_t * sock, struct sockaddr *addr, socklen_t * addrlen) {
+static long sock_tcp_getpeername(sock_t * sock, struct sockaddr *addr, socklen_t * addrlen) {
 	in_addr_t ip4_addr = ((struct sockaddr_in*)&sock->dest)->sin_addr.s_addr;
 	struct sockaddr_in out = {
 		AF_INET, ((struct sockaddr_in*)&sock->dest)->sin_port, { ip4_addr }, {0},
@@ -1079,6 +1105,80 @@ long sock_tcp_getpeername(sock_t * sock, struct sockaddr *addr, socklen_t * addr
 	memcpy(addr, &out, *addrlen < sizeof(struct sockaddr_in) ? *addrlen : sizeof(struct sockaddr_in));
 	if (*addrlen < sizeof(struct sockaddr_in)) *addrlen = sizeof(struct sockaddr_in);
 	return 0;
+}
+
+static long sock_tcp_bind(sock_t * sock, const struct sockaddr *addr, socklen_t addrlen) {
+	const struct sockaddr_in * addr_in = (const struct sockaddr_in*)addr;
+	dprintf("tcp_bind({port=%u})\n", ntohs(addr_in->sin_port));
+
+	if (sock->priv[SOCK_PRIV_IPV4_PORT]) return -EINVAL; /* Already bound */
+	unsigned short port = ntohs(addr_in->sin_port);
+
+	if (port == 0) return -EINVAL; /* No ephemeral binds for now */
+	if (port < 1024 && this_core->current_process->user != 0) return -EACCES;
+
+	spin_lock(tcp_port_lock);
+	if (hashmap_has(tcp_sockets, (void*)(uintptr_t)port)) {
+		spin_unlock(tcp_port_lock);
+		return -EADDRINUSE;
+	}
+
+	sock->priv[SOCK_PRIV_IPV4_PORT] = port;
+	sock->priv[SOCK_PRIV_TCP_STATE] = TCP_STATE_BOUND; /* needs an enum */
+	hashmap_set(tcp_sockets, (void*)(uintptr_t)port, sock);
+
+	spin_unlock(tcp_port_lock);
+
+	return 0;
+}
+
+static long sock_tcp_listen(sock_t * sock, int backlog) {
+	if (!sock->priv[SOCK_PRIV_IPV4_PORT]) return -EINVAL; /* Not a bound socket. */
+
+	return 0;
+}
+
+static long sock_tcp_accept(sock_t * sock, struct sockaddr *addr, socklen_t *addrlen) {
+	if (!sock->priv[SOCK_PRIV_IPV4_PORT]) return -EINVAL; /* Not a bound socket. */
+
+	// spin_lock(...)
+
+	// if backlog, pull from backlog...
+	unsigned long s = 0, ss = 0;
+	unsigned long ns = 0, nss = 0;
+
+	if (sock->timeout_s || sock->timeout_us) {
+		relative_time(sock->timeout_s,sock->timeout_us,&s,&ss);
+	}
+
+	while (!sock->rx_queue->length) {
+		int r = process_wait_nodes((process_t *)this_core->current_process, (fs_node_t*[]){(fs_node_t*)sock,NULL}, 200);
+		if (r > 0 && (s || ss)) {
+			relative_time(0,0,&ns,&nss);
+			if (ns > s || (ns == s && nss > ss)) {
+				return -EAGAIN;
+			}
+		}
+		if (r == -EINTR) return -ERESTARTSYS;
+		if (!sock->rx_queue->length) {
+			if (sock->priv[SOCK_PRIV_TCP_STATE] == TCP_STATE_FIN) {
+				/* Socket was closed while waiting */
+				return 0;
+			}
+		}
+	}
+
+	char * connect_request = net_sock_get(sock); /* connection request */
+
+	if (!connect_request) return -ECONNABORTED; /* I think? */
+
+	/* need to create a socket, add it to the list, etc. */
+
+	// otherwise sleep until something is available, just like with recv?
+
+	// spin_unlock(...)
+
+	return -EINVAL;
 }
 
 static int tcp_socket(int flags, int nb) {
@@ -1090,6 +1190,9 @@ static int tcp_socket(int flags, int nb) {
 	sock->sock_connect = sock_tcp_connect;
 	sock->sock_getsockname = sock_tcp_getsockname;
 	sock->sock_getpeername = sock_tcp_getpeername;
+	sock->sock_bind = sock_tcp_bind;
+	sock->sock_listen = sock_tcp_listen;
+	sock->sock_accept = sock_tcp_accept;
 	sock->_fnode.read = sock_tcp_read;
 	sock->_fnode.write = sock_tcp_write;
 
@@ -1117,7 +1220,7 @@ long net_so_ipv4_socket(struct SockData * sock, int optname, const void *optval,
 		case IP_RECVTTL:
 			if (optlen != sizeof(int)) return -EINVAL;
 			/* TODO ugh bad */
-			sock->priv32[2] = *(int*)optval;
+			sock->priv32[SOCK_PRIV32_IPV4_TTL] = *(int*)optval;
 			return 0;
 		default:
 			return -ENOPROTOOPT;
