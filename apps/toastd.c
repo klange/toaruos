@@ -40,7 +40,8 @@ struct ToastNotification {
 #define PAD_TOP   32
 #define TOAST_WIDTH  310
 #define TOAST_HEIGHT 110
-
+#define TOAST_BORDER     rgba(70,70,70,150)
+#define TOAST_BACKGROUND rgba(0,0,0,150)
 
 static void handle_msg(JSON_Value * msg) {
 	if (msg->type != JSON_TYPE_OBJECT) {
@@ -86,8 +87,8 @@ static void handle_msg(JSON_Value * msg) {
 	 * We won't even both double buffering... */
 	gfx_context_t * ctx = init_graphics_yutani(win);
 	draw_fill(ctx, rgba(0,0,0,0));
-	draw_rounded_rectangle(ctx,0,10, ctx->width,   ctx->height-20,   11, premultiply(rgba(120,120,120,150)));
-	draw_rounded_rectangle(ctx,1,11, ctx->width-2, ctx->height-22, 10, premultiply(rgba(0,0,0,150)));
+	draw_rounded_rectangle(ctx,0,10, ctx->width,   ctx->height-20, 11, TOAST_BORDER);
+	draw_rounded_rectangle(ctx,1,11, ctx->width-2, ctx->height-22, 10, TOAST_BACKGROUND);
 
 	int textOffset = 0;
 
