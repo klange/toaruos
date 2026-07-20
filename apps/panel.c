@@ -43,7 +43,9 @@
 /* These are local to the core panel, so we don't need to put them in the header */
 #define ALTTAB_WIDTH  250
 #define ALTTAB_HEIGHT 200
-#define ALTTAB_BACKGROUND premultiply(rgba(0,0,0,150))
+#define ALTTAB_BORDER     rgba(70,70,70,150)
+#define ALTTAB_BACKGROUND rgba(0,0,0,150)
+#define ALTTAB_SELECTED   rgba(100,100,100,150)
 #define ALTTAB_OFFSET 10
 #define ALTTAB_WIN_SIZE 140
 
@@ -209,7 +211,7 @@ static void close_altf2(void) {
 
 static void redraw_altf2(void) {
 	draw_fill(a2ctx, 0);
-	draw_rounded_rectangle(a2ctx,0,0, ALTF2_WIDTH, ALTF2_HEIGHT, 11, premultiply(rgba(120,120,120,150)));
+	draw_rounded_rectangle(a2ctx,0,0, ALTF2_WIDTH, ALTF2_HEIGHT, 11,     ALTTAB_BORDER);
 	draw_rounded_rectangle(a2ctx,1,1, ALTF2_WIDTH-2, ALTF2_HEIGHT-2, 10, ALTTAB_BACKGROUND);
 
 	tt_set_size(panel_context.font, 20);
@@ -261,7 +263,7 @@ static void redraw_alttab(void) {
 
 	/* Draw the background, right now just a dark semi-transparent box */
 	draw_fill(actx, 0);
-	draw_rounded_rectangle(actx,0,0, alttab->width, alttab->height, 11, premultiply(rgba(120,120,120,150)));
+	draw_rounded_rectangle(actx,0,0, alttab->width, alttab->height, 11, ALTTAB_BORDER);
 	draw_rounded_rectangle(actx,1,1, alttab->width-2, alttab->height-2, 10, ALTTAB_BACKGROUND);
 
 	for (unsigned int i = 0; i < window_count; ++i) {
@@ -277,7 +279,7 @@ static void redraw_alttab(void) {
 		}
 
 		if (i == (unsigned int)new_focused) {
-			draw_rounded_rectangle(actx, pos_x, pos_y, ALTTAB_WIN_SIZE + 20, ALTTAB_WIN_SIZE + 20, 7, premultiply(rgba(170,170,170,150)));
+			draw_rounded_rectangle(actx, pos_x, pos_y, ALTTAB_WIN_SIZE + 20, ALTTAB_WIN_SIZE + 20, 7, ALTTAB_SELECTED);
 		}
 
 		/* try very hard to get a window texture */
