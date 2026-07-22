@@ -1169,7 +1169,6 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 	ldso->hash    = (void*)(ldso->base + ldso->dyn[DT_HASH]);
 
 	if (!auxv[AT_BASE]) {
-		calculate_tls_size(ldso);
 		run_ctors(ldso);
 		__libc_init();
 		return syscall__exit(__ld_so_main(argc, argv));
@@ -1178,25 +1177,21 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 	struct DlLib * app = calloc(1, sizeof (struct DlLib));
 	app->name = argv[0];
 	app->next = NULL;
+	app->phdr = (void*)auxv[AT_PHDR];
+	app->phnum = auxv[AT_PHNUM];
 
-	calculate_tls_size(app);
-	calculate_tls_size(ldso);
-
-	/* Okay let's try to actually relocate and link the binary the kernel loaded next to us... */
-	phdrs = (void*)auxv[AT_PHDR];
-	size_t phnum = auxv[AT_PHNUM];
-
-	for (size_t i = 0; i < phnum; ++i) {
-		if (phdrs[i].p_type == PT_PHDR) {
-			app->base = auxv[AT_PHDR] - phdrs[i].p_vaddr;
+	for (size_t i = 0; i < app->phnum; ++i) {
+		if (app->phdr[i].p_type == PT_PHDR) {
+			app->base = auxv[AT_PHDR] - app->phdr[i].p_vaddr;
 			break;
 		}
 	}
 
+	calculate_tls_size(app);
 	all_libraries = app;
 	last_library = app;
 	do_preloads();
-	setup_lib(app, phdrs, phnum);
+	setup_lib(app, app->phdr, app->phnum);
 
 	return run_app(app, argc, argv, auxv[AT_ENTRY]);
 }
