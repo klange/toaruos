@@ -37,6 +37,7 @@ static int help(char * argv[]) {
 		"                   instead of the first argument.\n"
 		" --list            List dependencies (act as ldd).\n"
 		" --preload libs    Preload libraries.\n"
+		" --library-path p  Use p instead of LD_LIBRARY_PATH.\n"
 		"\n"
 		" --help            Show this help text.\n"
 	);
@@ -55,6 +56,7 @@ int __ld_so_main(int argc, char * argv[]) {
 		{"list",    no_argument,       0, 1000},
 		{"help",    no_argument,       0, 1001},
 		{"preload", required_argument, 0, 1002},
+		{"library-path", required_argument, 0, 1003},
 		{0,0,0,0}
 	};
 
@@ -70,6 +72,9 @@ int __ld_so_main(int argc, char * argv[]) {
 				return help(argv);
 			case 1002: /* --preload */
 				__ld_preload = optarg;
+				break;
+			case 1003:
+				__ld_library_path = optarg;
 				break;
 			default:
 				return usage(argv);

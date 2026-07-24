@@ -49,6 +49,8 @@ static DEFN_SYSCALL3(_open,SYS_OPEN,const char*,long,mode_t);
 static int emergency_fd = 0;
 #endif
 
+#define LD_SYSTEM_PATHS "/lib:/usr/lib"
+
 #define unlikely(cond) __builtin_expect((cond), 0)
 
 struct DlLib {
@@ -71,6 +73,9 @@ struct DlLib {
 
 	struct DlLib **dependencies; /* Allocated array of dependencies. */
 	size_t       depcount;
+	char *       rpath;
+	char *       runpath;
+	struct DlLib * parent;
 };
 
 #ifdef __x86_64__
@@ -95,6 +100,7 @@ static bool __libc_in_chain = false;       /* if the libc is in all_libraries li
 
 _hidden bool __is_ldd = false;             /* Whether we are operating as the 'ldd' utility. */
 _hidden char * __ld_preload = NULL;        /* LD_PRELOAD value */
+_hidden char * __ld_library_path = NULL;   /* LD_LIBRARY_PATH value */
 
 static DEFN_SYSCALL1(_exit,SYS_EXT,int);
 
@@ -566,6 +572,7 @@ static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent,
 	lib->name = strdup(name);
 	lib->ehdr = lib_header;
 	lib->base = load_addr;
+	lib->parent = parent;
 
 	Elf64_Phdr * phdrs = (void*)((uintptr_t)lib_header + lib_header->e_phoff);
 
@@ -624,6 +631,49 @@ static void ldd_failure(const char *name) {
 	fprintf(stderr, "\t%s => not found\n", name);
 }
 
+static struct DlLib * find_lib_in(const char * name, const char * path, struct DlLib * parent) {
+	char * xpath = strdup(path); /* Because strtok will modify it. */
+	char *p, *last;
+	for ((p = strtok_r(xpath, ":", &last)); p;
+	      p = strtok_r(NULL, ":", &last)) {
+		ssize_t r;
+		struct stat sb;
+
+		char * exe;
+		asprintf(&exe, "%s/%s", p, name);
+
+		r = stat(exe, &sb);
+		if (r != 0) {
+			free(exe);
+			continue;
+		}
+
+		/* Open file. */
+		int fd = open(exe, O_RDONLY | O_CLOEXEC);
+		if (fd < 0) {
+			free(exe);
+			continue;
+		}
+
+		/* Load library. */
+		struct DlLib * maybe = try_load(name, fd, parent, 0);
+		if (!maybe) {
+			free(exe);
+			continue;
+		}
+
+		/* Attach resolved path so we can report it. */
+		maybe->exe_path = exe;
+		if (unlikely(__is_ldd)) ldd_report(maybe);
+
+		free(xpath);
+		return maybe;
+	}
+
+	free(xpath);
+	return NULL;
+}
+
 /**
  * @brief Resolve and load libraries by name.
  *
@@ -676,53 +726,16 @@ static struct DlLib * find_lib(const char * name, struct DlLib * parent) {
 	}
 
 	/* Did not find it, let's go load it. */
-	char * path = "/lib:/usr/lib";
+	struct DlLib * maybe = NULL;
 
-	if (!target_is_suid) {
-		/* Only check @c LD_LIBRARY_PATH if we aren't in "secure mode". */
-		char * p = simple_getenv("LD_LIBRARY_PATH");
-		if (p) path = p;
+	for (struct DlLib * p = parent; p; p = p->parent) {
+		if (p->rpath && (maybe = find_lib_in(name, p->rpath, parent))) return maybe;
 	}
-
-	char * xpath = strdup(path); /* Because strtok will modify it. */
-	char *p, *last;
-	for ((p = strtok_r(xpath, ":", &last)); p;
-	      p = strtok_r(NULL, ":", &last)) {
-		ssize_t r;
-		struct stat sb;
-
-		char * exe;
-		asprintf(&exe, "%s/%s", p, name);
-
-		r = stat(exe, &sb);
-		if (r != 0) {
-			free(exe);
-			continue;
-		}
-
-		/* Open file. */
-		int fd = open(exe, O_RDONLY | O_CLOEXEC);
-		if (fd < 0) {
-			free(exe);
-			continue;
-		}
-
-		/* Load library. */
-		struct DlLib * maybe = try_load(name, fd, parent, 0);
-		if (!maybe) {
-			free(exe);
-			continue;
-		}
-
-		/* Attach resolved path so we can report it. */
-		maybe->exe_path = exe;
-		if (unlikely(__is_ldd)) ldd_report(maybe);
-
-		free(xpath);
-		return maybe;
+	if (__ld_library_path && (maybe = find_lib_in(name, __ld_library_path, parent))) return maybe;
+	for (struct DlLib * p = parent; p; p = p->parent) {
+		if (p->runpath && (maybe = find_lib_in(name, p->runpath, parent))) return maybe;
 	}
-
-	free(xpath);
+	if ((maybe = find_lib_in(name, LD_SYSTEM_PATHS, parent))) return maybe;
 
 	__ld_error = "no suitable library found";
 	return NULL;
@@ -797,6 +810,9 @@ static void setup_lib(struct DlLib * app, Elf64_Phdr *phdrs, size_t phnum) {
 	app->strings = (void*)(app->base + app->dyn[DT_STRTAB]);
 	app->syms    = (void*)(app->base + app->dyn[DT_SYMTAB]);
 	app->hash    = (void*)(app->base + app->dyn[DT_HASH]);
+
+	if (app->dyn[DT_RUNPATH]) app->runpath = (char *)(app->strings + app->dyn[DT_RUNPATH]);
+	else if (app->dyn[DT_RPATH]) app->rpath = (char *)(app->strings + app->dyn[DT_RPATH]);
 
 	/* Count deps */
 	size_t count = 0;
@@ -1147,7 +1163,10 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 	}
 
 	__trace_ld = !!simple_getenv("LD_DEBUG");
-	if (!target_is_suid) __ld_preload = simple_getenv("LD_PRELOAD");
+	if (!target_is_suid) {
+		__ld_preload = simple_getenv("LD_PRELOAD");
+		__ld_library_path = simple_getenv("LD_LIBRARY_PATH");
+	}
 	__make_tls();
 
 	extern char ** __argv;

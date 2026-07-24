@@ -354,6 +354,7 @@ typedef struct Elf64_Phdr {
 #define DT_FINI_ARRAY   26
 #define DT_INIT_ARRAYSZ 27
 #define DT_FINI_ARRAYSZ 28
+#define DT_RUNPATH      29
 #define DT_LOOS   0x60000000
 #define DT_HIOS   0x6FFFFFFF
 #define DT_LOPROC 0x70000000
