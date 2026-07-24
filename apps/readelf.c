@@ -217,9 +217,15 @@ static char * dynamicTagToStr(Elf64_Dyn * dynEntry, char * dynstr) {
 			break;
 		case DT_SONAME:
 			name = "(SONAME)";
+			sprintf(extra, "Library soname: [%s]", dynstr + dynEntry->d_un.d_val);
 			break;
 		case DT_RPATH:
 			name = "(RPATH)";
+			sprintf(extra, "Library rpath: [%s]", dynstr + dynEntry->d_un.d_val);
+			break;
+		case DT_RUNPATH:
+			name = "(RUNPATH)";
+			sprintf(extra, "Library runpath: [%s]", dynstr + dynEntry->d_un.d_val);
 			break;
 		case DT_SYMBOLIC:
 			name = "(SYMBOLIC)";
