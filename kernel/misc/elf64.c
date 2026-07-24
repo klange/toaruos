@@ -470,6 +470,12 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 		envp_ptrs[i] = (char*)userstack;
 	}
 
+	char * at_execfn = NULL;
+	if (this_core->current_process->name) {
+		PUSHSTR(this_core->current_process->name);
+		at_execfn = (char*)userstack;
+	}
+
 	PUSH(uint32_t, rand());
 	PUSH(uint32_t, rand());
 	PUSH(uint32_t, rand());
@@ -493,6 +499,7 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	push_auxv(AT_ENTRY,  base_addr + header.e_entry);
 	push_auxv(AT_BASE,   interp_base);
 	push_auxv(AT_PAGESZ, 4096);
+	if (at_execfn) push_auxv(AT_EXECFN, at_execfn);
 
 	PUSH(uintptr_t, 0); /* envp NULL */
 	for (int i = envc; i > 0; i--) {
