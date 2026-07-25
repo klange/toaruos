@@ -101,6 +101,7 @@ static bool __libc_in_chain = false;       /* if the libc is in all_libraries li
 _hidden bool __is_ldd = false;             /* Whether we are operating as the 'ldd' utility. */
 _hidden char * __ld_preload = NULL;        /* LD_PRELOAD value */
 _hidden char * __ld_library_path = NULL;   /* LD_LIBRARY_PATH value */
+_hidden char * __ld_inhibit_rpath = NULL;  /* --inhibit-rpath= */
 
 static DEFN_SYSCALL1(_exit,SYS_EXT,int);
 
@@ -479,7 +480,7 @@ static void calculate_tls_size(struct DlLib * app);
  * @param is_exec If this is an executable (from a direct call to ld.so with a command line.)
  * @returns DlLib object or NULL if loading failed.
  */
-static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent, int is_exec) {
+static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent, int is_exec, const char *exe) {
 	struct DlLib * lib = calloc(1, sizeof(struct DlLib));
 	size_t avail = sizeof(struct Elf64_Header) + 300;
 	Elf64_Header * lib_header = calloc(1, avail);
@@ -573,6 +574,7 @@ static struct DlLib * try_load(const char * name, int fd, struct DlLib * parent,
 	lib->ehdr = lib_header;
 	lib->base = load_addr;
 	lib->parent = parent;
+	lib->exe_path = exe ? strdup(exe) : NULL;
 
 	Elf64_Phdr * phdrs = (void*)((uintptr_t)lib_header + lib_header->e_phoff);
 
@@ -631,6 +633,122 @@ static void ldd_failure(const char *name) {
 	fprintf(stderr, "\t%s => not found\n", name);
 }
 
+/**
+ * @brief Check if a library is listed in --inhibit-rpath
+ *
+ * Scans the colon-separated --inhibit-rpath string for
+ * the given library (or looking for an empty string
+ * for the app itself).
+ *
+ * @param app App to search for
+ * @returns 1 if found, 0 otherwise
+ */
+static int inhibit_rpath_contains(struct DlLib * app) {
+	if (!__ld_inhibit_rpath) return 0;
+
+	const char * name = app->name;
+	if (app == all_libraries) name = "";
+
+	size_t slen = strlen(name);
+	char * l = __ld_inhibit_rpath;
+
+	while (1) {
+		char * end = strchrnul(l,':');
+		size_t len = end - l;
+		if (len == slen && !memcmp(l, name, len)) return 1;
+		if (!*end) return 0;
+		l = end + 1;
+	}
+}
+
+/**
+ * @brief Process $ORIGIN variable in an rpath or runpath.
+ *
+ * Applies $ORIGIN and ${ORIGIN} to the path string.
+ *
+ * @param app Library this rpath is from.
+ * @param rpath RPATH or RUNPATH string to process.
+ * @returns New string if variables, old string if none, NULL if @p rpath is NULL.
+ */
+static char * process_rpath(struct DlLib * app, char * rpath) {
+	if (!rpath) return NULL;
+	if (inhibit_rpath_contains(app)) return NULL;
+	if (!strchr(rpath, '$')) return rpath;
+
+	size_t count = 0;
+	char * p = rpath;
+	while (1) {
+		char * v = strchr(p, '$');
+		if (!v) break;
+		if (!strncmp(v, "$ORIGIN", 7)) {
+			count++;
+			p = v + 7;
+		} else if (!strncmp(v, "${ORIGIN}", 9)) {
+			count++;
+			p = v + 9;
+		} else {
+			return NULL; /* invalid variable, reject rpath */
+		}
+	}
+
+	/* Reject rpath with $ORIGIN reference when we don't have an origin. */
+	if (!app->exe_path) return NULL;
+
+	/* Reject rpath with $ORIGIN in main app when in secure mode. */
+	if (target_is_suid && app == all_libraries) return NULL;
+
+	/* Reject rpath with $ORIGIN when origin is not absolute path when in secure mode. */
+	if (target_is_suid && *app->exe_path != '/') return NULL;
+
+	/* Find the directory part of the origin path */
+	char * origin = app->exe_path;
+	size_t dir_len = 0;
+	char * dir_end = strrchr(origin, '/');
+	if (dir_end) {
+		dir_len = dir_end - origin;
+	} else {
+		origin = ".";
+		dir_len = 1;
+	}
+
+	char * new_rpath = malloc(strlen(rpath) + count * dir_len + 1);
+	char * o = new_rpath;
+
+	p = rpath;
+	while (1) {
+		char * v = strchr(p, '$');
+		if (!v) {
+			memcpy(o, p, strlen(p) + 1);
+			break;
+		}
+		size_t s = (v[1] == '{') ? 9 : 7;
+		memcpy(o, p, v - p); /* Copy prefix */
+		o += v - p;
+		memcpy(o, origin, dir_len); /* Copy origin */
+		o += dir_len;
+		p = v + s; /* Skip variable */
+	}
+
+	if (unlikely(__trace_ld)) {
+		__dl_dprintf("ld.so: %s: transformed rpath: %s\n",
+			app->name, new_rpath);
+	}
+
+	return new_rpath;
+}
+
+
+/**
+ * @brief Search a colon-separated path for a library.
+ *
+ * Iterates through the colon-separated directories in @p path
+ * to look for the shared object @p name and load it.
+ *
+ * @param name Shared object to look for.
+ * @param path Colon-separated path list, searched left to right.
+ * @param parent Object directly responsible for causing this one to be loaded.
+ * @returns New DlLib if found, NULL otherwise.
+ */
 static struct DlLib * find_lib_in(const char * name, const char * path, struct DlLib * parent) {
 	char * xpath = strdup(path); /* Because strtok will modify it. */
 	char *p, *last;
@@ -656,16 +774,15 @@ static struct DlLib * find_lib_in(const char * name, const char * path, struct D
 		}
 
 		/* Load library. */
-		struct DlLib * maybe = try_load(name, fd, parent, 0);
+		struct DlLib * maybe = try_load(name, fd, parent, 0, exe);
 		if (!maybe) {
 			free(exe);
 			continue;
 		}
 
-		/* Attach resolved path so we can report it. */
-		maybe->exe_path = exe;
 		if (unlikely(__is_ldd)) ldd_report(maybe);
 
+		free(exe);
 		free(xpath);
 		return maybe;
 	}
@@ -686,8 +803,6 @@ static struct DlLib * find_lib_in(const char * name, const char * path, struct D
  * If @p name refers to a library that has already been loaded,
  * then the existing library object is returned and no further
  * loading happens.
- *
- * TODO This doesn't handle any of the fun rpath/origin things.
  *
  * @param name Name of library to look for.
  * @param parent (Unused, but should be library that caused this one to be searched.)
@@ -720,7 +835,7 @@ static struct DlLib * find_lib(const char * name, struct DlLib * parent) {
 			return NULL;
 		}
 
-		struct DlLib * lib = try_load(name, fd, parent, 0);
+		struct DlLib * lib = try_load(name, fd, parent, 0, name);
 		if (unlikely(__is_ldd) && lib) ldd_report(lib);
 		return lib;
 	}
@@ -728,13 +843,20 @@ static struct DlLib * find_lib(const char * name, struct DlLib * parent) {
 	/* Did not find it, let's go load it. */
 	struct DlLib * maybe = NULL;
 
-	for (struct DlLib * p = parent; p; p = p->parent) {
-		if (p->rpath && (maybe = find_lib_in(name, p->rpath, parent))) return maybe;
+	/* If the direct parent does not have a RUNPATH, search parent rpaths */
+	if (parent && !parent->runpath) {
+		for (struct DlLib * p = parent; p; p = p->parent) {
+			if (p->rpath && (maybe = find_lib_in(name, p->rpath, parent))) return maybe;
+		}
 	}
+
+	/* Search LD_LIBRARY_PATH if it is set. */
 	if (__ld_library_path && (maybe = find_lib_in(name, __ld_library_path, parent))) return maybe;
-	for (struct DlLib * p = parent; p; p = p->parent) {
-		if (p->runpath && (maybe = find_lib_in(name, p->runpath, parent))) return maybe;
-	}
+
+	/* If the direct parent has RUNPATH, search there. */
+	if (parent && parent->runpath && (maybe = find_lib_in(name, parent->runpath, parent))) return maybe;
+
+	/* Search the default path. */
 	if ((maybe = find_lib_in(name, LD_SYSTEM_PATHS, parent))) return maybe;
 
 	__ld_error = "no suitable library found";
@@ -813,6 +935,9 @@ static void setup_lib(struct DlLib * app, Elf64_Phdr *phdrs, size_t phnum) {
 
 	if (app->dyn[DT_RUNPATH]) app->runpath = (char *)(app->strings + app->dyn[DT_RUNPATH]);
 	else if (app->dyn[DT_RPATH]) app->rpath = (char *)(app->strings + app->dyn[DT_RPATH]);
+
+	app->runpath = process_rpath(app, app->runpath);
+	app->rpath   = process_rpath(app, app->rpath);
 
 	/* Count deps */
 	size_t count = 0;
@@ -1061,7 +1186,7 @@ static void do_preloads(void) {
  */
 __attribute__((visibility("hidden")))
 int __libc_load_from_file(int fd, const char * name, int argc, char *argv[]) {
-	struct DlLib * app = try_load(name, fd, NULL, 1);
+	struct DlLib * app = try_load(name, fd, NULL, 1, name);
 
 	if (!app) {
 		__dl_dprintf("ld.so: nope\n");
@@ -1156,6 +1281,7 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 				_fmt(AT_PHNUM,"zu");
 				_fmt(AT_BASE,"#zx");
 				_fmt(AT_ENTRY,"#zx");
+				_fmt(AT_EXECFN,"s");
 				default:
 					__dl_dprintf("%#zx: %#zx\n", auxv_raw[i], auxv_raw[i+1]);
 			}
@@ -1198,6 +1324,7 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 	app->next = NULL;
 	app->phdr = (void*)auxv[AT_PHDR];
 	app->phnum = auxv[AT_PHNUM];
+	app->exe_path = (void*)auxv[AT_EXECFN]; /* may be relative */
 
 	for (size_t i = 0; i < app->phnum; ++i) {
 		if (app->phdr[i].p_type == PT_PHDR) {

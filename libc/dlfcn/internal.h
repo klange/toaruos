@@ -8,6 +8,7 @@ int __ld_so_main(int argc, char * argv[]);
 extern bool __is_ldd;
 extern char *__ld_preload;
 extern char *__ld_library_path;
+extern char *__ld_inhibit_rpath;
 
 /* stubs wanted by gcc */
 int __cxa_atexit(void (*fn)(void *), void * arg, void *d);

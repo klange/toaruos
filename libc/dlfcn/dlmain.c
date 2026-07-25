@@ -38,6 +38,7 @@ static int help(char * argv[]) {
 		" --list            List dependencies (act as ldd).\n"
 		" --preload libs    Preload libraries.\n"
 		" --library-path p  Use p instead of LD_LIBRARY_PATH.\n"
+		" --inhibit-rpath l Ignore RPATH/RUNPATH in libraries in 'l'.\n"
 		"\n"
 		" --help            Show this help text.\n"
 	);
@@ -57,6 +58,7 @@ int __ld_so_main(int argc, char * argv[]) {
 		{"help",    no_argument,       0, 1001},
 		{"preload", required_argument, 0, 1002},
 		{"library-path", required_argument, 0, 1003},
+		{"inhibit-rpath", required_argument, 0, 1004},
 		{0,0,0,0}
 	};
 
@@ -75,6 +77,9 @@ int __ld_so_main(int argc, char * argv[]) {
 				break;
 			case 1003:
 				__ld_library_path = optarg;
+				break;
+			case 1004:
+				__ld_inhibit_rpath = optarg;
 				break;
 			default:
 				return usage(argv);
