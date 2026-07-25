@@ -2877,6 +2877,14 @@ uint32_t shell_cmd_type(int argc, char * argv[]) {
 	return res;
 }
 
+uint32_t shell_cmd_true(int argc, char * argv[]) {
+	return 0;
+}
+
+uint32_t shell_cmd_false(int argc, char * argv[]) {
+	return 1;
+}
+
 #define TEST_IS_ESH
 #include "test.c"
 
@@ -2913,4 +2921,7 @@ void install_commands() {
 	shell_install_command("type",    shell_cmd_type, "note whether a command is a built-in or not");
 	shell_install_command("test",    shell_cmd_test, "evaluate expression");
 	shell_install_command("[",       shell_cmd_test, "evaluate expression");
+	shell_install_command(":",       shell_cmd_true, "do nothing successfully");
+	shell_install_command("true",    shell_cmd_true, "do nothing successfully");
+	shell_install_command("false",   shell_cmd_false, "do nothing unsuccessfully");
 }
