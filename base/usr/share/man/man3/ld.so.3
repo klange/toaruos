@@ -24,7 +24,16 @@ Operate as
 
 .TP
 .B \-\-preload \fIlibraries\fP
-Same as settings \fBLD_PRELOAD\fP.
+Overrides \fBLD_PRELOAD\fP.
+
+.TP
+.B \-\-library\-path \fIpath\fP
+Overrides \fBLD_LIBRARY_PATH\fP.
+
+.TP
+.B \-\-inhibit\-rpath \fIlibraries\fP
+Prevent \fBDT_RPATH\fP and \fBDT_RUNPATH\fP from being honored for the given \fIlibraries\fP.
+To include the main executable in this list, use an empty string.
 
 .SH ENVIRONMENT
 .TP
