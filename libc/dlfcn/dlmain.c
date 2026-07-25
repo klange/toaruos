@@ -33,14 +33,14 @@ static int help(char * argv[]) {
 	fprintf(stderr,
 		"\nSupported options:\n"
 		"\n"
-		" -e exe            Use 'exe' as the binary to load\n"
-		"                   instead of the first argument.\n"
-		" --list            List dependencies (act as ldd).\n"
-		" --preload libs    Preload libraries.\n"
-		" --library-path p  Use p instead of LD_LIBRARY_PATH.\n"
-		" --inhibit-rpath l Ignore RPATH/RUNPATH in libraries in 'l'.\n"
+		" -e exe                 Use 'exe' as the binary to load\n"
+		"                        instead of the first argument.\n"
+		" --list                 List dependencies (act as ldd).\n"
+		" --preload libs         Preload libraries from 'libs'.\n"
+		" --library-path paths   Use 'paths' instead of LD_LIBRARY_PATH.\n"
+		" --inhibit-rpath libs   Ignore RPATH/RUNPATH in libraries in 'libs'.\n"
 		"\n"
-		" --help            Show this help text.\n"
+		" --help                 Show this help text.\n"
 	);
 	return 0;
 }
@@ -53,12 +53,12 @@ int __ld_so_main(int argc, char * argv[]) {
 	if (argc && !strcmp(basename(argv[0]),"ldd")) __is_ldd = true;
 
 	struct option long_opts[] = {
-		{"exe",     required_argument, 0, 'e'},
-		{"list",    no_argument,       0, 1000},
-		{"help",    no_argument,       0, 1001},
-		{"preload", required_argument, 0, 1002},
-		{"library-path", required_argument, 0, 1003},
-		{"inhibit-rpath", required_argument, 0, 1004},
+		{"exe",             required_argument, 0, 'e'},
+		{"list",            no_argument,       0, 1000},
+		{"help",            no_argument,       0, 1001},
+		{"preload",         required_argument, 0, 1002},
+		{"library-path",    required_argument, 0, 1003},
+		{"inhibit-rpath",   required_argument, 0, 1004},
 		{0,0,0,0}
 	};
 
