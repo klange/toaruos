@@ -25,6 +25,7 @@
 #include <sys/wait.h>
 #include <sys/fswait.h>
 #include <sys/shm.h>
+#include <sys/auxv.h>
 
 /* auto-dep: export-dynamic */
 #include <dlfcn.h>
@@ -76,6 +77,7 @@ static yutani_window_t * alt_f2 = NULL;
 static size_t bg_size;
 static char * bg_blob = NULL;
 static int do_background_refresh = 0;
+static int do_restart = 0;
 static char * prev_bg_blob = NULL;
 static uint64_t bg_timer = 0;
 
@@ -817,6 +819,10 @@ static void sig_usr1(int sig) {
 	signal(SIGUSR1, sig_usr1);
 }
 
+static void sig_cat(int sig) {
+	do_restart = 1;
+}
+
 static int mouse_event_ignore(struct PanelWidget * this, struct yutani_msg_window_mouse_event * evt) {
 	return 0;
 }
@@ -1046,6 +1052,7 @@ int main (int argc, char ** argv) {
 	signal(SIGINT, sig_int);
 	signal(SIGUSR1, sig_usr1);
 	signal(SIGUSR2, sig_usr2);
+	signal(SIGCAT, sig_cat);
 
 	widgets_enabled = list_create();
 
@@ -1090,6 +1097,14 @@ int main (int argc, char ** argv) {
 	fprintf(stderr, "entering loop?\n");
 
 	while (_continue) {
+
+		if (do_restart) {
+			char * at_execfn = (char*)getauxval(AT_EXECFN);
+			if (!at_execfn) at_execfn = "/bin/panel";
+			execl(at_execfn,"panel","--really",NULL);
+			/* In case we fail to exec */
+			do_restart = 0;
+		}
 
 		if (do_background_refresh) {
 			if (!panel_context.true_blur) {
