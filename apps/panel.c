@@ -36,6 +36,7 @@
 #include <toaru/icon_cache.h>
 #include <toaru/menu.h>
 #include <toaru/text.h>
+#include <toaru/json.h>
 
 /* Several theming defines are in here */
 #include <toaru/panel.h>
@@ -933,6 +934,68 @@ int panel_menu_show(struct PanelWidget * this, struct MenuList * menu) {
 	return panel_menu_show_at(menu, this->left + this->width / 2);
 }
 
+static const char ** load_config(void) {
+	static const char * default_widgets[] = {
+		"appmenu",
+		"windowlist",
+		"volume",
+		"network",
+		"weather",
+		"date",
+		"clock",
+		"logout",
+		NULL
+	};
+
+	const char ** widgets = default_widgets;
+	char * config_path = NULL;
+	struct JSON_Value * config_json = NULL;
+	char * home = getenv("HOME");
+
+	if (!home) goto config_done;
+
+	asprintf(&config_path, "%s/.panel.json", home);
+
+	if (access(config_path, R_OK)) goto config_done;
+
+	config_json = json_parse_file_flags(config_path, TOARU_JSON_LENIENT);
+	if (!config_json) goto config_done;
+	if (config_json->type != JSON_TYPE_OBJECT) goto config_done;
+
+	/* True transparent background or baked gradient */
+	struct JSON_Value * true_blur = hashmap_get(config_json->object, "true-blur");
+	if (true_blur && true_blur->type == JSON_TYPE_BOOL) {
+		panel_context.true_blur = true_blur->boolean;
+	}
+
+	/* Widgets */
+	struct JSON_Value * widget_list = hashmap_get(config_json->object, "widgets");
+	if (!widget_list) goto config_done;
+	if (widget_list->type != JSON_TYPE_ARRAY) goto config_done;
+
+	/* Sanity check */
+	foreach(node, widget_list->array) {
+		struct JSON_Value * val = node->value;
+		if (val->type != JSON_TYPE_STRING) goto config_done;
+	}
+
+	/* Actually collect the list */
+	widgets = calloc(widget_list->array->length + 1, sizeof(char*));
+	size_t i = 0;
+
+	foreach(node, widget_list->array) {
+		struct JSON_Value * val = node->value;
+		widgets[i++] = strdup(val->string);
+	}
+
+config_done:
+	if (config_json) json_free(config_json);
+	free(config_path);
+
+	return widgets;
+}
+
+
 int main (int argc, char ** argv) {
 	if (argc < 2 || strcmp(argv[1],"--really")) {
 		fprintf(stderr,
@@ -957,8 +1020,8 @@ int main (int argc, char ** argv) {
 	/* Use a solid baked gradient from the wallpaper, instead of a true transparent + blurred background */
 	panel_context.true_blur = 0;
 
-	char * env_enable_blur = getenv("PANEL_TRUE_BLUR");
-	if (env_enable_blur && *env_enable_blur) panel_context.true_blur = 1;
+	/* Load config */
+	const char ** widgets_to_load = load_config();
 
 	/* For convenience, store the display size */
 	width  = yctx->display_width;
@@ -985,19 +1048,6 @@ int main (int argc, char ** argv) {
 	signal(SIGUSR2, sig_usr2);
 
 	widgets_enabled = list_create();
-
-	/* Initialize requested widgets */
-	const char * widgets_to_load[] = {
-		"appmenu",
-		"windowlist",
-		"volume",
-		"network",
-		"weather",
-		"date",
-		"clock",
-		"logout",
-		NULL
-	};
 
 	for (const char ** widget = widgets_to_load; *widget; widget++) {
 		char lib_name[200];
