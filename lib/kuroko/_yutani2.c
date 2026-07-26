@@ -522,6 +522,46 @@ KRK_Method(GraphicsContext,draw_sprite) {
 	return NONE_VAL();
 }
 
+KRK_Method(GraphicsContext,write) {
+	CHECK_GFX();
+
+	char * filename;
+	int use_backbuffer = 0;
+	int use_alpha = 0;
+	char * format = "targa";
+
+	if (!krk_parseArgs(
+		".s|$pps", (const char*[]){"filename","backbuffer","alpha","format"},
+		&filename,
+		&use_backbuffer,
+		&use_alpha,
+		&format)) {
+		return NONE_VAL();
+	}
+
+	if (strcmp(format, "targa")) {
+		return krk_runtimeError(vm.exceptions->valueError, "unsupported format");
+	}
+
+	FILE * f = fopen(filename, "w");
+
+	if (!f) {
+		return krk_runtimeError(vm.exceptions->ioError, "could not open file");
+	}
+
+	unsigned long flags = 0;
+
+	if (use_backbuffer) flags |= GFX_WRITE_FLAG_BACKBUF;
+	if (use_alpha) flags |= GFX_WRITE_FLAG_ALPHA;
+	flags |= GFX_WRITE_FORMAT_TARGA;
+
+	int result = gfx_buffer_write(f, self->ctx, flags);
+
+	fclose(f);
+
+	return INTEGER_VAL(result);
+}
+
 #undef CURRENT_CTYPE
 
 static void _yutani_Sprite_gcsweep(KrkInstance * _self) {
@@ -2105,6 +2145,7 @@ KRK_Module(_yutani2) {
 	BIND_METHOD(GraphicsContext,line);
 	BIND_METHOD(GraphicsContext,rect);
 	BIND_METHOD(GraphicsContext,draw_sprite);
+	BIND_METHOD(GraphicsContext,write);
 	BIND_METHOD(GraphicsContext,__setitem__);
 	BIND_METHOD(GraphicsContext,__getitem__);
 	krk_finalizeClass(GraphicsContext);
