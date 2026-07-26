@@ -175,7 +175,7 @@ static int widget_draw_cpu(struct PanelWidget * this, gfx_context_t * ctx) {
 	base_to_alpha(tctx);
 	free(tctx);
 
-	draw_sprite(sctx, tmp_surface, 0, 0);
+	draw_sprite_alpha_paint(sctx, tmp_surface, 0, 0, 1.0, this->pctx->color_icon_normal);
 
 	sprite_free(tmp_surface);
 	free(sctx);
