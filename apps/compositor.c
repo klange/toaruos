@@ -2196,12 +2196,12 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					}
 				} else {
 					yg->mouse_state = YUTANI_MOUSE_STATE_DRAGGING;
-					yg->mouse_moved = 1;
 					int32_t old_x = yg->mouse_click_x;
 					int32_t old_y = yg->mouse_click_y;
 					if (yg->mouse_window) {
 						yutani_device_to_window(yg->mouse_window, yg->mouse_x / MOUSE_SCALE, yg->mouse_y / MOUSE_SCALE, &yg->mouse_click_x, &yg->mouse_click_y);
 						if (old_x != yg->mouse_click_x || old_y != yg->mouse_click_y) {
+							yg->mouse_moved = 1;
 							yutani_msg_buildx_window_mouse_event_alloc(response);
 							yutani_msg_buildx_window_mouse_event(response,yg->mouse_window->wid, yg->mouse_click_x, yg->mouse_click_y, old_x, old_y, me->event.buttons, YUTANI_MOUSE_EVENT_DRAG, yg->active_modifiers);
 							pex_send(yg->server, yg->mouse_window->owner, response->size, (char *)response);
