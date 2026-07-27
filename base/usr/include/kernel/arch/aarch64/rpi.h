@@ -9,7 +9,9 @@ struct rpitag {
 	uint32_t size;
 	uint32_t ramdisk_start;
 	uint32_t ramdisk_end;
+	uint32_t cmdline;
+	uint32_t cmdline_size;
 };
 
 void rpi_load_ramdisk(struct rpitag * tag, uintptr_t * ramdisk_phys_base, size_t * ramdisk_size);
-void rpi_set_cmdline(char ** args_out);
+void rpi_set_cmdline(struct rpitag * tag, char ** args_out);

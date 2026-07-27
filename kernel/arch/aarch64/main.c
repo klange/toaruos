@@ -643,16 +643,14 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 		 *     figure out the platform and just do the stuff? */
 		struct rpitag * tag = (struct rpitag*)rpi_tag;
 		rpi_load_ramdisk(tag, &ramdisk_phys_base, &ramdisk_size);
+		rpi_set_cmdline(tag, &_arch_args);
 
 		/* TODO figure out memory size - mailbox commands */
-		mmu_init(0, 512 * 1024 * 1024,
+		mmu_init(0, 2048ULL * 1024 * 1024,
 			0x80000,
 			(uintptr_t)&end + ramdisk_size - 0xffffffff80000000UL);
 
 		dprintf("rpi: mmu reinitialized\n");
-
-		rpi_set_cmdline(&_arch_args);
-
 	} else {
 		/*
 		 * TODO virt shim should load the ramdisk for us, so we can use the same code

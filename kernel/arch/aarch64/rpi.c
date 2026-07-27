@@ -47,6 +47,13 @@ void rpi_load_ramdisk(struct rpitag * tag, uintptr_t * ramdisk_phys_base, size_t
 	dprintf("rpi: ramdisk_phys_base set to %#zx\n", *ramdisk_phys_base);
 }
 
-void rpi_set_cmdline(char ** args_out) {
-	*args_out = (char *)"vid=preset start=live-session migrate root=/dev/ram0";
+static char cmdline_buf[256] = {0};
+
+void rpi_set_cmdline(struct rpitag * tag, char ** args_out) {
+	if (tag->cmdline_size && tag->cmdline) {
+		memcpy(cmdline_buf, (void*)(uintptr_t)tag->cmdline, tag->cmdline_size);
+		*args_out = cmdline_buf;
+	} else {
+		*args_out = (char*)"vid=preset start=live-session migrate root=/dev/ram0";
+	}
 }
