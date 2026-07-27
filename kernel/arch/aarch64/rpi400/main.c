@@ -29,6 +29,9 @@
 #define MBOX_RESPONSE 0x80000000
 #define MBOX_REQUEST  0
 
+#define RES_X 1440
+#define RES_Y 900
+
 volatile uint32_t __attribute__((aligned(16))) mbox[36];
 
 static uint32_t mmio_read32(uintptr_t addr) {
@@ -73,15 +76,15 @@ int rpi_fb_init(void) {
 	MB(8);
 	MB(0);
 	int fb_width = i;
-	MB(1920);
+	MB(RES_X);
 	int fb_height = i;
-	MB(1080);
+	MB(RES_Y);
 
 	MB(0x48004);
 	MB(8);
 	MB(8);
-	MB(1920);
-	MB(1080);
+	MB(RES_X);
+	MB(RES_Y);
 
 	MB(0x48009);
 	MB(8);
@@ -98,7 +101,7 @@ int rpi_fb_init(void) {
 	MB(0x48006);
 	MB(4);
 	MB(4);
-	MB(1);
+	MB(0); /* 0 is bgr? */
 
 	MB(0x40001);
 	MB(8);
