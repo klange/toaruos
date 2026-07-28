@@ -189,15 +189,6 @@ void timer_start(void) {
 	/* Timer interrupts are private peripherals, so each CPU gets one */
 	gic_regs[64] = 0xFFFFffff; //(1 << TIMER_IRQ);
 	gic_regs[160] = 0xFFFFffff; //(1 << TIMER_IRQ);
-
-	/* These are shared? */
-	gic_regs[65]  = 0xFFFFFFFF;
-	gic_regs[66]  = 0xFFFFFFFF;
-	gic_regs[67]  = 0xFFFFFFFF;
-
-	gic_regs[520] = 0x07070707;
-	gic_regs[521] = 0x07070707;
-	gic_regs[543] = 0x07070707;
 }
 
 static volatile uint64_t time_slice_basis = 0; /**< When the last clock update happened */

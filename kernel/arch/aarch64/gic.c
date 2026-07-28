@@ -52,6 +52,9 @@ void gic_assign_interrupt(int irq, int (*callback)(process_t*,int,void*), void *
 	cb->data = data;
 	cb->next = NULL;
 
+	gic_regs[65 + irq / 32] |= (1 << (irq % 32));       /* GICD_ISENABLER */
+	gic_regs[520 + irq / 4] |= (7 << ((irq % 4) * 8));  /* GICD_ITARGETSR */
+
 	if (irq_callbacks[irq]) {
 		struct irq_callback * parent = irq_callbacks[irq];
 		while (parent->next) {
