@@ -595,6 +595,9 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 		lfb_resolution_b = tag->b;
 		lfb_memsize = tag->size;
 
+		/* Blank screen to clear bootstub output. */
+		memset(lfb_vid_memory, 0, lfb_memsize);
+
 		fbterm_initialize();
 	} else {
 		/* Uncomment to get serial log on startup; otherwise, you can set
