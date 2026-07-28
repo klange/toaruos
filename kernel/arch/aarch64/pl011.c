@@ -16,6 +16,7 @@
 #include <kernel/printf.h>
 #include <kernel/pty.h>
 #include <kernel/mmu.h>
+#include <kernel/string.h>
 
 #include <kernel/arch/aarch64/dtb.h>
 #include <kernel/arch/aarch64/gic.h>
@@ -43,18 +44,24 @@ static ssize_t pl011_write_out(pty_t * pty, uint8_t c) {
 	return 1;
 }
 
+struct Pl011ThreadCtx {
+	volatile uint32_t * uart_mapped;
+	int irq_no;
+};
+
 static void pl011_thread(void * arg) {
-	volatile uint32_t * uart_mapped = (volatile uint32_t *)arg;
+	struct Pl011ThreadCtx * ctx = arg;
+	volatile uint32_t * uart_mapped = ctx->uart_mapped;
 	pty_t * pty = pty_new(NULL, 0);
 	pty->write_out = pl011_write_out;
 	pty->fill_name = pl011_fill_name;
 	pty->slave->gid = 2; /* dialout group */
 	pty->slave->mask = 0660;
-	pty->_private = arg;
+	pty->_private = (void*)uart_mapped;
 	vfs_mount("/dev/ttyS0", pty->slave, "pl011", "");
 
 	/* Set up interrupt callback */
-	gic_assign_interrupt(1, pl011_irq, (void*)uart_mapped);
+	gic_assign_interrupt(ctx->irq_no, pl011_irq, (void*)uart_mapped);
 
 	/* Enable interrupts */
 	uart_mapped[14] |= (1 << 4);
@@ -71,13 +78,19 @@ static void pl011_thread(void * arg) {
 	}
 }
 
-void pl011_start(void) {
-	uint32_t * uart = dtb_find_node_prefix("pl011");
-	if (!uart) return;
+void pl011_start(uint32_t rpi_tag) {
+	uintptr_t uart_base;
 
-	/* I know this is going to be 0x09000000, but let's find it anyway */
-	uint32_t * reg = dtb_node_find_property(uart, "reg");
-	uintptr_t  uart_base = swizzle(reg[3]);
+	if (rpi_tag) {
+		uart_base = 0xfe201000;
+	} else {
+		uint32_t * uart = dtb_find_node_prefix("pl011");
+		if (!uart) return;
+
+		/* I know this is going to be 0x09000000, but let's find it anyway */
+		uint32_t * reg = dtb_node_find_property(uart, "reg");
+		uart_base = swizzle(reg[3]);
+	}
 	volatile uint32_t * uart_mapped = (volatile uint32_t*)mmu_map_mmio_region(uart_base, 0x1000);
 
 	/*
@@ -95,7 +108,11 @@ void pl011_start(void) {
 	uart_mapped[11] = 0x70;  /* UARTLCR - Stick parity disabled, 8-bit words, tx+rx FIFO enabled; one stop bit, (odd parity), parity disabled, no break */
 	uart_mapped[12] = 0x301; /* UARTCR  - Enable tx/rx, enable UART */
 
-	spawn_worker_thread(pl011_thread, "[pl011]", (void*)uart_mapped);
+	struct Pl011ThreadCtx *ctx = malloc(sizeof(struct Pl011ThreadCtx));
+	ctx->uart_mapped = uart_mapped;
+	ctx->irq_no = rpi_tag ? 121 : 1;
+
+	spawn_worker_thread(pl011_thread, "[pl011]", (void*)ctx);
 }
 
 

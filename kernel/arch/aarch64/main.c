@@ -707,10 +707,6 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 
 		/* QEMU fwcfg interface */
 		fwcfg_device();
-
-		/* Set up serial input */
-		extern void pl011_start(void);
-		pl011_start();
 	} else {
 
 		extern void rpi_smp_init(void);
@@ -722,6 +718,10 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 		extern void miniuart_start(void);
 		miniuart_start();
 	}
+
+	/* Set up serial input */
+	extern void pl011_start(uint32_t);
+	pl011_start(rpi_tag);
 
 	generic_main();
 
