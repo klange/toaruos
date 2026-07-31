@@ -109,7 +109,6 @@ static char * read_string(pid_t pid, uintptr_t ptr) {
 #endif
 
 static int find_symbol(pid_t pid, uintptr_t addr_in, char ** name, uintptr_t *addr_out, char ** objname) {
-
 	intptr_t  current_max = INTPTR_MAX;
 	uintptr_t current_addr = (uintptr_t)NULL;
 	//uintptr_t current_xname = (uintptr_t)NULL;
@@ -117,10 +116,48 @@ static int find_symbol(pid_t pid, uintptr_t addr_in, char ** name, uintptr_t *ad
 	char * current_obj = NULL;
 	uintptr_t best_base = 0;
 
-	/* Can we cheat and peek at ld.so? */
-	if (addr_in < 0x40000000) {
-		current_obj = strdup("libc.so");
-		best_base = 0x10000000;
+	char maps_path[200];
+	snprintf(maps_path, 200, "/proc/%d/maps", pid);
+	FILE * maps = fopen(maps_path, "r");
+
+	if (maps) {
+		char * buf = NULL;
+		size_t avail = 0;
+		ssize_t len;
+
+		while ((len = getline(&buf, &avail, maps)) >= 0) {
+
+			char * start = buf;
+			char * x = strchrnul(buf,'-');
+			*x = '\0'; x++;
+
+			char * end = x;
+			x = strchrnul(end,' ');
+			*x = '\0'; x++;
+
+			/* skip perms */
+			x = strchrnul(x, ' '); x++;
+
+			char * offset = x;
+			x = strchrnul(x, ' '); x++;
+			x = strchrnul(x, ' '); x++;
+			x = strchrnul(x, ' '); x++;
+			char * nl = strchrnul(x, '\n');
+			if (*nl == '\n') *nl = '\0';
+
+			uintptr_t start_addr = strtoull(start, NULL, 16);
+			uintptr_t end_addr   = strtoull(end,   NULL, 16);
+			uintptr_t off_addr   = strtoull(offset,NULL, 16);
+
+			if (addr_in >= start_addr && addr_in < end_addr) {
+				current_obj = strdup(x);
+				best_base = start_addr - off_addr;
+				break;
+			}
+		}
+
+		free(buf);
+		fclose(maps);
 	}
 
 	/* Figure out where this object is in the objects map */
@@ -174,6 +211,7 @@ _bail:
 					if (!symtab[i].st_value) continue;
 					if ((symtab[i].st_info & 0xF) == STT_SECTION) continue;
 					if ((symtab[i].st_info & 0xF) == STT_NOTYPE) continue;
+					if ((symtab[i].st_info >> 4) == STB_WEAK) continue;
 					if (addr_in >= ((uintptr_t)symtab[i].st_value + best_base)) {
 						intptr_t x = addr_in - ((uintptr_t)symtab[i].st_value + best_base);
 						if (x < current_max) {
