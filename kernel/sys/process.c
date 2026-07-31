@@ -406,6 +406,15 @@ void process_release_directory(page_directory_t * dir) {
 	dir->refcount--;
 	if (dir->refcount < 1) {
 		mmu_free(dir->directory);
+		if (dir->mappings) {
+			for (memmap_t * map = dir->mappings; map;) {
+				memmap_t * next = map->next;
+				if (map->file) close_fs(map->file);
+				free(map);
+				map = next;
+			}
+			dir->mappings = NULL;
+		}
 		free(dir);
 	} else {
 		spin_unlock(dir->lock);
@@ -1402,6 +1411,30 @@ pid_t fork(void) {
 	new_proc->thread.page_directory = calloc(1, sizeof(page_directory_t));
 	new_proc->thread.page_directory->refcount = 1;
 	new_proc->thread.page_directory->directory = directory;
+
+	memmap_t * prev = NULL;
+	for (memmap_t * maps = parent->thread.page_directory->mappings; maps; maps = maps->next) {
+		memmap_t * nmap = calloc(1, sizeof(memmap_t));
+		nmap->base = maps->base;
+		nmap->length = maps->length;
+		nmap->flags = maps->flags;
+		nmap->prot = maps->prot;
+		nmap->file = maps->file;
+		nmap->offset = maps->offset;
+		nmap->owner = new_proc->thread.page_directory;
+
+		if (nmap->file) open_fs(nmap->file, 0);
+
+		if (!prev) {
+			new_proc->thread.page_directory->mappings = nmap;
+		} else {
+			prev->next = nmap;
+			nmap->prev = prev;
+		}
+
+		prev = nmap;
+	}
+
 	spin_init(new_proc->thread.page_directory->lock);
 
 	new_proc->signals = calloc(NUMSIGNALS + 1, sizeof(struct signal_config));

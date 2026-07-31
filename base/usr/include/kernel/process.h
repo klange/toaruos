@@ -28,6 +28,7 @@ typedef struct {
 	intptr_t refcount;
 	union PML * directory;
 	spin_lock_t lock;
+	struct memmap * mappings;
 } page_directory_t;
 
 typedef struct {
@@ -190,6 +191,20 @@ typedef struct {
 	process_t * process;
 	int is_fswait;
 } sleeper_t;
+
+typedef struct memmap {
+	page_directory_t * owner;
+	int flags;
+	int prot;
+
+	uintptr_t base;
+	intptr_t  length;
+	off_t     offset;
+	fs_node_t * file;
+
+	struct memmap * prev;
+	struct memmap * next;
+} memmap_t;
 
 struct ProcessorLocal {
 	/**
