@@ -33,6 +33,7 @@ enum header_columns {
 	COLUMN_TID,
 	COLUMN_USER,
 	COLUMN_VSZ,
+	COLUMN_RES,
 	COLUMN_SHM,
 	COLUMN_MEM,
 	COLUMN_CPUA,
@@ -91,6 +92,7 @@ struct columns {
 	[COLUMN_PID]  = {"PID",  offsetof(struct process, tgid),  FORMATTER_DECIMAL, 0, SORT_ASC},
 	[COLUMN_TID]  = {"TID",  offsetof(struct process, pid),   FORMATTER_DECIMAL, 0, SORT_ASC},
 	[COLUMN_VSZ]  = {"VSZ",  offsetof(struct process, vsz),   FORMATTER_MEM, 0, SORT_DEC},
+	[COLUMN_RES]  = {"RES",  offsetof(struct process, res),   FORMATTER_MEM, 0, SORT_DEC},
 	[COLUMN_SHM]  = {"SHM",  offsetof(struct process, shm),   FORMATTER_MEM, 0, SORT_DEC},
 	[COLUMN_MEM]  = {"%MEM", offsetof(struct process, mem),   FORMATTER_PERCENT, 0, SORT_DEC},
 	[COLUMN_CPU]  = {"%CPU", offsetof(struct process, cpu),   FORMATTER_PERCENT, 0, SORT_DEC},
@@ -99,8 +101,8 @@ struct columns {
 	[COLUMN_S]    = {"S",    offsetof(struct process, state),FORMATTER_STRING,  0, SORT_ASC},
 };
 
-static int columns_default[] = { COLUMN_PID, COLUMN_USER, COLUMN_VSZ, COLUMN_SHM, COLUMN_S, COLUMN_CPU, COLUMN_CPUA, COLUMN_MEM, COLUMN_NONE };
-static int columns_threads[] = { COLUMN_PID, COLUMN_TID, COLUMN_USER, COLUMN_VSZ, COLUMN_SHM, COLUMN_S, COLUMN_CPU, COLUMN_CPUA, COLUMN_MEM, COLUMN_NONE };
+static int columns_default[] = { COLUMN_PID, COLUMN_USER, COLUMN_VSZ, COLUMN_RES, COLUMN_SHM, COLUMN_S, COLUMN_CPU, COLUMN_CPUA, COLUMN_MEM, COLUMN_NONE };
+static int columns_threads[] = { COLUMN_PID, COLUMN_TID, COLUMN_USER, COLUMN_VSZ, COLUMN_RES, COLUMN_SHM, COLUMN_S, COLUMN_CPU, COLUMN_CPUA, COLUMN_MEM, COLUMN_NONE };
 static int * columns = NULL;
 
 /**
