@@ -162,6 +162,14 @@ static void proc_cmdline_func(fs_node_t *node) {
 extern void process_acquire_big_lock(void);
 extern void process_release_big_lock(void);
 
+static long count_mappings(memmap_t * maps) {
+	ssize_t total = 0;
+	for (; maps; maps = maps->next) {
+		total += maps->length;
+	}
+	return total / 1024; /* KiB */
+}
+
 static void proc_status_func(fs_node_t *node) {
 	process_acquire_big_lock();
 	process_t * proc = process_from_pid(node->inode);
@@ -197,7 +205,8 @@ static void proc_status_func(fs_node_t *node) {
 
 	/* Calculate process memory usage */
 	spin_lock(proc->thread.page_directory->lock);
-	long mem_usage = mmu_count_user(proc->thread.page_directory->directory) * 4;
+	long mem_usage = count_mappings(proc->thread.page_directory->mappings);
+	long res_usage = mmu_count_user(proc->thread.page_directory->directory) * 4;
 	long shm_usage = mmu_count_shm(proc->thread.page_directory->directory) * 4;
 	long mem_permille = 1000 * (mem_usage + shm_usage) / mmu_total_memory();
 	spin_unlock(proc->thread.page_directory->lock);
@@ -232,6 +241,7 @@ static void proc_status_func(fs_node_t *node) {
 			"UserStack:\t%#zx\n"
 			"Path:\t%s\n"
 			"VmSize:\t %ld kB\n"
+			"VmRSS:\t %ld kB\n"
 			"RssShmem:\t %ld kB\n"
 			"MemPermille:\t %ld\n"
 			"LastCore:\t %d\n"
@@ -263,7 +273,7 @@ static void proc_status_func(fs_node_t *node) {
 			proc->syscall_registers ? arch_syscall_arg5(proc->syscall_registers) : 0,
 			proc->syscall_registers ? arch_stack_pointer(proc->syscall_registers) : 0,
 			proc->cmdline ? proc->cmdline[0] : "(none)",
-			mem_usage, shm_usage, mem_permille,
+			mem_usage, res_usage, shm_usage, mem_permille,
 			proc->owner,
 			proc->time_total / arch_cpu_mhz(),
 			proc->time_sys / arch_cpu_mhz(),
