@@ -25,9 +25,11 @@
 #include <kernel/ksym.h>
 #include <kernel/syscall.h>
 #include <kernel/elf.h>
+#include <kernel/mman.h>
 #include <bits/errno.h>
 
 #include <sys/ptrace.h>
+#include <sys/mman.h>
 
 #include <kernel/arch/aarch64/regs.h>
 #include <kernel/arch/aarch64/dtb.h>
@@ -261,26 +263,6 @@ static void enable_el0_cache_maintenance(void) {
 		::: "x0", "x1");
 }
 
-static int map_more_stack(uintptr_t fromAddr) {
-	volatile process_t * volatile proc = this_core->current_process->process;
-	if (!proc) return 0;
-
-	/* Make sure nothing else is going to mess with this process's page tables */
-	spin_lock(proc->image.lock);
-
-	/* Map more stack! */
-	for (uintptr_t i = fromAddr; i < proc->image.userstack; i += 0x1000) {
-		union PML * page = mmu_get_page(i, MMU_GET_MAKE);
-		mmu_frame_allocate(page, MMU_FLAG_WRITABLE);
-	}
-
-	/* Update the saved stack address */
-	proc->image.userstack = fromAddr;
-
-	spin_unlock(proc->image.lock);
-	return 1;
-}
-
 void aarch64_sync_enter(struct regs * r) {
 	uint64_t esr, far, elr, spsr;
 	asm volatile ("mrs %0, ESR_EL1" : "=r"(esr));
@@ -340,9 +322,7 @@ void aarch64_sync_enter(struct regs * r) {
 		goto _resume_user;
 	}
 
-	if (far < 0x800000000000 && far > 0x700000000000) {
-		if (map_more_stack(far & 0xFFFFffffFFFFf000)) goto _resume_user;
-	}
+	if (!generic_page_fault(far, 0, r)) goto _resume_user;
 
 	/* Unexpected fault, eg. page fault. */
 	if (args_present("debug")) {
@@ -447,6 +427,8 @@ void aarch64_fault_enter(struct regs * r) {
 	asm volatile ("mrs %0, FAR_EL1" : "=r"(far));
 	asm volatile ("mrs %0, ELR_EL1" : "=r"(elr));
 	asm volatile ("mrs %0, SPSR_EL1" : "=r"(spsr));
+
+	if (!generic_page_fault(far, 1, r)) return;
 
 	arch_fatal_prepare();
 

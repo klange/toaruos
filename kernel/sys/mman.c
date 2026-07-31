@@ -16,20 +16,127 @@
 #include <kernel/string.h>
 #include <kernel/mman.h>
 
-long generic_page_fault(uintptr_t addr, int flags) {
+extern void mmu_unmap_user(uintptr_t addr, size_t size);
 
-	return 0;
+extern union PML * mmu_get_page_other_x(union PML * root, uintptr_t virtAddr, int flags);
+
+long mmap_fault_other(process_t * proc, uintptr_t addr, int flags) {
+	spin_lock(proc->image.lock);
+	int fail_on_retry = 0;
+
+_retry: (void)0;
+	for (memmap_t * maps = proc->thread.page_directory->mappings; maps; maps = maps->next) {
+		if (addr >= maps->base && addr < maps->base + maps->length) {
+			if (maps->prot == PROT_NONE) {
+				spin_unlock(proc->image.lock);
+				return 1;
+			}
+
+			size_t align_down = addr & ~0xFFF;
+			size_t map_offset = align_down - maps->base;
+			size_t map_fsoff  = maps->offset + map_offset;
+
+			int mmu_flags = 0;
+			if (maps->prot & PROT_WRITE) mmu_flags |= MMU_FLAG_WRITABLE;
+			if (!(maps->prot & PROT_EXEC)) mmu_flags |= MMU_FLAG_NOEXECUTE;
+
+			union PML * page = mmu_get_page_other_x(proc->thread.page_directory->directory, align_down, MMU_GET_MAKE);
+			mmu_frame_allocate(page, mmu_flags);
+
+			char * page_back = mmu_map_from_physical((uintptr_t)page->bits.page << 12);
+			if (maps->file) {
+				ssize_t r = read_fs(maps->file, map_fsoff, 0x1000, (void*)page_back);
+				if (r >= 0 && r < 0x1000) {
+					memset((void*)(page_back + r), 0, 0x1000 - r);
+				}
+			} else {
+				memset((void*)(page_back), 0, 0x1000);
+			}
+			mmu_flush(page_back);
+			spin_unlock(proc->image.lock);
+			return 0;
+		}
+	}
+
+	if (!fail_on_retry && addr < proc->image.userstack && addr >= proc->image.userstack - 0x10000) {
+		size_t align_down = addr & ~0xFFF;
+		mmap_anon(align_down, proc->image.userstack - align_down, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE|MAP_FIXED);
+		proc->image.userstack = align_down;
+		fail_on_retry = 1;
+		goto _retry;
+	}
+
+	spin_unlock(proc->image.lock);
+	return 1;
+}
+
+long generic_page_fault(uintptr_t addr, int flags, struct regs * r) {
+	return mmap_fault_other(this_core->current_process->process, addr, flags);
 }
 
 long mmap_sbrk(size_t size) {
 	return mmap_anon(0, size, PROT_READ|PROT_WRITE, MAP_PRIVATE);
 }
 
-extern void mmu_unmap_user(uintptr_t addr, size_t size);
+static int map_overlaps(memmap_t * map, uintptr_t addr, intptr_t length) {
+	return (map->base < addr + length && addr < map->base + map->length);
+}
+
+static void unmap_segments_locked(uintptr_t addr, intptr_t length, process_t * proc) {
+	memmap_t * prev = NULL;
+	memmap_t * next = NULL;
+	for (memmap_t * maps = proc->thread.page_directory->mappings; maps; maps = next) {
+		next = maps->next;
+		if (map_overlaps(maps, addr, length)) {
+			uintptr_t nend = addr + length;
+			uintptr_t oend = maps->base + maps->length;
+
+			if (addr <= maps->base && nend >= oend) {
+				if (!prev) this_core->current_process->thread.page_directory->mappings = maps->next;
+				else prev->next = maps->next;
+				if (maps->next) maps->next->prev = maps->prev;
+				if (maps->file) close_fs(maps->file);
+				free(maps);
+				continue;
+			} else if (addr <= maps->base && nend < oend) {
+				size_t into = nend - maps->base;
+				if (maps->file) maps->offset = maps->offset + into;
+				maps->base = nend;
+				maps->length = oend - nend;
+			} else if (addr > maps->base && nend >= oend) {
+				maps->length = addr - maps->base;
+			} else if (addr > maps->base && nend < oend) {
+				maps->length = addr - maps->base;
+				memmap_t * split = calloc(1, sizeof(memmap_t));
+
+				size_t into = nend - maps->base;
+				split->base   = nend;
+				split->length = oend - nend;
+				split->owner = maps->owner;
+				split->prot = maps->prot;
+				split->flags = maps->flags;
+				split->file = maps->file;
+				if (maps->file) {
+					split->offset = maps->offset + into;
+					open_fs(split->file, 0);
+				}
+
+				split->next = maps->next;
+				if (split->next) split->next->prev = split;
+				split->prev = maps;
+				maps->next = split;
+			}
+		}
+
+		prev = maps;
+	}
+	mmu_unmap_user(addr, length);
+}
+
 long mmap_unmap(uintptr_t addr, size_t length) {
 	process_t * proc = this_core->current_process->process;
 	spin_lock(proc->image.lock);
-	mmu_unmap_user(addr, length);
+	unmap_segments_locked(addr, length, proc);
 	spin_unlock(proc->image.lock);
 	return 0;
 }
@@ -57,6 +164,66 @@ static void sanity_check(union PML * page) {
 #endif
 }
 
+static void insert_mapping(uintptr_t addr, intptr_t length, int prot, int flags, fs_node_t * node, off_t offset) {
+	process_t * proc = this_core->current_process->process;
+	spin_lock(proc->image.lock);
+	unmap_segments_locked(addr, length, proc);
+
+	memmap_t * prev = NULL;
+	memmap_t * next = this_core->current_process->thread.page_directory->mappings;
+	for (memmap_t * maps = this_core->current_process->thread.page_directory->mappings; maps; maps = maps->next) {
+		if (maps->base > addr) break;
+		next = maps->next;
+		prev = maps;
+	}
+
+	if (prev && prev->base + prev->length == addr && prev->flags == flags && prev->prot == prot && prev->file == node && (!node || (prev->offset + length == offset))) {
+		/* merge backwards */
+		prev->length += length;
+
+		if (next && next->base == addr + length && next->flags == flags && next->prot == prot && next->file == node && (!node || (prev->offset + length == next->offset))) {
+			/* Also merge forward */
+			prev->length += next->length;
+			prev->next = next->next;
+			if (next->next) {
+				next->next->prev = prev;
+			}
+
+			if (next->file) close_fs(next->file);
+			free(next);
+		}
+	} else if (next && next->base == addr + length && next->flags == flags && next->prot == prot && next->file == node && (!node || (offset + length == next->offset))) {
+		/* Merge only forward */
+		next->base = addr;
+		next->length += length;
+		if (node) next->offset = offset;
+	} else {
+		memmap_t * new_mapping = calloc(1, sizeof(memmap_t));
+		new_mapping->base = addr;
+		new_mapping->length = length;
+		new_mapping->prot = prot;
+		new_mapping->flags = flags;
+		new_mapping->file = node;
+		if (node) {
+			new_mapping->offset = offset;
+			open_fs(node, 0);
+		}
+
+		new_mapping->owner = this_core->current_process->thread.page_directory;
+
+		if (!prev) {
+			this_core->current_process->thread.page_directory->mappings = new_mapping;
+		} else {
+			prev->next = new_mapping;
+			new_mapping->prev = prev;
+		}
+		new_mapping->next = next;
+		if (next) next->prev = new_mapping;
+	}
+
+	spin_unlock(proc->image.lock);
+}
+
 long mmap_anon(uintptr_t addr, size_t length, int prot, int flags) {
 	//dprintf("mmap(%#zx, %zu, %d, %d | MAP_ANONYMOUS, -1, 0);\n", addr, length, prot, flags);
 	process_t * proc = this_core->current_process->process;
@@ -71,26 +238,7 @@ long mmap_anon(uintptr_t addr, size_t length, int prot, int flags) {
 		spin_unlock(proc->image.lock);
 	}
 
-	/* A mapping with PROT_NONE does... nothing?
-	 * We need to at least mark the mapping as non-present or something. */
-	if (prot & PROT_NONE) return addr;
-
-	int mmu_flags = 0;
-	if (prot & PROT_WRITE) mmu_flags |= MMU_FLAG_WRITABLE;
-	if (!(prot & PROT_EXEC)) mmu_flags |= MMU_FLAG_NOEXECUTE;
-
-	for (uintptr_t i = 0; i < length; i += 0x1000) {
-		union PML * page = mmu_get_page(addr + i, MMU_GET_MAKE);
-		sanity_check(page);
-		mmu_frame_allocate(page, mmu_flags);
-		char * page_back = mmu_map_from_physical((uintptr_t)page->bits.page << 12);
-		memset((void*)(page_back), 0, 0x1000);
-		mmu_flush(page_back);
-	}
-
-	if (prot & PROT_EXEC) {
-		arch_clear_icache(addr, addr + length);
-	}
+	insert_mapping(addr, length, prot, flags, NULL, 0);
 
 	return addr;
 }
@@ -111,31 +259,7 @@ long mmap_file(uintptr_t addr, size_t length, int prot, int flags, fs_node_t * f
 		spin_unlock(proc->image.lock);
 	}
 
-	/* A mapping with PROT_NONE does... nothing?
-	 * We need to at least mark the mapping as non-present or something. */
-	if (prot & PROT_NONE) return addr;
-
-	int mmu_flags = 0;
-	if (prot & PROT_WRITE) mmu_flags |= MMU_FLAG_WRITABLE;
-	if (!(prot & PROT_EXEC)) mmu_flags |= MMU_FLAG_NOEXECUTE;
-
-	for (uintptr_t i = 0; i < length; i += 0x1000) {
-		union PML * page = mmu_get_page(addr + i, MMU_GET_MAKE);
-		sanity_check(page);
-		mmu_frame_allocate(page, mmu_flags);
-
-		char * page_back = mmu_map_from_physical((uintptr_t)page->bits.page << 12);
-		ssize_t r = read_fs(file, offset + i, 0x1000, (void*)page_back);
-		if (r >= 0 && r < 0x1000) {
-			memset((void*)(page_back + r), 0, 0x1000 - r);
-		}
-
-		mmu_flush(page_back);
-	}
-
-	if (prot & PROT_EXEC) {
-		arch_clear_icache(addr, addr + length);
-	}
+	insert_mapping(addr, length, prot, flags, file, offset);
 
 	return addr;
 }

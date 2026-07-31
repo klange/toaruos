@@ -25,6 +25,7 @@
 #include <kernel/ksym.h>
 #include <kernel/mmu.h>
 #include <kernel/syscall.h>
+#include <kernel/mman.h>
 
 #include <sys/time.h>
 #include <sys/utsname.h>
@@ -344,33 +345,6 @@ void arch_dump_traceback(void) {
 }
 
 /**
- * @brief Map in more pages for a userspace stack.
- *
- * Allows for soft expansion of the stack downards on a page fault.
- *
- * @param fromAddr The low address to map, should be page aligned.
- */
-static int map_more_stack(uintptr_t fromAddr) {
-	volatile process_t * volatile proc = this_core->current_process->process;
-	if (!proc) return 0;
-
-	/* Make sure nothing else is going to mess with this process's page tables */
-	spin_lock(proc->image.lock);
-
-	/* Map more stack! */
-	for (uintptr_t i = fromAddr; i < proc->image.userstack; i += 0x1000) {
-		union PML * page = mmu_get_page(i, MMU_GET_MAKE);
-		mmu_frame_allocate(page, MMU_FLAG_WRITABLE);
-	}
-
-	/* Update the saved stack address */
-	proc->image.userstack = fromAddr;
-
-	spin_unlock(proc->image.lock);
-	return 1;
-}
-
-/**
  * @brief Handle fatal exceptions.
  *
  * Prepares for a fatal event, prints information on the running
@@ -486,6 +460,7 @@ static void _page_fault(struct regs * r) {
 	uintptr_t faulting_address;
 	asm volatile("mov %%cr2, %0" : "=r"(faulting_address));
 
+
 	/* magic ret-from-sig address */
 	if (faulting_address == 0x516) {
 		return_from_signal_handler(r);
@@ -498,16 +473,11 @@ static void _page_fault(struct regs * r) {
 		if (!mmu_copy_on_write(faulting_address)) return;
 	}
 
+	if (!generic_page_fault(faulting_address, (r->cs == 0x08), r)) return;
+
 	/* Was this a kernel page fault? Those are always a panic. */
 	if (!this_core->current_process || r->cs == 0x08) {
 		panic("Page fault in kernel", r, faulting_address);
-	}
-
-	/* Page was present but not writable */
-
-	/* Quietly map more stack if it was a viable stack address. */
-	if (faulting_address < 0x800000000000 && faulting_address > 0x700000000000) {
-		if (map_more_stack(faulting_address & 0xFFFFffffFFFFf000)) return;
 	}
 
 	/* Otherwise, segfault the current process. */

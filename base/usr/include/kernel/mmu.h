@@ -40,6 +40,7 @@ void mmu_frame_map_address(union PML * page, unsigned int flags, uintptr_t physA
 void mmu_frame_free(union PML * page);
 uintptr_t mmu_map_to_physical(union PML * root, uintptr_t virtAddr);
 union PML * mmu_get_page(uintptr_t virtAddr, int flags);
+union PML * mmu_get_page_other_x(union PML * root, uintptr_t virtAddr, int flags);
 void mmu_set_directory(union PML * new_pml);
 void mmu_free(union PML * from);
 union PML * mmu_clone(union PML * from);

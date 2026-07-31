@@ -17,7 +17,9 @@
 #include <kernel/spinlock.h>
 #include <kernel/misc.h>
 #include <kernel/mmu.h>
+#include <kernel/mman.h>
 #include <kernel/arch/x86_64/pml.h>
+#include <sys/mman.h>
 
 extern void arch_tlb_shootdown(uintptr_t);
 
@@ -297,27 +299,20 @@ uintptr_t mmu_map_to_physical(union PML * root, uintptr_t virtAddr) {
 /**
  * @brief Obtain the page entry for a virtual address.
  *
- * Digs into the current page directory to obtain the page entry
- * for a requested address @p virtAddr. If new intermediary directories
- * need to be allocated and @p flags has @c MMU_GET_MAKE set, they
- * will be allocated with the user access bits set. Otherwise,
- * NULL will be returned. If the requested virtual address is within
- * a large page, NULL will be returned.
+ * Same as @c mmu_get_page but dealing with other address spaces.
  *
  * @param virtAddr Canonical virtual address offset.
  * @param flags See @c MMU_GET_MAKE
  * @returns the requested page entry, or NULL if doing so required allocating
  *          an intermediary paging level and @p flags did not have @c MMU_GET_MAKE set.
  */
-union PML * mmu_get_page(uintptr_t virtAddr, int flags) {
+union PML * mmu_get_page_other_x(union PML * root, uintptr_t virtAddr, int flags) {
 	uintptr_t realBits = virtAddr & CANONICAL_MASK;
 	uintptr_t pageAddr = realBits >> PAGE_SHIFT;
 	unsigned int pml4_entry = (pageAddr >> 27) & ENTRY_MASK;
 	unsigned int pdp_entry  = (pageAddr >> 18) & ENTRY_MASK;
 	unsigned int pd_entry   = (pageAddr >> 9)  & ENTRY_MASK;
 	unsigned int pt_entry   = (pageAddr) & ENTRY_MASK;
-
-	union PML * root = this_core->current_pml;
 
 	/* Get the PML4 entry for this address */
 	if (!root[pml4_entry].bits.present) {
@@ -373,6 +368,25 @@ union PML * mmu_get_page(uintptr_t virtAddr, int flags) {
 _noentry:
 	printf("no entry for requested page\n");
 	return NULL;
+}
+
+/**
+ * @brief Obtain the page entry for a virtual address.
+ *
+ * Digs into the current page directory to obtain the page entry
+ * for a requested address @p virtAddr. If new intermediary directories
+ * need to be allocated and @p flags has @c MMU_GET_MAKE set, they
+ * will be allocated with the user access bits set. Otherwise,
+ * NULL will be returned. If the requested virtual address is within
+ * a large page, NULL will be returned.
+ *
+ * @param virtAddr Canonical virtual address offset.
+ * @param flags See @c MMU_GET_MAKE
+ * @returns the requested page entry, or NULL if doing so required allocating
+ *          an intermediary paging level and @p flags did not have @c MMU_GET_MAKE set.
+ */
+union PML * mmu_get_page(uintptr_t virtAddr, int flags) {
+	return mmu_get_page_other_x(this_core->current_pml, virtAddr, flags);
 }
 
 /**
@@ -952,6 +966,7 @@ void mmu_unmap_user(uintptr_t addr, size_t size) {
 			} else if (refcount_dec(pt->bits.page) == 0) {
 				mmu_frame_clear((uintptr_t)pt->bits.page << PAGE_SHIFT);
 			}
+			pt->bits.page = 0;
 			pt->bits.present = 0;
 			pt->bits.writable = 0;
 
@@ -1391,12 +1406,26 @@ int mmu_validate_user_pointer(const void * addr, size_t size, int flags) {
 	for (uintptr_t page = page_base; page <= page_end; ++page) {
 		if ((page & 0xffff800000000) != 0 && (page & 0xffff800000000) != 0xffff800000000) return 0;
 		union PML * page_entry = mmu_get_page_other(this_core->current_process->thread.page_directory->directory, page << 12);
-		if (!page_entry) return 0;
-		if (!page_entry->bits.present) return 0;
+		if (!page_entry) goto _check_map;
+		if (!page_entry->bits.present) goto _check_map;
 		if (!page_entry->bits.user) return 0;
 		if (!page_entry->bits.writable && (flags & MMU_PTR_WRITE)) {
 			if (mmu_copy_on_write((uintptr_t)(page << 12))) return 0;
 		}
+		continue;
+
+_check_map: (void)0;
+		int _found = 0;
+		for (memmap_t * maps = this_core->current_process->thread.page_directory->mappings; maps; maps = maps->next) {
+			if ((page << 12) >= maps->base && (page << 12) < maps->base + maps->length) {
+				if (!(maps->prot & PROT_READ)) return 0;
+				if ((flags & MMU_PTR_WRITE) && !(maps->prot & PROT_WRITE)) return 0;
+				generic_page_fault(page << 12, 1, NULL);
+				_found = 1;
+				break;
+			}
+		}
+		if (!_found) return 0;
 	}
 
 	return 1;

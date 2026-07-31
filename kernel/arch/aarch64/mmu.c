@@ -15,6 +15,8 @@
 #include <kernel/spinlock.h>
 #include <kernel/misc.h>
 #include <kernel/mmu.h>
+#include <kernel/mman.h>
+#include <sys/mman.h>
 
 static volatile uint32_t *frames;
 static size_t nframes;
@@ -850,19 +852,24 @@ int mmu_validate_user_pointer(const void * addr, size_t size, int flags) {
 	for (uintptr_t page = page_base; page <= page_end; ++page) {
 		if ((page & 0xffff800000000) != 0 && (page & 0xffff800000000) != 0xffff800000000) return 0;
 		union PML * page_entry = mmu_get_page_other(this_core->current_process->thread.page_directory->directory, page << 12);
-		if (!page_entry) {
-			return 0;
+		if (!page_entry) goto _check_map;
+		if (!page_entry->bits.present) goto _check_map;
+		if (!(page_entry->bits.ap & 1)) return 0;
+		if ((page_entry->bits.ap & 2) && (flags & MMU_PTR_WRITE)) return 0;
+		continue;
+
+_check_map: (void)0;
+		int _found = 0;
+		for (memmap_t * maps = this_core->current_process->thread.page_directory->mappings; maps; maps = maps->next) {
+			if ((page << 12) >= maps->base && (page << 12) < maps->base + maps->length) {
+				if (!(maps->prot & PROT_READ)) return 0;
+				if ((flags & MMU_PTR_WRITE) && !(maps->prot & PROT_WRITE)) return 0;
+				generic_page_fault(page << 12, 1, NULL);
+				_found = 1;
+				break;
+			}
 		}
-		if (!page_entry->bits.present) {
-			return 0;
-		}
-		if (!(page_entry->bits.ap & 1)) {
-			return 0;
-		}
-		if ((page_entry->bits.ap & 2) && (flags & MMU_PTR_WRITE)) {
-			return 0;
-			//if (mmu_copy_on_write((uintptr_t)(page << 12))) return 0;
-		}
+		if (!_found) return 0;
 	}
 
 	return 1;
