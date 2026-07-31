@@ -20,9 +20,17 @@
 
 typedef struct JSON_Value Value;
 
+#include "../kernel/misc/args.c"
+
 #define LOCATION_DATA_PATH "/tmp/location-data.json"
 
 int main(int argc, char * argv[]) {
+	args_from_procfs();
+	if (hashmap_has(kernel_args_map,"tzoffset")) {
+		printf("%s\n", (char*)hashmap_get(kernel_args_map,"tzoffset"));
+		return 0;
+	}
+
 	/* See if the location data already exists... */
 	char cmdline[1024];
 	Value * locationData = json_parse_file(LOCATION_DATA_PATH);
