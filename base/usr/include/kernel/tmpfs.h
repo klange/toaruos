@@ -8,6 +8,7 @@ fs_node_t * tmpfs_create(char * name);
 
 struct tmpfs_file {
 	spin_lock_t lock;
+	ino_t  ino;
 	char * name;
 	int    type;
 	int    mask;
@@ -28,6 +29,7 @@ struct tmpfs_dir;
 
 struct tmpfs_dir {
 	spin_lock_t lock;
+	ino_t  ino;
 	char * name;
 	int    type;
 	int    mask;

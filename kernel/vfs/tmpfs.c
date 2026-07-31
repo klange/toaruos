@@ -32,6 +32,7 @@
 #define TMPFS_TYPE_LINK 3
 
 static volatile intptr_t tmpfs_total_blocks = 0;
+static volatile size_t   tmpfs_ino_counter = 1;
 
 static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d);
 
@@ -50,6 +51,7 @@ static struct tmpfs_file * tmpfs_file_new(const char * name) {
 	t->mtime = t->atime;
 	t->ctime = t->atime;
 	t->blocks = malloc(t->pointers * sizeof(char *));
+	t->ino = tmpfs_ino_counter++;
 	for (size_t i = 0; i < t->pointers; ++i) {
 		t->blocks[i] = 0;
 	}
@@ -58,7 +60,7 @@ static struct tmpfs_file * tmpfs_file_new(const char * name) {
 }
 
 static int symlink_tmpfs(fs_node_t * parent, const char * target, const char * name) {
-	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->inode;
+	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->impl;
 
 	spin_lock(d->lock);
 	foreach(f, d->files) {
@@ -88,7 +90,7 @@ static int symlink_tmpfs(fs_node_t * parent, const char * target, const char * n
 }
 
 static ssize_t readlink_tmpfs(fs_node_t * node, char * buf, size_t size) {
-	struct tmpfs_file * t = (struct tmpfs_file *)(node->inode);
+	struct tmpfs_file * t = (struct tmpfs_file *)(node->impl);
 
 	spin_lock(t->lock);
 	if (t->type != TMPFS_TYPE_LINK) {
@@ -118,6 +120,7 @@ static struct tmpfs_dir * tmpfs_dir_new(const char * name, struct tmpfs_dir * pa
 	d->mtime = d->atime;
 	d->ctime = d->atime;
 	d->files = list_create("tmpfs directory entries",d);
+	d->ino = tmpfs_ino_counter++;
 	return d;
 }
 
@@ -165,7 +168,7 @@ static char * tmpfs_file_getset_block(struct tmpfs_file * t, size_t blockid, int
 
 
 static ssize_t read_tmpfs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	struct tmpfs_file * t = (struct tmpfs_file *)(node->inode);
+	struct tmpfs_file * t = (struct tmpfs_file *)(node->impl);
 
 	spin_lock(t->lock);
 
@@ -217,7 +220,7 @@ static ssize_t read_tmpfs(fs_node_t *node, off_t offset, size_t size, uint8_t *b
 }
 
 static ssize_t write_tmpfs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	struct tmpfs_file * t = (struct tmpfs_file *)(node->inode);
+	struct tmpfs_file * t = (struct tmpfs_file *)(node->impl);
 
 	spin_lock(t->lock);
 	t->atime = now();
@@ -259,7 +262,7 @@ static ssize_t write_tmpfs(fs_node_t *node, off_t offset, size_t size, uint8_t *
 }
 
 static int chmod_tmpfs(fs_node_t * node, int mode) {
-	struct tmpfs_file * t = (struct tmpfs_file *)(node->inode);
+	struct tmpfs_file * t = (struct tmpfs_file *)(node->impl);
 
 	/* XXX permissions */
 	t->mask = mode;
@@ -268,7 +271,7 @@ static int chmod_tmpfs(fs_node_t * node, int mode) {
 }
 
 static int chown_tmpfs(fs_node_t * node, int uid, int gid) {
-	struct tmpfs_file * t = (struct tmpfs_file *)(node->inode);
+	struct tmpfs_file * t = (struct tmpfs_file *)(node->impl);
 
 	spin_lock(t->lock);
 	if (uid != -1) t->uid = uid;
@@ -279,7 +282,7 @@ static int chown_tmpfs(fs_node_t * node, int uid, int gid) {
 }
 
 static int truncate_tmpfs(fs_node_t * node, size_t size) {
-	struct tmpfs_file * t = (struct tmpfs_file *)(node->inode);
+	struct tmpfs_file * t = (struct tmpfs_file *)(node->impl);
 	spin_lock(t->lock);
 
 	if (size == t->length) goto _exit_truncate;
@@ -336,13 +339,13 @@ _exit_truncate:
 }
 
 static void open_tmpfs(fs_node_t * node, unsigned int flags) {
-	struct tmpfs_file * t = (struct tmpfs_file *)(node->inode);
+	struct tmpfs_file * t = (struct tmpfs_file *)(node->impl);
 
 	t->atime = now();
 }
 
 static ssize_t get_size_tmpfs(fs_node_t * node) {
-	struct tmpfs_file * t = (struct tmpfs_file *)(node->inode);
+	struct tmpfs_file * t = (struct tmpfs_file *)(node->impl);
 	return t->length;
 }
 
@@ -351,7 +354,8 @@ static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
 	spin_lock(t->lock);
 	memset(fnode, 0x00, sizeof(fs_node_t));
 	strcpy(fnode->name, t->name);
-	fnode->inode = (uintptr_t)t;
+	fnode->impl = (uintptr_t)t;
+	fnode->inode = t->ino;
 	fnode->mask = t->mask;
 	fnode->uid = t->uid;
 	fnode->gid = t->gid;
@@ -391,7 +395,7 @@ static fs_node_t * tmpfs_from_link(struct tmpfs_file * t) {
 }
 
 static int readdir_tmpfs(fs_node_t *node, uint64_t index, struct dirent * out) {
-	struct tmpfs_dir * d = (struct tmpfs_dir *)node->inode;
+	struct tmpfs_dir * d = (struct tmpfs_dir *)node->impl;
 	uint64_t i = 0;
 
 	if (index == 0) {
@@ -429,7 +433,7 @@ static int readdir_tmpfs(fs_node_t *node, uint64_t index, struct dirent * out) {
 static fs_node_t * finddir_tmpfs(fs_node_t * node, const char * name) {
 	if (!name) return NULL;
 
-	struct tmpfs_dir * d = (struct tmpfs_dir *)node->inode;
+	struct tmpfs_dir * d = (struct tmpfs_dir *)node->impl;
 
 	spin_lock(d->lock);
 
@@ -470,7 +474,7 @@ static int try_free_dir(struct tmpfs_dir * d) {
 }
 
 static int unlink_tmpfs(fs_node_t * node, const char * name) {
-	struct tmpfs_dir * d = (struct tmpfs_dir *)node->inode;
+	struct tmpfs_dir * d = (struct tmpfs_dir *)node->impl;
 	int i = -1, j = 0;
 
 	spin_lock(d->lock);
@@ -506,7 +510,7 @@ static int unlink_tmpfs(fs_node_t * node, const char * name) {
 static int create_tmpfs(fs_node_t *parent, const char *name, mode_t permission, fs_node_t ** out) {
 	if (!name) return -EINVAL;
 
-	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->inode;
+	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->impl;
 
 	spin_lock(d->lock);
 	foreach(f, d->files) {
@@ -536,7 +540,7 @@ static int mkdir_tmpfs(fs_node_t * parent, const char * name, mode_t permission,
 	if (!name) return -EINVAL;
 	if (!strlen(name)) return -EINVAL;
 
-	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->inode;
+	struct tmpfs_dir * d = (struct tmpfs_dir *)parent->impl;
 
 	spin_lock(d->lock);
 	foreach(f, d->files) {
@@ -597,10 +601,10 @@ static int rename_tmpfs(fs_node_t * mount_root, fs_node_t * src_dir, const char 
 	/* src_dir and dest_dir are definitely from us, no worries there */
 	int ret = 0;
 
-	struct tmpfs_dir * root = (struct tmpfs_dir*)mount_root->inode;
+	struct tmpfs_dir * root = (struct tmpfs_dir*)mount_root->impl;
 	spin_lock(root->nest_lock);
 
-	struct tmpfs_dir * ds = (struct tmpfs_dir *)src_dir->inode;
+	struct tmpfs_dir * ds = (struct tmpfs_dir *)src_dir->impl;
 	spin_lock(ds->lock);
 
 	/* First, get the source file */
@@ -626,7 +630,7 @@ static int rename_tmpfs(fs_node_t * mount_root, fs_node_t * src_dir, const char 
 		goto _cleanup_src;
 	}
 
-	struct tmpfs_dir * dd = (struct tmpfs_dir *)dest_dir->inode;
+	struct tmpfs_dir * dd = (struct tmpfs_dir *)dest_dir->impl;
 	if (dd != ds) spin_lock(dd->lock);
 
 	struct tmpfs_file * dest_file = NULL;
@@ -716,7 +720,7 @@ _cleanup_src:
 }
 
 static ssize_t get_size_tmpfsdir(fs_node_t * node) {
-	struct tmpfs_dir * d = (struct tmpfs_dir *)node->inode;
+	struct tmpfs_dir * d = (struct tmpfs_dir *)node->impl;
 	return sizeof(struct dirent) * (d->files->length + 2);
 
 }
@@ -725,14 +729,14 @@ static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	spin_lock(d->lock);
 	memset(fnode, 0x00, sizeof(fs_node_t));
-	fnode->inode = 0;
 	strcpy(fnode->name, "tmp");
 	fnode->mount = d->mount;
 	fnode->device = d->mount;
 	fnode->mask = d->mask;
 	fnode->uid  = d->uid;
 	fnode->gid  = d->gid;
-	fnode->inode   = (uintptr_t)d;
+	fnode->impl    = (uintptr_t)d;
+	fnode->inode   = d->ino;
 	fnode->atime   = d->atime;
 	fnode->mtime   = d->mtime;
 	fnode->ctime   = d->ctime;
