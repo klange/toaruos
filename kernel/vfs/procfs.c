@@ -208,7 +208,12 @@ static void proc_status_func(fs_node_t *node) {
 	long mem_usage = count_mappings(proc->thread.page_directory->mappings);
 	long res_usage = mmu_count_user(proc->thread.page_directory->directory) * 4;
 	long shm_usage = mmu_count_shm(proc->thread.page_directory->directory) * 4;
-	long mem_permille = 1000 * (mem_usage + shm_usage) / mmu_total_memory();
+
+	/* TODO shm should be included in the others */
+	mem_usage += shm_usage;
+	res_usage += shm_usage;
+
+	long mem_permille = 1000 * (res_usage) / mmu_total_memory();
 	spin_unlock(proc->thread.page_directory->lock);
 
 	char tty_name[101] = {0};
