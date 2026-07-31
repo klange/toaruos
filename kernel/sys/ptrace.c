@@ -34,6 +34,7 @@
 #include <kernel/ptrace.h>
 #include <kernel/args.h>
 #include <kernel/mmu.h>
+#include <kernel/mman.h>
 
 #if defined(__x86_64__)
 #include <kernel/arch/x86_64/regs.h>
@@ -352,6 +353,11 @@ long ptrace_peek(pid_t pid, void * addr, void * data) {
 
 	union PML * page_entry = mmu_get_page_other(tracee->thread.page_directory->directory, (uintptr_t)addr);
 
+	if (!page_entry || !page_entry->bits.present) {
+		if (mmap_fault_other(tracee, (uintptr_t)addr, 1)) return -EFAULT;
+		page_entry = mmu_get_page_other(tracee->thread.page_directory->directory, (uintptr_t)addr);
+	}
+
 	if (!page_entry) return -EFAULT;
 	if (!mmu_page_is_user_readable(page_entry)) return -EFAULT;
 
@@ -391,6 +397,11 @@ long ptrace_poke(pid_t pid, void * addr, void * data) {
 	if (!tracee || (tracee->tracer != this_core->current_process->id) || !(tracee->flags & PROC_FLAG_SUSPENDED)) return -ESRCH;
 
 	union PML * page_entry = mmu_get_page_other(tracee->thread.page_directory->directory, (uintptr_t)addr);
+
+	if (!page_entry || !page_entry->bits.present) {
+		if (mmap_fault_other(tracee, (uintptr_t)addr, 1)) return -EFAULT;
+		page_entry = mmu_get_page_other(tracee->thread.page_directory->directory, (uintptr_t)addr);
+	}
 
 	if (!page_entry) return -EFAULT;
 	if (!mmu_page_is_user_writable(page_entry)) return -EFAULT;
