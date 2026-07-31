@@ -78,6 +78,8 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 			proc->uid = atoi(tab);
 		} else if (strstr(line, "VmSize:") == line) {
 			proc->vsz = atoi(tab);
+		} else if (strstr(line, "VmRSS:") == line) {
+			proc->res = atoi(tab);
 		} else if (strstr(line, "RssShmem:") == line) {
 			proc->shm = atoi(tab);
 		} else if (strstr(line, "MemPermille:") == line) {

@@ -22,6 +22,7 @@ typedef struct process {
 	void * user_pdata;
 
 	char * tty;
+	int res;
 } p_t;
 
 #define PROCFSLIB_NO_FREE              1 /* Don't free the p_t's after the callback handles them */
