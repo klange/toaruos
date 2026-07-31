@@ -303,7 +303,7 @@ uintptr_t mmu_map_to_physical(union PML * root, uintptr_t virtAddr) {
 	return ((uintptr_t)pt[pt_entry].bits.page << PAGE_SHIFT) | (virtAddr & PT_MASK);
 }
 
-union PML * mmu_get_page(uintptr_t virtAddr, int flags) {
+union PML * mmu_get_page_other_x(union PML * root, uintptr_t virtAddr, int flags) {
 	/* This is all the same as x86, thankfully? */
 	uintptr_t realBits = virtAddr & CANONICAL_MASK;
 	uintptr_t pageAddr = realBits >> PAGE_SHIFT;
@@ -311,8 +311,6 @@ union PML * mmu_get_page(uintptr_t virtAddr, int flags) {
 	unsigned int pdp_entry  = (pageAddr >> 18) & ENTRY_MASK;
 	unsigned int pd_entry   = (pageAddr >> 9)  & ENTRY_MASK;
 	unsigned int pt_entry   = (pageAddr) & ENTRY_MASK;
-
-	union PML * root = this_core->current_pml;
 
 	/* Get the PML4 entry for this address */
 	spin_lock(frame_alloc_lock);
@@ -367,8 +365,12 @@ union PML * mmu_get_page(uintptr_t virtAddr, int flags) {
 
 _noentry:
 	spin_unlock(frame_alloc_lock);
-	printf("no entry for requested page\n");
+	//printf("no entry for requested page\n");
 	return NULL;
+}
+
+union PML * mmu_get_page(uintptr_t virtAddr, int flags) {
+	return mmu_get_page_other_x(this_core->current_pml, virtAddr, flags);
 }
 
 void mmu_flush(char* page_out) {
@@ -658,6 +660,7 @@ void mmu_set_directory(union PML * new_pml) {
 }
 
 void mmu_invalidate(uintptr_t addr) {
+	asm volatile ("dsb st\ntlbi vae1,%0\ndsb sy\nisb" :: "r"( ((uintptr_t)0xFFFF << 48) | (addr >> 12)) : "memory");
 }
 
 int mmu_get_page_deep(uintptr_t virtAddr, union PML ** pml4_out, union PML ** pdp_out, union PML ** pd_out, union PML ** pt_out) {
@@ -726,6 +729,7 @@ void mmu_unmap_user(uintptr_t addr, size_t size) {
 		if (pt && pt->bits.present) {
 			if (pt->bits.ap & 1) {
 				mmu_frame_clear((uintptr_t)pt->bits.page << PAGE_SHIFT);
+				pt->bits.page = 0;
 				pt->bits.present = 0;
 				pt->bits.ap = 0;
 			}
@@ -736,7 +740,7 @@ void mmu_unmap_user(uintptr_t addr, size_t size) {
 				}
 			}
 
-			//mmu_invalidate(a);
+			mmu_invalidate(a);
 		}
 
 		spin_unlock(frame_alloc_lock);
