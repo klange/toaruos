@@ -181,7 +181,7 @@ static void insert_mapping(uintptr_t addr, intptr_t length, int prot, int flags,
 		/* merge backwards */
 		prev->length += length;
 
-		if (next && next->base == addr + length && next->flags == flags && next->prot == prot && next->file == node && (!node || (prev->offset + length == next->offset))) {
+		if (next && next->base == addr + length && next->flags == flags && next->prot == prot && next->file == node && (!node || (prev->offset + prev->length == next->offset))) {
 			/* Also merge forward */
 			prev->length += next->length;
 			prev->next = next->next;
