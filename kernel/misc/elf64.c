@@ -306,7 +306,7 @@ static uintptr_t load_from_file(fs_node_t * file, Elf64_Header * header, uintptr
 				uintptr_t start_page = (start + 0xFFF) & ~(0xFFF);
 				uintptr_t end_page   = (end + 0xFFF) & ~(0xFFF);
 				if (end_page > start_page) {
-					mmap_anon(start_page, end_page - start_page, prot, MAP_PRIVATE | MAP_FIXED);
+					mmap_anon(start_page, end_page - start_page, prot, MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED);
 				}
 			}
 		}

@@ -75,7 +75,7 @@ long generic_page_fault(uintptr_t addr, int flags, struct regs * r) {
 }
 
 long mmap_sbrk(size_t size) {
-	return mmap_anon(0, size, PROT_READ|PROT_WRITE, MAP_PRIVATE);
+	return mmap_anon(0, size, PROT_READ|PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE);
 }
 
 static int map_overlaps(memmap_t * map, uintptr_t addr, intptr_t length) {
