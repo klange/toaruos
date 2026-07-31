@@ -35,6 +35,7 @@
 #include <kernel/misc.h>
 #include <kernel/module.h>
 #include <kernel/ksym.h>
+#include <sys/mman.h>
 
 #define PROCFS_STANDARD_ENTRIES (sizeof(std_entries) / sizeof(struct procfs_entry))
 #define PROCFS_PROCDIR_ENTRIES  (sizeof(procdir_entries) / sizeof(struct procfs_entry))
@@ -283,10 +284,29 @@ static void proc_cwd_func(fs_node_t *node) {
 	procfs_printf(node,"%s", proc->wd_name);
 }
 
+static void proc_maps_func(fs_node_t *node) {
+	process_t * proc = process_from_pid(node->inode);
+	for (memmap_t * maps = proc->thread.page_directory->mappings; maps; maps = maps->next) {
+		procfs_printf(node,"%08zx-%08zx %c%c%c%c %08zx %zx %zu %s\n",
+			maps->base,
+			maps->base + maps->length,
+			(maps->prot & PROT_READ)  ? 'r' : '-',
+			(maps->prot & PROT_WRITE) ? 'w' : '-',
+			(maps->prot & PROT_EXEC)  ? 'x' : '-',
+			'p', /* 's' for shared, not yet supported */
+			maps->offset,
+			maps->file ? (maps->file->mount ? maps->file->mount : maps->file->device) : 0,
+			maps->file ? maps->file->inode : 0,
+			maps->file ? maps->file->name : "");
+	}
+}
+
+
 static struct procfs_entry procdir_entries[] = {
 	{1, "cmdline", proc_cmdline_func, 0},
 	{2, "status",  proc_status_func, 0},
 	{3, "cwd",     proc_cwd_func, FS_SYMLINK},
+	{4, "maps",    proc_maps_func, 0},
 };
 
 static int readdir_procfs_procdir(fs_node_t *node, uint64_t index, struct dirent * out) {
