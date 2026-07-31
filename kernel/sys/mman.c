@@ -166,8 +166,9 @@ static void sanity_check(union PML * page) {
 
 static void insert_mapping(uintptr_t addr, intptr_t length, int prot, int flags, fs_node_t * node, off_t offset) {
 	process_t * proc = this_core->current_process->process;
-	spin_lock(proc->image.lock);
 	unmap_segments_locked(addr, length, proc);
+
+	flags &= ~(MAP_FIXED);
 
 	memmap_t * prev = NULL;
 	memmap_t * next = this_core->current_process->thread.page_directory->mappings;
@@ -220,8 +221,35 @@ static void insert_mapping(uintptr_t addr, intptr_t length, int prot, int flags,
 		new_mapping->next = next;
 		if (next) next->prev = new_mapping;
 	}
+}
 
-	spin_unlock(proc->image.lock);
+static uintptr_t find_good_spot(process_t * proc, size_t length) {
+	/* First try for a perfect fit */
+	for (memmap_t * maps = proc->thread.page_directory->mappings; maps; maps = maps->next) {
+		memmap_t * next = maps->next;
+		if (next && next->base == maps->base + maps->length + length) {
+			return maps->base + maps->length;
+		}
+	}
+	/* Then try for... a fit. */
+	for (memmap_t * maps = proc->thread.page_directory->mappings; maps; maps = maps->next) {
+		memmap_t * next = maps->next;
+		if (next && next->base >= maps->base + maps->length + length) {
+			return maps->base + maps->length;
+		}
+	}
+	/* Then go back to the end-of-heap pointer. */
+	uintptr_t addr = proc->image.heap;
+
+	for (memmap_t * maps = proc->thread.page_directory->mappings; maps; maps = maps->next) {
+		if (map_overlaps(maps, addr, length)) {
+			addr = maps->base + maps->length;
+			continue;
+		}
+	}
+
+	proc->image.heap = addr + length;
+	return addr;
 }
 
 long mmap_anon(uintptr_t addr, size_t length, int prot, int flags) {
@@ -231,14 +259,14 @@ long mmap_anon(uintptr_t addr, size_t length, int prot, int flags) {
 	long ret;
 	if ((ret = mmap_common_checks(addr, length, prot, flags))) return ret;
 
+	spin_lock(proc->image.lock);
+
 	if (!(flags & MAP_FIXED)) {
-		spin_lock(proc->image.lock);
-		addr = proc->image.heap;
-		proc->image.heap += length;
-		spin_unlock(proc->image.lock);
+		addr = find_good_spot(proc, length);
 	}
 
 	insert_mapping(addr, length, prot, flags, NULL, 0);
+	spin_unlock(proc->image.lock);
 
 	return addr;
 }
@@ -252,14 +280,13 @@ long mmap_file(uintptr_t addr, size_t length, int prot, int flags, fs_node_t * f
 
 	if (offset & 0xFFF) return dprintf("offset not aligned\n"), -EINVAL;
 
+	spin_lock(proc->image.lock);
 	if (!(flags & MAP_FIXED)) {
-		spin_lock(proc->image.lock);
-		addr = proc->image.heap;
-		proc->image.heap += length;
-		spin_unlock(proc->image.lock);
+		addr = find_good_spot(proc, length);
 	}
 
 	insert_mapping(addr, length, prot, flags, file, offset);
+	spin_unlock(proc->image.lock);
 
 	return addr;
 }
