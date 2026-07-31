@@ -115,7 +115,7 @@ static fs_node_t * console_device_create(void) {
 	fnode->inode = 0;
 	strcpy(fnode->name, "console");
 	fnode->uid = 0;
-	fnode->gid = 0;
+	fnode->gid = 1;
 	fnode->mask = 0660;
 	fnode->flags   = FS_CHARDEVICE;
 	fnode->write   = write_fs_console;
