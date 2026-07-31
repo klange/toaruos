@@ -1,0 +1,14 @@
+{
+	"true-blur": false,
+	"widgets": [
+		"appmenu",
+		"windowlist",
+		"cpu",
+		"volume",
+		"network",
+		"weather",
+		"date",
+		"clock",
+		"logout",
+	],
+}
