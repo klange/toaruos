@@ -473,15 +473,27 @@ static void _page_fault(struct regs * r) {
 		if (!mmu_copy_on_write(faulting_address)) return;
 	}
 
-	if (!generic_page_fault(faulting_address, (r->cs == 0x08), r)) return;
+	enum fault_code fault_flags = 0;
+
+	if (!(r->err_code & (1 << 2))) fault_flags |= FAULT_CODE_FROM_KERNEL;
+	if (r->err_code & (1 << 4)) fault_flags |= FAULT_CODE_INSTR;
+	else fault_flags |= FAULT_CODE_READ;
+	if (r->err_code & (1 << 1)) fault_flags |= FAULT_CODE_WRITE;
+
+	enum fault_response fault_resp = generic_page_fault(faulting_address, fault_flags, r);
+	if (fault_resp == FAULT_RESPONSE_RESUME) return;
 
 	/* Was this a kernel page fault? Those are always a panic. */
 	if (!this_core->current_process || r->cs == 0x08) {
 		panic("Page fault in kernel", r, faulting_address);
 	}
 
-	/* Otherwise, segfault the current process. */
-	send_signal(this_core->current_process->id, SIGSEGV, 1);
+	int signo = SIGSEGV;
+	siginfo_t cause = {0};
+	cause.si_code = fault_resp == FAULT_RESPONSE_NO_MAPPING ? SEGV_MAPERR : SEGV_ACCERR;
+	cause.si_addr = (void*)faulting_address;
+
+	send_signal_info(this_core->current_process->id, signo, 1, &cause);
 }
 
 /**

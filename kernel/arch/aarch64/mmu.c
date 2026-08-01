@@ -864,7 +864,9 @@ _check_map: (void)0;
 			if ((page << 12) >= maps->base && (page << 12) < maps->base + maps->length) {
 				if (!(maps->prot & PROT_READ)) return 0;
 				if ((flags & MMU_PTR_WRITE) && !(maps->prot & PROT_WRITE)) return 0;
-				generic_page_fault(page << 12, 1, NULL);
+				enum fault_code fault_flags = FAULT_CODE_FROM_KERNEL | FAULT_CODE_READ;
+				if (flags & MMU_PTR_WRITE) fault_flags |= FAULT_CODE_WRITE;
+				generic_page_fault(page << 12, fault_flags, NULL);
 				_found = 1;
 				break;
 			}

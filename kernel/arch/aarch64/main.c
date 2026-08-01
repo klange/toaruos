@@ -263,6 +263,22 @@ static void enable_el0_cache_maintenance(void) {
 		::: "x0", "x1");
 }
 
+static enum fault_code fault_flags_from_esr(uint64_t esr, enum fault_code base) {
+	enum fault_code out = base;
+
+	uint64_t ec  = esr >> 26;
+	uint64_t iss = esr & 0x1ffffff;
+
+	if (ec == 0x20 || ec == 0x21) {
+		out |= FAULT_CODE_INSTR;
+	} else {
+		if (iss & (1 << 6)) out |= FAULT_CODE_WRITE | FAULT_CODE_READ; /* write implies read */
+		out |= FAULT_CODE_READ;
+	}
+
+	return out;
+}
+
 void aarch64_sync_enter(struct regs * r) {
 	uint64_t esr, far, elr, spsr;
 	asm volatile ("mrs %0, ESR_EL1" : "=r"(esr));
@@ -322,7 +338,10 @@ void aarch64_sync_enter(struct regs * r) {
 		goto _resume_user;
 	}
 
-	if (!generic_page_fault(far, 0, r)) goto _resume_user;
+	enum fault_code fault_flags = fault_flags_from_esr(esr, 0);
+	enum fault_response fault_resp = generic_page_fault(far, fault_flags, r);
+
+	if (fault_resp == FAULT_RESPONSE_RESUME) goto _resume_user;
 
 	/* Unexpected fault, eg. page fault. */
 	if (args_present("debug")) {
@@ -336,10 +355,9 @@ void aarch64_sync_enter(struct regs * r) {
 
 	int signo = SIGSEGV;
 	siginfo_t cause = {0};
-	cause.si_code = SEGV_MAPERR;
+	cause.si_code = fault_resp == FAULT_RESPONSE_NO_MAPPING ? SEGV_MAPERR : SEGV_ACCERR;
 	cause.si_addr = (void*)far;
 
-	/* TODO: Actually look at ESR and figure it out */
 	send_signal_info(this_core->current_process->id, signo, 1, &cause);
 
 _resume_user:
@@ -428,7 +446,7 @@ void aarch64_fault_enter(struct regs * r) {
 	asm volatile ("mrs %0, ELR_EL1" : "=r"(elr));
 	asm volatile ("mrs %0, SPSR_EL1" : "=r"(spsr));
 
-	if (!generic_page_fault(far, 1, r)) return;
+	if (!generic_page_fault(far, fault_flags_from_esr(esr, FAULT_CODE_FROM_KERNEL), r)) return;
 
 	arch_fatal_prepare();
 
