@@ -137,14 +137,14 @@ static ssize_t read_fwcfg(fs_node_t * node, off_t offset, size_t size, uint8_t *
 	volatile uint8_t * addr;
 	if (offset == 0x510) {
 		/* Read selector. Must be 16 bit; selector will be byte swapped from big-endian. */
-		addr = (uint8_t*)node->device + 8;
+		addr = (uint8_t*)node->impl + 8;
 		if (size != 2) return -EINVAL;
 		uint16_t b = *(volatile uint16_t *)addr;
 		b = (b >> 8) | ((b & 0xFF) << 8);
 		*(uint16_t*)buffer = b;
 	} else if (offset == 0x511) {
 		/* Read one data byte */
-		addr = (uint8_t*)node->device;
+		addr = (uint8_t*)node->impl;
 		if (size != 1) return -EINVAL;
 		*buffer = *addr;
 	} else {
@@ -157,14 +157,14 @@ static ssize_t write_fwcfg(fs_node_t * node, off_t offset, size_t size, uint8_t 
 	volatile uint8_t * addr;
 	if (offset == 0x510) {
 		/* Write selector. Must be 16 bit; selector will be byte swapped to big-endian. */
-		addr = (uint8_t*)node->device + 8;
+		addr = (uint8_t*)node->impl + 8;
 		if (size != 2) return -EINVAL;
 		uint16_t b = *(uint16_t *)buffer;
 		b = (b >> 8) | ((b & 0xFF) << 8);
 		*(volatile uint16_t*)addr = b;
 	} else if (offset == 0x511) {
 		/* Write one data byte. */
-		addr = (uint8_t*)node->device;
+		addr = (uint8_t*)node->impl;
 		if (size != 1) return -EINVAL;
 		*addr = *buffer;
 	} else {
@@ -187,7 +187,7 @@ void fwcfg_device(void) {
 	fnode->mask   = 0660;
 	fnode->read   = read_fwcfg;
 	fnode->write  = write_fwcfg;
-	fnode->device = fw_cfg_addr;
+	fnode->impl   = (uintptr_t)fw_cfg_addr;
 
 	char addr[100];
 	snprintf(addr, 99, "%p", (void*)fw_cfg_addr);

@@ -102,7 +102,7 @@ long sys_pread(int fd, void * ptr, size_t count, off_t offset) {
 }
 
 static long stat_node(fs_node_t * fn, struct stat * f) {
-	f->st_dev   = (uint16_t)(((uint64_t)fn->device & 0xFFFF0) >> 8);
+	f->st_dev   = fs_device_identifier(fn);
 	f->st_ino   = fn->inode;
 
 	uint32_t flags = 0;

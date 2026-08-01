@@ -146,3 +146,10 @@ void map_vfs_directory(const char *);
 int make_unix_pipe(fs_node_t ** pipes);
 
 int fprintf(fs_node_t * f, const char * fmt, ...);
+
+static inline dev_t fs_device_identifier(fs_node_t * fn) {
+	dev_t base = fn->mount ? (uintptr_t)fn->mount :
+		fn->device ? (uintptr_t)fn->device :
+		(uintptr_t)fn;
+	return (base & 0xffffffffff) >> 5;
+}

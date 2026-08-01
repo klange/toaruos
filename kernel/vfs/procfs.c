@@ -310,7 +310,7 @@ static void proc_maps_func(fs_node_t *node) {
 			(maps->prot & PROT_EXEC)  ? 'x' : '-',
 			'p', /* 's' for shared, not yet supported */
 			maps->offset,
-			maps->file ? (maps->file->mount ? maps->file->mount : maps->file->device) : 0,
+			maps->file ? fs_device_identifier(maps->file) : 0,
 			maps->file ? maps->file->inode : 0,
 			maps->file ? maps->file->name : "");
 	}
