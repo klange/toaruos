@@ -20,17 +20,21 @@ extern void mmu_unmap_user(uintptr_t addr, size_t size);
 
 extern union PML * mmu_get_page_other_x(union PML * root, uintptr_t virtAddr, int flags);
 
-long mmap_fault_other(process_t * proc, uintptr_t addr, int flags) {
+enum fault_response mmap_fault_other(process_t * proc, uintptr_t addr, enum fault_code flags) {
+	enum fault_response out = FAULT_RESPONSE_NO_MAPPING;
+
 	spin_lock(proc->image.lock);
 	int fail_on_retry = 0;
 
 _retry: (void)0;
 	for (memmap_t * maps = proc->thread.page_directory->mappings; maps; maps = maps->next) {
 		if (addr >= maps->base && addr < maps->base + maps->length) {
-			if (maps->prot == PROT_NONE) {
-				spin_unlock(proc->image.lock);
-				return 1;
-			}
+			if (maps->prot == PROT_NONE) goto _fault_bad;
+
+			/* Check if memory access would violate known mapping conditions. */
+			if ((flags & FAULT_CODE_WRITE) && !(maps->prot & PROT_WRITE)) { out = FAULT_RESPONSE_BAD_WRITE; goto _fault_bad; }
+			if ((flags & FAULT_CODE_READ) && !(maps->prot & PROT_READ))   { out = FAULT_RESPONSE_BAD_READ;  goto _fault_bad; }
+			if ((flags & FAULT_CODE_INSTR) && !(maps->prot & PROT_EXEC))  { out = FAULT_RESPONSE_BAD_INSTR; goto _fault_bad; }
 
 			size_t align_down = addr & ~0xFFF;
 			size_t map_offset = align_down - maps->base;
@@ -54,7 +58,8 @@ _retry: (void)0;
 			}
 			mmu_flush(page_back);
 			spin_unlock(proc->image.lock);
-			return 0;
+
+			return FAULT_RESPONSE_RESUME;
 		}
 	}
 
@@ -66,11 +71,12 @@ _retry: (void)0;
 		goto _retry;
 	}
 
+_fault_bad:
 	spin_unlock(proc->image.lock);
-	return 1;
+	return out;
 }
 
-long generic_page_fault(uintptr_t addr, int flags, struct regs * r) {
+enum fault_response generic_page_fault(uintptr_t addr, enum fault_code flags, struct regs * r) {
 	return mmap_fault_other(this_core->current_process->process, addr, flags);
 }
 
