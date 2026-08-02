@@ -18,6 +18,8 @@
 #include <sys/types.h>
 #include <sys/shm.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #include <math.h>
 
@@ -993,8 +995,8 @@ static int tt_font_load(struct TT_Font * font) {
 	return 1;
 
 _fail_free:
-	return 0;
 	free(font);
+	return 0;
 }
 
 struct TT_Font * tt_font_from_file(const char * fileName) {
@@ -1030,51 +1032,32 @@ struct TT_Font * tt_font_from_file_mem(const char * fileName) {
 	fstat(fileno(f), &sb);
 	long size = sb.st_size;
 
-	uint8_t * buf = malloc(size);
-	fread(buf, 1, size, f);
+	size = (size + 0xfff) & ~0xfff;
 
+	uint8_t * buf = mmap(0, size, PROT_READ, MAP_PRIVATE, fileno(f), 0);
 	fclose(f);
 
 	return tt_font_from_memory(buf);
 }
 
-static hashmap_t * shm_font_cache = NULL;
-static int volatile shm_font_lock = 0;
-
 struct TT_Font * tt_font_from_shm(const char * identifier) {
-	spin_lock(&shm_font_lock);
-
-	if (!shm_font_cache) {
-		shm_font_cache = hashmap_create(10);
-	}
-
-	void * fontData = hashmap_get(shm_font_cache, (char*)identifier);
-	if (fontData) goto shm_success;
-
 	char * display = getenv("DISPLAY");
-
-	if (!display) goto shm_fail;
+	if (!display) return NULL;
 
 	char fullIdentifier[1024];
 	snprintf(fullIdentifier, 1023, "sys.%s.fonts.%s", display, identifier);
 
-	size_t fontSize = 0;
-	fontData = shm_obtain(fullIdentifier, &fontSize);
+	size_t fontNameSize = 0;
+	char * fontName = shm_obtain(fullIdentifier, &fontNameSize);
 
-	if (fontSize == 0) {
-		shm_release(identifier);
-		goto shm_fail;
+	if (!fontName || !fontNameSize) {
+		shm_release(fullIdentifier);
+		return NULL;
 	}
 
-	hashmap_set(shm_font_cache, (char*)identifier, fontData);
-
-shm_success:
-	spin_unlock(&shm_font_lock);
-	return tt_font_from_memory(fontData);
-
-shm_fail:
-	spin_unlock(&shm_font_lock);
-	return NULL;
+	struct TT_Font * font = tt_font_from_file_mem(fontName);
+	shm_release(fullIdentifier);
+	return font;
 }
 
 void tt_draw_string_shadow(gfx_context_t * ctx, struct TT_Font * font, char * string, int font_size, int left, int top, uint32_t text_color, uint32_t shadow_color, int blur) {

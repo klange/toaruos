@@ -2334,20 +2334,14 @@ static struct font_def fonts[] = {
 	{NULL, NULL}
 };
 
-static char * precache_shmfont(char * ident, char * name) {
-	FILE * f = fopen(name, "r");
-	if (!f) return NULL;
-	struct stat sb;
-	fstat(fileno(f), &sb);
-	size_t s = sb.st_size;
-
-	size_t shm_size = s;
+static char * set_shmfont(char * ident, char * name) {
+	/* Instead of loading the font into memory, we now load the path
+	 * of the font into the shm buffer and the font library will open
+	 * it and mmap it, which works the same but saves us having an extra
+	 * copy of the font file in memory. */
+	size_t shm_size = strlen(name) + 1;
 	char * font = shm_obtain(ident, &shm_size);
-	assert((shm_size >= s) && "shm_obtain returned too little memory to load a font into!");
-
-	fread(font, s, 1, f);
-
-	fclose(f);
+	memcpy(font, name, strlen(name) + 1);
 	return font;
 }
 
@@ -2356,10 +2350,7 @@ static void load_fonts(yutani_globals_t * yg) {
 	while (fonts[i].identifier) {
 		char tmp[100];
 		sprintf(tmp, "sys.%s.fonts.%s", yg->server_ident, fonts[i].identifier);
-		TRACE("Loading font %s -> %s", fonts[i].path, tmp);
-		if (!precache_shmfont(tmp, fonts[i].path)) {
-			TRACE("  ... failed.");
-		}
+		set_shmfont(tmp, fonts[i].path);
 		++i;
 	}
 }
