@@ -470,10 +470,10 @@ union PML * mmu_clone(union PML * from) {
 								uintptr_t address = ((i << (9 * 3 + 12)) | (j << (9*2 + 12)) | (k << (9 + 12)) | (l << PAGE_SHIFT));
 								if (address >= USER_DEVICE_MAP && address <= USER_SHM_HIGH) continue;
 								if (pt_in[l].bits.present) {
-									if (1) { //pt_in[l].bits.user) {
+									if ((pt_in[l].bits.ap & 1) && !(pt_in[l].bits.mmap_shared)) {
 										copy_page_maybe(pt_in, pt_out, l, address);
 									} else {
-										/* If it's not a user page, just copy directly */
+										/* If it's not an unshared user page, just copy directly */
 										pt_out[l].raw = pt_in[l].raw;
 									}
 								} /* Else, mmap'd files? */
@@ -612,13 +612,11 @@ void mmu_free(union PML * from) {
 								uintptr_t address = ((i << (9 * 3 + 12)) | (j << (9*2 + 12)) | (k << (9 + 12)) | (l << PAGE_SHIFT));
 								/* Do not free shared mappings; SHM subsystem does that for SHM, devices don't need it. */
 								if (address >= USER_DEVICE_MAP && address <= USER_SHM_HIGH) continue;
-								if (pt_in[l].bits.present) {
-									/* Free only user pages */
-									if (pt_in[l].bits.ap & 1) {
+								if (pt_in[l].bits.present && (pt_in[l].bits.ap & 1)) {
+									if (!(pt_in[l].bits.mmap_shared)) { /* we use this bit for share */
 										mmu_frame_clear((uintptr_t)pt_in[l].bits.page << PAGE_SHIFT);
-										pt_in[l].raw = 0;
-										//free_page_maybe(pt_in,l,address);
 									}
+									pt_in[l].raw = 0;
 								}
 							}
 							mmu_frame_clear((uintptr_t)pd_in[k].bits.page << PAGE_SHIFT);
@@ -730,10 +728,10 @@ void mmu_unmap_user(uintptr_t addr, size_t size) {
 		/* Free this page if it was present */
 		if (pt && pt->bits.present) {
 			if (pt->bits.ap & 1) {
-				mmu_frame_clear((uintptr_t)pt->bits.page << PAGE_SHIFT);
-				pt->bits.page = 0;
-				pt->bits.present = 0;
-				pt->bits.ap = 0;
+				if (!(pt->bits.mmap_shared)) { /* we use this bit for share */
+					mmu_frame_clear((uintptr_t)pt->bits.page << PAGE_SHIFT);
+				}
+				pt->raw = 0;
 			}
 
 			if (maybe_release_directory(pd, pt)) {

@@ -16,7 +16,8 @@ union PML {
 		uint64_t contiguous:1;
 		uint64_t pxn:1;
 		uint64_t uxn:1;
-		uint64_t avail:4;
+		uint64_t mmap_shared:1;
+		uint64_t avail:3;
 		uint64_t ignored:5;
 	} bits;
 

@@ -635,7 +635,7 @@ union PML * mmu_clone(union PML * from) {
 								uintptr_t address = ((i << (9 * 3 + 12)) | (j << (9*2 + 12)) | (k << (9 + 12)) | (l << PAGE_SHIFT));
 								if (address >= USER_DEVICE_MAP && address <= USER_SHM_HIGH) continue;
 								if (pt_in[l].bits.present) {
-									if (pt_in[l].bits.user) {
+									if (pt_in[l].bits.user && !(pt_in[l].bits.mmap_shared)) {
 										copy_page_maybe(pt_in, pt_out, l, address);
 									} else {
 										/* If it's not a user page, just copy directly */
@@ -829,7 +829,10 @@ void mmu_free(union PML * from) {
 								if (pt_in[l].bits.present) {
 									/* Free only user pages */
 									if (pt_in[l].bits.user) {
-										free_page_maybe(pt_in,l,address);
+										if (!(pt_in[l].bits.mmap_shared)) {
+											free_page_maybe(pt_in,l,address);
+										}
+										pt_in[l].raw = 0;
 									}
 								}
 							}
@@ -958,13 +961,15 @@ void mmu_unmap_user(uintptr_t addr, size_t size) {
 		spin_lock(frame_alloc_lock);
 
 		if (pt && pt->bits.present && pt->bits.user) {
-			if (pt->bits.writable) {
-				assert(mem_refcounts[pt->bits.page] == 0);
-				mmu_frame_clear((uintptr_t)pt->bits.page << PAGE_SHIFT);
-			} else if (!pt->bits.cow_pending && !mem_refcounts[pt->bits.page]) {
-				mmu_frame_clear((uintptr_t)pt->bits.page << PAGE_SHIFT);
-			} else if (refcount_dec(pt->bits.page) == 0) {
-				mmu_frame_clear((uintptr_t)pt->bits.page << PAGE_SHIFT);
+			if (!(pt->bits.mmap_shared)) {
+				if (pt->bits.writable) {
+					assert(mem_refcounts[pt->bits.page] == 0);
+					mmu_frame_clear((uintptr_t)pt->bits.page << PAGE_SHIFT);
+				} else if (!pt->bits.cow_pending && !mem_refcounts[pt->bits.page]) {
+					mmu_frame_clear((uintptr_t)pt->bits.page << PAGE_SHIFT);
+				} else if (refcount_dec(pt->bits.page) == 0) {
+					mmu_frame_clear((uintptr_t)pt->bits.page << PAGE_SHIFT);
+				}
 			}
 			pt->bits.page = 0;
 			pt->bits.present = 0;
