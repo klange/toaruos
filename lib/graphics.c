@@ -16,6 +16,7 @@
 
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 
 #if !defined(NO_SSE) && defined(__x86_64__)
 #include <xmmintrin.h>
@@ -107,6 +108,10 @@ void clearbuffer(gfx_context_t * ctx) {
 	memset(ctx->backbuffer, 0, ctx->size);
 }
 
+static size_t round_up(size_t val) {
+	return (val + 0xfff) & ~0xfff;
+}
+
 /* Deprecated */
 static int framebuffer_fd = 0;
 gfx_context_t * init_graphics_fullscreen() {
@@ -127,10 +132,10 @@ gfx_context_t * init_graphics_fullscreen() {
 	ioctl(framebuffer_fd, IO_VID_HEIGHT, &out->height);
 	ioctl(framebuffer_fd, IO_VID_DEPTH,  &out->depth);
 	ioctl(framebuffer_fd, IO_VID_STRIDE, &out->stride);
-	ioctl(framebuffer_fd, IO_VID_ADDR,   &out->buffer);
 	ioctl(framebuffer_fd, IO_VID_SIGNAL, NULL);
 
-	out->size   = GFX_H(out) * GFX_S(out);
+	out->size   = round_up(GFX_H(out) * GFX_S(out));
+	out->buffer = mmap(0, out->size, PROT_READ|PROT_WRITE, MAP_SHARED, framebuffer_fd, 0);
 
 	if (out->depth == 24) {
 		out->depth = 32;
@@ -181,13 +186,14 @@ gfx_context_t * init_graphics_subregion(gfx_context_t * base, int x, int y, int 
 }
 
 void reinit_graphics_fullscreen(gfx_context_t * out) {
-
 	ioctl(framebuffer_fd, IO_VID_WIDTH,  &out->width);
 	ioctl(framebuffer_fd, IO_VID_HEIGHT, &out->height);
 	ioctl(framebuffer_fd, IO_VID_DEPTH,  &out->depth);
 	ioctl(framebuffer_fd, IO_VID_STRIDE, &out->stride);
 
-	out->size   = GFX_H(out) * GFX_S(out);
+	munmap(out->buffer, out->size);
+
+	out->size   = round_up(GFX_H(out) * GFX_S(out));
 
 	if (out->clips && out->clips_size != out->height) {
 		free(out->clips);
@@ -195,14 +201,9 @@ void reinit_graphics_fullscreen(gfx_context_t * out) {
 		out->clips_size = 0;
 	}
 
-	if (out->buffer != out->backbuffer) {
-		ioctl(framebuffer_fd, IO_VID_ADDR,   &out->buffer);
-		out->backbuffer = realloc(out->backbuffer, GFX_S(out) * GFX_H(out));
-	} else {
-		ioctl(framebuffer_fd, IO_VID_ADDR,   &out->buffer);
-		out->backbuffer = out->buffer;
-	}
-
+	int was_double_buffered = (out->buffer != out->backbuffer);
+	out->buffer = mmap(0, out->size, PROT_READ|PROT_WRITE, MAP_SHARED, framebuffer_fd, 0);
+	out->backbuffer = was_double_buffered ? realloc(out->backbuffer, GFX_S(out) * GFX_H(out)) : out->buffer;
 }
 
 gfx_context_t * init_graphics_sprite(sprite_t * sprite) {
