@@ -23,6 +23,8 @@
 #include <kernel/mmu.h>
 #include <kernel/time.h>
 #include <kernel/procfs.h>
+#include <kernel/mman.h>
+#include <sys/mman.h>
 
 /* 4KB */
 #define BLOCKSIZE 0x1000
@@ -166,6 +168,13 @@ static char * tmpfs_file_getset_block(struct tmpfs_file * t, size_t blockid, int
 	return (char *)mmu_map_from_physical(t->blocks[blockid] << 12);
 }
 
+static uint64_t tmpfs_ext_getblock(struct tmpfs_file *t, off_t offset) {
+	spin_lock(t->lock);
+	uint64_t block = offset / BLOCKSIZE;
+	uint64_t page = (block < t->block_count) ? t->blocks[block] : 0;
+	spin_unlock(t->lock);
+	return page;
+}
 
 static ssize_t read_tmpfs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	struct tmpfs_file * t = (struct tmpfs_file *)(node->impl);
@@ -349,6 +358,25 @@ static ssize_t get_size_tmpfs(fs_node_t * node) {
 	return t->length;
 }
 
+static int fault_map_tmpfs(fs_node_t * node, union PML * page, off_t offset, int fault_flags, int map_flags, int prot, int *mmu_flags) {
+	struct tmpfs_file * t = (struct tmpfs_file *)(node->impl);
+
+	if (map_flags & MAP_SHARED) return 1; /* Ignore attempt to map as shared and defer to normal handler. */
+
+	if (!(fault_flags & FAULT_CODE_WRITE)) {
+		uint64_t fpage = tmpfs_ext_getblock(t, offset);
+		if (fpage) {
+			page->bits.page = fpage;
+			page->bits.mmap_shared = 1;
+			(*mmu_flags) &= ~(MMU_FLAG_WRITABLE);
+			return 0;
+		}
+	}
+
+	/* write request or out of range, defer */
+	return 1;
+}
+
 static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	spin_lock(t->lock);
@@ -377,6 +405,7 @@ static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
 	fnode->mount   = t->mount;
 	fnode->device  = t->mount;
 	fnode->get_size = get_size_tmpfs;
+	fnode->fault_map = fault_map_tmpfs;
 	spin_unlock(t->lock);
 	return fnode;
 }
