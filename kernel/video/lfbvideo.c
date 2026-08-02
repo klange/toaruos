@@ -28,6 +28,8 @@
 #include <kernel/mmu.h>
 #include <kernel/args.h>
 #include <kernel/assert.h>
+#include <kernel/mman.h>
+#include <sys/mman.h>
 
 /* FIXME: Not sure what to do with this; ifdef around it? */
 #include <kernel/arch/x86_64/ports.h>
@@ -138,6 +140,27 @@ static int ioctl_vid(fs_node_t * node, unsigned long request, void * argp) {
 	}
 }
 
+static int fault_map_vid(fs_node_t * node, union PML * page, off_t offset, int fault_flags, int map_flags, int prot, int *mmu_flags) {
+	size_t memsize = lfb_memsize;
+	if (memsize & 0xFFF) memsize += (0x1000 - (memsize & 0xFFF));
+	if (offset < 0 || (size_t)offset >= lfb_memsize) goto _fault_bad; /* invalid */
+	if (!(map_flags & MAP_SHARED)) goto _fault_bad; /* invalid */
+	if (!(prot & PROT_WRITE) || !(prot & PROT_READ)) goto _fault_bad; /* bad permissions, should reject earlier */
+
+	page->bits.mmap_shared = 1;
+	page->bits.page = (((uintptr_t)lfb_vid_memory  & 0xFFFFFFFF) + offset) >> 12;
+
+	if (lfb_use_write_combining) {
+		(*mmu_flags) |= MMU_FLAG_WC;
+	}
+
+	return 0;
+
+_fault_bad:
+	dprintf("framebuffer: bad fault at %#zx\n", offset);
+	return 2;
+}
+
 /* Framebuffer device file initializer */
 static fs_node_t * lfb_video_device_create(void /* TODO */) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
@@ -147,6 +170,7 @@ static fs_node_t * lfb_video_device_create(void /* TODO */) {
 	fnode->flags   = FS_BLOCKDEVICE; /* Framebuffers are block devices */
 	fnode->mask    = 0660; /* Only accessible to root user/group */
 	fnode->ioctl   = ioctl_vid; /* control function defined above */
+	fnode->fault_map = fault_map_vid;
 	return fnode;
 }
 
