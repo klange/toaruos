@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <bits/dirent.h>
+#include <kernel/mmu.h>
 
 #define PATH_SEPARATOR '/'
 #define PATH_SEPARATOR_STRING "/"
@@ -52,6 +53,7 @@ typedef int (*selectwait_type_t) (struct fs_node *, void * process);
 typedef int (*chown_type_t) (struct fs_node *, uid_t, gid_t);
 typedef int (*truncate_type_t) (struct fs_node *, size_t size);
 typedef int (*rename_type_t) (struct fs_node *, struct fs_node *, const char *, struct fs_node *, const char *);
+typedef int (*fault_map_t) (struct fs_node *, union PML *, off_t offset, int fault_flags, int map_flags, int prot, int *mmu_flags);
 
 typedef struct fs_node {
 	struct fs_node * mount;      /* Root fs_node_t entry of mountpoint. */
@@ -94,6 +96,7 @@ typedef struct fs_node {
 	selectwait_type_t selectwait;
 	chown_type_t chown;
 	rename_type_t rename;
+	fault_map_t fault_map;
 } fs_node_t;
 
 struct vfs_entry {

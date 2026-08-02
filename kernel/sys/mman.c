@@ -45,6 +45,35 @@ _retry: (void)0;
 			if (!(maps->prot & PROT_EXEC)) mmu_flags |= MMU_FLAG_NOEXECUTE;
 
 			union PML * page = mmu_get_page_other_x(proc->thread.page_directory->directory, align_down, MMU_GET_MAKE);
+
+			if (maps->file && maps->file->fault_map) {
+				int ret = maps->file->fault_map(maps->file, page, map_fsoff, flags, maps->flags, maps->prot, &mmu_flags);
+
+				if (ret == 0) {
+					/* fault_map did something with the page, we should finish allocating it
+					 * with the modified flags and return successfully. */
+					mmu_frame_allocate(page, mmu_flags);
+					if (proc == (process_t*)this_core->current_process) {
+						mmu_invalidate(align_down);
+						if (maps->prot & PROT_EXEC) arch_clear_icache(align_down, align_down + 0x1000);
+					}
+					spin_unlock(proc->image.lock);
+					return FAULT_RESPONSE_RESUME;
+				} else if (ret > 1) {
+					goto _fault_bad;
+				}
+
+				/* Fault was deferred to normal code path. */
+			}
+
+			/* May have a shared CoW mapping, remove it.*/
+			if ((flags & FAULT_CODE_WRITE) && maps->file) {
+				if (page->bits.present && page->bits.page && (page->bits.mmap_shared & 1)) {
+					page->bits.page = 0;
+					page->bits.mmap_shared = 0;
+				}
+			}
+
 			mmu_frame_allocate(page, mmu_flags);
 
 			char * page_back = mmu_map_from_physical((uintptr_t)page->bits.page << 12);
@@ -267,7 +296,7 @@ long do_mmap(uintptr_t addr, size_t length, int prot, int flags, fs_node_t * fil
 	if (file) {
 		if (flags & MAP_ANONYMOUS) return -EINVAL;
 		if (offset & 0xFFF) return -EINVAL;
-		if (flags & MAP_SHARED) return -EINVAL; /* TODO */
+		if ((flags & MAP_SHARED) && !file->fault_map) return -EINVAL;
 	} else {
 		if (!(flags & MAP_ANONYMOUS)) return -EINVAL;
 		if (flags & MAP_SHARED) return -ENOTSUP;
