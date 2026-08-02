@@ -283,7 +283,7 @@ static uintptr_t load_from_file(fs_node_t * file, Elf64_Header * header, uintptr
 			if (phdr.p_flags & PF_X) prot |= PROT_EXEC;
 
 			if (size) {
-				mapped_to = mmap_file(base + addr, size, prot, MAP_PRIVATE | MAP_FIXED, file, offset);
+				mapped_to = do_mmap(base + addr, size, prot, MAP_PRIVATE | MAP_FIXED, file, offset);
 				if (phdr.p_flags & PF_W) {
 					uintptr_t pad = mapped_to + pageoffset + phdr.p_filesz;
 					if (pad & 0xFFF) {
@@ -306,7 +306,7 @@ static uintptr_t load_from_file(fs_node_t * file, Elf64_Header * header, uintptr
 				uintptr_t start_page = (start + 0xFFF) & ~(0xFFF);
 				uintptr_t end_page   = (end + 0xFFF) & ~(0xFFF);
 				if (end_page > start_page) {
-					mmap_anon(start_page, end_page - start_page, prot, MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED);
+					do_mmap(start_page, end_page - start_page, prot, MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, NULL, 0);
 				}
 			}
 		}
@@ -435,7 +435,7 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	/* Map stack space */
 	uintptr_t userstack = 0x800000000000;
 	size_t    stack_size = 512 * 0x400;
-	mmap_anon(userstack - stack_size, stack_size, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE|MAP_FIXED);
+	do_mmap(userstack - stack_size, stack_size, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE|MAP_FIXED, NULL, 0);
 	this_core->current_process->image.userstack = userstack;
 
 #define PUSH(type,val) do { \

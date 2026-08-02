@@ -65,7 +65,7 @@ _retry: (void)0;
 
 	if (!fail_on_retry && addr < proc->image.userstack && addr >= proc->image.userstack - 0x10000) {
 		size_t align_down = addr & ~0xFFF;
-		mmap_anon(align_down, proc->image.userstack - align_down, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE|MAP_FIXED);
+		do_mmap(align_down, proc->image.userstack - align_down, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE|MAP_FIXED, NULL, 0);
 		proc->image.userstack = align_down;
 		fail_on_retry = 1;
 		goto _retry;
@@ -81,7 +81,7 @@ enum fault_response generic_page_fault(uintptr_t addr, enum fault_code flags, st
 }
 
 long mmap_sbrk(size_t size) {
-	return mmap_anon(0, size, PROT_READ|PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE);
+	return do_mmap(0, size, PROT_READ|PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, NULL, 0);
 }
 
 static int map_overlaps(memmap_t * map, uintptr_t addr, intptr_t length) {
@@ -144,18 +144,6 @@ long mmap_unmap(uintptr_t addr, size_t length) {
 	spin_lock(proc->image.lock);
 	unmap_segments_locked(addr, length, proc);
 	spin_unlock(proc->image.lock);
-	return 0;
-}
-
-static long mmap_common_checks(uintptr_t addr, size_t length, int prot, int flags) {
-	if (!(flags & MAP_PRIVATE)) return dprintf("must be private\n"), -ENOTSUP;
-	if (addr & 0xFFF)   return dprintf("addr not aligned\n"), -EINVAL;
-	if (length & 0xFFF) return dprintf("length not aligned\n"), -EINVAL;
-	if (length == 0) return -EINVAL;
-
-	if (length > 0x800000000) return -ENOMEM;
-	if ((flags & MAP_FIXED) && addr > 0x800000000000UL - length) return -EINVAL;
-
 	return 0;
 }
 
@@ -258,42 +246,39 @@ static uintptr_t find_good_spot(process_t * proc, size_t length) {
 	return addr;
 }
 
-long mmap_anon(uintptr_t addr, size_t length, int prot, int flags) {
-	//dprintf("mmap(%#zx, %zu, %d, %d | MAP_ANONYMOUS, -1, 0);\n", addr, length, prot, flags);
+long do_mmap(uintptr_t addr, size_t length, int prot, int flags, fs_node_t * file, off_t offset) {
 	process_t * proc = this_core->current_process->process;
 
-	long ret;
-	if ((ret = mmap_common_checks(addr, length, prot, flags))) return ret;
+	/* Address must be aligned */
+	if (addr & 0xFFF) return -EINVAL;
 
-	spin_lock(proc->image.lock);
+	/* Length must be aligned */
+	if (length & 0xFFF) return -EINVAL;
 
-	if (!(flags & MAP_FIXED)) {
-		addr = find_good_spot(proc, length);
+	/* Length must not be 0. */
+	if (length == 0) return -EINVAL;
+
+	/* Length must not be too weird. */
+	if (length > 0x800000000) return -ENOMEM;
+
+	/* Fixed mappings must be in the lower half. */
+	if ((flags & MAP_FIXED) && addr > 0x800000000000UL - length) return -EINVAL;
+
+	if (file) {
+		if (flags & MAP_ANONYMOUS) return -EINVAL;
+		if (offset & 0xFFF) return -EINVAL;
+		if (flags & MAP_SHARED) return -EINVAL; /* TODO */
+	} else {
+		if (!(flags & MAP_ANONYMOUS)) return -EINVAL;
+		if (flags & MAP_SHARED) return -ENOTSUP;
+		flags |= MAP_ANONYMOUS; /* just in case */
+		offset = 0;
 	}
 
-	insert_mapping(addr, length, prot, flags, NULL, 0);
-	spin_unlock(proc->image.lock);
-
-	return addr;
-}
-
-long mmap_file(uintptr_t addr, size_t length, int prot, int flags, fs_node_t * file, off_t offset) {
-	process_t * proc = this_core->current_process->process;
-	//dprintf("mmap(%#zx, %zu, %d, %d, *%p, %#zx); pid=%d\n", addr, length, prot, flags, (void*)file, offset, proc->id);
-
-	long ret;
-	if ((ret = mmap_common_checks(addr, length, prot, flags))) return ret;
-
-	if (offset & 0xFFF) return dprintf("offset not aligned\n"), -EINVAL;
-
 	spin_lock(proc->image.lock);
-	if (!(flags & MAP_FIXED)) {
-		addr = find_good_spot(proc, length);
-	}
-
+	if (!(flags & MAP_FIXED)) addr = find_good_spot(proc, length);
 	insert_mapping(addr, length, prot, flags, file, offset);
 	spin_unlock(proc->image.lock);
-
 	return addr;
 }
 

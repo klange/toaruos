@@ -1225,9 +1225,7 @@ long sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t 
 	if ((flags & MAP_SHARED) && (flags & MAP_PRIVATE)) return -EINVAL;
 
 	/* MAP_ANONYMOUS skips file checks */
-	if (flags & MAP_ANONYMOUS) {
-		return mmap_anon(addr, length, prot, flags);
-	}
+	if (flags & MAP_ANONYMOUS) return do_mmap(addr, length, prot, flags, NULL, 0);
 
 	if (!FD_CHECK(fd)) return -EBADF;
 
@@ -1240,7 +1238,7 @@ long sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t 
 	/* SHARED + WRITE requires file was open for write access */
 	if ((flags & MAP_SHARED) && (prot & PROT_WRITE) && !(FD_MODE(fd) & PROC_FD_MODE_WRITE)) return -EACCES;
 
-	return mmap_file(addr, length, prot, flags, FD_ENTRY(fd), offset);
+	return do_mmap(addr, length, prot, flags, FD_ENTRY(fd), offset);
 }
 
 long sys_munmap(uintptr_t addr, size_t length) {
