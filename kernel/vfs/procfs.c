@@ -312,7 +312,7 @@ static void proc_maps_func(fs_node_t *node) {
 			maps->offset,
 			maps->file ? fs_device_identifier(maps->file) : 0,
 			maps->file ? maps->file->inode : 0,
-			maps->file ? maps->file->name : "");
+			maps->file ? maps->file->name : (maps->base + maps->length == 0x800000000000) ? "[stack]" : "");
 	}
 }
 
