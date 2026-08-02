@@ -77,28 +77,28 @@ static int ioctl_vid(fs_node_t * node, unsigned long request, void * argp) {
 	switch (request) {
 		case IO_VID_WIDTH: {
 			/* Get framebuffer width */
-			if (!mmu_validate_user_pointer(argp, sizeof(size_t), MMU_PTR_WRITE)) return -EFAULT;
-			size_t res_x = lfb_resolution_x;
-			memcpy(argp, &res_x, sizeof(size_t));
+			if (!mmu_validate_user_pointer(argp, sizeof(uint16_t), MMU_PTR_WRITE)) return -EFAULT;
+			uint16_t res_x = lfb_resolution_x;
+			memcpy(argp, &res_x, sizeof(uint16_t));
 			return 0;
 		}
 		case IO_VID_HEIGHT:
 			/* Get framebuffer height */
-			if (!mmu_validate_user_pointer(argp, sizeof(size_t), MMU_PTR_WRITE)) return -EFAULT;
-			size_t res_y = lfb_resolution_y;
-			memcpy(argp, &res_y, sizeof(size_t));
+			if (!mmu_validate_user_pointer(argp, sizeof(uint16_t), MMU_PTR_WRITE)) return -EFAULT;
+			uint16_t res_y = lfb_resolution_y;
+			memcpy(argp, &res_y, sizeof(uint16_t));
 			return 0;
 		case IO_VID_DEPTH:
 			/* Get framebuffer bit depth */
-			if (!mmu_validate_user_pointer(argp, sizeof(size_t), MMU_PTR_WRITE)) return -EFAULT;
-			size_t res_b = lfb_resolution_b;
-			memcpy(argp, &res_b, sizeof(size_t));
+			if (!mmu_validate_user_pointer(argp, sizeof(uint16_t), MMU_PTR_WRITE)) return -EFAULT;
+			uint16_t res_b = lfb_resolution_b;
+			memcpy(argp, &res_b, sizeof(uint16_t));
 			return 0;
 		case IO_VID_STRIDE:
 			/* Get framebuffer scanline stride */
-			if (!mmu_validate_user_pointer(argp, sizeof(size_t), MMU_PTR_WRITE)) return -EFAULT;
-			size_t res_s = lfb_resolution_s;
-			memcpy(argp, &res_s, sizeof(size_t));
+			if (!mmu_validate_user_pointer(argp, sizeof(uint32_t), MMU_PTR_WRITE)) return -EFAULT;
+			uint32_t res_s = lfb_resolution_s;
+			memcpy(argp, &res_s, sizeof(uint32_t));
 			return 0;
 		case IO_VID_ADDR:
 			/* Map framebuffer into userspace process */
