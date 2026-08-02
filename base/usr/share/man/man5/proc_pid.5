@@ -20,5 +20,12 @@ A listing of information about the process. Each piece of information
 consists of a label, a colon, a space, and then the information string
 in various formats.
 
+.TP
+.IR /proc/ pid /maps
+A listing of memory mapping segments.
+Each line indicates a contiguous range with the same properties and
+shows the start and end addresses, permissions, file offset, device,
+inode number, and file name of mapped files.
+
 .SH SEE ALSO
 .BR proc (5)
