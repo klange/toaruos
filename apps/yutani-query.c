@@ -84,6 +84,19 @@ int main(int argc, char * argv[]) {
 			return show_resolution();
 		} else if (!strcmp(argv[optind], "reload")) {
 			return reload();
+		} else if (!strcmp(argv[optind], "set-blur-radius")) {
+			if (optind + 1 >= argc) return fprintf(stderr, "%s: set-blur-radius expects argument\n", argv[0]), 1;
+			yutani_window_set_blur(yctx, NULL, YUTANI_BLUR_REQUEST_SET_RADIUS, atoi(argv[optind+1]));
+			return 0;
+		} else if (!strcmp(argv[optind], "set-blur-passes")) {
+			if (optind + 1 >= argc) return fprintf(stderr, "%s: set-blur-passes expects argument\n", argv[0]), 1;
+			yutani_window_set_blur(yctx, NULL, YUTANI_BLUR_REQUEST_SET_PASSES, atoi(argv[optind+1]));
+			return 0;
+		} else if (!strcmp(argv[optind], "set-blur-mode")) {
+			if (optind + 2 >= argc) return fprintf(stderr, "%s: set-blur-mode expects two arguments\n", argv[0]), 1;
+			yutani_window_t dummy = {.wid = atoi(argv[optind+1])};
+			yutani_window_set_blur(yctx, &dummy, YUTANI_BLUR_REQUEST_SET_MODE, atoi(argv[optind+2]));
+			return 0;
 		} else {
 			fprintf(stderr, "%s: unsupported command: %s\n", argv[0], argv[optind]);
 			return 1;
