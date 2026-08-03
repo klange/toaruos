@@ -280,6 +280,12 @@ struct yutani_msg_window_tile {
 	uint32_t row;
 };
 
+struct yutani_msg_window_set_blur {
+	yutani_wid_t wid;
+	uint32_t request_type;
+	int32_t  value;
+};
+
 /* Magic value */
 #define YUTANI_MSG__MAGIC 0xABAD1DEA
 
@@ -308,6 +314,7 @@ struct yutani_msg_window_tile {
 #define YUTANI_MSG_WINDOW_MOVE_RELATIVE 0x00000015
 #define YUTANI_MSG_WINDOW_SET_PARENT    0x00000016
 #define YUTANI_MSG_WINDOW_TILE          0x00000017
+#define YUTANI_MSG_WINDOW_SET_BLUR      0x00000018
 
 /* Some session management / de stuff */
 #define YUTANI_MSG_WINDOW_ADVERTISE    0x00000020
@@ -535,6 +542,19 @@ struct yutani_msg_window_tile {
 #define YUTANI_RESIZE_TILE_UP    0x00000004
 #define YUTANI_RESIZE_TILE_DOWN  0x00000008
 
+/**
+ * YUTANI_BLUR
+ *
+ * Modes for blurring.
+ */
+#define YUTANI_BLUR_REQUEST_SET_MODE   1
+#define YUTANI_BLUR_REQUEST_SET_RADIUS 2
+#define YUTANI_BLUR_REQUEST_SET_PASSES 3
+
+#define YUTANI_BLUR_MODE_OFF      -1
+#define YUTANI_BLUR_MODE_STANDARD  0
+#define YUTANI_BLUR_MODE_SUBTLE    1
+
 typedef struct {
 	int x;
 	int y;
@@ -579,6 +599,7 @@ extern void yutani_window_warp_mouse(yutani_t * yctx, yutani_window_t * window, 
 extern void yutani_window_show_mouse(yutani_t * yctx, yutani_window_t * window, int32_t show_mouse);
 extern void yutani_window_resize_start(yutani_t * yctx, yutani_window_t * window, yutani_scale_direction_t direction);
 extern void yutani_window_tile(yutani_t * yctx, yutani_window_t * window, uint32_t columns, uint32_t rows, uint32_t column, uint32_t row);
+extern void yutani_window_set_blur(yutani_t * yctx, yutani_window_t * window, uint32_t request_type, int value);
 extern void yutani_special_request(yutani_t * yctx, yutani_window_t * window, uint32_t request);
 extern void yutani_special_request_wid(yutani_t * yctx, yutani_wid_t wid, uint32_t request);
 extern void yutani_set_clipboard(yutani_t * yctx, char * content);

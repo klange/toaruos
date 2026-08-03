@@ -552,6 +552,17 @@ void yutani_msg_buildx_window_tile(yutani_msg_t * msg, yutani_wid_t wid, uint32_
 	wt->row = row;
 }
 
+void yutani_msg_buildx_window_set_blur(yutani_msg_t * msg, yutani_wid_t wid, uint32_t request_type, int32_t value) {
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_WINDOW_SET_BLUR;
+	msg->size  = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_set_blur);
+
+	struct yutani_msg_window_set_blur * wt = (void *)msg->data;
+	wt->wid = wid;
+	wt->request_type = request_type;
+	wt->value = value;
+}
+
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg) {
 	return pex_reply(y->sock, msg->size, (char *)msg);
 }
@@ -1067,6 +1078,15 @@ void yutani_window_resize_start(yutani_t * yctx, yutani_window_t * window, yutan
 void yutani_window_tile(yutani_t * yctx, yutani_window_t * window, uint32_t columns, uint32_t rows, uint32_t column, uint32_t row) {
 	yutani_msg_buildx_window_tile_alloc(m);
 	yutani_msg_buildx_window_tile(m, window->wid, columns, rows, column, row);
+	yutani_msg_send(yctx, m);
+}
+
+/**
+ * Set the blur options for a window or the whole compositor, depending.
+ */
+void yutani_window_set_blur(yutani_t * yctx, yutani_window_t * window, uint32_t request_type, int value) {
+	yutani_msg_buildx_window_set_blur_alloc(m);
+	yutani_msg_buildx_window_set_blur(m, window ? window->wid : 0, request_type, value);
 	yutani_msg_send(yctx, m);
 }
 

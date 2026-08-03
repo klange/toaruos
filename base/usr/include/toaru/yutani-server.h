@@ -99,10 +99,14 @@ struct {
 	int nested;
 	int nest_width;
 	int nest_height;
+	int max_blur_radius;
+	int max_blur_passes;
 } yutani_options = {
 	.nested = 0,
 	.nest_width = 640,
 	.nest_height = 480,
+	.max_blur_radius = 30,
+	.max_blur_passes = 2,
 };
 
 /*
@@ -177,6 +181,8 @@ typedef struct YutaniServerWindow {
 	int32_t icon_x, icon_y, icon_w, icon_h;
 
 	yutani_wid_t parent;
+
+	int blur_mode;
 } yutani_server_window_t;
 
 typedef struct YutaniGlobals {
@@ -331,6 +337,12 @@ typedef struct YutaniGlobals {
 
 	list_t * windows_to_minimize;
 	list_t * minimized_zs;
+
+	int max_blur_radius;
+	int max_blur_passes;
+	char * blur_texture;
+	gfx_context_t * blur_ctx;
+	gfx_context_t * clip_ctx;
 } yutani_globals_t;
 
 struct key_bind {
