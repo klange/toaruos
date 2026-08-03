@@ -54,8 +54,6 @@ void * mmu_map_mmio_region(uintptr_t physical_address, size_t size);
 void * mmu_map_module(size_t size);
 void mmu_unmap_module(uintptr_t base_address, size_t size);
 
-size_t mmu_count_user(union PML * from);
-size_t mmu_count_shm(union PML * from);
 size_t mmu_total_memory(void);
 size_t mmu_used_memory(void);
 

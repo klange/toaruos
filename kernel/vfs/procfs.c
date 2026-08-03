@@ -205,13 +205,19 @@ static void proc_status_func(fs_node_t *node) {
 
 	/* Calculate process memory usage */
 	spin_lock(proc->thread.page_directory->lock);
-	long mem_usage = count_mappings(proc->thread.page_directory->mappings);
-	long res_usage = mmu_count_user(proc->thread.page_directory->directory) * 4;
-	long shm_usage = mmu_count_shm(proc->thread.page_directory->directory) * 4;
 
-	/* TODO shm should be included in the others */
-	mem_usage += shm_usage;
-	res_usage += shm_usage;
+	size_t mem_usage = count_mappings(proc->thread.page_directory->mappings);
+	extern int mmu_count_resident(process_t * proc, union PML * directory, size_t * anon, size_t * file, size_t * shm);
+	size_t res_anon, res_file, res_shm;
+	mmu_count_resident(proc, proc->thread.page_directory->directory, &res_anon, &res_file, &res_shm);
+
+	res_anon *= 4;
+	res_file *= 4;
+	res_shm *= 4;
+
+	mem_usage += res_shm; /* Because these aren't in the mappings yet. */
+
+	size_t res_usage = res_anon + res_file + res_shm;
 
 	long mem_permille = 1000 * (res_usage) / mmu_total_memory();
 	spin_unlock(proc->thread.page_directory->lock);
@@ -245,9 +251,11 @@ static void proc_status_func(fs_node_t *node) {
 			"SC5:\t%#zx\n"
 			"UserStack:\t%#zx\n"
 			"Path:\t%s\n"
-			"VmSize:\t %ld kB\n"
-			"VmRSS:\t %ld kB\n"
-			"RssShmem:\t %ld kB\n"
+			"VmSize:\t %lu kB\n"
+			"VmRSS:\t %lu kB\n"
+			"RssAnon:\t %lu kB\n"
+			"RssFile:\t %lu kB\n"
+			"RssShmem:\t %lu kB\n"
 			"MemPermille:\t %ld\n"
 			"LastCore:\t %d\n"
 			"TotalTime:\t %ld us\n"
@@ -278,7 +286,7 @@ static void proc_status_func(fs_node_t *node) {
 			proc->syscall_registers ? arch_syscall_arg5(proc->syscall_registers) : 0,
 			proc->syscall_registers ? arch_stack_pointer(proc->syscall_registers) : 0,
 			proc->cmdline ? proc->cmdline[0] : "(none)",
-			mem_usage, res_usage, shm_usage, mem_permille,
+			mem_usage, res_usage, res_anon, res_file, res_shm, mem_permille,
 			proc->owner,
 			proc->time_total / arch_cpu_mhz(),
 			proc->time_sys / arch_cpu_mhz(),

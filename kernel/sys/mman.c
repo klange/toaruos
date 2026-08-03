@@ -311,3 +311,52 @@ long do_mmap(uintptr_t addr, size_t length, int prot, int flags, fs_node_t * fil
 	return addr;
 }
 
+static void count_pt(uintptr_t addr_base, memmap_t * maps, union PML * pt, size_t * anon, size_t * file, size_t * shm) {
+	for (size_t l = 0; l < 512; ++l) {
+		uintptr_t addr = addr_base + (l << 12);
+		while (maps && maps->base + maps->length <= addr) maps = maps->next;
+		if (pt[l].bits.present) {
+			if (addr >= USER_DEVICE_MAP && addr <= USER_SHM_HIGH) {
+				/* Legacy stuff. */
+				(*shm) += 1;
+			} else if (maps && addr >= maps->base && addr < maps->base + maps->length) {
+				if (maps->file) {
+					(*file) += 1;
+				} else if (maps->flags & MAP_SHARED) {
+					(*shm) += 1;
+				} else {
+					(*anon) += 1;
+				}
+			}
+		}
+	}
+}
+
+static void count_pd(uintptr_t addr_base, memmap_t * maps, union PML * pd, size_t * anon, size_t * file, size_t * shm) {
+	for (size_t k = 0; k < 512; ++k) {
+		uintptr_t addr = addr_base + (k << (9 + 12));
+		if (pd[k].bits.present) count_pt(addr, maps, mmu_map_from_physical((uintptr_t)pd[k].bits.page << 12), anon, file, shm);
+	}
+}
+
+static void count_pdp(uintptr_t addr_base, memmap_t * maps, union PML * pdp, size_t * anon, size_t * file, size_t * shm) {
+	for (size_t j = 0; j < 512; ++j) {
+		uintptr_t addr = addr_base + (j << (9*2 + 12));
+		if (pdp[j].bits.present) count_pd(addr, maps, mmu_map_from_physical((uintptr_t)pdp[j].bits.page << 12), anon, file, shm);
+	}
+}
+
+int mmu_count_resident(process_t * proc, union PML * directory, size_t * anon, size_t * file, size_t * shm) {
+	memmap_t * maps = proc->thread.page_directory->mappings;
+
+	*anon = 0;
+	*file = 0;
+	*shm = 0;
+
+	for (size_t i = 0; i < 256; ++i) {
+		uintptr_t addr = i << (9 * 3 + 12);
+		if (directory[i].bits.present) count_pdp(addr, maps, mmu_map_from_physical((uintptr_t)directory[i].bits.page << 12), anon, file, shm);
+	}
+
+	return 0;
+}
