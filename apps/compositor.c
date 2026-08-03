@@ -65,10 +65,13 @@ static void window_finish_minimize(yutani_globals_t * yg, yutani_server_window_t
 
 #define ENABLE_BLUR_BEHIND
 #ifdef ENABLE_BLUR_BEHIND
-static const int blur_radius = 10;
+static const int blur_passes = 2;
+static const int blur_radius = 30;
 static char * blur_texture = NULL;
 static gfx_context_t * blur_ctx = NULL;
 static gfx_context_t * clip_ctx = NULL;
+extern void draw_sprite_blur_alpha(gfx_context_t * ctx, gfx_context_t * blur_ctx, const sprite_t * sprite, int x, int y, float alpha, uint8_t threshold, int radius, unsigned int passes);
+extern void draw_sprite_transform_blur(gfx_context_t * ctx, gfx_context_t * blur_ctx, const sprite_t * sprite, gfx_matrix_t matrix, float alpha, uint8_t threshold, int radius, unsigned int passes);
 #endif
 
 /**
@@ -847,8 +850,11 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 		}
 #ifdef ENABLE_BLUR_BEHIND
 		if (window->server_flags & YUTANI_WINDOW_FLAG_BLUR_BEHIND) {
-			extern void draw_sprite_transform_blur(gfx_context_t * ctx, gfx_context_t * blur_ctx, const sprite_t * sprite, gfx_matrix_t matrix, float alpha, uint8_t threshold);
-			draw_sprite_transform_blur(yg->backend_ctx, blur_ctx, &_win_sprite, m, opacity, window->alpha_threshold);
+			if (matrix_is_translation(m)) {
+				draw_sprite_blur_alpha(yg->backend_ctx, blur_ctx, &_win_sprite, m[0][2], m[1][2], opacity, window->alpha_threshold, blur_radius, blur_passes);
+			} else {
+				draw_sprite_transform_blur(yg->backend_ctx, blur_ctx, &_win_sprite, m, opacity, window->alpha_threshold, blur_radius, blur_passes);
+			}
 		} else
 #endif
 		if (matrix_is_translation(m)) {
