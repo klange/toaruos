@@ -106,18 +106,9 @@ static int ioctl_vid(fs_node_t * node, unsigned long request, void * argp) {
 			/* Map framebuffer into userspace process */
 			{
 				if (!mmu_validate_user_pointer(argp, sizeof(uintptr_t), MMU_PTR_WRITE)) return -EFAULT;
-				uintptr_t lfb_user_offset;
-				if (*(uintptr_t*)argp == 0) {
-					/* Pick an address and map it */
-					lfb_user_offset = USER_DEVICE_MAP;
-				} else {
-					lfb_user_offset = *(uintptr_t*)argp;
-				}
-				for (uintptr_t i = 0; i < lfb_memsize; i += 0x1000) {
-					union PML * page = mmu_get_page(lfb_user_offset + i, MMU_GET_MAKE);
-					mmu_frame_map_address(page,MMU_FLAG_WRITABLE | (lfb_use_write_combining ? MMU_FLAG_WC : 0),((uintptr_t)(lfb_vid_memory) & 0xFFFFFFFF) + i);
-				}
-				memcpy(argp, &lfb_user_offset, sizeof(uintptr_t));
+				size_t size = (lfb_memsize + 0xfff) & ~0xfff;
+				uintptr_t addr = do_mmap(0, size, PROT_READ|PROT_WRITE, MAP_SHARED, node, 0);
+				memcpy(argp, &addr, sizeof(uintptr_t));
 			}
 			return 0;
 		case IO_VID_SIGNAL:
