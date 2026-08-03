@@ -63,8 +63,8 @@ static yutani_server_window_t * top_at(yutani_globals_t * yg, uint16_t x, uint16
 static void window_unminimize(yutani_globals_t * yg, yutani_server_window_t * window);
 static void window_finish_minimize(yutani_globals_t * yg, yutani_server_window_t * w);
 
-extern void draw_sprite_blur_alpha(gfx_context_t * ctx, gfx_context_t * blur_ctx, const sprite_t * sprite, int x, int y, float alpha, uint8_t threshold, int radius, unsigned int passes);
-extern void draw_sprite_transform_blur(gfx_context_t * ctx, gfx_context_t * blur_ctx, const sprite_t * sprite, gfx_matrix_t matrix, float alpha, uint8_t threshold, int radius, unsigned int passes);
+extern void draw_sprite_blur_alpha(gfx_context_t * ctx, gfx_context_t * blur_ctx, const sprite_t * sprite, int x, int y, float alpha, uint8_t threshold, int size, unsigned int passes);
+extern void draw_sprite_transform_blur(gfx_context_t * ctx, gfx_context_t * blur_ctx, const sprite_t * sprite, gfx_matrix_t matrix, float alpha, uint8_t threshold, int size, unsigned int passes);
 
 /**
  * Print usage information.
@@ -95,7 +95,7 @@ static int parse_args(int argc, char * argv[], int * out) {
 		{"nested",     no_argument,       0, 'n'},
 		{"geometry",   required_argument, 0, 'g'},
 		{"help",       no_argument,       0, 'h'},
-		{"blur-radius",required_argument, 0, 1000},
+		{"blur-size",  required_argument, 0, 1000},
 		{"blur-passes",required_argument, 0, 1001},
 		{0,0,0,0}
 	};
@@ -125,9 +125,9 @@ static int parse_args(int argc, char * argv[], int * out) {
 				}
 				break;
 			case 1000:
-				yutani_options.max_blur_radius = atoi(optarg);
-				if (yutani_options.max_blur_radius < 0) yutani_options.max_blur_radius = 0;
-				if (yutani_options.max_blur_radius > 200) yutani_options.max_blur_radius = 200;
+				yutani_options.max_blur_size = atoi(optarg);
+				if (yutani_options.max_blur_size < 0) yutani_options.max_blur_size = 0;
+				if (yutani_options.max_blur_size > 200) yutani_options.max_blur_size = 200;
 				break;
 			case 1001:
 				yutani_options.max_blur_passes = atoi(optarg);
@@ -854,11 +854,11 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 		}
 		if (window->server_flags & YUTANI_WINDOW_FLAG_BLUR_BEHIND) {
 			int passes = (window->blur_mode == YUTANI_BLUR_MODE_SUBTLE) ? (yg->max_blur_passes ? 1 : 0) : yg->max_blur_passes;
-			int radius = (window->blur_mode == YUTANI_BLUR_MODE_SUBTLE) ? yg->max_blur_radius / 3 : yg->max_blur_radius;
+			int size   = (window->blur_mode == YUTANI_BLUR_MODE_SUBTLE) ? yg->max_blur_size / 3 : yg->max_blur_size;
 			if (matrix_is_translation(m)) {
-				draw_sprite_blur_alpha(yg->backend_ctx, yg->blur_ctx, &_win_sprite, m[0][2], m[1][2], opacity, window->alpha_threshold, radius, passes);
+				draw_sprite_blur_alpha(yg->backend_ctx, yg->blur_ctx, &_win_sprite, m[0][2], m[1][2], opacity, window->alpha_threshold, size, passes);
 			} else {
-				draw_sprite_transform_blur(yg->backend_ctx, yg->blur_ctx, &_win_sprite, m, opacity, window->alpha_threshold, radius, passes);
+				draw_sprite_transform_blur(yg->backend_ctx, yg->blur_ctx, &_win_sprite, m, opacity, window->alpha_threshold, size, passes);
 			}
 		} else if (matrix_is_translation(m)) {
 			draw_sprite_alpha(yg->backend_ctx, &_win_sprite, m[0][2], m[1][2], opacity);
@@ -1140,10 +1140,10 @@ static void redraw_windows(yutani_globals_t * yg) {
 		int lm_y = yg->last_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_Y;
 		int tm_x = tmp_mouse_x / MOUSE_SCALE - MOUSE_OFFSET_X;
 		int tm_y = tmp_mouse_y / MOUSE_SCALE - MOUSE_OFFSET_X;
-		gfx_add_clip(yg->backend_ctx, lm_x - yg->max_blur_radius, lm_y - yg->max_blur_radius, MOUSE_WIDTH + yg->max_blur_radius * 2, MOUSE_HEIGHT + yg->max_blur_radius * 2);
-		gfx_add_clip(yg->backend_ctx, tm_x - yg->max_blur_radius, tm_y - yg->max_blur_radius, MOUSE_WIDTH + yg->max_blur_radius * 2, MOUSE_HEIGHT + yg->max_blur_radius * 2);
-		gfx_add_clip(yg->clip_ctx, lm_x - yg->max_blur_radius * 2, lm_y - yg->max_blur_radius * 2, MOUSE_WIDTH + yg->max_blur_radius * 4, MOUSE_HEIGHT + yg->max_blur_radius * 4);
-		gfx_add_clip(yg->clip_ctx, tm_x - yg->max_blur_radius * 2, tm_y - yg->max_blur_radius * 2, MOUSE_WIDTH + yg->max_blur_radius * 4, MOUSE_HEIGHT + yg->max_blur_radius * 4);
+		gfx_add_clip(yg->backend_ctx, lm_x - yg->max_blur_size, lm_y - yg->max_blur_size, MOUSE_WIDTH + yg->max_blur_size * 2, MOUSE_HEIGHT + yg->max_blur_size * 2);
+		gfx_add_clip(yg->backend_ctx, tm_x - yg->max_blur_size, tm_y - yg->max_blur_size, MOUSE_WIDTH + yg->max_blur_size * 2, MOUSE_HEIGHT + yg->max_blur_size * 2);
+		gfx_add_clip(yg->clip_ctx, lm_x - yg->max_blur_size * 2, lm_y - yg->max_blur_size * 2, MOUSE_WIDTH + yg->max_blur_size * 4, MOUSE_HEIGHT + yg->max_blur_size * 4);
+		gfx_add_clip(yg->clip_ctx, tm_x - yg->max_blur_size * 2, tm_y - yg->max_blur_size * 2, MOUSE_WIDTH + yg->max_blur_size * 4, MOUSE_HEIGHT + yg->max_blur_size * 4);
 	}
 
 	yg->last_mouse_x = tmp_mouse_x;
@@ -1182,8 +1182,8 @@ static void redraw_windows(yutani_globals_t * yg) {
 
 		/* We add a clip region for each window in the update queue */
 		has_updates = 1;
-		gfx_add_clip(yg->backend_ctx, rect->x - yg->max_blur_radius, rect->y - yg->max_blur_radius, rect->width + yg->max_blur_radius * 2, rect->height + yg->max_blur_radius * 2);
-		gfx_add_clip(yg->clip_ctx, rect->x - yg->max_blur_radius * 2, rect->y - yg->max_blur_radius * 2, rect->width + yg->max_blur_radius * 4, rect->height + yg->max_blur_radius * 4);
+		gfx_add_clip(yg->backend_ctx, rect->x - yg->max_blur_size, rect->y - yg->max_blur_size, rect->width + yg->max_blur_size * 2, rect->height + yg->max_blur_size * 2);
+		gfx_add_clip(yg->clip_ctx, rect->x - yg->max_blur_size * 2, rect->y - yg->max_blur_size * 2, rect->width + yg->max_blur_size * 4, rect->height + yg->max_blur_size * 4);
 		free(rect);
 		free(win);
 	}
@@ -2379,7 +2379,7 @@ int main(int argc, char * argv[]) {
 	yg->clip_ctx = calloc(1, sizeof(gfx_context_t));
 	yg->clip_ctx->width = yg->backend_ctx->width;
 	yg->clip_ctx->height = yg->backend_ctx->height;
-	yg->max_blur_radius = yutani_options.max_blur_radius;
+	yg->max_blur_size   = yutani_options.max_blur_size;
 	yg->max_blur_passes = yutani_options.max_blur_passes;
 
 	if (!yg->backend_ctx) {
@@ -3071,10 +3071,10 @@ int main(int argc, char * argv[]) {
 							mark_screen(yg, 0, 0, yg->width, yg->height);
 							break;
 						}
-						case YUTANI_BLUR_REQUEST_SET_RADIUS: {
+						case YUTANI_BLUR_REQUEST_SET_SIZE: {
 							if (bl->value < 0) bl->value = 0;
 							if (bl->value > 200) bl->value = 200;
-							yg->max_blur_radius = bl->value;
+							yg->max_blur_size = bl->value;
 							mark_screen(yg, 0, 0, yg->width, yg->height);
 							break;
 						}

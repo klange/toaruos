@@ -364,10 +364,10 @@ KRK_Method(GraphicsContext,flip) {
 }
 
 KRK_Method(GraphicsContext,blur) {
-	int radius = 2;
-	if (!krk_parseArgs(".|I",(const char*[]){"radius"}, &radius)) return NONE_VAL();
+	int diameter = 2;
+	if (!krk_parseArgs(".|I",(const char*[]){"diameter"}, &diameter)) return NONE_VAL();
 	CHECK_GFX();
-	blur_context_box(self->ctx, radius);
+	blur_context_box(self->ctx, diameter);
 	return NONE_VAL();
 }
 

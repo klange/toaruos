@@ -99,13 +99,13 @@ struct {
 	int nested;
 	int nest_width;
 	int nest_height;
-	int max_blur_radius;
+	int max_blur_size;
 	int max_blur_passes;
 } yutani_options = {
 	.nested = 0,
 	.nest_width = 640,
 	.nest_height = 480,
-	.max_blur_radius = 30,
+	.max_blur_size = 30,
 	.max_blur_passes = 2,
 };
 
@@ -338,7 +338,7 @@ typedef struct YutaniGlobals {
 	list_t * windows_to_minimize;
 	list_t * minimized_zs;
 
-	int max_blur_radius;
+	int max_blur_size;
 	int max_blur_passes;
 	char * blur_texture;
 	gfx_context_t * blur_ctx;

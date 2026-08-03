@@ -84,9 +84,9 @@ int main(int argc, char * argv[]) {
 			return show_resolution();
 		} else if (!strcmp(argv[optind], "reload")) {
 			return reload();
-		} else if (!strcmp(argv[optind], "set-blur-radius")) {
-			if (optind + 1 >= argc) return fprintf(stderr, "%s: set-blur-radius expects argument\n", argv[0]), 1;
-			yutani_window_set_blur(yctx, NULL, YUTANI_BLUR_REQUEST_SET_RADIUS, atoi(argv[optind+1]));
+		} else if (!strcmp(argv[optind], "set-blur-size")) {
+			if (optind + 1 >= argc) return fprintf(stderr, "%s: set-blur-size expects argument\n", argv[0]), 1;
+			yutani_window_set_blur(yctx, NULL, YUTANI_BLUR_REQUEST_SET_SIZE, atoi(argv[optind+1]));
 			return 0;
 		} else if (!strcmp(argv[optind], "set-blur-passes")) {
 			if (optind + 1 >= argc) return fprintf(stderr, "%s: set-blur-passes expects argument\n", argv[0]), 1;

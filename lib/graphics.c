@@ -298,10 +298,10 @@ static inline int clamp(int a, int l, int h) {
 	return a < l ? l : (a > h ? h : a);
 }
 
-static void _box_blur_horizontal(gfx_context_t * _src, int radius) {
+static void _box_blur_horizontal(gfx_context_t * _src, int diameter) {
 	int w = _src->width;
 	int h = _src->height;
-	int half_radius = radius / 2;
+	int radius = diameter / 2;
 	uint32_t * out_color = calloc(w, sizeof(uint32_t));
 
 	for (int y = 0; y < h; y++) {
@@ -310,8 +310,8 @@ static void _box_blur_horizontal(gfx_context_t * _src, int radius) {
 		int g = 0;
 		int b = 0;
 		int a = 0;
-		for (int x = -half_radius; x < w; x++) {
-			int old_p = x - half_radius - 1;
+		for (int x = -radius; x < w; x++) {
+			int old_p = x - radius - 1;
 			if (old_p >= 0)
 			{
 				uint32_t col = GFX(_src, clamp(old_p,0,w-1), y);
@@ -324,7 +324,7 @@ static void _box_blur_horizontal(gfx_context_t * _src, int radius) {
 				hits--;
 			}
 
-			int newPixel = x + half_radius;
+			int newPixel = x + radius;
 			if (newPixel < w) {
 				uint32_t col = GFX(_src, clamp(newPixel,0,w-1), y);
 				if (col != 0) {
@@ -350,10 +350,10 @@ static void _box_blur_horizontal(gfx_context_t * _src, int radius) {
 	free(out_color);
 }
 
-static void _box_blur_vertical(gfx_context_t * _src, int radius) {
+static void _box_blur_vertical(gfx_context_t * _src, int diameter) {
 	int w = _src->width;
 	int h = _src->height;
-	int half_radius = radius / 2;
+	int radius = diameter / 2;
 
 	uint32_t * out_color = calloc(h, sizeof(uint32_t));
 
@@ -363,8 +363,8 @@ static void _box_blur_vertical(gfx_context_t * _src, int radius) {
 		int g = 0;
 		int b = 0;
 		int a = 0;
-		for (int y = -half_radius; y < h; y++) {
-			int old_p = y - half_radius - 1;
+		for (int y = -radius; y < h; y++) {
+			int old_p = y - radius - 1;
 			if (old_p >= 0) {
 				uint32_t col = GFX(_src,x,clamp(old_p,0,h-1));
 				if (col != 0) {
@@ -376,7 +376,7 @@ static void _box_blur_vertical(gfx_context_t * _src, int radius) {
 				hits--;
 			}
 
-			int newPixel = y + half_radius;
+			int newPixel = y + radius;
 			if (newPixel < h) {
 				uint32_t col = GFX(_src,x,clamp(newPixel,0,h-1));
 				if (col != 0)
@@ -403,13 +403,9 @@ static void _box_blur_vertical(gfx_context_t * _src, int radius) {
 	free(out_color);
 }
 
-void blur_context_box(gfx_context_t * _src, int radius) {
-	_box_blur_horizontal(_src,radius);
-	_box_blur_vertical(_src,radius);
-}
-
-void blur_from_into(gfx_context_t * _src, gfx_context_t * _dest, int radius) {
-	draw_fill(_dest, rgb(255,0,0));
+void blur_context_box(gfx_context_t * _src, int diameter) {
+	_box_blur_horizontal(_src,diameter);
+	_box_blur_vertical(_src,diameter);
 }
 
 struct SpriteHandler {
@@ -1091,7 +1087,7 @@ void draw_sprite_transform(gfx_context_t * ctx, const sprite_t * sprite, gfx_mat
 	sprite_free(scanline);
 }
 
-void draw_sprite_blur_alpha(gfx_context_t * ctx, gfx_context_t * blur_ctx, const sprite_t * sprite, int x, int y, float alpha, uint8_t threshold, int radius, unsigned int passes) {
+void draw_sprite_blur_alpha(gfx_context_t * ctx, gfx_context_t * blur_ctx, const sprite_t * sprite, int x, int y, float alpha, uint8_t threshold, int diameter, unsigned int passes) {
 	int32_t _left   = max(x, 0);
 	int32_t _top    = max(y, 0);
 	int32_t _right  = min(x + sprite->width,  ctx->width);
@@ -1105,7 +1101,7 @@ void draw_sprite_blur_alpha(gfx_context_t * ctx, gfx_context_t * blur_ctx, const
 	flip(f);
 	f->backbuffer = f->buffer;
 	while (passes) {
-		blur_context_box(f, radius);
+		blur_context_box(f, diameter);
 		passes--;
 	}
 	free(f);
@@ -1135,7 +1131,7 @@ void draw_sprite_blur_alpha(gfx_context_t * ctx, gfx_context_t * blur_ctx, const
 	sprite_free(blurline);
 }
 
-void draw_sprite_transform_blur(gfx_context_t * ctx, gfx_context_t * blur_ctx, const sprite_t * sprite, gfx_matrix_t matrix, float alpha, uint8_t threshold, int radius, unsigned int passes) {
+void draw_sprite_transform_blur(gfx_context_t * ctx, gfx_context_t * blur_ctx, const sprite_t * sprite, gfx_matrix_t matrix, float alpha, uint8_t threshold, int diameter, unsigned int passes) {
 	double inverse[2][3];
 
 	/* Calculate the inverse matrix for use in calculating sprite
@@ -1167,7 +1163,7 @@ void draw_sprite_transform_blur(gfx_context_t * ctx, gfx_context_t * blur_ctx, c
 	flip(f);
 	f->backbuffer = f->buffer;
 	while (passes) {
-		blur_context_box(f, radius);
+		blur_context_box(f, diameter);
 		passes--;
 	}
 	free(f);

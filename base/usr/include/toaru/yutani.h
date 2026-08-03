@@ -548,7 +548,7 @@ struct yutani_msg_window_set_blur {
  * Modes for blurring.
  */
 #define YUTANI_BLUR_REQUEST_SET_MODE   1
-#define YUTANI_BLUR_REQUEST_SET_RADIUS 2
+#define YUTANI_BLUR_REQUEST_SET_SIZE   2
 #define YUTANI_BLUR_REQUEST_SET_PASSES 3
 
 #define YUTANI_BLUR_MODE_OFF      -1

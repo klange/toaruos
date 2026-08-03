@@ -72,7 +72,7 @@ extern sprite_t * create_sprite(size_t width, size_t height, int alpha);
 
 extern void blur_context(gfx_context_t * _dst, gfx_context_t * _src, double amount);
 extern void blur_context_no_vignette(gfx_context_t * _dst, gfx_context_t * _src, double amount);
-extern void blur_context_box(gfx_context_t * _src, int radius);
+extern void blur_context_box(gfx_context_t * _src, int diameter);
 extern void sprite_free(sprite_t * sprite);
 
 extern void draw_line(gfx_context_t * ctx, int32_t x0, int32_t x1, int32_t y0, int32_t y1, uint32_t color);
