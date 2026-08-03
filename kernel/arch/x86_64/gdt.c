@@ -95,6 +95,10 @@ void gdt_install(void) {
 		"mov %%ax, %%ss\n"
 		"mov $0x33, %%ax\n" /* TSS offset */
 		"ltr %%ax\n"
+		"leaq 5(%%rip),%%rax\n"
+		"pushq $0x08\n"
+		"pushq %%rax\n"
+		"lretq\n"
 		: : "m"(gdt[0].pointer) : "rax", "memory"
 	);
 }
