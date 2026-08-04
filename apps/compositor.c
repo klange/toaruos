@@ -66,6 +66,14 @@ static void window_finish_minimize(yutani_globals_t * yg, yutani_server_window_t
 extern void draw_sprite_blur_alpha(gfx_context_t * ctx, gfx_context_t * blur_ctx, const sprite_t * sprite, int x, int y, float alpha, uint8_t threshold, int size, unsigned int passes);
 extern void draw_sprite_transform_blur(gfx_context_t * ctx, gfx_context_t * blur_ctx, const sprite_t * sprite, gfx_matrix_t matrix, float alpha, uint8_t threshold, int size, unsigned int passes);
 
+static int32_t min(int32_t a, int32_t b) {
+	return (a < b) ? a : b;
+}
+
+static int32_t max(int32_t a, int32_t b) {
+	return (a > b) ? a : b;
+}
+
 /**
  * Print usage information.
  */
@@ -125,14 +133,10 @@ static int parse_args(int argc, char * argv[], int * out) {
 				}
 				break;
 			case 1000:
-				yutani_options.max_blur_size = atoi(optarg);
-				if (yutani_options.max_blur_size < 0) yutani_options.max_blur_size = 0;
-				if (yutani_options.max_blur_size > 200) yutani_options.max_blur_size = 200;
+				yutani_options.max_blur_size = max(min(atoi(optarg), 200), 0);
 				break;
 			case 1001:
-				yutani_options.max_blur_passes = atoi(optarg);
-				if (yutani_options.max_blur_passes < 0) yutani_options.max_blur_passes = 0;
-				if (yutani_options.max_blur_passes > 3) yutani_options.max_blur_passes = 3;
+				yutani_options.max_blur_passes = max(min(atoi(optarg), 3), 0);
 				break;
 			case '?':
 				return usage(argv);
@@ -140,14 +144,6 @@ static int parse_args(int argc, char * argv[], int * out) {
 	}
 	*out = optind;
 	return 0;
-}
-
-static int32_t min(int32_t a, int32_t b) {
-	return (a < b) ? a : b;
-}
-
-static int32_t max(int32_t a, int32_t b) {
-	return (a > b) ? a : b;
 }
 
 static int next_buf_id(void) {
@@ -753,6 +749,31 @@ static void apply_rotation(yutani_globals_t * yg, yutani_server_window_t * windo
 	}
 }
 
+static void calculate_blur_passes_and_size(yutani_globals_t * yg, yutani_server_window_t * window, int *passes, int *size) {
+	switch (window->blur_mode) {
+		case YUTANI_BLUR_MODE_SUBTLE:
+			*passes = yg->max_blur_passes ? 1 : 0;
+			*size = yg->max_blur_size / 3;
+			break;
+		case YUTANI_BLUR_MODE_STANDARD:
+			*passes = yg->max_blur_passes;
+			*size = yg->max_blur_size;
+			break;
+		case YUTANI_BLUR_MODE_CUSTOM:
+			*passes = min(yg->max_blur_passes, window->blur_passes);
+			*size = min(yg->max_blur_size, window->blur_size);
+			break;
+		case YUTANI_BLUR_MODE_SCALED:
+			*passes = min(yg->max_blur_passes, window->blur_passes);
+			*size = max(min(window->blur_size, 100), 0) * yg->max_blur_size / 100;
+			break;
+		default:
+			*passes = 0;
+			*size = 0;
+			break;
+	}
+}
+
 /**
  * Blit a window to the framebuffer.
  *
@@ -853,8 +874,8 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 			apply_rotation(yg, window, m, window->rotation);
 		}
 		if (window->server_flags & YUTANI_WINDOW_FLAG_BLUR_BEHIND) {
-			int passes = (window->blur_mode == YUTANI_BLUR_MODE_SUBTLE) ? (yg->max_blur_passes ? 1 : 0) : yg->max_blur_passes;
-			int size   = (window->blur_mode == YUTANI_BLUR_MODE_SUBTLE) ? yg->max_blur_size / 3 : yg->max_blur_size;
+			int passes, size;
+			calculate_blur_passes_and_size(yg, window, &passes, &size);
 			if (matrix_is_translation(m)) {
 				draw_sprite_blur_alpha(yg->backend_ctx, yg->blur_ctx, &_win_sprite, m[0][2], m[1][2], opacity, window->alpha_threshold, size, passes);
 			} else {
@@ -3050,7 +3071,9 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_WINDOW_SET_BLUR:
 				{
 					struct yutani_msg_window_set_blur * bl = (void *)m->data;
-					switch (bl->request_type) {
+					uint32_t type = bl->request_type & ~YUTANI_BLUR_REQUEST_NO_FLIP;
+					int should_flip = !(bl->request_type & YUTANI_BLUR_REQUEST_NO_FLIP);
+					switch (type) {
 						case YUTANI_BLUR_REQUEST_SET_MODE: {
 							yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)bl->wid);
 							if (w) {
@@ -3060,22 +3083,36 @@ int main(int argc, char * argv[]) {
 									w->server_flags |= YUTANI_WINDOW_FLAG_BLUR_BEHIND;
 									w->blur_mode = bl->value;
 								}
-								mark_window(yg, w);
+								if (should_flip) mark_window(yg, w);
 							}
 							break;
 						}
 						case YUTANI_BLUR_REQUEST_SET_PASSES: {
-							if (bl->value < 0) bl->value = 0;
-							if (bl->value > 3) bl->value = 3;
-							yg->max_blur_passes = bl->value;
-							mark_screen(yg, 0, 0, yg->width, yg->height);
+							bl->value = max(min(bl->value, 3), 0);
+							if (bl->wid == 0) {
+								yg->max_blur_passes = bl->value;
+								if (should_flip) mark_screen(yg, 0, 0, yg->width, yg->height);
+							} else {
+								yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)bl->wid);
+								if (w) {
+									w->blur_passes = bl->value;
+									if (should_flip) mark_window(yg, w);
+								}
+							}
 							break;
 						}
 						case YUTANI_BLUR_REQUEST_SET_SIZE: {
-							if (bl->value < 0) bl->value = 0;
-							if (bl->value > 200) bl->value = 200;
-							yg->max_blur_size = bl->value;
-							mark_screen(yg, 0, 0, yg->width, yg->height);
+							bl->value = max(min(bl->value, 200), 0);
+							if (bl->wid == 0) {
+								yg->max_blur_size = bl->value;
+								if (should_flip) mark_screen(yg, 0, 0, yg->width, yg->height);
+							} else {
+								yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)bl->wid);
+								if (w) {
+									w->blur_size = bl->value;
+									if (should_flip) mark_window(yg, w);
+								}
+							}
 							break;
 						}
 					}

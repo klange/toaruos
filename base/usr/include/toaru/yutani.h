@@ -545,15 +545,38 @@ struct yutani_msg_window_set_blur {
 /**
  * YUTANI_BLUR
  *
- * Modes for blurring.
+ * Requests for blurring:
+ *  SET_MODE    Set the blur mode from YUTANI_BLUR_MODE_ below.
+ *  SET_SIZE    Set the number of size of the blur, generally in pixels (0-200).
+ *  SET_PASSES  Set the number of box blur passes to use (0 to 3).
+ *
+ * By default, any of these operations will mark the relevant window or the whole
+ * screen for updates. To skip this, such as when configuring multiple settings at
+ * once, OR the request type with YUTANI_BLUR_REQUEST_NO_FLIP.
+ *
+ * When SIZE and PASSES are set on wid=0, the global maximums are set, clamped to
+ * the maximum hard-coded ranges.
+ *
+ * Modes for blurring:
+ *  MODE_OFF       Disable blurring for this window.
+ *  MODE_STANDARD  Use the current server maximum values (default is 30 pixels, 2 passes).
+ *  MODE_STANDARD  Use one pass and 1/3rd the server maximum size (eg. 10 pixels, 1 pass).
+ *  MODE_CUSTOM    Specify values with SET_SIZE and SET_PASSES, clamped to the server maximums.
+ *  MODE_SCALED    Specify passes with SET_PASSES, and a percentage of server maximum size with SET_SIZE.
+ *
+ * Values that vary with the server maximums will be updated whenever the server maximum is changed.
  */
 #define YUTANI_BLUR_REQUEST_SET_MODE   1
 #define YUTANI_BLUR_REQUEST_SET_SIZE   2
 #define YUTANI_BLUR_REQUEST_SET_PASSES 3
 
+#define YUTANI_BLUR_REQUEST_NO_FLIP    0x10000000
+
 #define YUTANI_BLUR_MODE_OFF      -1
 #define YUTANI_BLUR_MODE_STANDARD  0
 #define YUTANI_BLUR_MODE_SUBTLE    1
+#define YUTANI_BLUR_MODE_CUSTOM    2
+#define YUTANI_BLUR_MODE_SCALED    3
 
 typedef struct {
 	int x;
