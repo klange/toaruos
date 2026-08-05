@@ -16,10 +16,14 @@ let colors = {
     '*.tgz': red,
     '*.gz': red,
 
-    # Images
+    # Images + Video
     '*.png': purple,
     '*.jpg': purple,
     '*.bmp': purple,
+    '*.mp4': purple,
+    '*.mpg': purple,
+    '*.webm': purple,
+    '*.mov': purple,
 
     # Audio
     '*.wav': teal,
