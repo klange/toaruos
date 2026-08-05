@@ -55,3 +55,14 @@ double copysign(double x, double y) {
 	}
 }
 
+float copysignf(float x, float y) {
+	return copysign(x,y);
+}
+
+double j1(double x) {
+	return x;
+}
+
+double scalbn(double x, int n) {
+	return x * pow(2, n);
+}

@@ -40,14 +40,6 @@ void redraw_borders() {
 	render_decorations(wina, ctx, "Color Picker");
 }
 
-double fmin(double a, double b) {
-	return a < b ? a : b;
-}
-
-double fmax(double a, double b) {
-	return a > b ? a : b;
-}
-
 uint32_t hsv_to_rgb(float h, float s, float v) {
 	float c  = v * s;
 	float hp = fmod(h, 2 * M_PI);

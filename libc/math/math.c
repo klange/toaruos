@@ -532,6 +532,10 @@ double tanh(double x) {
 	return (exp(2.0*x) - 1.0) / (exp(2.0*x) + 1.0);
 }
 
+float tanhf(float x) {
+	return tanh(x);
+}
+
 int fpclassify(double x) {
 	union {
 		double asFloat;
@@ -603,3 +607,79 @@ long lroundf(float x) {
 	return round(x);
 }
 
+double fmin(double a, double b) {
+	if (isnan(a)) return b;
+	if (isnan(b)) return a;
+	return a < b ? a : b;
+}
+
+double fmax(double a, double b) {
+	if (isnan(a)) return b;
+	if (isnan(b)) return a;
+	return a < b ? b : a;
+}
+
+float fminf(float a, float b) {
+	return fmin(a,b);
+}
+
+float fmaxf(float a, float b) {
+	return fmax(a,b);
+}
+
+float  logf(float x) {
+	return log(x);
+}
+
+float  tanf(float x) {
+	return tan(x);
+}
+
+float  fmodf(float x, float y) {
+	return fmod(x,y);
+}
+
+float hypotf(float x, float y) {
+	return hypot(x,y);
+}
+
+float erff(float x) {
+	return erf(x);
+}
+
+extern float  sinhf(float x) {
+	return sinh(x);
+}
+
+extern float  asinhf(float x) {
+	return asinh(x);
+}
+
+extern float  floorf(float x) {
+#ifdef __x86_64__
+	return floor(x);
+#else
+	return __builtin_floor(x);
+#endif
+}
+
+extern float asinf(float x) {
+	return asin(x);
+}
+
+extern float acosf(float x) {
+	return acos(x);
+}
+
+long long llabs(long long x) {
+	if (x < 0) return -x;
+	return x;
+}
+
+float powf(float x, float y) {
+	return pow(x,y);
+}
+
+float frexpf(float x, int *y) {
+	return frexp(x, y);
+}

@@ -11,4 +11,6 @@ extern void __assert_func(const char * file, int line, const char * func, const 
 #define assert(statement) ((void)0)
 #endif
 
+#define static_assert _Static_assert
+
 _End_C_Header

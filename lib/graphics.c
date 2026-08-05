@@ -43,9 +43,6 @@ static inline uint16_t max16(uint16_t a, uint16_t b) {
 	return (a > b) ? a : b;
 }
 
-#define fmax(a,b) ((a) > (b) ? (a) : (b))
-#define fmin(a,b) ((a) < (b) ? (a) : (b))
-
 static inline int _is_in_clip(gfx_context_t * ctx, int32_t y) {
 	if (!ctx->clips) return 1;
 	if (y < 0 || y >= ctx->clips_size) return 1;

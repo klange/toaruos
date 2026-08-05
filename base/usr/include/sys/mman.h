@@ -16,6 +16,8 @@
 
 #define MAP_ANON       MAP_ANONYMOUS
 
+#define MAP_FAILED ((void*)-1)
+
 _Begin_C_Header
 
 #ifndef __kernel__
