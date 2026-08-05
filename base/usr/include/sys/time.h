@@ -17,5 +17,7 @@ struct timezone {
 
 extern int gettimeofday(struct timeval *p, void *z);
 extern int settimeofday(struct timeval *p, void *z);
+extern int futimes(int fd, const struct timeval times[2]);
+extern int utimes(const char *path, const struct timeval times[2]);
 
 _End_C_Header
