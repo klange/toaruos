@@ -219,6 +219,32 @@ void mboot_unmark_valid_memory(void) {
 	}
 }
 
+static void mboot_extra_direct_maps(void) {
+	extern void mmu_add_direct_map(uintptr_t addr);
+	for (uint64_t addr = 0x100000000ULL; addr < 0x10000000000ULL; addr += 0x40000000) {
+		if (mboot_is_2) {
+			struct MB2_MemoryMap * mmap = mboot2_find_tag(mboot_struct, 6);
+			for (char * entry = mmap->entries; (uintptr_t)entry < (uintptr_t)mmap + mmap->head.size; entry += mmap->entry_size) {
+				struct MB2_MemoryMap_Entry * this = (void*)entry;
+				if (this->base_addr < addr + 0x40000000 && addr < this->base_addr + this->length) {
+					mmu_add_direct_map(addr);
+					break;
+				}
+			}
+		} else {
+			for (mboot_memmap_t * mmap = mmu_map_from_physical((uintptr_t)mboot_struct->mmap_addr);
+			     (uintptr_t)mmap < (uintptr_t)mmu_map_from_physical(mboot_struct->mmap_addr + mboot_struct->mmap_length);
+			     mmap = (mboot_memmap_t *) ((uintptr_t)mmap + mmap->size + sizeof(uint32_t))) {
+				if (mmap->base_addr < addr + 0x40000000 && addr < mmap->base_addr + mmap->length) {
+					mmu_add_direct_map(addr);
+					break;
+				}
+			}
+		}
+	}
+
+}
+
 static void symbols_install(uint64_t base) {
 	ksym_install();
 
@@ -508,6 +534,8 @@ static int kmain_rel(struct multiboot * mboot, uint32_t mboot_mag, void* esp, ui
 
 	/* memCount and maxAddress come from multiboot data */
 	mmu_init(highest_valid_address, highest_kernel_address);
+
+	mboot_extra_direct_maps();
 
 	/* With the MMU initialized, set up things required for the scheduler. */
 	pat_initialize();

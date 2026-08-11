@@ -48,7 +48,7 @@ static uint8_t * mem_refcounts = NULL;
 #define  PT_MASK PAGE_LOW_MASK
 #define ENTRY_MASK 0x1FF
 
-#define PHYS_MASK 0x7fffffffffUL
+#define PHYS_MASK      0xffffffffffffUL
 #define CANONICAL_MASK 0xFFFFffffFFFFUL
 
 #define INDEX_FROM_BIT(b)  ((b) >> 5)
@@ -210,8 +210,10 @@ union PML heap_base_pml[512] _pagemap;
 union PML heap_base_pd[512] _pagemap;
 union PML heap_base_pt[512*3] _pagemap;
 union PML low_base_pmls[34][512] _pagemap;
-union PML twom_high_pds[64][512] _pagemap;
 union PML kbase_pmls[65][512] _pagemap;
+
+union PML direct_map_pml[1024] _pagemap;
+union PML twom_high_pds[4][512] _pagemap;
 
 /**
  * @brief Maps a frame address to a virtual address.
@@ -221,7 +223,7 @@ union PML kbase_pmls[65][512] _pagemap;
  * This address is not suitable for some operations, such as MMIO.
  */
 void * mmu_map_from_physical(uintptr_t frameaddress) {
-	return (void*)(frameaddress | HIGH_MAP_REGION);
+	return (void*)(frameaddress | (uintptr_t)0xfffff00000000000ULL);
 }
 
 union PML * mmu_get_page_other(union PML * root, uintptr_t virtAddr) {
@@ -926,7 +928,7 @@ uintptr_t mmu_early_init(uintptr_t base) {
 	init_page_region[0][511].raw = (uintptr_t)&high_base_pml | KERNEL_PML_ACCESS;
 
 	high_base_pml[510].raw = (uintptr_t)(&kbase_pmls[0]) | KERNEL_PML_ACCESS;
-	for (size_t j = 0; j < 2; ++j) {
+	for (size_t j = 0; j < 32; ++j) {
 		kbase_pmls[0][j].raw = (uintptr_t)(&kbase_pmls[1+j]) | KERNEL_PML_ACCESS;
 	}
 
@@ -966,7 +968,7 @@ void mmu_populate_low(uintptr_t page) {
 
 	low_base_pmls[0][0].raw = k2p(&low_base_pmls[1]) | USER_PML_ACCESS;
 
-	for (size_t j = 0; j < 2; ++j) {
+	for (size_t j = 0; j < 32; ++j) {
 		low_base_pmls[1][j].raw = k2p(&low_base_pmls[2+j]) | KERNEL_PML_ACCESS;
 	}
 
@@ -984,6 +986,27 @@ void mmu_populate_low(uintptr_t page) {
 
 	/* Now map our new low base */
 	pml[0].raw = k2p(&low_base_pmls[0]) | USER_PML_ACCESS;
+}
+
+void mmu_add_direct_map(uintptr_t addr) {
+	if (addr >= 0x10000000000ULL) {
+		dprintf("mmu: direct map address too high: %#zx\n", addr);
+		return;
+	}
+
+	uintptr_t pml = addr >> 30;
+
+
+	spin_lock(frame_alloc_lock);
+	uintptr_t index = mmu_first_frame();
+	mmu_frame_set(index << PAGE_SHIFT);
+	direct_map_pml[pml].raw = (index << PAGE_SHIFT) | KERNEL_PML_ACCESS;
+	spin_unlock(frame_alloc_lock);
+
+	union PML * pds = mmu_map_from_physical(index << PAGE_SHIFT);
+	for (uintptr_t j = 0; j < 512; ++j) {
+		pds[j].raw = (addr + (j << 21)) | LARGE_PAGE_BIT | KERNEL_PML_ACCESS;
+	}
 }
 
 /**
@@ -1017,9 +1040,12 @@ void mmu_init(size_t memsize, uintptr_t firstFreePage) {
 	/* Map the high base PDP */
 	init_page_region[0][510].raw = k2p(&heap_base_pml) | KERNEL_PML_ACCESS;
 
-	/* Identity map from -128GB in the boot PML using 2MiB pages */
-	for (size_t i = 0; i < 64; ++i) {
-		high_base_pml[i].raw = k2p(&twom_high_pds[i]) | KERNEL_PML_ACCESS;
+	/* Direct map at -16TiB */
+	init_page_region[0][480].raw = k2p(&direct_map_pml[0]) | KERNEL_PML_ACCESS;
+	init_page_region[0][481].raw = k2p(&direct_map_pml[512]) | KERNEL_PML_ACCESS;
+
+	for (size_t i = 0; i < 4; ++i) {
+		direct_map_pml[i].raw = k2p(&twom_high_pds[i]) | KERNEL_PML_ACCESS;
 		for (uintptr_t j = 0; j < 512; ++j) {
 			twom_high_pds[i][j].raw = ((i << 30) + (j << 21)) | LARGE_PAGE_BIT | KERNEL_PML_ACCESS;
 		}
