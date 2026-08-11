@@ -223,7 +223,7 @@ union PML twom_high_pds[4][512] _pagemap;
  * This address is not suitable for some operations, such as MMIO.
  */
 void * mmu_map_from_physical(uintptr_t frameaddress) {
-	return (void*)(frameaddress | (uintptr_t)0xfffff00000000000ULL);
+	return (void*)(frameaddress | (uintptr_t)HIGH_MAP_REGION);
 }
 
 union PML * mmu_get_page_other(union PML * root, uintptr_t virtAddr) {

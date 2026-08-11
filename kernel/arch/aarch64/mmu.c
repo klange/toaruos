@@ -49,6 +49,7 @@ union PML heap_base_pml[512] _pagemap;
 union PML heap_base_pd[512] _pagemap;
 union PML heap_base_pt[512*3] _pagemap;
 union PML kbase_pmls[65][512] _pagemap;
+union PML direct_map_pml[1024] _pagemap;
 
 #define PTE_VALID      (1UL << 0)
 #define PTE_TABLE      (1UL << 1)
@@ -833,9 +834,12 @@ void mmu_init(uintptr_t memaddr, size_t memsize, uintptr_t firstFreePage, uintpt
 	init_page_region[511].raw = k2p(&high_base_pml) | PTE_VALID | PTE_TABLE | PTE_AF;
 	init_page_region[510].raw = k2p(&heap_base_pml) | PTE_VALID | PTE_TABLE | PTE_AF;
 
-	/* "Identity" map at -512GiB */
-	for (size_t i = 0; i < 500; ++i) {
-		high_base_pml[i].raw = (i << 30) | PTE_VALID | PTE_AF | (1 << 2);
+	init_page_region[480].raw = k2p(&direct_map_pml[0])   | PTE_VALID | PTE_TABLE | PTE_AF;
+	init_page_region[481].raw = k2p(&direct_map_pml[512]) | PTE_VALID | PTE_TABLE | PTE_AF;
+
+	/* "Identity" map at -2048GiB */
+	for (size_t i = 0; i < 1024; ++i) {
+		direct_map_pml[i].raw = (i << 30) | PTE_VALID | PTE_AF | (1 << 2);
 	}
 
 

@@ -199,6 +199,7 @@ static struct BaseTables {
 	uintptr_t l0_base[512];
 	uintptr_t l1_high_gbs[512];
 	uintptr_t l1_low_gbs[512];
+	uintptr_t l1_direct_gbs[1024];
 	uintptr_t l2_kernel[512];
 } _baseTables __attribute__((aligned(4096)));
 
@@ -240,6 +241,8 @@ static void bootstub_mmu_init(void) {
 
 	/* equivalent to high_base_pml */
 	_baseTables.l0_base[511] = (uintptr_t)&_baseTables.l1_high_gbs | PTE_VALID | PTE_TABLE | PTE_AF;
+	_baseTables.l0_base[480] = (uintptr_t)&_baseTables.l1_direct_gbs[0] | PTE_VALID | PTE_TABLE | PTE_AF;
+	_baseTables.l0_base[481] = (uintptr_t)&_baseTables.l1_direct_gbs[512] | PTE_VALID | PTE_TABLE | PTE_AF;
 
 	/* Mapping for us */
 	_baseTables.l1_low_gbs[0] = 0x00000000UL | PTE_VALID | PTE_AF | PTE_SH_A | (1 << 2);
@@ -247,9 +250,9 @@ static void bootstub_mmu_init(void) {
 	_baseTables.l1_low_gbs[2] = 0x80000000UL | PTE_VALID | PTE_AF | PTE_SH_A | (1 << 2);
 	_baseTables.l1_low_gbs[3] = 0xc0000000UL | PTE_VALID | PTE_AF | PTE_SH_A | (1 << 2);
 
-	/* -512GB is a map of 64GB of memory */
-	for (size_t i = 0; i < 64; ++i) {
-		_baseTables.l1_high_gbs[i] = (i << 30) | PTE_VALID | PTE_AF | PTE_SH_A | (1 << 2);
+	/* -16TB is a map of 1024GB of memory */
+	for (size_t i = 0; i < 1024; ++i) {
+		_baseTables.l1_direct_gbs[i] = (i << 30) | PTE_VALID | PTE_AF | PTE_SH_A | (1 << 2);
 	}
 
 	/* -2GiB, map kernel here */

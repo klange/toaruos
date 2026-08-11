@@ -226,7 +226,7 @@ static size_t _early_log_write(size_t size, uint8_t * buffer) {
 static size_t _later_log_write(size_t size, uint8_t * buffer) {
 #ifdef BOOTSTUB_LOG_ENABLED
 	for (unsigned int i = 0; i < size; ++i) {
-		*(volatile unsigned int *)(0xffffff8009000000) = buffer[i];
+		*(volatile unsigned int *)(0xfffff00009000000) = buffer[i];
 	}
 #endif
 	return size;
@@ -236,6 +236,7 @@ static struct BaseTables {
 	uintptr_t l0_base[512];
 	uintptr_t l1_high_gbs[512];
 	uintptr_t l1_low_gbs[512];
+	uintptr_t l1_direct_gbs[1024];
 	uintptr_t l2_kernel[512];
 } _baseTables __attribute__((aligned(4096)));
 
@@ -275,12 +276,16 @@ static void bootstub_mmu_init(void) {
 	/* equivalent to high_base_pml */
 	_baseTables.l0_base[511] = (uintptr_t)&_baseTables.l1_high_gbs | PTE_VALID | PTE_TABLE | PTE_AF;
 
+	/* -16TiB */
+	_baseTables.l0_base[480] = (uintptr_t)&_baseTables.l1_direct_gbs[0] | PTE_VALID | PTE_TABLE | PTE_AF;
+	_baseTables.l0_base[481] = (uintptr_t)&_baseTables.l1_direct_gbs[512] | PTE_VALID | PTE_TABLE | PTE_AF;
+
 	/* Mapping for us */
 	_baseTables.l1_low_gbs[1] = QEMU_DTB_BASE | PTE_VALID | PTE_AF | PTE_SH_A | (1 << 2);
 
-	/* -512GB is a map of 64GB of memory */
-	for (size_t i = 0; i < 64; ++i) {
-		_baseTables.l1_high_gbs[i] = (i << 30) | PTE_VALID | PTE_AF | PTE_SH_A | (1 << 2);
+	/* -16TB is a map of 1024GB of memory */
+	for (size_t i = 0; i < 1024; ++i) {
+		_baseTables.l1_direct_gbs[i] = (i << 30) | PTE_VALID | PTE_AF | PTE_SH_A | (1 << 2);
 	}
 
 	/* -2GiB, map kernel here */
@@ -349,7 +354,7 @@ static void bootstub_read_kernel(uintptr_t kernel_load_addr) {
 			printf("bootstub:   length of regs = %u\n", swizzle(regs[0]));
 			printf("bootstub:   addr of fw-cfg = %#x\n", swizzle(regs[3]));
 
-			volatile uint8_t * fw_cfg_addr = (volatile uint8_t*)(uintptr_t)(swizzle(regs[3]) + 0xffffff8000000000);
+			volatile uint8_t * fw_cfg_addr = (volatile uint8_t*)(uintptr_t)(swizzle(regs[3]) + 0xfffff00000000000);
 			volatile uint64_t * fw_cfg_data = (volatile uint64_t *)fw_cfg_addr;
 			volatile uint32_t * fw_cfg_32   = (volatile uint32_t *)fw_cfg_addr;
 			volatile uint16_t * fw_cfg_sel  = (volatile uint16_t *)(fw_cfg_addr + 8);
