@@ -17,6 +17,7 @@
 #include <kernel/mmu.h>
 #include <kernel/video.h>
 #include <kernel/vfs.h>
+#include <kernel/process.h>
 #include <bits/errno.h>
 
 /* Whether to scroll or wrap when cursor reaches the bottom. */
@@ -212,7 +213,7 @@ static void fbterm_init_framebuffer(void) {
 		/* Re-map video memory in our device space */
 		size_t map_size = lfb_memsize;
 		if (map_size & 0xFFF) map_size = (map_size + 0xFFF) & ~0xFFF;
-		fb_mapped = mmu_map_mmio_region(((uintptr_t)(lfb_vid_memory) & 0xFFFFFFFF), map_size);
+		fb_mapped = mmu_map_mmio_region(mmu_map_to_physical(this_core->current_pml, (uintptr_t)lfb_vid_memory), map_size);
 		for (uintptr_t i = 0; i < lfb_memsize; i += 0x1000) {
 			union PML * page = mmu_get_page((uintptr_t)fb_mapped + i, MMU_GET_MAKE);
 			mmu_frame_allocate(page, MMU_FLAG_KERNEL | MMU_FLAG_WRITABLE | MMU_FLAG_WC);

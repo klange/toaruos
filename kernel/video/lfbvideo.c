@@ -139,7 +139,7 @@ static int fault_map_vid(fs_node_t * node, union PML * page, off_t offset, int f
 	if (!(prot & PROT_WRITE) || !(prot & PROT_READ)) goto _fault_bad; /* bad permissions, should reject earlier */
 
 	page->bits.mmap_shared = 1;
-	page->bits.page = (((uintptr_t)lfb_vid_memory  & 0xFFFFFFFF) + offset) >> 12;
+	page->bits.page = mmu_map_to_physical(this_core->current_pml, (uintptr_t)lfb_vid_memory + offset) >> 12;
 
 	if (lfb_use_write_combining) {
 		(*mmu_flags) |= MMU_FLAG_WC;
