@@ -431,22 +431,6 @@ void kmain(uint32_t dtb_address, uint32_t base_addr) {
 	Elf64_Header *header = (void*)&_kernel_start;
 	bootstub_load_kernel(header);
 
-	{
-		int i = 0;
-		memset((void*)&mbox, 0, sizeof(mbox));
-		MB(4 * 3 + 100);
-		MB(MBOX_REQUEST);
-		MB(0x50001);
-		MB(100);
-		int cmdline_size = i;
-		MB(0);
-		uint32_t cmdline = (uintptr_t)&mbox[i];
-		mbox_call(8);
-		tag_data.cmdline = cmdline;
-		tag_data.cmdline_size = mbox[cmdline_size]&0x7FFFffff;
-		printf("bootstub: cmdline[%u]=%s\n", tag_data.cmdline_size, (char*)(uintptr_t)cmdline);
-	}
-
 	/* Jump to kernel */
 	bootstub_start_kernel(dtb_address, header);
 
