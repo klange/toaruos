@@ -39,6 +39,7 @@ extern uint32_t lfb_resolution_s;
 static inline void set_point(int x, int y, uint32_t value) {
 	if (lfb_resolution_b == 32) {
 		((uint32_t*)lfb_vid_memory)[y * (lfb_resolution_s/4) + x] = value;
+		asm volatile ("dc cvac, %0\n" :: "r"((uintptr_t)&((uint32_t*)lfb_vid_memory)[y * (lfb_resolution_s/4) + x]) : "memory");
 	} else if (lfb_resolution_b == 24) {
 		lfb_vid_memory[y * lfb_resolution_s + x * 3 + 0] = (value >> 0) & 0xFF;
 		lfb_vid_memory[y * lfb_resolution_s + x * 3 + 1] = (value >> 8) & 0xFF;
