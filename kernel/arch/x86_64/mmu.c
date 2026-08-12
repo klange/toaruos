@@ -1009,6 +1009,16 @@ void mmu_add_direct_map(uintptr_t addr) {
 	}
 }
 
+void mmu_add_1g_direct_map(uintptr_t addr) {
+	if (addr >= 0x10000000000ULL) {
+		dprintf("mmu: direct map address too high: %#zx\n", addr);
+		return;
+	}
+
+	uintptr_t pml = addr >> 30;
+	direct_map_pml[pml].raw = (addr) | KERNEL_PML_ACCESS | LARGE_PAGE_BIT;
+}
+
 /**
  * @brief Prepare virtual page mappings for use by the kernel.
  *

@@ -221,6 +221,7 @@ void mboot_unmark_valid_memory(void) {
 
 static void mboot_extra_direct_maps(void) {
 	extern void mmu_add_direct_map(uintptr_t addr);
+	extern void mmu_add_1g_direct_map(uintptr_t addr);
 	for (uint64_t addr = 0x100000000ULL; addr < 0x10000000000ULL; addr += 0x40000000) {
 		if (mboot_is_2) {
 			struct MB2_MemoryMap * mmap = mboot2_find_tag(mboot_struct, 6);
@@ -228,7 +229,7 @@ static void mboot_extra_direct_maps(void) {
 				struct MB2_MemoryMap_Entry * this = (void*)entry;
 				if (this->base_addr < addr + 0x40000000 && addr < this->base_addr + this->length) {
 					mmu_add_direct_map(addr);
-					break;
+					goto _next;
 				}
 			}
 		} else {
@@ -237,10 +238,15 @@ static void mboot_extra_direct_maps(void) {
 			     mmap = (mboot_memmap_t *) ((uintptr_t)mmap + mmap->size + sizeof(uint32_t))) {
 				if (mmap->base_addr < addr + 0x40000000 && addr < mmap->base_addr + mmap->length) {
 					mmu_add_direct_map(addr);
-					break;
+					goto _next;
 				}
 			}
 		}
+		/* Map it with a 1G page as a fallback just in case, and for continuity.
+		 * Anything that is using the addresses had better support gigabyte huge
+		 * pages anyway, so we should be fine. */
+		mmu_add_1g_direct_map(addr);
+_next: (void)0;
 	}
 
 }
