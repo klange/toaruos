@@ -108,6 +108,10 @@ static fs_node_t * port_device_create(void) {
 	fnode->readdir = NULL;
 	fnode->finddir = NULL;
 	fnode->ioctl   = NULL;
+	fnode->ctime   = now();
+	fnode->mtime   = now();
+	fnode->atime   = now();
+	fnode->length = 0x10000;
 	return fnode;
 }
 
