@@ -10,6 +10,8 @@
 /* Methods for loading fonts */
 extern struct TT_Font * tt_font_from_file(const char * fileName);
 extern struct TT_Font * tt_font_from_shm(const char * identifier);
+extern struct TT_Font * tt_font_from_file_mem(const char * fileName);
+extern struct TT_Font * tt_font_from_memory(uint8_t * buffer);
 
 /* Methods for changing font sizes */
 extern void tt_set_size(struct TT_Font * font, float sizeInEm);
