@@ -38,6 +38,11 @@ char * preview_string = "The quick brown fox jumps over the lazy dog.";
 char * tt_font_name = NULL;
 char window_title[1024] = "Font Preview";
 
+static void redraw_decors(void) {
+	render_decorations(window, ctx, window_title);
+	flip(ctx);
+}
+
 void redraw(void) {
 	draw_fill(ctx, rgb(255,255,255));
 
@@ -66,9 +71,7 @@ void redraw(void) {
 		tt_draw_string(ctx, tt_font, decor_left_width + 10, decor_top_height + y, preview_string, rgb(0,0,0));
 	}
 
-	render_decorations(window, ctx, window_title);
-
-	flip(ctx);
+	redraw_decors();
 }
 
 void resize_finish(int w, int h) {
@@ -101,7 +104,7 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
-	tt_font = tt_font_from_file(argv[1]);
+	tt_font = tt_font_from_file_mem(argv[1]);
 
 	if (!tt_font) {
 		fprintf(stderr, "%s: failed to load font\n", argv[0]);
@@ -153,7 +156,7 @@ int main(int argc, char * argv[]) {
 		yutani_msg_t * m = yutani_poll(yctx);
 		while (m) {
 			if (menu_process_event(yctx, m)) {
-				redraw();
+				redraw_decors();
 				yutani_flip(yctx, window);
 			}
 			switch (m->type) {
@@ -163,7 +166,7 @@ int main(int argc, char * argv[]) {
 						yutani_window_t * win = hashmap_get(yctx->windows, (void*)(uintptr_t)wf->wid);
 						if (win && win == window) {
 							win->focused = wf->focused;
-							redraw();
+							redraw_decors();
 							yutani_flip(yctx, window);
 						}
 					}
