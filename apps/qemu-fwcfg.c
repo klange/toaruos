@@ -21,6 +21,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #define FW_CFG_PORT_OUT 0x510
 #define FW_CFG_PORT_IN  0x511
@@ -113,15 +114,14 @@ int main(int argc, char * argv[]) {
 		return usage(argv);
 	}
 
-	port_fd = open("/dev/port", O_RDWR);
+	const char * interfaces[] = {"/dev/port", "/dev/fwcfg"};
 
-	if (port_fd < 0) {
-		/* Try the special aarch64 interface. */
-		port_fd = open("/dev/fwcfg", O_RDWR);
-	}
-
-	if (port_fd < 0) {
-		fprintf(stderr, "%s: could not open port IO device\n", argv[0]);
+	for (unsigned int i = 0; i < sizeof(interfaces)/sizeof(*interfaces); ++i) {
+		errno = 0;
+		port_fd = open(interfaces[i], O_RDWR);
+		if (port_fd >= 0) break;
+		if (errno == ENOENT) continue;
+		fprintf(stderr, "%s: %s: %s\n", argv[0], interfaces[i], strerror(errno));
 		return 1;
 	}
 
