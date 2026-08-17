@@ -2,5 +2,5 @@
 
 if kcmdline -q no-startup-msk then exit 0
 
-echo -n "Checking for package updates..." >> /dev/pex/splash
+echo "Checking for package updates..." > /dev/console
 msk update &

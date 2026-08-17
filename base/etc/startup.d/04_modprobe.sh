@@ -1,6 +1,6 @@
 #!/bin/esh
 
-echo -n "Installing device driver modules..." > /dev/pex/splash
+echo "Installing device driver modules..." > /dev/console
 
 # Only load this in virtualbox for now, as we're not
 # even sure we're doing the remapping correctly...

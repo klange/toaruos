@@ -249,7 +249,6 @@ $(BASE)/bin/%.krk: apps/%.krk
 
 $(BASE)/bin/gsudo: apps/sudo.c
 $(BASE)/bin/mv: apps/cp.c apps/rm.c
-$(BASE)/bin/splash-log: kernel/misc/args.c
 $(BASE)/bin/kcmdline: kernel/misc/args.c
 
 .PHONY: libs

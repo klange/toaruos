@@ -10,8 +10,7 @@ export PATH=/usr/bin:/bin
 export-cmd TZ_OFFSET find-timezone
 export-cmd GETTY_ARGS qemu-fwcfg opt/org.toaruos.gettyargs
 
-echo -n "Launching startup application..." > /dev/pex/splash
-echo -n "!quit" > /dev/pex/splash
+echo "Launching startup application..." > /dev/console
 
 if [ "$START" = "--vga" ] then exec /bin/terminal-vga -l
 if [ "$START" = "--headless" ] then exec /bin/getty ${GETTY_ARGS}

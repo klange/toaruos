@@ -2,7 +2,7 @@
  * @file apps/terminal-font.h
  * @brief Fallback font used to render text where the TrueType renderer would be inappropriate.
  *
- * Used variously by Terminal, splash-log, and the kernel.
+ * Used variously by Terminal, bootloaders and bootstubs, and the kernel console.
  *
  * This is baked bitmap version of Deja Vu Sans Mono.
  *
