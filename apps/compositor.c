@@ -2331,42 +2331,6 @@ struct font_def {
 };
 
 /**
- * TODO: This should be configurable...
- */
-static struct font_def fonts[] = {
-	FONT("sans-serif",            "truetype/dejavu/DejaVuSans.ttf"),
-	FONT("sans-serif.bold",       "truetype/dejavu/DejaVuSans-Bold.ttf"),
-	FONT("sans-serif.italic",     "truetype/dejavu/DejaVuSans-Oblique.ttf"),
-	FONT("sans-serif.bolditalic", "truetype/dejavu/DejaVuSans-BoldOblique.ttf"),
-	FONT("monospace",             "truetype/dejavu/DejaVuSansMono.ttf"),
-	FONT("monospace.bold",        "truetype/dejavu/DejaVuSansMono-Bold.ttf"),
-	FONT("monospace.italic",      "truetype/dejavu/DejaVuSansMono-Oblique.ttf"),
-	FONT("monospace.bolditalic",  "truetype/dejavu/DejaVuSansMono-BoldOblique.ttf"),
-	{NULL, NULL}
-};
-
-static char * set_shmfont(char * ident, char * name) {
-	/* Instead of loading the font into memory, we now load the path
-	 * of the font into the shm buffer and the font library will open
-	 * it and mmap it, which works the same but saves us having an extra
-	 * copy of the font file in memory. */
-	size_t shm_size = strlen(name) + 1;
-	char * font = shm_obtain(ident, &shm_size);
-	memcpy(font, name, strlen(name) + 1);
-	return font;
-}
-
-static void load_fonts(yutani_globals_t * yg) {
-	int i = 0;
-	while (fonts[i].identifier) {
-		char tmp[100];
-		sprintf(tmp, "sys.%s.fonts.%s", yg->server_ident, fonts[i].identifier);
-		set_shmfont(tmp, fonts[i].path);
-		++i;
-	}
-}
-
-/**
  * main
  */
 int main(int argc, char * argv[]) {
@@ -2437,8 +2401,6 @@ int main(int argc, char * argv[]) {
 	FILE * server = pex_bind(yg->server_ident);
 	TRACE("pex bound? %d", server);
 	yg->server = server;
-
-	load_fonts(yg);
 
 	TRACE("Loading sprites...");
 #define MOUSE_DIR "/usr/share/cursor/"

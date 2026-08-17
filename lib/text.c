@@ -1040,23 +1040,9 @@ struct TT_Font * tt_font_from_file_mem(const char * fileName) {
 }
 
 struct TT_Font * tt_font_from_shm(const char * identifier) {
-	char * display = getenv("DISPLAY");
-	if (!display) return NULL;
-
 	char fullIdentifier[1024];
-	snprintf(fullIdentifier, 1023, "sys.%s.fonts.%s", display, identifier);
-
-	size_t fontNameSize = 0;
-	char * fontName = shm_obtain(fullIdentifier, &fontNameSize);
-
-	if (!fontName || !fontNameSize) {
-		shm_release(fullIdentifier);
-		return NULL;
-	}
-
-	struct TT_Font * font = tt_font_from_file_mem(fontName);
-	shm_release(fullIdentifier);
-	return font;
+	snprintf(fullIdentifier, 1023, "/usr/share/fonts/default/%s", identifier);
+	return tt_font_from_file_mem(fullIdentifier);
 }
 
 void tt_draw_string_shadow(gfx_context_t * ctx, struct TT_Font * font, char * string, int font_size, int left, int top, uint32_t text_color, uint32_t shadow_color, int blur) {

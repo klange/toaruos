@@ -152,6 +152,21 @@ artificial_symlink('bin/apropos','man')
 artificial_symlink('bin/whatis','man')
 artificial_symlink('bin/[','test')
 
+let fonts = {
+    'sans-serif': 'truetype/dejavu/DejaVuSans.ttf',
+    'sans-serif.bold': 'truetype/dejavu/DejaVuSans-Bold.ttf',
+    'sans-serif.italic': 'truetype/dejavu/DejaVuSans-Oblique.ttf',
+    'sans-serif.bolditalic': 'truetype/dejavu/DejaVuSans-BoldOblique.ttf',
+    'monospace': 'truetype/dejavu/DejaVuSansMono.ttf',
+    'monospace.bold': 'truetype/dejavu/DejaVuSansMono-Bold.ttf',
+    'monospace.italic': 'truetype/dejavu/DejaVuSansMono-Oblique.ttf',
+    'monospace.bolditalic': 'truetype/dejavu/DejaVuSansMono-BoldOblique.ttf',
+}
+
+do_file('base','usr/share/fonts/default',False)
+for ident, path in fonts.items():
+    artificial_symlink(f'usr/share/fonts/default/{ident}', f'../{path}')
+
 do_file('util/auto-dep.krk','bin/auto-dep.krk')
 do_file('kuroko/src/kuroko','usr/include/kuroko/')
 
