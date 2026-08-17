@@ -214,8 +214,7 @@ static inline uint32_t tt_alpha_blend_rgba(uint32_t bottom, uint32_t top) {
 static void paint_scanline(gfx_context_t * ctx, int y, const struct TT_Shape * shape, float * subsamples, uint32_t color) {
 	for (int x = shape->startX < 0 ? 0 : shape->startX; x < shape->lastX && x < ctx->width; ++x) {
 		uint16_t na = (int)(255 * subsamples[x - shape->startX]) >> 2;
-		uint32_t nc = tt_apply_alpha(color, na);
-		GFX(ctx, x, y) = tt_alpha_blend_rgba(GFX(ctx, x, y), nc);
+		GFX(ctx, x, y) = na ? tt_alpha_blend_rgba(GFX(ctx, x, y), tt_apply_alpha(color,na)) : GFX(ctx,x,y);
 		subsamples[x-shape->startX] = 0;
 	}
 }
