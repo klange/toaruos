@@ -55,9 +55,16 @@ static void render_decorations_simple(yutani_window_t * window, gfx_context_t * 
 	}
 
 	tt_set_size(tt_font, 12);
+	if (decor_hover_window == window && decor_hover_button == DECOR_CLOSE) {
+		draw_rounded_rectangle(ctx,
+			window->width - 21, 2,
+			18, 18,
+			4,
+			(decor_down_button == DECOR_CLOSE) ? BORDERCOLOR_INACTIVE : TEXTCOLOR_INACTIVE);
+	}
 	uint32_t textcolor = (decors_active == DECOR_INACTIVE) ? TEXTCOLOR_INACTIVE : TEXTCOLOR;
 	tt_draw_string(ctx, tt_font, TEXT_OFFSET_X, TEXT_OFFSET_Y + 12, title, textcolor);
-	tt_draw_string(ctx, tt_font, window->width - 20, TEXT_OFFSET_Y + 12, "x", textcolor);
+	tt_draw_string(ctx, tt_font, window->width - 17, TEXT_OFFSET_Y + 12, "✕", textcolor);
 
 	for (uint32_t i = 0; i < window->width; ++i) {
 		GFX(ctx, i, 0) = color;
@@ -67,7 +74,7 @@ static void render_decorations_simple(yutani_window_t * window, gfx_context_t * 
 }
 
 static int check_button_press_simple(yutani_window_t * window, int x, int y) {
-	if (x >= (int)window->width - 20 && x <= (int)window->width - 2 && y >= 2) {
+	if (x >= (int)window->width - 20 && x <= (int)window->width - 4 && y >= 2) {
 		return DECOR_CLOSE;
 	}
 
