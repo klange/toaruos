@@ -13,7 +13,7 @@
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2013-2018 K. Lange
+ * Copyright (C) 2013-2026 K. Lange
  */
 #include <stdio.h>
 #include <stdint.h>
@@ -2333,17 +2333,6 @@ static void yutani_display_resize_handle(int signum) {
 	signal(SIGWINEVENT, yutani_display_resize_handle);
 }
 
-#define FONT_PATH "/usr/share/fonts/"
-#define FONT(a,b) {a, FONT_PATH b}
-
-struct font_def {
-	char * identifier;
-	char * path;
-};
-
-/**
- * main
- */
 int main(int argc, char * argv[]) {
 
 	int argx = 0;
