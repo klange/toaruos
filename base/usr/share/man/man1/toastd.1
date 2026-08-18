@@ -4,15 +4,10 @@
 \fBtoastd\fP \- toast notification daemon
 
 .SH DESCRIPTION
-The Toast Notificaton Daemon exposes a local
-.IR pex (7)
-endpoint to which applications may send JSON packets to display toast notifications
-in the corner of the screen.
+The Toast Notificaton Daemon exposes a local UDP service to which applications may
+send JSON datagrams to display toast notifications in the corner of the screen.
 .PP
 The daemon is generally run as part of a user graphical session.
-
-.SH PEX ENDPOINT
-\fBtoastd\fP will try to bind to the PEX endpoint "\fBtoast\fP".
 
 .SH MESSAGE FORMAT
 Messages sent to \fBtoastd\fP should be JSON objects with the following members:

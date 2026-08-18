@@ -1,6 +1,7 @@
 #!/bin/kuroko
 import kuroko
 import os
+import socket
 
 def jsonFilter(c):
     let mapping = {
@@ -28,11 +29,7 @@ def dumpJson(o):
 
 let msg = {}
 let args = kuroko.argv[1:]
-let sock = os.open("/dev/pex/toast",os.O_WRONLY)
-
-if not sock:
-    print("No toast daemon.")
-    return 1
+let sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 while args:
     let arg = args.pop(0)
@@ -45,6 +42,6 @@ while args:
     else:
         msg['body'] = arg
         print("Sending toast:", dumpJson(msg),"to",sock)
-        os.write(sock, dumpJson(msg).encode())
+        sock.sendto(dumpJson(msg).encode(), ('127.0.0.1',1030))
 
 

@@ -32,11 +32,15 @@ static void ip_ntoa(const uint32_t src_addr, char * out) {
 }
 
 static void netif_show_toast(const char * str) {
-	int toastDaemon = open("/dev/pex/toast", O_WRONLY);
-	if (toastDaemon >= 0) {
-		write(toastDaemon, str, strlen(str));
-		close(toastDaemon);
-	}
+	int toast_sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (toast_sock < 0) return;
+
+	struct sockaddr_in dest;
+	dest.sin_family = AF_INET;
+	dest.sin_addr.s_addr = inet_addr("127.0.0.1");
+	dest.sin_port = htons(1030);
+	sendto(toast_sock, str, strlen(str), 0, (struct sockaddr*)&dest, sizeof(dest));
+	close(toast_sock);
 }
 
 static void netif_disconnected(const char * if_name) {

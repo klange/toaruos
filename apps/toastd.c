@@ -15,8 +15,11 @@
 #include <unistd.h>
 #include <sched.h>
 #include <time.h>
+#include <errno.h>
 #include <sys/fswait.h>
-#include <toaru/pex.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <toaru/yutani.h>
 #include <toaru/markup_text.h>
 #include <toaru/graphics.h>
@@ -26,9 +29,9 @@
 typedef struct JSON_Value JSON_Value;
 
 static yutani_t * yctx;
-static FILE * pex_endpoint = NULL;
 static list_t * windows = NULL;
 static list_t * garbage = NULL;
+static int udp_sock_fd;
 
 struct ToastNotification {
 	yutani_window_t * window;
@@ -137,10 +140,14 @@ int main(int argc, char * argv[]) {
 			fprintf(stderr, "%s: Failed to connect to compositor.\n", argv[0]);
 			return 1;
 		}
-		/* Open pex endpoint to receive notifications... */
-		pex_endpoint = pex_bind("toast");
-		if (!pex_endpoint) {
-			fprintf(stderr, "%s: Failed to establish socket.\n", argv[0]);
+		/* Set up UDP server */
+		udp_sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
+		struct sockaddr_in bind_addr;
+		bind_addr.sin_family = AF_INET;
+		bind_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+		bind_addr.sin_port = htons(1030);
+		if (bind(udp_sock_fd, (struct sockaddr*)&bind_addr, sizeof(struct sockaddr_in)) == -1) {
+			fprintf(stderr, "%s: failed to bind: %s\n", argv[0], strerror(errno));
 			return 1;
 		}
 		/* Set up our text rendering and sprite contexts... */
@@ -150,8 +157,8 @@ int main(int argc, char * argv[]) {
 
 		int should_exit = 0;
 		while (!should_exit) {
-			int fds[2] = {fileno(yctx->sock),fileno(pex_endpoint)};
-			int index = fswait2(2,fds,windows->length ? 20 : -1);
+			int fds[2] = {fileno(yctx->sock),udp_sock_fd};
+			int index = fswait2(sizeof(fds)/sizeof(*fds),fds,windows->length ? 20 : -1);
 			if (index == 0) {
 				yutani_msg_t * m = yutani_poll(yctx);
 				while (m) {
@@ -166,17 +173,17 @@ int main(int argc, char * argv[]) {
 					m = yutani_poll_async(yctx);
 				}
 			} else if (index == 1) {
-				pex_packet_t * p = calloc(1, PACKET_SIZE);
-				pex_listen(pex_endpoint, p);
-
-				JSON_Value * msg = json_parse((char*)p->data);
-
-				if (msg) {
-					handle_msg(msg);
-					json_free(msg);
+				struct sockaddr_in client_addr;
+				socklen_t client_len = sizeof(struct sockaddr_in);
+				char buf[4096] = {0};
+				ssize_t n = recvfrom(udp_sock_fd, &buf, 4096, 0, (struct sockaddr *)&client_addr, &client_len);
+				if (n > 0) {
+					JSON_Value * msg = json_parse(buf);
+					if (msg) {
+						handle_msg(msg);
+						json_free(msg);
+					}
 				}
-
-				free(p);
 			}
 
 			if (windows->length) {

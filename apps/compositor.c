@@ -31,6 +31,9 @@
 #include <sys/time.h>
 #include <sys/fswait.h>
 #include <sys/shm.h>
+#include <sys/socket.h>
+#include <net/if.h>
+#include <arpa/inet.h>
 #include <pthread.h>
 #include <dlfcn.h>
 
@@ -1061,10 +1064,18 @@ static void yutani_screenshot(yutani_globals_t * yg) {
 	gfx_buffer_write(f, ctx, flags);
 	fclose(f);
 
-
-	FILE * toast = fopen("/dev/pex/toast", "we");
-	fprintf(toast, "{\"icon\": \"%s\", \"body\": \"Screenshot taken.\"}", fname);
-	fclose(toast);
+	int toast_sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (toast_sock != -1) {
+		struct sockaddr_in dest;
+		dest.sin_family = AF_INET;
+		dest.sin_addr.s_addr = inet_addr("127.0.0.1");
+		dest.sin_port = htons(1030);
+		char *str;
+		asprintf(&str, "{\"icon\": \"%s\", \"body\": \"Screenshot taken.\"}", fname);
+		sendto(toast_sock, str, strlen(str), 0, (struct sockaddr*)&dest, sizeof(dest));
+		close(toast_sock);
+		free(str);
+	}
 
 	/* Blorp */
 	system("play /usr/share/ttk/blorp.wav &");
