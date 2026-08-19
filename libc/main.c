@@ -98,6 +98,10 @@ _hidden void __libc_init(void) {
 }
 
 void __libc_start_main(int argc, char * argv[], char ** envp, int (*main)(int,char**)) {
+	if (!__libc_init_called) {
+		__argv = argv;
+		__libc_init();
+	}
 	_init();
 	exit(main(argc, argv));
 }
