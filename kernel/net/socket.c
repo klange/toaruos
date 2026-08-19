@@ -126,6 +126,7 @@ sock_t * net_sock_create(void) {
 	sock->_fnode.selectwait = sock_generic_wait;
 	sock->_fnode.close = sock_generic_close;
 	sock->_fnode.ioctl = sock_generic_ioctl;
+	sock->_fnode.uid = this_core->current_process->real_user;
 	sock->alert_wait = list_create("socket alert wait", sock);
 	sock->rx_wait    = list_create("socket rx wait", sock);
 	sock->rx_queue   = list_create("socket rx queue", sock);
