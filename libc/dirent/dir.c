@@ -37,11 +37,12 @@ DIR * opendir (const char * dirname) {
 }
 
 int closedir (DIR * dir) {
+	int status = -EBADF;
 	if (dir && (dir->fd != -1)) {
-		return close(dir->fd);
-	} else {
-		return -EBADF;
+		status = close(dir->fd);
 	}
+	free(dir);
+	return status;
 }
 
 struct dirent * readdir (DIR * dirp) {
