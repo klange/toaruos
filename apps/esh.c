@@ -2383,7 +2383,10 @@ uint32_t shell_cmd_while(int argc, char * argv[]) {
 				pid = waitpid(child_pid, &ret_code, 0);
 				if (pid != -1 && WIFSIGNALED(ret_code)) {
 					int sig = WTERMSIG(ret_code);
-					if (sig == SIGINT) return 127; /* break */
+					if (sig == SIGINT) {
+						reset_pgrp();
+						return 127; /* break */
+					}
 				}
 			} while (pid != -1 || (pid == -1 && errno != ECHILD));
 		} else {
@@ -2392,6 +2395,7 @@ uint32_t shell_cmd_while(int argc, char * argv[]) {
 		}
 	} while (!break_while);
 
+	reset_pgrp();
 	return 127;
 }
 
