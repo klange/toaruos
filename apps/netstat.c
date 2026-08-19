@@ -10,7 +10,19 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <getopt.h>
 #include <arpa/inet.h>
+
+static int usage(char * argv[]) {
+	fprintf(stderr,
+		"usage: %s [--tcp|-t] [--udp|-u] [--icmp|-I]\n",
+		argv[0]);
+	return 1;
+}
+
+#define PROTO_UDP  (1 << 0)
+#define PROTO_TCP  (1 << 1)
+#define PROTO_ICMP (1 << 2)
 
 static void ip_ntoa(const uint32_t src_addr, char * out) {
 	snprintf(out, 16, "%d.%d.%d.%d",
@@ -87,10 +99,44 @@ static void parse_icmp(void) {
 }
 
 int main(int argc, char * argv[]) {
+	int show_protos = 0;
+
+	struct option long_opts[] = {
+		{"tcp",   no_argument, 0, 't'},
+		{"udp",   no_argument, 0, 'u'},
+		{"icmp",  no_argument, 0, 'I'},
+		{"help",  no_argument, 0, 'h'},
+		{0,0,0,0},
+	};
+
+	int opt;
+	while ((opt = getopt_long(argc, argv, "tuIh", long_opts, NULL)) != -1) {
+		switch (opt) {
+			case 't':
+				show_protos |= PROTO_TCP;
+				break;
+			case 'u':
+				show_protos |= PROTO_UDP;
+				break;
+			case 'I':
+				show_protos |= PROTO_ICMP;
+				break;
+			case 'h':
+				return usage(argv), 0;
+			default:
+				return usage(argv);
+		}
+	}
+
+	if (optind != argc) return usage(argv);
+
+	if (!show_protos) show_protos = PROTO_TCP | PROTO_UDP | PROTO_ICMP;
+
 	fprintf(stdout, "%-7s %-30s %-30s\n", "Proto", "Local Address", "Remote Address");
-	parse_udp_tcp("tcp");
-	parse_udp_tcp("udp");
-	parse_icmp();
+	if (show_protos & PROTO_TCP)  parse_udp_tcp("tcp");
+	if (show_protos & PROTO_UDP)  parse_udp_tcp("udp");
+	if (show_protos & PROTO_ICMP) parse_icmp();
+
 	return 0;
 }
 
