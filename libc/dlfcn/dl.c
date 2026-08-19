@@ -929,6 +929,8 @@ static void setup_lib(struct DlLib * app, Elf64_Phdr *phdrs, size_t phnum) {
 		}
 	}
 
+	if (!app->full_dyn) return;
+
 	app->strings = (void*)(app->base + app->dyn[DT_STRTAB]);
 	app->syms    = (void*)(app->base + app->dyn[DT_SYMTAB]);
 	app->hash    = (void*)(app->base + app->dyn[DT_HASH]);
