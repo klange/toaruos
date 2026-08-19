@@ -17,6 +17,7 @@
 #include <kernel/time.h>
 #include <kernel/misc.h>
 #include <kernel/assert.h>
+#include <kernel/procfs.h>
 
 #include <kernel/net/netif.h>
 #include <kernel/net/eth.h>
@@ -148,10 +149,50 @@ static hashmap_t * udp_sockets = NULL;
 static hashmap_t * tcp_sockets = NULL;
 static hashmap_t * icmp_sockets = NULL;
 
+static void procfs_net_udp_func(fs_node_t * node) {
+	hashmap_foreach(iter, udp_sockets) {
+		uintptr_t dest_port;
+		sock_t * sock;
+		hashmap_iter_get(&iter, &dest_port, &sock);
+		procfs_printf(node, "%08X:%04X %08X:%04X %d\n",
+			0, dest_port,
+			0, 0,
+			sock->_fnode.uid);
+	}
+}
+static void procfs_net_tcp_func(fs_node_t * node) {
+	hashmap_foreach(iter, tcp_sockets) {
+		uintptr_t dest_port;
+		sock_t * sock;
+		hashmap_iter_get(&iter, &dest_port, &sock);
+		procfs_printf(node, "%08X:%04X %08X:%04X %d\n",
+			0, dest_port,
+			((struct sockaddr_in*)&sock->dest)->sin_addr.s_addr,
+			ntohs(((struct sockaddr_in*)&sock->dest)->sin_port),
+			sock->_fnode.uid);
+	}
+}
+static void procfs_net_icmp_func(fs_node_t * node) {
+	hashmap_foreach(iter, icmp_sockets) {
+		uintptr_t ident;
+		sock_t * sock;
+		hashmap_iter_get(&iter, &ident, &sock);
+		procfs_printf(node, "%08X:%04X %d\n", 0, ident, sock->_fnode.uid);
+	}
+}
+
+static struct procfs_entry procfs_net_udp  = { 0, "net_udp",  procfs_net_udp_func,  0 };
+static struct procfs_entry procfs_net_tcp  = { 0, "net_tcp",  procfs_net_tcp_func,  0 };
+static struct procfs_entry procfs_net_icmp = { 0, "net_icmp", procfs_net_icmp_func, 0 };
+
 void ipv4_install(void) {
 	udp_sockets = hashmap_create_int(10);
 	tcp_sockets = hashmap_create_int(10);
 	icmp_sockets = hashmap_create_int(10);
+
+	procfs_install(&procfs_net_udp);
+	procfs_install(&procfs_net_tcp);
+	procfs_install(&procfs_net_icmp);
 }
 
 int net_ipv4_send(struct ipv4_packet * response, fs_node_t * nic) {
