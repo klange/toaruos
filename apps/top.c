@@ -295,6 +295,7 @@ int top_callback(struct process * out, void * ctx) {
 			}
 			parent->user_data = t / 4;
 		}
+		procfs_free(out);
 		return 0;
 	}
 
