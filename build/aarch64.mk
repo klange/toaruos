@@ -57,6 +57,12 @@ run: system
 hvf: EMU_CPU = host -accel hvf
 hvf: run
 
+debug: system
+	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session ramfb vid=preset qemu-serial-log debug" ${EMU_RAMDISK} ${EMU_KERNEL}
+
+debug-hvf: EMU_CPU = host -accel hvf
+debug-hvf: debug
+
 vga: system
 	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=--vga emulvga ramfb vid=preset" ${EMU_RAMDISK} ${EMU_KERNEL}
 
@@ -72,7 +78,4 @@ shell: system
 
 shell-hvf: EMU_CPU = host -accel hvf
 shell-hvf: shell
-
-debug: system
-	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session vid=auto" ${EMU_RAMDISK} ${EMU_KERNEL} -d int 2>&1
 
