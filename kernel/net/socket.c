@@ -117,6 +117,40 @@ int sock_generic_ioctl(fs_node_t * node, unsigned long request, void * argp) {
 	return -EINVAL;
 }
 
+ssize_t sock_generic_read(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+	sock_t * sock = (sock_t*)node;
+	struct iovec _iovec = {
+		buffer, size
+	};
+	struct msghdr _header = {
+		.msg_name = NULL,
+		.msg_namelen = 0,
+		.msg_iov = &_iovec,
+		.msg_iovlen = 1,
+		.msg_control = NULL,
+		.msg_controllen = 0,
+		.msg_flags = 0,
+	};
+	return sock->sock_recv(sock, &_header, 0);
+}
+
+ssize_t sock_generic_write(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+	sock_t * sock = (sock_t*)node;
+	struct iovec _iovec = {
+		(void*)buffer, size
+	};
+	struct msghdr _header = {
+		.msg_name = NULL,
+		.msg_namelen = 0,
+		.msg_iov = &_iovec,
+		.msg_iovlen = 1,
+		.msg_control = NULL,
+		.msg_controllen = 0,
+		.msg_flags = 0,
+	};
+	return sock->sock_send(sock, &_header, 0);
+}
+
 sock_t * net_sock_create(void) {
 	sock_t * sock = calloc(sizeof(struct SockData),1);
 	sock->_fnode.flags = FS_SOCKET; /* uh, FS_SOCKET? */
@@ -126,6 +160,8 @@ sock_t * net_sock_create(void) {
 	sock->_fnode.selectwait = sock_generic_wait;
 	sock->_fnode.close = sock_generic_close;
 	sock->_fnode.ioctl = sock_generic_ioctl;
+	sock->_fnode.read = sock_generic_read;
+	sock->_fnode.write = sock_generic_write;
 	sock->_fnode.uid = this_core->current_process->real_user;
 	sock->alert_wait = list_create("socket alert wait", sock);
 	sock->rx_wait    = list_create("socket rx wait", sock);

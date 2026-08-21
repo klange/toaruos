@@ -1000,23 +1000,6 @@ static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen
 	return 0;
 }
 
-ssize_t sock_tcp_read(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	printf("tcp: read into buffer of %zu bytes\n", size);
-	struct iovec _iovec = {
-		buffer, size
-	};
-	struct msghdr _header = {
-		.msg_name = NULL,
-		.msg_namelen = 0,
-		.msg_iov = &_iovec,
-		.msg_iovlen = 1,
-		.msg_control = NULL,
-		.msg_controllen = 0,
-		.msg_flags = 0,
-	};
-	return sock_tcp_recv((sock_t*)node, &_header, 0);
-}
-
 static void delay_yield(size_t subticks) {
 	unsigned long s, ss;
 	relative_time(0, subticks, &s, &ss);
@@ -1103,23 +1086,6 @@ static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 	}
 
 	return size_into;
-}
-
-ssize_t sock_tcp_write(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
-	printf("tcp: write of %zu bytes\n", size);
-	struct iovec _iovec = {
-		(void*)buffer, size
-	};
-	struct msghdr _header = {
-		.msg_name = NULL,
-		.msg_namelen = 0,
-		.msg_iov = &_iovec,
-		.msg_iovlen = 1,
-		.msg_control = NULL,
-		.msg_controllen = 0,
-		.msg_flags = 0,
-	};
-	return sock_tcp_send((sock_t*)node, &_header, 0);
 }
 
 static long sock_tcp_getsockname(sock_t * sock, struct sockaddr *addr, socklen_t * addrlen) {
@@ -1234,8 +1200,6 @@ static int tcp_socket(int flags, int nb) {
 	sock->sock_bind = sock_tcp_bind;
 	sock->sock_listen = sock_tcp_listen;
 	sock->sock_accept = sock_tcp_accept;
-	sock->_fnode.read = sock_tcp_read;
-	sock->_fnode.write = sock_tcp_write;
 
 	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, flags | PROC_FD_MODE__RW);
 }
