@@ -1,6 +1,8 @@
 #pragma once
 
 #include <kernel/vfs.h>
+#include <kernel/list.h>
+#include <kernel/spinlock.h>
 #include <sys/socket.h>
 
 #define htonl(l)  ( (((l) & 0xFF) << 24) | (((l) & 0xFF00) << 8) | (((l) & 0xFF0000) >> 8) | (((l) & 0xFF000000) >> 24))
