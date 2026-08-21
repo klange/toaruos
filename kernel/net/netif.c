@@ -25,6 +25,7 @@ static fs_node_t * _if_first = NULL;
 static fs_node_t * _if_loop = NULL;
 
 extern void ipv4_install(void);
+extern void unix_sock_install(void);
 extern hashmap_t * net_arp_cache;
 
 extern fs_node_t * loopbook_install(void);
@@ -36,6 +37,7 @@ void net_install(void) {
 	net_raw_sockets_list = list_create("raw sockets", NULL);
 	net_arp_cache = hashmap_create_int(10);
 	ipv4_install();
+	unix_sock_install();
 	_if_loop = loopbook_install();
 	_if_first = NULL;
 }

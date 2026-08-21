@@ -8,14 +8,15 @@ _Begin_C_Header
 
 #define AF_UNSPEC 0
 #define AF_INET 1
-#define AF_RAW 2
+#define AF_RAW  2
+#define AF_UNIX 3
 
 #define PF_INET AF_INET
 
 #define SOCK_STREAM 1
 #define SOCK_DGRAM  2
 #define SOCK_RAW    3
-
+#define SOCK_SEQPACKET 4
 
 #define SOCK_NONBLOCK (1 << 18)
 #define SOCK_CLOEXEC  (1 << 19)

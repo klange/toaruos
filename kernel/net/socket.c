@@ -33,6 +33,7 @@
  *       protocol handlers, but a lot of this stuff is also just generic...
  */
 extern long net_ipv4_socket(int,int,int,int);
+extern long net_unix_socket(int,int,int,int);
 
 void net_sock_alert(sock_t * sock) {
 	spin_lock(sock->alert_lock);
@@ -247,6 +248,8 @@ long net_socket(int domain, int type, int protocol) {
 			return net_ipv4_socket(type, protocol, flags, nonblocking);
 		case AF_RAW:
 			return net_raw_socket(type, protocol, flags, nonblocking);
+		case AF_UNIX:
+			return net_unix_socket(type, protocol, flags, nonblocking);
 		default:
 			return -EAFNOSUPPORT;
 	}
