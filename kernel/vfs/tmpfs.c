@@ -275,6 +275,7 @@ static int chmod_tmpfs(fs_node_t * node, int mode) {
 
 	/* XXX permissions */
 	t->mask = mode;
+	node->mask = mode;
 
 	return 0;
 }
@@ -815,9 +816,12 @@ fs_node_t * tmpfs_mount(const char * device, const char * mount_path) {
 		if (strlen(argv[1]) < 3) {
 			printf("tmpfs: ignoring bad permission option for tmpfs\n");
 		} else {
-			int mode = ((argv[1][0] - '0') << 6) |
-			           ((argv[1][1] - '0') << 3) |
-			           ((argv[1][2] - '0') << 0);
+			int mode = 0;
+			for (unsigned int i = 0; i < strlen(argv[1]); ++i) {
+				mode <<= 3;
+				mode |= argv[1][i] - '0';
+			}
+			dprintf("mode set to %x\n", mode);
 			fs->mask = mode;
 		}
 	}
