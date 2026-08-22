@@ -230,8 +230,6 @@ DECL_SYSCALL3(clone, uintptr_t, uintptr_t, void *);
 DECL_SYSCALL2(sethostname, char *, size_t);
 DECL_SYSCALL2(gethostname, char *, size_t);
 DECL_SYSCALL2(mkdir, char *, mode_t);
-DECL_SYSCALL2(shm_obtain, const char *, size_t *);
-DECL_SYSCALL1(shm_release, const char *);
 DECL_SYSCALL2(kill, int, int);
 DECL_SYSCALL2(signal, int, void *);
 DECL_SYSCALL3(recv,int,void*,int);

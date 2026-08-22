@@ -31,7 +31,6 @@
 #include <kernel/tree.h>
 #include <kernel/list.h>
 #include <kernel/mmu.h>
-#include <kernel/shm.h>
 #include <kernel/signal.h>
 #include <kernel/time.h>
 #include <kernel/misc.h>
@@ -440,7 +439,6 @@ process_t * spawn_kidle(int bsp) {
 	/* FIXME Why does the idle thread have wait queues and shm mappings?
 	 *       Can we make sure these are never referenced and not allocate them? */
 	idle->wait_queue = list_create("process wait queue (kidle)",idle);
-	idle->shm_mappings = list_create("process shm mappings (kidle)",idle);
 	gettimeofday(&idle->start, NULL);
 	idle->thread.page_directory = calloc(1, sizeof(page_directory_t));
 	idle->thread.page_directory->refcount = 1;
@@ -486,11 +484,9 @@ process_t * spawn_init(void) {
 	mmu_frame_allocate(
 		mmu_get_page(init->image.stack - KERNEL_STACK_SIZE, 0),
 		MMU_FLAG_KERNEL);
-	init->image.shm_heap = USER_SHM_LOW;
 
 	init->flags         = PROC_FLAG_STARTED | PROC_FLAG_RUNNING;
 	init->wait_queue    = list_create("process wait queue (init)", init);
-	init->shm_mappings  = list_create("process shm mapping (init)", init);
 
 	init->sched_node.prev = NULL;
 	init->sched_node.next = NULL;
@@ -548,7 +544,6 @@ process_t * spawn_process(volatile process_t * parent, int flags, int close_at_f
 	mmu_frame_allocate(
 		mmu_get_page(proc->image.stack - KERNEL_STACK_SIZE, 0),
 		MMU_FLAG_KERNEL);
-	proc->image.shm_heap    = USER_SHM_LOW;
 
 	if (flags & PROC_REUSE_FDS) {
 		spin_lock(parent->fds->lock);
@@ -578,7 +573,6 @@ process_t * spawn_process(volatile process_t * parent, int flags, int close_at_f
 	proc->wd_name = strdup(parent->wd_name);
 
 	proc->wait_queue   = list_create("process wait queue",proc);
-	proc->shm_mappings = list_create("process shm mappings",proc);
 
 	proc->sched_node.value = proc;
 	proc->sleep_node.value = proc;
@@ -697,9 +691,6 @@ void process_delete(process_t * proc) {
 
 	// FIXME bitset_clear(&pid_set, proc->id);
 	proc->tree_entry = NULL;
-
-	shm_release_all(proc);
-	free(proc->shm_mappings);
 
 	if (proc->supplementary_group_list) {
 		proc->supplementary_group_count = 0;
@@ -1558,7 +1549,6 @@ process_t * spawn_worker_thread(void (*entrypoint)(void * argp), const char * na
 
 
 	proc->wait_queue   = list_create("worker thread wait queue",proc);
-	proc->shm_mappings = list_create("worker thread shm mappings",proc);
 
 	proc->sched_node.value = proc;
 	proc->sleep_node.value = proc;

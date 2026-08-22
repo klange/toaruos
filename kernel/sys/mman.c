@@ -316,14 +316,11 @@ static void count_pt(uintptr_t addr_base, memmap_t * maps, union PML * pt, size_
 		uintptr_t addr = addr_base + (l << 12);
 		while (maps && maps->base + maps->length <= addr) maps = maps->next;
 		if (pt[l].bits.present) {
-			if (addr >= USER_DEVICE_MAP && addr <= USER_SHM_HIGH) {
-				/* Legacy stuff. */
-				(*shm) += 1;
-			} else if (maps && addr >= maps->base && addr < maps->base + maps->length) {
-				if (maps->file) {
-					(*file) += 1;
-				} else if (maps->flags & MAP_SHARED) {
+			if (maps && addr >= maps->base && addr < maps->base + maps->length) {
+				if (maps->flags & MAP_SHARED) {
 					(*shm) += 1;
+				} else if (maps->file) {
+					(*file) += 1;
 				} else {
 					(*anon) += 1;
 				}

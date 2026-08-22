@@ -25,7 +25,6 @@
 #include <kernel/module.h>
 #include <kernel/hashmap.h>
 #include <kernel/mutex.h>
-#include <kernel/shm.h>
 #include <kernel/mman.h>
 #include <sys/auxv.h>
 #include <sys/mman.h>
@@ -385,7 +384,6 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	this_core->current_process->saved_user = this_core->current_process->user;
 	this_core->current_process->saved_user_group = this_core->current_process->user_group;
 
-	shm_release_all((process_t *)this_core->current_process);
 	process_close_fds((process_t *)this_core->current_process, PROC_FD_MODE_CLOEXEC);
 
 	process_acquire_big_lock();

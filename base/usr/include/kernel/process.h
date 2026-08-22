@@ -60,7 +60,6 @@ typedef struct image {
 	uintptr_t entry;
 	uintptr_t heap;
 	uintptr_t stack;
-	uintptr_t shm_heap;
 	uintptr_t userstack;
 	spin_lock_t lock;
 } image_t;
@@ -130,7 +129,6 @@ typedef struct process {
 	tree_node_t * tree_entry;
 	struct regs * syscall_registers;
 	list_t * wait_queue;
-	list_t * shm_mappings;
 	list_t * node_waits;
 
 	node_t sched_node;

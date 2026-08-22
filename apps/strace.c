@@ -148,8 +148,6 @@ const char * syscall_names[] = {
 	[SYS_FSWAIT3]      = "fswait_multi",
 	[SYS_CLONE]        = "clone",
 	[SYS_OPENPTY]      = "openpty",
-	[SYS_SHM_OBTAIN]   = "shm_obtain",
-	[SYS_SHM_RELEASE]  = "shm_release",
 	[SYS_SIGNAL]       = "signal",
 	[SYS_KILL]         = "kill",
 	[SYS_REBOOT]       = "reboot",
@@ -254,8 +252,6 @@ char syscall_mask[] = {
 	[SYS_FSWAIT3]      = 1,
 	[SYS_CLONE]        = 1,
 	[SYS_OPENPTY]      = 1,
-	[SYS_SHM_OBTAIN]   = 1,
-	[SYS_SHM_RELEASE]  = 1,
 	[SYS_SIGNAL]       = 1,
 	[SYS_KILL]         = 1,
 	[SYS_REBOOT]       = 1,
@@ -330,11 +326,7 @@ static const int syscall_set_desc[] = {
 };
 
 static const int syscall_set_memory[] = {
-	SYS_SBRK, SYS_SHM_OBTAIN, SYS_SHM_RELEASE, SYS_MMAP, SYS_MUNMAP, -1
-};
-
-static const int syscall_set_ipc[] = {
-	SYS_SHM_OBTAIN, SYS_SHM_RELEASE, -1
+	SYS_SBRK, SYS_MMAP, SYS_MUNMAP, -1
 };
 
 static const int syscall_set_signal[] = {
@@ -372,7 +364,6 @@ static const struct SyscallSet syscall_sets[] = {
 	{"file",    syscall_set_file},
 	{"desc",    syscall_set_desc},
 	{"memory",  syscall_set_memory},
-	{"ipc",     syscall_set_ipc},
 	{"signal",  syscall_set_signal},
 	{"process", syscall_set_process},
 	{"creds",   syscall_set_creds},
@@ -1222,13 +1213,6 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			string_array_arg(pid, uregs_syscall_arg2(r)); COMMA;
 			envp_arg(pid, uregs_syscall_arg3(r));
-			break;
-		case SYS_SHM_OBTAIN:
-			string_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			pointer_arg(uregs_syscall_arg2(r));
-			break;
-		case SYS_SHM_RELEASE:
-			string_arg(pid, uregs_syscall_arg1(r));
 			break;
 		case SYS_SIGNAL:
 			signal_arg(uregs_syscall_arg1(r)); COMMA;

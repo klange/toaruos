@@ -27,7 +27,6 @@ extern void tmpfs_register_init(void);
 extern void tasking_start(void);
 extern void zero_initialize(void);
 extern void procfs_initialize(void);
-extern void shm_install(void);
 extern void random_initialize(void);
 extern void snd_install(void);
 extern void net_install(void);
@@ -37,7 +36,6 @@ extern void modules_install(void);
 void generic_startup(void) {
 	args_parse(arch_get_cmdline());
 	initialize_process_tree();
-	shm_install();
 	vfs_install();
 	tarfs_register_init();
 	tmpfs_register_init();

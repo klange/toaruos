@@ -23,7 +23,6 @@
 #include <kernel/string.h>
 #include <kernel/version.h>
 #include <kernel/pipe.h>
-#include <kernel/shm.h>
 #include <kernel/mmu.h>
 #include <kernel/pty.h>
 #include <kernel/spinlock.h>
@@ -1116,19 +1115,6 @@ long sys_fswait_multi(int c, int fds[], int timeout, int out[]) {
 	return result;
 }
 
-long sys_shm_obtain(char * path, size_t * size) {
-	PTR_VALIDATE(path);
-	PTR_VALIDATE(size);
-	if (!path || !size) return -EFAULT;
-	return (long)shm_obtain(path, size);
-}
-
-long sys_shm_release(char * path) {
-	PTR_VALIDATE(path);
-	if (!path) return -EFAULT;
-	return shm_release(path);
-}
-
 long sys_openpty(int * master, int * slave, char * name, void * _ign0, void * size) {
 	/* We require a place to put these when we are done. */
 	PTRCHECK(master,sizeof(int),MMU_PTR_WRITE);
@@ -1328,8 +1314,6 @@ static scall_func syscalls[] = {
 	[SYS_FSWAIT3]      = (scall_func)(uintptr_t)sys_fswait_multi,
 	[SYS_CLONE]        = (scall_func)(uintptr_t)sys_clone,
 	[SYS_OPENPTY]      = (scall_func)(uintptr_t)sys_openpty,
-	[SYS_SHM_OBTAIN]   = (scall_func)(uintptr_t)sys_shm_obtain,
-	[SYS_SHM_RELEASE]  = (scall_func)(uintptr_t)sys_shm_release,
 	[SYS_SIGNAL]       = (scall_func)(uintptr_t)sys_signal,
 	[SYS_KILL]         = (scall_func)(uintptr_t)sys_kill,
 	[SYS_REBOOT]       = (scall_func)(uintptr_t)sys_reboot,
