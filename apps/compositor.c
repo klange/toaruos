@@ -30,7 +30,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/fswait.h>
-#include <sys/shm.h>
+#include <sys/mman.h>
 #include <sys/socket.h>
 #include <net/if.h>
 #include <arpa/inet.h>
@@ -429,9 +429,12 @@ static yutani_server_window_t * server_window_create(yutani_globals_t * yg, int 
 
 	size_t size = (width * height * 4);
 
-	win->buffer = shm_obtain(key, &size);
-	memset(win->buffer, 0, size);
-
+	int texture_fd = shm_open(key, O_RDWR | O_CREAT | O_EXCL, 0666);
+	ftruncate(texture_fd, width * height * 4);
+	fchmod(texture_fd, 0666);
+	size_t size_up = (size + 0xFFF) & ~0xFFF;
+	win->buffer = mmap(NULL, size_up, PROT_READ | PROT_WRITE, MAP_SHARED, texture_fd, 0);
+	close(texture_fd);
 	list_insert(yg->mid_zs, win);
 
 	return win;
@@ -473,9 +476,13 @@ static uint32_t server_window_resize(yutani_globals_t * yg, yutani_server_window
 	{
 		char key[1024];
 		YUTANI_SHMKEY_EXP(yg->server_ident, key, 1024, win->newbufid);
-
+		int texture_fd = shm_open(key, O_RDWR | O_CREAT | O_EXCL, 0666);
 		size_t size = (width * height * 4);
-		win->newbuffer = shm_obtain(key, &size);
+		ftruncate(texture_fd, size);
+		fchmod(texture_fd, 0666);
+		size_t size_up = (size + 0xFFF) & ~0xFFF;
+		win->newbuffer = mmap(NULL, size_up, PROT_READ | PROT_WRITE, MAP_SHARED, texture_fd, 0);
+		close(texture_fd);
 	}
 
 	return win->newbufid;
@@ -524,8 +531,12 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
 		}
 	}
 
+	size_t size_up = ((win->width * win->height * 4) + 0xFFF) & ~0xFFF;
+	munmap(win->buffer, size_up);
+
 	win->width = width;
 	win->height = height;
+
 
 	win->bufid = win->newbufid;
 	win->buffer = win->newbuffer;
@@ -536,7 +547,7 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
 	{
 		char key[1024];
 		YUTANI_SHMKEY_EXP(yg->server_ident, key, 1024, oldbufid);
-		shm_release(key);
+		shm_unlink(key);
 	}
 
 	mark_window(yg, win);
@@ -1504,13 +1515,7 @@ static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t 
 	{
 		char key[1024];
 		YUTANI_SHMKEY_EXP(yg->server_ident, key, 1024, w->bufid);
-
-		/*
-		 * Normally we would acquire a lock before doing this, but the render
-		 * thread holds that lock already and we are only called from the
-		 * render thread, so we don't bother.
-		 */
-		shm_release(key);
+		shm_unlink(key);
 	}
 
 	/* Notify subscribers that there are changes to windows */

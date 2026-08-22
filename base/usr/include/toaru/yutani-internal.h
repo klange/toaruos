@@ -5,8 +5,8 @@
 
 _Begin_C_Header
 
-#define YUTANI_SHMKEY(server_ident,buf,sz,win) sprintf(buf, "sys.%s.%d", server_ident, win->bufid);
-#define YUTANI_SHMKEY_EXP(server_ident,buf,sz,bufid) sprintf(buf, "sys.%s.%d", server_ident, bufid);
+#define YUTANI_SHMKEY(server_ident,buf,sz,win) sprintf(buf, "/sys.%s.%d", server_ident, win->bufid);
+#define YUTANI_SHMKEY_EXP(server_ident,buf,sz,bufid) sprintf(buf, "/sys.%s.%d", server_ident, bufid);
 
 #define yutani_msg_buildx_hello_alloc(out) char _yutani_tmp_ ## LINE [sizeof(struct yutani_message)]; yutani_msg_t * out = (void *)&_yutani_tmp_ ## LINE;
 #define yutani_msg_buildx_flip_alloc(out) char _yutani_tmp_ ## LINE [sizeof(struct yutani_message) + sizeof(struct yutani_msg_flip)]; yutani_msg_t * out = (void *)&_yutani_tmp_ ## LINE;

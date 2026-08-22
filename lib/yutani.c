@@ -10,8 +10,11 @@
  */
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
 #include <va_list.h>
-#include <sys/shm.h>
+#include <sys/mman.h>
 
 #include <toaru/pex.h>
 #include <toaru/graphics.h>
@@ -654,8 +657,13 @@ yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int height
 	char key[1024];
 	YUTANI_SHMKEY(y->server_ident, key, 1024, win);
 
+	int texture_fd = shm_open(key, O_RDWR, 0);
+
 	size_t size = (width * height * 4);
-	win->buffer = shm_obtain(key, &size);
+	size_t size_up = (size + 0xFFF) & ~0xFFF;
+	win->buffer = mmap(NULL, size_up, PROT_READ | PROT_WRITE, MAP_SHARED, texture_fd, 0);
+	close(texture_fd);
+
 	return win;
 
 }
@@ -702,12 +710,9 @@ void yutani_close(yutani_t * y, yutani_window_t * win) {
 	yutani_msg_buildx_window_close(m, win->wid);
 	yutani_msg_send(y, m);
 
-	/* Now destroy our end of the window */
-	{
-		char key[1024];
-		YUTANI_SHMKEY_EXP(y->server_ident, key, 1024, win->bufid);
-		shm_release(key);
-	}
+	size_t size = (win->width * win->height * 4);
+	size_t size_up = (size + 0xFFF) & ~0xFFF;
+	munmap(win->buffer, size_up);
 
 	if (win->icon) free(win->icon);
 	hashmap_remove(y->windows, (void*)(uintptr_t)win->wid);
@@ -803,6 +808,10 @@ void yutani_window_resize_accept(yutani_t * yctx, yutani_window_t * window, uint
 		return;
 	}
 
+	size_t size = (window->width * window->height * 4);
+	size_t old_size_up = (size + 0xFFF) & ~0xFFF;
+	void *old_buffer = window->buffer;
+
 	/* Update the window */
 	window->width = wr->width;
 	window->height = wr->height;
@@ -815,9 +824,19 @@ void yutani_window_resize_accept(yutani_t * yctx, yutani_window_t * window, uint
 		char key[1024];
 		YUTANI_SHMKEY(yctx->server_ident, key, 1024, window);
 
+		int texture_fd = shm_open(key, O_RDWR, 0);
+		if (texture_fd < 0) fprintf(stderr, "oh boy: %s: %s\n", strerror(errno), key);
+
 		size_t size = (window->width * window->height * 4);
-		window->buffer = shm_obtain(key, &size);
+		size_t size_up = (size + 0xFFF) & ~0xFFF;
+		window->buffer = mmap(NULL, size_up, PROT_READ | PROT_WRITE, MAP_SHARED, texture_fd, 0);
+		if (window->buffer == NULL) {
+			fprintf(stderr, "uh oh\n");
+		}
+		close(texture_fd);
 	}
+
+	munmap(old_buffer, old_size_up);
 }
 
 /**
@@ -828,13 +847,6 @@ void yutani_window_resize_accept(yutani_t * yctx, yutani_window_t * window, uint
  * discard the old buffer and switch to the new one.
  */
 void yutani_window_resize_done(yutani_t * yctx, yutani_window_t * window) {
-	/* Destroy the old buffer */
-	{
-		char key[1024];
-		YUTANI_SHMKEY_EXP(yctx->server_ident, key, 1024, window->oldbufid);
-		shm_release(key);
-	}
-
 	yutani_msg_buildx_window_resize_alloc(m);
 	yutani_msg_buildx_window_resize(m, YUTANI_MSG_RESIZE_DONE, window->wid, window->width, window->height, window->bufid, 0);
 	yutani_msg_send(yctx, m);

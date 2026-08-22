@@ -19,13 +19,14 @@
 #include <math.h>
 #include <time.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <signal.h>
 #include <pthread.h>
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <sys/fswait.h>
-#include <sys/shm.h>
 #include <sys/auxv.h>
+#include <sys/mman.h>
 
 /* auto-dep: export-dynamic */
 #include <dlfcn.h>
@@ -288,10 +289,13 @@ static void redraw_alttab(void) {
 		/* try very hard to get a window texture */
 		char key[1024];
 		YUTANI_SHMKEY_EXP(yctx->server_ident, key, 1024, ad->bufid);
-		size_t size = 0;
-		uint32_t * buf =  shm_obtain(key, &size);
+		int texture_fd = shm_open(key, O_RDONLY, 0);
 
-		if (buf && size >= ad->width * ad->height * 4) {
+		if (texture_fd >= 0) {
+			size_t size = ad->width * ad->height * 4;
+			size = (size + 0xfff) & ~0xFFF;
+			uint32_t * buf = mmap(NULL, size, PROT_READ, MAP_SHARED, texture_fd, 0);
+			close(texture_fd);
 			sprite_t tmp;
 			tmp.width = ad->width;
 			tmp.height = ad->height;
@@ -314,7 +318,7 @@ static void redraw_alttab(void) {
 				pos_y + oy + 10,
 				sw, sh);
 
-			shm_release(key);
+			munmap(buf, size);
 
 			sprite_t * icon = icon_get_48(ad->icon);
 			draw_sprite(actx, icon, pos_x + 10 + ALTTAB_WIN_SIZE - 50, pos_y + 10 + ALTTAB_WIN_SIZE - 50);
