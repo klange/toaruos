@@ -503,6 +503,13 @@ static int try_free_dir(struct tmpfs_dir * d) {
 	return 0;
 }
 
+static int sticky_check(fs_node_t * node, struct tmpfs_dir * d, struct tmpfs_file *t) {
+	if (!(node->mask & S_ISVTX)) return 0;
+	uid_t me = this_core->current_process->user;
+	if (me == 0 || me == d->uid || me == t->uid) return 0;
+	return 1;
+}
+
 static int unlink_tmpfs(fs_node_t * node, const char * name) {
 	struct tmpfs_dir * d = (struct tmpfs_dir *)node->impl;
 	int i = -1, j = 0;
@@ -511,6 +518,10 @@ static int unlink_tmpfs(fs_node_t * node, const char * name) {
 	foreach(f, d->files) {
 		struct tmpfs_file * t = (struct tmpfs_file *)f->value;
 		if (!strcmp(name, t->name)) {
+			if (sticky_check(node, d, t)) {
+				spin_unlock(d->lock);
+				return -EPERM;
+			}
 			if (t->type == TMPFS_TYPE_DIR) {
 				if (try_free_dir((void*)t)) {
 					spin_unlock(d->lock);
@@ -660,6 +671,11 @@ static int rename_tmpfs(fs_node_t * mount_root, fs_node_t * src_dir, const char 
 		goto _cleanup_src;
 	}
 
+	if (sticky_check(src_dir, ds, src_file)) {
+		ret = -EPERM;
+		goto _cleanup_src;
+	}
+
 	struct tmpfs_dir * dd = (struct tmpfs_dir *)dest_dir->impl;
 	if (dd != ds) spin_lock(dd->lock);
 
@@ -722,6 +738,11 @@ static int rename_tmpfs(fs_node_t * mount_root, fs_node_t * src_dir, const char 
 		} else if (src_file->type == TMPFS_TYPE_DIR) {
 			/* Source is a directory, but destination is not */
 			ret = -ENOTDIR;
+			goto _cleanup;
+		}
+
+		if (sticky_check(dest_dir, dd, dest_file)) {
+			ret = -EPERM;
 			goto _cleanup;
 		}
 
