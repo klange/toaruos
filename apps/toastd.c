@@ -134,12 +134,6 @@ int main(int argc, char * argv[]) {
 	}
 	/* Daemonize... */
 	if (!fork()) {
-		/* Connect to display server... */
-		yctx = yutani_init();
-		if (!yctx) {
-			fprintf(stderr, "%s: Failed to connect to compositor.\n", argv[0]);
-			return 1;
-		}
 		/* Set up UDP server */
 		udp_sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
 		struct sockaddr_in bind_addr;
@@ -148,6 +142,12 @@ int main(int argc, char * argv[]) {
 		bind_addr.sin_port = htons(1030);
 		if (bind(udp_sock_fd, (struct sockaddr*)&bind_addr, sizeof(struct sockaddr_in)) == -1) {
 			fprintf(stderr, "%s: failed to bind: %s\n", argv[0], strerror(errno));
+			return 1;
+		}
+		/* Connect to display server... */
+		yctx = yutani_init();
+		if (!yctx) {
+			fprintf(stderr, "%s: Failed to connect to compositor.\n", argv[0]);
 			return 1;
 		}
 		/* Set up our text rendering and sprite contexts... */
