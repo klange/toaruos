@@ -888,7 +888,7 @@ static void struct_stat_arg(pid_t pid, uintptr_t ptr) {
 			C(S_IFLNK);
 			C(S_IFSOCK);
 			C(S_IFIFO);
-			default: fprintf(logfile,"%0o",mode & S_IFMT);
+			default: fprintf(logfile,"%#0o",mode & S_IFMT);
 		}
 		fprintf(logfile, "|");
 	}
@@ -898,7 +898,7 @@ static void struct_stat_arg(pid_t pid, uintptr_t ptr) {
 		H(S_ISUID);
 		H(S_ISGID);
 		H(S_ISVTX);
-		if (mode & 0777) fprintf(logfile,"|");
+		fprintf(logfile,"|");
 	}
 	mode_arg(mode & 0777);
 	COMMA;
