@@ -334,7 +334,7 @@ static void print_entry_long(int * widths, int * colwidth, struct tfile * file) 
 	printf("%c", (mode & S_IXGRP) ? ((mode & S_ISGID) ? 's' : 'x') : ((mode & S_ISGID) ? 'S' : '-'));
 	printf("%c", (mode & S_IROTH) ? 'r' : '-');
 	printf("%c", (mode & S_IWOTH) ? 'w' : '-');
-	printf("%c", (mode & S_IXOTH) ? 'x' : '-');
+	printf("%c", (mode & S_IXOTH) ? ((mode & S_ISVTX) ? 't' : 'x') : ((mode & S_ISVTX) ? 'T' : '-'));
 
 	printf( " %*d ", widths[0], file->statbuf.st_nlink); /* number of links, not supported */
 
