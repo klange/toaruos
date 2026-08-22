@@ -729,6 +729,8 @@ int menu_definitely_close(struct MenuList * menu) {
 	menu->closed = 1;
 	yutani_wid_t wid = menu->window->wid;
 	yutani_close(menu->window->ctx, menu->window);
+	release_graphics_yutani(menu->ctx);
+	menu->ctx = NULL;
 	menu->window = NULL;
 	menu->main_window = NULL;
 	hashmap_remove(menu_windows, (void*)(uintptr_t)wid);
