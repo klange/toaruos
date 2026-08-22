@@ -635,7 +635,6 @@ union PML * mmu_clone(union PML * from) {
 							/* Now, finally, copy pages */
 							for (size_t l = 0; l < 512; ++l) {
 								uintptr_t address = ((i << (9 * 3 + 12)) | (j << (9*2 + 12)) | (k << (9 + 12)) | (l << PAGE_SHIFT));
-								if (address >= USER_DEVICE_MAP && address <= USER_SHM_HIGH) continue;
 								if (pt_in[l].bits.present) {
 									if (pt_in[l].bits.user && !(pt_in[l].bits.mmap_shared)) {
 										copy_page_maybe(pt_in, pt_out, l, address);
@@ -741,7 +740,6 @@ void mmu_free(union PML * from) {
 							for (size_t l = 0; l < 512; ++l) {
 								uintptr_t address = ((i << (9 * 3 + 12)) | (j << (9*2 + 12)) | (k << (9 + 12)) | (l << PAGE_SHIFT));
 								/* Do not free shared mappings; SHM subsystem does that for SHM, devices don't need it. */
-								if (address >= USER_DEVICE_MAP && address <= USER_SHM_HIGH) continue;
 								if (pt_in[l].bits.present) {
 									/* Free only user pages */
 									if (pt_in[l].bits.user) {
@@ -871,7 +869,6 @@ void mmu_unmap_user(uintptr_t addr, size_t size) {
 	for (uintptr_t a = addr; a < addr + size; a += PAGE_SIZE) {
 		union PML * pml4, * pdp, * pd, * pt;
 
-		if (a >= USER_DEVICE_MAP && a <= USER_SHM_HIGH) continue;
 		if (mmu_get_page_deep(a, &pml4, &pdp, &pd, &pt)) continue;
 
 		spin_lock(frame_alloc_lock);
