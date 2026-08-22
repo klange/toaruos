@@ -40,14 +40,6 @@
 #define PROCFS_STANDARD_ENTRIES (sizeof(std_entries) / sizeof(struct procfs_entry))
 #define PROCFS_PROCDIR_ENTRIES  (sizeof(procdir_entries) / sizeof(struct procfs_entry))
 
-typedef struct procfs_entry_node {
-	fs_node_t fnode;
-	char * buf;
-	size_t avail;
-	size_t used;
-	procfs_populate_t func;
-} procfs_entry_t;
-
 static ssize_t procfs_entry_read(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
 	procfs_entry_t * entry = (void*)node;
 	if ((size_t)offset > entry->used) return 0;
@@ -56,6 +48,7 @@ static ssize_t procfs_entry_read(fs_node_t * node, off_t offset, size_t size, ui
 	return size;
 }
 
+static fs_node_t * procfs_generic_create(const char * name, procfs_populate_t read_func, int flags);
 
 /**
  * Dynamic reallocating printf thingy
@@ -105,6 +98,65 @@ static ssize_t procfs_entry_readlink(fs_node_t * node, char * buf, size_t size) 
 	return len;
 }
 
+static int readdir_procfs_subdir(fs_node_t *node, uint64_t index, struct dirent * out) {
+	if (index == 0) {
+		memset(out, 0x00, sizeof(struct dirent));
+		out->d_ino = 0;
+		strcpy(out->d_name, ".");
+		return 1;
+	}
+
+	if (index == 1) {
+		memset(out, 0x00, sizeof(struct dirent));
+		out->d_ino = 0;
+		strcpy(out->d_name, "..");
+		return 1;
+	}
+
+	index -= 2;
+
+	procfs_entry_t * self = (procfs_entry_t*)node;
+
+	if (self->files) {
+		if (index < self->files->length) {
+			size_t i = 0;
+			node_t * n = self->files->head;
+			while (i < index) {
+				n = n->next;
+				i++;
+			}
+
+			struct procfs_entry * e = n->value;
+			memset(out, 0x00, sizeof(struct dirent));
+			out->d_ino = e->id;
+			strcpy(out->d_name, e->name);
+			return 1;
+		}
+		index -=  self->files->length;
+	}
+
+	return 0;
+}
+
+static fs_node_t * finddir_procfs_subdir(fs_node_t * node, const char * name) {
+	if (!name) return NULL;
+	if (strlen(name) < 1) return NULL;
+
+	procfs_entry_t * self = (procfs_entry_t*)node;
+
+	if (self->files) {
+		foreach(node, self->files) {
+			struct procfs_entry * e = node->value;
+			if (!strcmp(name, e->name)) {
+				fs_node_t * out = procfs_generic_create(e->name, e->func, e->flags);
+				return out;
+			}
+		}
+	}
+
+	return NULL;
+}
+
 static fs_node_t * procfs_generic_create(const char * name, procfs_populate_t read_func, int flags) {
 	procfs_entry_t * entry = calloc(1, sizeof(procfs_entry_t));
 	entry->fnode.inode = 0;
@@ -122,6 +174,11 @@ static fs_node_t * procfs_generic_create(const char * name, procfs_populate_t re
 	if (flags == FS_SYMLINK) {
 		entry->fnode.flags   = FS_FILE | FS_SYMLINK;
 		entry->fnode.readlink = procfs_entry_readlink;
+	} else if (flags == FS_DIRECTORY) {
+		entry->fnode.flags = FS_DIRECTORY;
+		entry->fnode.readdir = readdir_procfs_subdir;
+		entry->fnode.finddir = finddir_procfs_subdir;
+		entry->fnode.mask = 0555;
 	} else {
 		entry->fnode.flags   = FS_FILE;
 		entry->fnode.read    = procfs_entry_read;
