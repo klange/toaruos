@@ -181,18 +181,19 @@ static void procfs_net_icmp_func(fs_node_t * node) {
 	}
 }
 
-static struct procfs_entry procfs_net_udp  = { 0, "net_udp",  procfs_net_udp_func,  0 };
-static struct procfs_entry procfs_net_tcp  = { 0, "net_tcp",  procfs_net_tcp_func,  0 };
-static struct procfs_entry procfs_net_icmp = { 0, "net_icmp", procfs_net_icmp_func, 0 };
+static struct procfs_entry procfs_net_udp  = { 0, "udp",  procfs_net_udp_func,  0 };
+static struct procfs_entry procfs_net_tcp  = { 0, "tcp",  procfs_net_tcp_func,  0 };
+static struct procfs_entry procfs_net_icmp = { 0, "icmp", procfs_net_icmp_func, 0 };
 
 void ipv4_install(void) {
 	udp_sockets = hashmap_create_int(10);
 	tcp_sockets = hashmap_create_int(10);
 	icmp_sockets = hashmap_create_int(10);
 
-	procfs_install(&procfs_net_udp);
-	procfs_install(&procfs_net_tcp);
-	procfs_install(&procfs_net_icmp);
+	extern list_t * procfs_net_files;
+	list_insert(procfs_net_files, &procfs_net_udp);
+	list_insert(procfs_net_files, &procfs_net_tcp);
+	list_insert(procfs_net_files, &procfs_net_icmp);
 }
 
 int net_ipv4_send(struct ipv4_packet * response, fs_node_t * nic) {

@@ -70,14 +70,15 @@ static void procfs_net_pex_func(fs_node_t * node) {
 	}
 }
 
-static struct procfs_entry procfs_net_pex  = { 0, "net_pex",  procfs_net_pex_func,  0 };
+static struct procfs_entry procfs_net_pex  = { 0, "pex",  procfs_net_pex_func,  0 };
 
 void pex_sock_install(void) {
 	pex_servers = hashmap_create(10);
 	pex_servers_ident = hashmap_create_int(10);
 	pex_clients_ident = hashmap_create_int(10);
 
-	procfs_install(&procfs_net_pex);
+	extern list_t * procfs_net_files;
+	list_insert(procfs_net_files, &procfs_net_pex);
 }
 
 static void sock_pex_close(sock_t * sock) {

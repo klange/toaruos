@@ -15,6 +15,7 @@
 #include <kernel/printf.h>
 #include <kernel/spinlock.h>
 #include <kernel/hashmap.h>
+#include <kernel/procfs.h>
 #include <kernel/net/netif.h>
 
 #include <bits/errno.h>
@@ -31,9 +32,19 @@ extern hashmap_t * net_arp_cache;
 
 extern fs_node_t * loopbook_install(void);
 
+list_t * procfs_net_files = NULL;
+
+static void procfs_net_dir(fs_node_t * node) {
+	((procfs_entry_t*)node)->files = procfs_net_files;
+}
+
+static struct procfs_entry procfs_net_pex  = { 0, "net", procfs_net_dir,  FS_DIRECTORY };
+
 void net_install(void) {
 	/* Set up virtual devices */
 	map_vfs_directory("/dev/net");
+	procfs_net_files = list_create("procfs net files", NULL);
+	procfs_install(&procfs_net_pex);
 	interfaces = hashmap_create(10);
 	net_raw_sockets_list = list_create("raw sockets", NULL);
 	net_arp_cache = hashmap_create_int(10);

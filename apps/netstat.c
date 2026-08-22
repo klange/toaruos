@@ -41,7 +41,7 @@ static void parse_udp_tcp(char * which) {
 	ssize_t len = 0;
 
 	char path[100];
-	snprintf(path, 100, "/proc/net_%s", which);
+	snprintf(path, 100, "/proc/net/%s", which);
 
 	FILE * f = fopen(path, "r");
 	if (!f) return;
@@ -81,7 +81,7 @@ static void parse_icmp(void) {
 	size_t avail = NULL;
 	ssize_t len = 0;
 
-	FILE * f = fopen("/proc/net_icmp", "r");
+	FILE * f = fopen("/proc/net/icmp", "r");
 	if (!f) return;
 
 	while ((len = getline(&line, &avail, f)) != -1) {
@@ -112,7 +112,7 @@ static void parse_pex(void) {
 	size_t avail = NULL;
 	ssize_t len = 0;
 
-	FILE * f = fopen("/proc/net_pex", "r");
+	FILE * f = fopen("/proc/net/pex", "r");
 	if (!f) return;
 
 	hashmap_t * map = hashmap_create_int(10);
