@@ -52,11 +52,8 @@ static struct tmpfs_file * tmpfs_file_new(const char * name) {
 	t->atime = now();
 	t->mtime = t->atime;
 	t->ctime = t->atime;
-	t->blocks = malloc(t->pointers * sizeof(char *));
+	t->blocks = calloc(t->pointers, sizeof(char *));
 	t->ino = tmpfs_ino_counter++;
-	for (size_t i = 0; i < t->pointers; ++i) {
-		t->blocks[i] = 0;
-	}
 
 	return t;
 }
@@ -362,16 +359,23 @@ static ssize_t get_size_tmpfs(fs_node_t * node) {
 static int fault_map_tmpfs(fs_node_t * node, union PML * page, off_t offset, int fault_flags, int map_flags, int prot, int *mmu_flags) {
 	struct tmpfs_file * t = (struct tmpfs_file *)(node->impl);
 
-	if (map_flags & MAP_SHARED) return 1; /* Ignore attempt to map as shared and defer to normal handler. */
+	if (map_flags & MAP_SHARED) {
+		if (!(prot & PROT_WRITE) && (fault_flags & FAULT_CODE_WRITE)) return 1; /* Should be rejected earlier? */
+		uint64_t fpage = tmpfs_ext_getblock(t, offset);
+		if (!fpage) return 1; /* Request out of bounds */
+		page->bits.page = fpage;
+		page->bits.mmap_shared = 1;
+		if (!(prot & PROT_WRITE)) (*mmu_flags) &= ~(MMU_FLAG_WRITABLE);
+		return 0;
+	}
 
 	if (!(fault_flags & FAULT_CODE_WRITE)) {
 		uint64_t fpage = tmpfs_ext_getblock(t, offset);
-		if (fpage) {
-			page->bits.page = fpage;
-			page->bits.mmap_shared = 1;
-			(*mmu_flags) &= ~(MMU_FLAG_WRITABLE);
-			return 0;
-		}
+		if (!fpage) return 1;
+		page->bits.page = fpage;
+		page->bits.mmap_shared = 1;
+		(*mmu_flags) &= ~(MMU_FLAG_WRITABLE);
+		return 0;
 	}
 
 	/* write request or out of range, defer */
