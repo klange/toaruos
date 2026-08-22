@@ -24,6 +24,8 @@ _Begin_C_Header
 
 extern void * mmap(void *,size_t,int,int,int,off_t);
 extern int munmap(void*,size_t);
+extern int shm_open(const char *, int, mode_t);
+extern int shm_unlink(const char *);
 
 #endif
 
