@@ -887,9 +887,7 @@ void mmu_unmap_user(uintptr_t addr, size_t size) {
 					mmu_frame_clear((uintptr_t)pt->bits.page << PAGE_SHIFT);
 				}
 			}
-			pt->bits.page = 0;
-			pt->bits.present = 0;
-			pt->bits.writable = 0;
+			pt->raw = 0;
 
 			if (maybe_release_directory(pd, pt)) {
 				if (maybe_release_directory(pdp, pd)) {
