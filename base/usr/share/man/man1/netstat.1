@@ -4,7 +4,7 @@
 \fBnetstat\fP \- show open sockets
 
 .SH SYNOPSIS
-\fBnetstat\fP [\fB\-\-tcp\fP|\fB\-t\fP] [\fB\-\-udp\fP|\fB\-u\fP] [\fB\-\-icmp\fP|\fB\-I\fP]
+\fBnetstat\fP [\fB\-\-tcp\fP|\fB\-t\fP] [\fB\-\-udp\fP|\fB\-u\fP] [\fB\-\-icmp\fP|\fB\-I\fP] [\fB\-\-pex\fP]
 
 .SH DESCRIPTION
 Prints information on open sockets.
@@ -22,6 +22,10 @@ Show UDP sockets.
 .TP
 .B \-\-icmp \fRor\fP \-I
 Show ICMP sockets.
+
+.TP
+.B \-\-pex
+Show Toaru Packet Exchange sockets.
 
 .SH SEE ALSO
 .BR ifconfig (1)
