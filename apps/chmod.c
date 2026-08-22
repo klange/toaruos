@@ -37,7 +37,7 @@ static void describe_mode(char *modestr, mode_t mode) {
 
 	*c++ = (mode & S_IROTH) ? 'r' : '-';
 	*c++ = (mode & S_IWOTH) ? 'w' : '-';
-	*c++ = (mode & S_IXOTH) ? 'x' : '-';
+	*c++ = (mode & S_IXOTH) ? ((mode & S_ISVTX) ? 't' : 'x') : ((mode & S_ISVTX) ? 'T' : '-');
 	*c = '\0';
 }
 

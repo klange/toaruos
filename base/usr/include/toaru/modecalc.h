@@ -49,6 +49,7 @@ _action: (void)0;
 		mode_t affect = 0;
 		int setuid = 0;
 		int setgid = 0;
+		int sticky = 0;
 		int more_actions = 0;
 
 		switch (*c) {
@@ -75,6 +76,7 @@ _permlist:
 				setgid = (who & S_IXGRP) ? 1 : 0;
 				c++;
 				goto _permlist;
+			case 't': sticky = 1; c++; goto _permlist;
 			case '+':
 			case '-':
 			case '=': more_actions = 1; break;
@@ -87,6 +89,7 @@ _apply: (void)0;
 		mode_t applied = (affect * who) & ~masked;
 		if (setuid) applied |= S_ISUID;
 		if (setgid) applied |= S_ISGID;
+		if (sticky) applied |= S_ISVTX;
 
 		switch (action) {
 			case MODE_SET:
