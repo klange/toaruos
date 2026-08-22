@@ -10,6 +10,7 @@ _Begin_C_Header
 #define AF_INET 1
 #define AF_RAW  2
 #define AF_UNIX 3
+#define AF_PEX  4
 
 #define PF_INET AF_INET
 

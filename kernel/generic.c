@@ -25,7 +25,6 @@ extern int system(const char * path, int argc, const char ** argv, const char **
 extern void tarfs_register_init(void);
 extern void tmpfs_register_init(void);
 extern void tasking_start(void);
-extern void packetfs_initialize(void);
 extern void zero_initialize(void);
 extern void procfs_initialize(void);
 extern void shm_install(void);
@@ -44,7 +43,6 @@ void generic_startup(void) {
 	tmpfs_register_init();
 	map_vfs_directory("/dev");
 	console_initialize();
-	packetfs_initialize();
 	zero_initialize();
 	procfs_initialize();
 	random_initialize();

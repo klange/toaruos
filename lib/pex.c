@@ -17,18 +17,19 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <sys/pex.h>
 
 #include <toaru/pex.h>
 
 size_t pex_send(FILE * sock, uintptr_t rcpt, size_t size, char * blob) {
-	assert(size <= MAX_PACKET_SIZE);
-	pex_header_t * broadcast = malloc(sizeof(pex_header_t) + size);
-	broadcast->target = rcpt;
-	memcpy(broadcast->data, blob, size);
-	size_t out = write(fileno(sock), broadcast, sizeof(pex_header_t) + size);
-	free(broadcast);
-	return out;
+	if (size > MAX_PACKET_SIZE) return -E2BIG;
+	struct sockaddr_pex_client dest;
+	dest.spexc_family = AF_PEX;
+	dest.spexc_addr = rcpt;
+	return sendto(fileno(sock), blob, size, 0, (struct sockaddr*)&dest, sizeof(struct sockaddr_pex_client));
 }
 
 size_t pex_broadcast(FILE * sock, size_t size, char * blob) {
@@ -36,41 +37,75 @@ size_t pex_broadcast(FILE * sock, size_t size, char * blob) {
 }
 
 size_t pex_listen(FILE * sock, pex_packet_t * packet) {
-	return read(fileno(sock), packet, PACKET_SIZE);
+	struct iovec _iovec = { &packet->data, 1024 };
+	struct sockaddr_pex_client source;
+	socklen_t source_size = sizeof(struct sockaddr_pex_client);
+	struct msghdr msg = {
+		&source,
+		source_size,
+		&_iovec,
+		1,
+		NULL,
+		0,
+		0
+	};
+
+	ssize_t len = recvmsg(fileno(sock), &msg, 0);
+
+	if (len >= 0) {
+		packet->source = source.spexc_addr;
+		packet->size = len;
+	}
+
+	return len;
 }
 
 size_t pex_reply(FILE * sock, size_t size, char * blob) {
-	return write(fileno(sock), blob, size);
+	return send(fileno(sock), blob, size, 0);
 }
 
 size_t pex_recv(FILE * sock, char * blob) {
 	memset(blob, 0, MAX_PACKET_SIZE);
-	return read(fileno(sock), blob, MAX_PACKET_SIZE);
+	return recv(fileno(sock), blob, MAX_PACKET_SIZE, 0);
 }
 
 FILE * pex_connect(char * target) {
-	char tmp[100];
-	if (strlen(target) > 80) return NULL;
-	sprintf(tmp, "/dev/pex/%s", target);
-	FILE * out = fopen(tmp, "re+");
-	if (out) {
-		setbuf(out, NULL);
+	if (strlen(target) >= 100) {
+		errno = EINVAL;
+		return NULL;
 	}
+
+	int sock = socket(AF_PEX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+	if (sock < 0) return NULL;
+
+	struct sockaddr_pex addr;
+	addr.spex_family = AF_PEX;
+	memcpy(addr.spex_target, target, strlen(target) + 1);
+
+	if (connect(sock, (struct sockaddr *)&addr, strlen(target) + 1 + offsetof(struct sockaddr_pex,spex_target)) < 0) return NULL;
+
+	FILE * out = fdopen(sock, "r+");
+	if (out) setbuf(out, NULL);
 	return out;
 }
 
 FILE * pex_bind(char * target) {
-	char tmp[100];
-	if (strlen(target) > 80) return NULL;
-	sprintf(tmp, "/dev/pex/%s", target);
-	int fd = open(tmp, O_CREAT | O_EXCL | O_RDWR | O_APPEND | O_CLOEXEC);
-	if (fd < 0) {
+	if (strlen(target) >= 100) {
+		errno = EINVAL;
 		return NULL;
 	}
-	FILE * out = fdopen(fd, "a+");
-	if (out) {
-		setbuf(out, NULL);
-	}
+
+	int sock = socket(AF_PEX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+	if (sock < 0) return NULL;
+
+	struct sockaddr_pex addr;
+	addr.spex_family = AF_PEX;
+	memcpy(addr.spex_target, target, strlen(target) + 1);
+
+	if (bind(sock, (struct sockaddr *)&addr, strlen(target) + 1 + offsetof(struct sockaddr_pex,spex_target)) < 0) return NULL;
+
+	FILE * out = fdopen(sock, "a+");
+	if (out) setbuf(out, NULL);
 	return out;
 }
 
