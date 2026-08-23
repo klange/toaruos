@@ -1512,11 +1512,22 @@ static void window_actually_close(yutani_globals_t * yg, yutani_server_window_t 
 		}
 	}
 
-	{
-		char key[1024];
-		YUTANI_SHMKEY_EXP(yg->server_ident, key, 1024, w->bufid);
-		shm_unlink(key);
-	}
+	/* Remove from client list */
+	list_t * client_list = hashmap_get(yg->clients_to_windows, (void*)w->owner);
+	if (client_list) list_remove(client_list, list_index_of(client_list, w));
+
+	/* Unmap buffer */
+	size_t size = w->width * w->height * 4;
+	size = (size + 0xFFF) & ~0xFFF;
+	munmap(w->buffer, size);
+
+	/* Release buffer. */
+	char key[1024];
+	YUTANI_SHMKEY_EXP(yg->server_ident, key, 1024, w->bufid);
+	shm_unlink(key);
+
+	/* Finally free the window. */
+	free(w);
 
 	/* Notify subscribers that there are changes to windows */
 	notify_subscribers(yg);
