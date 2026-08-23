@@ -138,6 +138,9 @@ int kmain() {
 			strcat(cmdline, DEFAULT_HEADLESS_CMDLINE);
 		} else if (boot_mode == 5) {
 			strcat(cmdline, DEFAULT_TEXT_CMDLINE);
+			if (_true_vga) {
+				strcat(cmdline, "vid=text ");
+			}
 		}
 
 		if (_debug) {
@@ -169,11 +172,8 @@ int kmain() {
 			strcat(cmdline, "lfbwc ");
 		}
 
-		if (_true_vga) {
-			strcat(cmdline, "vid=text ");
-		} else {
+		if (!_true_vga) {
 			strcat(cmdline, "emulvga ");
-			strcat(cmdline, _video_command_line);
 		}
 
 		if (!boot_edit) break;
