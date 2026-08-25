@@ -46,6 +46,7 @@ extern void serial_initialize(void);
 extern void fbterm_initialize(void);
 extern void pci_remap(void);
 extern void mmu_init(size_t memsize, uintptr_t firstFreePage);
+extern void procfs_install_x86_64(void);
 
 struct multiboot * mboot_struct = NULL;
 int mboot_is_2 = 0;
@@ -580,6 +581,7 @@ static int kmain_rel(struct multiboot * mboot, uint32_t mboot_mag, void* esp, ui
 	ps2hid_install();
 	serial_initialize();
 	portio_initialize();
+	procfs_install_x86_64();
 
 	/* Yield to the generic main, which starts /bin/init */
 	return generic_main();

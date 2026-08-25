@@ -453,48 +453,6 @@ static fs_node_t * procfs_procdir_create(process_t * process) {
 	return fnode;
 }
 
-static void cpuinfo_func(fs_node_t *node) {
-#ifdef __x86_64__
-	for (int i = 0; i < processor_count; ++i) {
-		procfs_printf(node,
-				"Processor: %d\n"
-				"Manufacturer: %s\n"
-				"MHz: %zd\n"
-				"Family: %d\n"
-				"Model: %d\n"
-				"Model name: %s\n"
-				"LAPIC id: %d\n"
-				"\n",
-				processor_local_data[i].cpu_id,
-				processor_local_data[i].cpu_manufacturer,
-				arch_cpu_mhz(), /* TODO Should this be per-cpu? */
-				processor_local_data[i].cpu_family,
-				processor_local_data[i].cpu_model,
-				processor_local_data[i].cpu_model_name,
-				processor_local_data[i].lapic_id
-				);
-	}
-#elif defined(__aarch64__)
-	for (int i = 0; i < processor_count; ++i) {
-		procfs_printf(node,
-			"Processor: %d\n"
-			"Implementer: %#x\n"
-			"Variant: %#x\n"
-			"Architecture: %#x\n"
-			"PartNum: %#x\n"
-			"Revision: %#x\n"
-			"\n",
-			processor_local_data[i].cpu_id,
-			(unsigned int)(processor_local_data[i].midr >> 24) & 0xFF,
-			(unsigned int)(processor_local_data[i].midr >> 20) & 0xF,
-			(unsigned int)(processor_local_data[i].midr >> 16) & 0xF,
-			(unsigned int)(processor_local_data[i].midr >> 4)  & 0xFFF,
-			(unsigned int)(processor_local_data[i].midr >> 0)  & 0xF
-			);
-	}
-#endif
-}
-
 static void meminfo_func(fs_node_t *node) {
 	size_t total = mmu_total_memory();
 	size_t free  = total - mmu_used_memory();
@@ -506,53 +464,6 @@ static void meminfo_func(fs_node_t *node) {
 		"KHeapUse: %zu kB\n"
 		, total, free, kheap);
 }
-
-#ifdef __x86_64__
-static void pat_func(fs_node_t *node) {
-	uint32_t pat_value_low, pat_value_high;
-	asm volatile ( "rdmsr" : "=a" (pat_value_low), "=d" (pat_value_high): "c" (0x277) );
-	uint64_t pat_values = ((uint64_t)pat_value_high << 32) | (pat_value_low);
-
-	const char * pat_names[] = {
-		"uncacheable (UC)",
-		"write combining (WC)",
-		"Reserved",
-		"Reserved",
-		"write through (WT)",
-		"write protected (WP)",
-		"write back (WB)",
-		"uncached (UC-)"
-	};
-
-	int pa_0 = (pat_values >>  0) & 0x7;
-	int pa_1 = (pat_values >>  8) & 0x7;
-	int pa_2 = (pat_values >> 16) & 0x7;
-	int pa_3 = (pat_values >> 24) & 0x7;
-	int pa_4 = (pat_values >> 32) & 0x7;
-	int pa_5 = (pat_values >> 40) & 0x7;
-	int pa_6 = (pat_values >> 48) & 0x7;
-	int pa_7 = (pat_values >> 56) & 0x7;
-
-	procfs_printf(node,
-			"PA0: %d %s\n"
-			"PA1: %d %s\n"
-			"PA2: %d %s\n"
-			"PA3: %d %s\n"
-			"PA4: %d %s\n"
-			"PA5: %d %s\n"
-			"PA6: %d %s\n"
-			"PA7: %d %s\n",
-			pa_0, pat_names[pa_0],
-			pa_1, pat_names[pa_1],
-			pa_2, pat_names[pa_2],
-			pa_3, pat_names[pa_3],
-			pa_4, pat_names[pa_4],
-			pa_5, pat_names[pa_5],
-			pa_6, pat_names[pa_6],
-			pa_7, pat_names[pa_7]
-	);
-}
-#endif
 
 static void uptime_func(fs_node_t *node) {
 	unsigned long timer_ticks, timer_subticks;
@@ -646,32 +557,6 @@ static void loader_func(fs_node_t *node) {
 	procfs_printf(node, "%s\n", arch_get_loader());
 }
 
-#ifdef __x86_64__
-#include <kernel/arch/x86_64/irq.h>
-#include <kernel/arch/x86_64/ports.h>
-static void irq_func(fs_node_t *node) {
-	for (int i = 0; i < 16; ++i) {
-		procfs_printf(node, "irq %d: ", i);
-		for (int j = 0; j < 4; ++j) {
-			const char * t = get_irq_handler(i, j);
-			if (!t) break;
-			procfs_printf(node, "%s%s", j ? "," : "", t);
-		}
-		procfs_printf(node, "\n");
-	}
-
-	outportb(0x20, 0x0b);
-	outportb(0xa0, 0x0b);
-	procfs_printf(node, "isr=0x%04x\n", (inportb(0xA0) << 8) | inportb(0x20));
-
-	outportb(0x20, 0x0a);
-	outportb(0xa0, 0x0a);
-	procfs_printf(node, "irr=0x%04x\n", (inportb(0xA0) << 8) | inportb(0x20));
-
-	procfs_printf(node, "imr=0x%04x\n", (inportb(0xA1) << 8) | inportb(0x21));
-}
-#endif
-
 /**
  * Basically the same as the kdebug `pci` command.
  */
@@ -732,7 +617,7 @@ static void self_func(fs_node_t *fnode) {
 }
 
 static struct procfs_entry std_entries[] = {
-	{-1, "cpuinfo",  cpuinfo_func, 0},
+	{-1, "self",     self_func, FS_SYMLINK},
 	{-2, "meminfo",  meminfo_func, 0},
 	{-3, "uptime",   uptime_func, 0},
 	{-4, "cmdline",  cmdline_func, 0},
@@ -745,11 +630,6 @@ static struct procfs_entry std_entries[] = {
 	{-11,"idle",     idle_func, 0},
 	{-12,"kallsyms", kallsyms_func, 0},
 	{-13,"pci",      pci_func, 0},
-	{-14,"self",     self_func, FS_SYMLINK},
-#ifdef __x86_64__
-	{-15,"irq",      irq_func, 0},
-	{-16,"pat",      pat_func, 0},
-#endif
 };
 
 static list_t * extended_entries = NULL;

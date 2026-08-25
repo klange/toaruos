@@ -14,6 +14,7 @@
 #include <kernel/printf.h>
 #include <kernel/spinlock.h>
 #include <kernel/mmu.h>
+#include <kernel/procfs.h>
 
 #include <kernel/arch/aarch64/regs.h>
 #include <kernel/arch/aarch64/gic.h>
@@ -612,4 +613,30 @@ void arch_spin_lock_release(spin_lock_t * target) {
 
 	/* Release the exclusive monitor and clear the latch value */
 	__atomic_store_n(target->latch, 0, __ATOMIC_RELEASE);
+}
+
+static void cpuinfo_func(fs_node_t *node) {
+	for (int i = 0; i < processor_count; ++i) {
+		procfs_printf(node,
+			"Processor: %d\n"
+			"Implementer: %#x\n"
+			"Variant: %#x\n"
+			"Architecture: %#x\n"
+			"PartNum: %#x\n"
+			"Revision: %#x\n"
+			"\n",
+			processor_local_data[i].cpu_id,
+			(unsigned int)(processor_local_data[i].midr >> 24) & 0xFF,
+			(unsigned int)(processor_local_data[i].midr >> 20) & 0xF,
+			(unsigned int)(processor_local_data[i].midr >> 16) & 0xF,
+			(unsigned int)(processor_local_data[i].midr >> 4)  & 0xFFF,
+			(unsigned int)(processor_local_data[i].midr >> 0)  & 0xF
+			);
+	}
+}
+
+static struct procfs_entry procfs_cpuinfo = { 0, "cpuinfo", cpuinfo_func, 0 };
+
+void procfs_install_aarch64(void) {
+	procfs_install(&procfs_cpuinfo);
 }
