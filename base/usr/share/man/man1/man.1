@@ -54,7 +54,7 @@ retrieved from the \fBMANSECT\fP environment variable.
 Lowercase \fB\-s\fP is also accepted for compatibility.
 
 .TP
-.B \-k \fIor\fP \-\-apropos
+.B \-k \fRor\fP \-\-apropos
 Search the available manuals for pages whose \fBNAME\fP section contains \fIkeyword\fP.
 This is a wrapper around \fBroff \-S NAME \-P | grep -i\fP.
 .sp
@@ -63,7 +63,7 @@ Any \fIkeyword\fP for which no matching manual was found will result in a diagno
 There is no cached database of page summaries, so this search may take a moment.
 
 .TP
-.B \-f \fIor\fP \-\-whatis
+.B \-f \fRor\fP \-\-whatis
 Display just the first line of the \fBNAME\fP section, similar to the output from \fB\-k\fP, but
 only for exact matches of manual pages, rather than searching the content.
 This option, or invoking \fBman\fP as \fBwhatis\fP, implies the \fB\-\-all\fP option.
