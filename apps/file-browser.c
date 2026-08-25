@@ -280,8 +280,8 @@ static void draw_file(struct File * f, int offset) {
 		if (f->selected) {
 			struct gradient_definition edge = {FILE_HEIGHT - 4, y+2, HILIGHT_BORDER_TOP, HILIGHT_BORDER_BOTTOM};
 			struct gradient_definition body = {FILE_HEIGHT - 6, y+3, HILIGHT_GRADIENT_TOP, HILIGHT_GRADIENT_BOTTOM};
-			draw_rounded_rectangle_pattern(contents, x + 2,y + 2, FILE_WIDTH-4, FILE_HEIGHT-4, 3, gfx_vertical_gradient_pattern, &edge);
-			draw_rounded_rectangle_pattern(contents, x + 3,y + 3, FILE_WIDTH-6, FILE_HEIGHT-6, 4, gfx_vertical_gradient_pattern, &body);
+			draw_rounded_rectangle_pattern(contents, x + 2,y + 2, FILE_WIDTH-4, FILE_HEIGHT-4, 4, gfx_vertical_gradient_pattern, &edge);
+			draw_rounded_rectangle_pattern(contents, x + 3,y + 3, FILE_WIDTH-6, FILE_HEIGHT-6, 3, gfx_vertical_gradient_pattern, &body);
 
 			text_color = rgb(255,255,255);
 		}
@@ -324,13 +324,13 @@ static void draw_file(struct File * f, int offset) {
 		if (f->selected) {
 			struct gradient_definition edge = {FILE_HEIGHT - 4, y+2, HILIGHT_BORDER_TOP, HILIGHT_BORDER_BOTTOM};
 			struct gradient_definition body = {FILE_HEIGHT - 6, y+3, HILIGHT_GRADIENT_TOP, HILIGHT_GRADIENT_BOTTOM};
-			draw_rounded_rectangle_pattern(contents, x + 2,y + 2, FILE_WIDTH-4, FILE_HEIGHT-4, 3, gfx_vertical_gradient_pattern, &edge);
-			draw_rounded_rectangle_pattern(contents, x + 3,y + 3, FILE_WIDTH-6, FILE_HEIGHT-6, 4, gfx_vertical_gradient_pattern, &body);
+			draw_rounded_rectangle_pattern(contents, x + 2,y + 2, FILE_WIDTH-4, FILE_HEIGHT-4, 4, gfx_vertical_gradient_pattern, &edge);
+			draw_rounded_rectangle_pattern(contents, x + 3,y + 3, FILE_WIDTH-6, FILE_HEIGHT-6, 3, gfx_vertical_gradient_pattern, &body);
 
 			text_color = rgb(255,255,255);
 		} else if (offset == hilighted_offset) {
-			draw_rounded_rectangle(contents, x + 2, y + 2, FILE_WIDTH - 4, FILE_HEIGHT - 4, 3, rgb(180,180,180));
-			draw_rounded_rectangle(contents, x + 3, y + 3, FILE_WIDTH - 6, FILE_HEIGHT - 6, 4, rgb(255,255,255));
+			draw_rounded_rectangle(contents, x + 2, y + 2, FILE_WIDTH - 4, FILE_HEIGHT - 4, 4, rgb(180,180,180));
+			draw_rounded_rectangle(contents, x + 3, y + 3, FILE_WIDTH - 6, FILE_HEIGHT - 6, 3, rgb(255,255,255));
 		}
 
 		if (icon->width != 16 || icon->height != 16) {
