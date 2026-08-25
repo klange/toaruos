@@ -698,6 +698,9 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 	/* Load MIDR */
 	aarch64_processor_data();
 
+	extern void procfs_install_aarch64(void);
+	procfs_install_aarch64();
+
 	/* Set up the system virtual timer to produce interrupts for userspace scheduling */
 	timer_start();
 
