@@ -135,6 +135,10 @@ int main (int argc, char ** argv) {
 						if (ke->event.key == 'm' && ke->event.action == KEY_ACTION_DOWN) {
 							show_cursor = !show_cursor;
 							yutani_window_show_mouse(yctx, wina, show_cursor);
+						} else if (ke->event.key == 'e' && ke->event.action == KEY_ACTION_DOWN) {
+							yutani_window_rotate(yctx, wina, 32, YUTANI_WINDOW_ROTATE_ABSOLUTE);
+						} else if (ke->event.key == 'r' && ke->event.action == KEY_ACTION_DOWN) {
+							yutani_window_rotate(yctx, wina, 12, YUTANI_WINDOW_ROTATE_RELATIVE);
 						}
 					}
 					break;
@@ -178,11 +182,20 @@ int main (int argc, char ** argv) {
 							(int)wr->bufid);
 					}
 					break;
+				case YUTANI_MSG_WINDOW_ROTATE:
+					{
+						struct yutani_msg_window_rotate * wr = (void*)m->data;
+						fprintf(stderr, "Window Rotate (wid=%d) %d degrees\n",
+							(int)wr->wid,
+							(int)wr->degrees);
+					}
+					break;
 				case YUTANI_MSG_WINDOW_CLOSE:
 				case YUTANI_MSG_SESSION_END:
 					should_exit = 1;
 					break;
 				default:
+					fprintf(stderr, "Unknown message, type=%#x\n", m->type);
 					break;
 			}
 		}

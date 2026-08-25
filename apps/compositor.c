@@ -1599,6 +1599,20 @@ static void window_move(yutani_globals_t * yg, yutani_server_window_t * window, 
 	pex_send(yg->server, window->owner, response->size, (char *)response);
 }
 
+static void window_rotate(yutani_globals_t * yg, yutani_server_window_t * window, int nr) {
+	nr %= 360;
+	if (nr > 180) nr -= 360;
+	if (nr == window->rotation) return;
+
+	mark_window(yg, window);
+	window->rotation = nr;
+	mark_window(yg, window);
+
+	yutani_msg_buildx_window_rotate_alloc(response);
+	yutani_msg_buildx_window_rotate(response, window->wid, window->rotation, YUTANI_WINDOW_ROTATE_ABSOLUTE);
+	pex_send(yg->server, window->owner, response->size, (char *)response);
+}
+
 /**
  * Move and resize a window to fit a particular tiling pattern.
  *
@@ -2205,7 +2219,6 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					int32_t x_diff = yg->mouse_x / MOUSE_SCALE - (yg->mouse_window->x + yg->mouse_window->width / 2);
 					int32_t y_diff = yg->mouse_y / MOUSE_SCALE - (yg->mouse_window->y + yg->mouse_window->height / 2);
 					int new_r = atan2(x_diff, y_diff) * 180.0 / (-M_PI);
-					mark_window(yg, yg->mouse_window);
 					/* Normalize to -179~180 range */
 					int nr = (new_r + yg->mouse_init_r + 360) % 360;
 					if (yg->active_modifiers & YUTANI_KEY_MODIFIER_SHIFT) {
@@ -2213,8 +2226,7 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 						nr /= 45;
 						nr *= 45;
 					}
-					yg->mouse_window->rotation = nr > 180 ? nr - 360 : nr;
-					mark_window(yg, yg->mouse_window);
+					window_rotate(yg, yg->mouse_window, nr);
 				}
 			}
 			break;
@@ -3098,6 +3110,21 @@ int main(int argc, char * argv[]) {
 							}
 							break;
 						}
+					}
+				}
+				break;
+			case YUTANI_MSG_WINDOW_ROTATE:
+				{
+					struct yutani_msg_window_rotate * wr = (void *)m->data;
+					yutani_server_window_t * win = hashmap_get(yg->wids_to_windows, (void*)(uintptr_t)wr->wid);
+					if (win) {
+						int nr = win->rotation;
+						if (wr->mode == YUTANI_WINDOW_ROTATE_RELATIVE) {
+							nr += wr->degrees;
+						} else {
+							nr = wr->degrees;
+						}
+						window_rotate(yg, win, nr);
 					}
 				}
 				break;

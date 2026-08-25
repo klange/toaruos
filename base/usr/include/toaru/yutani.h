@@ -138,6 +138,12 @@ struct yutani_msg_window_move_relative {
 	int32_t y;
 };
 
+struct yutani_msg_window_rotate {
+	yutani_wid_t wid;
+	int32_t  degrees;
+	uint32_t mode;
+};
+
 struct yutani_msg_key_event {
 	yutani_wid_t wid;
 	key_event_t event;
@@ -315,6 +321,7 @@ struct yutani_msg_window_set_blur {
 #define YUTANI_MSG_WINDOW_SET_PARENT    0x00000016
 #define YUTANI_MSG_WINDOW_TILE          0x00000017
 #define YUTANI_MSG_WINDOW_SET_BLUR      0x00000018
+#define YUTANI_MSG_WINDOW_ROTATE        0x00000019
 
 /* Some session management / de stuff */
 #define YUTANI_MSG_WINDOW_ADVERTISE    0x00000020
@@ -578,6 +585,14 @@ struct yutani_msg_window_set_blur {
 #define YUTANI_BLUR_MODE_CUSTOM    2
 #define YUTANI_BLUR_MODE_SCALED    3
 
+/**
+ * YUTANI_WINDOW_ROTATE
+ *
+ * Modes for rotating windows.
+ */
+#define YUTANI_WINDOW_ROTATE_ABSOLUTE 0
+#define YUTANI_WINDOW_ROTATE_RELATIVE 1
+
 typedef struct {
 	int x;
 	int y;
@@ -598,6 +613,7 @@ extern yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int
 extern void yutani_flip(yutani_t * y, yutani_window_t * win);
 extern void yutani_window_move(yutani_t * yctx, yutani_window_t * window, int x, int y);
 extern void yutani_window_move_relative(yutani_t * yctx, yutani_window_t * window, yutani_window_t * base, int x, int y);
+extern void yutani_window_rotate(yutani_t * yctx, yutani_window_t * window, int degrees, int mode);
 extern void yutani_window_set_parent(yutani_t * yctx, yutani_window_t * window, yutani_window_t * parent);
 extern void yutani_close(yutani_t * y, yutani_window_t * win);
 extern void yutani_set_stack(yutani_t *, yutani_window_t *, int);

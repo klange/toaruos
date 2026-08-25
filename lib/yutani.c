@@ -566,6 +566,17 @@ void yutani_msg_buildx_window_set_blur(yutani_msg_t * msg, yutani_wid_t wid, uin
 	wt->value = value;
 }
 
+void yutani_msg_buildx_window_rotate(yutani_msg_t * msg, yutani_wid_t wid, int32_t degrees, uint32_t mode) {
+	msg->magic = YUTANI_MSG__MAGIC;
+	msg->type  = YUTANI_MSG_WINDOW_ROTATE;
+	msg->size  = sizeof(struct yutani_message) + sizeof(struct yutani_msg_window_rotate);
+
+	struct yutani_msg_window_rotate * wt = (void *)msg->data;
+	wt->wid = wid;
+	wt->degrees = degrees;
+	wt->mode = mode;
+}
+
 int yutani_msg_send(yutani_t * y, yutani_msg_t * msg) {
 	return pex_reply(y->sock, msg->size, (char *)msg);
 }
@@ -1099,6 +1110,12 @@ void yutani_window_tile(yutani_t * yctx, yutani_window_t * window, uint32_t colu
 void yutani_window_set_blur(yutani_t * yctx, yutani_window_t * window, uint32_t request_type, int value) {
 	yutani_msg_buildx_window_set_blur_alloc(m);
 	yutani_msg_buildx_window_set_blur(m, window ? window->wid : 0, request_type, value);
+	yutani_msg_send(yctx, m);
+}
+
+void yutani_window_rotate(yutani_t * yctx, yutani_window_t * window, int degrees, int mode) {
+	yutani_msg_buildx_window_rotate_alloc(m);
+	yutani_msg_buildx_window_rotate(m, window->wid, degrees, mode);
 	yutani_msg_send(yctx, m);
 }
 
