@@ -2208,6 +2208,11 @@ static void handle_mouse_event(yutani_globals_t * yg, struct yutani_msg_mouse_ev
 					mark_window(yg, yg->mouse_window);
 					/* Normalize to -179~180 range */
 					int nr = (new_r + yg->mouse_init_r + 360) % 360;
+					if (yg->active_modifiers & YUTANI_KEY_MODIFIER_SHIFT) {
+						nr += 22;
+						nr /= 45;
+						nr *= 45;
+					}
 					yg->mouse_window->rotation = nr > 180 ? nr - 360 : nr;
 					mark_window(yg, yg->mouse_window);
 				}
