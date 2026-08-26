@@ -783,9 +783,40 @@ KRK_Method(Window,flip) {
 
 KRK_Method(Window,move) {
 	int x, y;
-	if (!krk_parseArgs(".ii", (const char*[]){"x","y"}, &x, &y)) return NONE_VAL();
+	struct _yutani_Window * parent = NULL;
+	if (!krk_parseArgs(".ii|O!", (const char*[]){"x","y","parent"}, &x, &y, Window, &parent)) return NONE_VAL();
 	INIT_CHECK(Window);
-	yutani_window_move(yctxInstance->yctx, self->window, x, y);
+	if (parent) {
+		_init_check_Window(parent);
+		yutani_window_move_relative(yctxInstance->yctx, self->window, parent->window, x, y);
+	} else {
+		yutani_window_move(yctxInstance->yctx, self->window, x, y);
+	}
+	return NONE_VAL();
+}
+
+KRK_Method(Window,rotate) {
+	int degrees;
+	int relative = 0;
+	if (!krk_parseArgs(".i|p", (const char*[]){"degrees","relative"}, &degrees, &relative)) return NONE_VAL();
+	INIT_CHECK(Window);
+	yutani_window_rotate(yctxInstance->yctx, self->window, degrees, relative ? YUTANI_WINDOW_ROTATE_RELATIVE : YUTANI_WINDOW_ROTATE_ABSOLUTE);
+	return NONE_VAL();
+}
+
+KRK_Method(Window,tile) {
+	int columns, rows, column, row;
+	if (!krk_parseArgs(".iiii", (const char*[]){"columns","rows","column","row"}, &columns, &rows, &column, &row)) return NONE_VAL();
+	INIT_CHECK(Window);
+	yutani_window_tile(yctxInstance->yctx, self->window, columns, rows, column, row);
+	return NONE_VAL();
+}
+
+KRK_Method(Window,set_blur) {
+	int request_type, value;
+	if (!krk_parseArgs(".ii", (const char *[]){"type","value"}, &request_type, &value)) return NONE_VAL();
+	INIT_CHECK(Window);
+	yutani_window_set_blur(yctxInstance->yctx, self->window, request_type, value);
 	return NONE_VAL();
 }
 
@@ -1913,14 +1944,17 @@ KRK_Function(decor_show_default_menu) {
 
 KRK_Function(rgb) {
 	int r, g, b;
+	int premul = 0;
 	KrkValue a = NONE_VAL();
-	if (!krk_parseArgs("bbb|V",(const char*[]){"r","g","b","a"}, &r, &g, &b, &a)) return NONE_VAL();
+	if (!krk_parseArgs("bbb|Vp",(const char*[]){"r","g","b","a","premul"}, &r, &g, &b, &a, &premul)) return NONE_VAL();
 	if (IS_NONE(a)) {
 		return INTEGER_VAL(rgb(r,g,b));
 	} else {
 		if (IS_FLOATING(a)) a = INTEGER_VAL(AS_FLOATING(a) * 255);
 		if (!IS_INTEGER(a)) return TYPE_ERROR(int or float,a);
-		return INTEGER_VAL(rgba(r,g,b,AS_INTEGER(a)));
+		uint32_t c = rgba(r,g,b,AS_INTEGER(a));
+		if (premul) c = premultiply(c);
+		return INTEGER_VAL(c);
 	}
 }
 
@@ -2259,6 +2293,9 @@ KRK_Module(_yutani2) {
 	BIND_METHOD(Window,__repr__);
 	BIND_METHOD(Window,flip);
 	BIND_METHOD(Window,move);
+	BIND_METHOD(Window,rotate);
+	BIND_METHOD(Window,tile);
+	BIND_METHOD(Window,set_blur);
 	BIND_METHOD(Window,close);
 	BIND_METHOD(Window,set_stack);
 	BIND_METHOD(Window,special_request);
