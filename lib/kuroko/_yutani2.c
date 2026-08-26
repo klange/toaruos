@@ -1,3 +1,4 @@
+#include <math.h>
 #include <errno.h>
 #include <sys/fswait.h>
 #include <toaru/yutani.h>
@@ -149,6 +150,18 @@ WRAP_PROP_INT(Message_WindowMove,x)
 WRAP_PROP_INT(Message_WindowMove,y)
 #undef CURRENT_CTYPE
 
+#define AS_Message_WindowRotate(o) ((struct yutani_msg_window_rotate*)AS_Message(o)->msg->data)
+#define IS_Message_WindowRotate(o) (krk_isInstanceOf(o,MSG_CLS(WindowRotate)))
+#define CURRENT_CTYPE struct yutani_msg_window_rotate *
+static KrkClass * MSG_CLS(WindowRotate);
+WRAP_PROP_INT(Message_WindowRotate,wid)
+WRAP_PROP_INT(Message_WindowRotate,degrees)
+WRAP_PROP_INT(Message_WindowRotate,mode)
+KRK_Method(Message_WindowRotate,radians) {
+	return FLOATING_VAL(self->degrees / 180.0 * M_PI);
+}
+#undef CURRENT_CTYPE
+
 #define AS_Message_KeyEvent(o) ((struct yutani_msg_key_event*)AS_Message(o)->msg->data)
 #define IS_Message_KeyEvent(o) (krk_isInstanceOf(o,MSG_CLS(KeyEvent)))
 #define CURRENT_CTYPE struct yutani_msg_key_event *
@@ -236,6 +249,9 @@ static KrkValue makeMessage(yutani_msg_t * result) {
 			break;
 		case YUTANI_MSG_WINDOW_MOVE:
 			msgType = Message_WindowMove;
+			break;
+		case YUTANI_MSG_WINDOW_ROTATE:
+			msgType = Message_WindowRotate;
 			break;
 		case YUTANI_MSG_KEY_EVENT:
 			msgType = Message_KeyEvent;
@@ -2078,6 +2094,13 @@ KRK_Module(_yutani2) {
 	BIND_PROP(Message_WindowMove,x);
 	BIND_PROP(Message_WindowMove,y);
 	krk_finalizeClass(Message_WindowMove);
+
+	MAKE_MSG(WindowRotate);
+	BIND_PROP(Message_WindowRotate,wid);
+	BIND_PROP(Message_WindowRotate,degrees);
+	BIND_PROP(Message_WindowRotate,radians);
+	BIND_PROP(Message_WindowRotate,mode);
+	krk_finalizeClass(Message_WindowRotate);
 
 	MAKE_MSG(KeyEvent);
 	BIND_PROP(Message_KeyEvent,wid);
