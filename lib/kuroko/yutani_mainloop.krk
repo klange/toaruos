@@ -45,6 +45,9 @@ class Window(_yutani2.Window):
     def mouse_event(self, msg):
         pass
 
+    def window_rotated(self, msg):
+        pass
+
 let current_loop
 
 class Future():
@@ -167,6 +170,9 @@ class AsyncMainloop():
         else if msg.msg_type == _yutani2.Message.MSG_WINDOW_CLOSE:
             if msg.wid in _windows:
                 self.maybe_coro(_windows[msg.wid].close())
+        else if msg.msg_type == _yutani2.Message.MSG_WINDOW_ROTATE:
+            if msg.wid in _windows:
+                self.maybe_coro(_windows[msg.wid].window_rotated(msg))
         return True
 
     def run_once(self):
