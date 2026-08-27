@@ -1210,6 +1210,10 @@ long sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t 
 	if (!(flags & (MAP_SHARED | MAP_PRIVATE))) return -EINVAL;
 	if ((flags & MAP_SHARED) && (flags & MAP_PRIVATE)) return -EINVAL;
 
+	/* Restrict prot and flags to user-accessible values */
+	if (prot & ~(PROT_EXEC | PROT_READ | PROT_WRITE)) return -EINVAL;
+	if (flags & ~(MAP_SHARED | MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS)) return -EINVAL;
+
 	/* MAP_ANONYMOUS skips file checks */
 	if (flags & MAP_ANONYMOUS) return do_mmap(addr, length, prot, flags, NULL, 0);
 
