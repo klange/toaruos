@@ -121,21 +121,20 @@ void _menu_activate_MenuEntry_Normal(struct MenuEntry * self, int flags) {
 
 	if (_menu_is_disabled(self)) return; /* Do nothing */
 
-	list_t * menu_keys = hashmap_keys(menu_windows);
 	hovered_menu = NULL;
-	foreach(_key, menu_keys) {
-		yutani_window_t * window = hashmap_get(menu_windows, (void*)(uintptr_t)_key->value);
-		if (window) {
-			struct MenuList * menu = window->user_data;
-			menu_definitely_close(menu);
-			if (menu->parent && menu->parent->child == menu) {
-				menu->parent->child = NULL;
-			}
+	for (struct hashmap_iter iter = hashmap_iter_create(menu_windows); hashmap_iter_valid(&iter); ) {
+		void * _key;
+		yutani_window_t * window;
+		hashmap_iter_get(&iter, &_key, &window);
+		hashmap_iter_next(&iter);
+
+		struct MenuList * menu = window->user_data;
+		menu_definitely_close(menu);
+
+		if (menu->parent && menu->parent->child == menu) {
+			menu->parent->child = NULL;
 		}
 	}
-
-	list_free(menu_keys);
-	free(menu_keys);
 
 	if (_self->callback) {
 		_self->callback(_self);
@@ -750,22 +749,20 @@ int menu_leave(struct MenuList * menu) {
 
 	if (!menu_has_eventual_child(menu, hovered_menu)) {
 		/* Get all menus */
-		list_t * menu_keys = hashmap_keys(menu_windows);
-		foreach(_key, menu_keys) {
-			yutani_window_t * window = hashmap_get(menu_windows, (void *)(uintptr_t)_key->value);
-			if (window) {
-				struct MenuList * menu = window->user_data;
-				if (!hovered_menu || (menu != hovered_menu->child && !menu_has_eventual_child(menu, hovered_menu)))  {
-					menu_definitely_close(menu);
-					if (menu->parent && menu->parent->child == menu) {
-						menu->parent->child = NULL;
-					}
+		for (struct hashmap_iter iter = hashmap_iter_create(menu_windows); hashmap_iter_valid(&iter); ) {
+			void * _key;
+			yutani_window_t * window;
+			hashmap_iter_get(&iter, &_key, &window);
+			hashmap_iter_next(&iter);
+
+			struct MenuList * menu = window->user_data;
+			if (!hovered_menu || (menu != hovered_menu->child && !menu_has_eventual_child(menu, hovered_menu)))  {
+				menu_definitely_close(menu);
+				if (menu->parent && menu->parent->child == menu) {
+					menu->parent->child = NULL;
 				}
 			}
 		}
-
-		list_free(menu_keys);
-		free(menu_keys);
 	}
 
 	return 0;
@@ -942,21 +939,15 @@ void menu_force_redraw(struct MenuList * menu) {
 
 struct MenuList * menu_any_contains(int x, int y) {
 	struct MenuList * out = NULL;
-	list_t * menu_keys = hashmap_keys(menu_windows);
-	foreach(_key, menu_keys) {
-		yutani_window_t * window = hashmap_get(menu_windows, (void*)_key->value);
-		if (window) {
-			if (x >= (int)window->x && x < (int)window->x + (int)window->width && y >= (int)window->y && y < (int)window->y + (int)window->height) {
-				out = window->user_data;
-				break;
-
-			}
+	hashmap_foreach(iter, menu_windows) {
+		void * _key;
+		yutani_window_t * window;
+		hashmap_iter_get(&iter, &_key, &window);
+		if (x >= (int)window->x && x < (int)window->x + (int)window->width && y >= (int)window->y && y < (int)window->y + (int)window->height) {
+			out = window->user_data;
+			break;
 		}
 	}
-
-	list_free(menu_keys);
-	free(menu_keys);
-
 	return out;
 }
 
