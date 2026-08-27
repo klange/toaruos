@@ -1284,6 +1284,8 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 				_fmt(AT_BASE,"#zx");
 				_fmt(AT_ENTRY,"#zx");
 				_fmt(AT_EXECFN,"s");
+				_fmt(AT_PLATFORM,"s");
+				_fmt(AT_SECURE,"zu");
 				default:
 					__dl_dprintf("%#zx: %#zx\n", auxv_raw[i], auxv_raw[i+1]);
 			}

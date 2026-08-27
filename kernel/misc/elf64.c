@@ -26,6 +26,7 @@
 #include <kernel/hashmap.h>
 #include <kernel/mutex.h>
 #include <kernel/mman.h>
+#include <kernel/version.h>
 #include <sys/auxv.h>
 #include <sys/mman.h>
 
@@ -376,9 +377,10 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 
 	/* Point of no return. */
 
+	int at_secure = 0;
 	if (!(this_core->current_process->flags & (PROC_FLAGS_TRACE)) && !this_core->current_process->tracer) {
-		if (file->mask & S_ISUID) this_core->current_process->user = file->uid; /* set-user-ID */
-		if (file->mask & S_ISGID) this_core->current_process->user_group = file->gid; /* set-group-ID */
+		if (file->mask & S_ISUID) { at_secure = 1; this_core->current_process->user = file->uid; } /* set-user-ID */
+		if (file->mask & S_ISGID) { at_secure = 1; this_core->current_process->user_group = file->gid; } /* set-group-ID */
 	}
 
 	this_core->current_process->saved_user = this_core->current_process->user;
@@ -474,6 +476,9 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 		at_execfn = (char*)userstack;
 	}
 
+	PUSHSTR(__kernel_arch);
+	char *at_platform = (char*)userstack;
+
 	PUSH(uint32_t, rand());
 	PUSH(uint32_t, rand());
 	PUSH(uint32_t, rand());
@@ -497,6 +502,8 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	push_auxv(AT_ENTRY,  base_addr + header.e_entry);
 	push_auxv(AT_BASE,   interp_base);
 	push_auxv(AT_PAGESZ, 4096);
+	push_auxv(AT_SECURE, at_secure);
+	push_auxv(AT_PLATFORM,at_platform);
 	if (at_execfn) push_auxv(AT_EXECFN, at_execfn);
 
 	PUSH(uintptr_t, 0); /* envp NULL */
