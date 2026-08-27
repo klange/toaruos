@@ -846,7 +846,6 @@ fs_node_t * tmpfs_mount(const char * device, const char * mount_path) {
 				mode <<= 3;
 				mode |= argv[1][i] - '0';
 			}
-			dprintf("mode set to %x\n", mode);
 			fs->mask = mode;
 		}
 	}
