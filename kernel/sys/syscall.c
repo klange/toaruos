@@ -1228,6 +1228,9 @@ long sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t 
 	/* SHARED + WRITE requires file was open for write access */
 	if ((flags & MAP_SHARED) && (prot & PROT_WRITE) && !(FD_MODE(fd) & PROC_FD_MODE_WRITE)) return -EACCES;
 
+	/* Store original file writability */
+	if (FD_MODE(fd) & PROC_FD_MODE_WRITE) flags |= MAP_FD_WRITABLE;
+
 	return do_mmap(addr, length, prot, flags, FD_ENTRY(fd), offset);
 }
 
