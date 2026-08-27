@@ -357,3 +357,16 @@ int mmu_count_resident(process_t * proc, union PML * directory, size_t * anon, s
 
 	return 0;
 }
+
+int mmu_check_syscall_capability(process_t * proc, uintptr_t addr) {
+	int ret = 0;
+	spin_lock(proc->image.lock);
+	for (memmap_t * maps = proc->thread.page_directory->mappings; maps; maps = maps->next) {
+		if (addr >= maps->base && addr < maps->base + maps->length) {
+			ret = !!(maps->flags & MAP_SYSCALL);
+			break;
+		}
+	}
+	spin_unlock(proc->image.lock);
+	return ret;
+}

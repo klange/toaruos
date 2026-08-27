@@ -1377,6 +1377,12 @@ void syscall_handler(struct regs * r) {
 
 	this_core->current_process->syscall_registers = r;
 
+	if (!mmu_check_syscall_capability(this_core->current_process->process, arch_user_ip(r))) {
+		arch_syscall_return(r, -EFAULT);
+		send_signal(this_core->current_process->id, SIGSYS, 1);
+		return;
+	}
+
 	if (this_core->current_process->flags & PROC_FLAG_TRACE_SYSCALLS) {
 		ptrace_signal(SIGTRAP, PTRACE_EVENT_SYSCALL_ENTER);
 	}

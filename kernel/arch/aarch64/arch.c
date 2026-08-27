@@ -383,7 +383,14 @@ long arch_syscall_arg3(struct regs * r)   { return r->x4; }
 long arch_syscall_arg4(struct regs * r)   { return r->x5; }
 long arch_syscall_arg5(struct regs * r)   { return r->x8; }
 long arch_stack_pointer(struct regs * r)  { return r->user_sp; }
-long arch_user_ip(struct regs * r)        { return r->x30; /* TODO this is wrong, this needs to come from ELR but we don't have that */ }
+long arch_user_ip(struct regs * r)        {
+	if (r == this_core->current_process->syscall_registers) {
+		uintptr_t elr;
+		asm volatile ("mrs %0, ELR_EL1" : "=r"(elr));
+		return elr;
+	}
+	return r->x30; /* TODO this is wrong, this needs to come from ELR but we don't have that */
+}
 
 /* No port i/o on arm, but these are still littered around some
  * drivers we need to remove... */

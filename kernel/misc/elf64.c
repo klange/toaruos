@@ -258,7 +258,7 @@ _unmap_module:
 extern void process_acquire_big_lock(void);
 extern void process_release_big_lock(void);
 
-static uintptr_t load_from_file(fs_node_t * file, Elf64_Header * header, uintptr_t *base_out, int is_interp) {
+static uintptr_t load_from_file(fs_node_t * file, Elf64_Header * header, uintptr_t *base_out, int is_interp, int can_syscall) {
 	uintptr_t base = 0;
 	uintptr_t phdr_vaddr = 0;
 
@@ -283,7 +283,11 @@ static uintptr_t load_from_file(fs_node_t * file, Elf64_Header * header, uintptr
 			if (phdr.p_flags & PF_X) prot |= PROT_EXEC;
 
 			if (size) {
-				mapped_to = do_mmap(base + addr, size, prot, MAP_PRIVATE | MAP_FIXED, file, offset);
+				int flags = MAP_PRIVATE | MAP_FIXED;
+				if (can_syscall && (prot & PROT_EXEC)) {
+					flags |= MAP_SYSCALL;
+				}
+				mapped_to = do_mmap(base + addr, size, prot, flags, file, offset);
 				if (phdr.p_flags & PF_W) {
 					uintptr_t pad = mapped_to + pageoffset + phdr.p_filesz;
 					if (pad & 0xFFF) {
@@ -408,14 +412,14 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 
 	/* Load binary */
 	uintptr_t base_addr;
-	uintptr_t phdr_vaddr = load_from_file(file, &header, &base_addr, 0);
+	uintptr_t phdr_vaddr = load_from_file(file, &header, &base_addr, 0, !interpreter);
 	uintptr_t entrypoint = header.e_entry + base_addr;
 	uintptr_t interp_base = 0;
 	close_fs(file);
 
 	/* We've loaded the binary, now let's load the interpreter! */
 	if (interpreter) {
-		load_from_file(interpreter, &interp_header, &interp_base, 1);
+		load_from_file(interpreter, &interp_header, &interp_base, 1, 1);
 		entrypoint = interp_base + interp_header.e_entry;
 		close_fs(interpreter);
 	}
