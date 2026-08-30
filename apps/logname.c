@@ -10,12 +10,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 #include <errno.h>
 
 int main(int argc, char ** argv) {
-	char buf[NAME_MAX];
+	char buf[LOGIN_NAME_MAX];
 
-	if (getlogin_r(buf, NAME_MAX) == -1) {
+	if (getlogin_r(buf, LOGIN_NAME_MAX) == -1) {
 		fprintf(stderr, "%s: failed to determine login name: %s\n", argv[0], strerror(errno));
 		return 1;
 	}

@@ -1,10 +1,11 @@
 #include <unistd.h>
 #include <pwd.h>
 #include <string.h>
+#include <limits.h>
 #include <errno.h>
 #include <sys/stat.h>
 
-static char _name[64]; /* NAME_MAX ? */
+static char _name[LOGIN_NAME_MAX];
 
 int getlogin_r(char * buf, size_t bufsize) {
 	struct stat statbuf;

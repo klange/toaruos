@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <time.h>
+#include <limits.h>
 #include <errno.h>
 #include <sys/signal_defs.h>
 

@@ -100,7 +100,7 @@ extern int fgetpos(FILE *stream, fpos_t *pos);
 extern int fsetpos(FILE *stream, const fpos_t *pos);
 
 /* Compatibility */
-#define FILENAME_MAX 1024
+#define FILENAME_MAX 4096
 
 extern ssize_t getdelim(char **__restrict lineptr, size_t *__restrict n, int delimiter, FILE *__restrict stream);
 extern ssize_t getline(char **__restrict lineptr, size_t *__restrict n, FILE *__restrict stream);
