@@ -45,8 +45,8 @@
 #define SYS_YIELD 42
 #define SYS_INSMOD 43
 #define SYS_SHUTDOWN 44
-#define SYS_SLEEPABS 45
-#define SYS_SLEEP 46
+/* 45 unused */
+/* 46 unused */
 #define SYS_IOCTL 47
 #define SYS_ACCESS 48
 #define SYS_STATF 49

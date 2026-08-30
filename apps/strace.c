@@ -140,8 +140,6 @@ const char * syscall_names[] = {
 	[SYS_FORK]         = "fork",
 	[SYS_WAITPID]      = "waitpid",
 	[SYS_YIELD]        = "yield",
-	[SYS_SLEEPABS]     = "sleepabs",
-	[SYS_SLEEP]        = "sleep",
 	[SYS_PIPE]         = "pipe",
 	[SYS_FSWAIT]       = "fswait",
 	[SYS_FSWAIT2]      = "fswait_timeout",
@@ -245,8 +243,6 @@ char syscall_mask[] = {
 	[SYS_FORK]         = 1,
 	[SYS_WAITPID]      = 1,
 	[SYS_YIELD]        = 1,
-	[SYS_SLEEPABS]     = 1,
-	[SYS_SLEEP]        = 1,
 	[SYS_PIPE]         = 1,
 	[SYS_FSWAIT]       = 1,
 	[SYS_FSWAIT2]      = 1,
@@ -1261,14 +1257,6 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			return;
 		case SYS_UNAME:
 			/* One output arg */
-			break;
-		case SYS_SLEEPABS:
-			uint_arg(uregs_syscall_arg1(r)); COMMA;
-			uint_arg(uregs_syscall_arg2(r));
-			break;
-		case SYS_SLEEP:
-			uint_arg(uregs_syscall_arg1(r)); COMMA;
-			uint_arg(uregs_syscall_arg2(r));
 			break;
 		case SYS_NANOSLEEP:
 			struct_timespec_arg(pid, uregs_syscall_arg1(r)); COMMA

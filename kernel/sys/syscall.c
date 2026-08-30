@@ -924,27 +924,6 @@ long sys_yield(void) {
 	return 1;
 }
 
-long sys_sleepabs(unsigned long seconds, unsigned long subseconds) {
-	/* Mark us as asleep until <some time period> */
-	sleep_until((process_t *)this_core->current_process, seconds, subseconds);
-	switch_task(0);
-
-	unsigned long timer_ticks = 0, timer_subticks = 0;
-	relative_time(0,0,&timer_ticks,&timer_subticks);
-
-	if (seconds > timer_ticks || (seconds == timer_ticks && subseconds >= timer_subticks)) {
-		return seconds - timer_ticks;
-	} else {
-		return 0;
-	}
-}
-
-long sys_sleep(unsigned long seconds, unsigned long subseconds) {
-	unsigned long s, ss;
-	relative_time(seconds, subseconds * 10000, &s, &ss);
-	return sys_sleepabs(s, ss);
-}
-
 long sys_nanosleep(const struct timespec *rqtp, struct timespec *rmtp) {
 	PTRCHECK(rqtp, sizeof(struct timespec), 0);
 	if (rmtp) PTRCHECK(rmtp, sizeof(struct timespec), MMU_PTR_WRITE);
@@ -1357,8 +1336,6 @@ static scall_func syscalls[] = {
 	[SYS_FORK]         = (scall_func)(uintptr_t)sys_fork,
 	[SYS_WAITPID]      = (scall_func)(uintptr_t)sys_waitpid,
 	[SYS_YIELD]        = (scall_func)(uintptr_t)sys_yield,
-	[SYS_SLEEPABS]     = (scall_func)(uintptr_t)sys_sleepabs,
-	[SYS_SLEEP]        = (scall_func)(uintptr_t)sys_sleep,
 	[SYS_PIPE]         = (scall_func)(uintptr_t)sys_pipe,
 	[SYS_PIPE2]        = (scall_func)(uintptr_t)sys_pipe2,
 	[SYS_FSWAIT]       = (scall_func)(uintptr_t)sys_fswait,

@@ -1,8 +1,11 @@
 #include <unistd.h>
-#include <libc/syscall.h>
-#include <errno.h>
+#include <time.h>
 
 unsigned int sleep(unsigned int seconds) {
-	__sets_errno(syscall_sleep(seconds, 0));
+	struct timespec ts, rem;
+	ts.tv_sec = seconds;
+	ts.tv_nsec = 0;
+	nanosleep(&ts,&rem);
+	return rem.tv_sec;
 }
 

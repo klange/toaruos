@@ -42,8 +42,8 @@ int main(int argc, char * argv[]) {
 					int event = (status >> 16) & 0xFF;
 					switch (event) {
 						case PTRACE_EVENT_SYSCALL_ENTER:
-							if (uregs_syscall_num(&regs) == SYS_SLEEP) {
-								fprintf(stderr, "%s: sleep called, rewriting to yield\n", argv[0]);
+							if (uregs_syscall_num(&regs) == SYS_NANOSLEEP) {
+								fprintf(stderr, "%s: nanosleep called, rewriting to yield\n", argv[0]);
 								uregs_syscall_num(&regs) = SYS_YIELD;
 								ptrace(PTRACE_SETREGS, p, NULL, &regs);
 							}
