@@ -606,12 +606,9 @@ int kmain(uintptr_t dtb_base, uintptr_t phys_base, uintptr_t rpi_tag) {
 		//early_log_initialize();
 	}
 
-	dprintf("%s %d.%d.%d-%s %s %s\n",
+	dprintf("%s " KERNEL_VERSION_FORMAT " %s %s\n",
 		__kernel_name,
-		__kernel_version_major,
-		__kernel_version_minor,
-		__kernel_version_lower,
-		__kernel_version_suffix,
+		KERNEL_VERSION_ELEMENTS,
 		__kernel_version_codename,
 		__kernel_arch);
 

@@ -704,11 +704,7 @@ long sys_getppid(void) {
 long sys_uname(struct utsname * name) {
 	PTRCHECK(name, sizeof(struct utsname), MMU_PTR_WRITE);
 	char version_number[256];
-	snprintf(version_number, 255, __kernel_version_format,
-			__kernel_version_major,
-			__kernel_version_minor,
-			__kernel_version_lower,
-			__kernel_version_suffix);
+	snprintf(version_number, 255, KERNEL_VERSION_FORMAT, KERNEL_VERSION_ELEMENTS);
 	char version_string[256];
 	snprintf(version_string, 255, "%s %s %s",
 			__kernel_version_codename,

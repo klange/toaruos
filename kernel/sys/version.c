@@ -17,15 +17,11 @@
  * my friend any more. */
 const char * __kernel_name = "Misaka";
 
-/* This really shouldn't change, and if it does,
- * always ensure it still has the correct arguments
- * when used as a vsprintf() format. */
-const char * __kernel_version_format = "%d.%d.%d-%s";
-
 /* Version numbers X.Y.Z */
-int    __kernel_version_major = 2;
-int    __kernel_version_minor = 4;
+int    __kernel_version_major = 3;
+int    __kernel_version_minor = 0;
 int    __kernel_version_lower = 0;
+const char * __kernel_version_tag = "a1";
 
 /* Kernel build suffix, which doesn't necessarily
  * mean anything, but can be used to distinguish

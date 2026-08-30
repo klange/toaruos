@@ -511,12 +511,9 @@ static int kmain_rel(struct multiboot * mboot, uint32_t mboot_mag, void* esp, ui
 	 * as soon as we can call printf(), which is as soon as we get to long mode. */
 	early_log_initialize();
 
-	dprintf("%s %d.%d.%d-%s %s %s\n",
+	dprintf("%s " KERNEL_VERSION_FORMAT " %s %s\n",
 		__kernel_name,
-		__kernel_version_major,
-		__kernel_version_minor,
-		__kernel_version_lower,
-		__kernel_version_suffix,
+		KERNEL_VERSION_ELEMENTS,
 		__kernel_version_codename,
 		__kernel_arch);
 
