@@ -35,7 +35,7 @@
 #define SYS_GETHOSTNAME 32
 #define SYS_PTRACE 33
 #define SYS_MKDIR 34
-/* 35 unused */
+#define SYS_NANOSLEEP 35
 /* 36 unused */
 #define SYS_KILL 37
 #define SYS_SIGNAL 38

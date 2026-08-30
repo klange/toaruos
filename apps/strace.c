@@ -199,6 +199,7 @@ const char * syscall_names[] = {
 	[SYS_SETTLSBASE]   = "set_tls_base",
 	[SYS_INSMOD]       = "insmod",
 	[SYS_GETSID]       = "getsid",
+	[SYS_NANOSLEEP]    = "nanosleep",
 };
 
 char syscall_mask[] = {
@@ -303,6 +304,7 @@ char syscall_mask[] = {
 	[SYS_SETTLSBASE]   = 1,
 	[SYS_INSMOD]       = 1,
 	[SYS_GETSID]       = 1,
+	[SYS_NANOSLEEP]    = 1,
 };
 
 static const int syscall_set_net[] = {
@@ -860,6 +862,17 @@ static void struct_rusage_arg(pid_t pid, uintptr_t ptr) {
 	fprintf(logfile, "}");
 }
 
+static void struct_timespec_arg(pid_t pid, uintptr_t ptr) {
+	if (!ptr) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+	struct timespec data = {0};
+	data_read_bytes(pid, ptr, (char*)&data, sizeof(struct timespec));
+	fprintf(logfile, "{tv_sec=%ld,tv_nsec=%ld}",
+		data.tv_sec, data.tv_nsec);
+}
+
 static void struct_stat_arg(pid_t pid, uintptr_t ptr) {
 	if (!ptr) {
 		fprintf(logfile, "NULL");
@@ -1257,6 +1270,10 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			uint_arg(uregs_syscall_arg1(r)); COMMA;
 			uint_arg(uregs_syscall_arg2(r));
 			break;
+		case SYS_NANOSLEEP:
+			struct_timespec_arg(pid, uregs_syscall_arg1(r)); COMMA
+			/* One output */
+			break;
 		case SYS_PIPE:
 			/* Arg is a pointer */
 			break;
@@ -1602,6 +1619,10 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 				pointer_arg(uregs_syscall_arg2(r)); COMMA;
 			}
 			wait_options_arg(uregs_syscall_arg3(r));
+			maybe_errno(r);
+			break;
+		case SYS_NANOSLEEP:
+			struct_timespec_arg(pid, uregs_syscall_arg2(r));
 			maybe_errno(r);
 			break;
 		/* Most things return -errno, or positive valid result */

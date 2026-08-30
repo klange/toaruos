@@ -8,8 +8,9 @@
  * Copyright (C) 2011-2021 K. Lange
  */
 #include <stdint.h>
-#include <bits/errno.h>
 #include <sys/types.h>
+#include <bits/errno.h>
+#include <bits/timespec.h>
 #include <sys/utsname.h>
 #include <sys/time.h>
 #include <sys/times.h>
@@ -944,6 +945,50 @@ long sys_sleep(unsigned long seconds, unsigned long subseconds) {
 	return sys_sleepabs(s, ss);
 }
 
+long sys_nanosleep(const struct timespec *rqtp, struct timespec *rmtp) {
+	PTRCHECK(rqtp, sizeof(struct timespec), 0);
+	if (rmtp) PTRCHECK(rmtp, sizeof(struct timespec), MMU_PTR_WRITE);
+
+	time_t secs = rqtp->tv_sec;
+	long   nsecs = rqtp->tv_nsec;
+	if (secs < 0 || nsecs < 0 || nsecs >= 1000000000) return -EINVAL;
+
+	long usecs = nsecs / 1000;
+	if (nsecs % 1000) usecs += 1;
+
+	unsigned long target_ticks = 0, target_subticks = 0;
+	relative_time(secs, usecs, &target_ticks, &target_subticks);
+
+	sleep_until((process_t *)this_core->current_process, target_ticks, target_subticks);
+	switch_task(0);
+
+	unsigned long timer_ticks = 0, timer_subticks = 0;
+	relative_time(0,0,&timer_ticks,&timer_subticks);
+
+	if (timer_ticks > target_ticks || (timer_ticks == target_ticks && timer_subticks >= target_subticks)) {
+		if (rmtp) {
+			rmtp->tv_sec = 0;
+			rmtp->tv_nsec = 0;
+		}
+		return 0;
+	}
+
+	if (rmtp) {
+		if (timer_ticks == target_ticks) {
+			rmtp->tv_sec = 0;
+			rmtp->tv_nsec = (target_subticks - timer_subticks) * 1000;
+		} else if (timer_subticks > target_subticks) {
+			rmtp->tv_sec = target_ticks - timer_ticks - 1;
+			rmtp->tv_nsec = ((1000000 + target_subticks) - timer_subticks) * 1000;
+		} else {
+			rmtp->tv_sec = target_ticks - timer_ticks;
+			rmtp->tv_nsec = (target_subticks - timer_subticks) * 1000;
+		}
+	}
+
+	return -EINTR;
+}
+
 long sys_pipe2(int pipes[2], int flag) {
 	if (flag & ~(O_NONBLOCK | O_CLOEXEC | O_CLOFORK)) return -EINVAL;
 	PTRCHECK(pipes, sizeof(int) * 2, MMU_PTR_WRITE);
@@ -1359,6 +1404,7 @@ static scall_func syscalls[] = {
 	[SYS_SETTLSBASE]   = (scall_func)(uintptr_t)sys_set_tls_base,
 	[SYS_INSMOD]       = (scall_func)(uintptr_t)sys_insmod,
 	[SYS_GETSID]       = (scall_func)(uintptr_t)sys_getsid,
+	[SYS_NANOSLEEP]    = (scall_func)(uintptr_t)sys_nanosleep,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

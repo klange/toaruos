@@ -8,6 +8,7 @@
 #include <sys/times.h>
 #include <sys/signal.h>
 #include <sys/resource.h>
+#include <bits/timespec.h>
 
 #include <libc/internal.h>
 
@@ -299,6 +300,8 @@ DECL_SYSCALL4(pread, int, void *, size_t, off_t);
 DECL_SYSCALL4(pwrite, int, const void *, size_t, off_t);
 DECL_SYSCALL6(mmap, void*, size_t, int, int, int, off_t);
 DECL_SYSCALL1(getsid, pid_t);
+
+DECL_SYSCALL2(nanosleep, const struct timespec *, struct timespec *);
 
 _End_C_Header
 

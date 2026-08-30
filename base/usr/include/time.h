@@ -47,5 +47,6 @@ typedef int clockid_t;
 
 extern int clock_gettime(clockid_t clk_id, struct timespec *tp);
 extern int clock_getres(clockid_t clk_id, struct timespec *res);
+extern int nanosleep(const struct timespec *rqtp, struct timespec *rmtp);
 
 _End_C_Header
