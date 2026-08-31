@@ -52,6 +52,8 @@ struct flock {
 #define FD_CLOEXEC (1 << 0)
 #define FD_CLOFORK (1 << 1)
 
+#define AT_FDCWD (-100)
+
 #ifndef __kernel__
 extern int open (const char *, int, ...);
 extern int fcntl(int fd, int cmd, ...);

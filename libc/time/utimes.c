@@ -2,6 +2,7 @@
 #include <libc/syscall.h>
 #include <sys/time.h>
 #include <time.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <errno.h>
 
@@ -30,5 +31,11 @@ int utimes(const char *path, const struct timeval times[2]) {
 
 int futimens(int fd, const struct timespec times[2]) {
 	__sets_errno(syscall_futimens(fd, &times[0], &times[1]));
+}
+
+int utimensat(int fd, const char *path, const struct timespec times[2], int flag) {
+	if (fd != AT_FDCWD) return -ENOTSUP;
+	if (flag != 0) return -ENOTSUP;
+	__sets_errno(syscall_utimens(path, &times[0], &times[1]));
 }
 
