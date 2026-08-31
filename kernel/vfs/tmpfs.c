@@ -291,12 +291,12 @@ static int chown_tmpfs(fs_node_t * node, int uid, int gid) {
 static int utimens_tmpfs(fs_node_t * node, struct timespec access, struct timespec modify) {
 	struct tmpfs_file * t = (struct tmpfs_file *)(node->impl);
 
-	if (access.tv_sec != 0 || access.tv_nsec != 0) {
+	if (access.tv_nsec != UTIME_OMIT) {
 		t->atime = access.tv_sec;
 		node->atime = access.tv_sec;
 	}
 
-	if (modify.tv_sec != 0 || modify.tv_nsec != 0) {
+	if (modify.tv_nsec != UTIME_OMIT) {
 		t->mtime = modify.tv_sec;
 		node->mtime = modify.tv_sec;
 	}

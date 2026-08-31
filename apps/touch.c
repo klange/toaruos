@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/stat.h>
 
 int main(int argc, char * argv[]) {
 	if (argc < 2) {
@@ -24,6 +25,10 @@ int main(int argc, char * argv[]) {
 			out = 1;
 			continue;
 		}
+		struct timespec times[2];
+		times[0].tv_nsec = UTIME_NOW;
+		times[1].tv_nsec = UTIME_NOW;
+		futimens(fileno(f), times);
 		fclose(f);
 	}
 

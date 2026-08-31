@@ -479,9 +479,29 @@ ssize_t readlink_fs(fs_node_t *node, char * buf, size_t size) {
 	return node->ops->readlink(node, buf, size);
 }
 
+static int timespec_invalid(struct timespec *ts) {
+	if (ts->tv_nsec == UTIME_OMIT) return 0;
+	if (ts->tv_sec < 0) return 1;
+	if (ts->tv_nsec < 0) return 1;
+	if (ts->tv_nsec >= 1000000000) return 1;
+	return 0;
+}
+
 int utimens_fs(fs_node_t * node, struct timespec access, struct timespec modify) {
 	if (!node) return -ENOENT;
 	if (!node->ops->utimens) return -EPERM;
+	if (access.tv_nsec == UTIME_NOW) {
+		access.tv_sec = now();
+		access.tv_nsec = 0;
+	} else if (timespec_invalid(&access)) {
+		return -EINVAL;
+	}
+	if (modify.tv_nsec == UTIME_NOW) {
+		modify.tv_sec = now();
+		modify.tv_nsec = 0;
+	} else if (timespec_invalid(&modify)) {
+		return -EINVAL;
+	}
 	return node->ops->utimens(node, access, modify);
 }
 

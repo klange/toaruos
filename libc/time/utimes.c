@@ -2,6 +2,7 @@
 #include <libc/syscall.h>
 #include <sys/time.h>
 #include <time.h>
+#include <sys/stat.h>
 #include <errno.h>
 
 DEFN_SYSCALL3(utimens, SYS_UTIMENS, const char *, const struct timespec *, const struct timespec *);
@@ -26,3 +27,8 @@ int utimes(const char *path, const struct timeval times[2]) {
 	modify.tv_nsec = times[1].tv_usec * 1000;
 	__sets_errno(syscall_utimens(path, &access, &modify));
 }
+
+int futimens(int fd, const struct timespec times[2]) {
+	__sets_errno(syscall_futimens(fd, &times[0], &times[1]));
+}
+
