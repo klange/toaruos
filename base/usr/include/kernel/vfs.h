@@ -92,8 +92,6 @@ typedef struct fs_node {
 	uint64_t inode;         /* Inode number. */
 	uint64_t length;        /* Size of the file, in byte. */
 	uint64_t impl;          /* Used to keep track which fs it belongs to. */
-	uint64_t open_flags;    /* Flags passed to open (read/write/append, etc.) */
-	struct fs_node *ptr;    /* Alias pointer, for symlinks. */
 	int64_t refcount;       /* Node reference count */
 	uint64_t nlink;         /* Number of links in underlying filesystem */
 
