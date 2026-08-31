@@ -95,6 +95,14 @@ static int ioctl_ramdisk(fs_node_t * node, unsigned long request, void * argp) {
 	}
 }
 
+static fs_vtable_t ramdisk_ops = {
+	.read    = read_ramdisk,
+	.write   = write_ramdisk,
+	.open    = open_ramdisk,
+	.close   = close_ramdisk,
+	.ioctl   = ioctl_ramdisk,
+};
+
 static fs_node_t * ramdisk_device_create(int device_number, uintptr_t location, size_t size) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
@@ -106,11 +114,7 @@ static fs_node_t * ramdisk_device_create(int device_number, uintptr_t location, 
 	fnode->mask    = 0770;
 	fnode->length  = size;
 	fnode->flags   = FS_BLOCKDEVICE;
-	fnode->read    = read_ramdisk;
-	fnode->write   = write_ramdisk;
-	fnode->open    = open_ramdisk;
-	fnode->close   = close_ramdisk;
-	fnode->ioctl   = ioctl_ramdisk;
+	fnode->ops     = &ramdisk_ops;
 	return fnode;
 }
 

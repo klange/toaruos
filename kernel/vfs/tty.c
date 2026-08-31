@@ -565,9 +565,19 @@ static int wait_pty_slave(fs_node_t * node, void * process) {
 	return 0;
 }
 
+static fs_vtable_t pty_master_ops = {
+	.read  =  read_pty_master,
+	.write = write_pty_master,
+	.open  =  open_pty_master,
+	.close = close_pty_master,
+	.selectcheck = check_pty_master,
+	.selectwait  = wait_pty_master,
+	.ioctl = ioctl_pty_master,
+	.get_size = pty_available_output,
+};
+
 fs_node_t * pty_master_create(pty_t * pty) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 
 	fnode->name[0] = '\0';
 	snprintf(fnode->name, 100, "pty master");
@@ -575,16 +585,7 @@ fs_node_t * pty_master_create(pty_t * pty) {
 	fnode->gid   = this_core->current_process->user_group;
 	fnode->mask  = 0666;
 	fnode->flags = FS_PIPE;
-	fnode->read  =  read_pty_master;
-	fnode->write = write_pty_master;
-	fnode->open  =  open_pty_master;
-	fnode->close = close_pty_master;
-	fnode->selectcheck = check_pty_master;
-	fnode->selectwait  = wait_pty_master;
-	fnode->readdir = NULL;
-	fnode->finddir = NULL;
-	fnode->ioctl = ioctl_pty_master;
-	fnode->get_size = pty_available_output;
+	fnode->ops   = &pty_master_ops;
 	fnode->ctime   = now();
 	fnode->mtime   = now();
 	fnode->atime   = now();
@@ -605,9 +606,21 @@ static int chown_pty_slave(fs_node_t * node, int uid, int gid) {
 	return 0;
 }
 
+static fs_vtable_t pty_slave_ops = {
+	.read  =  read_pty_slave,
+	.write = write_pty_slave,
+	.open  =  open_pty_slave,
+	.close = close_pty_slave,
+	.selectcheck = check_pty_slave,
+	.selectwait  = wait_pty_slave,
+	.ioctl = ioctl_pty_slave,
+	.chmod = chmod_pty_slave,
+	.chown = chown_pty_slave,
+	.get_size = pty_available_input,
+};
+
 fs_node_t * pty_slave_create(pty_t * pty) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 
 	fnode->name[0] = '\0';
 	snprintf(fnode->name, 100, "pty slave");
@@ -615,18 +628,7 @@ fs_node_t * pty_slave_create(pty_t * pty) {
 	fnode->gid   = 3; /* tty group */
 	fnode->mask  = 0620;
 	fnode->flags = FS_CHARDEVICE;
-	fnode->read  =  read_pty_slave;
-	fnode->write = write_pty_slave;
-	fnode->open  =  open_pty_slave;
-	fnode->close = close_pty_slave;
-	fnode->selectcheck = check_pty_slave;
-	fnode->selectwait  = wait_pty_slave;
-	fnode->readdir = NULL;
-	fnode->finddir = NULL;
-	fnode->ioctl = ioctl_pty_slave;
-	fnode->chmod = chmod_pty_slave;
-	fnode->chown = chown_pty_slave;
-	fnode->get_size = pty_available_input;
+	fnode->ops   = &pty_slave_ops;
 	fnode->ctime   = now();
 	fnode->mtime   = now();
 	fnode->atime   = now();
@@ -637,7 +639,7 @@ fs_node_t * pty_slave_create(pty_t * pty) {
 }
 
 static int isatty(fs_node_t * node) {
-	return node && (node->ioctl == ioctl_pty_master || node->ioctl == ioctl_pty_slave);
+	return node && (node->ops->ioctl == ioctl_pty_master || node->ops->ioctl == ioctl_pty_slave);
 }
 
 static ssize_t readlink_dev_tty(fs_node_t * node, char * buf, size_t size) {
@@ -663,22 +665,25 @@ static ssize_t get_size_dev_tty(fs_node_t * node) {
 	return pty->fill_name(pty, 0, NULL);
 }
 
+static fs_vtable_t dev_tty_ops = {
+	.readlink = readlink_dev_tty,
+	.get_size = get_size_dev_tty,
+};
+
 static fs_node_t * create_dev_tty(void) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->inode = 0;
 	strcpy(fnode->name, "tty");
 	fnode->mask = 0777;
 	fnode->uid  = 0;
 	fnode->gid  = 0;
 	fnode->flags   = FS_FILE | FS_SYMLINK;
-	fnode->readlink = readlink_dev_tty;
+	fnode->ops     = &dev_tty_ops;
 	fnode->length  = 99;
 	fnode->nlink   = 1;
 	fnode->ctime   = now();
 	fnode->mtime   = now();
 	fnode->atime   = now();
-	fnode->get_size = get_size_dev_tty;
 	return fnode;
 }
 
@@ -741,21 +746,20 @@ static fs_node_t * finddir_pty(fs_node_t * node, const char * name) {
 	return _pty->slave;
 }
 
+static fs_vtable_t pty_dir_ops = {
+	.readdir = readdir_pty,
+	.finddir = finddir_pty,
+};
+
 static fs_node_t * create_pty_dir(void) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->inode = 0;
 	strcpy(fnode->name, "pty");
 	fnode->mask = 0555;
 	fnode->uid  = 0;
 	fnode->gid  = 0;
 	fnode->flags   = FS_DIRECTORY;
-	fnode->read    = NULL;
-	fnode->write   = NULL;
-	fnode->open    = NULL;
-	fnode->close   = NULL;
-	fnode->readdir = readdir_pty;
-	fnode->finddir = finddir_pty;
+	fnode->ops     = &pty_dir_ops;
 	fnode->nlink   = 1;
 	fnode->ctime   = now();
 	fnode->mtime   = now();

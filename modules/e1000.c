@@ -464,6 +464,11 @@ static void ints_off(struct e1000_nic * nic) {
 	read_command(nic, E1000_REG_STATUS);
 }
 
+static fs_vtable_t e1000_ops = {
+	.ioctl = ioctl_e1000,
+	.write = write_e1000,
+};
+
 static void e1000_init(struct e1000_nic * nic) {
 	uint32_t e1000_device_pci = nic->pci_device;
 
@@ -587,8 +592,7 @@ static void e1000_init(struct e1000_nic * nic) {
 	snprintf(nic->eth.device_node->name, 100, "%s", nic->eth.if_name);
 	nic->eth.device_node->flags = FS_BLOCKDEVICE; /* NETDEVICE? */
 	nic->eth.device_node->mask  = 0644; /* temporary; shouldn't be doing this with these device files */
-	nic->eth.device_node->ioctl = ioctl_e1000;
-	nic->eth.device_node->write = write_e1000;
+	nic->eth.device_node->ops   = &e1000_ops;
 	nic->eth.device_node->device = nic;
 
 	nic->eth.mtu = 1500; /* guess */

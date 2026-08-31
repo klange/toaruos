@@ -27,13 +27,22 @@ static ssize_t read_zero(fs_node_t *node, off_t offset, size_t size, uint8_t *bu
 	return size;
 }
 
+static fs_vtable_t null_ops = {
+	.read    = read_null,
+	.write   = write_null_zero,
+};
+
+static fs_vtable_t zero_ops = {
+	.read    = read_zero,
+	.write   = write_null_zero,
+};
+
 static fs_node_t * null_device_create(void) {
 	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	strcpy(fnode->name, "null");
 	fnode->mask = 0666;
 	fnode->flags   = FS_CHARDEVICE;
-	fnode->read    = read_null;
-	fnode->write   = write_null_zero;
+	fnode->ops     = &null_ops;
 	return fnode;
 }
 
@@ -42,8 +51,7 @@ static fs_node_t * zero_device_create(void) {
 	strcpy(fnode->name, "zero");
 	fnode->mask = 0666;
 	fnode->flags   = FS_CHARDEVICE;
-	fnode->read    = read_zero;
-	fnode->write   = write_null_zero;
+	fnode->ops     = &zero_ops;
 	return fnode;
 }
 

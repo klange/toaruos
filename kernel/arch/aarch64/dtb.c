@@ -237,6 +237,10 @@ static ssize_t read_dtb(fs_node_t *node, off_t offset, size_t size, uint8_t *buf
 	return size;
 }
 
+static fs_vtable_t dtb_ops = {
+	.read = read_dtb,
+};
+
 void dtb_device(void) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
@@ -248,7 +252,7 @@ void dtb_device(void) {
 	fnode->mask    = 0770;
 	fnode->length  = 1048576;
 	fnode->flags   = FS_BLOCKDEVICE;
-	fnode->read    = read_dtb;
+	fnode->ops     = &dtb_ops;
 	vfs_mount("/dev/dtb", fnode, "dtb", "");
 }
 

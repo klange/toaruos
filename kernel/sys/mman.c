@@ -46,8 +46,8 @@ _retry: (void)0;
 
 			union PML * page = mmu_get_page_other_x(proc->thread.page_directory->directory, align_down, MMU_GET_MAKE);
 
-			if (maps->file && maps->file->fault_map) {
-				int ret = maps->file->fault_map(maps->file, page, map_fsoff, flags, maps->flags, maps->prot, &mmu_flags);
+			if (maps->file && maps->file->ops->fault_map) {
+				int ret = maps->file->ops->fault_map(maps->file, page, map_fsoff, flags, maps->flags, maps->prot, &mmu_flags);
 
 				if (ret == 0) {
 					/* fault_map did something with the page, we should finish allocating it
@@ -296,7 +296,7 @@ long do_mmap(uintptr_t addr, size_t length, int prot, int flags, fs_node_t * fil
 	if (file) {
 		if (flags & MAP_ANONYMOUS) return -EINVAL;
 		if (offset & 0xFFF) return -EINVAL;
-		if ((flags & MAP_SHARED) && !file->fault_map) return -EINVAL;
+		if ((flags & MAP_SHARED) && !file->ops->fault_map) return -EINVAL;
 	} else {
 		if (!(flags & MAP_ANONYMOUS)) return -EINVAL;
 		if (flags & MAP_SHARED) return -ENOTSUP;

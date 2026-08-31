@@ -342,6 +342,19 @@ cleanup:
 	return out;
 }
 
+static fs_vtable_t iso_file_ops = {
+	.open = open_iso,
+	.close = close_iso,
+	.read = read_iso,
+};
+
+static fs_vtable_t iso_dir_ops = {
+	.open = open_iso,
+	.close = close_iso,
+	.readdir = readdir_iso,
+	.finddir = finddir_iso,
+};
+
 static void file_from_dir_entry(iso_9660_fs_t * this, size_t sector, iso_9660_directory_entry_t * dir, size_t offset, fs_node_t * fs) {
 	fs->device = this;
 	fs->inode  = sector; /* Sector the file is in */
@@ -380,20 +393,16 @@ static void file_from_dir_entry(iso_9660_fs_t * this, size_t sector, iso_9660_di
 	fs->nlink = 0; /* Unsupported */
 	if (dir->flags & FLAG_DIRECTORY) {
 		fs->flags = FS_DIRECTORY;
-		fs->readdir = readdir_iso;
-		fs->finddir = finddir_iso;
+		fs->ops = &iso_dir_ops;
 	} else {
 		fs->flags = FS_FILE;
-		fs->read = read_iso;
+		fs->ops = &iso_file_ops;
 	}
 	/* Other things not supported */
 	/* TODO actually get these from the CD into Unix time */
 	fs->atime = now();
 	fs->mtime = now();
 	fs->ctime = now();
-
-	fs->open = open_iso;
-	fs->close = close_iso;
 }
 
 static fs_node_t * iso_fs_mount(const char * device, const char * mount_path) {

@@ -251,6 +251,16 @@ void pipe_destroy(fs_node_t * node) {
 	free(pipe);
 }
 
+static fs_vtable_t pipe_ops = {
+	.read  = read_pipe,
+	.write = write_pipe,
+	.open  = open_pipe,
+	.close = close_pipe,
+	.get_size = pipe_size,
+	.selectcheck = pipe_check,
+	.selectwait  = pipe_wait,
+};
+
 fs_node_t * make_pipe(size_t size) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	pipe_device_t * pipe = malloc(sizeof(pipe_device_t));
@@ -264,17 +274,7 @@ fs_node_t * make_pipe(size_t size) {
 	fnode->gid   = 0;
 	fnode->mask  = 0666;
 	fnode->flags = FS_PIPE;
-	fnode->read  = read_pipe;
-	fnode->write = write_pipe;
-	fnode->open  = open_pipe;
-	fnode->close = close_pipe;
-	fnode->readdir = NULL;
-	fnode->finddir = NULL;
-	fnode->ioctl   = NULL; /* TODO ioctls for pipes? maybe */
-	fnode->get_size = pipe_size;
-
-	fnode->selectcheck = pipe_check;
-	fnode->selectwait  = pipe_wait;
+	fnode->ops   = &pipe_ops;
 
 	fnode->atime = now();
 	fnode->mtime = fnode->atime;

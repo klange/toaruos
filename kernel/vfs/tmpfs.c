@@ -382,6 +382,17 @@ static int fault_map_tmpfs(fs_node_t * node, union PML * page, off_t offset, int
 	return 1;
 }
 
+static fs_vtable_t tmpfs_file_ops = {
+	.read    = read_tmpfs,
+	.write   = write_tmpfs,
+	.open    = open_tmpfs,
+	.chmod   = chmod_tmpfs,
+	.chown   = chown_tmpfs,
+	.truncate = truncate_tmpfs,
+	.get_size = get_size_tmpfs,
+	.fault_map = fault_map_tmpfs,
+};
+
 static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	spin_lock(t->lock);
@@ -396,35 +407,23 @@ static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
 	fnode->ctime = t->ctime;
 	fnode->mtime = t->mtime;
 	fnode->flags   = FS_FILE;
-	fnode->read    = read_tmpfs;
-	fnode->write   = write_tmpfs;
-	fnode->open    = open_tmpfs;
-	fnode->close   = NULL;
-	fnode->readdir = NULL;
-	fnode->finddir = NULL;
-	fnode->chmod   = chmod_tmpfs;
-	fnode->chown   = chown_tmpfs;
 	fnode->length  = t->length;
-	fnode->truncate = truncate_tmpfs;
 	fnode->nlink   = 1;
 	fnode->mount   = t->mount;
 	fnode->device  = t->mount;
-	fnode->get_size = get_size_tmpfs;
-	fnode->fault_map = fault_map_tmpfs;
+	fnode->ops = &tmpfs_file_ops;
 	spin_unlock(t->lock);
 	return fnode;
 }
 
+static fs_vtable_t tmpfs_link_ops = {
+	.readlink = readlink_tmpfs,
+};
+
 static fs_node_t * tmpfs_from_link(struct tmpfs_file * t) {
 	fs_node_t * fnode = tmpfs_from_file(t);
 	fnode->flags   |= FS_SYMLINK;
-	fnode->readlink = readlink_tmpfs;
-	fnode->read     = NULL;
-	fnode->write    = NULL;
-	fnode->create   = NULL;
-	fnode->mkdir    = NULL;
-	fnode->readdir  = NULL;
-	fnode->finddir  = NULL;
+	fnode->ops = &tmpfs_link_ops;
 	return fnode;
 }
 
@@ -777,8 +776,20 @@ _cleanup_src:
 static ssize_t get_size_tmpfsdir(fs_node_t * node) {
 	struct tmpfs_dir * d = (struct tmpfs_dir *)node->impl;
 	return sizeof(struct dirent) * (d->files->length + 2);
-
 }
+
+static fs_vtable_t tmpfs_dir_ops = {
+	.readdir = readdir_tmpfs,
+	.finddir = finddir_tmpfs,
+	.create  = create_tmpfs,
+	.unlink  = unlink_tmpfs,
+	.mkdir   = mkdir_tmpfs,
+	.symlink = symlink_tmpfs,
+	.get_size = get_size_tmpfsdir,
+	.chown   = chown_tmpfs,
+	.chmod   = chmod_tmpfs,
+	.rename  = rename_tmpfs,
+};
 
 static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
@@ -796,22 +807,8 @@ static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d) {
 	fnode->mtime   = d->mtime;
 	fnode->ctime   = d->ctime;
 	fnode->flags   = FS_DIRECTORY;
-	fnode->read    = NULL;
-	fnode->write   = NULL;
-	fnode->open    = NULL;
-	fnode->close   = NULL;
-	fnode->readdir = readdir_tmpfs;
-	fnode->finddir = finddir_tmpfs;
-	fnode->create  = create_tmpfs;
-	fnode->unlink  = unlink_tmpfs;
-	fnode->mkdir   = mkdir_tmpfs;
 	fnode->nlink   = 1; /* should be "number of children that are directories + 1" */
-	fnode->symlink = symlink_tmpfs;
-	fnode->get_size = get_size_tmpfsdir;
-
-	fnode->chown   = chown_tmpfs;
-	fnode->chmod   = chmod_tmpfs;
-	fnode->rename  = rename_tmpfs;
+	fnode->ops     = &tmpfs_dir_ops;
 	spin_unlock(d->lock);
 
 	return fnode;

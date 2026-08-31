@@ -145,6 +145,9 @@ static ssize_t xhci_write(fs_node_t * node, off_t offset, size_t size, uint8_t *
 
 }
 
+static fs_vtable_t xhci_fs_ops = {
+	.write = xhci_write,
+};
 
 static struct XHCIControllerData * _irq_owner = NULL;
 #include <kernel/arch/x86_64/irq.h>
@@ -362,8 +365,7 @@ void xhci_thread(void * arg) {
 	snprintf(fnode->name, 100, "xhci%d", 0);
 	fnode->flags   = FS_BLOCKDEVICE;
 	fnode->mask    = 0660; /* Only accessible to root user/group */
-	fnode->read    = NULL;
-	fnode->write   = xhci_write;
+	fnode->ops     = &xhci_fs_ops;
 	fnode->device  = controller;
 	vfs_mount(devName, fnode, "xhci", fnode->name);
 

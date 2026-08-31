@@ -129,8 +129,8 @@ static long stat_node(fs_node_t * fn, struct stat * f) {
 	f->st_ctim.tv_nsec = 0;
 	f->st_blksize = 512; /* whatever */
 
-	if (fn->get_size) {
-		f->st_size = fn->get_size(fn);
+	if (fn->ops->get_size) {
+		f->st_size = fn->ops->get_size(fn);
 	}
 
 	return 0;

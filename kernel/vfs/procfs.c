@@ -157,6 +157,25 @@ static fs_node_t * finddir_procfs_subdir(fs_node_t * node, const char * name) {
 	return NULL;
 }
 
+static fs_vtable_t procfs_file_ops = {
+	.open    = procfs_entry_open,
+	.close   = procfs_entry_close,
+	.read    = procfs_entry_read,
+};
+
+static fs_vtable_t procfs_symlink_ops = {
+	.open    = procfs_entry_open,
+	.close   = procfs_entry_close,
+	.readlink = procfs_entry_readlink,
+};
+
+static fs_vtable_t procfs_dir_ops = {
+	.open    = procfs_entry_open,
+	.close   = procfs_entry_close,
+	.readdir = readdir_procfs_subdir,
+	.finddir = finddir_procfs_subdir,
+};
+
 static fs_node_t * procfs_generic_create(const char * name, procfs_populate_t read_func, int flags) {
 	procfs_entry_t * entry = calloc(1, sizeof(procfs_entry_t));
 	entry->fnode.inode = 0;
@@ -173,19 +192,15 @@ static fs_node_t * procfs_generic_create(const char * name, procfs_populate_t re
 
 	if (flags == FS_SYMLINK) {
 		entry->fnode.flags   = FS_FILE | FS_SYMLINK;
-		entry->fnode.readlink = procfs_entry_readlink;
+		entry->fnode.ops = &procfs_symlink_ops;
 	} else if (flags == FS_DIRECTORY) {
 		entry->fnode.flags = FS_DIRECTORY;
-		entry->fnode.readdir = readdir_procfs_subdir;
-		entry->fnode.finddir = finddir_procfs_subdir;
+		entry->fnode.ops = &procfs_dir_ops;
 		entry->fnode.mask = 0555;
 	} else {
 		entry->fnode.flags   = FS_FILE;
-		entry->fnode.read    = procfs_entry_read;
+		entry->fnode.ops = &procfs_file_ops;
 	}
-
-	entry->fnode.open    = procfs_entry_open;
-	entry->fnode.close   = procfs_entry_close;
 
 	entry->fnode.ctime   = now();
 	entry->fnode.mtime   = now();
@@ -429,27 +444,25 @@ static fs_node_t * finddir_procfs_procdir(fs_node_t * node, const char * name) {
 	return NULL;
 }
 
+static fs_vtable_t procfs_procdir_ops = {
+	.readdir = readdir_procfs_procdir,
+	.finddir = finddir_procfs_procdir,
+};
 
 static fs_node_t * procfs_procdir_create(process_t * process) {
 	pid_t pid = process->id;
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->inode = pid;
 	snprintf(fnode->name, 100, "%d", pid);
 	fnode->uid = 0;
 	fnode->gid = 0;
 	fnode->mask = 0555;
 	fnode->flags   = FS_DIRECTORY;
-	fnode->read    = NULL;
-	fnode->write   = NULL;
-	fnode->open    = NULL;
-	fnode->close   = NULL;
-	fnode->readdir = readdir_procfs_procdir;
-	fnode->finddir = finddir_procfs_procdir;
 	fnode->nlink   = 1;
 	fnode->ctime   = process->start.tv_sec;
 	fnode->mtime   = process->start.tv_sec;
 	fnode->atime   = process->start.tv_sec;
+	fnode->ops     = &procfs_procdir_ops;
 	return fnode;
 }
 
@@ -746,6 +759,10 @@ static fs_node_t * finddir_procfs_root(fs_node_t * node, const char * name) {
 	return NULL;
 }
 
+static fs_vtable_t procfs_root_ops = {
+	.readdir = readdir_procfs_root,
+	.finddir = finddir_procfs_root,
+};
 
 static fs_node_t * procfs_create(void) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
@@ -756,12 +773,7 @@ static fs_node_t * procfs_create(void) {
 	fnode->uid  = 0;
 	fnode->gid  = 0;
 	fnode->flags   = FS_DIRECTORY;
-	fnode->read    = NULL;
-	fnode->write   = NULL;
-	fnode->open    = NULL;
-	fnode->close   = NULL;
-	fnode->readdir = readdir_procfs_root;
-	fnode->finddir = finddir_procfs_root;
+	fnode->ops     = &procfs_root_ops;
 	fnode->nlink   = 1;
 	fnode->ctime   = now();
 	fnode->mtime   = now();

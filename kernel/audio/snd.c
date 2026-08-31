@@ -298,6 +298,12 @@ static int readdir_dev_snd(fs_node_t * node, uint64_t index, struct dirent *out)
 	return 0;
 }
 
+static fs_vtable_t dsp_channel_ops = {
+	.ioctl = snd_dsp_ioctl,
+	.write = snd_dsp_write,
+	.close = snd_dsp_close,
+};
+
 static fs_node_t * new_dsp_channel(void) {
 	struct dsp_node * dsp = calloc(1, sizeof(struct dsp_node));
 	dsp->rb = ring_buffer_create(SND_BUF_SIZE);
@@ -311,9 +317,7 @@ static fs_node_t * new_dsp_channel(void) {
 	out->device = dsp;
 	out->mask = 0666;
 	out->flags = FS_CHARDEVICE;
-	out->ioctl = snd_dsp_ioctl;
-	out->write = snd_dsp_write;
-	out->close = snd_dsp_close;
+	out->ops = &dsp_channel_ops;
 
 	return out;
 }
@@ -323,6 +327,11 @@ static fs_node_t * finddir_dev_snd(fs_node_t * node, const char * name) {
 	return new_dsp_channel();
 }
 
+static fs_vtable_t dev_snd_ops = {
+	.readdir = readdir_dev_snd,
+	.finddir = finddir_dev_snd,
+};
+
 static fs_node_t * init_dev_snd(void) {
 	fs_node_t * out = calloc(1, sizeof(fs_node_t));
 	strcpy(out->name, "snd");
@@ -331,8 +340,8 @@ static fs_node_t * init_dev_snd(void) {
 	out->length = 1;
 	out->nlink = 1;
 	out->ctime = out->mtime = out->atime = now();
-	out->readdir = readdir_dev_snd;
-	out->finddir = finddir_dev_snd;
+
+	out->ops = &dev_snd_ops;
 	return out;
 }
 
@@ -347,6 +356,11 @@ static ssize_t get_size_dev_dsp(fs_node_t * node) {
 	return strlen("/dev/snd/new");
 }
 
+static fs_vtable_t dev_dsp_ops = {
+	.get_size = get_size_dev_dsp,
+	.readlink = readlink_dev_dsp,
+};
+
 static fs_node_t * init_dev_dsp(void) {
 	fs_node_t * out = calloc(1, sizeof(fs_node_t));
 	strcpy(out->name, "dsp");
@@ -355,17 +369,21 @@ static fs_node_t * init_dev_dsp(void) {
 	out->length = 1;
 	out->nlink  = 1;
 	out->ctime = out->mtime = out->atime = now();
-	out->get_size = get_size_dev_dsp;
-	out->readlink = readlink_dev_dsp;
+
+	out->ops = &dev_dsp_ops;
 	return out;
 }
+
+static fs_vtable_t snd_mixer_ops = {
+	.ioctl = snd_mixer_ioctl,
+};
 
 static fs_node_t * init_dev_mixer(void) {
 	fs_node_t * out = calloc(1, sizeof(fs_node_t));
 	strcpy(out->name, "mixer");
 	out->mask = 0666;
 	out->flags = FS_CHARDEVICE;
-	out->ioctl = snd_mixer_ioctl;
+	out->ops = &snd_mixer_ops;
 	return out;
 }
 

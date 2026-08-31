@@ -72,10 +72,27 @@ static void procfs_net_pex_func(fs_node_t * node) {
 
 static struct procfs_entry procfs_net_pex  = { 0, "pex",  procfs_net_pex_func,  0 };
 
+static fs_vtable_t pex_ops;
+
+static int sock_pex_ioctl(fs_node_t * node, unsigned long request, void * argp) {
+	sock_t * sock = (sock_t*)node;
+	switch (request) {
+		case IOCTL_PACKETFS_QUEUED:
+			return sock->rx_queue->length > 0;
+		default:
+			return -ENOTTY;
+	}
+}
+
+
 void pex_sock_install(void) {
 	pex_servers = hashmap_create(10);
 	pex_servers_ident = hashmap_create_int(10);
 	pex_clients_ident = hashmap_create_int(10);
+
+	extern fs_vtable_t sock_ops;
+	memcpy(&pex_ops, &sock_ops, sizeof(fs_vtable_t));
+	pex_ops.ioctl = sock_pex_ioctl;
 
 	extern list_t * procfs_net_files;
 	list_insert(procfs_net_files, &procfs_net_pex);
@@ -245,16 +262,6 @@ static long sock_pex_bind(sock_t * sock, const struct sockaddr *addr, socklen_t 
 	return 0;
 }
 
-static int sock_pex_ioctl(fs_node_t * node, unsigned long request, void * argp) {
-	sock_t * sock = (sock_t*)node;
-	switch (request) {
-		case IOCTL_PACKETFS_QUEUED:
-			return sock->rx_queue->length > 0;
-		default:
-			return -ENOTTY;
-	}
-}
-
 long net_pex_socket(int type, int protocol, int flags, int nb) {
 	if (type != SOCK_DGRAM) return -EINVAL;
 
@@ -264,7 +271,7 @@ long net_pex_socket(int type, int protocol, int flags, int nb) {
 	sock->sock_close   = sock_pex_close;
 	sock->sock_connect = sock_pex_connect;
 	sock->sock_bind    = sock_pex_bind;
-	sock->_fnode.ioctl = sock_pex_ioctl;
+	sock->_fnode.ops = &pex_ops;
 
 	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, flags | PROC_FD_MODE__RW);
 }

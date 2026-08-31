@@ -361,9 +361,23 @@ static ssize_t readlink_tarfs(fs_node_t * node, char * buf, size_t size) {
 	return len;
 }
 
+static fs_vtable_t tarfs_dir_ops = {
+	.readdir = readdir_tarfs,
+	.finddir = finddir_tarfs,
+};
+
+static fs_vtable_t tarfs_symlink_ops = {
+	.readlink = readlink_tarfs,
+};
+
+static fs_vtable_t tarfs_file_ops = {
+	.read = read_tarfs,
+};
+
+static fs_vtable_t dummy_ops = { 0 };
+
 static fs_node_t * file_from_ustar(struct tarfs * self, struct ustar * file, unsigned int offset) {
-	fs_node_t * fs = malloc(sizeof(fs_node_t));
-	memset(fs, 0, sizeof(fs_node_t));
+	fs_node_t * fs = calloc(1, sizeof(fs_node_t));
 	fs->device = self;
 	fs->inode  = offset;
 	fs->impl   = 0;
@@ -378,18 +392,17 @@ static fs_node_t * file_from_ustar(struct tarfs * self, struct ustar * file, uns
 	fs->flags = FS_FILE;
 	if (file->type[0] == '5') {
 		fs->flags = FS_DIRECTORY;
-		fs->readdir = readdir_tarfs;
-		fs->finddir = finddir_tarfs;
-		fs->create  = NULL;
+		fs->ops = &tarfs_dir_ops;
 	} else if (file->type[0] == '1') {
 		//debug_print(ERROR, "Hardlink detected");
 		/* go through file and find target, reassign inode to point to that */
+		fs->ops = &dummy_ops;
 	} else if (file->type[0] == '2') {
 		fs->flags = FS_SYMLINK;
-		fs->readlink = readlink_tarfs;
+		fs->ops = &tarfs_symlink_ops;
 	} else {
 		fs->flags = FS_FILE;
-		fs->read = read_tarfs;
+		fs->ops = &tarfs_file_ops;
 	}
 	free(file);
 #if 0
@@ -449,6 +462,11 @@ static int ustar_from_offset(struct tarfs * self, unsigned int offset, struct us
 	return 1;
 }
 
+static fs_vtable_t tarfs_root_ops = {
+	.readdir = readdir_tar_root,
+	.finddir = finddir_tar_root,
+};
+
 static fs_node_t * tar_mount(const char * device, const char * mount_path) {
 	char * arg = strdup(device);
 	char * argv[10];
@@ -481,9 +499,7 @@ static fs_node_t * tar_mount(const char * device, const char * mount_path) {
 	root->gid     = 0;
 	root->length  = 0;
 	root->mask    = 0555;
-	root->readdir = readdir_tar_root;
-	root->finddir = finddir_tar_root;
-	root->create  = NULL;
+	root->ops     = &tarfs_root_ops;
 	root->flags   = FS_DIRECTORY;
 	root->device  = self;
 

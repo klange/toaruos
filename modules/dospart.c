@@ -75,6 +75,13 @@ static void close_part(fs_node_t * node) {
 	return;
 }
 
+static fs_vtable_t dospart_ops = {
+	.read    = read_part,
+	.write   = write_part,
+	.open    = open_part,
+	.close   = close_part,
+};
+
 static fs_node_t * dospart_device_create(int i, fs_node_t * dev, mbr_t * mbr, int id) {
 
 	vfs_lock(dev);
@@ -93,13 +100,7 @@ static fs_node_t * dospart_device_create(int i, fs_node_t * dev, mbr_t * mbr, in
 	fnode->mask    = 0660;
 	fnode->length  = device->partition.sector_count * SECTORSIZE; /* TODO */
 	fnode->flags   = FS_BLOCKDEVICE;
-	fnode->read    = read_part;
-	fnode->write   = write_part;
-	fnode->open    = open_part;
-	fnode->close   = close_part;
-	fnode->readdir = NULL;
-	fnode->finddir = NULL;
-	fnode->ioctl   = NULL; /* TODO, identify, etc? */
+	fnode->ops     = &dospart_ops;
 	return fnode;
 }
 

@@ -95,13 +95,17 @@ static ssize_t write_loop(fs_node_t *node, off_t offset, size_t size, uint8_t *b
 	return size;
 }
 
+static fs_vtable_t loop_ops = {
+	.ioctl = ioctl_loop,
+	.write = write_loop,
+};
+
 static void loop_init(struct loop_nic * nic) {
 	nic->eth.device_node = calloc(sizeof(fs_node_t),1);
 	snprintf(nic->eth.device_node->name, 100, "%s", nic->eth.if_name);
 	nic->eth.device_node->flags = FS_BLOCKDEVICE;
 	nic->eth.device_node->mask  = 0666;
-	nic->eth.device_node->ioctl = ioctl_loop;
-	nic->eth.device_node->write = write_loop;
+	nic->eth.device_node->ops = &loop_ops;
 	nic->eth.device_node->device = nic;
 	nic->eth.mtu = 65536; /* guess */
 

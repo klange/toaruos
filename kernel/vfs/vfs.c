@@ -133,12 +133,16 @@ static int readdir_mapper(fs_node_t *node, unsigned long index, struct dirent * 
 	return 0;
 }
 
+static fs_vtable_t mapper_ops = {
+	.readdir = readdir_mapper,
+};
+
 static fs_node_t * vfs_mapper(void) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
 	fnode->mask    = 0555;
 	fnode->flags   = FS_DIRECTORY;
-	fnode->readdir = readdir_mapper;
+	fnode->ops     = &mapper_ops;
 	fnode->ctime   = now();
 	fnode->mtime   = now();
 	fnode->atime   = now();
@@ -151,8 +155,8 @@ static fs_node_t * vfs_mapper(void) {
 int selectcheck_fs(fs_node_t * node) {
 	if (!node) return -ENOENT;
 
-	if (node->selectcheck) {
-		return node->selectcheck(node);
+	if (node->ops->selectcheck) {
+		return node->ops->selectcheck(node);
 	}
 
 	return -EINVAL;
@@ -164,8 +168,8 @@ int selectcheck_fs(fs_node_t * node) {
 int selectwait_fs(fs_node_t * node, void * process) {
 	if (!node) return -ENOENT;
 
-	if (node->selectwait) {
-		return node->selectwait(node, process);
+	if (node->ops->selectwait) {
+		return node->ops->selectwait(node, process);
 	}
 
 	return -EINVAL;
@@ -182,8 +186,8 @@ int selectwait_fs(fs_node_t * node, void * process) {
  */
 ssize_t read_fs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	if (!node) return -ENOENT;
-	if (node->read) {
-		return node->read(node, offset, size, buffer);
+	if (node->ops->read) {
+		return node->ops->read(node, offset, size, buffer);
 	} else {
 		if (node->flags & FS_DIRECTORY) return -EISDIR;
 		return -EINVAL;
@@ -201,8 +205,8 @@ ssize_t read_fs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
  */
 ssize_t write_fs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	if (!node) return -ENOENT;
-	if (node->write) {
-		return node->write(node, offset, size, buffer);
+	if (node->ops->write) {
+		return node->ops->write(node, offset, size, buffer);
 	} else {
 		if (node->flags & FS_DIRECTORY) return -EISDIR;
 		return -EROFS;
@@ -217,8 +221,8 @@ ssize_t write_fs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 int truncate_fs(fs_node_t * node, size_t size) {
 	if (!node) return -ENOENT;
 
-	if (node->truncate) {
-		return node->truncate(node, size);
+	if (node->ops->truncate) {
+		return node->ops->truncate(node, size);
 	}
 
 	return -EINVAL;
@@ -250,8 +254,8 @@ void open_fs(fs_node_t *node, unsigned int flags) {
 	}
 	spin_unlock(tmp_refcount_lock);
 
-	if (node->open) {
-		node->open(node, flags);
+	if (node->ops->open) {
+		node->ops->open(node, flags);
 	}
 }
 
@@ -278,8 +282,8 @@ void close_fs(fs_node_t *node) {
 	if (node->refcount == 0) {
 		debug_print(NOTICE, "Node refcount [%s] is now 0: %ld", node->name, node->refcount);
 
-		if (node->close) {
-			node->close(node);
+		if (node->ops->close) {
+			node->ops->close(node);
 		}
 
 		free(node);
@@ -294,8 +298,8 @@ void close_fs(fs_node_t *node) {
  * @param mode New mode bits
  */
 int chmod_fs(fs_node_t *node, mode_t mode) {
-	if (node->chmod) {
-		return node->chmod(node, mode);
+	if (node->ops->chmod) {
+		return node->ops->chmod(node, mode);
 	}
 	return -EPERM;
 }
@@ -304,8 +308,8 @@ int chmod_fs(fs_node_t *node, mode_t mode) {
  * @brief Change ownership for a file system node.
  */
 int chown_fs(fs_node_t *node, uid_t uid, gid_t gid) {
-	if (node->chown) {
-		return node->chown(node, uid, gid);
+	if (node->ops->chown) {
+		return node->ops->chown(node, uid, gid);
 	}
 	return -EPERM;
 }
@@ -318,8 +322,8 @@ int chown_fs(fs_node_t *node, uid_t uid, gid_t gid) {
  * @returns A dirent object.
  */
 int readdir_fs(fs_node_t *node, unsigned long index, struct dirent * out) {
-	if (!node || !(node->flags & FS_DIRECTORY) || !node->readdir) return -EINVAL;
-	return node->readdir(node, index, out);
+	if (!node || !(node->flags & FS_DIRECTORY) || !node->ops->readdir) return -EINVAL;
+	return node->ops->readdir(node, index, out);
 }
 
 /**
@@ -330,8 +334,8 @@ int readdir_fs(fs_node_t *node, unsigned long index, struct dirent * out) {
  * @returns An fs_node that the caller can free
  */
 fs_node_t *finddir_fs(fs_node_t *node, const char *name) {
-	if (!node || !(node->flags & FS_DIRECTORY) || !node->finddir) return NULL;
-	return node->finddir(node, name);
+	if (!node || !(node->flags & FS_DIRECTORY) || !node->ops->finddir) return NULL;
+	return node->ops->finddir(node, name);
 }
 
 /**
@@ -344,7 +348,7 @@ fs_node_t *finddir_fs(fs_node_t *node, const char *name) {
  */
 int ioctl_fs(fs_node_t *node, unsigned long request, void * argp) {
 	if (!node) return -ENOENT;
-	return node->ioctl ? node->ioctl(node, request, argp) : -ENOTTY;
+	return node->ops->ioctl ? node->ops->ioctl(node, request, argp) : -ENOTTY;
 }
 
 fs_node_t * file_get_parent(const char * path, int *error) {
@@ -387,7 +391,7 @@ int rename_file_fs(const char * src, const char * dest) {
 	int out = 0;
 	if (!src_parent->mount) { out = -EROFS; goto _nope; }
 	if (src_parent->mount != dest_parent->mount) { out = -EXDEV; goto _nope; }
-	if (!src_parent->mount->rename) { out = -ENOTSUP; goto _nope; }
+	if (!src_parent->mount->ops->rename) { out = -ENOTSUP; goto _nope; }
 
 	if (!has_permission(src_parent, W_OK|X_OK)) { out = -EACCES; goto _nope; }
 	if (!has_permission(dest_parent, W_OK|X_OK)) { out = -EACCES; goto _nope; }
@@ -399,7 +403,7 @@ int rename_file_fs(const char * src, const char * dest) {
 	if (!*src_name || !*dest_name) { out = -EINVAL; goto _nope; }
 	if (*src_name == '/' || *dest_name == '/') { out = -EINVAL; goto _nope; }
 
-	out = src_parent->mount->rename(src_parent->mount, src_parent, src_name, dest_parent, dest_name);
+	out = src_parent->mount->ops->rename(src_parent->mount, src_parent, src_name, dest_parent, dest_name);
 
 _nope:
 	close_fs(dest_parent);
@@ -414,12 +418,12 @@ int create_file_fs(const char *name, mode_t permission, fs_node_t **out) {
 
 	/* Need both exec and write on the parent to create a new entry */
 	if (!has_permission(parent, W_OK|X_OK)) return close_fs(parent), -EACCES;
-	if (!parent->create) return close_fs(parent), -EROFS;
+	if (!parent->ops->create) return close_fs(parent), -EROFS;
 
 	const char * src = fs_basename(name);
 	if (!*src || *src == '/') return close_fs(parent), -EINVAL;
 
-	int ret = parent->create(parent, src, permission, out);
+	int ret = parent->ops->create(parent, src, permission, out);
 	close_fs(parent);
 	return ret;
 }
@@ -430,12 +434,12 @@ int unlink_fs(const char * name) {
 	if (!parent) return -error;
 
 	if (!has_permission(parent, W_OK|X_OK)) return close_fs(parent), -EACCES;
-	if (!parent->unlink) return close_fs(parent), -EROFS;
+	if (!parent->ops->unlink) return close_fs(parent), -EROFS;
 
 	const char * src = fs_basename(name);
 	if (!*src || *src == '/') return close_fs(parent), -EINVAL;
 
-	int ret = parent->unlink(parent, src);
+	int ret = parent->ops->unlink(parent, src);
 	close_fs(parent);
 	return ret;
 }
@@ -444,13 +448,13 @@ int mkdir_fs(const char *name, mode_t permission, fs_node_t **out) {
 	int error = 0;
 	fs_node_t * parent = file_get_parent(name, &error);
 	if (!parent) return -error;
-	if (!parent->mkdir) return close_fs(parent), -EROFS;
+	if (!parent->ops->mkdir) return close_fs(parent), -EROFS;
 
 	const char * src = fs_basename(name);
 	if (!*src || *src == '/') return close_fs(parent), -EEXIST;
 
 	/* ->mkdir checks perms on parent itself; no need to do that here. */
-	int ret = parent->mkdir(parent, src, permission, out);
+	int ret = parent->ops->mkdir(parent, src, permission, out);
 	close_fs(parent);
 	return ret;
 }
@@ -460,19 +464,19 @@ int symlink_fs(const char * target, const char * name) {
 	fs_node_t * parent = file_get_parent(name, &error);
 	if (!parent) return -error;
 	if (!has_permission(parent, W_OK|X_OK)) return close_fs(parent), -EACCES;
-	if (!parent->symlink) return close_fs(parent), -EPERM;
+	if (!parent->ops->symlink) return close_fs(parent), -EPERM;
 	const char * src = fs_basename(name);
 	if (!*src || *src == '/') return -EINVAL;
 
-	int ret = parent->symlink(parent, target, src);
+	int ret = parent->ops->symlink(parent, target, src);
 	close_fs(parent);
 	return ret;
 }
 
 ssize_t readlink_fs(fs_node_t *node, char * buf, size_t size) {
 	if (!node) return -ENOENT;
-	if (!node->readlink) return -EINVAL;
-	return node->readlink(node, buf, size);
+	if (!node->ops->readlink) return -EINVAL;
+	return node->ops->readlink(node, buf, size);
 }
 
 fs_node_t *clone_fs(fs_node_t *source) {

@@ -55,6 +55,29 @@ typedef int (*truncate_type_t) (struct fs_node *, size_t size);
 typedef int (*rename_type_t) (struct fs_node *, struct fs_node *, const char *, struct fs_node *, const char *);
 typedef int (*fault_map_t) (struct fs_node *, union PML *, off_t offset, int fault_flags, int map_flags, int prot, int *mmu_flags);
 
+typedef struct fs_vtable {
+	read_type_t read;
+	write_type_t write;
+	open_type_t open;
+	close_type_t close;
+	readdir_type_t readdir;
+	finddir_type_t finddir;
+	create_type_t create;
+	mkdir_type_t mkdir;
+	ioctl_type_t ioctl;
+	get_size_type_t get_size;
+	chmod_type_t chmod;
+	unlink_type_t unlink;
+	symlink_type_t symlink;
+	readlink_type_t readlink;
+	truncate_type_t truncate;
+	selectcheck_type_t selectcheck;
+	selectwait_type_t selectwait;
+	chown_type_t chown;
+	rename_type_t rename;
+	fault_map_t fault_map;
+} fs_vtable_t;
+
 typedef struct fs_node {
 	struct fs_node * mount;      /* Root fs_node_t entry of mountpoint. */
 	char name[256];         /* The filename. */
@@ -77,26 +100,7 @@ typedef struct fs_node {
 	time_t ctime;         /* Created  */
 
 	/* File operations */
-	read_type_t read;
-	write_type_t write;
-	open_type_t open;
-	close_type_t close;
-	readdir_type_t readdir;
-	finddir_type_t finddir;
-	create_type_t create;
-	mkdir_type_t mkdir;
-	ioctl_type_t ioctl;
-	get_size_type_t get_size;
-	chmod_type_t chmod;
-	unlink_type_t unlink;
-	symlink_type_t symlink;
-	readlink_type_t readlink;
-	truncate_type_t truncate;
-	selectcheck_type_t selectcheck;
-	selectwait_type_t selectwait;
-	chown_type_t chown;
-	rename_type_t rename;
-	fault_map_t fault_map;
+	struct fs_vtable *ops;
 } fs_node_t;
 
 struct vfs_entry {

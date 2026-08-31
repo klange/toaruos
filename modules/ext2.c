@@ -1475,6 +1475,47 @@ static int ioctl_ext2(fs_node_t * node, unsigned long request, void * argp) {
 	}
 }
 
+static fs_vtable_t ext2_dummy_ops = {
+	.chmod   = chmod_ext2,
+	.open    = open_ext2,
+	.close   = close_ext2,
+	.ioctl   = ioctl_ext2,
+};
+
+static fs_vtable_t ext2_file_ops = {
+	.chmod   = chmod_ext2,
+	.open    = open_ext2,
+	.close   = close_ext2,
+	.ioctl   = ioctl_ext2,
+
+	.read     = read_ext2,
+	.write    = write_ext2,
+	.truncate = truncate_ext2,
+};
+
+static fs_vtable_t ext2_dir_ops = {
+	.chmod   = chmod_ext2,
+	.open    = open_ext2,
+	.close   = close_ext2,
+	.ioctl   = ioctl_ext2,
+
+	.create   = create_ext2,
+	.mkdir    = mkdir_ext2,
+	.unlink   = unlink_ext2,
+	.symlink  = symlink_ext2,
+	.readdir  = readdir_ext2,
+	.finddir  = finddir_ext2,
+};
+
+static fs_vtable_t ext2_symlink_ops = {
+	.chmod   = chmod_ext2,
+	.open    = open_ext2,
+	.close   = close_ext2,
+	.ioctl   = ioctl_ext2,
+
+	.readlink = readlink_ext2,
+};
+
 static int node_from_file(ext2_fs_t * this, ext2_inodetable_t *inode, ext2_dir_t *direntry,  fs_node_t *fnode) {
 	if (!fnode) {
 		/* You didn't give me a node to write into, go **** yourself */
@@ -1493,28 +1534,14 @@ static int node_from_file(ext2_fs_t * this, ext2_inodetable_t *inode, ext2_dir_t
 	fnode->nlink = inode->links_count;
 	/* File Flags */
 	fnode->flags = 0;
+	fnode->ops = &ext2_dummy_ops;
 	if ((inode->mode & EXT2_S_IFREG) == EXT2_S_IFREG) {
 		fnode->flags   |= FS_FILE;
-		fnode->read     = read_ext2;
-		fnode->write    = write_ext2;
-		fnode->truncate = truncate_ext2;
-		fnode->create   = NULL;
-		fnode->mkdir    = NULL;
-		fnode->readdir  = NULL;
-		fnode->finddir  = NULL;
-		fnode->symlink  = NULL;
-		fnode->readlink = NULL;
+		fnode->ops = &ext2_file_ops;
 	}
 	if ((inode->mode & EXT2_S_IFDIR) == EXT2_S_IFDIR) {
 		fnode->flags   |= FS_DIRECTORY;
-		fnode->create   = create_ext2;
-		fnode->mkdir    = mkdir_ext2;
-		fnode->unlink   = unlink_ext2;
-		fnode->symlink  = symlink_ext2;
-		fnode->readdir  = readdir_ext2;
-		fnode->finddir  = finddir_ext2;
-		fnode->write    = NULL;
-		fnode->readlink = NULL;
+		fnode->ops = &ext2_dir_ops;
 	}
 	if ((inode->mode & EXT2_S_IFBLK) == EXT2_S_IFBLK) {
 		fnode->flags |= FS_BLOCKDEVICE;
@@ -1527,23 +1554,13 @@ static int node_from_file(ext2_fs_t * this, ext2_inodetable_t *inode, ext2_dir_t
 	}
 	if ((inode->mode & EXT2_S_IFLNK) == EXT2_S_IFLNK) {
 		fnode->flags   |= FS_SYMLINK;
-		fnode->read     = NULL;
-		fnode->write    = NULL;
-		fnode->create   = NULL;
-		fnode->mkdir    = NULL;
-		fnode->readdir  = NULL;
-		fnode->finddir  = NULL;
-		fnode->readlink = readlink_ext2;
+		fnode->ops = &ext2_symlink_ops;
 	}
 
 	fnode->atime   = inode->atime;
 	fnode->mtime   = inode->mtime;
 	fnode->ctime   = inode->ctime;
 
-	fnode->chmod   = chmod_ext2;
-	fnode->open    = open_ext2;
-	fnode->close   = close_ext2;
-	fnode->ioctl = ioctl_ext2;
 	return 1;
 }
 
@@ -1583,35 +1600,13 @@ static int ext2_root(ext2_fs_t * this, ext2_inodetable_t *inode, fs_node_t *fnod
 
 		return 0;
 	}
-	if ((inode->mode & EXT2_S_IFBLK) == EXT2_S_IFBLK) {
-		fnode->flags |= FS_BLOCKDEVICE;
-	}
-	if ((inode->mode & EXT2_S_IFCHR) == EXT2_S_IFCHR) {
-		fnode->flags |= FS_CHARDEVICE;
-	}
-	if ((inode->mode & EXT2_S_IFIFO) == EXT2_S_IFIFO) {
-		fnode->flags |= FS_PIPE;
-	}
-	if ((inode->mode & EXT2_S_IFLNK) == EXT2_S_IFLNK) {
-		fnode->flags |= FS_SYMLINK;
-	}
 
 	fnode->atime   = inode->atime;
 	fnode->mtime   = inode->mtime;
 	fnode->ctime   = inode->ctime;
 
 	fnode->flags |= FS_DIRECTORY;
-	fnode->read    = NULL;
-	fnode->write   = NULL;
-	fnode->chmod   = chmod_ext2;
-	fnode->open    = open_ext2;
-	fnode->close   = close_ext2;
-	fnode->readdir = readdir_ext2;
-	fnode->finddir = finddir_ext2;
-	fnode->ioctl   = NULL;
-	fnode->create  = create_ext2;
-	fnode->mkdir   = mkdir_ext2;
-	fnode->unlink  = unlink_ext2;
+	fnode->ops     = &ext2_dir_ops;
 	return 1;
 }
 

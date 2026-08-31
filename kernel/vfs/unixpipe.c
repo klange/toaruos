@@ -100,6 +100,17 @@ static int wait_pipe(fs_node_t * node, void * process) {
 	return 0;
 }
 
+static fs_vtable_t read_end_ops = {
+	.read = read_unixpipe,
+	.close = close_read_pipe,
+	.selectcheck = check_pipe,
+	.selectwait = wait_pipe,
+};
+
+static fs_vtable_t write_end_ops = {
+	.write = write_unixpipe,
+	.close = close_write_pipe,
+};
 
 int make_unix_pipe(fs_node_t ** pipes) {
 	size_t size = UNIX_PIPE_BUFFER;
@@ -108,11 +119,8 @@ int make_unix_pipe(fs_node_t ** pipes) {
 		size = atoi(args_value("pipesize"));
 	}
 
-	pipes[0] = malloc(sizeof(fs_node_t));
-	pipes[1] = malloc(sizeof(fs_node_t));
-
-	memset(pipes[0], 0, sizeof(fs_node_t));
-	memset(pipes[1], 0, sizeof(fs_node_t));
+	pipes[0] = calloc(1, sizeof(fs_node_t));
+	pipes[1] = calloc(1, sizeof(fs_node_t));
 
 	snprintf(pipes[0]->name, 100, "[pipe:read]");
 	snprintf(pipes[1]->name, 100, "[pipe:write]");
@@ -123,15 +131,8 @@ int make_unix_pipe(fs_node_t ** pipes) {
 	pipes[0]->flags = FS_PIPE;
 	pipes[1]->flags = FS_PIPE;
 
-	pipes[0]->read = read_unixpipe;
-	pipes[1]->write = write_unixpipe;
-
-	pipes[0]->close = close_read_pipe;
-	pipes[1]->close = close_write_pipe;
-
-	/* Read end can wait */
-	pipes[0]->selectcheck = check_pipe;
-	pipes[0]->selectwait = wait_pipe;
+	pipes[0]->ops  = &read_end_ops;
+	pipes[1]->ops  = &write_end_ops;
 
 	struct unix_pipe * internals = malloc(sizeof(struct unix_pipe));
 	internals->read_end = pipes[0];

@@ -153,17 +153,21 @@ ssize_t sock_generic_write(fs_node_t *node, off_t offset, size_t size, uint8_t *
 	return sock->sock_send(sock, &_header, 0);
 }
 
+fs_vtable_t sock_ops = {
+	.selectcheck = sock_generic_check,
+	.selectwait = sock_generic_wait,
+	.close = sock_generic_close,
+	.ioctl = sock_generic_ioctl,
+	.read = sock_generic_read,
+	.write = sock_generic_write,
+};
+
 sock_t * net_sock_create(void) {
 	sock_t * sock = calloc(sizeof(struct SockData),1);
 	sock->_fnode.flags = FS_SOCKET; /* uh, FS_SOCKET? */
 	sock->_fnode.mask = 0600;
 	sock->_fnode.device = NULL;
-	sock->_fnode.selectcheck = sock_generic_check;
-	sock->_fnode.selectwait = sock_generic_wait;
-	sock->_fnode.close = sock_generic_close;
-	sock->_fnode.ioctl = sock_generic_ioctl;
-	sock->_fnode.read = sock_generic_read;
-	sock->_fnode.write = sock_generic_write;
+	sock->_fnode.ops = &sock_ops;
 	sock->_fnode.uid = this_core->current_process->real_user;
 	sock->alert_wait = list_create("socket alert wait", sock);
 	sock->rx_wait    = list_create("socket rx wait", sock);

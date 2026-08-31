@@ -40,6 +40,10 @@ static ssize_t read_random(fs_node_t *node, off_t offset, size_t size, uint8_t *
 	return size;
 }
 
+static fs_vtable_t random_ops = {
+	.read    = read_random,
+};
+
 static fs_node_t * random_device_create(void) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
@@ -50,7 +54,7 @@ static fs_node_t * random_device_create(void) {
 	fnode->mask = 0444;
 	fnode->length  = 1024;
 	fnode->flags   = FS_CHARDEVICE;
-	fnode->read    = read_random;
+	fnode->ops     = &random_ops;
 	return fnode;
 }
 

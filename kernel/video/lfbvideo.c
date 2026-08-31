@@ -152,6 +152,11 @@ _fault_bad:
 	return 2;
 }
 
+static fs_vtable_t vid_ops = {
+	.ioctl   = ioctl_vid,
+	.fault_map = fault_map_vid,
+};
+
 /* Framebuffer device file initializer */
 static fs_node_t * lfb_video_device_create(void /* TODO */) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
@@ -160,8 +165,7 @@ static fs_node_t * lfb_video_device_create(void /* TODO */) {
 	fnode->length  = 0;
 	fnode->flags   = FS_BLOCKDEVICE; /* Framebuffers are block devices */
 	fnode->mask    = 0660; /* Only accessible to root user/group */
-	fnode->ioctl   = ioctl_vid; /* control function defined above */
-	fnode->fault_map = fault_map_vid;
+	fnode->ops     = &vid_ops;
 	return fnode;
 }
 

@@ -173,6 +173,11 @@ static ssize_t write_fwcfg(fs_node_t * node, off_t offset, size_t size, uint8_t 
 	return size;
 }
 
+static fs_vtable_t fwcfg_ops = {
+	.read   = read_fwcfg,
+	.write  = write_fwcfg,
+};
+
 void fwcfg_device(void) {
 	uint32_t * fw_cfg = dtb_find_node_prefix("fw-cfg");
 	if (!fw_cfg) return;
@@ -185,8 +190,7 @@ void fwcfg_device(void) {
 	strcpy(fnode->name, "fwcfg");
 	fnode->flags  = FS_BLOCKDEVICE;
 	fnode->mask   = 0660;
-	fnode->read   = read_fwcfg;
-	fnode->write  = write_fwcfg;
+	fnode->ops    = &fwcfg_ops;
 	fnode->impl   = (uintptr_t)fw_cfg_addr;
 
 	char addr[100];

@@ -439,14 +439,18 @@ static int ioctl_vga_emul(fs_node_t * node, unsigned long request, void * argp) 
 	}
 }
 
+static fs_vtable_t vga_ops = {
+	.ioctl  = ioctl_vga_emul,
+	.write  = write_vga_emul,
+};
+
 static void vga_text_init(void) {
 	vga_text_device = calloc(sizeof(fs_node_t), 1);
 	snprintf(vga_text_device->name, 100, "vga0");
 	vga_text_device->length = 0;
 	vga_text_device->flags  = FS_BLOCKDEVICE;
 	vga_text_device->mask   = 0660;
-	vga_text_device->ioctl  = ioctl_vga_emul;
-	vga_text_device->write  = write_vga_emul;
+	vga_text_device->ops    = &vga_ops;
 	vfs_mount("/dev/vga0", vga_text_device, "vgatext", "");
 }
 
