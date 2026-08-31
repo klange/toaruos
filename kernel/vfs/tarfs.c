@@ -96,6 +96,21 @@ static unsigned int interpret_size(struct ustar * file) {
 		((file->size[10] - '0') <<  0);
 }
 
+static unsigned int interpret_mtime(struct ustar * file) {
+	return
+		((file->mtime[ 0] - '0') << 30) |
+		((file->mtime[ 1] - '0') << 27) |
+		((file->mtime[ 2] - '0') << 24) |
+		((file->mtime[ 3] - '0') << 21) |
+		((file->mtime[ 4] - '0') << 18) |
+		((file->mtime[ 5] - '0') << 15) |
+		((file->mtime[ 6] - '0') << 12) |
+		((file->mtime[ 7] - '0') <<  9) |
+		((file->mtime[ 8] - '0') <<  6) |
+		((file->mtime[ 9] - '0') <<  3) |
+		((file->mtime[10] - '0') <<  0);
+}
+
 static unsigned int round_to_512(unsigned int i) {
 	unsigned int t = i % 512;
 
@@ -555,11 +570,12 @@ int tarfs_unpack(char * from_file) {
 			filename_workspace[strlen(filename_workspace)-1] = 0;
 		}
 
+		struct timespec timestamp = {.tv_sec = interpret_mtime(file), .tv_nsec = 0};
+
 		switch (file->type[0]) {
 			case '0': /* Regular file */
 				if (!(error = create_file_fs(filename_workspace, mode, &node))) {
 					chown_fs(node, interpret_uid(file), interpret_gid(file));
-					close_fs(node);
 				} else {
 					dprintf("migrate: error from create: %d\n", error);
 				}
@@ -567,7 +583,6 @@ int tarfs_unpack(char * from_file) {
 			case '5': /* Directory */
 				if (!(error = mkdir_fs(filename_workspace, mode, &node))) {
 					chown_fs(node, interpret_uid(file), interpret_gid(file));
-					close_fs(node);
 				} else if (error != -EEXIST) {
 					dprintf("migrate: error from mkdir: %d\n", error);
 				}
@@ -596,6 +611,9 @@ int tarfs_unpack(char * from_file) {
 			to_write -= w;
 			written += w;
 		}
+
+		utimens_fs(node, timestamp, timestamp);
+		close_fs(node);
 
 _next:
 		offset += 512;
