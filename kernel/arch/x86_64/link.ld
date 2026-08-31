@@ -13,13 +13,13 @@ SECTIONS
 		*(.multiboot)
 		*(.bootstrap)
 		code = .;
-		*(.text)
+		*(.text*)
 		*(.ap_bootstrap)
 	} :text
 
 	.rodata BLOCK(4K) : ALIGN(4K)
 	{
-		*(.rodata)
+		*(.rodata*)
 	} :text
 
 	.dynsym : {
@@ -39,7 +39,8 @@ SECTIONS
 	.data BLOCK(4K) : ALIGN(4K)
 	{
 		data = .;
-		*(.data)
+		*(.data*)
+		*(.got*)
 		PROVIDE(bss_start = ALIGN(4K));
 	} :data
 
