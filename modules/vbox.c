@@ -309,9 +309,7 @@ static void * kvmalloc_p(size_t size, uint32_t * outphys) {
 	return mmu_map_from_physical(index);
 }
 
-static fs_vtable_t mouse_ops = {
-	.ioctl = ioctl_mouse,
-};
+static fs_vtable_t mouse_ops = {0};
 
 static fs_vtable_t pointer_ops = {
 	.write = write_pointer,
@@ -344,6 +342,8 @@ static int vbox_install(int argc, char * argv[]) {
 
 	mouse_pipe = make_pipe(sizeof(mouse_device_packet_t) * PACKETS_IN_PIPE);
 	mouse_pipe->flags = FS_CHARDEVICE;
+	memcpy(&mouse_ops, mouse_pipe->ops, sizeof(fs_vtable_t));
+	mouse_ops.ioctl = ioctl_mouse;
 	mouse_pipe->ops   = &mouse_ops;
 
 	vfs_mount("/dev/absmouse", mouse_pipe, "vbox-tablet", "");
