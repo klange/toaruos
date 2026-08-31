@@ -190,6 +190,7 @@ static long pex_recv_server(sock_t * sock, struct msghdr * msg, int flags) {
 			uintptr_t src;
 			memcpy(&src, packet + sizeof(size_t), sizeof(uintptr_t));
 			((struct sockaddr_pex_client*)msg->msg_name)->spexc_family = AF_PEX;
+			((struct sockaddr_pex_client*)msg->msg_name)->spexc_type = PEX_SOCK_CLIENT_ADDR;
 			((struct sockaddr_pex_client*)msg->msg_name)->spexc_addr = src;
 		}
 	}

@@ -28,6 +28,7 @@ size_t pex_send(FILE * sock, uintptr_t rcpt, size_t size, char * blob) {
 	if (size > MAX_PACKET_SIZE) return -E2BIG;
 	struct sockaddr_pex_client dest;
 	dest.spexc_family = AF_PEX;
+	dest.spexc_type = PEX_SOCK_CLIENT_ADDR;
 	dest.spexc_addr = rcpt;
 	return sendto(fileno(sock), blob, size, 0, (struct sockaddr*)&dest, sizeof(struct sockaddr_pex_client));
 }
@@ -80,6 +81,7 @@ FILE * pex_connect(char * target) {
 
 	struct sockaddr_pex addr;
 	addr.spex_family = AF_PEX;
+	addr.spex_type = PEX_SOCK_SERVER_NAME;
 	memcpy(addr.spex_target, target, strlen(target) + 1);
 
 	if (connect(sock, (struct sockaddr *)&addr, strlen(target) + 1 + offsetof(struct sockaddr_pex,spex_target)) < 0) return NULL;
@@ -100,6 +102,7 @@ FILE * pex_bind(char * target) {
 
 	struct sockaddr_pex addr;
 	addr.spex_family = AF_PEX;
+	addr.spex_type = PEX_SOCK_SERVER_NAME;
 	memcpy(addr.spex_target, target, strlen(target) + 1);
 
 	if (bind(sock, (struct sockaddr *)&addr, strlen(target) + 1 + offsetof(struct sockaddr_pex,spex_target)) < 0) return NULL;
