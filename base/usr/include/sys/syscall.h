@@ -47,6 +47,8 @@
 #define SYS_SHUTDOWN 44
 /* 45 unused */
 /* 46 unused */
+#define SYS_UTIMENS 45
+#define SYS_FUTIMENS 46
 #define SYS_IOCTL 47
 #define SYS_ACCESS 48
 #define SYS_STATF 49

@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <bits/dirent.h>
 #include <kernel/mmu.h>
+#include <bits/timespec.h>
 
 #define PATH_SEPARATOR '/'
 #define PATH_SEPARATOR_STRING "/"
@@ -54,6 +55,7 @@ typedef int (*chown_type_t) (struct fs_node *, uid_t, gid_t);
 typedef int (*truncate_type_t) (struct fs_node *, size_t size);
 typedef int (*rename_type_t) (struct fs_node *, struct fs_node *, const char *, struct fs_node *, const char *);
 typedef int (*fault_map_t) (struct fs_node *, union PML *, off_t offset, int fault_flags, int map_flags, int prot, int *mmu_flags);
+typedef int (*utimens_type_t) (struct fs_node *, struct timespec access, struct timespec modify);
 
 typedef struct fs_vtable {
 	read_type_t read;
@@ -76,6 +78,7 @@ typedef struct fs_vtable {
 	chown_type_t chown;
 	rename_type_t rename;
 	fault_map_t fault_map;
+	utimens_type_t utimens;
 } fs_vtable_t;
 
 typedef struct fs_node {
@@ -137,6 +140,7 @@ ssize_t readlink_fs(fs_node_t * node, char * buf, size_t size);
 int selectcheck_fs(fs_node_t * node);
 int selectwait_fs(fs_node_t * node, void * process);
 int truncate_fs(fs_node_t * node, size_t size);
+int utimens_fs(fs_node_t * node, struct timespec access, struct timespec modify);
 
 void vfs_install(void);
 void * vfs_mount(const char * path, fs_node_t * local_root, const char * type, const char * options);

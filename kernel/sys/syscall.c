@@ -461,6 +461,39 @@ long sys_ftruncate(int fd, off_t size) {
 	return truncate_fs(FD_ENTRY(fd), size);
 }
 
+static long utimens_node(fs_node_t * node, const struct timespec * access, const struct timespec * modify) {
+	struct timespec _access = {0};
+	struct timespec _modify = {0};
+
+	if (access) {
+		PTRCHECK(access, sizeof(struct timespec), 0);
+		memcpy(&_access, access, sizeof(struct timespec));
+	}
+
+	if (modify) {
+		PTRCHECK(modify, sizeof(struct timespec), 0);
+		memcpy(&_modify, modify, sizeof(struct timespec));
+	}
+
+	return utimens_fs(node, _access, _modify);
+}
+
+long sys_utimens(char * file, const struct timespec * access, const struct timespec * modify) {
+	PTR_VALIDATE(file);
+	if (!file) return -EFAULT;
+	int error = 0;
+	fs_node_t * fn = kopen_error(file, 0, &error);
+	if (!fn) return -error;
+	long ret = utimens_node(fn, access, modify);
+	close_fs(fn);
+	return ret;
+}
+
+long sys_futimens(int fd, const struct timespec * access, const struct timespec * modify) {
+	if (!FD_CHECK(fd)) return -EBADF;
+	return utimens_node(FD_ENTRY(fd), access, modify);
+}
+
 long sys_gettimeofday(struct timeval * tv, void * tz) {
 	PTRCHECK(tv,sizeof(struct timeval),MMU_PTR_WRITE);
 	PTR_VALIDATE(tz);
@@ -1378,6 +1411,8 @@ static scall_func syscalls[] = {
 	[SYS_INSMOD]       = (scall_func)(uintptr_t)sys_insmod,
 	[SYS_GETSID]       = (scall_func)(uintptr_t)sys_getsid,
 	[SYS_NANOSLEEP]    = (scall_func)(uintptr_t)sys_nanosleep,
+	[SYS_UTIMENS]      = (scall_func)(uintptr_t)sys_utimens,
+	[SYS_FUTIMENS]     = (scall_func)(uintptr_t)sys_futimens,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

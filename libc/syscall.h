@@ -300,6 +300,8 @@ DECL_SYSCALL6(mmap, void*, size_t, int, int, int, off_t);
 DECL_SYSCALL1(getsid, pid_t);
 
 DECL_SYSCALL2(nanosleep, const struct timespec *, struct timespec *);
+DECL_SYSCALL3(utimens, const char *, const struct timespec *, const struct timespec *);
+DECL_SYSCALL3(futimens, int, const struct timespec *, const struct timespec *);
 
 _End_C_Header
 

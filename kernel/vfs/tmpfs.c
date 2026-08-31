@@ -288,6 +288,23 @@ static int chown_tmpfs(fs_node_t * node, int uid, int gid) {
 	return 0;
 }
 
+static int utimens_tmpfs(fs_node_t * node, struct timespec access, struct timespec modify) {
+	struct tmpfs_file * t = (struct tmpfs_file *)(node->impl);
+
+	if (access.tv_sec != 0 || access.tv_nsec != 0) {
+		t->atime = access.tv_sec;
+		node->atime = access.tv_sec;
+	}
+
+	if (modify.tv_sec != 0 || modify.tv_nsec != 0) {
+		t->mtime = modify.tv_sec;
+		node->mtime = modify.tv_sec;
+	}
+
+	return 0;
+}
+
+
 static int truncate_tmpfs(fs_node_t * node, size_t size) {
 	struct tmpfs_file * t = (struct tmpfs_file *)(node->impl);
 	spin_lock(t->lock);
@@ -391,6 +408,7 @@ static fs_vtable_t tmpfs_file_ops = {
 	.truncate = truncate_tmpfs,
 	.get_size = get_size_tmpfs,
 	.fault_map = fault_map_tmpfs,
+	.utimens = utimens_tmpfs,
 };
 
 static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
@@ -789,6 +807,7 @@ static fs_vtable_t tmpfs_dir_ops = {
 	.chown   = chown_tmpfs,
 	.chmod   = chmod_tmpfs,
 	.rename  = rename_tmpfs,
+	.utimens = utimens_tmpfs,
 };
 
 static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d) {

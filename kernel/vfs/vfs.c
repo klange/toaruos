@@ -479,6 +479,12 @@ ssize_t readlink_fs(fs_node_t *node, char * buf, size_t size) {
 	return node->ops->readlink(node, buf, size);
 }
 
+int utimens_fs(fs_node_t * node, struct timespec access, struct timespec modify) {
+	if (!node) return -ENOENT;
+	if (!node->ops->utimens) return -EPERM;
+	return node->ops->utimens(node, access, modify);
+}
+
 fs_node_t *clone_fs(fs_node_t *source) {
 	if (!source) return NULL;
 
