@@ -311,13 +311,15 @@ static long sock_icmp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 		packet_size = msg->msg_iov[0].iov_len;
 	}
 
-	if (msg->msg_namelen == sizeof(struct sockaddr_in)) {
+	if (msg->msg_namelen >= sizeof(struct sockaddr_in)) {
 		if (msg->msg_name) {
 			((struct sockaddr_in*)msg->msg_name)->sin_family = AF_INET;
 			((struct sockaddr_in*)msg->msg_name)->sin_port = 0;
 			((struct sockaddr_in*)msg->msg_name)->sin_addr.s_addr = src->source;
 		}
 	}
+
+	msg->msg_namelen = sizeof(struct sockaddr_in);
 
 	sock_ipv4_control_common(sock,msg,src,IPPROTO_ICMP);
 
@@ -660,13 +662,15 @@ static long sock_udp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 		ntohs(data->length), ntohs(data->length) - sizeof(struct ipv4_packet) - sizeof(struct udp_packet));
 	memcpy(msg->msg_iov[0].iov_base, udp_packet->payload, ntohs(data->length) - sizeof(struct ipv4_packet) - sizeof(struct udp_packet));
 
-	if (msg->msg_namelen == sizeof(struct sockaddr_in)) {
+	if (msg->msg_namelen >= sizeof(struct sockaddr_in)) {
 		if (msg->msg_name) {
 			((struct sockaddr_in*)msg->msg_name)->sin_family = AF_INET;
 			((struct sockaddr_in*)msg->msg_name)->sin_port = udp_packet->source_port;
 			((struct sockaddr_in*)msg->msg_name)->sin_addr.s_addr = data->source;
 		}
 	}
+
+	msg->msg_namelen = sizeof(struct sockaddr_in);
 
 	sock_ipv4_control_common(sock,msg,data,IPPROTO_UDP);
 

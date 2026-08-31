@@ -185,7 +185,7 @@ static long pex_recv_server(sock_t * sock, struct msghdr * msg, int flags) {
 
 	memcpy(msg->msg_iov[0].iov_base, packet + sizeof(size_t) + sizeof(uintptr_t), size);
 
-	if (msg->msg_namelen == sizeof(struct sockaddr_pex_client)) {
+	if (msg->msg_namelen >= sizeof(struct sockaddr_pex_client)) {
 		if (msg->msg_name) {
 			uintptr_t src;
 			memcpy(&src, packet + sizeof(size_t), sizeof(uintptr_t));
@@ -194,6 +194,8 @@ static long pex_recv_server(sock_t * sock, struct msghdr * msg, int flags) {
 			((struct sockaddr_pex_client*)msg->msg_name)->spexc_addr = src;
 		}
 	}
+
+	msg->msg_namelen = sizeof(struct sockaddr_pex_client);
 
 	free(packet);
 	return size;
