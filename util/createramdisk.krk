@@ -68,7 +68,7 @@ def do_file(p, fn, recurse=True):
     pack_into('7s',   data, 108, format(uid, '07o').encode()) # uid
     pack_into('7s',   data, 116, format(uid, '07o').encode()) # gid
     pack_into('11s',  data, 124, ('0'*11).encode())
-    pack_into('11s',  data, 136, ('0'*11).encode())
+    pack_into('11s',  data, 136, format(sr.st_mtime, '011o').encode())
     pack_into('8s',   data, 148, (' '*8).encode())
 
     pack_into('7s',    data, 257, b'ustar  ')
