@@ -16,6 +16,7 @@
 #include <kernel/mouse.h>
 #include <kernel/misc.h>
 #include <kernel/args.h>
+#include <kernel/string.h>
 #include <bits/errno.h>
 
 #include <kernel/arch/x86_64/ports.h>
@@ -312,6 +313,8 @@ static int mouse_handler(struct regs *r) {
 	return 1;
 }
 
+static fs_vtable_t mouse_ops = {0};
+
 
 /**
  * @brief Initialze i8042/AIP PS/2 controller.
@@ -321,7 +324,10 @@ void ps2hid_install(void) {
 
 	mouse_pipe = make_pipe(sizeof(mouse_device_packet_t) * PACKETS_IN_PIPE);
 	mouse_pipe->flags = FS_CHARDEVICE;
-	mouse_pipe->ioctl = ioctl_mouse;
+	memcpy(&mouse_ops, mouse_pipe->ops, sizeof(fs_vtable_t));
+	mouse_ops.ioctl = ioctl_mouse;
+	mouse_pipe->ops = &mouse_ops;
+
 	vfs_mount("/dev/mouse", mouse_pipe, "ps2-mouse", "");
 
 	keyboard_pipe = make_pipe(128);

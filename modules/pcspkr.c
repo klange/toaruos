@@ -68,6 +68,10 @@ static ssize_t write_spkr(fs_node_t *node, off_t offset, size_t size, uint8_t *b
 	return (uintptr_t)s - (uintptr_t)buffer;
 }
 
+static fs_vtable_t spkr_ops = {
+	.write = write_spkr,
+};
+
 static fs_node_t * spkr_device_create(void) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
@@ -75,7 +79,7 @@ static fs_node_t * spkr_device_create(void) {
 	fnode->mask    = 0660; /* TODO need a speaker group */
 	fnode->gid     = 1;
 	fnode->flags   = FS_CHARDEVICE;
-	fnode->write   = write_spkr;
+	fnode->ops     = &spkr_ops;
 	return fnode;
 }
 

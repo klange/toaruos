@@ -92,6 +92,11 @@ static ssize_t write_port(fs_node_t *node, off_t offset, size_t size, uint8_t *b
 	return size;
 }
 
+static fs_vtable_t port_ops = {
+	.read    = read_port,
+	.write   = write_port,
+};
+
 static fs_node_t * port_device_create(void) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
@@ -101,13 +106,7 @@ static fs_node_t * port_device_create(void) {
 	fnode->gid = 0;
 	fnode->mask = 0660;
 	fnode->flags   = FS_BLOCKDEVICE;
-	fnode->read    = read_port;
-	fnode->write   = write_port;
-	fnode->open    = NULL;
-	fnode->close   = NULL;
-	fnode->readdir = NULL;
-	fnode->finddir = NULL;
-	fnode->ioctl   = NULL;
+	fnode->ops     = &port_ops;
 	fnode->ctime   = now();
 	fnode->mtime   = now();
 	fnode->atime   = now();

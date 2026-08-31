@@ -485,6 +485,10 @@ static int ioctl_mouse(fs_node_t * node, unsigned long request, void * argp) {
 	}
 }
 
+static fs_vtable_t mouse_ops = {
+	.ioctl = ioctl_mouse,
+};
+
 static int vmware_initialize(int argc, char * argv[]) {
 	if (!detect_device()) return -ENODEV;
 
@@ -494,7 +498,7 @@ static int vmware_initialize(int argc, char * argv[]) {
 	vfs_mount("/dev/vmmouse", mouse_pipe, "vmware-mouse", "");
 
 	mouse_pipe->flags = FS_CHARDEVICE;
-	mouse_pipe->ioctl = ioctl_mouse;
+	mouse_pipe->ops   = &mouse_ops;
 
 	/*
 	 * We have a hack in the PS/2 mouse driver that lets us

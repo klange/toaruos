@@ -444,6 +444,12 @@ static int ioctl_ata(fs_node_t * node, unsigned long request, void * argp) {
 	}
 }
 
+static fs_vtable_t atapi_ops = {
+	.read    = read_atapi,
+	.open    = open_ata,
+	.close   = close_ata,
+};
+
 static fs_node_t * atapi_device_create(struct ata_device * device) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
@@ -455,15 +461,17 @@ static fs_node_t * atapi_device_create(struct ata_device * device) {
 	fnode->mask    = 0664;
 	fnode->length  = atapi_max_offset(device);
 	fnode->flags   = FS_BLOCKDEVICE;
-	fnode->read    = read_atapi;
-	fnode->write   = NULL; /* no write support */
-	fnode->open    = open_ata;
-	fnode->close   = close_ata;
-	fnode->readdir = NULL;
-	fnode->finddir = NULL;
-	fnode->ioctl   = NULL; /* TODO, identify, etc? */
+	fnode->ops = &atapi_ops;
 	return fnode;
 }
+
+static fs_vtable_t ata_ops = {
+	.read    = read_ata,
+	.write   = write_ata,
+	.open    = open_ata,
+	.close   = close_ata,
+	.ioctl   = ioctl_ata, /* TODO, identify, etc? */
+};
 
 static fs_node_t * ata_device_create(struct ata_device * device) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
@@ -476,13 +484,7 @@ static fs_node_t * ata_device_create(struct ata_device * device) {
 	fnode->mask    = 0660;
 	fnode->length  = ata_max_offset(device); /* TODO */
 	fnode->flags   = FS_BLOCKDEVICE;
-	fnode->read    = read_ata;
-	fnode->write   = write_ata;
-	fnode->open    = open_ata;
-	fnode->close   = close_ata;
-	fnode->readdir = NULL;
-	fnode->finddir = NULL;
-	fnode->ioctl   = ioctl_ata; /* TODO, identify, etc? */
+	fnode->ops     = &ata_ops;
 	return fnode;
 }
 

@@ -309,6 +309,18 @@ static void * kvmalloc_p(size_t size, uint32_t * outphys) {
 	return mmu_map_from_physical(index);
 }
 
+static fs_vtable_t mouse_ops = {
+	.ioctl = ioctl_mouse,
+};
+
+static fs_vtable_t pointer_ops = {
+	.write = write_pointer,
+};
+
+static fs_vtable_t rectpipe_ops = {
+	.write = write_rectpipe,
+};
+
 static int vbox_install(int argc, char * argv[]) {
 	if (args_present("novbox")) return -ENODEV;
 	pci_scan(vbox_scan_pci, -1, &vbox_device);
@@ -332,7 +344,7 @@ static int vbox_install(int argc, char * argv[]) {
 
 	mouse_pipe = make_pipe(sizeof(mouse_device_packet_t) * PACKETS_IN_PIPE);
 	mouse_pipe->flags = FS_CHARDEVICE;
-	mouse_pipe->ioctl = ioctl_mouse;
+	mouse_pipe->ops   = &mouse_ops;
 
 	vfs_mount("/dev/absmouse", mouse_pipe, "vbox-tablet", "");
 
@@ -440,11 +452,10 @@ static int vbox_install(int argc, char * argv[]) {
 			} else {
 				/* Success, let's install the device file */
 				//fprintf(&vb, "Successfully initialized cursor, going to allow compositor to set it.\n");
-				pointer_pipe = malloc(sizeof(fs_node_t));
-				memset(pointer_pipe, 0, sizeof(fs_node_t));
+				pointer_pipe = calloc(1, sizeof(fs_node_t));
 				pointer_pipe->mask = 0666;
 				pointer_pipe->flags = FS_CHARDEVICE;
-				pointer_pipe->write = write_pointer;
+				pointer_pipe->ops   = &pointer_ops;
 
 				vfs_mount("/dev/vboxpointer", pointer_pipe, "vbox-pointer", "");
 			}
@@ -470,7 +481,7 @@ static int vbox_install(int argc, char * argv[]) {
 		memset(rect_pipe, 0, sizeof(fs_node_t));
 		rect_pipe->mask = 0666;
 		rect_pipe->flags = FS_CHARDEVICE;
-		rect_pipe->write = write_rectpipe;
+		rect_pipe->ops   = &rectpipe_ops;
 
 		vfs_mount("/dev/vboxrects", rect_pipe, "vbox-rects", "");
 	}
