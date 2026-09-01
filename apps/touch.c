@@ -19,6 +19,9 @@ static int usage(char * argv[]) {
 }
 
 int main(int argc, char * argv[]) {
+	struct timespec omit    = {.tv_nsec = UTIME_OMIT};
+	struct timespec desired_m_time = {.tv_nsec = UTIME_NOW};
+	struct timespec desired_a_time = {.tv_nsec = UTIME_NOW};
 	int set_times = 0;
 	int dont_create = 0;
 	int opt;
@@ -34,7 +37,16 @@ int main(int argc, char * argv[]) {
 			case 'c':
 				dont_create = 1;
 				break;
-			case 'r':
+			case 'r': {
+				struct stat st;
+				if (stat(optarg, &st) == -1) {
+					fprintf(stderr, "%s: %s: %s\n", argv[0], optarg, strerror(errno));
+					return 1;
+				}
+				desired_a_time = st.st_atim;
+				desired_m_time = st.st_mtim;
+				break;
+			}
 			case 't':
 			case 'd':
 				return fprintf(stderr, "%s: -%c not supported\n", argv[0], opt), 2;
@@ -46,8 +58,8 @@ int main(int argc, char * argv[]) {
 	if (optind == argc) return usage(argv);
 
 	struct timespec times[2];
-	times[0].tv_nsec = (set_times == 0 || (set_times & 1)) ? UTIME_NOW : UTIME_OMIT;
-	times[1].tv_nsec = (set_times == 0 || (set_times & 2)) ? UTIME_NOW : UTIME_OMIT;
+	times[0] = (set_times == 0 || (set_times & 1)) ? desired_a_time : omit;
+	times[1] = (set_times == 0 || (set_times & 2)) ? desired_m_time : omit;
 
 	int out = 0;
 
