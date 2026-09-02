@@ -39,7 +39,6 @@
 
 #include <toaru/list.h>
 #include <toaru/hashmap.h>
-#include <toaru/kbd.h>
 #include <toaru/rline.h>
 #include <toaru/decodeutf8.h>
 #include <toaru/modecalc.h>
