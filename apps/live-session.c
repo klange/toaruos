@@ -20,6 +20,8 @@
 #define TRACE_APP_NAME "live-session"
 
 int main(int argc, char * argv[]) {
+	if (fork()) return 0;
+
 	int pid;
 
 	if (geteuid() != 0) {
