@@ -4,12 +4,55 @@
 \fBtouch\fP \- create or update access for files
 
 .SH SYNOPSIS
-\fBtouch\fP \fIfile\fP...
+\fBtouch\fP [\fB\-a\fP] [\fB\-c\fP] [\fB\-m\fP] \fIfile\fP...
+.br
+\fBtouch\fP [\fB\-a\fP] [\fB\-c\fP] [\fB\-m\fP] \fB\-r\fP \fIref_file\fP \fIfile\fP...
+.br
+\fBtouch\fP [\fB\-a\fP] [\fB\-c\fP] [\fB\-m\fP] \fB\-t\fP \fItime\fP \fIfile\fP...
+.br
+\fBtouch\fP [\fB\-a\fP] [\fB\-c\fP] [\fB\-m\fP] \fB\-d\fP \fIdate\fP \fIfile\fP...
 
 .SH DESCRIPTION
 This utlity creates empty files or attempts to update the access time for existing ones.
 
-.SH BUGS
-This version of this utility attempts to open files with \fBO_APPEND\fP, which is probably not right.
-.PP
-The utility may not actually update access times.
+.SS Options
+
+.TP
+.B \-a
+Without \fB\-m\fP, update only the access time.
+
+.TP
+.B \-c
+Do not create, or warn about, \fIfile\fPs that do not exist.
+
+.TP
+.B \-m
+Without \fB\-a\fP, update only the modification time.
+
+.TP
+.B \-r \fIref_file\fP
+Copy the access and modification times from \fIref_file\fP instead of using the current time.
+
+.TP
+.B \-t \fItime\fP
+Use \fItime\fP, in the format \fB[[CC]YY]MMDDhhmm[.SS]\fP, instead of the current time.
+
+.TP
+.B \-d \fIdate\fP
+Use \fIdate\fP, in the format \fBYYYY-MM-DDThh:mm:SS[.frac][tz]\fP, instead of the current time.
+\fBT\fP may be a space or a literal \fBT\fP character.
+The \fB.\fP preceding \fBfrac\fP may be a \fB.\fP or a \fB,\fP character.
+\fBtz\fP may be empty or the \fBZ\fP.
+
+.SH EXIT STATUS
+
+.TP
+.B 0
+File timestamps were updated successfully.
+
+.TP
+.B 1
+An error occurred.
+
+.SH STANDARDS
+POSIX.1\-2024
