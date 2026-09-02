@@ -29,6 +29,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/wait.h>
 #include <sys/fswait.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
@@ -2472,7 +2473,8 @@ int main(int argc, char * argv[]) {
 
 	yutani_clip_init(yg);
 
-	if (!fork()) {
+	pid_t child = fork();
+	if (!child) {
 		if (argx < argc) {
 			TRACE("Starting alternate startup app: %s", argv[argx]);
 			execvp(argv[argx], &argv[argx]);
@@ -2524,6 +2526,8 @@ int main(int argc, char * argv[]) {
 			last_redraw = yutani_current_time(yg);
 			frameTime = 0;
 		}
+
+		if (child > 0 && waitpid(child, NULL, WNOHANG) == child) child = -1;
 
 		if (yutani_options.nested) {
 			int index = fswait2(2, fds, 16 - frameTime);
