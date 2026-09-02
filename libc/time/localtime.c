@@ -56,8 +56,8 @@ static long days_in_month(int month, int year) {
 static struct tm * fill_time(const time_t * timep, struct tm * _timevalue, const char * tzName, int tzOffset) {
 
 	time_t timeVal = *timep + tzOffset;
-	_timevalue->_tm_zone_name = tzName;
-	_timevalue->_tm_zone_offset = tzOffset;
+	_timevalue->tm_zone = tzName;
+	_timevalue->tm_gmtoff = tzOffset;
 
 	long seconds = timeVal < 0 ? -2208988800L : 0;
 	long year_sec = 0;
@@ -208,7 +208,7 @@ time_t mktime(struct tm *tm) {
 	  (tm->tm_mday - 1) * 86400 +
 	  (tm->tm_hour) * 3600 +
 	  (tm->tm_min) * 60 +
-	  (tm->tm_sec) - tm->_tm_zone_offset;
+	  (tm->tm_sec) - tm->tm_gmtoff;
 }
 
 

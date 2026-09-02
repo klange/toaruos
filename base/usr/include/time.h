@@ -16,9 +16,8 @@ struct tm {
     int tm_wday;   /* Day of the week (0-6, Sunday = 0) */
     int tm_yday;   /* Day in the year (0-365, 1 Jan = 0) */
     int tm_isdst;  /* Daylight saving time */
-
-    const char * _tm_zone_name;
-    int _tm_zone_offset;
+    const char * tm_zone;
+    int tm_gmtoff;
 };
 
 extern struct tm *localtime(const time_t *timep);

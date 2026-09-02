@@ -180,15 +180,15 @@ size_t strftime(char *s, size_t max, const char *fmt, const struct tm *tm) {
 				w = snprintf(b, max, "%04d", tm->tm_year + 1900);
 				break;
 			case 'z': {
-				int zone_offset = tm->_tm_zone_offset >= 0 ? tm->_tm_zone_offset : -tm->_tm_zone_offset;
-				char sign = tm->_tm_zone_offset >= 0 ? '+' : '-';
+				int zone_offset = tm->tm_gmtoff >= 0 ? tm->tm_gmtoff : -tm->tm_gmtoff;
+				char sign = tm->tm_gmtoff >= 0 ? '+' : '-';
 				int hour = zone_offset / 3600;
 				int mins = (zone_offset / 60) % 60;
 				w = snprintf(b, max, "%c%02d%02d", sign, hour, mins);
 				break;
 			}
 			case 'Z':
-				w = snprintf(b, max, tm->_tm_zone_name);
+				w = snprintf(b, max, tm->tm_zone);
 				break;
 			case '%':
 				w = snprintf(b, max, "%c", '%');
