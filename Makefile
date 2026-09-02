@@ -115,7 +115,7 @@ $(BASE)/bin/bim: bim/bim.c bim/bim.h | $(LC) $(BASE)/lib/libkuroko.so
 
 KRK_SRC = $(sort $(wildcard kuroko/src/*.c))
 $(BASE)/bin/kuroko: $(KRK_SRC) lib/rline.c | $(LC) $(CRTS)
-	$(CC) $(CFLAGS) -o $@ -Wl,--export-dynamic -Ikuroko/src $(KRK_SRC) lib/rline.c
+	$(CC) $(CFLAGS) -o $@ -Wl,--export-dynamic -Ikuroko/src $(KRK_SRC) -ltoaru_rline
 
 $(BASE)/lib/kuroko/%.so: kuroko/src/modules/module_%.c| dirs $(LC)
 	$(CC) $(CFLAGS) -shared -fPIC -Ikuroko/src -o $@ $<
