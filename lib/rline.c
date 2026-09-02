@@ -1945,19 +1945,19 @@ static int handle_escape(int * this_buf, int * timeout, int c) {
 		*timeout = 1;
 		return 1;
 	}
-	if (*timeout >= 1 && this_buf[*timeout-1] == '\033' && c == '[') {
+	if (*timeout >= 1 && this_buf[*timeout-1] == '\033' && (c == '[' || c == 'O')) {
 		*timeout = 1;
 		this_buf[*timeout] = c;
 		(*timeout)++;
 		return 0;
 	}
-	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[' &&
+	if (*timeout >= 2 && this_buf[0] == '\033' && (this_buf[1] == '[' || this_buf[1] == 'O') &&
 			(isdigit(c) || c == ';')) {
 		this_buf[*timeout] = c;
 		(*timeout)++;
 		return 0;
 	}
-	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
+	if (*timeout >= 2 && this_buf[0] == '\033' && (this_buf[1] == '[' || this_buf[1] == 'O')) {
 		switch (c) {
 			case 'A': // up
 				history_previous();
@@ -2338,7 +2338,9 @@ static int read_line(void) {
 						rline_place_cursor();
 						if (!*rline_exit_string) {
 							set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
-							printf("^D\033[0m");
+							printf("%s%c\033[0m",
+								(_EOF < 32 || _EOF == 0x7F) ? "^" : "",
+								_EOF < 32 ? (_EOF + '@') : (_EOF == 0x7F ? '?' : _EOF));
 						}
 						return 1;
 					} else { /* Otherwise act like delete */
