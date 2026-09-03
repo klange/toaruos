@@ -21,7 +21,7 @@ In early 2022, the OS was further ported to aarch64.
 ## Notable Components
 
 - **Misaka** (kernel), [kernel/](kernel/), a hybrid modular kernel, and the core of the operating system.
-- **Yutani** (window compositor), [apps/compositor.c](apps/compositor.c), manages window buffers, layout, and input routing.
+- **Yutani** (window compositor), [apps/yutani.c](apps/yutani.c), manages window buffers, layout, and input routing.
 - **Kuroko** (interpreter), [kuroko/](https://kuroko-lang.github.io/), a dynamic bytecode-compiled programming language.
 - **Bim** (text editor), [bim/](https://github.com/toaruos/bim/), is a Vim-inspired editor with syntax highlighting.
 - **Terminal**, [apps/terminal.c](apps/terminal.c), xterm-esque terminal emulator with 24-bit color support.
