@@ -11,6 +11,8 @@ extern void __assert_func(const char * file, int line, const char * func, const 
 #define assert(statement) ((void)0)
 #endif
 
+#if __STDC_VERSION__ >= 201112L && !defined(__cplusplus)
 #define static_assert _Static_assert
+#endif
 
 _End_C_Header
