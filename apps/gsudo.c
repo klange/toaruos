@@ -73,7 +73,7 @@ static int set_hilight(struct TTKButton * button, int hilight) {
 	return 0;
 }
 
-static void redraw(char * username, char * password, int fails, char * argv[]) {
+static void redraw(char * username, char * password, int fails, struct SudoContext * sudo_ctx) {
 
 	sprite_t * prompt = create_sprite(420, 320, ALPHA_EMBEDDED);
 	gfx_context_t * myctx = init_graphics_sprite(prompt);
@@ -90,7 +90,7 @@ static void redraw(char * username, char * password, int fails, char * argv[]) {
 	tt_draw_string(myctx, tt_font_thin, 30, 30 + FONT_SIZE_TITLE, "Authentication Required", FONT_COLOR);
 	tt_set_size(tt_font_thin, FONT_SIZE_MAIN);
 	tt_draw_string(myctx, tt_font_thin, 30, 54 + FONT_SIZE_MAIN, "Authentication is required to run the application", FONT_COLOR);
-	tt_draw_string(myctx, tt_font_thin, 30, 72 + FONT_SIZE_MAIN, argv[1], FONT_COLOR);
+	tt_draw_string(myctx, tt_font_thin, 30, 72 + FONT_SIZE_MAIN, sudo_ctx->argv[0], FONT_COLOR);
 
 	char prompt_message[512];
 	sprintf(prompt_message, "Enter password for '%s'", username);
@@ -133,10 +133,10 @@ static void redraw(char * username, char * password, int fails, char * argv[]) {
 	yutani_flip(yctx, window);
 }
 
-static int graphical_callback(char * username, char * password, int fails, char * argv[]) {
+static int graphical_callback(struct SudoContext * sudo_ctx, char * username, char * password, int fails) {
 	int i = 0;
 
-	redraw(username, password, fails, argv);
+	redraw(username, password, fails, sudo_ctx);
 
 	while (1) {
 
@@ -160,7 +160,7 @@ static int graphical_callback(char * username, char * password, int fails, char 
 							password[i+1] = '\0';
 							i++;
 						}
-						redraw(username, password, fails, argv);
+						redraw(username, password, fails, sudo_ctx);
 					}
 				}
 				break;
@@ -204,7 +204,7 @@ static int graphical_callback(char * username, char * password, int fails, char 
 							}
 						}
 					}
-					if (r) redraw(username, password, fails, argv);
+					if (r) redraw(username, password, fails, sudo_ctx);
 				}
 				break;
 			case YUTANI_MSG_WINDOW_FOCUS_CHANGE:
@@ -224,10 +224,33 @@ static int graphical_callback(char * username, char * password, int fails, char 
 }
 
 int main(int argc, char ** argv) {
+	struct SudoContext sudo_ctx = {0};
+	sudo_ctx.program_name = argv[0];
+	sudo_ctx.prompt_callback = graphical_callback;
 
-	if (argc < 2) {
-		return 1;
+	static struct option long_opts[] = {
+		{"help",  no_argument, 0, 'h'},
+		{"shell", no_argument, 0, 's'},
+		{0,0,0,0},
+	};
+
+	int opt;
+	while ((opt = getopt_long(argc, argv, "+hs", long_opts, NULL)) != -1) {
+		switch (opt) {
+			case 'h':
+				usage(argc, argv);
+				return 0;
+			case 's':
+				sudo_ctx.sudo_as_shell = 1;
+				break;
+			default:
+				return usage(argc, argv);
+		}
 	}
+
+	if (!sudo_ctx.sudo_as_shell && optind == argc) return usage(argc, argv);
+	sudo_ctx.argv = &argv[optind];
+	sudo_ctx.argc = argc - optind;
 
 	yctx = yutani_init();
 
@@ -252,5 +275,5 @@ int main(int argc, char ** argv) {
 
 	ctx = init_graphics_yutani_double_buffer(window);
 
-	return sudo_loop(graphical_callback, argv);
+	return sudo_loop(&sudo_ctx);
 }

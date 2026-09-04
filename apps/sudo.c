@@ -23,27 +23,70 @@
 #include <errno.h>
 #include <pwd.h>
 #include <dirent.h>
+#include <getopt.h>
 #include <sys/utsname.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <toaru/auth.h>
 
+struct SudoContext {
+	const char * program_name;
+	int sudo_as_shell;
+	int (*prompt_callback)(struct SudoContext * ctx, char * username, char * password, int failures);
+	char **argv;
+	int argc;
+};
+
 #define MINUTES * 60
 
 #define SUDO_TIME 5 MINUTES
 
-static int sudo_loop(int (*prompt_callback)(char * username, char * password, int failures, char * argv[]), char * argv[]) {
+static int sudo_loop(struct SudoContext * ctx) {
 
 	int fails = 0;
 
 	if (geteuid() != 0) {
-		fprintf(stderr, "%s: effective uid is not 0\n", argv[0]);
+		fprintf(stderr, "%s: effective uid is not 0\n", ctx->program_name);
 		return 1;
 	}
 
 	struct stat buf;
 	if (stat("/var/sudoers", &buf)) {
 		mkdir("/var/sudoers", 0700);
+	}
+
+	if (ctx->sudo_as_shell) {
+		char * shell = getenv("SHELL");
+		if (!shell) shell = "/bin/sh";
+		if (ctx->argc != 0) {
+			char ** argv = ctx->argv;
+			ctx->argv = calloc(4,sizeof(char**));
+			ctx->argv[0] = shell;
+			ctx->argv[1] = "-c";
+
+			for (int pass = 0; pass < 2; ++pass) {
+				size_t count = 0;
+				for (int i = 0; i < ctx->argc; ++i) {
+					for (char * c = argv[i]; *c; ++c) {
+						if (*c < 'a' && *c > 'z' && *c < 'A' && *c > 'Z' && *c < '0' && *c > '9' && *c != '_' && *c != '-' && *c != '$') {
+							if (ctx->argv[2]) ctx->argv[2][count] = '\\';
+							count++;
+						}
+						if (ctx->argv[2]) ctx->argv[2][count] = *c;
+						count++;
+					}
+					if (i + 1 != ctx->argc) {
+						if (ctx->argv[2]) ctx->argv[2][count] = ' ';
+						count++;
+					}
+				}
+
+				if (pass == 0) ctx->argv[2] = calloc(1,count + 1);
+			}
+		} else {
+			ctx->argv = calloc(2,sizeof(char*));
+			ctx->argv[0] = shell;
+		}
 	}
 
 	while (1) {
@@ -58,7 +101,7 @@ static int sudo_loop(int (*prompt_callback)(char * username, char * password, in
 
 		struct passwd * p = getpwuid(me);
 		if (!p) {
-			fprintf(stderr, "%s: unable to obtain username for real uid=%d\n", argv[0], getuid());
+			fprintf(stderr, "%s: unable to obtain username for real uid=%d\n", ctx->program_name, getuid());
 			return 1;
 		}
 		char * username = strdup(p->pw_name);
@@ -79,7 +122,7 @@ static int sudo_loop(int (*prompt_callback)(char * username, char * password, in
 		if (need_password) {
 			char * password = calloc(1024, sizeof(char));
 
-			if (prompt_callback(username, password, fails, argv)) {
+			if (ctx->prompt_callback(ctx, username, password, fails)) {
 				free(username);
 				free(password);
 				return 1;
@@ -93,7 +136,7 @@ static int sudo_loop(int (*prompt_callback)(char * username, char * password, in
 				free(username);
 				fails++;
 				if (fails == 3) {
-					fprintf(stderr, "%s: %d incorrect password attempts\n", argv[0], fails);
+					fprintf(stderr, "%s: %d incorrect password attempts\n", ctx->program_name, fails);
 					return 1;
 				}
 				fprintf(stderr, "Sorry, try again.\n");
@@ -106,7 +149,7 @@ static int sudo_loop(int (*prompt_callback)(char * username, char * password, in
 			FILE * sudoers = fopen("/etc/sudoers","r");
 			if (!sudoers) {
 				free(username);
-				fprintf(stderr, "%s: /etc/sudoers is not available\n", argv[0]);
+				fprintf(stderr, "%s: /etc/sudoers is not available\n", ctx->program_name);
 				return 1;
 			}
 
@@ -138,7 +181,7 @@ static int sudo_loop(int (*prompt_callback)(char * username, char * password, in
 		/* Write a timestamp file */
 		FILE * f = fopen(token_file, "w");
 		if (!f) {
-			fprintf(stderr, "%s: (warning) failed to create token file\n", argv[0]);
+			fprintf(stderr, "%s: (warning) failed to create token file\n", ctx->program_name);
 		}
 		fclose(f);
 
@@ -150,23 +193,18 @@ static int sudo_loop(int (*prompt_callback)(char * username, char * password, in
 		setuid(0);
 		setgroups(0,NULL);
 
-		if (!strcmp(argv[1], "-s")) {
-			argv[1] = getenv("SHELL");
-		}
-
-		char ** args = &argv[1];
-		execvp(args[0], args);
+		execvp(ctx->argv[0], ctx->argv);
 
 		/* XXX: There are other things that can cause an exec to fail. */
-		fprintf(stderr, "%s: %s: command not found\n", argv[0], args[0]);
+		fprintf(stderr, "%s: %s: command not found\n", ctx->program_name, ctx->argv[0]);
 		return 1;
 	}
 
 	return 0;
 }
 
-static int basic_callback(char * username, char * password, int fails, char * argv[]) {
-	fprintf(stderr, "[%s] password for %s: ", argv[0], username);
+static int basic_callback(struct SudoContext * ctx, char * username, char * password, int fails) {
+	fprintf(stderr, "[%s] password for %s: ", ctx->program_name, username);
 	fflush(stderr);
 
 	/* Disable echo */
@@ -186,17 +224,43 @@ static int basic_callback(char * username, char * password, int fails, char * ar
 	return 0;
 }
 
-void usage(int argc, char * argv[]) {
-	fprintf(stderr, "usage: %s [command]\n", argv[0]);
+int usage(int argc, char * argv[]) {
+	fprintf(stderr,
+		"usage: %s command...\n"
+		"       %s -s [command...]\n",
+		argv[0], argv[0]);
+	return 1;
 }
 
 int main(int argc, char ** argv) {
+	struct SudoContext ctx = {0};
+	ctx.program_name = argv[0];
+	ctx.prompt_callback = basic_callback;
 
-	if (argc < 2) {
-		usage(argc, argv);
-		return 1;
+	static struct option long_opts[] = {
+		{"help",  no_argument, 0, 'h'},
+		{"shell", no_argument, 0, 's'},
+		{0,0,0,0},
+	};
+
+	int opt;
+	while ((opt = getopt_long(argc, argv, "+hs", long_opts, NULL)) != -1) {
+		switch (opt) {
+			case 'h':
+				usage(argc, argv);
+				return 0;
+			case 's':
+				ctx.sudo_as_shell = 1;
+				break;
+			default:
+				return usage(argc, argv);
+		}
 	}
 
-	return sudo_loop(basic_callback, argv);
+	if (!ctx.sudo_as_shell && optind == argc) return usage(argc, argv);
+	ctx.argv = &argv[optind];
+	ctx.argc = argc - optind;
+
+	return sudo_loop(&ctx);
 }
 
