@@ -341,7 +341,9 @@ void _menu_draw_MenuEntry_Slider(gfx_context_t * ctx, struct MenuEntry * _self, 
 	struct MenuEntry_Slider * self = (void*)_self;
 	self->offset = offset;
 
-	draw_sprite_alpha_paint(ctx, self->icon, 4, offset, 1.0, rgb(0,0,0));
+	if (self->icon) {
+		draw_sprite_alpha_paint(ctx, self->icon, 4, offset, 1.0, rgb(0,0,0));
+	}
 
 	struct SliderStuff stuff;
 	stuff.level = (ctx->width - MENU_ENTRY_SLIDER_PAD) * self->value;
