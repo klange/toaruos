@@ -145,6 +145,7 @@ static bool beep_on_bell = 0;
 static bool show_tab_numbers = 0;
 static bool _no_menu_bar = 0;
 static bool show_fg_name = 1;
+static int  term_opacity = TERM_DEFAULT_OPAC;
 
 static bool terminal_login_shell_restricted = 0;
 
@@ -872,7 +873,7 @@ static void term_write_char(term_state_t * state, uint32_t val, uint16_t x, uint
 		if (flags & ANSI_SPECBG) {
 			_bg |= 0xFF << 24;
 		} else {
-			_bg |= TERM_DEFAULT_OPAC << 24;
+			_bg |= term_opacity << 24;
 		}
 	} else {
 		_bg = bg;
@@ -1065,7 +1066,7 @@ static void redraw_cell_image(term_state_t * state, uint16_t x, uint16_t y, term
 	/* Avoid setting cells out of range. */
 	if (x >= state->width || y >= state->height) return;
 
-	uint32_t default_bg = term_colors[TERM_DEFAULT_BG] | (TERM_DEFAULT_OPAC << 24);
+	uint32_t default_bg = term_colors[TERM_DEFAULT_BG] | (term_opacity << 24);
 
 	/* Draw the image data */
 	struct CellImage * image = (struct CellImage *)((uintptr_t)cell->bg << 32 | cell->fg);
@@ -2209,6 +2210,12 @@ static void _menu_action_toggle_bold(struct MenuEntry * self) {
 	reinit();
 }
 
+static void _menu_action_transparency_slider(struct MenuEntry * _self) {
+	struct MenuEntry_Slider * self = (void *)_self;
+	term_opacity = self->value * 0xFF;
+	reinit();
+}
+
 static void _menu_action_toggle_free_size(struct MenuEntry * self) {
 	_free_size = !(_free_size);
 	menu_update_toggle_state(self, !_free_size);
@@ -2519,6 +2526,10 @@ static void load_config(char * argv[], int *max_scrollback, bool *scale_fonts, f
 
 	config_option_bool(argv, config_json, "fg-name", &show_fg_name);
 
+	float opacity = (float)term_opacity / 0xFF;
+	config_option_float(argv, config_json, "bg-opacity", &opacity);
+	term_opacity = opacity * 0xFF;
+
 config_done:
 	if (config_json) json_free(config_json);
 	free(config_path);
@@ -2773,6 +2784,10 @@ int main(int argc, char ** argv) {
 	menu_set_insert(terminal_menu_bar._super.set, "termstate", m);
 
 	m = menu_create();
+	menu_insert(m, menu_create_slider(NULL, (float)TERM_DEFAULT_OPAC / 0xFF, _menu_action_transparency_slider));
+	menu_set_insert(terminal_menu_bar._super.set, "transparency", m);
+
+	m = menu_create();
 	_menu_toggle_borders_bar = menu_create_toggle(NULL, "Show borders", !_no_frame, _menu_action_hide_borders);
 	menu_insert(m, _menu_toggle_borders_bar);
 	menu_insert(m, menu_create_toggle(NULL, "Snap to Cell Size", !_free_size, _menu_action_toggle_free_size));
@@ -2788,6 +2803,7 @@ int main(int argc, char ** argv) {
 	_menu_toggle_bold_bar = menu_create_toggle(NULL, "Emulate bold", set_bold, _menu_action_toggle_bold);
 	menu_update_enabled(_menu_toggle_bold_bar, !set_truetype);
 	menu_insert(m, _menu_toggle_bold_bar);
+	menu_insert(m, menu_create_submenu(NULL,"transparency","Background opacity..."));
 
 	menu_insert(m, menu_create_separator());
 
