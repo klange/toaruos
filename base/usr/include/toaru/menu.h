@@ -14,6 +14,7 @@ enum MenuEntry_Type {
 	MenuEntry_Submenu,
 	MenuEntry_Separator,
 	MenuEntry_Toggle,
+	MenuEntry_Slider,
 };
 
 struct MenuList;

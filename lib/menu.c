@@ -405,7 +405,7 @@ static struct MenuEntryVTable _menu_vtable_MenuEntry_Slider = {
 struct MenuEntry * menu_create_slider(sprite_t * icon, float initial_value, void (*callback)(struct MenuEntry *)) {
 	struct MenuEntry_Slider * out = calloc(1, sizeof(struct MenuEntry_Slider));
 
-	out->_type = -1; /* Special */
+	out->_type = MenuEntry_Slider; /* Special */
 	out->height = 24;
 	out->rwidth = 200;
 	out->vtable = &_menu_vtable_MenuEntry_Slider;
