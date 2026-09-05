@@ -313,9 +313,10 @@ struct MenuEntry * menu_create_separator(void) {
 	return (struct MenuEntry *)out;
 }
 
-#define MENU_ENTRY_SLIDER_LEFT_PAD  38
+#define MENU_ENTRY_SLIDER_LEFT_PAD   38
+#define MENU_ENTRY_SLIDER_LEFT_PAD2  14
 #define MENU_ENTRY_SLIDER_RIGHT_PAD  14
-#define MENU_ENTRY_SLIDER_PAD (MENU_ENTRY_SLIDER_LEFT_PAD + MENU_ENTRY_SLIDER_RIGHT_PAD)
+#define MENU_ENTRY_SLIDER_PAD (left_pad + MENU_ENTRY_SLIDER_RIGHT_PAD)
 #define MENU_ENTRY_SLIDER_VERT_PAD   10
 #define MENU_ENTRY_SLIDER_BALL_RADIUS 8
 
@@ -323,6 +324,7 @@ struct SliderStuff {
 	int level;
 	uint32_t on;
 	uint32_t off;
+	int pad;
 };
 
 static uint32_t menu_slider_pattern(int32_t x, int32_t y, double alpha, void * extra) {
@@ -330,7 +332,7 @@ static uint32_t menu_slider_pattern(int32_t x, int32_t y, double alpha, void * e
 	if (alpha > 1.0) alpha = 1.0;
 	if (alpha < 0.0) alpha = 0.0;
 	uint32_t color = stuff->off;
-	if (x < stuff->level + MENU_ENTRY_SLIDER_LEFT_PAD) {
+	if (x < stuff->level + stuff->pad) {
 		color = stuff->on;
 	}
 	color |= rgba(0,0,0,alpha*255);
@@ -345,30 +347,33 @@ void _menu_draw_MenuEntry_Slider(gfx_context_t * ctx, struct MenuEntry * _self, 
 		draw_sprite_alpha_paint(ctx, self->icon, 4, offset, 1.0, rgb(0,0,0));
 	}
 
+	int left_pad = self->icon ? MENU_ENTRY_SLIDER_LEFT_PAD : MENU_ENTRY_SLIDER_LEFT_PAD2;
+
 	struct SliderStuff stuff;
+	stuff.pad = left_pad;
 	stuff.level = (ctx->width - MENU_ENTRY_SLIDER_PAD) * self->value;
 	stuff.on  = rgba(0,120,220,0);
 	stuff.off = rgba(140,140,140,0);
 	draw_rounded_rectangle_pattern(ctx,
-		/* x */ MENU_ENTRY_SLIDER_LEFT_PAD - 4,
+		/* x */ left_pad - 4,
 		/* y */ offset + MENU_ENTRY_SLIDER_VERT_PAD - 1,
 		/* w */ ctx->width - MENU_ENTRY_SLIDER_PAD + 8,
 		/* h */ self->height - 2 * MENU_ENTRY_SLIDER_VERT_PAD + 2, 6, menu_slider_pattern, &stuff);
 	stuff.on  = rgba(40,160,255,0);
 	stuff.off = rgba(200,200,200,0);
 	draw_rounded_rectangle_pattern(ctx,
-		/* x */ MENU_ENTRY_SLIDER_LEFT_PAD - 3,
+		/* x */ left_pad - 3,
 		/* y */ offset + MENU_ENTRY_SLIDER_VERT_PAD,
 		/* w */ ctx->width - MENU_ENTRY_SLIDER_PAD + 6,
 		/* h */ self->height - 2 * MENU_ENTRY_SLIDER_VERT_PAD, 5, menu_slider_pattern, &stuff);
 
 	draw_rounded_rectangle(ctx,
-		/* x */ stuff.level - MENU_ENTRY_SLIDER_BALL_RADIUS + MENU_ENTRY_SLIDER_LEFT_PAD,
+		/* x */ stuff.level - MENU_ENTRY_SLIDER_BALL_RADIUS + left_pad,
 		/* y */ offset + 12 - MENU_ENTRY_SLIDER_BALL_RADIUS,
 		/* w */ MENU_ENTRY_SLIDER_BALL_RADIUS * 2,
 		/* h */ MENU_ENTRY_SLIDER_BALL_RADIUS * 2, MENU_ENTRY_SLIDER_BALL_RADIUS, rgb(140,140,140));
 	draw_rounded_rectangle(ctx,
-		/* x */ stuff.level - MENU_ENTRY_SLIDER_BALL_RADIUS + 1 + MENU_ENTRY_SLIDER_LEFT_PAD,
+		/* x */ stuff.level - MENU_ENTRY_SLIDER_BALL_RADIUS + 1 + left_pad,
 		/* y */ offset + 12 - MENU_ENTRY_SLIDER_BALL_RADIUS + 1,
 		/* w */ MENU_ENTRY_SLIDER_BALL_RADIUS * 2 - 2,
 		/* h */ MENU_ENTRY_SLIDER_BALL_RADIUS * 2 - 2, MENU_ENTRY_SLIDER_BALL_RADIUS - 1, rgb(220,220,220));
@@ -378,7 +383,8 @@ int _menu_mouse_MenuEntry_Slider(struct MenuEntry * _self, struct yutani_msg_win
 	struct MenuEntry_Slider * self = (void*)_self;
 	if (event->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
 		/* Figure out where it is */
-		float level = (float)(event->new_x - MENU_ENTRY_SLIDER_LEFT_PAD) / (float)(self->width - MENU_ENTRY_SLIDER_PAD);
+		int left_pad = self->icon ? MENU_ENTRY_SLIDER_LEFT_PAD : MENU_ENTRY_SLIDER_LEFT_PAD2;
+		float level = (float)(event->new_x - left_pad) / (float)(self->width - MENU_ENTRY_SLIDER_PAD);
 		if (level >= 1.0) level = 1.0;
 		if (level <= 0.0) level = 0.0;
 		if (self->value != level) {
