@@ -64,6 +64,12 @@ struct MenuEntry_Separator {
 	struct MenuEntry;
 };
 
+struct MenuEntry_Slider {
+	struct MenuEntry;
+	sprite_t * icon;
+	float value;
+};
+
 struct MenuList {
 	list_t * entries;
 	gfx_context_t * ctx;
@@ -86,6 +92,7 @@ extern struct MenuEntry * menu_create_normal(const char * icon, const char * act
 extern struct MenuEntry * menu_create_toggle(const char * action, const char * title, int set, void (*callback)(struct MenuEntry *));
 extern struct MenuEntry * menu_create_submenu(const char * icon, const char * action, const char * title);
 extern struct MenuEntry * menu_create_separator(void);
+extern struct MenuEntry * menu_create_slider(sprite_t * icon, float initial_value, void (*callback)(struct MenuEntry *));
 extern struct MenuList * menu_create(void);
 extern struct MenuSet * menu_set_from_description(const char * path, void (*callback)(struct MenuEntry *));
 

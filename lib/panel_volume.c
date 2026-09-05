@@ -22,6 +22,7 @@ static sprite_t * sprite_volume_low;
 static sprite_t * sprite_volume_med;
 static sprite_t * sprite_volume_high;
 static struct MenuList * volume_menu;
+static struct MenuEntry_Slider * volume_slider;
 
 static long volume_level = 0;
 static int mixer = -1;
@@ -48,6 +49,9 @@ static void set_volume(void) {
 	value.val    = volume_level;
 
 	ioctl(mixer, SND_MIXER_WRITE_KNOB, &value);
+
+	volume_slider->value = (float)volume_level / (float)0xFC000000;
+
 	redraw();
 }
 
@@ -63,94 +67,11 @@ static void volume_lower(void) {
 	set_volume();
 }
 
-#define VOLUME_SLIDER_LEFT_PAD  38
-#define VOLUME_SLIDER_RIGHT_PAD  14
-#define VOLUME_SLIDER_PAD (VOLUME_SLIDER_LEFT_PAD + VOLUME_SLIDER_RIGHT_PAD)
-#define VOLUME_SLIDER_VERT_PAD   10
-#define VOLUME_SLIDER_BALL_RADIUS 8
-
-struct SliderStuff {
-	int level;
-	uint32_t on;
-	uint32_t off;
-};
-
-uint32_t volume_pattern(int32_t x, int32_t y, double alpha, void * extra) {
-	struct SliderStuff * stuff = extra;
-	if (alpha > 1.0) alpha = 1.0;
-	if (alpha < 0.0) alpha = 0.0;
-	uint32_t color = stuff->off;
-	if (x < stuff->level + VOLUME_SLIDER_LEFT_PAD) {
-		color = stuff->on;
-	}
-	color |= rgba(0,0,0,alpha*255);
-	return premultiply(color);
+static void volume_slider_callback(struct MenuEntry *_self) {
+	struct MenuEntry_Slider * self = (void *)_self;
+	volume_level = self->value * 0xFC000000;
+	set_volume();
 }
-
-void _menu_draw_MenuEntry_Slider(gfx_context_t * ctx, struct MenuEntry * self, int offset) {
-	self->offset = offset;
-
-	draw_sprite_alpha_paint(ctx, sprite_volume_high, 4, offset, 1.0, rgb(0,0,0));
-
-	struct SliderStuff stuff;
-	stuff.level = (ctx->width - VOLUME_SLIDER_PAD) * (float)volume_level / (float)0xFC000000;
-	stuff.on  = rgba(0,120,220,0);
-	stuff.off = rgba(140,140,140,0);
-	draw_rounded_rectangle_pattern(ctx,
-		/* x */ VOLUME_SLIDER_LEFT_PAD - 4,
-		/* y */ offset + VOLUME_SLIDER_VERT_PAD - 1,
-		/* w */ ctx->width - VOLUME_SLIDER_PAD + 8,
-		/* h */ self->height - 2 * VOLUME_SLIDER_VERT_PAD + 2, 6, volume_pattern, &stuff);
-	stuff.on  = rgba(40,160,255,0);
-	stuff.off = rgba(200,200,200,0);
-	draw_rounded_rectangle_pattern(ctx,
-		/* x */ VOLUME_SLIDER_LEFT_PAD - 3,
-		/* y */ offset + VOLUME_SLIDER_VERT_PAD,
-		/* w */ ctx->width - VOLUME_SLIDER_PAD + 6,
-		/* h */ self->height - 2 * VOLUME_SLIDER_VERT_PAD, 5, volume_pattern, &stuff);
-
-	draw_rounded_rectangle(ctx,
-		/* x */ stuff.level - VOLUME_SLIDER_BALL_RADIUS + VOLUME_SLIDER_LEFT_PAD,
-		/* y */ offset + 12 - VOLUME_SLIDER_BALL_RADIUS,
-		/* w */ VOLUME_SLIDER_BALL_RADIUS * 2,
-		/* h */ VOLUME_SLIDER_BALL_RADIUS * 2, VOLUME_SLIDER_BALL_RADIUS, rgb(140,140,140));
-	draw_rounded_rectangle(ctx,
-		/* x */ stuff.level - VOLUME_SLIDER_BALL_RADIUS + 1 + VOLUME_SLIDER_LEFT_PAD,
-		/* y */ offset + 12 - VOLUME_SLIDER_BALL_RADIUS + 1,
-		/* w */ VOLUME_SLIDER_BALL_RADIUS * 2 - 2,
-		/* h */ VOLUME_SLIDER_BALL_RADIUS * 2 - 2, VOLUME_SLIDER_BALL_RADIUS - 1, rgb(220,220,220));
-}
-
-int _menu_mouse_MenuEntry_Slider(struct MenuEntry * self, struct yutani_msg_window_mouse_event * event) {
-	if (event->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
-		/* Figure out where it is */
-		float level = (float)(event->new_x - VOLUME_SLIDER_LEFT_PAD) / (float)(self->width - VOLUME_SLIDER_PAD);
-		if (level >= 1.0) level = 1.0;
-		if (level <= 0.0) level = 0.0;
-		if (volume_level != level * 0xFC000000) {
-			volume_level = level * 0xFC000000;
-			set_volume();
-			return 1;
-		}
-	}
-	return 0;
-}
-
-static struct MenuEntryVTable slider_vtable = {
-	.methods = 4,
-	.renderer = _menu_draw_MenuEntry_Slider,
-	.mouse_event = _menu_mouse_MenuEntry_Slider,
-};
-
-struct MenuEntry * menu_create_slider(void) {
-	struct MenuEntry * out = menu_create_separator(); /* Steal some defaults */
-	out->_type = -1; /* Special */
-	out->height = 24;
-	out->rwidth = 200;
-	out->vtable = &slider_vtable;
-	return out;
-}
-
 
 static int widget_click_volume(struct PanelWidget * this, struct yutani_msg_window_mouse_event * evt) {
 	if (!volume_menu) {
@@ -165,7 +86,9 @@ static int widget_click_volume(struct PanelWidget * this, struct yutani_msg_wind
 		free(node);
 	}
 
-	menu_insert(volume_menu, menu_create_slider());
+	volume_slider = (struct MenuEntry_Slider*)menu_create_slider(sprite_volume_high, (float)volume_level / (float)0xFC000000, volume_slider_callback);
+
+	menu_insert(volume_menu, (struct MenuEntry*)volume_slider);
 
 	/* TODO Our mixer supports multiple knobs and we could show all of them. */
 	/* TODO We could also show a nice slider... if we had one... */
