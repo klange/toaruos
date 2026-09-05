@@ -2676,7 +2676,6 @@ int main(int argc, char ** argv) {
 		struct decor_bounds bounds;
 		decor_get_bounds(NULL, &bounds);
 		window = yutani_window_create_flags(yctx, window_width + bounds.width, window_height + bounds.height + menu_bar_height, _flags);
-		yutani_window_update_shape(yctx, window, 20);
 	}
 
 	if (_fullscreen) {
