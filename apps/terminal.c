@@ -874,6 +874,7 @@ static void term_write_char(term_state_t * state, uint32_t val, uint16_t x, uint
 			_bg |= 0xFF << 24;
 		} else {
 			_bg |= term_opacity << 24;
+			_bg = premultiply(_bg);
 		}
 	} else {
 		_bg = bg;
@@ -1067,6 +1068,7 @@ static void redraw_cell_image(term_state_t * state, uint16_t x, uint16_t y, term
 	if (x >= state->width || y >= state->height) return;
 
 	uint32_t default_bg = term_colors[TERM_DEFAULT_BG] | (term_opacity << 24);
+	default_bg = premultiply(default_bg);
 
 	/* Draw the image data */
 	struct CellImage * image = (struct CellImage *)((uintptr_t)cell->bg << 32 | cell->fg);
