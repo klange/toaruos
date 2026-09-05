@@ -108,6 +108,8 @@ class MyWindow(Window):
         _menu_Help.insert(_menu_Help_help)
         _menu_Help.insert(MyMenuWidget())
         _menu_Help.insert(MyMenuWidget())
+        _menu_Help.insert(MenuEntrySlider(None, lambda menu: print("value =", menu.value), 0.5))
+        _menu_Help.insert(MenuEntryToggle("Toggle", lambda menu: (menu.state = !menu.state), True))
         self.mb.insert('help', _menu_Help)
         self.mb.callback = lambda x: self.draw()
 

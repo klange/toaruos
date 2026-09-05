@@ -1297,6 +1297,7 @@ WRAP_TYPE(MenuEntry,struct MenuEntry, menuEntry);
 WRAP_TYPE(MenuEntrySubmenu,struct MenuEntry, menuEntry);
 WRAP_TYPE(MenuEntrySeparator,struct MenuEntry, menuEntry);
 WRAP_TYPE(MenuEntryToggle,struct MenuEntry, menuEntry);
+WRAP_TYPE(MenuEntrySlider,struct MenuEntry, menuEntry);
 WRAP_TYPE(MenuEntryCustom,struct MenuEntry, menuEntry);
 
 #define IS_MenuBar(o) (krk_isInstanceOf(o,MenuBar))
@@ -1637,7 +1638,57 @@ KRK_Method(MenuEntryToggle,state) {
 		menu_update_toggle_state(self->menuEntry, state);
 	}
 
-	return BOOLEAN_VAL(((struct MenuEntry_Toggle*)self)->set);
+	return BOOLEAN_VAL(((struct MenuEntry_Toggle*)self->menuEntry)->set);
+}
+
+#undef CURRENT_CTYPE
+
+#define IS_MenuEntrySlider(o) (krk_isInstanceOf(o,MenuEntrySlider))
+#define AS_MenuEntrySlider(o) ((struct _yutani_MenuEntrySlider*)AS_OBJECT(o))
+#define CURRENT_CTYPE struct _yutani_MenuEntrySlider*
+
+KRK_Method(MenuEntrySlider,__init__) {
+	KrkValue icon;
+	KrkValue callback;
+	float initial_value = 0.0;
+
+	if (!krk_parseArgs(
+		".VV|f:MenuEntrySlider", (const char*[]){"icon","callback","initial_value"},
+		&icon,
+		&callback,
+		&initial_value
+	)) {
+		return NONE_VAL();
+	}
+
+	NO_REINIT(MenuEntrySlider);
+
+	if (!IS_NONE(icon) && !IS_Sprite(icon)) return TYPE_ERROR(Sprite or None, icon);
+
+	sprite_t * _icon = IS_Sprite(icon) ? AS_Sprite(icon)->sprite : NULL;
+
+	struct MenuEntry * out = menu_create_slider(_icon, initial_value, _MenuEntry_callback_internal);
+	self->menuEntry = out;
+	out->_private = self;
+
+	krk_attachNamedValue(&self->inst.fields, "icon", icon);
+	krk_attachNamedValue(&self->inst.fields, "callback", callback);
+
+	return NONE_VAL();
+}
+
+KRK_Method(MenuEntrySlider,value) {
+	int had_value = 0;
+	float value = 0;
+	if (!krk_parseArgs(".|f?", (const char*[]){"value"}, &had_value, &value)) return NONE_VAL();
+
+	INIT_CHECK(MenuEntrySlider);
+
+	if (had_value) {
+		((struct MenuEntry_Slider*)self->menuEntry)->value = value;
+	}
+
+	return FLOATING_VAL(((struct MenuEntry_Slider*)self->menuEntry)->value);
 }
 
 #undef CURRENT_CTYPE
@@ -2417,6 +2468,18 @@ KRK_Module(_yutani2) {
 	BIND_METHOD(MenuEntryToggle,__init__);
 	BIND_PROP(MenuEntryToggle,state);
 	krk_finalizeClass(MenuEntryToggle);
+
+	/*
+	 * Slider subtype
+	 *
+	 * class MenuEntrySlider(MenuEntry):
+	 *     def __init__(self, icon: Sprite, callback: function, initial_value: float = 0.0)
+	 */
+	krk_makeClass(module, &MenuEntrySlider, "MenuEntrySlider", MenuEntry);
+	MenuEntrySlider->allocSize = sizeof(struct _yutani_MenuEntrySlider);
+	BIND_METHOD(MenuEntrySlider,__init__);
+	BIND_PROP(MenuEntrySlider,value);
+	krk_finalizeClass(MenuEntrySlider);
 
 	/*
 	 * Submenu subtype
