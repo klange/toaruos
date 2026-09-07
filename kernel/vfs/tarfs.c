@@ -492,12 +492,13 @@ static fs_node_t * tar_mount(const char * device, const char * mount_path) {
 		printf("tarfs got unexpected mount arguments: %s\n", device);
 	}
 
-	fs_node_t * dev = kopen(argv[0], 0);
+	int error = 0;
+	fs_node_t * dev = kopen_error(argv[0], 0, &error);
 	free(arg); /* Shouldn't need the filename or args anymore */
 
 	if (!dev) {
 		//debug_print(ERROR, "failed to open %s", device);
-		printf("tarfs could not open target device\n");
+		printf("tarfs could not open target device: %d\n", error);
 		return NULL;
 	}
 

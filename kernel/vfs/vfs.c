@@ -886,7 +886,7 @@ static char * path_untokenize(char * path, size_t len, unsigned int depth) {
 }
 
 
-fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_depth, char *relative_to, int * error) {
+static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_depth, char *relative_to, int * error) {
 	/* Simple sanity checks that we actually have a file system */
 	if (!filename) return *error = ENOENT, NULL;
 
@@ -975,9 +975,4 @@ fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_de
 fs_node_t *kopen_error(const char *filename, unsigned int flags, int *error) {
 	*error = 0;
 	return kopen_recur(filename, flags, 0, (char *)(this_core->current_process->wd_name), error);
-}
-
-fs_node_t *kopen(const char *filename, unsigned int flags) {
-	int error = 0;
-	return kopen_error(filename, flags, &error);
 }

@@ -109,7 +109,8 @@ static fs_node_t * dospart_map(const char * device, const char * mount_path) {
 	char * argv[10];
 	tokenize(arg, ",", argv);
 
-	fs_node_t * dev = kopen(argv[0], 0);
+	int error = 0;
+	fs_node_t * dev = kopen_error(argv[0], 0, &error);
 	if (!dev) {
 		return NULL;
 	}
