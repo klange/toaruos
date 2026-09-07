@@ -41,7 +41,7 @@ SECTIONS
 		data = .;
 		*(.data*)
 		*(.got*)
-		PROVIDE(bss_start = ALIGN(4K));
+		PROVIDE(bss_start = .);
 	} :data
 
 	.bss BLOCK(4K) : ALIGN(4K)
