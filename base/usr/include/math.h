@@ -11,8 +11,6 @@ _Begin_C_Header
 
 extern double floor(double x);
 extern float  floorf(float x);
-extern int abs(int j);
-extern long long llabs(long long j);
 extern double pow(double x, double y);
 extern float  powf(float x, float y);
 extern double exp(double x);

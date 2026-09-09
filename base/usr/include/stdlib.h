@@ -21,6 +21,7 @@ extern void qsort_r(void * base, size_t nmemb, size_t size, int (*compar)(const 
 extern int system(const char * command);
 
 extern int abs(int j);
+extern long long llabs(long long j);
 
 extern int putenv(char * name);
 extern int setenv(const char *name, const char *value, int overwrite);
