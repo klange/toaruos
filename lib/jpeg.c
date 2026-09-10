@@ -51,7 +51,26 @@
 #define TRACE(...)
 #endif
 
-static sprite_t * sprite = NULL;
+struct stream {
+	FILE * file;
+	uint8_t byte;
+	int have;
+	int pos;
+};
+
+struct huffman_table {
+	uint8_t lengths[16];
+	uint8_t elements[256];
+};
+
+struct jpeg_ctx {
+	sprite_t * sprite;
+	int components;
+	uint8_t quant_mapping[3];
+	uint8_t quant[8][64];
+	struct stream st;
+	struct huffman_table huffman_tables[256];
+};
 
 /* Byte swap short (because JPEG uses big-endian values) */
 static void swap16(uint16_t * val) {
@@ -73,8 +92,6 @@ static int zigzag[] = {
 	53, 60, 61, 54, 47, 55, 62, 63
 };
 
-static uint8_t quant_mapping[3] = {0};
-static uint8_t quant[8][64];
 
 static int clamp(int col) {
 	if (col > 255) return 255;
@@ -100,31 +117,19 @@ static int xy_to_lin(int x, int y) {
 	return x + y * 8;
 }
 
-static struct huffman_table {
-	uint8_t lengths[16];
-	uint8_t elements[256];
-} huffman_tables[256] = {0};
-
-struct stream {
-	FILE * file;
-	uint8_t byte;
-	int have;
-	int pos;
-};
-
-static void define_quant_table(FILE * f, int len) {
+static void define_quant_table(struct jpeg_ctx * ctx, int len) {
 
 	TRACE("Defining quant table");
 	while (len > 0) {
 		uint8_t hdr;
-		fread(&hdr, 1, 1, f);
-		fread(&quant[(hdr) & 0xF], 64, 1, f);
+		fread(&hdr, 1, 1, ctx->st.file);
+		fread(&ctx->quant[(hdr) & 0xF], 64, 1, ctx->st.file);
 		len -= 65;
 	}
 	TRACE("Done");
 }
 
-static void baseline_dct(FILE * f, int len) {
+static int baseline_dct(struct jpeg_ctx * ctx, int len) {
 
 	struct dct {
 		uint8_t  hdr;
@@ -133,7 +138,7 @@ static void baseline_dct(FILE * f, int len) {
 		uint8_t  components;
 	} __attribute__((packed)) dct;
 
-	fread(&dct, sizeof(struct dct), 1, f);
+	fread(&dct, sizeof(struct dct), 1, ctx->st.file);
 
 	/* Read image dimensions, each as big-endian 16-bit values */
 	uint16_t h = dct.height;
@@ -146,13 +151,14 @@ static void baseline_dct(FILE * f, int len) {
 	/* We read 7 bytes */
 	len -= sizeof(struct dct);
 
-	TRACE("Image dimensions are %d×%d", dct.width, dct.height);
-	sprite->width  = dct.width;
-	sprite->height = dct.height;
-	sprite->bitmap = malloc(sizeof(uint32_t) * sprite->width * sprite->height);
-	sprite->masks = NULL;
-	sprite->alpha = 0;
-	sprite->blank = 0;
+	TRACE("Image dimensions are %d×%d (%d components)", dct.width, dct.height, dct.components);
+	ctx->sprite->width  = dct.width;
+	ctx->sprite->height = dct.height;
+	ctx->sprite->bitmap = malloc(sizeof(uint32_t) * ctx->sprite->width * ctx->sprite->height);
+	ctx->sprite->masks = NULL;
+	ctx->sprite->alpha = 0;
+	ctx->sprite->blank = 0;
+	ctx->components = dct.components;
 
 	TRACE("Loading quantization mappings...");
 	for (int i = 0; i < dct.components; ++i) {
@@ -163,14 +169,14 @@ static void baseline_dct(FILE * f, int len) {
 			uint8_t qtb_id;
 		} __attribute__((packed)) tmp;
 
-		fread(&tmp, sizeof(tmp), 1, f);
+		fread(&tmp, sizeof(tmp), 1, ctx->st.file);
 
 		/* There should only be three of these for the images we support. */
 		if (i > 3) {
-			abort();
+			return 1;
 		}
 
-		quant_mapping[i] = tmp.qtb_id;
+		ctx->quant_mapping[i] = tmp.qtb_id;
 
 		/* 3 bytes were read */
 		len -= 3;
@@ -178,28 +184,30 @@ static void baseline_dct(FILE * f, int len) {
 
 	/* Skip whatever else might be in this section */
 	if (len > 0) {
-		fseek(f, len, SEEK_CUR);
+		fseek(ctx->st.file, len, SEEK_CUR);
 	}
+
+	return 0;
 }
 
-static void define_huffman_table(FILE * f, int len) {
+static void define_huffman_table(struct jpeg_ctx * ctx, int len) {
 
 	TRACE("Loading Huffman tables...");
 	while (len > 0) {
 		/* Read header ID */
 		uint8_t hdr;
-		fread(&hdr, 1, 1, f);
+		fread(&hdr, 1, 1, ctx->st.file);
 		len--;
 
 		/* Read length table */
-		fread(huffman_tables[hdr].lengths, 16, 1, f);
+		fread(ctx->huffman_tables[hdr].lengths, 16, 1, ctx->st.file);
 		len -= 16;
 
 		/* Read Huffman table entries */
 		int o = 0;
 		for (int i = 0; i < 16; ++i) {
-			int l = huffman_tables[hdr].lengths[i];
-			fread(&huffman_tables[hdr].elements[o], l, 1, f);
+			int l = ctx->huffman_tables[hdr].lengths[i];
+			fread(&ctx->huffman_tables[hdr].elements[o], l, 1, ctx->st.file);
 			o += l;
 			len -= l;
 		}
@@ -207,7 +215,7 @@ static void define_huffman_table(FILE * f, int len) {
 
 	/* Skip rest of section */
 	if (len > 0) {
-		fseek(f, len, SEEK_CUR);
+		fseek(ctx->st.file, len, SEEK_CUR);
 	}
 }
 
@@ -270,7 +278,8 @@ static void add_zigzag(struct idct * self, int zi, int coeff) {
 }
 
 /* Read a bit from the stream */
-static int get_bit(struct stream * st) {
+static int get_bit(struct jpeg_ctx * ctx) {
+	struct stream * st = &ctx->st;
 	while ((st->pos >> 3) >= st->have) {
 		/* We have finished using the current byte and need to read another one */
 		int t = fgetc(st->file);
@@ -310,10 +319,10 @@ static int get_bit(struct stream * st) {
 }
 
 /* Advance forward and get the n'th next bit */
-static int get_bitn(struct stream * st, int l) {
+static int get_bitn(struct jpeg_ctx * ctx, int l) {
 	int val = 0;
 	for (int i = 0; i < l; ++i) {
-		val = val * 2 + get_bit(st);
+		val = val * 2 + get_bit(ctx);
 	}
 	return val;
 }
@@ -322,13 +331,13 @@ static int get_bitn(struct stream * st, int l) {
  * Read a Huffman code by reading bits and using
  * the Huffman table.
  */
-static int get_code(struct huffman_table * table, struct stream * st) {
+static int get_code(struct jpeg_ctx * ctx, struct huffman_table * table) {
 	int val = 0;
 	int off = 0;
 	int ini = 0;
 
 	for (int i = 0; i < 16; ++i) {
-		val = val * 2 + get_bit(st);
+		val = val * 2 + get_bit(ctx);
 		if (table->lengths[i] > 0) {
 			if (val - ini < table->lengths[i]) {
 				return table->elements[off + val - ini];
@@ -354,27 +363,29 @@ static int decode(int code, int bits) {
 }
 
 /* Build IDCT matrix */
-static struct idct * build_matrix(struct idct * i, struct stream * st, int idx, uint8_t * quant, int oldcoeff, int * outcoeff) {
+static struct idct * build_matrix(struct jpeg_ctx * ctx, struct idct * i, int idx, uint8_t * quant, int oldcoeff, int * outcoeff) {
 	memset(i, 0, sizeof(struct idct));
 
-	int code = get_code(&huffman_tables[idx], st);
-	int bits = get_bitn(st, code);
+	int code = get_code(ctx, &ctx->huffman_tables[idx]);
+	int bits = get_bitn(ctx, code);
 	int dccoeff = decode(code, bits) + oldcoeff;
 
 	add_zigzag(i, 0, dccoeff * quant[0]);
 	int l = 1;
 
 	while (l < 64) {
-		code = get_code(&huffman_tables[16+idx], st);
+		code = get_code(ctx, &ctx->huffman_tables[16+idx]);
 		if (code == 0) break;
 		if (code > 15) {
 			l += (code >> 4);
 			code = code & 0xF;
 		}
-		bits = get_bitn(st, code);
-		int coeff = decode(code, bits);
-		add_zigzag(i, l, coeff * quant[l]);
-		l += 1;
+		bits = get_bitn(ctx, code);
+		if (l < 64) {
+			int coeff = decode(code, bits);
+			add_zigzag(i, l, coeff * quant[l]);
+			l += 1;
+		}
 	}
 
 	*outcoeff = dccoeff;
@@ -382,36 +393,39 @@ static struct idct * build_matrix(struct idct * i, struct stream * st, int idx, 
 }
 
 /* Set pixel in sprite buffer with bounds checking */
-static void set_pixel(int x, int y, uint32_t color) {
-	if ((x < sprite->width) && (y < sprite->height)) {
-		SPRITE(sprite,x,y) = color;
+static void set_pixel(struct jpeg_ctx * ctx, int x, int y, uint32_t color) {
+	if ((x < ctx->sprite->width) && (y < ctx->sprite->height)) {
+		SPRITE(ctx->sprite,x,y) = color;
 	}
 }
 
 /* Concvert YCbCr values to RGB pixels */
-static void draw_matrix(int x, int y, struct idct * L, struct idct * cb, struct idct * cr) {
+static void draw_matrix(struct jpeg_ctx * ctx, int x, int y, struct idct * L, struct idct * cb, struct idct * cr) {
 	for (int yy = 0; yy < 8; ++yy) {
 		for (int xx = 0; xx < 8; ++xx) {
 			int o = xy_to_lin(xx,yy);
 			int r, g, b;
 			color_conversion(L->base[o], cb->base[o], cr->base[o], &r, &g, &b);
 			uint32_t c = 0xFF000000 | (r << 16) | (g << 8) | b;
-			set_pixel((x * 8 + xx), (y * 8 + yy), c);
+			set_pixel(ctx, (x * 8 + xx), (y * 8 + yy), c);
 		}
 	}
 }
 
-static void start_of_scan(FILE * f, int len) {
+static void start_of_scan(struct jpeg_ctx * ctx, int len) {
 
 	TRACE("Reading image data");
 
 	/* Skip header */
-	fseek(f, len, SEEK_CUR);
+	fseek(ctx->st.file, len, SEEK_CUR);
 
 	/* Initialize bit stream */
-	struct stream _st = {0};
-	_st.file = f;
-	struct stream * st = &_st;
+	struct stream * st = &ctx->st;
+	st->have = 0;
+	st->byte = 0;
+	st->pos = 0;
+
+	sprite_t * sprite = ctx->sprite;
 
 	int old_lum = 0;
 	int old_crd = 0;
@@ -425,14 +439,19 @@ static void start_of_scan(FILE * f, int len) {
 
 			/* Build matrices */
 			struct idct matL, matCr, matCb;
-			build_matrix(&matL,  st, 0, quant[quant_mapping[0]], old_lum, &old_lum);
-			build_matrix(&matCb, st, 1, quant[quant_mapping[1]], old_cbd, &old_cbd);
-			build_matrix(&matCr, st, 1, quant[quant_mapping[2]], old_crd, &old_crd);
+			build_matrix(ctx, &matL,  0, ctx->quant[ctx->quant_mapping[0]], old_lum, &old_lum);
+			if (ctx->components == 3) {
+				build_matrix(ctx, &matCb, 1, ctx->quant[ctx->quant_mapping[1]], old_cbd, &old_cbd);
+				build_matrix(ctx, &matCr, 1, ctx->quant[ctx->quant_mapping[2]], old_crd, &old_crd);
+			} else {
+				memset(&matCr, 0, sizeof(matCr));
+				memset(&matCb, 0, sizeof(matCb));
+			}
 
 			if (y >= 134) {
 				TRACE("Draw col %d", x);
 			}
-			draw_matrix(x, y, &matL, &matCb, &matCr);
+			draw_matrix(ctx, x, y, &matL, &matCb, &matCr);
 		}
 	}
 
@@ -447,9 +466,10 @@ int check_sprite_jpeg(FILE * f) {
 }
 
 int load_sprite_jpeg(sprite_t * tsprite, FILE * f) {
-	sprite = tsprite;
+	struct jpeg_ctx *ctx = calloc(1, sizeof(struct jpeg_ctx));
 
-	memset(huffman_tables, 0, sizeof(huffman_tables));
+	ctx->sprite = tsprite;
+	ctx->st.file = f;
 
 	if (premul[0][0][0][0] == 0.0) {
 		for (int n = 0; n < 8; ++n) {
@@ -492,13 +512,13 @@ int load_sprite_jpeg(sprite_t * tsprite, FILE * f) {
 			len -= 2;
 
 			if (hdr == 0xffdb) {
-				define_quant_table(f, len);
+				define_quant_table(ctx, len);
 			} else if (hdr == 0xffc0) {
-				baseline_dct(f, len);
+				if (baseline_dct(ctx, len)) break;
 			} else if (hdr == 0xffc4) {
-				define_huffman_table(f, len);
+				define_huffman_table(ctx, len);
 			} else if (hdr == 0xffda) {
-				start_of_scan(f, len);
+				start_of_scan(ctx, len);
 				/* End immediately after reading the data */
 				break;
 			} else {
@@ -508,5 +528,6 @@ int load_sprite_jpeg(sprite_t * tsprite, FILE * f) {
 		}
 	}
 
+	free(ctx);
 	return 0;
 }
