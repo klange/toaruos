@@ -85,8 +85,11 @@ extern int in_graphics_mode;
 int bios_text_mode(void) {
 	do_bios_call(3, 3);
 
-	extern char large_font[];
-	do_bios_call(5, (uintptr_t)large_font);
+	extern int load_font;
+	if (load_font) {
+		extern char large_font[];
+		do_bios_call(5, (uintptr_t)large_font);
+	}
 
 	vbe_info_width = 0;
 	in_graphics_mode = 0;

@@ -59,6 +59,7 @@ struct bootmode boot_mode_names[] = {
 };
 
 int base_sel = 0;
+int load_font = 0;
 
 int kmain() {
 	BOOT_SET();
@@ -103,8 +104,14 @@ int kmain() {
 	BOOT_OPTION(_true_vga,    0, "VGA text mode",
 			"When using the Text-Mode Console, use the real VGA",
 			"text mode instead of emulated text mode.");
+
+	BOOT_OPTION(_custom_font, 0, "Custom VGA font",
+			"When using VGA text mode, load the Deja Vu Mono",
+			"font, which replaces the default font.");
+
 #else
 	int _true_vga = 0;
+	int _custom_font = 0;
 #endif
 
 	while (1) {
@@ -174,6 +181,10 @@ int kmain() {
 
 		if (!_true_vga) {
 			strcat(cmdline, "emulvga ");
+		}
+
+		if (_true_vga) {
+			load_font = _custom_font;
 		}
 
 		if (!boot_edit) break;
