@@ -1150,9 +1150,8 @@ long sys_sigsuspend(const sigset_t *set) {
 	return -ERESTARTSIGSUSPEND;
 }
 
-long sys_sigwait(sigset_t * set, int * sig) {
+long sys_sigwait(sigset_t * set, siginfo_t *info) {
 	PTRCHECK(set,sizeof(sigset_t),0);
-	PTRCHECK(sig,sizeof(int),MMU_PTR_WRITE);
 
 	/* Silently ignore attempts to wait on KILL or STOP */
 	sigset_t awaited = *set & ~((1 << SIGKILL) | (1 << SIGSTOP));
@@ -1160,9 +1159,13 @@ long sys_sigwait(sigset_t * set, int * sig) {
 	/* Don't let processes wait on unblocked signals */
 	if (awaited & ~this_core->current_process->blocked_signals) return -EINVAL;
 
-	siginfo_t cause;
+	siginfo_t cause = {0};
 	long ret = signal_await(awaited, &cause);
-	*sig = cause.si_signo;
+
+	if (info) {
+		PTRCHECK(info,sizeof(siginfo_t),MMU_PTR_WRITE);
+		memcpy(info, &cause, sizeof(siginfo_t));
+	}
 
 	return ret;
 }

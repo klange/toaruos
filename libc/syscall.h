@@ -281,7 +281,7 @@ DECL_SYSCALL2(pipe2, int *, int);
 DECL_SYSCALL2(rename, const char *, const char *);
 DECL_SYSCALL2(setregid, gid_t, gid_t);
 DECL_SYSCALL2(setreuid, uid_t, uid_t);
-DECL_SYSCALL2(sigwait, const sigset_t *,int *);
+DECL_SYSCALL2(sigwait, const sigset_t *, siginfo_t *);
 DECL_SYSCALL2(truncate, char *, off_t);
 DECL_SYSCALL3(dup3, int, int, int);
 DECL_SYSCALL3(fchown, int, int, int);

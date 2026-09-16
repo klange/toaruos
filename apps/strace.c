@@ -1043,10 +1043,32 @@ static void sigaction_ptr_arg(pid_t pid, uintptr_t ptr) {
 	fprintf(logfile,"}");
 }
 
-static void signal_ptr_arg(pid_t pid, uintptr_t ptr) {
-	int i = data_read_int(pid, ptr);
-	fprintf(logfile, "{");
-	signal_arg(i);
+static void siginfo_ptr_arg(pid_t pid, uintptr_t ptr) {
+	if (!ptr) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+
+	siginfo_t info;
+	data_read_bytes(pid, ptr, (char*)&info, sizeof(siginfo_t));
+
+	fprintf(logfile, "{si_signo=");
+	signal_arg(info.si_signo);
+	fprintf(logfile, ",si_code=");
+
+	switch (info.si_code) {
+		C(SI_USER);
+		C(SI_QUEUE);
+		C(SI_TIMER);
+		C(SI_ASYNCIO);
+		C(SI_MESGQ);
+		default:
+			fprintf(logfile,"%d",info.si_code);
+			break;
+	}
+
+	fprintf(logfile, ",si_pid=%d", info.si_pid);
+	fprintf(logfile, ",si_uid=%d", info.si_uid);
 	fprintf(logfile, "}");
 }
 
@@ -1587,7 +1609,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			maybe_errno(r);
 			break;
 		case SYS_SIGWAIT:
-			signal_ptr_arg(pid, uregs_syscall_arg2(r));
+			siginfo_ptr_arg(pid, uregs_syscall_arg2(r));
 			maybe_errno(r);
 			break;
 		case SYS_GETSOCKNAME:

@@ -10,18 +10,26 @@ int sigsuspend(const sigset_t * restrict set) {
 	__sets_errno(syscall_sigsuspend(set));
 }
 
-DEFN_SYSCALL2(sigwait,SYS_SIGWAIT,const sigset_t *,int *);
+DEFN_SYSCALL2(sigwait,SYS_SIGWAIT,const sigset_t *,siginfo_t *);
 
-int sigwait(const sigset_t * set, int * sig) {
+int sigwaitinfo(const sigset_t * set, siginfo_t * info) {
 	int res;
 	do {
-		res = syscall_sigwait(set,sig);
+		res = syscall_sigwait(set,info);
 	} while (res == -EINTR);
 
 	if (res < 0) {
-		res = -res;
-		errno = res;
+		errno = -res;
+		return -1;
 	}
 
 	return res;
+}
+
+int sigwait(const sigset_t * set, int * sig) {
+	siginfo_t info;
+	if (sigwaitinfo(set, &info) < 0) return -1;
+
+	*sig = info.si_signo;
+	return 0;
 }
