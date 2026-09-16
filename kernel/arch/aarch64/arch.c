@@ -126,6 +126,15 @@ void arch_enter_signal_handler(struct signal_config * config, siginfo_t * cause,
 	uintptr_t ucontext_addr = 0;
 	uintptr_t sainfo_addr = 0;
 
+	if (config->flags & SA_ONSTACK) {
+		uintptr_t current_sp = r->user_sp;
+		stack_t cas = this_core->current_process->altstack;
+		if (cas.ss_size && !(current_sp > (uintptr_t)cas.ss_sp && current_sp - (uintptr_t)cas.ss_sp <= cas.ss_size)) {
+			/* Not already on the alt stack */
+			sp = ((uintptr_t)cas.ss_sp + cas.ss_size)  & 0xFFFFFFFFFFFFFFF0;
+		}
+	}
+
 	if (config->flags & SA_SIGINFO) {
 		PUSH(sp, siginfo_t, *cause);
 		sainfo_addr = sp;

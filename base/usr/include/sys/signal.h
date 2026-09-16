@@ -61,10 +61,14 @@ _Begin_C_Header
 #define SA_NODEFER   4
 #define SA_RESETHAND 8
 #define SA_RESTART   16
+#define SA_ONSTACK   32
 
 #define SIG_SETMASK 0
 #define SIG_BLOCK 1
 #define SIG_UNBLOCK 2
+
+#define SS_ONSTACK 1
+#define SS_DISABLE 2
 
 #define sa_handler   _signal_handlers._handler
 #define sa_sigaction _signal_handlers._sigaction
@@ -102,6 +106,12 @@ struct sigaction {
 		void      (*_sigaction)( int, siginfo_t *, void * );
 	} _signal_handlers;
 };
+
+typedef struct {
+	void     *ss_sp;
+	size_t    ss_size;
+	int       ss_flags;
+} stack_t;
 
 #include <bits/ucontext.h>
 

@@ -1051,6 +1051,59 @@ long sys_sigaction(int signum, struct sigaction *act, struct sigaction *oldact) 
 	return 0;
 }
 
+long sys_sigaltstack(const stack_t * ss, stack_t * oss) {
+	stack_t cas = this_core->current_process->altstack;
+	cas.ss_flags = 0;
+	if (cas.ss_size) {
+		uintptr_t current_sp = arch_stack_pointer(this_core->current_process->syscall_registers);
+		if (current_sp > (uintptr_t)cas.ss_sp && current_sp - (uintptr_t)cas.ss_sp <= cas.ss_size) {
+			cas.ss_flags = SS_ONSTACK;
+		}
+	} else {
+		cas.ss_flags = SS_DISABLE;
+	}
+
+	if (oss) {
+		PTRCHECK(oss, sizeof(stack_t), MMU_PTR_WRITE);
+		memcpy(oss, &cas, sizeof(stack_t));
+	}
+
+	if (ss) {
+
+		/* Tried to modify while on the alt stack, which is invalid. */
+		if (cas.ss_flags & SS_ONSTACK) return -EPERM;
+
+		PTRCHECK(ss, sizeof(stack_t), 0);
+		stack_t tas;
+		memcpy(&tas, ss, sizeof(stack_t));
+
+		/* No change, return immediately. */
+		if (tas.ss_flags == cas.ss_flags &&
+		    tas.ss_sp == cas.ss_sp &&
+		    tas.ss_size == cas.ss_size) {
+			return 0;
+		}
+
+		if (!(tas.ss_flags & SS_DISABLE) && tas.ss_size < 1024) return -ENOMEM;
+
+		spin_lock(this_core->current_process->sig_lock);
+
+		if (tas.ss_flags & SS_DISABLE) {
+			this_core->current_process->altstack.ss_sp = 0;
+			this_core->current_process->altstack.ss_size = 0;
+			this_core->current_process->altstack.ss_flags = SS_DISABLE;
+		} else {
+			this_core->current_process->altstack.ss_sp = tas.ss_sp;
+			this_core->current_process->altstack.ss_size = tas.ss_size;
+			this_core->current_process->altstack.ss_flags = 0;
+		}
+
+		spin_unlock(this_core->current_process->sig_lock);
+	}
+
+	return 0;
+}
+
 long sys_sigpending(sigset_t * set) {
 	PTRCHECK(set,sizeof(sigset_t),MMU_PTR_WRITE);
 	*set = this_core->current_process->pending_signals;
@@ -1413,6 +1466,7 @@ static scall_func syscalls[] = {
 	[SYS_NANOSLEEP]    = (scall_func)(uintptr_t)sys_nanosleep,
 	[SYS_UTIMENS]      = (scall_func)(uintptr_t)sys_utimens,
 	[SYS_FUTIMENS]     = (scall_func)(uintptr_t)sys_futimens,
+	[SYS_SIGALTSTACK]  = (scall_func)(uintptr_t)sys_sigaltstack,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

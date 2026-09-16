@@ -200,6 +200,7 @@ const char * syscall_names[] = {
 	[SYS_NANOSLEEP]    = "nanosleep",
 	[SYS_UTIMENS]      = "utimens",
 	[SYS_FUTIMENS]     = "futimens",
+	[SYS_SIGALTSTACK]  = "sigaltstack",
 };
 
 char syscall_mask[] = {
@@ -305,6 +306,7 @@ char syscall_mask[] = {
 	[SYS_NANOSLEEP]    = 1,
 	[SYS_UTIMENS]      = 1,
 	[SYS_FUTIMENS]     = 1,
+	[SYS_SIGALTSTACK]  = 1,
 };
 
 static const int syscall_set_net[] = {
@@ -333,7 +335,7 @@ static const int syscall_set_memory[] = {
 
 static const int syscall_set_signal[] = {
 	SYS_SIGNAL, SYS_KILL, SYS_SIGACTION, SYS_SIGPENDING, SYS_SIGPROCMASK,
-	SYS_SIGSUSPEND, SYS_SIGWAIT, SYS_SIGQUEUE, -1
+	SYS_SIGSUSPEND, SYS_SIGWAIT, SYS_SIGQUEUE, SYS_SIGALTSTACK, -1
 };
 
 static const int syscall_set_process[] = {
@@ -980,6 +982,32 @@ static void sigset_ptr_arg(pid_t pid, uintptr_t ptr) {
 	sigset_arg(sigset);
 }
 
+static void stack_t_ptr_arg(pid_t pid, uintptr_t ptr) {
+	if (!ptr) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+
+	stack_t ss = {0};
+
+	data_read_bytes(pid, ptr, (char*)&ss, sizeof(stack_t));
+
+	fprintf(logfile,"{ss_sp=");
+	pointer_arg((uintptr_t)ss.ss_sp);
+
+	fprintf(logfile,",ss_size=%zu,ss_flags=", ss.ss_size);
+
+	int flags = ss.ss_flags;
+	if (!flags) fprintf(logfile,"0");
+	else {
+		H(SS_ONSTACK);
+		H(SS_DISABLE);
+		if (flags) fprintf(logfile,"%#x",flags);
+	}
+
+	fprintf(logfile, "}");
+}
+
 static void sigaction_ptr_arg(pid_t pid, uintptr_t ptr) {
 	if (!ptr) {
 		fprintf(logfile, "NULL");
@@ -999,6 +1027,7 @@ static void sigaction_ptr_arg(pid_t pid, uintptr_t ptr) {
 		H(SA_NODEFER);
 		H(SA_RESETHAND);
 		H(SA_RESTART);
+		H(SA_ONSTACK);
 		if (flags) fprintf(logfile,"%#x",flags);
 	}
 
@@ -1355,6 +1384,9 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 		case SYS_SIGWAIT:
 			sigset_ptr_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			break;
+		case SYS_SIGALTSTACK:
+			stack_t_ptr_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			break; /* one more */
 		case SYS_SOCKET:
 			sock_dom_arg(uregs_syscall_arg1(r)); COMMA;
 			sock_typ_arg(uregs_syscall_arg2(r)); COMMA;
@@ -1565,6 +1597,10 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			break;
 		case SYS_SIGACTION:
 			sigaction_ptr_arg(pid, uregs_syscall_arg3(r));
+			maybe_errno(r);
+			break;
+		case SYS_SIGALTSTACK:
+			stack_t_ptr_arg(pid, uregs_syscall_arg2(r));
 			maybe_errno(r);
 			break;
 		case SYS_GETCWD:

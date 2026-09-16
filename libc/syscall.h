@@ -303,5 +303,7 @@ DECL_SYSCALL2(nanosleep, const struct timespec *, struct timespec *);
 DECL_SYSCALL3(utimens, const char *, const struct timespec *, const struct timespec *);
 DECL_SYSCALL3(futimens, int, const struct timespec *, const struct timespec *);
 
+DECL_SYSCALL2(sigaltstack, const stack_t *, stack_t *);
+
 _End_C_Header
 

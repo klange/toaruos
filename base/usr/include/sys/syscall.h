@@ -36,7 +36,7 @@
 #define SYS_PTRACE 33
 #define SYS_MKDIR 34
 #define SYS_NANOSLEEP 35
-/* 36 unused */
+#define SYS_SIGALTSTACK 36
 #define SYS_KILL 37
 #define SYS_SIGNAL 38
 #define SYS_RECV 39

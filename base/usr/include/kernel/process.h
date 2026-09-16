@@ -179,6 +179,8 @@ typedef struct process {
 	struct pty * pty;
 
 	struct process * process;
+
+	stack_t altstack;
 } process_t;
 
 _Static_assert((__builtin_offsetof(process_t,flags) == 20), "flags is not at expected offset for assembly");
