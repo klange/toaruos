@@ -281,12 +281,20 @@ int send_signal_info(pid_t process, int signal, int force_root, siginfo_t *cause
 }
 
 int send_signal(pid_t process, int signal, int force_root) {
-	return send_signal_info(process, signal, force_root, NULL);
+	siginfo_t cause = {0};
+	if (!force_root) {
+		cause.si_code  = SI_USER;
+		cause.si_pid   = this_core->current_process->id;
+		cause.si_uid   = this_core->current_process->real_user;
+		cause.si_signo = signal;
+	}
+
+	return send_signal_info(process, signal, force_root, force_root ? NULL : &cause);
 }
 
 static void signal_pop(int signal, siginfo_t * cause) {
 	cause->si_signo = signal;
-	cause->si_code = SI_USER;
+	cause->si_code = SI_KERNEL;
 
 	int still_pending = 0;
 	node_t * match = NULL;

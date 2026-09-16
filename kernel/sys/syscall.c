@@ -1269,6 +1269,9 @@ long sys_sigqueue(pid_t process, int signal, union sigval value) {
 	siginfo_t cause = {0};
 	cause.si_code  = SI_QUEUE;
 	cause.si_value = value;
+	cause.si_pid   = this_core->current_process->id;
+	cause.si_uid   = this_core->current_process->real_user;
+
 	return send_signal_info(process, signal, 0, &cause);
 }
 

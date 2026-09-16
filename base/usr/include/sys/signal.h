@@ -14,6 +14,7 @@ _Begin_C_Header
 #define SI_TIMER   -2
 #define SI_ASYNCIO -3
 #define SI_MESGQ   -4
+#define SI_KERNEL  128
 
 /* si_code values for SIGILL */
 #define ILL_ILLOPC 1
@@ -25,7 +26,7 @@ _Begin_C_Header
 #define ILL_COPROC 7
 #define ILL_BADSTK 8
 
-/* si_code values for SIGILL */
+/* si_code values for SIGFPE */
 #define FPE_INTDIV 1
 #define FPE_INTOVF 2
 #define FPE_FLTDIV 3

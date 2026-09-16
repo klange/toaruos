@@ -1062,13 +1062,105 @@ static void siginfo_ptr_arg(pid_t pid, uintptr_t ptr) {
 		C(SI_TIMER);
 		C(SI_ASYNCIO);
 		C(SI_MESGQ);
+		C(SI_KERNEL);
 		default:
-			fprintf(logfile,"%d",info.si_code);
+			switch (info.si_signo) {
+				case SIGILL:
+					switch (info.si_code) {
+						C(ILL_ILLOPC);
+						C(ILL_ILLOPN);
+						C(ILL_ILLADR);
+						C(ILL_ILLTRP);
+						C(ILL_PRVOPC);
+						C(ILL_PRVREG);
+						C(ILL_COPROC);
+						C(ILL_BADSTK);
+						default:
+							fprintf(logfile,"%d",info.si_code);
+							break;
+					}
+					break;
+				case SIGFPE:
+					switch (info.si_code) {
+							C(FPE_INTDIV);
+							C(FPE_INTOVF);
+							C(FPE_FLTDIV);
+							C(FPE_FLTOVF);
+							C(FPE_FLTUND);
+							C(FPE_FLTRES);
+							C(FPE_FLTINV);
+							C(FPE_FLTSUB);
+						default:
+							fprintf(logfile,"%d",info.si_code);
+							break;
+					}
+					break;
+				case SIGSEGV:
+					switch (info.si_code) {
+							C(SEGV_MAPERR);
+							C(SEGV_ACCERR);
+						default:
+							fprintf(logfile,"%d",info.si_code);
+							break;
+					}
+					break;
+				case SIGBUS:
+					switch (info.si_code) {
+							C(BUS_ADRALN);
+							C(BUS_ADRERR);
+							C(BUS_OBJERR);
+						default:
+							fprintf(logfile,"%d",info.si_code);
+							break;
+					}
+					break;
+				case SIGTRAP:
+					switch (info.si_code) {
+							C(TRAP_BRKPT);
+							C(TRAP_TRACE);
+						default:
+							fprintf(logfile,"%d",info.si_code);
+							break;
+					}
+					break;
+				case SIGCHLD:
+					switch (info.si_code) {
+							C(CLD_EXITED);
+							C(CLD_KILLED);
+							C(CLD_DUMPED);
+							C(CLD_TRAPPED);
+							C(CLD_STOPPED);
+							C(CLD_CONTINUED);
+						default:
+							fprintf(logfile,"%d",info.si_code);
+							break;
+					}
+					break;
+				default:
+					fprintf(logfile,"%d",info.si_code);
+					break;
+			}
 			break;
 	}
 
-	fprintf(logfile, ",si_pid=%d", info.si_pid);
-	fprintf(logfile, ",si_uid=%d", info.si_uid);
+	if (info.si_code <= 0) {
+		fprintf(logfile, ",si_pid=%d", info.si_pid);
+		fprintf(logfile, ",si_uid=%d", info.si_uid);
+	} else {
+		switch (info.si_signo) {
+			case SIGILL:
+			case SIGSEGV:
+				fprintf(logfile, ",si_addr=");
+				pointer_arg((uintptr_t)info.si_addr);
+				break;
+			case SIGCHLD:
+				fprintf(logfile, ",si_pid=%d", info.si_pid);
+				fprintf(logfile, ",si_uid=%d", info.si_uid);
+				fprintf(logfile, ",si_status=%d", info.si_status);
+				break;
+		}
+	}
+
 	fprintf(logfile, "}");
 }
 
