@@ -1085,7 +1085,7 @@ long sys_sigaltstack(const stack_t * ss, stack_t * oss) {
 		}
 
 		if (tas.ss_flags & ~(SS_DISABLE)) return -EINVAL;
-		if (!(tas.ss_flags & SS_DISABLE) && tas.ss_size < 1024) return -ENOMEM;
+		if (!(tas.ss_flags & SS_DISABLE) && tas.ss_size < MINSIGSTKSZ) return -ENOMEM;
 
 		spin_lock(this_core->current_process->sig_lock);
 

@@ -73,6 +73,9 @@ _Begin_C_Header
 #define sa_handler   _signal_handlers._handler
 #define sa_sigaction _signal_handlers._sigaction
 
+#define SIGSTKSZ    8192
+#define MINSIGSTKSZ 2048
+
 union sigval {
 	int    sival_int;
 	void  *sival_ptr;
