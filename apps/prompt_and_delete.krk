@@ -31,7 +31,7 @@ if show_dialog([f'This will permanently delete {count} file{"s" if count != 1 el
         try:
             os.remove(file)
         except Exception as e:
-            if not show_dialog(f'An error occured while trying to delete "{file}":\n{e.arg}'):
+            if not show_dialog([f'An error occured while trying to delete "{file}":',e.arg,'Continue?']):
                 break
     os.kill(callbackPid, 21) # SIGURG
 else:
