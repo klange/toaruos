@@ -18,6 +18,7 @@
 #include <getopt.h>
 #include <math.h>
 #include <libgen.h>
+#include <sys/time.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -258,7 +259,17 @@ static int step_n;
 static int step_y;
 static int step_i;
 static int processing = 0;
-static clock_t time_before;
+
+struct timeval time_before;
+static void time_diff(struct timeval * start, struct timeval * end, time_t *sec_diff, suseconds_t * usec_diff) {
+	*sec_diff = end->tv_sec - start->tv_sec;
+	*usec_diff = end->tv_usec - start->tv_usec;
+	if (end->tv_usec < start->tv_usec) {
+		*sec_diff -= 1;
+		*usec_diff = (1000000 + end->tv_usec) - start->tv_usec;
+	}
+}
+
 #define START_POINT -4
 
 void step_once(void);
@@ -283,17 +294,25 @@ void start_processing(void) {
 
 	decors();
 
-	time_before = clock();
+	gettimeofday(&time_before, NULL);
 	step_once();
 }
 
 void draw_label(void) {
-	clock_t time_after = clock();
+	struct timeval time_after;
+	gettimeofday(&time_after, NULL);
+
+	time_t secs;
+	suseconds_t usecs;
+	time_diff(&time_before, &time_after, &secs, &usecs);
+
+	long msecs = usecs / 1000 + secs * 1000;
+
 	char description[100];
 	if (explore_mode) {
-		snprintf(description, 100, "<i>x</i>=%g <i>y</i>=%g, <i>zoom</i>=%g×, %ld ms%s", expx, expy, 1.0/expz, (time_after - time_before) / 1000, step_n == 0 ? "*" : "");
+		snprintf(description, 100, "<i>x</i>=%g <i>y</i>=%g, <i>zoom</i>=%g×, %ld ms%s", expx, expy, 1.0/expz, msecs, step_n == 0 ? "*" : "");
 	} else {
-		snprintf(description, 100, "<i>c</i> = %g + %g<i>i</i>, %ld ms%s", conx, cony, (time_after - time_before) / 1000, step_n == 0 ? "*" : "");
+		snprintf(description, 100, "<i>c</i> = %g + %g<i>i</i>, %ld ms%s", conx, cony, msecs, step_n == 0 ? "*" : "");
 	}
 
 	/* Set up a clip box */
