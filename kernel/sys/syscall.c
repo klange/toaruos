@@ -1160,7 +1160,11 @@ long sys_sigwait(sigset_t * set, int * sig) {
 	/* Don't let processes wait on unblocked signals */
 	if (awaited & ~this_core->current_process->blocked_signals) return -EINVAL;
 
-	return signal_await(awaited, sig);
+	siginfo_t cause;
+	long ret = signal_await(awaited, &cause);
+	*sig = cause.si_signo;
+
+	return ret;
 }
 
 long sys_fswait(int c, int fds[]) {

@@ -284,6 +284,37 @@ int send_signal(pid_t process, int signal, int force_root) {
 	return send_signal_info(process, signal, force_root, NULL);
 }
 
+static void signal_pop(int signal, siginfo_t * cause) {
+	cause->si_signo = signal;
+	cause->si_code = SI_USER;
+
+	int still_pending = 0;
+	node_t * match = NULL;
+	if (this_core->current_process->sig_queue) {
+		foreach (node, this_core->current_process->sig_queue) {
+			siginfo_t * info = node->value;
+			if (info->si_signo == signal) {
+				if (match) {
+					still_pending = 1;
+					break;
+				}
+				match = node;
+			}
+		}
+	}
+
+	if (!still_pending) {
+		this_core->current_process->pending_signals &= ~shift_signal(signal);
+	}
+
+	if (match) {
+		list_delete(this_core->current_process->sig_queue, match);
+		memcpy(cause, match->value, sizeof(siginfo_t));
+		free(match->value);
+		free(match);
+	}
+}
+
 /**
  * @brief Examine the signal delivery queue of the current process, and handle signals.
  *
@@ -304,35 +335,7 @@ _tryagain:
 			if (active_signals & 1) {
 				/* Default case */
 				siginfo_t cause = {0};
-				cause.si_signo = signal;
-				cause.si_code = SI_USER;
-
-				int still_pending = 0;
-				node_t * match = NULL;
-				if (this_core->current_process->sig_queue) {
-					foreach (node, this_core->current_process->sig_queue) {
-						siginfo_t * info = node->value;
-						if (info->si_signo == signal) {
-							if (match) {
-								still_pending = 1;
-								break;
-							}
-							match = node;
-						}
-					}
-				}
-
-				if (!still_pending) {
-					this_core->current_process->pending_signals &= ~shift_signal(signal);
-				}
-
-				if (match) {
-					list_delete(this_core->current_process->sig_queue, match);
-					memcpy(&cause, match->value, sizeof(siginfo_t));
-					free(match->value);
-					free(match);
-				}
-
+				signal_pop(signal, &cause);
 				spin_unlock(this_core->current_process->sig_lock);
 				if (handle_signal((process_t*)this_core->current_process, signal, r, &cause)) return;
 				goto _tryagain;
@@ -391,16 +394,15 @@ void return_from_signal_handler(struct regs *r) {
  * @param sig     Will be set to the awaited signal, if one arrives.
  * @returns 0 if an awaited signal arrives, -EINTR if another signal arrives.
  */
-int signal_await(sigset_t awaited, int * sig) {
+int signal_await(sigset_t awaited, siginfo_t * cause) {
 	do {
+		spin_lock(this_core->current_process->sig_lock);
 		sigset_t maybe = awaited & this_core->current_process->pending_signals;
 		if (maybe) {
 			int signal = 0;
 			while (maybe && signal < NUMSIGNALS) {
 				if (maybe & 1) {
-					spin_lock(this_core->current_process->sig_lock);
-					this_core->current_process->pending_signals &= ~shift_signal(signal);
-					*sig = signal;
+					signal_pop(signal, cause);
 					spin_unlock(this_core->current_process->sig_lock);
 					return 0;
 				}
@@ -408,6 +410,7 @@ int signal_await(sigset_t awaited, int * sig) {
 				signal++;
 			}
 		}
+		spin_unlock(this_core->current_process->sig_lock);
 
 		/* Set awaited signals */
 		this_core->current_process->awaited_signals = awaited;
