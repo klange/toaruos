@@ -410,6 +410,8 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 		}
 	}
 
+	memset((void*)&this_core->current_process->altstack, 0, sizeof(stack_t));
+
 	/* Load binary */
 	uintptr_t base_addr;
 	uintptr_t phdr_vaddr = load_from_file(file, &header, &base_addr, 0, !interpreter);
