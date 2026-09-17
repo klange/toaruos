@@ -161,20 +161,9 @@ static int find_symbol(pid_t pid, uintptr_t addr_in, char ** name, uintptr_t *ad
 	}
 
 	/* Figure out where this object is in the objects map */
-	FILE * f = binary_obj;
-	if (current_obj) {
-		/* Try to open that */
-		struct stat stat_buf;
-		char path[1024];
-		sprintf(path, "/lib/%s", current_obj);
-		if (stat(path, &stat_buf)) {
-			sprintf(path, "/usr/lib/%s", current_obj);
-			if (stat(path, &stat_buf)) goto _bail;
-		}
-
-		f = fopen(path, "r");
-	} else {
-_bail:
+	FILE * f = NULL;
+	if (!current_obj || !(f = fopen(current_obj, "r"))) {
+		f = binary_obj;
 		current_obj = strdup(binary_path);
 		best_base = 0;
 	}

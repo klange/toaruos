@@ -137,6 +137,7 @@ typedef struct {
 	char application_use[];
 } __attribute__((packed)) iso_9660_volume_descriptor_t;
 
+static void dirent_from_dir_entry(iso_9660_fs_t * this, size_t sector, iso_9660_directory_entry_t * dir, size_t offset, struct dirent * dent);
 static void file_from_dir_entry(iso_9660_fs_t * this, size_t sector, iso_9660_directory_entry_t * dir, size_t offset, fs_node_t * fs);
 
 #define CACHE_SIZE 64
@@ -231,7 +232,6 @@ static int readdir_iso(fs_node_t *node, unsigned long index, struct dirent * den
 
 	int found = 0;
 	unsigned int i = 0;
-	fs_node_t * out = malloc(sizeof(fs_node_t));
 	memset(dent, 0, sizeof(struct dirent));
 	while (1) {
 		iso_9660_directory_entry_t * dir = (iso_9660_directory_entry_t *)offset;
@@ -244,9 +244,7 @@ static int readdir_iso(fs_node_t *node, unsigned long index, struct dirent * den
 		}
 		if (!(dir->flags & FLAG_HIDDEN)) {
 			if (i == index) {
-				file_from_dir_entry(this, (root_entry->extent_start_LSB)+(offset - root_data)/this->block_size, dir, (offset - root_data) % this->block_size, out);
-				memcpy(&dent->d_name, out->name, strlen(out->name)+1);
-				dent->d_ino = out->inode;
+				dirent_from_dir_entry(this, (root_entry->extent_start_LSB)+(offset - root_data)/this->block_size, dir, (offset - root_data) % this->block_size, dent);
 				found = 1;
 				goto cleanup;
 			}
@@ -260,7 +258,6 @@ try_again:
 cleanup:
 	free(root_data);
 	free(buffer);
-	free(out);
 	return found;
 }
 
@@ -309,7 +306,7 @@ static fs_node_t * finddir_iso(fs_node_t *node, const char *name) {
 	/* Examine directory */
 	offset = root_data;
 
-	fs_node_t * out = malloc(sizeof(fs_node_t));
+	fs_node_t * out = NULL;
 	while (1) {
 		iso_9660_directory_entry_t * dir = (iso_9660_directory_entry_t *)offset;
 		if (dir->length == 0) {
@@ -320,10 +317,13 @@ static fs_node_t * finddir_iso(fs_node_t *node, const char *name) {
 			break;
 		}
 		if (!(dir->flags & FLAG_HIDDEN)) {
-			memset(out, 0, sizeof(fs_node_t));
-			file_from_dir_entry(this, (root_entry->extent_start_LSB)+(offset - root_data)/this->block_size, dir, (offset - root_data) % this->block_size, out);
 
-			if (!strcmp(out->name, name)) {
+			struct dirent dent;
+			dirent_from_dir_entry(this, (root_entry->extent_start_LSB)+(offset - root_data)/this->block_size, dir, (offset - root_data) % this->block_size, &dent);
+
+			if (!strcmp(dent.d_name, name)) {
+				out = calloc(1, sizeof(fs_node_t));
+				file_from_dir_entry(this, (root_entry->extent_start_LSB)+(offset - root_data)/this->block_size, dir, (offset - root_data) % this->block_size, out);
 				goto cleanup; /* found it */
 			}
 
@@ -332,9 +332,6 @@ static fs_node_t * finddir_iso(fs_node_t *node, const char *name) {
 try_next_finddir:
 		if ((size_t)(offset - root_data) > root_entry->extent_length_LSB) break;
 	}
-
-	free(out);
-	out = NULL;
 
 cleanup:
 	free(root_data);
@@ -355,11 +352,8 @@ static fs_vtable_t iso_dir_ops = {
 	.finddir = finddir_iso,
 };
 
-static void file_from_dir_entry(iso_9660_fs_t * this, size_t sector, iso_9660_directory_entry_t * dir, size_t offset, fs_node_t * fs) {
-	fs->device = this;
-	fs->inode  = sector; /* Sector the file is in */
-	fs->impl   = offset; /* Offset */
-
+static void dirent_from_dir_entry(iso_9660_fs_t * this, size_t sector, iso_9660_directory_entry_t * dir, size_t offset, struct dirent * dent) {
+	dent->d_ino = sector;
 	char * file_name = malloc(dir->name_len + 1);
 	memcpy(file_name, dir->name, dir->name_len);
 	file_name[dir->name_len] = 0;
@@ -383,8 +377,14 @@ static void file_from_dir_entry(iso_9660_fs_t * this, size_t sector, iso_9660_di
 			}
 		}
 	}
-	memcpy(fs->name, file_name, strlen(file_name)+1);
+	memcpy(dent->d_name, file_name, strlen(file_name)+1);
 	free(file_name);
+}
+
+static void file_from_dir_entry(iso_9660_fs_t * this, size_t sector, iso_9660_directory_entry_t * dir, size_t offset, fs_node_t * fs) {
+	fs->device = this;
+	fs->inode  = sector; /* Sector the file is in */
+	fs->impl   = offset; /* Offset */
 
 	fs->uid = 0;
 	fs->gid = 0;
@@ -471,8 +471,7 @@ static fs_node_t * iso_fs_mount(const char * device, const char * mount_path) {
 	iso_9660_volume_descriptor_t * root = (iso_9660_volume_descriptor_t *)tmp;
 	iso_9660_directory_entry_t * root_entry = (iso_9660_directory_entry_t *)&root->root;
 
-	fs_node_t * fs = malloc(sizeof(fs_node_t));
-	memset(fs, 0, sizeof(fs_node_t));
+	fs_node_t * fs = calloc(1, sizeof(fs_node_t));
 	file_from_dir_entry(this, i, root_entry, 156, fs);
 
 	free(arg);

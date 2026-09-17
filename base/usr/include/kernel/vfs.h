@@ -81,9 +81,33 @@ typedef struct fs_vtable {
 	utimens_type_t utimens;
 } fs_vtable_t;
 
+/* These paths are a temporary stop-gap implementation.
+ *
+ * The intention is to eventually have proper separation of an "opened file"
+ * from an underlying at-most-one "inode"; the inode won't have a path, but
+ * the "opened file" will be associated with one that was originally used
+ * to open the file, and there may be may "opened file"s that reference a
+ * particular inode.
+ *
+ * Currently this is storing the whole path as a single string, but the
+ * future implementation should use a tree of cached names which eventually
+ * should become a proper directory entry cache.
+ *
+ * To avoid complication with the migration to later implementations, these
+ * names should only be allocated either when a fresh "anonymous" fs_node is
+ * being attached to a process's file descriptor table (where creation of a
+ * new "opened file" will happen in the future), or in @c kopen_error where
+ * we have access to a canonicalized path - that function will return an
+ * "opened file" instead of directly returning an @c fs_node_t eventually.
+ */
+struct fs_path {
+	size_t len;
+	char chars[];
+};
+
 typedef struct fs_node {
 	struct fs_node * mount;      /* Root fs_node_t entry of mountpoint. */
-	char name[256];         /* The filename. */
+	struct fs_path * fsn_path; /* (temp) Path object, which may change in structure. */
 	void * device;          /* Device object (optional) */
 	mode_t mask;            /* The permissions mask. */
 	uid_t uid;              /* The owning user. */
@@ -112,7 +136,7 @@ struct vfs_entry {
 };
 
 extern fs_node_t *fs_root;
-extern int pty_create(void *size, fs_node_t ** fs_master, fs_node_t ** fs_slave);
+extern struct pty * pty_create(void *size, fs_node_t ** fs_master, fs_node_t ** fs_slave);
 
 #include <bits/access.h>
 
@@ -161,3 +185,7 @@ static inline dev_t fs_device_identifier(fs_node_t * fn) {
 		(uintptr_t)fn;
 	return (base & 0xffffffffff) >> 5;
 }
+
+char * fs_current_wd(void);
+struct fs_path * fs_alloc_path_from(const char * src, const char * called_from);
+struct fs_path * fs_path_printf(const char * fmt, ...);

@@ -446,7 +446,6 @@ static fs_vtable_t vga_ops = {
 
 static void vga_text_init(void) {
 	vga_text_device = calloc(sizeof(fs_node_t), 1);
-	snprintf(vga_text_device->name, 100, "vga0");
 	vga_text_device->length = 0;
 	vga_text_device->flags  = FS_BLOCKDEVICE;
 	vga_text_device->mask   = 0660;

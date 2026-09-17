@@ -412,10 +412,8 @@ static fs_vtable_t tmpfs_file_ops = {
 };
 
 static fs_node_t * tmpfs_from_file(struct tmpfs_file * t) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	spin_lock(t->lock);
-	memset(fnode, 0x00, sizeof(fs_node_t));
-	strcpy(fnode->name, t->name);
 	fnode->impl = (uintptr_t)t;
 	fnode->inode = t->ino;
 	fnode->mask = t->mask;
@@ -811,10 +809,8 @@ static fs_vtable_t tmpfs_dir_ops = {
 };
 
 static fs_node_t * tmpfs_from_dir(struct tmpfs_dir * d) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	spin_lock(d->lock);
-	memset(fnode, 0x00, sizeof(fs_node_t));
-	strcpy(fnode->name, "tmp");
 	fnode->mount = d->mount;
 	fnode->device = d->mount;
 	fnode->mask = d->mask;

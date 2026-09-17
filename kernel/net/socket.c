@@ -235,6 +235,8 @@ long net_raw_socket(int type, int protocol, int flags, int nb) {
 
 	if (nb) sock->nonblocking = 1;
 
+	static uint64_t raw_sock_count = 0;
+	sock->_fnode.fsn_path = fs_path_printf("socket:[raw:%zu]", raw_sock_count++); /* TODO: move to fd */
 	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, flags | PROC_FD_MODE__RW);
 }
 

@@ -90,10 +90,8 @@ static fs_node_t * dospart_device_create(int i, fs_node_t * dev, mbr_t * mbr, in
 	memcpy(&device->partition, &mbr->partitions[id], sizeof(partition_t));
 	device->device = dev;
 
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->inode = 0;
-	snprintf(fnode->name, 20, "dospart%d", i);
 	fnode->device  = device;
 	fnode->uid = 0;
 	fnode->gid = 0;

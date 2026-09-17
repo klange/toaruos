@@ -185,9 +185,7 @@ void fwcfg_device(void) {
 	if (!regs) return;
 
 	uint8_t * fw_cfg_addr = (uint8_t*)(uintptr_t)(mmu_map_from_physical(swizzle(regs[3])));
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0, sizeof(fs_node_t));
-	strcpy(fnode->name, "fwcfg");
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->flags  = FS_BLOCKDEVICE;
 	fnode->mask   = 0660;
 	fnode->ops    = &fwcfg_ops;

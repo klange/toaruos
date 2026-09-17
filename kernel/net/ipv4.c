@@ -284,7 +284,7 @@ static void icmp_handle(struct ipv4_packet * packet, const char * src, const cha
 			net_sock_add(handler, packet, ntohs(packet->length));
 		}
 	} else {
-		printf("net: ipv4: %s: %s -> %s ICMP %d (code = %d)\n", nic->name, src, dest, header->type, header->code);
+		//printf("net: ipv4: %s: %s -> %s ICMP %d (code = %d)\n", nic->name, src, dest, header->type, header->code);
 	}
 }
 
@@ -378,6 +378,7 @@ static int icmp_socket(int flags, int nb) {
 	sock->nonblocking = nb;
 	hashmap_set(icmp_sockets, (void*)(uintptr_t)sock->priv32[SOCK_PRIV32_ICMP_IDENT], sock);
 
+	sock->_fnode.fsn_path = fs_path_printf("socket:[icmp:%d]", this_core->current_process->id); /* TODO: move to fd */
 	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, flags | PROC_FD_MODE__RW);
 }
 
@@ -504,7 +505,7 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic, size_t size) 
 			break;
 		case IPV4_PROT_UDP: {
 			uint16_t dest_port = ntohs(((uint16_t*)&packet->payload)[1]);
-			printf("net: ipv4: %s: %s -> %s udp %d to %d\n", nic->name, src, dest, ntohs(((uint16_t*)&packet->payload)[0]), dest_port);
+			//printf("net: ipv4: %s: %s -> %s udp %d to %d\n", nic->name, src, dest, ntohs(((uint16_t*)&packet->payload)[0]), dest_port);
 			if (hashmap_has(udp_sockets, (void*)(uintptr_t)dest_port)) {
 				printf("net: udp: received and have a waiting endpoint!\n");
 				sock_t * sock = hashmap_get(udp_sockets, (void*)(uintptr_t)dest_port);
@@ -514,7 +515,7 @@ void net_ipv4_handle(struct ipv4_packet * packet, fs_node_t * nic, size_t size) 
 		}
 		case IPV4_PROT_TCP: {
 			uint16_t dest_port = ntohs(((uint16_t*)&packet->payload)[1]);
-			printf("net: ipv4: %s: %s -> %s tcp %d to %d\n", nic->name, src, dest, ntohs(((uint16_t*)&packet->payload)[0]), dest_port);
+			//printf("net: ipv4: %s: %s -> %s tcp %d to %d\n", nic->name, src, dest, ntohs(((uint16_t*)&packet->payload)[0]), dest_port);
 			sock_t * sock = hashmap_get(tcp_sockets, (void*)(uintptr_t)dest_port);
 			if (sock) {
 				printf("net: tcp: received and have a waiting endpoint!\n");
@@ -732,6 +733,8 @@ static int udp_socket(int flags, int nb) {
 	sock->sock_getsockname = sock_udp_getsockname;
 	sock->nonblocking = nb;
 
+	static uint64_t udp_sock_count = 0;
+	sock->_fnode.fsn_path = fs_path_printf("socket:[udp:%zu]", udp_sock_count++); /* TODO: move to fd */
 	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, flags | PROC_FD_MODE__RW);
 }
 
@@ -1206,6 +1209,8 @@ static int tcp_socket(int flags, int nb) {
 	sock->sock_listen = sock_tcp_listen;
 	sock->sock_accept = sock_tcp_accept;
 
+	static uint64_t tcp_sock_count = 0;
+	sock->_fnode.fsn_path = fs_path_printf("socket:[tcp:%zu]", tcp_sock_count++); /* TODO: move to fd */
 	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, flags | PROC_FD_MODE__RW);
 }
 

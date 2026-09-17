@@ -122,9 +122,6 @@ int make_unix_pipe(fs_node_t ** pipes) {
 	pipes[0] = calloc(1, sizeof(fs_node_t));
 	pipes[1] = calloc(1, sizeof(fs_node_t));
 
-	snprintf(pipes[0]->name, 100, "[pipe:read]");
-	snprintf(pipes[1]->name, 100, "[pipe:write]");
-
 	pipes[0]->mask = 0666;
 	pipes[1]->mask = 0666;
 

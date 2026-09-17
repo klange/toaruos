@@ -755,26 +755,25 @@ long sys_uname(struct utsname * name) {
 long sys_chdir(char * newdir) {
 	PTR_VALIDATE(newdir);
 	if (!newdir) return -EFAULT;
-	char * path = canonicalize_path(this_core->current_process->wd_name, newdir);
+	char * path = canonicalize_path(fs_current_wd(), newdir);
 	int error = 0;
 	fs_node_t * chd = kopen_error(path, 0, &error);
 	if (!chd) return free(path), -error;
 	if (!(chd->flags & FS_DIRECTORY)) return free(path), -ENOTDIR;
 	if (!has_permission(chd, X_OK)) return free(path), close_fs(chd), -EACCES;
 
-	close_fs(this_core->current_process->wd_node);
+	fs_node_t * old = this_core->current_process->wd_node;
 	this_core->current_process->wd_node = chd;
-	free(this_core->current_process->wd_name);
-	this_core->current_process->wd_name = path;
+	close_fs(old);
 
 	return 0;
 }
 
 long sys_getcwd(char * buf, size_t size) {
 	PTRCHECK(buf,size,MMU_PTR_WRITE); /* Never allow this to be NULL in the syscall layer */
-	size_t len = strlen(this_core->current_process->wd_name) + 1;
+	size_t len = strlen(fs_current_wd()) + 1;
 	if (size < len) return -ERANGE;
-	memcpy(buf, this_core->current_process->wd_name, len);
+	memcpy(buf, fs_current_wd(), len);
 	return len;
 }
 
@@ -1010,7 +1009,11 @@ long sys_pipe2(int pipes[2], int flag) {
 	if (flag & O_CLOEXEC) flags |= PROC_FD_MODE_CLOEXEC;
 	if (flag & O_CLOFORK) flags |= PROC_FD_MODE_CLOFORK;
 
+	static uint64_t pipe_count = 0;
+	uint64_t pipe_cnt = pipe_count++;
+	outpipes[0]->fsn_path = fs_path_printf("pipe:[%zu]", pipe_cnt);
 	pipes[0] = process_append_fd((process_t *)this_core->current_process, outpipes[0], flags);
+	outpipes[1]->fsn_path = fs_path_printf("pipe:[%zu]", pipe_cnt);
 	pipes[1] = process_append_fd((process_t *)this_core->current_process, outpipes[1], flags);
 
 	return 0;
@@ -1239,10 +1242,15 @@ long sys_openpty(int * master, int * slave, char * name, void * _ign0, void * si
 	fs_node_t * fs_master;
 	fs_node_t * fs_slave;
 
-	pty_create(size, &fs_master, &fs_slave);
+	pty_t * pty = pty_create(size, &fs_master, &fs_slave);
+
+	char pty_name[256] = "ptm:";
+	pty->fill_name(pty, 252, pty_name + 4);
 
 	/* Append the master and slave to the calling process */
+	fs_master->fsn_path = fs_alloc_path_from(pty_name, "openpty");
 	*master = process_append_fd((process_t *)this_core->current_process, fs_master,PROC_FD_MODE__RW|PROC_FD_MODE_CLOEXEC);
+	fs_slave->fsn_path = fs_alloc_path_from(pty_name+4, "openpty");
 	*slave  = process_append_fd((process_t *)this_core->current_process, fs_slave, PROC_FD_MODE__RW|PROC_FD_MODE_CLOEXEC);
 
 	open_fs(fs_master, 0);

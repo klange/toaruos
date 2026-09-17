@@ -18,6 +18,8 @@ typedef struct procfs_entry_node {
 	size_t used;
 	procfs_populate_t func;
 	list_t * files;
+	intptr_t id;
+	void (*free_node)(struct procfs_entry_node*);
 } procfs_entry_t;
 
 extern int procfs_install(struct procfs_entry * entry);

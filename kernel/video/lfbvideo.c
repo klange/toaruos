@@ -159,9 +159,7 @@ static fs_vtable_t vid_ops = {
 
 /* Framebuffer device file initializer */
 static fs_node_t * lfb_video_device_create(void /* TODO */) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
-	snprintf(fnode->name, 100, "fb0"); /* TODO */
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->length  = 0;
 	fnode->flags   = FS_BLOCKDEVICE; /* Framebuffers are block devices */
 	fnode->mask    = 0660; /* Only accessible to root user/group */

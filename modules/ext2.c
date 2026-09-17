@@ -1113,8 +1113,7 @@ static fs_node_t * finddir_ext2(fs_node_t *node, const char *name) {
 		free(block);
 		return NULL;
 	}
-	fs_node_t *outnode = malloc(sizeof(fs_node_t));
-	memset(outnode, 0, sizeof(fs_node_t));
+	fs_node_t *outnode = calloc(1, sizeof(fs_node_t));
 
 	inode = read_inode(this, direntry->inode);
 
@@ -1524,8 +1523,6 @@ static int node_from_file(ext2_fs_t * this, ext2_inodetable_t *inode, ext2_dir_t
 	/* Information from the direntry */
 	fnode->device = (void *)this;
 	fnode->inode = direntry->inode;
-	memcpy(&fnode->name, &direntry->name, direntry->name_len);
-	fnode->name[direntry->name_len] = '\0';
 	/* Information from the inode */
 	fnode->uid = inode->uid;
 	fnode->gid = inode->gid;
@@ -1571,8 +1568,6 @@ static int ext2_root(ext2_fs_t * this, ext2_inodetable_t *inode, fs_node_t *fnod
 	/* Information for root dir */
 	fnode->device = (void *)this;
 	fnode->inode = 2;
-	fnode->name[0] = '/';
-	fnode->name[1] = '\0';
 	/* Information from the inode */
 	fnode->uid = inode->uid;
 	fnode->gid = inode->gid;
@@ -1695,7 +1690,7 @@ static fs_node_t * mount_ext2(fs_node_t * block_device, int flags) {
 #endif
 
 	ext2_inodetable_t *root_inode = read_inode(this, 2);
-	RN = (fs_node_t *)malloc(sizeof(fs_node_t));
+	RN = (fs_node_t *)calloc(1, sizeof(fs_node_t));
 	if (!ext2_root(this, root_inode, RN)) {
 		return NULL;
 	}

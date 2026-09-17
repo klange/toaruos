@@ -579,8 +579,6 @@ static fs_vtable_t pty_master_ops = {
 fs_node_t * pty_master_create(pty_t * pty) {
 	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 
-	fnode->name[0] = '\0';
-	snprintf(fnode->name, 100, "pty master");
 	fnode->uid   = this_core->current_process->user;
 	fnode->gid   = this_core->current_process->user_group;
 	fnode->mask  = 0666;
@@ -622,8 +620,6 @@ static fs_vtable_t pty_slave_ops = {
 fs_node_t * pty_slave_create(pty_t * pty) {
 	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 
-	fnode->name[0] = '\0';
-	snprintf(fnode->name, 100, "pty slave");
 	fnode->uid   = this_core->current_process->user;
 	fnode->gid   = 3; /* tty group */
 	fnode->mask  = 0620;
@@ -673,7 +669,6 @@ static fs_vtable_t dev_tty_ops = {
 static fs_node_t * create_dev_tty(void) {
 	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->inode = 0;
-	strcpy(fnode->name, "tty");
 	fnode->mask = 0777;
 	fnode->uid  = 0;
 	fnode->gid  = 0;
@@ -754,7 +749,6 @@ static fs_vtable_t pty_dir_ops = {
 static fs_node_t * create_pty_dir(void) {
 	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->inode = 0;
-	strcpy(fnode->name, "pty");
 	fnode->mask = 0555;
 	fnode->uid  = 0;
 	fnode->gid  = 0;
@@ -848,11 +842,11 @@ pty_t * pty_new(struct winsize * size, int index) {
 	return pty;
 }
 
-int pty_create(void *size, fs_node_t ** fs_master, fs_node_t ** fs_slave) {
+pty_t * pty_create(void *size, fs_node_t ** fs_master, fs_node_t ** fs_slave) {
 	pty_t * pty = pty_new(size, ++_pty_counter);
 
 	*fs_master = pty->master;
 	*fs_slave  = pty->slave;
 
-	return 0;
+	return pty;
 }

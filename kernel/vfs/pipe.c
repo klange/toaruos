@@ -262,14 +262,10 @@ static fs_vtable_t pipe_ops = {
 };
 
 fs_node_t * make_pipe(size_t size) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	pipe_device_t * pipe = malloc(sizeof(pipe_device_t));
-	memset(fnode, 0, sizeof(fs_node_t));
-	memset(pipe, 0, sizeof(pipe_device_t));
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
+	pipe_device_t * pipe = calloc(1, sizeof(pipe_device_t));
 
 	fnode->device = 0;
-	fnode->name[0] = '\0';
-	snprintf(fnode->name, 100, "[pipe]");
 	fnode->uid   = 0;
 	fnode->gid   = 0;
 	fnode->mask  = 0666;

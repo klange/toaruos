@@ -396,8 +396,6 @@ static fs_node_t * file_from_ustar(struct tarfs * self, struct ustar * file, uns
 	fs->device = self;
 	fs->inode  = offset;
 	fs->impl   = 0;
-	char filename_workspace[256];
-	memcpy(fs->name, filename_workspace, strlen(filename_workspace)+1);
 
 	fs->uid = interpret_uid(file);
 	fs->gid = interpret_gid(file);
@@ -508,8 +506,7 @@ static fs_node_t * tar_mount(const char * device, const char * mount_path) {
 	self->device = dev;
 	self->length = dev->length;
 
-	fs_node_t * root = malloc(sizeof(fs_node_t));
-	memset(root, 0, sizeof(fs_node_t));
+	fs_node_t * root = calloc(1,sizeof(fs_node_t));
 
 	root->uid     = 0;
 	root->gid     = 0;

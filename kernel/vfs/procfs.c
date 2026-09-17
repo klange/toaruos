@@ -48,7 +48,7 @@ static ssize_t procfs_entry_read(fs_node_t * node, off_t offset, size_t size, ui
 	return size;
 }
 
-static fs_node_t * procfs_generic_create(const char * name, procfs_populate_t read_func, int flags);
+static fs_node_t * procfs_generic_create(struct procfs_entry *);
 
 /**
  * Dynamic reallocating printf thingy
@@ -84,6 +84,7 @@ static void procfs_entry_open(fs_node_t * node, unsigned int flags) {
 
 static void procfs_entry_close(fs_node_t * node) {
 	procfs_entry_t * entry = (void*)node;
+	if (entry->free_node) entry->free_node(entry);
 	if (entry->avail) free(entry->buf);
 	entry->buf = NULL;
 	entry->avail = 0;
@@ -145,10 +146,11 @@ static fs_node_t * finddir_procfs_subdir(fs_node_t * node, const char * name) {
 	procfs_entry_t * self = (procfs_entry_t*)node;
 
 	if (self->files) {
-		foreach(node, self->files) {
-			struct procfs_entry * e = node->value;
+		foreach(lnode, self->files) {
+			struct procfs_entry * e = lnode->value;
 			if (!strcmp(name, e->name)) {
-				fs_node_t * out = procfs_generic_create(e->name, e->func, e->flags);
+				fs_node_t * out = procfs_generic_create(e);
+				out->impl = node->impl;
 				return out;
 			}
 		}
@@ -176,20 +178,21 @@ static fs_vtable_t procfs_dir_ops = {
 	.finddir = finddir_procfs_subdir,
 };
 
-static fs_node_t * procfs_generic_create(const char * name, procfs_populate_t read_func, int flags) {
+static fs_node_t * procfs_generic_create(struct procfs_entry * ent_def) {
 	procfs_entry_t * entry = calloc(1, sizeof(procfs_entry_t));
 	entry->fnode.inode = 0;
-	strcpy(entry->fnode.name, name);
 
 	entry->buf = NULL;
 	entry->avail = 0;
 	entry->used = 0;
-	entry->func = read_func;
+	entry->func = ent_def->func;
+	entry->id = ent_def->id;
 
 	entry->fnode.uid = 0;
 	entry->fnode.gid = 0;
 	entry->fnode.mask    = 0444;
 
+	int flags = ent_def->flags;
 	if (flags == FS_SYMLINK) {
 		entry->fnode.flags   = FS_FILE | FS_SYMLINK;
 		entry->fnode.ops = &procfs_symlink_ops;
@@ -209,7 +212,7 @@ static fs_node_t * procfs_generic_create(const char * name, procfs_populate_t re
 }
 
 static void proc_cmdline_func(fs_node_t *node) {
-	process_t * proc = process_from_pid(node->inode);
+	process_t * proc = process_from_pid(node->impl);
 
 	if (!proc) {
 		/* wat */
@@ -244,7 +247,7 @@ static long count_mappings(memmap_t * maps) {
 
 static void proc_status_func(fs_node_t *node) {
 	process_acquire_big_lock();
-	process_t * proc = process_from_pid(node->inode);
+	process_t * proc = process_from_pid(node->impl);
 
 	if (!proc) {
 		process_release_big_lock();
@@ -375,12 +378,12 @@ static void proc_status_func(fs_node_t *node) {
 }
 
 static void proc_cwd_func(fs_node_t *node) {
-	process_t * proc = process_from_pid(node->inode);
-	procfs_printf(node,"%s", proc->wd_name);
+	process_t * proc = process_from_pid(node->impl);
+	procfs_printf(node,"%s", (proc->wd_node && proc->wd_node->fsn_path) ? proc->wd_node->fsn_path->chars : "/");
 }
 
 static void proc_maps_func(fs_node_t *node) {
-	process_t * proc = process_from_pid(node->inode);
+	process_t * proc = process_from_pid(node->impl);
 	for (memmap_t * maps = proc->thread.page_directory->mappings; maps; maps = maps->next) {
 		procfs_printf(node,"%08zx-%08zx %c%c%c%c %08zx %zx %zu %s\n",
 			maps->base,
@@ -392,16 +395,67 @@ static void proc_maps_func(fs_node_t *node) {
 			maps->offset,
 			maps->file ? fs_device_identifier(maps->file) : 0,
 			maps->file ? maps->file->inode : 0,
-			maps->file ? maps->file->name : (maps->base + maps->length == 0x800000000000) ? "[stack]" : "");
+			maps->file ? (maps->file->fsn_path ? maps->file->fsn_path->chars : "[dead file]") : (maps->base + maps->length == 0x800000000000) ? "[stack]" : "");
 	}
 }
 
+static void proc_fd_dir_free(struct procfs_entry_node *node) {
+	/* free the list and related stuff */
+	foreach(n, node->files) {
+		struct procfs_entry * ent = n->value;
+		free((char*)ent->name);
+		free(ent);
+	}
+	list_free(node->files);
+	free(node->files);
+}
+
+static void proc_fd_ent_func(fs_node_t * node) {
+	process_t * proc = process_from_pid(node->impl);
+	procfs_entry_t * self = (procfs_entry_t *)node;
+
+	if (!proc->fds) return;
+
+	spin_lock(proc->fds->lock);
+	if (proc->fds->entries[self->id] && proc->fds->entries[self->id]->fsn_path) {
+		procfs_printf(node, "%s", proc->fds->entries[self->id]->fsn_path->chars);
+	} else {
+		procfs_printf(node, "fd:%d", self->id);
+	}
+	spin_unlock(proc->fds->lock);
+}
+
+static void proc_fd_func(fs_node_t * node) {
+	process_t * proc = process_from_pid(node->impl);
+	procfs_entry_t * self = (procfs_entry_t *)node;
+
+	self->files = list_create("files", node);
+	self->free_node = proc_fd_dir_free;
+
+	if (!proc->fds) return;
+
+	spin_lock(proc->fds->lock);
+	for (uint32_t i = 0; i < proc->fds->length; ++i) {
+		if (proc->fds->entries[i]) {
+			struct procfs_entry * ent = calloc(1, sizeof(struct procfs_entry));
+			ent->id = i;
+			char fd_num[30];
+			snprintf(fd_num, 30, "%u", i);
+			ent->name = strdup(fd_num);
+			ent->flags = FS_SYMLINK;
+			ent->func = proc_fd_ent_func;
+			list_insert(self->files, ent);
+		}
+	}
+	spin_unlock(proc->fds->lock);
+}
 
 static struct procfs_entry procdir_entries[] = {
 	{1, "cmdline", proc_cmdline_func, 0},
 	{2, "status",  proc_status_func, 0},
 	{3, "cwd",     proc_cwd_func, FS_SYMLINK},
 	{4, "maps",    proc_maps_func, 0},
+	{5, "fd",      proc_fd_func, FS_DIRECTORY},
 };
 
 static int readdir_procfs_procdir(fs_node_t *node, uint64_t index, struct dirent * out) {
@@ -435,8 +489,8 @@ static fs_node_t * finddir_procfs_procdir(fs_node_t * node, const char * name) {
 
 	for (unsigned int i = 0; i < PROCFS_PROCDIR_ENTRIES; ++i) {
 		if (!strcmp(name, procdir_entries[i].name)) {
-			fs_node_t * out = procfs_generic_create(procdir_entries[i].name, procdir_entries[i].func, procdir_entries[i].flags);
-			out->inode = node->inode;
+			fs_node_t * out = procfs_generic_create(&procdir_entries[i]);
+			out->impl = node->impl;
 			return out;
 		}
 	}
@@ -453,7 +507,7 @@ static fs_node_t * procfs_procdir_create(process_t * process) {
 	pid_t pid = process->id;
 	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->inode = pid;
-	snprintf(fnode->name, 100, "%d", pid);
+	fnode->impl = pid;
 	fnode->uid = 0;
 	fnode->gid = 0;
 	fnode->mask = 0555;
@@ -741,7 +795,7 @@ static fs_node_t * finddir_procfs_root(fs_node_t * node, const char * name) {
 
 	for (unsigned int i = 0; i < PROCFS_STANDARD_ENTRIES; ++i) {
 		if (!strcmp(name, std_entries[i].name)) {
-			fs_node_t * out = procfs_generic_create(std_entries[i].name, std_entries[i].func, std_entries[i].flags);
+			fs_node_t * out = procfs_generic_create(&std_entries[i]);
 			return out;
 		}
 	}
@@ -750,7 +804,7 @@ static fs_node_t * finddir_procfs_root(fs_node_t * node, const char * name) {
 		foreach(node, extended_entries) {
 			struct procfs_entry * e = node->value;
 			if (!strcmp(name, e->name)) {
-				fs_node_t * out = procfs_generic_create(e->name, e->func, e->flags);
+				fs_node_t * out = procfs_generic_create(e);
 				return out;
 			}
 		}
@@ -768,7 +822,6 @@ static fs_node_t * procfs_create(void) {
 	fs_node_t * fnode = malloc(sizeof(fs_node_t));
 	memset(fnode, 0x00, sizeof(fs_node_t));
 	fnode->inode = 0;
-	strcpy(fnode->name, "proc");
 	fnode->mask = 0555;
 	fnode->uid  = 0;
 	fnode->gid  = 0;

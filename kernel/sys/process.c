@@ -476,7 +476,6 @@ process_t * spawn_init(void) {
 	spin_init(init->fds->lock);
 
 	init->wd_node = clone_fs(fs_root);
-	init->wd_name = strdup("/");
 
 	init->image.entry    = 0;
 	init->image.heap     = 0;
@@ -570,7 +569,6 @@ process_t * spawn_process(volatile process_t * parent, int flags, int close_at_f
 	}
 
 	proc->wd_node = clone_fs(parent->wd_node);
-	proc->wd_name = strdup(parent->wd_name);
 
 	proc->wait_queue   = list_create("process wait queue",proc);
 
@@ -1316,7 +1314,6 @@ void task_exit(long retval) {
 	/* free whatever we can */
 	list_free(this_core->current_process->wait_queue);
 	free(this_core->current_process->wait_queue);
-	free(this_core->current_process->wd_name);
 	if (this_core->current_process->node_waits) {
 		list_free(this_core->current_process->node_waits);
 		free(this_core->current_process->node_waits);

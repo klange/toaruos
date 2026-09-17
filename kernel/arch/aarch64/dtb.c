@@ -242,9 +242,7 @@ static fs_vtable_t dtb_ops = {
 };
 
 void dtb_device(void) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
-	snprintf(fnode->name, 10, "dtb");
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->inode = 0;
 	fnode->device = fnode;
 	fnode->uid = 0;

@@ -313,7 +313,6 @@ static fs_node_t * new_dsp_channel(void) {
 	spin_unlock(_buffers_lock);
 
 	fs_node_t * out = calloc(1, sizeof(fs_node_t));
-	strcpy(out->name, "dsp");
 	out->device = dsp;
 	out->mask = 0666;
 	out->flags = FS_CHARDEVICE;
@@ -334,7 +333,6 @@ static fs_vtable_t dev_snd_ops = {
 
 static fs_node_t * init_dev_snd(void) {
 	fs_node_t * out = calloc(1, sizeof(fs_node_t));
-	strcpy(out->name, "snd");
 	out->mask = 0555;
 	out->flags = FS_DIRECTORY;
 	out->length = 1;
@@ -363,7 +361,6 @@ static fs_vtable_t dev_dsp_ops = {
 
 static fs_node_t * init_dev_dsp(void) {
 	fs_node_t * out = calloc(1, sizeof(fs_node_t));
-	strcpy(out->name, "dsp");
 	out->mask = 0777;
 	out->flags = FS_FILE | FS_SYMLINK;
 	out->length = 1;
@@ -380,7 +377,6 @@ static fs_vtable_t snd_mixer_ops = {
 
 static fs_node_t * init_dev_mixer(void) {
 	fs_node_t * out = calloc(1, sizeof(fs_node_t));
-	strcpy(out->name, "mixer");
 	out->mask = 0666;
 	out->flags = FS_CHARDEVICE;
 	out->ops = &snd_mixer_ops;

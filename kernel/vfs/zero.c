@@ -39,7 +39,6 @@ static fs_vtable_t zero_ops = {
 
 static fs_node_t * null_device_create(void) {
 	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
-	strcpy(fnode->name, "null");
 	fnode->mask = 0666;
 	fnode->flags   = FS_CHARDEVICE;
 	fnode->ops     = &null_ops;
@@ -48,7 +47,6 @@ static fs_node_t * null_device_create(void) {
 
 static fs_node_t * zero_device_create(void) {
 	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
-	strcpy(fnode->name, "zero");
 	fnode->mask = 0666;
 	fnode->flags   = FS_CHARDEVICE;
 	fnode->ops     = &zero_ops;

@@ -588,8 +588,7 @@ static void e1000_init(struct e1000_nic * nic) {
 
 	nic->link_status = (read_command(nic, E1000_REG_STATUS) & (1 << 1));
 
-	nic->eth.device_node = calloc(sizeof(fs_node_t),1);
-	snprintf(nic->eth.device_node->name, 100, "%s", nic->eth.if_name);
+	nic->eth.device_node = calloc(1,sizeof(fs_node_t));
 	nic->eth.device_node->flags = FS_BLOCKDEVICE; /* NETDEVICE? */
 	nic->eth.device_node->mask  = 0644; /* temporary; shouldn't be doing this with these device files */
 	nic->eth.device_node->ops   = &e1000_ops;

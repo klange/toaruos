@@ -104,10 +104,8 @@ static fs_vtable_t ramdisk_ops = {
 };
 
 static fs_node_t * ramdisk_device_create(int device_number, uintptr_t location, size_t size) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->inode = location;
-	snprintf(fnode->name, 10, "ram%d", device_number);
 	fnode->device = fnode; /* stupid vfs */
 	fnode->uid = 0;
 	fnode->gid = 0;
@@ -123,7 +121,7 @@ fs_node_t * ramdisk_mount(uintptr_t location, size_t size) {
 	fs_node_t * ramdisk = ramdisk_device_create(last_device_number, location, size);
 	if (ramdisk) {
 		char tmp[64];
-		snprintf(tmp, 63, "/dev/%s", ramdisk->name);
+		snprintf(tmp, 63, "/dev/ram%d", last_device_number);
 		char addr[64];
 		snprintf(addr, 63, "%p,%zu", (void*)location, size);
 		vfs_mount(tmp, ramdisk, "ramdisk", addr);

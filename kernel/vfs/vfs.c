@@ -280,12 +280,12 @@ void close_fs(fs_node_t *node) {
 
 	node->refcount--;
 	if (node->refcount == 0) {
-		debug_print(NOTICE, "Node refcount [%s] is now 0: %ld", node->name, node->refcount);
-
 		if (node->ops->close) {
 			node->ops->close(node);
 		}
-
+		if (node->fsn_path) {
+			free(node->fsn_path);
+		}
 		free(node);
 	}
 	spin_unlock(tmp_refcount_lock);
@@ -662,6 +662,48 @@ int vfs_mount_type(const char * type, const char * arg, const char * mountpoint)
 	return 0;
 }
 
+struct fs_path * fs_alloc_path_from(const char * src, const char * called_from) {
+	//dprintf("vfs: allocat path from [%s] (from %s)\n", src, called_from);
+	(void)called_from;
+	size_t src_len = strlen(src);
+	struct fs_path * p = malloc(sizeof(struct fs_path) + src_len + 1);
+	p->len = src_len;
+	memcpy(p->chars, src, src_len + 1);
+	return p;
+}
+
+struct Path_CBData {
+	struct fs_path *path;
+	size_t size;
+	size_t written;
+};
+
+static int cb_path_printf(void * user, char c) {
+	struct Path_CBData * data = user;
+
+	if (data->written + 1 > data->size) {
+		data->size = data->size < 8 ? 8 : data->size * 2;
+		data->path = realloc(data->path, sizeof(struct fs_path) + data->size);
+	}
+
+	data->path->chars[data->written] = c;
+	data->written++;
+	return 0;
+}
+
+struct fs_path * fs_path_printf(const char * fmt, ...) {
+	struct Path_CBData data = {NULL,0,0};
+	va_list args;
+	va_start(args, fmt);
+	int out = xvasprintf(cb_path_printf, &data, fmt, args);
+	data.path->len = out;
+	cb_path_printf(&data, '\0');
+	va_end(args);
+
+	return data.path;
+}
+
+
 static spin_lock_t tmp_vfs_lock = { 0 };
 /**
  * @brief Mount a file system to the specified path.
@@ -709,6 +751,8 @@ void * vfs_mount(const char * path, fs_node_t * local_root, const char * type, c
 
 	/* Root */
 	tree_node_t * root_node = fs_tree->root;
+
+	if (!local_root->fsn_path) local_root->fsn_path = fs_alloc_path_from(path, "vfs_mount");
 
 	if (*i == '\0') {
 		/* Special case, we're trying to set the root node */
@@ -937,7 +981,14 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 		}
 
 		/* Found what we were looking for. */
-		if (path_offset >= path+path_len || depth == path_depth) return free(path), node_ptr;
+		if (path_offset >= path+path_len || depth == path_depth) {
+			if (node_ptr && !node_ptr->fsn_path) {
+				char * rpath = path_untokenize(path, path_len, path_depth + 1);
+				node_ptr->fsn_path = fs_alloc_path_from(rpath, "kopen_recur");
+				free(rpath);
+			}
+			return free(path), node_ptr;
+		}
 
 		/* We are still searching, so this needs to be a directory. */
 		if (!(node_ptr->flags & FS_DIRECTORY)) return *error = ENOTDIR, free(path), close_fs(node_ptr), NULL;
@@ -974,5 +1025,13 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
  */
 fs_node_t *kopen_error(const char *filename, unsigned int flags, int *error) {
 	*error = 0;
-	return kopen_recur(filename, flags, 0, (char *)(this_core->current_process->wd_name), error);
+	return kopen_recur(filename, flags, 0, fs_current_wd(), error);
 }
+
+char * fs_current_wd(void) {
+	if (this_core->current_process->wd_node && this_core->current_process->wd_node->fsn_path) {
+		return this_core->current_process->wd_node->fsn_path->chars;
+	}
+	return (char*)"/";
+}
+
