@@ -451,10 +451,8 @@ static fs_vtable_t atapi_ops = {
 };
 
 static fs_node_t * atapi_device_create(struct ata_device * device) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->inode = 0;
-	snprintf(fnode->name, 20, "cdrom%d", cdrom_number);
 	fnode->device  = device;
 	fnode->uid = 0;
 	fnode->gid = 0;
@@ -474,10 +472,8 @@ static fs_vtable_t ata_ops = {
 };
 
 static fs_node_t * ata_device_create(struct ata_device * device) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->inode = 0;
-	snprintf(fnode->name, 10, "atadev%d", ata_drive_char - 'a');
 	fnode->device  = device;
 	fnode->uid = 0;
 	fnode->gid = 0;

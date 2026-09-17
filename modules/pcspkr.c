@@ -73,9 +73,7 @@ static fs_vtable_t spkr_ops = {
 };
 
 static fs_node_t * spkr_device_create(void) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
-	snprintf(fnode->name, 5, "spkr");
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->mask    = 0660; /* TODO need a speaker group */
 	fnode->gid     = 1;
 	fnode->flags   = FS_CHARDEVICE;

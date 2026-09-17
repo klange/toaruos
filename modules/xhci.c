@@ -362,12 +362,11 @@ void xhci_thread(void * arg) {
 	char devName[20] = "/dev/xhciN";
 	snprintf(devName, 19, "/dev/xhci%d", 0);
 	fs_node_t * fnode = calloc(sizeof(fs_node_t), 1);
-	snprintf(fnode->name, 100, "xhci%d", 0);
 	fnode->flags   = FS_BLOCKDEVICE;
 	fnode->mask    = 0660; /* Only accessible to root user/group */
 	fnode->ops     = &xhci_fs_ops;
 	fnode->device  = controller;
-	vfs_mount(devName, fnode, "xhci", fnode->name);
+	vfs_mount(devName, fnode, "xhci", "");
 
 	int event_deq = 0;
 	uint32_t event_cycle_state = 1;

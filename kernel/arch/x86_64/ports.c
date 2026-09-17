@@ -98,10 +98,8 @@ static fs_vtable_t port_ops = {
 };
 
 static fs_node_t * port_device_create(void) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->inode = 0;
-	strcpy(fnode->name, "port");
 	fnode->uid = 0;
 	fnode->gid = 0;
 	fnode->mask = 0660;
