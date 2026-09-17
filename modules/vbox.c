@@ -477,8 +477,7 @@ static int vbox_install(int argc, char * argv[]) {
 		vbox_visibleregion->rect[0].yBottom = 900;
 		outportl(vbox_port, vbox_phys_visibleregion);
 
-		rect_pipe = malloc(sizeof(fs_node_t));
-		memset(rect_pipe, 0, sizeof(fs_node_t));
+		rect_pipe = calloc(1, sizeof(fs_node_t));
 		rect_pipe->mask = 0666;
 		rect_pipe->flags = FS_CHARDEVICE;
 		rect_pipe->ops   = &rectpipe_ops;

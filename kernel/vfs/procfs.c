@@ -819,8 +819,7 @@ static fs_vtable_t procfs_root_ops = {
 };
 
 static fs_node_t * procfs_create(void) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->inode = 0;
 	fnode->mask = 0555;
 	fnode->uid  = 0;

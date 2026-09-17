@@ -138,8 +138,7 @@ static fs_vtable_t mapper_ops = {
 };
 
 static fs_node_t * vfs_mapper(void) {
-	fs_node_t * fnode = malloc(sizeof(fs_node_t));
-	memset(fnode, 0x00, sizeof(fs_node_t));
+	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->mask    = 0555;
 	fnode->flags   = FS_DIRECTORY;
 	fnode->ops     = &mapper_ops;
