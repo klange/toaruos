@@ -823,7 +823,7 @@ int main(int argc, char ** argv) {
 	}
 
 #define TEXT_MODE_DEVICE "/dev/vga0"
-	vga_text_fd = open(TEXT_MODE_DEVICE, O_RDWR);
+	vga_text_fd = open(TEXT_MODE_DEVICE, O_RDWR | O_CLOEXEC);
 	if (vga_text_fd < 0) {
 		fprintf(stderr, "%s: %s: %s\n", argv[0], TEXT_MODE_DEVICE, strerror(errno));
 		return 1;
@@ -843,15 +843,15 @@ int main(int argc, char ** argv) {
 
 	active_terminal = terminal_create(term_width, term_height, 10000, argc-optind, &argv[optind]);
 
-	int kfd = open("/dev/kbd", O_RDONLY);
+	int kfd = open("/dev/kbd", O_RDONLY | O_CLOEXEC);
 	key_event_t event;
 	int vmmouse = 0;
 	mouse_device_packet_t packet;
 
-	int mfd = open("/dev/mouse", O_RDONLY);
-	int amfd = open("/dev/absmouse", O_RDONLY);
+	int mfd = open("/dev/mouse", O_RDONLY | O_CLOEXEC);
+	int amfd = open("/dev/absmouse", O_RDONLY | O_CLOEXEC);
 	if (amfd == -1) {
-		amfd = open("/dev/vmmouse", O_RDONLY);
+		amfd = open("/dev/vmmouse", O_RDONLY | O_CLOEXEC);
 		vmmouse = 1;
 	}
 
