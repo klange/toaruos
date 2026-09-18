@@ -1,0 +1,125 @@
+#!/bin/kuroko
+'''
+List files open by processes.
+'''
+
+import kuroko
+import fileio
+import os
+from collections import defaultdict
+
+def safe_readlines(path):
+    try:
+        with fileio.open(path,'r') as f:
+            return f.readlines()
+    except:
+        return []
+
+def safe_listdir(path):
+    try:
+        with fileio.opendir(path) as d:
+            return [e['name'] for e in d]
+    except:
+        return []
+
+def safe_readlink(path):
+    try:
+        return os.readlink(path)
+    except:
+        return None
+
+def getpwnam(uid):
+    '''Because we don't have a 'pwd' module...'''
+    for line in safe_readlines('/etc/passwd'):
+        let ents = line.strip().split(':')
+        if len(ents) > 2 and ents[2] == str(uid):
+            return ents[0]
+    return str(uid)
+
+def __main__(args):
+    let columns = ['COMMAND', 'PID', 'USER', 'FD', 'NAME']
+    let files = []
+    let pids = []
+
+    # Collect processes
+    for d in safe_listdir('/proc'):
+        if d.isdigit():
+            pids.append(int(d))
+
+    # Collect files
+    for pid in pids:
+        # Get the name of this process
+        let skip = False
+        let name = ''
+        let userid = -1
+        for line in safe_readlines(f'/proc/{pid}/status'):
+            let parts = line.strip().split('\t')
+            if len(parts) < 2: continue
+            if parts[0] == 'Tgid:' and str(pid) != parts[1]:
+                skip = True
+                break
+            if parts[0] == 'Name:':
+                name = parts[1]
+            if parts[0] == 'Uid:':
+                userid = int(parts[1])
+
+        if skip:
+            continue # thread
+
+        # Get user name from uid
+        let user = ''
+        if userid != -1:
+            user = getpwnam(userid)
+
+        # Shortcut for common parts
+        def add_file(fd, path):
+            files.append((name, pid, user, fd, path))
+
+        # cwd
+        let cwd = safe_readlink(f'/proc/{pid}/cwd')
+        if cwd: add_file('cwd', cwd)
+
+        # File descriptors
+        for fd in safe_listdir(f'/proc/{pid}/fd'):
+            if not fd.isdigit(): continue
+            let path = safe_readlink(f'/proc/{pid}/fd/{fd}')
+            if path: add_file(fd, path)
+
+        # Mapped files
+        let seen = set()
+        for line in safe_readlines(f'/proc/{pid}/maps'):
+            let parts = line.strip().split()
+            if len(parts) < 6: continue
+            if not len(parts[5]): continue
+            if parts[5].startswith('['): continue
+            if parts[5] in seen: continue
+            seen.add(parts[5])
+            add_file('mem', parts[5])
+
+    # Filter to arguments
+    if args:
+        args = set(args)
+        let nfiles = []
+        for file in files:
+            if file[-1] not in args:
+                continue
+            nfiles.append(file)
+        files = nfiles
+
+    # Figure out column lengths
+    let lengths = [len(x) for x in columns]
+    for file in files:
+        for i in range(len(columns)):
+            lengths[i] = max(lengths[i], len(str(file[i])))
+
+    # Header
+    print(' '.join(columns[i].__format__(str(lengths[i])) for i in range(len(columns))))
+
+    # Print 'em
+    for file in files:
+        print(' '.join(file[i].__format__(str(lengths[i])) for i in range(len(columns))))
+
+    return 0
+
+if __name__ == '__main__':
+    return __main__(kuroko.argv[1:])
