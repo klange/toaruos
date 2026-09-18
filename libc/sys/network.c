@@ -416,18 +416,66 @@ int getaddrinfo(const char *node, const char *service,
                 const struct addrinfo *hints,
                 struct addrinfo **res) {
 
-	struct hostent * ent = gethostbyname(node);
-	if (!ent) return -EINVAL; /* EAI_FAIL */
+	struct hostent * ent = NULL;
+
+	int family = 0;
+	int socktype = 0;
+	int protocol = 0;
+	unsigned long long port = 0;
+
+	if (!service && !node) return -EAI_NONAME;
+
+	if (hints) {
+		family   = hints->ai_family;
+		socktype = hints->ai_socktype;
+		protocol = hints->ai_protocol;
+
+		if (family != AF_UNSPEC && family != AF_INET) return -EAI_FAMILY;
+	}
+
+	if (!family) family = AF_INET;
+	if (!protocol && family == AF_INET && socktype == SOCK_DGRAM)  protocol = IPPROTO_UDP;
+	if (!protocol && family == AF_INET && socktype == SOCK_STREAM) protocol = IPPROTO_TCP;
+
+	if (service) {
+		if (!*service) return -EAI_SERVICE; /* Blank service */
+		char *end = NULL;
+		port = strtoull(service, &end, 10);
+		if (!*end) {
+			if (port > 65535) return -EAI_SERVICE; /* Invalid or out of range port */
+			/* Numeric service */
+		} else {
+			/* Some built-in service names */
+			if      (protocol != IPPROTO_UDP && !strcmp(service, "ssh"))      { port = 22; socktype = SOCK_STREAM; protocol = IPPROTO_TCP; }
+			else if (protocol != IPPROTO_UDP && !strcmp(service, "telnet"))   { port = 23; socktype = SOCK_STREAM; protocol = IPPROTO_TCP; }
+			else if (protocol != IPPROTO_UDP && !strcmp(service, "http"))     { port = 80; socktype = SOCK_STREAM; protocol = IPPROTO_TCP; }
+			else if (protocol != IPPROTO_UDP && !strcmp(service, "http-alt")) { port = 8080; socktype = SOCK_STREAM; protocol = IPPROTO_TCP; }
+			else if (protocol != IPPROTO_UDP && !strcmp(service, "https"))    { port = 443; socktype = SOCK_STREAM; protocol = IPPROTO_TCP; }
+			else if (protocol != IPPROTO_TCP && !strcmp(service, "toast"))    { port = 1030; socktype = SOCK_DGRAM; protocol = IPPROTO_UDP; }
+			else return -EAI_SERVICE; /* Named services are unsupported */
+		}
+		port = htons(port);
+	}
+
+	if (node) {
+		ent = gethostbyname(node);
+		if (!ent) return -EAI_NONAME;
+	}
 
 	*res = malloc(sizeof(struct addrinfo));
 	(*res)->ai_flags = 0;
-	(*res)->ai_family = AF_INET;
-	(*res)->ai_socktype = 0;
-	(*res)->ai_protocol = 0;
+	(*res)->ai_family = family;
+	(*res)->ai_socktype = socktype;
+	(*res)->ai_protocol = protocol;
 	(*res)->ai_addrlen = sizeof(struct sockaddr_in);
-	struct sockaddr_in * addr = malloc(sizeof(struct sockaddr_in));
-	addr->sin_family = AF_INET;
-	memcpy(&addr->sin_addr.s_addr, ent->h_addr, ent->h_length);
+
+	struct sockaddr_in * addr = calloc(1, sizeof(struct sockaddr_in));
+	addr->sin_family = family;
+	addr->sin_port = port;
+
+	if (ent) {
+		memcpy(&addr->sin_addr.s_addr, ent->h_addr, ent->h_length);
+	}
 	(*res)->ai_addr = (struct sockaddr *)addr;
 	(*res)->ai_canonname = NULL;
 	(*res)->ai_next = NULL;
