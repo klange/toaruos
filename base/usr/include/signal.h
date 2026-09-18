@@ -33,6 +33,8 @@ extern int sigaltstack(const stack_t *__restrict, stack_t *__restrict);
 extern int sig2str(int signum, char *str);
 extern int str2sig(const char *__restrict str, int *__restrict pnum);
 
+extern int killpg(pid_t, int);
+
 #define SIG2STR_MAX 16 /* Could be smaller with our signal names, but let's future proof a bit. */
 
 _End_C_Header
