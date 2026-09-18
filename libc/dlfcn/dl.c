@@ -1139,7 +1139,7 @@ static int run_app(struct DlLib * app, int argc, char * argv[], uintptr_t entryp
 	close(emergency_fd);
 #endif
 	is_runtime = true;
-	return entry(argc, argv, NULL);
+	return entry(argc, argv, environ);
 }
 
 /**

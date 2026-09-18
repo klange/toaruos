@@ -97,13 +97,13 @@ _hidden void __libc_init(void) {
 	if (getenv("__LIBC_DEBUG")) __libc_debug = 1;
 }
 
-void __libc_start_main(int argc, char * argv[], char ** envp, int (*main)(int,char**)) {
+void __libc_start_main(int argc, char * argv[], char ** envp, int (*main)(int,char**,char**)) {
 	if (!__libc_init_called) {
 		__argv = argv;
 		__libc_init();
 	}
 	_init();
-	exit(main(argc, argv));
+	exit(main(argc, argv, envp));
 }
 
 /* This is what we used to call __libc_start_main, and we maintain this weak alias
