@@ -1,0 +1,10 @@
+TO|toaru|ToaruOS Terminal:\
+	:am:bs:km:mi:ms:xn:Co#256:\
+	:ku=\E[A:kd=\E[B:kr=\E[C:kl=\E[D:#4=\E[2D:#i=\E[2C:\
+	:kh=\E[H:@7=\E[F:kI=\E[2~:kD=\E[3~:kP=\E[5~:kN=\E[6~:\
+	:ce=\E[K:cl=\E[H\E[2J:nd=\E[C:\
+	:le=^H:
+
+TV|toaru-vga|ToaruOS VGA console:\
+	:tc=toaru:\
+	:Co#8:
