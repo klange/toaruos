@@ -1009,11 +1009,14 @@ process_t * process_from_pid(pid_t pid) {
 
 
 long process_move_fd(process_t * proc, long src, long dest, int forbid_noop, int flags) {
-	if ((size_t)src >= proc->fds->length || (dest != -1 && (size_t)dest >= proc->fds->length)) {
+	if ((size_t)src >= proc->fds->length || dest < -1) {
 		return -EBADF;
 	}
 	if (dest == src) return forbid_noop ? -EINVAL : dest;
 	if (dest == -1) dest = process_append_fd(proc, NULL, 0);
+	if ((size_t)dest >= proc->fds->length) {
+		return process_fd_dup_least(proc, src, dest, flags);
+	}
 	if (proc->fds->entries[dest]) {
 		close_fs(proc->fds->entries[dest]);
 		proc->fds->entries[dest] = NULL;
