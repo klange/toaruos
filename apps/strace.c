@@ -201,6 +201,8 @@ const char * syscall_names[] = {
 	[SYS_UTIMENS]      = "utimens",
 	[SYS_FUTIMENS]     = "futimens",
 	[SYS_SIGALTSTACK]  = "sigaltstack",
+	[SYS_GETRESUID]    = "getresuid",
+	[SYS_GETRESGID]    = "getresgid",
 };
 
 char syscall_mask[] = {
@@ -307,6 +309,8 @@ char syscall_mask[] = {
 	[SYS_UTIMENS]      = 1,
 	[SYS_FUTIMENS]     = 1,
 	[SYS_SIGALTSTACK]  = 1,
+	[SYS_GETRESUID]    = 1,
+	[SYS_GETRESGID]    = 1,
 };
 
 static const int syscall_set_net[] = {
@@ -346,7 +350,7 @@ static const int syscall_set_process[] = {
 static const int syscall_set_creds[] = {
 	SYS_GETUID, SYS_GETGID, SYS_GETGROUPS, SYS_GETEGID, SYS_GETEUID,
 	SYS_SETUID, SYS_SETGID, SYS_SETGROUPS, SYS_SETRESUID, SYS_SETREUID,
-	SYS_SETRESGID, SYS_SETREGID, -1
+	SYS_SETRESGID, SYS_SETREGID, SYS_GETRESUID, SYS_GETRESGID, -1
 };
 
 static const int syscall_set_stat[] = {
@@ -691,7 +695,7 @@ static uintptr_t data_read_ptr(pid_t pid, uintptr_t addr) {
 
 static void sockaddr_arg(pid_t pid, uintptr_t addr, size_t size) {
 	if (addr == 0) {
-		fprintf(logfile, "null");
+		fprintf(logfile, "NULL");
 		return;
 	}
 
@@ -716,6 +720,14 @@ static void sockaddrp_arg(pid_t pid, uintptr_t addr, uintptr_t size_p) {
 	sockaddr_arg(pid,addr,size);
 }
 
+static void uid_gid_ptr_arg(pid_t pid, uintptr_t addr) {
+	if (addr == 0) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+
+	fprintf(logfile, "{%d}", data_read_int(pid, addr));
+}
 
 static void fds_arg(pid_t pid, size_t ecount, uintptr_t array) {
 	fprintf(logfile, "[");
@@ -1568,6 +1580,10 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			int_arg(uregs_syscall_arg2(r)); COMMA;
 			int_arg(uregs_syscall_arg3(r));
 			break;
+		case SYS_GETRESUID:
+		case SYS_GETRESGID:
+			/* three results */
+			break;
 		case SYS_MMAP:
 			pointer_arg(uregs_syscall_arg1(r)); COMMA;
 			uint_arg(uregs_syscall_arg2(r)); COMMA;
@@ -1775,6 +1791,13 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			break;
 		case SYS_NANOSLEEP:
 			struct_timespec_arg(pid, uregs_syscall_arg2(r));
+			maybe_errno(r);
+			break;
+		case SYS_GETRESUID:
+		case SYS_GETRESGID:
+			uid_gid_ptr_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			uid_gid_ptr_arg(pid, uregs_syscall_arg2(r)); COMMA;
+			uid_gid_ptr_arg(pid, uregs_syscall_arg3(r)); COMMA;
 			maybe_errno(r);
 			break;
 		/* Most things return -errno, or positive valid result */

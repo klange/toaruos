@@ -41,6 +41,9 @@ extern int setegid(gid_t egid);
 extern int setregid(gid_t rgid, gid_t egid);
 extern int setresgid(gid_t rgid, gid_t egid, gid_t sgid);
 
+extern int getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid);
+extern int getresuid(uid_t *ruid, uid_t *euid, uid_t *suid);
+
 extern uid_t getuid(void);
 extern uid_t geteuid(void);
 extern gid_t getgid(void);

@@ -583,6 +583,44 @@ long sys_setreuid(uid_t ruid, uid_t euid) {
 	return 0;
 }
 
+long sys_getresuid(uid_t *ruid, uid_t *euid, uid_t *suid) {
+	if (ruid) {
+		PTRCHECK(ruid, sizeof(uid_t), MMU_PTR_WRITE);
+		*ruid = this_core->current_process->real_user;
+	}
+
+	if (euid) {
+		PTRCHECK(euid, sizeof(uid_t), MMU_PTR_WRITE);
+		*euid = this_core->current_process->user;
+	}
+
+	if (suid) {
+		PTRCHECK(suid, sizeof(uid_t), MMU_PTR_WRITE);
+		*suid = this_core->current_process->saved_user;
+	}
+
+	return 0;
+}
+
+long sys_getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid) {
+	if (rgid) {
+		PTRCHECK(rgid, sizeof(gid_t), MMU_PTR_WRITE);
+		*rgid = this_core->current_process->real_user;
+	}
+
+	if (egid) {
+		PTRCHECK(egid, sizeof(gid_t), MMU_PTR_WRITE);
+		*egid = this_core->current_process->user;
+	}
+
+	if (sgid) {
+		PTRCHECK(sgid, sizeof(gid_t), MMU_PTR_WRITE);
+		*sgid = this_core->current_process->saved_user;
+	}
+
+	return 0;
+}
+
 static int valid_gid(uid_t id) {
 	if (this_core->current_process->user == USER_ROOT_UID) return 1;
 	return (id == this_core->current_process->real_user_group ||
@@ -1486,6 +1524,8 @@ static scall_func syscalls[] = {
 	[SYS_UTIMENS]      = (scall_func)(uintptr_t)sys_utimens,
 	[SYS_FUTIMENS]     = (scall_func)(uintptr_t)sys_futimens,
 	[SYS_SIGALTSTACK]  = (scall_func)(uintptr_t)sys_sigaltstack,
+	[SYS_GETRESUID]    = (scall_func)(uintptr_t)sys_getresuid,
+	[SYS_GETRESGID]    = (scall_func)(uintptr_t)sys_getresgid,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

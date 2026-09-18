@@ -291,6 +291,8 @@ DECL_SYSCALL3(getsockname, int,void*,size_t*);
 DECL_SYSCALL3(lchown, const char *, uid_t, gid_t);
 DECL_SYSCALL3(setresgid, gid_t, gid_t, gid_t);
 DECL_SYSCALL3(setresuid, uid_t, uid_t, uid_t);
+DECL_SYSCALL3(getresgid, gid_t*, gid_t*, gid_t*);
+DECL_SYSCALL3(getresuid, uid_t*, uid_t*, uid_t*);
 DECL_SYSCALL3(sigaction, int, struct sigaction*, struct sigaction*);
 DECL_SYSCALL3(sigprocmask, int, const sigset_t * restrict, sigset_t* restrict);
 DECL_SYSCALL3(sigqueue, pid_t, int, uintptr_t);

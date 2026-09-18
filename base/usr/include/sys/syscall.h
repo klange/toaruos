@@ -45,8 +45,6 @@
 #define SYS_YIELD 42
 #define SYS_INSMOD 43
 #define SYS_SHUTDOWN 44
-/* 45 unused */
-/* 46 unused */
 #define SYS_UTIMENS 45
 #define SYS_FUTIMENS 46
 #define SYS_IOCTL 47
@@ -105,3 +103,5 @@
 #define SYS_NPROC 100
 #define SYS_SETTLSBASE 101
 #define SYS_GETSID 102
+#define SYS_GETRESUID 103
+#define SYS_GETRESGID 104
