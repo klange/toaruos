@@ -8,6 +8,8 @@
 #include <errno.h>
 #include <sys/mman.h>
 
+#include <stdio_ext.h>
+
 #include <libc/internal.h>
 #include <libc/stdio/stdio_internal.h>
 
@@ -598,4 +600,21 @@ ssize_t getdelim(char **restrict lineptr, size_t *restrict n, int delimiter, FIL
 
 ssize_t getline(char **restrict lineptr, size_t *restrict n, FILE *restrict stream) {
 	return getdelim(lineptr, n, '\n', stream);
+}
+
+/* glibc ext */
+size_t __fbufsize(FILE * stream) {
+	return stream->bufsiz; /* TODO We have two buffers... we are not supposed to have two buffers... */
+}
+
+void __fpurge(FILE * stream) {
+	stream->written = 0;
+	stream->ungetc = -1;
+	stream->available = 0;
+	stream->read_from = 0;
+	stream->offset = 0;
+}
+
+size_t __fpending(FILE * stream) {
+	return stream->written;
 }
