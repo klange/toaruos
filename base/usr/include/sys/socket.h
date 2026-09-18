@@ -12,6 +12,7 @@ _Begin_C_Header
 #define AF_UNIX 3
 #define AF_PEX  4
 
+#define PF_UNSPEC AF_UNSPEC
 #define PF_INET AF_INET
 
 #define SOCK_STREAM 1
