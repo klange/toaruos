@@ -6,4 +6,6 @@
 #define PATH_MAX 4096
 #define LOGIN_NAME_MAX 256
 
+#define MB_LEN_MAX 4
+
 /* dummy */

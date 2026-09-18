@@ -71,4 +71,8 @@ extern ldiv_t ldiv(long numerator, long denominator);
 
 extern char *realpath(const char *path, char *resolved_path);
 
+extern int __mb_cur_max(void);
+
+#define MB_CUR_MAX (__mb_cur_max())
+
 _End_C_Header
