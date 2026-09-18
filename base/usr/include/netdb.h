@@ -16,6 +16,8 @@ extern int getaddrinfo(const char *node, const char *service,
 
 extern void freeaddrinfo(struct addrinfo *res);
 
+extern const char *gai_strerror(int ecode);
+
 struct hostent {
 	char  *h_name;            /* official name of host */
 	char **h_aliases;         /* alias list */
@@ -42,6 +44,10 @@ extern struct hostent * gethostbyname(const char * name);
 #define EAI_NONAME     -6
 #define EAI_SERVICE    -7
 #define EAI_SOCKTYPE   -8
+#define EAI_OVERFLOW   -9
+#define EAI_FAIL       -10
+#define EAI_SYSTEM     -11
+
 
 
 _End_C_Header

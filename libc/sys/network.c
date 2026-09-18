@@ -434,6 +434,23 @@ int getaddrinfo(const char *node, const char *service,
 	return 0;
 }
 
+const char *gai_strerror(int ecode) {
+	switch (ecode) {
+		case EAI_AGAIN: return "Try again";
+		case EAI_BADFLAGS: return "Invalid flags";
+		case EAI_BADEXFLAGS: return "Invalid extended flags";
+		case EAI_FAMILY: return "Unrecognized address family";
+		case EAI_MEMORY: return "Out of memory";
+		case EAI_NONAME: return "Name does not resolve";
+		case EAI_SERVICE: return "Unrecognized servce";
+		case EAI_SOCKTYPE: return "Unrecognized socket type";
+		case EAI_FAIL: return "Non-recoverable error";
+		case EAI_SYSTEM: return "System error";
+		case EAI_OVERFLOW: return "Overflow";
+		default: return "Unknown error";
+	}
+}
+
 void freeaddrinfo(struct addrinfo *res) {
 	if (res->ai_addr) free(res->ai_addr);
 	free(res);
