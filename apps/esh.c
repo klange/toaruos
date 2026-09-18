@@ -42,6 +42,7 @@
 #include <toaru/rline.h>
 #include <toaru/decodeutf8.h>
 #include <toaru/modecalc.h>
+#include <toaru/lscolors.h>
 
 #ifndef environ
 extern char **environ;
@@ -429,6 +430,13 @@ static const char * match_content(const char *match) {
 		if (*match == 9) match++;
 	}
 
+	/* Vertical tab, prefixed by a color string. */
+	if (*match == 11) {
+		match++;
+		while (*match && *match != 11) match++;
+		if (*match == 11) match++;
+	}
+
 	return match;
 }
 
@@ -454,6 +462,29 @@ static void match_format(const char * match) {
 			match++;
 			if (esh_complete_hints) {
 				fprintf(stderr, "%s\033[90m (%.*s)\033[0m", match, (int)(match - section - 1), section);
+				return;
+			}
+		}
+	} else if (*match == 11) {
+		match++;
+		const char * cstr = match;
+		while (*match && *match != 11) match++;
+		if (*match == 11) {
+			match++;
+			if (esh_complete_color) {
+				int match_len = strlen(match);
+				char * extra = "";
+				if (match_len && match[match_len-1] == '/') {
+					match_len--;
+					extra = "/";
+				}
+				fprintf(stderr, "%s%.*s%s%.*s%s%s",
+					LS_C(LEFT),
+					(int)(match - cstr - 1), cstr,
+					LS_C(RIGHT),
+					match_len, match,
+					LS_C(END),
+					extra);
 				return;
 			}
 		}
@@ -486,6 +517,11 @@ static int match_display_width(const char * match) {
 			match++;
 		}
 		if (*match == 9) match++;
+	} else if (*match == 11) {
+		/* Color string does not impact display width */
+		match++;
+		while (*match && *match != 11) match++;
+		if (*match == 11) match++;
 	}
 
 	return out + display_width_of_string(match);
@@ -672,10 +708,20 @@ void tab_complete_func(rline_context_t * c) {
 						ret = lstat(ent->d_name, &statbuf);
 					}
 					char * s;
-					if (!ret && S_ISDIR(statbuf.st_mode)) {
-						/* Directories are blue, like in ls. */
-						asprintf(&s,"%c%s/", 4, ent->d_name);
-						no_space_if_only = 1;
+					if (!ret) {
+						int is_dir = S_ISDIR(statbuf.st_mode);
+						if (is_dir) no_space_if_only = 1;
+						const char * cstr = ls_color_str(ent->d_name, &statbuf);
+						if (esh_complete_color && cstr) {
+							asprintf(&s,"\v%s\v%s%s",
+								cstr,
+								ent->d_name,
+								is_dir ? "/" : "");
+						} else if (is_dir) {
+							asprintf(&s,"%s/", ent->d_name);
+						} else {
+							s = strdup(ent->d_name);
+						}
 					} else {
 						s = strdup(ent->d_name);
 					}
@@ -2090,6 +2136,7 @@ int main(int argc, char ** argv) {
 	my_pgid = getpgid(0);
 
 	source_eshrc();
+	ls_colors_init();
 	add_path();
 	sort_commands();
 
