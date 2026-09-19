@@ -435,6 +435,7 @@ static void _ansi_put(term_state_t * s, char c) {
 							for (int i = x; i < y; ++i) {
 								term_set_cell(s, i, s->y, ' ');
 							}
+							term_draw_cursor(s);
 						}
 						break;
 					case ANSI_DSR:
