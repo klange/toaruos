@@ -7,5 +7,6 @@ if [ "$TERM" = "toaru-vga" ] then export RLINE_THEME="default" else export RLINE
 if [ -d "/usr/local/bin" ] then export PATH="/usr/local/bin:$PATH"
 
 set -o complete-hints
+set -o complete-color
 
 export LS_COLORS=`dircolors.krk`
