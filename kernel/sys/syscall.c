@@ -793,12 +793,11 @@ long sys_uname(struct utsname * name) {
 long sys_chdir(char * newdir) {
 	PTR_VALIDATE(newdir);
 	if (!newdir) return -EFAULT;
-	char * path = canonicalize_path(fs_current_wd(), newdir);
 	int error = 0;
-	fs_node_t * chd = kopen_error(path, 0, &error);
-	if (!chd) return free(path), -error;
-	if (!(chd->flags & FS_DIRECTORY)) return free(path), -ENOTDIR;
-	if (!has_permission(chd, X_OK)) return free(path), close_fs(chd), -EACCES;
+	fs_node_t * chd = kopen_error(newdir, 0, &error);
+	if (!chd) return  -error;
+	if (!(chd->flags & FS_DIRECTORY)) return -ENOTDIR;
+	if (!has_permission(chd, X_OK)) return close_fs(chd), -EACCES;
 
 	fs_node_t * old = this_core->current_process->wd_node;
 	this_core->current_process->wd_node = chd;
