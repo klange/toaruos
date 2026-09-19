@@ -150,7 +150,6 @@ fs_node_t *finddir_fs(fs_node_t *node, const char *name);
 int mkdir_fs(const char *name, mode_t permission, fs_node_t **out);
 int create_file_fs(const char *name, mode_t permission, fs_node_t **out);
 fs_node_t *kopen_error(const char *filename, unsigned int flags, int *error);
-char *canonicalize_path(const char *cwd, const char *input);
 fs_node_t *clone_fs(fs_node_t * source);
 int ioctl_fs(fs_node_t *node, unsigned long request, void * argp);
 int chmod_fs(fs_node_t *node, mode_t mode);

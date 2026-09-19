@@ -523,7 +523,7 @@ fs_node_t *clone_fs(fs_node_t *source) {
  * @param input Path to append or canonicalize on
  * @returns An absolute path string
  */
-char *canonicalize_path(const char *cwd, const char *input) {
+static char *canonicalize_path(const char *cwd, const char *input) {
 	/* This is a stack-based canonicalizer; we use a list as a stack */
 	list_t *out = list_create("vfs canonicalize_path working memory",input);
 
