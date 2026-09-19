@@ -697,7 +697,7 @@ static int do_once(int delay) {
 	struct pollfd fds[1];
 	fds[0].fd = STDIN_FILENO;
 	fds[0].events = POLLIN;
-_again:
+_again: (void)0;
 	int ret = poll(fds,1,delay * 100);
 	if (ret > 0 && fds[0].revents & POLLIN) {
 		char c;
