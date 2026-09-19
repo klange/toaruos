@@ -17,6 +17,7 @@ let restricted_files = {
     'bin/sudo': 0o4555,
     'bin/gsudo': 0o4555,
     'bin/newgrp': 0o4555,
+    'bin/chsh': 0o4555,
 }
 
 def pad_to(buf, length):

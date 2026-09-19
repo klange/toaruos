@@ -1,0 +1,40 @@
+.TH CHSH 1 "September, 2026"
+
+.SH NAME
+\fBchsh\fP \- change login shell
+
+.SH SYNOPSIS
+\fBchsh\fP [\fB\-s\fP \fIshell\fP] [\fB\-t\fP \fItheme\fP] [\fIuser\fP]
+
+.SH DESCRIPTION
+This utility allows users to change their login shell.
+If a \fIuser\fP is given, the caller must be \fBroot\fP.
+If neither the \fB\-s\fP nor the \fB\-t\fP options are provided,
+the user will be prompted to enter the path to a shell.
+
+.SS Options
+
+.TP
+.B \-s \fIshell\fP
+Specify the \fIshell\fP to be set.
+Unless the caller is \fBroot\fP, the \fIshell\fP must be listed in
+\fB/etc/shells\fP as a valid shell.
+
+.TP
+.B \-t \fItheme\fP
+Specify the decoration \fItheme\fP to be set.
+The \fItheme\fP must consist only of lowercase letters.
+
+.SH FILES
+
+.TP
+.B /etc/shells
+Each line in this file that does not begin with a \fB#\fP character lists a valid shell.
+
+.TP
+.B /etc/passwd
+The user configuration database that will be modified.
+
+.SH SEE ALSO
+.BR login (1)
+
