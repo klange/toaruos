@@ -3,6 +3,8 @@ TO|toaru|ToaruOS Terminal:\
 	:ku=\E[A:kd=\E[B:kr=\E[C:kl=\E[D:#4=\E[2D:#i=\E[2C:\
 	:kh=\E[H:@7=\E[F:kI=\E[2~:kD=\E[3~:kP=\E[5~:kN=\E[6~:\
 	:ce=\E[K:cl=\E[H\E[2J:nd=\E[C:\
+	:ve=\E[?25h:vi=\E[?25l:\
+	:cr=\r:ch=\E[H:se=\E[m:so=\E[7m:\
 	:le=^H:
 
 TV|toaru-vga|ToaruOS VGA console:\
