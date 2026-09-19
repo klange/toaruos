@@ -697,14 +697,22 @@ static int do_once(int delay) {
 	struct pollfd fds[1];
 	fds[0].fd = STDIN_FILENO;
 	fds[0].events = POLLIN;
+_again:
 	int ret = poll(fds,1,delay * 100);
 	if (ret > 0 && fds[0].revents & POLLIN) {
-		int c = fgetc(stdin);
-		if (c == 'q') return 0;
-		if (c == 'w') next_sort_order();
-		if (c == 'W') prev_sort_order();
-		if (c == 'h') show_help = !show_help;
-		if (c == 'T') toggle_threads();
+		char c;
+		if (read(STDIN_FILENO, &c, 1) < 1) goto _again;
+		switch (c) {
+			case 'q': return 0;
+			case 'C':
+			case 'w': next_sort_order(); break;
+			case 'D':
+			case 'W': prev_sort_order(); break;
+			case 'h': show_help = !show_help; break;
+			case 'T': toggle_threads(); break;
+			case '\033': goto _again;
+			case '[': goto _again;
+		}
 	}
 
 	return 1;
