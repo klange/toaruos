@@ -63,3 +63,4 @@ extern long net_shutdown(int, int);
 extern long net_getsockname(int,struct sockaddr*,socklen_t*);
 extern long net_getpeername(int,struct sockaddr*,socklen_t*);
 
+extern long net_socket_to_fd(sock_t *, int, const char *, uint64_t);

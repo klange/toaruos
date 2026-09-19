@@ -378,8 +378,7 @@ static int icmp_socket(int flags, int nb) {
 	sock->nonblocking = nb;
 	hashmap_set(icmp_sockets, (void*)(uintptr_t)sock->priv32[SOCK_PRIV32_ICMP_IDENT], sock);
 
-	sock->_fnode.fsn_path = fs_path_printf("socket:[icmp:%d]", this_core->current_process->id); /* TODO: move to fd */
-	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, flags | PROC_FD_MODE__RW);
+	return net_socket_to_fd(sock, flags, "icmp", this_core->current_process->id);
 }
 
 #define TCP_FLAGS_FIN (1 << 0)
@@ -734,8 +733,7 @@ static int udp_socket(int flags, int nb) {
 	sock->nonblocking = nb;
 
 	static uint64_t udp_sock_count = 0;
-	sock->_fnode.fsn_path = fs_path_printf("socket:[udp:%zu]", udp_sock_count++); /* TODO: move to fd */
-	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, flags | PROC_FD_MODE__RW);
+	return net_socket_to_fd(sock, flags, "udp", udp_sock_count++);
 }
 
 static spin_lock_t tcp_port_lock = {0};
@@ -1210,8 +1208,7 @@ static int tcp_socket(int flags, int nb) {
 	sock->sock_accept = sock_tcp_accept;
 
 	static uint64_t tcp_sock_count = 0;
-	sock->_fnode.fsn_path = fs_path_printf("socket:[tcp:%zu]", tcp_sock_count++); /* TODO: move to fd */
-	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, flags | PROC_FD_MODE__RW);
+	return net_socket_to_fd(sock, flags, "tcp", tcp_sock_count++);
 }
 
 long net_ipv4_socket(int type, int protocol, int flags, int nb) {

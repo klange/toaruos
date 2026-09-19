@@ -274,7 +274,6 @@ long net_pex_socket(int type, int protocol, int flags, int nb) {
 	sock->_fnode.ops = &pex_ops;
 
 	static uint64_t pex_sock_count = 0;
-	sock->_fnode.fsn_path = fs_path_printf("socket:[pex:%zu]", pex_sock_count++); /* TODO: move to fd */
-	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, flags | PROC_FD_MODE__RW);
+	return net_socket_to_fd(sock, flags, "pex", pex_sock_count++);
 }
 
