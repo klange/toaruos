@@ -172,6 +172,10 @@ static int find_symbol(pid_t pid, uintptr_t addr_in, char ** name, uintptr_t *ad
 	Elf64_Header header;
 	fread(&header, sizeof(Elf64_Header), 1, f);
 
+	if (header.e_type != ET_DYN) {
+		best_base = 0;
+	}
+
 	for (unsigned int i = 0; i < header.e_shnum; ++i) {
 		fseek(f, header.e_shoff + header.e_shentsize * i, SEEK_SET);
 		Elf64_Shdr sectionHeader;
@@ -182,12 +186,8 @@ static int find_symbol(pid_t pid, uintptr_t addr_in, char ** name, uintptr_t *ad
 				/* Try to get the actual one if possible */
 				Elf64_Sym * symtab = malloc(sectionHeader.sh_size);
 
-				if (sectionHeader.sh_addr > 0x40000000) {
-					data_read_bytes(pid, sectionHeader.sh_addr, (char*)symtab, sectionHeader.sh_size);
-				} else {
-					fseek(f, sectionHeader.sh_offset, SEEK_SET);
-					fread(symtab, sectionHeader.sh_size, 1, f);
-				}
+				fseek(f, sectionHeader.sh_offset, SEEK_SET);
+				fread(symtab, sectionHeader.sh_size, 1, f);
 
 				Elf64_Shdr shdr_strtab;
 				fseek(f, header.e_shoff + header.e_shentsize * sectionHeader.sh_link, SEEK_SET);
@@ -223,8 +223,8 @@ static int find_symbol(pid_t pid, uintptr_t addr_in, char ** name, uintptr_t *ad
 	*name = current_name;
 	*objname = current_obj;
 
+	if (f && f != binary_obj) fclose(f);
 	if (current_name) return 1;
-	if (f != binary_obj) fclose(f);
 	return 0;
 }
 
@@ -250,6 +250,11 @@ static void attempt_backtrace(pid_t pid, struct URegs * regs) {
 				name, ip - addr, objname);
 			free(name);
 			free(objname);
+		} else {
+			fprintf(stderr, "<0x%016zx> %s%s\n",
+				ip,
+				objname ? "in " : "",
+				objname ? objname : "");
 		}
 
 		ip = data_read_ptr(pid, bp + sizeof(uintptr_t));
