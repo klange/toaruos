@@ -1,0 +1,6 @@
+$if mode=emacs
+	$if term=toaru
+		"\e[5D": backward-word
+		"\e[5C": forward-word
+	$endif
+$endif
