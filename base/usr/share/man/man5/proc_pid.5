@@ -27,5 +27,17 @@ Each line indicates a contiguous range with the same properties and
 shows the start and end addresses, permissions, file offset, device,
 inode number, and file name of mapped files.
 
+.TP
+.IR /proc/ pid /exe
+Dynamic symbolic link to the main binary of the process.
+
+.TP
+.IR /proc/ pid /cwd
+Dynamic symbolic link to the current working directory of the process or thread.
+
+.TP
+.IR /proc/ pid /fd
+Directory containing symbolic links for each open file descriptor, 
+
 .SH SEE ALSO
 .BR proc (5)
