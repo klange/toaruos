@@ -87,6 +87,11 @@ def __main__(args):
 
         # Mapped files
         let seen = set()
+        let exe = safe_readlink(f'/proc/{pid}/exe')
+        if exe:
+            seen.add(exe)
+            add_file('txt', exe)
+
         for line in safe_readlines(f'/proc/{pid}/maps'):
             let parts = line.strip().split()
             if len(parts) < 6: continue
