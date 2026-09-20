@@ -392,6 +392,11 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 
 	process_close_fds((process_t *)this_core->current_process, PROC_FD_MODE_CLOEXEC);
 
+	if (this_core->current_process->exe_node) {
+		close_fs(this_core->current_process->exe_node);
+		this_core->current_process->exe_node = NULL;
+	}
+
 	process_acquire_big_lock();
 	mmu_set_directory(NULL);
 	page_directory_t * this_directory = this_core->current_process->thread.page_directory;
@@ -417,7 +422,8 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	uintptr_t phdr_vaddr = load_from_file(file, &header, &base_addr, 0, !interpreter);
 	uintptr_t entrypoint = header.e_entry + base_addr;
 	uintptr_t interp_base = 0;
-	close_fs(file);
+
+	this_core->current_process->exe_node = file; /* already cloned */
 
 	/* We've loaded the binary, now let's load the interpreter! */
 	if (interpreter) {

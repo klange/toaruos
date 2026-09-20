@@ -568,6 +568,7 @@ process_t * spawn_process(volatile process_t * parent, int flags, int close_at_f
 		spin_unlock(parent->fds->lock);
 	}
 
+	proc->exe_node = parent->exe_node ? clone_fs(parent->exe_node) : NULL;
 	proc->wd_node = clone_fs(parent->wd_node);
 
 	proc->wait_queue   = list_create("process wait queue",proc);
@@ -1341,6 +1342,10 @@ void task_exit(long retval) {
 		} else {
 			spin_unlock(this_core->current_process->fds->lock);
 		}
+	}
+
+	if (this_core->current_process->exe_node) {
+		close_fs(this_core->current_process->exe_node);
 	}
 
 	if (this_core->current_process->wd_node) {

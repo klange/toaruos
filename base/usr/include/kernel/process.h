@@ -122,7 +122,7 @@ typedef struct process {
 	char * name;
 	char ** cmdline;
 
-	char * wd_name;
+	fs_node_t * exe_node;
 	fs_node_t * wd_node;
 	fd_table_t *  fds;               /* File descriptor table */
 

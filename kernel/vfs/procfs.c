@@ -382,6 +382,11 @@ static void proc_cwd_func(fs_node_t *node) {
 	procfs_printf(node,"%s", (proc->wd_node && proc->wd_node->fsn_path) ? proc->wd_node->fsn_path->chars : "/");
 }
 
+static void proc_exe_func(fs_node_t *node) {
+	process_t * proc = process_from_pid(node->impl);
+	procfs_printf(node,"%s", (proc->exe_node && proc->exe_node->fsn_path) ? proc->exe_node->fsn_path->chars : "");
+}
+
 static void proc_maps_func(fs_node_t *node) {
 	process_t * proc = process_from_pid(node->impl);
 	for (memmap_t * maps = proc->thread.page_directory->mappings; maps; maps = maps->next) {
@@ -456,6 +461,7 @@ static struct procfs_entry procdir_entries[] = {
 	{3, "cwd",     proc_cwd_func, FS_SYMLINK},
 	{4, "maps",    proc_maps_func, 0},
 	{5, "fd",      proc_fd_func, FS_DIRECTORY},
+	{6, "exe",     proc_exe_func, FS_SYMLINK}, /* TODO rename when our realpath isn't garbage */
 };
 
 static int readdir_procfs_procdir(fs_node_t *node, uint64_t index, struct dirent * out) {
