@@ -13,5 +13,5 @@ char * strncpy(char * dest, const char * src, size_t n) {
 		*out = '\0';
 		++out;
 	}
-	return out;
+	return dest;
 }

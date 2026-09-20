@@ -38,8 +38,6 @@ extern char * strncat(char *dest, const char *src, size_t n);
 extern char * strtok(char * str, const char * delim);
 extern char * strtok_r(char * str, const char * delim, char ** saveptr);
 
-extern char * strncpy(char *dest, const char *src, size_t n);
-
 extern char * strerror(int errnum);
 extern size_t strxfrm(char *dest, const char *src, size_t n);
 
