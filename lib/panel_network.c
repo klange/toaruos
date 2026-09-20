@@ -68,13 +68,16 @@ static void check_network(const char * if_name) {
 
 	char if_path[512];
 	snprintf(if_path, 511, "/dev/net/%s", if_name);
-	int netdev = open(if_path, O_RDONLY);
+	int netdev = open(if_path, O_RDONLY | O_CLOEXEC);
 
 	if (netdev < 0) return;
 
 	uint32_t flags;
 	if (!ioctl(netdev, SIOCGIFFLAGS, &flags)) {
-		if (flags & IFF_LOOPBACK) return; /* Ignore loopback */
+		if (flags & IFF_LOOPBACK) {
+			close(netdev);
+			return; /* Ignore loopback */
+		}
 		if (!(flags & IFF_UP)) {
 			snprintf(netstat_data[netstat_count], 1023, "%s: disconnected", if_name);
 			netif_disconnected(if_name);
