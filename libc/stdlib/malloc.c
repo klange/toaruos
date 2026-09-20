@@ -334,6 +334,15 @@ static void * klmalloc_stack_pop(klmalloc_bin_header *header) {
 	void *item = header->head;
 	uintptr_t **head = header->head;
 	uintptr_t *next = *head;
+	if (next != NULL) {
+		assert(((uintptr_t)next > (uintptr_t)header));
+		if (header->size > NUM_BINS) {
+			assert((uintptr_t)next < (uintptr_t)header + header->size);
+		} else {
+			assert((uintptr_t)next < (uintptr_t)header + PAGE_SIZE);
+			assert((uintptr_t)next > (uintptr_t)header + sizeof(klmalloc_bin_header) - 1);
+		}
+	}
 	header->head = next;
 	return item;
 }
