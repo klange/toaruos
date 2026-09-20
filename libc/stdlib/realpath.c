@@ -1,3 +1,4 @@
+#define _TOARU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,100 +6,169 @@
 #include <unistd.h>
 #include <errno.h>
 
-#ifndef __toaru__
-#undef realpath
-#define realpath _realpath_toaru
-#endif
-
-#define SYMLINK_MAX 5
-
-static void _append_dir(char *out, char *element) {
-	strcat(out,"/");
-	strcat(out,element);
+static size_t count_slashes(const char * s) {
+	size_t i = 0;
+	while (s[i] == '/') i++;
+	return i;
 }
 
-static void _remove_last(char * out) {
-	char * last = strrchr(out,'/');
-	if (last) {
-		*last = '\0';
-	}
+static char * set_errno(int e) {
+	errno = e;
+	return NULL;
 }
 
 /**
- * This is accurate to how we handle paths in ToaruOS.
- * It's not correct for real symbolic link handling,
- * so it needs some work for that.
+ * Mostly copied from musl because I simply can't be bothered any more.
+ *
+ * Copyright © 2005-2020 Rich Felker, et al.
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-char *realpath(const char *path, char *resolved_path) {
-	/*
-	 * Basically the same as what we do in the kernel for canonicalize_path
-	 * but slightly more complicated because of the requirement to check
-	 * symlinks... this is going to get interesting.
-	 */
-	if (!path) {
-		errno = -EINVAL;
-		return NULL;
-	}
+char * __realpath(const char * restrict filename, char * restrict resolved, int messy) {
+	if (!filename) return set_errno(EINVAL);
 
-	if (!resolved_path) {
-		resolved_path = malloc(PATH_MAX+1);
-	}
+	char stack[PATH_MAX + 1];
+	char out[PATH_MAX];
 
-	/* If we're lucky, we can do this with no allocations, so let's start here... */
-	char working_path[PATH_MAX+1];
-	memcpy(working_path, path, strlen(path)+1);
+	size_t sym_max = sysconf(_SC_SYMLOOP_MAX);
 
-	*resolved_path = 0;
+	size_t len = strlen(filename);
+	if (len == 0) return set_errno(ENOENT);
+	if (len > PATH_MAX) return set_errno(ENAMETOOLONG);
 
-	if (working_path[0] != '/') {
-		/* Begin by retreiving the current working directory */
-		char cwd[PATH_MAX+1];
-		if (!getcwd(cwd, PATH_MAX)) {
-			/* Not actually sure if this is the right choice for this, but whatever. */
-			errno = -ENOTDIR;
-			return NULL;
+	size_t a = sizeof(stack) - len - 1;
+	size_t b = 0;
+	size_t c = 0;
+	size_t symcnt = 0;
+	size_t ups = 0;
+	int    check_dir = 0;
+	int    bad_entry = 0;
+
+	memcpy(stack + a, filename, len + 1);
+
+_retry:
+	for (;; a += count_slashes(stack + a)) {
+		if (stack[a] == '/') {
+			/* Reset state */
+			check_dir = ups = b = 0;
+			out[b++] = '/';
+			a++;
+			if (stack[a] == '/' && stack[a+1] != '/') out[b++] = '/';
+			continue;
 		}
 
-		char *save;
-		char *tok = strtok_r(cwd,"/",&save);
-		if (tok) {
-			do {
-				_append_dir(resolved_path, tok);
-			} while ((tok = strtok_r(NULL,"/",&save)));
-		}
-	}
+		char * next_slash = strchrnul(stack + a, '/');
+		c = len = next_slash - (stack + a);
 
-	char *save;
-	char *tok = strtok_r(working_path,"/",&save);
-	if (tok) {
-		do {
-			if (!strcmp(tok,".")) continue;
-			if (!strcmp(tok,"..")) {
-				_remove_last(resolved_path);
+		if (!len && !check_dir) break;
+
+		if (len == 1 && stack[a] == '.') {
+			a += len;
+			continue;
+		}
+
+		if (b && out[b-1] != '/') {
+			if (!a) return set_errno(ENAMETOOLONG);
+			stack[--a] = '/';
+			len++;
+		}
+
+		if (b + len >= PATH_MAX) return set_errno(ENAMETOOLONG);
+
+		memcpy(out + b, stack + a, len);
+		out[b + len] = '\0';
+		a += len;
+
+		int up = 0;
+		if (c == 2 && stack[a-2] == '.' && stack[a-1] == '.') {
+			up = 1;
+			if (b <= ups * 3) {
+				ups++;
+				b += len;
 				continue;
-			} else {
-				_append_dir(resolved_path, tok);
 			}
-		} while ((tok = strtok_r(NULL,"/",&save)));
+
+			if (!check_dir) goto _no_readlink;
+		}
+
+		if (bad_entry) return set_errno(ENOENT);
+
+		ssize_t link_len = readlink(out, stack, a);
+		if ((size_t)link_len == a)  return set_errno(ENAMETOOLONG);
+		if (!link_len) return set_errno(ENOENT);
+
+		if (link_len < 0) {
+			if (errno != EINVAL && (errno != ENOENT || !messy)) return NULL; /* Something other than not a symlink */
+			if (errno == ENOENT) bad_entry = 1;
+			/* Not a symlink */
+_no_readlink: (void)0;
+
+			check_dir = 0;
+
+			if (up) {
+				while (b && out[b-1] != '/') b--;
+				if (b > 1 && (b > 2 || *out != '/')) b--;
+				continue;
+			}
+
+			if (c) b += len;
+			check_dir = stack[a];
+			continue;
+		}
+
+		if (++symcnt > sym_max) return set_errno(ELOOP);
+
+		if (stack[link_len - 1] == '/') while (stack[a] == '/') a++;
+		a -= link_len;
+		memmove(stack + a, stack, link_len);
+
+		goto _retry;
 	}
 
-	if (resolved_path[0] == '\0') {
-		strcat(resolved_path,"/");
+	out[b] = '\0';
+	if (*out != '/') {
+		if (!getcwd(stack, sizeof(stack))) return NULL;
+		len = strlen(stack);
+
+		a = 0;
+		while (ups--) {
+			while (len > 1 && stack[len - 1] != '/') len--;
+			if (len > 1) len--;
+			a += 2;
+			if (a < b) a++;
+		}
+
+		if (b - a && stack[len - 1] != '/') stack[len++] = '/';
+
+		if (len + (b - a) + 1 >= PATH_MAX) return set_errno(ENAMETOOLONG);
+
+		memmove(out + len, out + a, b - a + 1);
+		memcpy(out, stack, len);
+		b = len + b - a;
 	}
 
-	return resolved_path;
+	if (resolved) return memcpy(resolved, out, b + 1);
+
+	return strdup(out);
 }
 
-#ifndef __toaru__
-int main(int argc, char * argv[]) {
-	char tmp[PATH_MAX+1];
-
-	if (!realpath(argv[1], tmp)) {
-		fprintf(stderr, "invalid path, errno=%d\n", errno);
-		return 1;
-	}
-
-	fprintf(stderr, "%s=%s\n", argv[1], tmp);
-	return 0;
+char * realpath(const char * restrict filename, char * restrict resolved) {
+	return __realpath(filename, resolved, 0);
 }
-#endif

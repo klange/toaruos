@@ -69,6 +69,9 @@ typedef struct { long int quot; long int rem; } ldiv_t;
 extern div_t div(int numerator, int denominator);
 extern ldiv_t ldiv(long numerator, long denominator);
 
+#if defined(_TOARU_SOURCE)
+extern char *__realpath(const char *, char*, int);
+#endif
 extern char *realpath(const char *path, char *resolved_path);
 
 extern int __mb_cur_max(void);

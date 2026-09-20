@@ -6,6 +6,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2026 K. Lange
  */
+#define _TOARU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,10 +48,8 @@ int main(int argc, char * argv[]) {
 
 	char buf[PATH_MAX];
 	for (; optind < argc; optind++) {
-		char * res = realpath(argv[optind], buf);
-		/* TODO if errno was ENOENT already we need to do this manually,
-		 *      but our realpath(3) doesn't do that yet anyway. */
-		if (!res || (is_error && access(res, F_OK))) {
+		char * res = __realpath(argv[optind], buf, !is_error);
+		if (!res) {
 			fprintf(stderr, "%s: %s: %s\n", argv[0], argv[optind], strerror(errno));
 			ret |= 1;
 			continue;
