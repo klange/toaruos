@@ -1,0 +1,40 @@
+.TH FBGRAB 1 "September, 2026"
+
+.SH NAME
+\fBfbgrab\fP \- save the framebuffer contents to a file
+
+.SH SYNOPSIS
+\fBfbgrab\fP [\fIfile\fP]
+
+.SH DESCRIPTION
+Writes the framebuffer to a \fIfile\fP.
+If no \fIfile\fP argument is provided, the default is \fB/tmp/fbgrab\fP.
+.PP
+This utility captures the framebuffer directly.
+If you are running under a Yutani session, the
+.IR yutani\-screenshot (1)
+utility should be used instead, as it instructs the compositor to
+take a screenshot of the next complete frame and is less susceptible
+to tearing.
+This utility should be used when, eg., an emulated VGA text mode is
+being used and you wish to capture the graphical output.
+
+.SS Options
+None.
+
+.SH FILES
+.TP
+.B /dev/fb0
+Framebuffer device.
+
+.TP
+.B /tmp/fbgrab.tga
+Default output name.
+
+.SH NOTES
+Only \fBroot\fP is likely to have access to the framebuffer.
+.PP
+The output format is currently always Targa.
+
+.SH SEE ALSO
+.BR yutani\-screenshot (1)
