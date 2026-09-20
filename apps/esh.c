@@ -400,13 +400,6 @@ static int probably_manpage(const struct dirent *ent) {
 	return 1;
 }
 
-static int comp_completions(const void *p1, const void *p2) {
-	const char **c1 = (const char**)p1;
-	const char **c2 = (const char**)p2;
-
-	return strcmp(*c1,*c2);
-}
-
 /**
  * @brief Get the actual fillable content of a match.
  *
@@ -439,6 +432,14 @@ static const char * match_content(const char *match) {
 
 	return match;
 }
+
+static int comp_completions(const void *p1, const void *p2) {
+	const char **c1 = (const char**)p1;
+	const char **c2 = (const char**)p2;
+
+	return strcmp(match_content(*c1), match_content(*c2));
+}
+
 
 /**
  * @brief Print match with formatting.
@@ -731,8 +732,26 @@ void tab_complete_func(rline_context_t * c) {
 			ent = readdir(dirp);
 		}
 		closedir(dirp);
-
 		free(tmp);
+
+		/* Move completions into an array we can sort */
+		char ** completions = malloc(matches->length * sizeof(char*));
+		size_t x = 0;
+		foreach (node, matches) {
+			completions[x++] = node->value;
+		}
+
+		/* And sort it */
+		qsort(completions, x, sizeof(char *), comp_completions);
+
+		/* Then replace the matches list */
+		list_free(matches);
+		matches = list_create();
+		for (size_t i = 0; i < x; ++i) {
+			list_insert(matches, completions[i]);
+		}
+		free(completions);
+
 	} else if (complete_mode == COMPLETE_CUSTOM) {
 
 		char * none[] = {NULL};
