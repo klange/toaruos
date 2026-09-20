@@ -281,6 +281,7 @@ static void virtio_tablet_thread(void * data) {
 }
 
 static const uint8_t ext_key_map[256] = {
+	[0x58] = 0x37, /* f12 on a mac -> print screen */
 	[0x63] = 0x37, /* print screen */
 	[0x66] = 0x47, /* home */
 	[0x67] = 0x48, /* UP */
