@@ -1,17 +1,16 @@
 #include <string.h>
 
-char * strncpy(char * dest, const char * src, size_t n) {
-	char * out = dest;
-	while (n > 0) {
-		if (!*src) break;
-		*out = *src;
-		++out;
-		++src;
-		--n;
+char * stpncpy(char * restrict dest, const char * restrict src, size_t n) {
+	while (n && (*dest = *src)) {
+		n--;
+		dest++;
+		src++;
 	}
-	for (int i = 0; i < (int)n; ++i) {
-		*out = '\0';
-		++out;
-	}
+	memset(dest, 0, n);
+	return dest;
+}
+
+char * strncpy(char * restrict dest, const char * restrict src, size_t n) {
+	stpncpy(dest, src, n);
 	return dest;
 }
