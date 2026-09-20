@@ -15,6 +15,7 @@
  */
 #define _XOPEN_SOURCE 500
 #define _POSIX_C_SOURCE 200809L
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -2556,8 +2557,48 @@ uint32_t shell_cmd_source(int argc, char * argv[]) {
 }
 
 uint32_t shell_cmd_exec(int argc, char * argv[]) {
-	if (argc < 2) return 1;
-	return execvp(argv[1], &argv[1]);
+	optind = 1; /* reset */
+	int opt;
+
+	int is_login = 0;
+	int empty_env = 0;
+	char * name = NULL;
+
+	while ((opt = getopt(argc, argv, "+lca:")) != -1) {
+		switch (opt) {
+			case 'l':
+				is_login = 1;
+				break;
+			case 'c':
+				empty_env = 1;
+				break;
+			case 'a':
+				name = optarg;
+				break;
+			default:
+				return 1;
+		}
+	}
+
+	if (optind >= argc) {
+		fprintf(stderr, "%s: %s: not enough arguments\n", esh_name, argv[0]);
+		return 1;
+	}
+
+	char * file = argv[optind];
+	if (name) argv[optind] = name;
+	if (is_login) {
+		char * n;
+		asprintf(&n, "-%s", argv[optind]);
+		argv[optind] = n;
+	}
+
+	if (empty_env) {
+		char *env[] = {NULL};
+		return execvpe(file, &argv[optind], env);
+	} else {
+		return execvp(file, &argv[optind]);
+	}
 }
 
 uint32_t shell_cmd_not(int argc, char * argv[]) {
