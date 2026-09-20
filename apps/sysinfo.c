@@ -75,6 +75,7 @@ int main(int argc, char * argv[]) {
 	char * user = getenv("USER");
 	char * wm_theme = getenv("WM_THEME");
 	char * term = getenv("TERM");
+	char * shell = getenv("SHELL");
 	term_is_toaru = term && strstr(term,"toaru");
 
 	int i = 0;
@@ -94,7 +95,14 @@ int main(int argc, char * argv[]) {
 	prog_lines[i] = "msk count";
 	sprintf(data_lines[i++], C_A "Packages: " C_O);
 
-	prog_lines[i] = "esh -v";
+	prog_lines[i] = "echo $SHELL";
+	if (shell) {
+		if (!strcmp(shell,"/bin/esh")) {
+			prog_lines[i] = "esh -v";
+		} else if (!strcmp(shell, "/usr/bin/bash")) {
+			prog_lines[i] = "/usr/bin/bash -c 'echo bash $BASH_VERSION'";
+		}
+	}
 	sprintf(data_lines[i++], C_A "Shell: " C_O);
 
 	prog_lines[i] = "if not yutani-query resolution then echo '(not connected)' 2>/dev/null";
