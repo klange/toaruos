@@ -552,32 +552,25 @@ int json_serialize_object(FILE * f, hashmap_t * obj, int indent) {
 	int printed = 0;
 	fprintf(f, "{\n");
 
-	list_t * keys = hashmap_keys(obj);
-	foreach (node, keys) {
+	hashmap_foreach(iter, obj) {
 		if (printed) fprintf(f, ",\n");
 		for (int i = 0; i < indent + 1; ++i) fprintf(f, "  ");
-		ret = json_serialize_string(f, (char*)node->value);
-		if (ret) goto _bail;
+		char * name;
+		hashmap_iter_get(&iter, &name, NULL);
+		ret = json_serialize_string(f, name);
+		if (ret) return ret;
 		fprintf(f, ": ");
 
-		Value * val = hashmap_get(obj, node->value);
+		Value * val = hashmap_get(obj, name);
 		ret = json_serialize(f, val, indent + 1);
 		printed = 1;
 	}
 
 	if (printed) fprintf(f, "\n");
 
-	list_free(keys);
-	free(keys);
-
 	for (int i = 0; i < indent; ++i) fprintf(f, "  ");
 	fprintf(f, "}");
 	return 0;
-
-_bail:
-	list_free(keys);
-	free(keys);
-	return ret;
 }
 
 int json_serialize(FILE * f, Value * thing, int indent) {

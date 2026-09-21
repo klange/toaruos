@@ -229,10 +229,10 @@ static int update_stores(int argc, char * argv[]) {
 			manifest = confreader_load(cmd);
 		}
 
-		list_t * packages = hashmap_keys(manifest->sections);
-		foreach(nnode, packages) {
-			char * package_name = (char*)nnode->value;
-			hashmap_t * package_data = (hashmap_t*)hashmap_get(manifest->sections, package_name);
+		hashmap_foreach(iter, manifest->sections) {
+			char * package_name;
+			hashmap_t * package_data;
+			hashmap_iter_get(&iter, &package_name, &package_data);
 			if (!strcmp(package_name,"")) continue; /* skip intro section - remote repo information */
 
 			hashmap_set(package_data, "remote_path", remote_path);
@@ -484,9 +484,9 @@ static int list_packages(int argc, char * argv[]) {
 	read_installed();
 
 	/* Go through sections */
-	list_t * packages = hashmap_keys(msk_manifest->sections);
-	foreach(node, packages) {
-		char * name = node->value;
+	hashmap_foreach(iter, msk_manifest->sections) {
+		char * name;
+		hashmap_iter_get(&iter, &name, NULL);
 		if (!strlen(name)) continue; /* skip empty section */
 		char * desc = confreader_get(msk_manifest, name, "description");
 		fprintf(stderr, " %c %-20s %s\n", hashmap_has(msk_installed, name) ? 'I' : ' ', name, desc);
@@ -505,9 +505,9 @@ static int count_packages(int argc, char * argv[]) {
 	int available = 0;
 
 	/* Go through sections */
-	list_t * packages = hashmap_keys(msk_manifest->sections);
-	foreach(node, packages) {
-		char * name = node->value;
+	hashmap_foreach(iter, msk_manifest->sections) {
+		char * name;
+		hashmap_iter_get(&iter, &name, NULL);
 		if (!strlen(name)) continue; /* skip empty section */
 		available++;
 		if (hashmap_has(msk_installed, name)) {

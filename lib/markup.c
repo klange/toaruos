@@ -94,14 +94,11 @@ static void _finish_attr_value(struct markup_state * state) {
 
 int markup_free_tag(struct markup_tag * tag) {
 	free(tag->name);
-	list_t * keys = hashmap_keys(tag->options);
-	if (keys->length) {
-		foreach(node, keys) {
-			free(hashmap_get(tag->options, node->value));
-		}
+	hashmap_foreach(iter, tag->options) {
+		void * val;
+		hashmap_iter_get(&iter, NULL, &val);
+		free(val);
 	}
-	list_free(keys);
-	free(keys);
 	hashmap_free(tag->options);
 	free(tag->options);
 	return 0;

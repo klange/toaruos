@@ -26,14 +26,12 @@ static void free_hashmap(void * h) {
 }
 
 static int write_section(FILE * f, hashmap_t * section) {
-	list_t * keys = hashmap_keys(section);
-	foreach(node, keys) {
-		char * key = (char*)node->value;
-		char * value = hashmap_get(section, key);
+	hashmap_foreach(iter, section) {
+		char * key;
+		char * value;
+		hashmap_iter_get(&iter, &key, &value);
 		fprintf(f, "%s=%s\n", key, value);
 	}
-	list_free(keys);
-	free(keys);
 	return 0;
 }
 
@@ -48,14 +46,13 @@ int confreader_write(confreader_t * config, const char * file) {
 		write_section(f, base);
 	}
 
-	list_t * sections = hashmap_keys(config->sections);
-	foreach(node, sections) {
-		char * section = (char*)node->value;
-		if (strcmp(section,"")) {
-			hashmap_t * data = hashmap_get(config->sections, section);
-			fprintf(f, "[%s]\n", section);
-			write_section(f, data);
-		}
+	hashmap_foreach(iter, config->sections) {
+		char * section;
+		hashmap_t * data;
+		hashmap_iter_get(&iter, &section, &data);
+		if (!strcmp(section,"")) continue;
+		fprintf(f, "[%s]\n", section);
+		write_section(f, data);
 	}
 
 	return 0;

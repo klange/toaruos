@@ -195,9 +195,9 @@ static void load_manifest(void) {
 		list_t * package_list = list_create();
 
 		/* Go through sections */
-		list_t * packages = hashmap_keys(conf->sections);
-		foreach(node, packages) {
-			char * name = node->value;
+		hashmap_foreach(iter, conf->sections) {
+			char * name;
+			hashmap_iter_get(&iter, &name, NULL);
 			if (!strlen(name)) continue; /* skip empty section */
 			char * desc = confreader_get(conf, name, "description");
 			char * version = confreader_get(conf, name, "version");
@@ -213,8 +213,6 @@ static void load_manifest(void) {
 
 			list_insert(package_list, p);
 		}
-		list_free(packages);
-		free(packages);
 
 		hashmap_free(msk_installed);
 		free(msk_installed);

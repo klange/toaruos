@@ -242,15 +242,15 @@ int hashmap_iter_get(struct hashmap_iter * iter, void * _keyout, void * _valout)
 			hashmap_entry_t * x = iter->map->entries[iter->n];
 			if (x) {
 				iter->cur = x;
-				*keyout = x->key;
-				*valout = x->value;
+				if (keyout) *keyout = x->key;
+				if (valout) *valout = x->value;
 				return 1;
 			}
 		}
 		return 0;
 	} else {
-		*keyout = iter->cur->key;
-		*valout = iter->cur->value;
+		if (keyout) *keyout = iter->cur->key;
+		if (valout) *valout = iter->cur->value;
 		return 1;
 	}
 }

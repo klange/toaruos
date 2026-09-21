@@ -285,13 +285,12 @@ int http_fetch(FILE * f) {
 	}
 
 	if (fetch_options.show_headers) {
-		list_t * hash_keys = hashmap_keys(headers);
-		foreach(_key, hash_keys) {
-			char * key = (char *)_key->value;
-			fprintf(stderr, "[%s] = %s\n", key, (char*)hashmap_get(headers, key));
+		hashmap_foreach(iter, headers) {
+			char * key;
+			char * value;
+			hashmap_iter_get(&iter, &key, &value);
+			fprintf(stderr, "[%s] = %s\n", key, value);
 		}
-		list_free(hash_keys);
-		free(hash_keys);
 	}
 
 	/* determine how many bytes we should read now */

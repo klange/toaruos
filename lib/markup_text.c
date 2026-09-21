@@ -82,20 +82,22 @@ static int parser_open(struct markup_state * self, void * user, struct markup_ta
 		markup_emit_raw(self, "<");
 	} else if (!strcmp(tag->name, "color")) {
 		/* get options */
-		list_t * args = hashmap_keys(tag->options);
 		list_insert(state->colors, (void*)(uintptr_t)state->color);
-		if (args->length == 1) {
-			state->color = parseColor((char*)args->head->value);
+		char * top = NULL;
+		hashmap_foreach(iter, tag->options) {
+			hashmap_iter_get(&iter, &top, NULL);
+			break;
 		}
-		free(args);
+		if (top) state->color = parseColor(top);
 	} else if (!strcmp(tag->name, "bgcolor")) {
 		/* get options */
-		list_t * args = hashmap_keys(tag->options);
 		list_insert(state->bgcolors, (void*)(uintptr_t)state->bgcolor);
-		if (args->length == 1) {
-			state->bgcolor = parseColor((char*)args->head->value);
+		char * top = NULL;
+		hashmap_foreach(iter, tag->options) {
+			hashmap_iter_get(&iter, &top, NULL);
+			break;
 		}
-		free(args);
+		if (top) state->bgcolor = parseColor(top);
 	}
 	markup_free_tag(tag);
 	return 0;

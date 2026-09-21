@@ -2163,9 +2163,10 @@ int main(int argc, char ** argv) {
 	while (1) {
 		char buffer[LINE_LEN] = {0};
 
-		list_t * keys = hashmap_keys(job_hash);
-		foreach(node, keys) {
-			int pid = (intptr_t)node->value;
+		hashmap_foreach(iter, job_hash) {
+_restart:
+			intptr_t pid;
+			hashmap_iter_get(&iter, &pid, NULL);
 			int status = 0;
 			if (waitpid(-pid, &status, WNOHANG|WUNTRACED) > 0) {
 				char * desc;
@@ -2178,15 +2179,14 @@ int main(int argc, char ** argv) {
 				if (old) free(old);
 				describe_job(pid);
 				if (WIFEXITED(status)) {
-					if (hashmap_has(job_hash, (void*)(intptr_t)pid)) {
-						hashmap_remove(job_hash, (void*)(intptr_t)pid);
-						hashmap_remove(desc_hash, (void*)(intptr_t)pid);
-					}
+					hashmap_iter_next(&iter); /* because we're going to remove this one */
+					hashmap_remove(job_hash, (void*)(intptr_t)pid);
+					hashmap_remove(desc_hash, (void*)(intptr_t)pid);
+					if (!hashmap_iter_valid(&iter)) break;
+					goto _restart;
 				}
 			}
 		}
-		list_free(keys);
-		free(keys);
 
 		read_entry(buffer);
 
@@ -2685,16 +2685,13 @@ uint32_t shell_cmd_read(int argc, char * argv[]) {
 int get_available_job(int argc, char * argv[]) {
 	if (argc < 2) {
 		if (!suspended_pgid) {
-			list_t * keys = hashmap_keys(job_hash);
-			foreach(node, keys) {
-				suspended_pgid = (intptr_t)node->value;
+			hashmap_foreach(iter, job_hash) {
+				intptr_t key;
+				hashmap_iter_get(&iter, &key, NULL);
+				suspended_pgid = key;
 				break;
 			}
-			list_free(keys);
-			free(keys);
-			if (!suspended_pgid) {
-				return 0;
-			}
+			if (!suspended_pgid) return 0;
 		}
 		return suspended_pgid;
 	} else {
@@ -2749,13 +2746,11 @@ uint32_t shell_cmd_bg(int argc, char * argv[]) {
 }
 
 uint32_t shell_cmd_jobs(int argc, char * argv[]) {
-	list_t * keys = hashmap_keys(job_hash);
-	foreach(node, keys) {
-		int pid = (intptr_t)node->value;
+	hashmap_foreach(iter, job_hash) {
+		intptr_t pid;
+		hashmap_iter_get(&iter, &pid, NULL);
 		describe_job(pid);
 	}
-	list_free(keys);
-	free(keys);
 	return 0;
 }
 
