@@ -29,8 +29,12 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#include <sys/termios.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <net/if.h>
+#include <kernel/video.h>
+#include <kernel/mod/snd.h>
 
 static FILE * logfile;
 static bool log_hidden = true;
@@ -1240,6 +1244,268 @@ static void wait_options_arg(int flags) {
 	}
 }
 
+static int struct_termios_cc_val(FILE * logfile, struct termios *tios, char * name, int index, int needs_comma) {
+	int c = tios->c_cc[index];
+	if (!c) return needs_comma;
+	fprintf(logfile, "%s[%s]=", needs_comma ? "," : "", name);
+	if (c < 32) {
+		fprintf(logfile, "^%c", '@' + c);
+	} else if (c == 0x7f) {
+		fprintf(logfile, "^?");
+	} else {
+		fprintf(logfile, "%c", c);
+	}
+	return 1;
+}
+
+static void struct_termios_arg(pid_t pid, uintptr_t ptr) {
+	if (!ptr) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+
+	struct termios tios = {0};
+	data_read_bytes(pid, ptr, (char*)&tios, sizeof(struct termios));
+
+	fprintf(logfile, "{c_iflag=");
+	{
+		int flags = tios.c_iflag;
+		if (!flags) fprintf(logfile, "0");
+		else {
+			H(BRKINT);
+			H(ICRNL);
+			H(IGNBRK);
+			H(IGNCR);
+			H(IGNPAR);
+			H(INLCR);
+			H(INPCK);
+			H(ISTRIP);
+			H(IUCLC);
+			H(IXANY);
+			H(IXOFF);
+			H(IXON);
+			H(PARMRK);
+			if (flags) fprintf(logfile, "%#x", flags);
+		}
+	}
+
+	fprintf(logfile, ",c_oflag=");
+	{
+		int flags = tios.c_oflag;
+		if (!flags) fprintf(logfile, "0");
+		else {
+			H(OPOST );
+			H(OLCUC );
+			H(ONLCR );
+			H(OCRNL );
+			H(ONOCR );
+			H(ONLRET);
+			H(OFILL );
+			H(OFDEL );
+			H(  NL1 );
+			H(  CR1 );
+			H(  CR2 );
+			H(  CR3 );
+			H(  TAB1);
+			H(  TAB2);
+			H(  BS1 );
+			H(  FF1 );
+			H(  VT1 );
+			if (flags) fprintf(logfile, "%#x", flags);
+		}
+	}
+
+	fprintf(logfile, ",c_cflag=");
+	{
+		int flags = tios.c_cflag;
+		if (!flags) fprintf(logfile, "0");
+		else {
+			switch (flags & CBAUD) {
+				C(B0     );
+				C(B50    );
+				C(B75    );
+				C(B110   );
+				C(B134   );
+				C(B150   );
+				C(B200   );
+				C(B300   );
+				C(B600   );
+				C(B1200  );
+				C(B1800  );
+				C(B2400  );
+				C(B4800  );
+				C(B9600  );
+				C(B19200 );
+				C(B38400 );
+				C(B57600 );
+				C(B115200);
+				C(B230400);
+				C(B460800);
+				C(B921600);
+				default:
+					fprintf(logfile, "%#x", flags & CBAUD);
+					break;
+			}
+			fprintf(logfile, "|");
+			flags &= ~CBAUD;
+			H(  CS6 );
+			H(  CS7 );
+			H(CSTOPB);
+			H(CREAD );
+			H(PARENB);
+			H(PARODD);
+			H(HUPCL );
+			H(CLOCAL);
+			if (flags) fprintf(logfile, "%#x", flags);
+		}
+	}
+
+	fprintf(logfile, ",c_lflag=");
+	{
+		int flags = tios.c_lflag;
+		if (!flags) fprintf(logfile, "0");
+		else {
+			H(ISIG   );
+			H(ICANON );
+			H(XCASE  );
+			H(ECHO   );
+			H(ECHOE  );
+			H(ECHOK  );
+			H(ECHONL );
+			H(NOFLSH );
+			H(TOSTOP );
+			H(IEXTEN );
+			H(ECHOCTL);
+			if (flags) fprintf(logfile, "%#x", flags);
+		}
+	}
+
+	int needs_comma = 0;
+
+	fprintf(logfile, ",c_cc=");
+#define termios_cc(x) needs_comma = struct_termios_cc_val(logfile, &tios, #x, x, needs_comma)
+	termios_cc(VEOF);
+	termios_cc(VEOL);
+	termios_cc(VERASE);
+	termios_cc(VINTR);
+	termios_cc(VKILL);
+	termios_cc(VMIN);
+	termios_cc(VQUIT);
+	termios_cc(VSTART);
+	termios_cc(VSTOP);
+	termios_cc(VSUSP);
+	termios_cc(VTIME);
+	termios_cc(VLNEXT);
+	termios_cc(VWERASE);
+
+	fprintf(logfile, "}}");
+}
+
+static void struct_winsize_arg(pid_t pid, uintptr_t ptr) {
+	if (!ptr) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+
+	struct winsize winsz = {0};
+	data_read_bytes(pid, ptr, (char*)&winsz, sizeof(struct winsize));
+
+	fprintf(logfile, "{ws_row=%u,ws_col=%u,ws_xpixel=%u,ws_ypixel=%u}",
+		winsz.ws_row,
+		winsz.ws_col,
+		winsz.ws_xpixel,
+		winsz.ws_ypixel);
+}
+
+static void ioctl_cmd_arg(uintptr_t arg) {
+	switch (arg) {
+		/* FIXME The audio assignments take up low values including 0... */
+		C(SND_MIXER_GET_KNOBS);
+		C(SND_MIXER_GET_KNOB_INFO);
+		C(SND_MIXER_READ_KNOB);
+		C(SND_MIXER_WRITE_KNOB);
+		C(SND_MIXER_GET_DEVICES);
+
+		/* Terminal stuff */
+		C(TCSBRK);
+		C(TCXONC);
+		C(TCFLSH);
+		C(TIOCEXCL);
+		C(TIOCNXCL);
+		C(TIOCSCTTY);
+		C(TIOCGPGRP);
+		C(TIOCSPGRP);
+		C(TIOCOUTQ);
+		C(TIOCSTI);
+		C(TIOCGWINSZ);
+		C(TIOCSWINSZ);
+		C(TIOCMGET);
+		C(TIOCMBIS);
+		C(TIOCMBIC);
+		C(TIOCMSET);
+		C(TIOCGSOFTCAR);
+		C(TIOCSSOFTCAR);
+		C(TIOCGSID);
+
+		/* Video/VGA interface things */
+		C(IO_VID_WIDTH);
+		C(IO_VID_HEIGHT);
+		C(IO_VID_DEPTH);
+		C(IO_VID_ADDR);
+		C(IO_VID_SIGNAL);
+		C(IO_VID_SET);
+		C(IO_VID_STRIDE);
+		C(IO_VID_DRIVER);
+		C(IO_VID_REINIT);
+		C(IO_VGA_MOUSE_ADJ);
+
+		/* Network stuff */
+		C(SIOCGIFHWADDR);
+		C(SIOCGIFADDR);
+		C(SIOCSIFADDR);
+		C(SIOCGIFNETMASK);
+		C(SIOCSIFNETMASK);
+		C(SIOCGIFADDR6);
+		C(SIOCSIFADDR6);
+		C(SIOCGIFFLAGS);
+		C(SIOCGIFMTU);
+		C(SIOCGIFGATEWAY);
+		C(SIOCSIFGATEWAY);
+		C(SIOCGIFCOUNTS);
+
+		case 0x2A01234UL:
+			fprintf(logfile, "BLOCK_DEV_STAT"); /* FIXME */
+			break;
+
+		default:
+			fprintf(logfile, "%lu", arg);
+			break;
+	}
+}
+
+static void ioctl_val_arg(pid_t pid, uintptr_t cmd, uintptr_t ptr) {
+	if (!ptr) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+
+	switch (cmd) {
+		case TCGETS:
+		case TCSETS:
+		case TCSETSW:
+		case TCSETSF:
+			struct_termios_arg(pid, ptr);
+			return;
+
+		case TIOCGWINSZ:
+		case TIOCSWINSZ:
+			struct_winsize_arg(pid, ptr);
+			return;
+	}
+
+	pointer_arg(ptr);
+}
+
 static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 	if (uregs_syscall_num(r) >= sizeof(syscall_mask)) return;
 	if (!syscall_mask[uregs_syscall_num(r)]) return;
@@ -1408,8 +1674,8 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			break;
 		case SYS_IOCTL:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			int_arg(uregs_syscall_arg2(r)); COMMA;
-			pointer_arg(uregs_syscall_arg3(r));
+			ioctl_cmd_arg(uregs_syscall_arg2(r)); COMMA;
+			/* process arg on output */
 			break;
 		case SYS_WAITPID:
 			int_arg(uregs_syscall_arg1(r)); COMMA;
@@ -1694,9 +1960,9 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 		case SYS_OPENPTY:
 			fds_arg(pid, 1, uregs_syscall_arg1(r)); COMMA;
 			fds_arg(pid, 1, uregs_syscall_arg2(r)); COMMA;
-			pointer_arg(uregs_syscall_arg3(r)); COMMA; /* string but unused */
-			pointer_arg(uregs_syscall_arg4(r)); COMMA; /* initial winsz but unused */
-			pointer_arg(uregs_syscall_arg5(r)); /* size of winsz but unused */
+			string_arg(pid, uregs_syscall_arg3(r)); COMMA; /* string but unused */
+			struct_termios_arg(pid, uregs_syscall_arg4(r)); COMMA; /* termios */
+			struct_winsize_arg(pid, uregs_syscall_arg5(r)); /* window size */
 			maybe_errno(r);
 			break;
 		case SYS_GETTIMEOFDAY:
@@ -1798,6 +2064,10 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			uid_gid_ptr_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			uid_gid_ptr_arg(pid, uregs_syscall_arg2(r)); COMMA;
 			uid_gid_ptr_arg(pid, uregs_syscall_arg3(r)); COMMA;
+			maybe_errno(r);
+			break;
+		case SYS_IOCTL:
+			ioctl_val_arg(pid, uregs_syscall_arg2(r), uregs_syscall_arg3(r));
 			maybe_errno(r);
 			break;
 		/* Most things return -errno, or positive valid result */
