@@ -6,6 +6,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2026 K. Lange
  */
+#define _TOARU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -23,6 +24,7 @@ static int usage(int argc, char * argv[]) {
 
 struct PasswdEntry {
 	char * orig_line;
+	size_t orig_line_space;
 	struct passwd pwd;
 	struct PasswdEntry * next;
 };
@@ -30,34 +32,14 @@ struct PasswdEntry {
 static struct PasswdEntry * entries = NULL;
 
 static struct PasswdEntry * get_pwent(FILE * stream) {
-	char * pw_blob = NULL;
-	size_t pw_blob_avail = 0;
-	ssize_t len;
-	if (!stream) return NULL;
-	if ((len = getline(&pw_blob, &pw_blob_avail, stream)) <= 0) return free(pw_blob), NULL;
-	if (pw_blob[len-1] == '\n') pw_blob[len-1] = '\0';
-
-	/* Tokenize */
-	char *p, *tokens[8], *last;
-	int i = 0;
-	for ((p = strtok_r(pw_blob, ":", &last)); p;
-			(p = strtok_r(NULL, ":", &last)), i++) {
-		tokens[i] = p;
-	}
-
-	if (i < 8) return free(pw_blob), NULL;
-
 	struct PasswdEntry * result = calloc(1, sizeof(struct PasswdEntry));
+	struct passwd * _result = NULL;
 
-	result->orig_line = pw_blob;
-	result->pwd.pw_name    = tokens[0];
-	result->pwd.pw_passwd  = tokens[1];
-	result->pwd.pw_uid     = atoi(tokens[2]);
-	result->pwd.pw_gid     = atoi(tokens[3]);
-	result->pwd.pw_gecos   = tokens[4];
-	result->pwd.pw_dir     = tokens[5];
-	result->pwd.pw_shell   = tokens[6];
-	result->pwd.pw_comment = tokens[7];
+	if (fgetpwent_t(stream, &result->pwd, &result->orig_line, &result->orig_line_space, &_result)) {
+		free(result->orig_line);
+		free(result);
+		return NULL;
+	}
 
 	return result;
 }

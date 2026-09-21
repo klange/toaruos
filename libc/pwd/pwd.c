@@ -9,7 +9,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2018 K. Lange
  */
-
+#define _TOARU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,6 +41,104 @@ static struct passwd pw_ent;
 static char * pw_blob = NULL;
 static size_t pw_blob_avail = 0;
 
+static void pwbuf_common(struct passwd *pwbuf, char *tokens[]) {
+	pwbuf->pw_name    = tokens[0];
+	pwbuf->pw_passwd  = tokens[1];
+	pwbuf->pw_uid     = atoi(tokens[2]);
+	pwbuf->pw_gid     = atoi(tokens[3]);
+	pwbuf->pw_gecos   = tokens[4];
+	pwbuf->pw_dir     = tokens[5];
+	pwbuf->pw_shell   = tokens[6];
+	pwbuf->pw_comment = tokens[7];
+}
+
+/*
+ * Get an entry from a password database file, but with a getline-style interface.
+ */
+int fgetpwent_t(FILE * stream, struct passwd *pwbuf, char ** _buf, size_t *_buflen, struct passwd **pwbufp) {
+	ssize_t len;
+	if ((len = getline(_buf, _buflen, stream)) <= 0) {
+		*pwbufp = NULL;
+		return ENOENT;
+	}
+
+	char * buf = *_buf;
+	if (buf[len-1] == '\n') buf[len-1] = '\0';
+
+	char *p, *tokens[8], *last;
+	int i = 0;
+	for ((p = strtok_r(buf, ":", &last)); p;
+			(p = strtok_r(NULL, ":", &last)), i++) {
+		tokens[i] = p;
+	}
+
+	if (i < 8) {
+		*pwbufp = NULL;
+		return ENOENT;
+	}
+
+	pwbuf_common(pwbuf, tokens);
+
+	*pwbufp = pwbuf;
+	return 0;
+}
+
+/*
+ * BSD/GNU reentrant form
+ */
+int fgetpwent_r(FILE * stream, struct passwd *pwbuf, char * buf, size_t buflen, struct passwd **pwbufp) {
+	char * pw_blob = NULL;
+	size_t pw_blob_avail = 0;
+	ssize_t len;
+
+	fpos_t before;
+	fgetpos(stream, &before);
+
+	if ((len = getline(&pw_blob, &pw_blob_avail, stream)) <= 0) {
+		free(pw_blob);
+		*pwbufp = NULL;
+		return ENOENT;
+	}
+
+	if (buflen < (size_t)len + 1) {
+		fsetpos(stream, &before);
+		free(pw_blob);
+		*pwbufp = NULL;
+		return ERANGE;
+	}
+
+	memcpy(buf, pw_blob, len + 1);
+	free(pw_blob);
+
+	if (buf[len-1] == '\n') buf[len-1] = '\0';
+
+	char *p, *tokens[8], *last;
+	int i = 0;
+	for ((p = strtok_r(buf, ":", &last)); p;
+			(p = strtok_r(NULL, ":", &last)), i++) {
+		tokens[i] = p;
+	}
+
+	if (i < 8) {
+		*pwbufp = NULL;
+		return ENOENT;
+	}
+
+	pwbuf_common(pwbuf, tokens);
+
+	*pwbufp = pwbuf;
+	return 0;
+}
+
+int getpwent_r(struct passwd *pwbuf, char * buf, size_t buflen, struct passwd **pwbufp) {
+	if (!pwdb) open_it();
+	if (!pwdb) {
+		*pwbufp = NULL;
+		return ENOENT;
+	}
+	return fgetpwent_r(pwdb, pwbuf, buf, buflen, pwbufp);
+}
+
 struct passwd * fgetpwent(FILE * stream) {
 	size_t len;
 	if (!stream) return NULL;
@@ -57,14 +155,7 @@ struct passwd * fgetpwent(FILE * stream) {
 
 	if (i < 8) return NULL;
 
-	pw_ent.pw_name    = tokens[0];
-	pw_ent.pw_passwd  = tokens[1];
-	pw_ent.pw_uid     = atoi(tokens[2]);
-	pw_ent.pw_gid     = atoi(tokens[3]);
-	pw_ent.pw_gecos   = tokens[4];
-	pw_ent.pw_dir     = tokens[5];
-	pw_ent.pw_shell   = tokens[6];
-	pw_ent.pw_comment = tokens[7];
+	pwbuf_common(&pw_ent, tokens);
 
 	return &pw_ent;
 }

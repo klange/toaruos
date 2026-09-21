@@ -25,4 +25,13 @@ void endpwent(void);
 struct passwd * getpwnam(const char * name);
 struct passwd * getpwuid(uid_t uid);
 
+#if defined(_DEFAULT_SOURCE) || defined(_TOARU_SOURCE)
+int fgetpwent_r(FILE * stream, struct passwd *pwbuf, char * buf, size_t buflen, struct passwd **pwbufp);
+int getpwent_r(struct passwd *pwbuf, char * buf, size_t buflen, struct passwd **pwbufp);
+#endif
+
+#if defined(_TOARU_SOURCE)
+int fgetpwent_t(FILE * stream, struct passwd *pwbuf, char ** buf, size_t *buflen, struct passwd **pwbufp);
+#endif
+
 _End_C_Header
