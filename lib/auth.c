@@ -209,7 +209,10 @@ int toaru_auth_write_passwd(const char * which, mode_t perms, struct PasswdEntry
 	char *name = NULL;
 	asprintf(&name, "%s.%d", which, getpid());
 
+	mode_t prev = umask(S_IXUSR | S_IRWXG | S_IRWXO);
 	FILE * f = fopen(name, "wx");
+	umask(prev);
+
 	if (!f) err(1, "%s", name);
 
 	if (fchown(fileno(f), 0, 0)) err(1, "fchown");
