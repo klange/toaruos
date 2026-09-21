@@ -382,11 +382,13 @@ int pty_ioctl(fs_node_t * node, pty_t * pty, unsigned long request, void * argp)
 				/* Switch out of canonical mode, the dump the input buffer */
 				dump_input_buffer(pty);
 			}
-			goto tcset_common;
+			memcpy(&pty->tios, argp, sizeof(struct termios));
+			return 0;
 		case TCSETSF:
+			if (!argp) return -EINVAL;
+			if (!mmu_validate_user_pointer(argp, sizeof(struct termios), 0)) return -EFAULT;
 			clear_input_buffer(pty);
 			ring_buffer_discard(pty->in);
-		tcset_common:
 			memcpy(&pty->tios, argp, sizeof(struct termios));
 			return 0;
 		default:
