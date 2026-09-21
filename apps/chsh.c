@@ -14,97 +14,13 @@
 #include <pwd.h>
 #include <err.h>
 #include <sys/stat.h>
+#include <toaru/auth.h>
 
 static int usage(int argc, char * argv[]) {
 	fprintf(stderr,
 		"usage: %s [-s shell] [-t theme] [user]\n",
 		argv[0]);
 	return 1;
-}
-
-struct PasswdEntry {
-	char * orig_line;
-	size_t orig_line_space;
-	struct passwd pwd;
-	struct PasswdEntry * next;
-};
-
-static struct PasswdEntry * entries = NULL;
-
-static struct PasswdEntry * get_pwent(FILE * stream) {
-	struct PasswdEntry * result = calloc(1, sizeof(struct PasswdEntry));
-	struct passwd * _result = NULL;
-
-	if (fgetpwent_t(stream, &result->pwd, &result->orig_line, &result->orig_line_space, &_result)) {
-		free(result->orig_line);
-		free(result);
-		return NULL;
-	}
-
-	return result;
-}
-
-static int read_passwd(void) {
-	FILE * passwd = fopen("/etc/passwd", "r");
-	if (!passwd) return -1;
-
-	struct PasswdEntry * last = NULL;
-
-	while (!feof(passwd)) {
-		struct PasswdEntry * ent = get_pwent(passwd);
-		if (!ent) continue;
-		if (!last) entries = ent;
-		else last->next = ent;
-		last = ent;
-	}
-
-	fclose(passwd);
-
-	return 0;
-}
-
-static struct PasswdEntry * get_by_uid(uid_t uid) {
-	struct PasswdEntry * cur = entries;
-	while (cur && cur->pwd.pw_uid != uid) cur = cur->next;
-	return cur;
-}
-
-static struct PasswdEntry * get_by_name(char * name) {
-	struct PasswdEntry * cur = entries;
-	while (cur && strcmp(cur->pwd.pw_name, name)) cur = cur->next;
-	return cur;
-}
-
-static int write_passwd(void) {
-	/* First write to a temporary file */
-	char *name = NULL;
-	asprintf(&name, "/etc/passwd.%d", getpid());
-
-	FILE * f = fopen(name, "wx");
-	if (!f) err(1, "%s", name);
-
-	if (fchown(fileno(f), 0, 0)) err(1, "fchown");
-	if (fchmod(fileno(f), 0644)) err(1, "fchmod");
-
-	struct PasswdEntry * ent = entries;
-
-	while (ent) {
-		fprintf(f, "%s:%s:%d:%d:%s:%s:%s:%s\n",
-			ent->pwd.pw_name, ent->pwd.pw_passwd,
-			ent->pwd.pw_uid, ent->pwd.pw_gid,
-			ent->pwd.pw_gecos, ent->pwd.pw_dir,
-			ent->pwd.pw_shell, ent->pwd.pw_comment);
-
-		ent = ent->next;
-	}
-
-	fflush(f);
-	fclose(f);
-
-	if (rename(name, "/etc/passwd") < 0) err(1, "rename");
-
-	free(name);
-	return 0;
 }
 
 struct ValidShell {
@@ -174,16 +90,18 @@ int main(int argc, char * argv[]) {
 
 	if (optind != argc && optind + 1 != argc) return usage(argc, argv); /* excess args */
 
-	if (read_passwd() < 0) err(1, "/etc/passwd");
+	struct PasswdEntry * entries = NULL;
+
+	if (toaru_auth_read_passwd("/etc/passwd", &entries) < 0) err(1, "/etc/passwd");
 	if (read_shells() < 0) err(1, "/etc/shells");
 
 	uid_t me = getuid();
 
 	struct PasswdEntry * entry = NULL;
 	if (optind != argc) {
-		entry = get_by_name(argv[optind]);
+		entry = toaru_auth_get_by_name(entries, argv[optind]);
 	} else {
-		entry = get_by_uid(me);
+		entry = toaru_auth_get_by_uid(entries, me);
 	}
 
 	if (!entry) errx(1, "user not found");
@@ -216,5 +134,5 @@ int main(int argc, char * argv[]) {
 		entry->pwd.pw_comment = desired_theme;
 	}
 
-	return write_passwd();
+	return toaru_auth_write_passwd("/etc/passwd", 0644, entries);
 }

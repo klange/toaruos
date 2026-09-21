@@ -13,6 +13,9 @@
 #include <unistd.h>
 #include <pwd.h>
 #include <libgen.h>
+#include <sys/stat.h>
+#include <err.h>
+#include "toaru/auth.h"
 
 #ifndef fgetpwent
 extern struct passwd *fgetpwent(FILE *stream);
@@ -154,4 +157,100 @@ void toaru_set_credentials(uid_t uid, gid_t gid) {
 	setgid(gid);
 	setuid(uid);
 	toaru_auth_set_vars();
+}
+
+static struct PasswdEntry * get_pwent(FILE * stream) {
+	struct PasswdEntry * result = calloc(1, sizeof(struct PasswdEntry));
+	struct passwd * _result = NULL;
+
+	if (fgetpwent_t(stream, &result->pwd, &result->orig_line, &result->orig_line_space, &_result)) {
+		free(result->orig_line);
+		free(result);
+		return NULL;
+	}
+
+	return result;
+}
+
+int toaru_auth_read_passwd(const char * which, struct PasswdEntry **out) {
+	FILE * passwd = fopen(which, "r");
+	if (!passwd) return -1;
+
+	struct PasswdEntry * last = NULL;
+	*out = NULL;
+
+	while (!feof(passwd)) {
+		struct PasswdEntry * ent = get_pwent(passwd);
+		if (!ent) continue;
+		if (!last) *out = ent;
+		else last->next = ent;
+		last = ent;
+	}
+
+	fclose(passwd);
+	return 0;
+}
+
+struct PasswdEntry * toaru_auth_get_by_uid(struct PasswdEntry *entries, uid_t uid) {
+	struct PasswdEntry * cur = entries;
+	while (cur && cur->pwd.pw_uid != uid) cur = cur->next;
+	return cur;
+}
+
+struct PasswdEntry * toaru_auth_get_by_name(struct PasswdEntry *entries, char * name) {
+	struct PasswdEntry * cur = entries;
+	while (cur && strcmp(cur->pwd.pw_name, name)) cur = cur->next;
+	return cur;
+}
+
+int toaru_auth_write_passwd(const char * which, mode_t perms, struct PasswdEntry *entries) {
+	/* First write to a temporary file */
+	char *name = NULL;
+	asprintf(&name, "%s.%d", which, getpid());
+
+	FILE * f = fopen(name, "wx");
+	if (!f) err(1, "%s", name);
+
+	if (fchown(fileno(f), 0, 0)) err(1, "fchown");
+	if (fchmod(fileno(f), perms)) err(1, "fchmod");
+
+	struct PasswdEntry * ent = entries;
+
+	while (ent) {
+		fprintf(f, "%s:%s:%d:%d:%s:%s:%s:%s\n",
+			ent->pwd.pw_name, ent->pwd.pw_passwd,
+			ent->pwd.pw_uid, ent->pwd.pw_gid,
+			ent->pwd.pw_gecos, ent->pwd.pw_dir,
+			ent->pwd.pw_shell, ent->pwd.pw_comment);
+
+		ent = ent->next;
+	}
+
+	fflush(f);
+	fclose(f);
+
+	if (rename(name, which) < 0) err(1, "rename");
+
+	free(name);
+	return 0;
+}
+
+int toaru_auth_free_passwd(struct PasswdEntry * entries) {
+	while (entries) {
+		struct PasswdEntry * e = entries;
+		entries = e->next;
+		free(e->orig_line);
+		free(e);
+	}
+
+	return 0;
+}
+
+int toaru_auth_check_pass_entry(struct PasswdEntry * entry, const char * password) {
+	return strcmp(entry->pwd.pw_passwd, password);
+}
+
+int toaru_auth_set_pass_entry(struct PasswdEntry * entry, char * password) {
+	entry->pwd.pw_passwd = password;
+	return 0;
 }
