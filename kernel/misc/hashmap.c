@@ -8,7 +8,6 @@
  * Copyright (C) 2013-2021 K. Lange
  */
 #include <kernel/string.h>
-#include <kernel/list.h>
 #include <kernel/hashmap.h>
 
 unsigned int hashmap_string_hash(const void * _key) {
@@ -181,34 +180,6 @@ int hashmap_has(hashmap_t * map, const void * key) {
 
 }
 
-list_t * hashmap_keys(hashmap_t * map) {
-	list_t * l = list_create("hashmap keys",map);
-
-	for (unsigned int i = 0; i < map->size; ++i) {
-		hashmap_entry_t * x = map->entries[i];
-		while (x) {
-			list_insert(l, x->key);
-			x = x->next;
-		}
-	}
-
-	return l;
-}
-
-list_t * hashmap_values(hashmap_t * map) {
-	list_t * l = list_create("hashmap values",map);
-
-	for (unsigned int i = 0; i < map->size; ++i) {
-		hashmap_entry_t * x = map->entries[i];
-		while (x) {
-			list_insert(l, x->value);
-			x = x->next;
-		}
-	}
-
-	return l;
-}
-
 void hashmap_free(hashmap_t * map) {
 	for (unsigned int i = 0; i < map->size; ++i) {
 		hashmap_entry_t * x = map->entries[i], * p;
@@ -244,15 +215,15 @@ int hashmap_iter_get(struct hashmap_iter * iter, void * _keyout, void * _valout)
 			hashmap_entry_t * x = iter->map->entries[iter->n];
 			if (x) {
 				iter->cur = x;
-				*keyout = x->key;
-				*valout = x->value;
+				if (keyout) *keyout = x->key;
+				if (valout) *valout = x->value;
 				return 1;
 			}
 		}
 		return 0;
 	} else {
-		*keyout = iter->cur->key;
-		*valout = iter->cur->value;
+		if (keyout) *keyout = iter->cur->key;
+		if (valout) *valout = iter->cur->value;
 		return 1;
 	}
 }

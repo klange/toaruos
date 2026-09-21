@@ -2,7 +2,6 @@
 
 #include <stddef.h>
 #include <kernel/string.h>
-#include <kernel/list.h>
 
 typedef unsigned int (*hashmap_hash_t) (const void * key);
 typedef int (*hashmap_comp_t) (const void * a, const void * b);
@@ -31,8 +30,6 @@ extern void * hashmap_set(hashmap_t * map, const void * key, void * value);
 extern void * hashmap_get(hashmap_t * map, const void * key);
 extern void * hashmap_remove(hashmap_t * map, const void * key);
 extern int hashmap_has(hashmap_t * map, const void * key);
-extern list_t * hashmap_keys(hashmap_t * map);
-extern list_t * hashmap_values(hashmap_t * map);
 extern void hashmap_free(hashmap_t * map);
 
 extern unsigned int hashmap_string_hash(const void * key);

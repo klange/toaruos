@@ -700,15 +700,14 @@ static int readdir_pty(fs_node_t *node, unsigned long index, struct dirent * out
 	index -= 2;
 
 	pty_t * out_pty = NULL;
-	list_t * values = hashmap_values(_pty_index);
-	foreach(node, values) {
+
+	hashmap_foreach(iter, _pty_index) {
 		if (index == 0) {
-			out_pty = node->value;
+			hashmap_iter_get(&iter, NULL, &out_pty);
 			break;
 		}
 		index--;
 	}
-	list_free(values);
 
 	if (out_pty) {
 		memset(out, 0x00, sizeof(struct dirent));

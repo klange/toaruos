@@ -596,30 +596,26 @@ static void mounts_func(fs_node_t *node) {
 }
 
 static void modules_func(fs_node_t *node) {
-	list_t * hash_keys = hashmap_keys(modules_get_list());
-	if (!hash_keys) return;
-	foreach(_key, hash_keys) {
-		char * key = (char *)_key->value;
-		struct LoadedModule * mod_info = hashmap_get(modules_get_list(), key);
+	hashmap_foreach(iter, modules_get_list()) {
+		char * key;
+		struct LoadedModule * mod_info;
+		hashmap_iter_get(&iter, &key, &mod_info);
 		procfs_printf(node, "%#zx %zu %zu %s\n",
 			this_core->current_process->user == USER_ROOT_UID ? mod_info->baseAddress : (uintptr_t)0,
 			mod_info->fileSize,
 			mod_info->loadedSize,
 			key);
 	}
-	free(hash_keys);
 }
 
 extern hashmap_t * fs_types; /* from kernel/fs/vfs.c */
 
 static void filesystems_func(fs_node_t *node) {
-	list_t * hash_keys = hashmap_keys(fs_types);
-	if (!hash_keys) return;
-	foreach(_key, hash_keys) {
-		char * key = (char *)_key->value;
+	hashmap_foreach(iter, fs_types) {
+		char * key;
+		hashmap_iter_get(&iter, &key, NULL);
 		procfs_printf(node, "%s\n", key);
 	}
-	free(hash_keys);
 }
 
 static void loader_func(fs_node_t *node) {
@@ -671,14 +667,12 @@ static void idle_func(fs_node_t *node) {
 
 static void kallsyms_func(fs_node_t *fnode) {
 	/* This doesn't include module symbols at the moment... */
-	list_t * syms = ksym_list();
-
-	foreach(node, syms) {
-		procfs_printf(fnode, "%016zx %s\n", this_core->current_process->user == USER_ROOT_UID ? (uintptr_t)ksym_lookup(node->value) : (uintptr_t)0, (char*)node->value);
+	hashmap_foreach(iter, ksym_get_map()) {
+		char * name;
+		void * value;
+		hashmap_iter_get(&iter, &name, &value);
+		procfs_printf(fnode, "%016zx %s\n", this_core->current_process->user == USER_ROOT_UID ? (uintptr_t)value : (uintptr_t)0, name);
 	}
-
-	list_free(syms);
-	free(syms);
 }
 
 static void self_func(fs_node_t *fnode) {
