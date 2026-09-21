@@ -146,6 +146,8 @@ static bool show_tab_numbers = 0;
 static bool _no_menu_bar = 0;
 static bool show_fg_name = 1;
 static int  term_opacity = TERM_DEFAULT_OPAC;
+static bool blur_background = 0;
+static float blur_amount = 0.5;
 
 static bool terminal_login_shell_restricted = 0;
 
@@ -1784,8 +1786,8 @@ static term_state_t * terminal_create(bool scale_fonts, float font_scaling, int 
 }
 
 static void update_bounds(void) {
+	struct decor_bounds bounds = {0};
 	if (!_no_frame) {
-		struct decor_bounds bounds;
 		decor_get_bounds(window, &bounds);
 
 		decor_left_width = bounds.left_width;
@@ -1803,6 +1805,13 @@ static void update_bounds(void) {
 		decor_height = 0;
 	}
 	menu_bar_height = _no_menu_bar ? 0 : 24;
+	yutani_window_set_blur_bounds(yctx, window, &bounds, YUTANI_BLUR_MODE_SCALED);
+	yutani_window_set_blur(yctx, window, YUTANI_BLUR_REQUEST_SET_PASSES | YUTANI_BLUR_REQUEST_NO_FLIP,
+		2);
+	yutani_window_set_blur(yctx, window, YUTANI_BLUR_REQUEST_SET_SIZE | YUTANI_BLUR_REQUEST_NO_FLIP,
+		blur_amount * 100);
+	yutani_window_set_blur(yctx, window, YUTANI_BLUR_REQUEST_SET_MODE | YUTANI_BLUR_REQUEST_NO_FLIP,
+		blur_background ? (YUTANI_BLUR_MODE_SCALED | YUTANI_BLUR_MODE_BOUNDED) : -1);
 }
 
 /* Handle window resize event. */
@@ -2218,6 +2227,20 @@ static void _menu_action_transparency_slider(struct MenuEntry * _self) {
 	reinit();
 }
 
+static void _menu_action_toggle_blur(struct MenuEntry * self) {
+	blur_background = !blur_background;
+	update_bounds();
+	menu_update_toggle_state(self, blur_background);
+	render_decors();
+}
+
+static void _menu_action_blur_slider(struct MenuEntry * _self) {
+	struct MenuEntry_Slider * self = (void *)_self;
+	blur_amount = self->value;
+	update_bounds();
+	render_decors();
+}
+
 static void _menu_action_toggle_free_size(struct MenuEntry * self) {
 	_free_size = !(_free_size);
 	menu_update_toggle_state(self, !_free_size);
@@ -2532,10 +2555,24 @@ static void load_config(char * argv[], int *max_scrollback, bool *scale_fonts, f
 	config_option_float(argv, config_json, "bg-opacity", &opacity);
 	term_opacity = opacity * 0xFF;
 
+	config_option_bool(argv, config_json, "blur-background", &blur_background);
+	config_option_float(argv, config_json, "blur-amount", &blur_amount);
+
 config_done:
 	if (config_json) json_free(config_json);
 	free(config_path);
 }
+
+static void _menu_action_null(struct MenuEntry *self) { (void)self; }
+static struct MenuEntry * menu_create_label(const char * title) {
+	char * tmp;
+	asprintf(&tmp, "<b>%s</b>", title);
+	struct MenuEntry * out = menu_create_normal(NULL, NULL, tmp, _menu_action_null);
+	free(tmp);
+	menu_update_enabled(out, 0);
+	return out;
+}
+
 
 int main(int argc, char ** argv) {
 
@@ -2785,7 +2822,11 @@ int main(int argc, char ** argv) {
 	menu_set_insert(terminal_menu_bar._super.set, "termstate", m);
 
 	m = menu_create();
+	menu_insert(m, menu_create_label("Transparency"));
 	menu_insert(m, menu_create_slider(NULL, (float)TERM_DEFAULT_OPAC / 0xFF, _menu_action_transparency_slider));
+	menu_insert(m, menu_create_label("Blur Background"));
+	menu_insert(m, menu_create_toggle(NULL, "Enabled", blur_background, _menu_action_toggle_blur));
+	menu_insert(m, menu_create_slider(NULL, blur_amount, _menu_action_blur_slider));
 	menu_set_insert(terminal_menu_bar._super.set, "transparency", m);
 
 	m = menu_create();
@@ -2804,7 +2845,7 @@ int main(int argc, char ** argv) {
 	_menu_toggle_bold_bar = menu_create_toggle(NULL, "Emulate bold", set_bold, _menu_action_toggle_bold);
 	menu_update_enabled(_menu_toggle_bold_bar, !set_truetype);
 	menu_insert(m, _menu_toggle_bold_bar);
-	menu_insert(m, menu_create_submenu(NULL,"transparency","Background opacity..."));
+	menu_insert(m, menu_create_submenu(NULL,"transparency","Background..."));
 
 	menu_insert(m, menu_create_separator());
 
