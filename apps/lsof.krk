@@ -40,6 +40,12 @@ def __main__(args):
     let columns = ['COMMAND', 'PID', 'USER', 'FD', 'NAME']
     let files = []
     let pids = []
+    let max_width = None
+
+    try:
+        if os.isatty(1):
+            let a, b = os.get_terminal_size(1)
+            max_width = a
 
     # Collect processes
     for d in safe_listdir('/proc'):
@@ -118,11 +124,11 @@ def __main__(args):
             lengths[i] = max(lengths[i], len(str(file[i])))
 
     # Header
-    print(' '.join(columns[i].__format__(str(lengths[i])) for i in range(len(columns))))
+    print(' '.join(columns[i].__format__(str(lengths[i])) for i in range(len(columns)))[:max_width])
 
     # Print 'em
     for file in files:
-        print(' '.join(file[i].__format__(str(lengths[i])) for i in range(len(columns))))
+        print(' '.join(file[i].__format__(str(lengths[i])) for i in range(len(columns)))[:max_width])
 
     return 0
 
