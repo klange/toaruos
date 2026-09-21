@@ -2164,7 +2164,7 @@ int main(int argc, char ** argv) {
 		char buffer[LINE_LEN] = {0};
 
 		hashmap_foreach(iter, job_hash) {
-_restart:
+_restart: (void)0;
 			intptr_t pid;
 			hashmap_iter_get(&iter, &pid, NULL);
 			int status = 0;
