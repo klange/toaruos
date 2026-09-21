@@ -1,6 +1,7 @@
 #pragma once
 
 #include <kernel/vfs.h>
+#include <kernel/list.h>
 
 typedef void (*procfs_populate_t)(fs_node_t * node);
 
