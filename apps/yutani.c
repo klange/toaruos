@@ -70,6 +70,9 @@ static void window_finish_minimize(yutani_globals_t * yg, yutani_server_window_t
 extern void draw_sprite_blur_alpha(gfx_context_t * ctx, gfx_context_t * blur_ctx, const sprite_t * sprite, int x, int y, float alpha, uint8_t threshold, int size, unsigned int passes);
 extern void draw_sprite_transform_blur(gfx_context_t * ctx, gfx_context_t * blur_ctx, const sprite_t * sprite, gfx_matrix_t matrix, float alpha, uint8_t threshold, int size, unsigned int passes);
 
+extern void draw_sprite_blur_bounds(gfx_context_t * ctx, gfx_context_t * blur_ctx, const sprite_t * sprite, int x, int y, float alpha, int x0, int x1, int y0, int y1, int diameter, unsigned int passes);
+extern void draw_sprite_transform_blur_bounds(gfx_context_t * ctx, gfx_context_t * blur_ctx, const sprite_t * sprite, gfx_matrix_t matrix, float alpha, int x0, int x1, int y0, int y1, int diameter, unsigned int passes);
+
 static int32_t min(int32_t a, int32_t b) {
 	return (a < b) ? a : b;
 }
@@ -765,7 +768,7 @@ static void apply_rotation(yutani_globals_t * yg, yutani_server_window_t * windo
 }
 
 static void calculate_blur_passes_and_size(yutani_globals_t * yg, yutani_server_window_t * window, int *passes, int *size) {
-	switch (window->blur_mode) {
+	switch (window->blur_mode & 0xFFF) {
 		case YUTANI_BLUR_MODE_SUBTLE:
 			*passes = yg->max_blur_passes ? 1 : 0;
 			*size = yg->max_blur_size / 3;
@@ -891,10 +894,22 @@ static int yutani_blit_window(yutani_globals_t * yg, yutani_server_window_t * wi
 		if (window->server_flags & YUTANI_WINDOW_FLAG_BLUR_BEHIND) {
 			int passes, size;
 			calculate_blur_passes_and_size(yg, window, &passes, &size);
-			if (matrix_is_translation(m)) {
-				draw_sprite_blur_alpha(yg->backend_ctx, yg->blur_ctx, &_win_sprite, m[0][2], m[1][2], opacity, window->alpha_threshold, size, passes);
+			if (window->blur_mode & 0x1000) {
+				int x0 = window->blur_bounds[0];
+				int x1 = window->width - window->blur_bounds[1];
+				int y0 = window->blur_bounds[2];
+				int y1 = window->height - window->blur_bounds[3];
+				if (matrix_is_translation(m)) {
+					draw_sprite_blur_bounds(yg->backend_ctx, yg->blur_ctx, &_win_sprite, m[0][2], m[1][2], opacity, x0, x1, y0, y1, size, passes);
+				} else {
+					draw_sprite_transform_blur_bounds(yg->backend_ctx, yg->blur_ctx, &_win_sprite, m, opacity, x0, x1, y0, y1, size, passes);
+				}
 			} else {
-				draw_sprite_transform_blur(yg->backend_ctx, yg->blur_ctx, &_win_sprite, m, opacity, window->alpha_threshold, size, passes);
+				if (matrix_is_translation(m)) {
+					draw_sprite_blur_alpha(yg->backend_ctx, yg->blur_ctx, &_win_sprite, m[0][2], m[1][2], opacity, window->alpha_threshold, size, passes);
+				} else {
+					draw_sprite_transform_blur(yg->backend_ctx, yg->blur_ctx, &_win_sprite, m, opacity, window->alpha_threshold, size, passes);
+				}
 			}
 		} else if (matrix_is_translation(m)) {
 			draw_sprite_alpha(yg->backend_ctx, &_win_sprite, m[0][2], m[1][2], opacity);
@@ -3070,8 +3085,9 @@ int main(int argc, char * argv[]) {
 			case YUTANI_MSG_WINDOW_SET_BLUR:
 				{
 					struct yutani_msg_window_set_blur * bl = (void *)m->data;
-					uint32_t type = bl->request_type & ~YUTANI_BLUR_REQUEST_NO_FLIP;
+					uint32_t type = bl->request_type & ~(YUTANI_BLUR_REQUEST_NO_FLIP | YUTANI_BLUR_REQUEST_NO_SET);
 					int should_flip = !(bl->request_type & YUTANI_BLUR_REQUEST_NO_FLIP);
+					int should_set  = !(bl->request_type & YUTANI_BLUR_REQUEST_NO_SET);
 					switch (type) {
 						case YUTANI_BLUR_REQUEST_SET_MODE: {
 							yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)bl->wid);
@@ -3079,7 +3095,7 @@ int main(int argc, char * argv[]) {
 								if (bl->value < 0) {
 									w->server_flags &= ~(YUTANI_WINDOW_FLAG_BLUR_BEHIND);
 								} else {
-									w->server_flags |= YUTANI_WINDOW_FLAG_BLUR_BEHIND;
+									if (should_set) w->server_flags |= YUTANI_WINDOW_FLAG_BLUR_BEHIND;
 									w->blur_mode = bl->value;
 								}
 								if (should_flip) mark_window(yg, w);
@@ -3111,6 +3127,18 @@ int main(int argc, char * argv[]) {
 									w->blur_size = bl->value;
 									if (should_flip) mark_window(yg, w);
 								}
+							}
+							break;
+						}
+						case YUTANI_BLUR_REQUEST_SET_LEFT_BOUND:
+						case YUTANI_BLUR_REQUEST_SET_RIGHT_BOUND:
+						case YUTANI_BLUR_REQUEST_SET_TOP_BOUND:
+						case YUTANI_BLUR_REQUEST_SET_BOTTOM_BOUND: {
+							bl->value = max(bl->value, 0);
+							yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)bl->wid);
+							if (w) {
+								w->blur_bounds[type - YUTANI_BLUR_REQUEST_SET_LEFT_BOUND] = bl->value;
+								if (should_flip) mark_window(yg, w);
 							}
 							break;
 						}

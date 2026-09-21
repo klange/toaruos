@@ -577,13 +577,21 @@ struct yutani_msg_window_set_blur {
 #define YUTANI_BLUR_REQUEST_SET_SIZE   2
 #define YUTANI_BLUR_REQUEST_SET_PASSES 3
 
+#define YUTANI_BLUR_REQUEST_SET_LEFT_BOUND   4
+#define YUTANI_BLUR_REQUEST_SET_RIGHT_BOUND  5
+#define YUTANI_BLUR_REQUEST_SET_TOP_BOUND    6
+#define YUTANI_BLUR_REQUEST_SET_BOTTOM_BOUND 7
+
 #define YUTANI_BLUR_REQUEST_NO_FLIP    0x10000000
+#define YUTANI_BLUR_REQUEST_NO_SET     0x20000000
 
 #define YUTANI_BLUR_MODE_OFF      -1
 #define YUTANI_BLUR_MODE_STANDARD  0
 #define YUTANI_BLUR_MODE_SUBTLE    1
 #define YUTANI_BLUR_MODE_CUSTOM    2
 #define YUTANI_BLUR_MODE_SCALED    3
+
+#define YUTANI_BLUR_MODE_BOUNDED   0x1000
 
 /**
  * YUTANI_WINDOW_ROTATE
@@ -649,6 +657,7 @@ extern gfx_context_t *  init_graphics_yutani_double_buffer(yutani_window_t * win
 extern void reinit_graphics_yutani(gfx_context_t * out, yutani_window_t * window);
 extern void release_graphics_yutani(gfx_context_t * gfx);
 extern void yutani_internal_refocus(yutani_t * yctx, yutani_window_t * window);
+extern void yutani_window_set_blur_bounds(yutani_t * yctx, yutani_window_t * window, void * bounds, int blur_mode);
 
 _End_C_Header
 

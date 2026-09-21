@@ -1284,3 +1284,15 @@ void yutani_internal_refocus(yutani_t * yctx, yutani_window_t * window) {
 	yutani_msg_buildx_window_focus_change(msg, window->wid, window->focused);
 	list_insert(yctx->queued, msg);
 }
+
+/**
+ * @brief Convenience function for setting bounds for blur-behind to exclude window decorations.
+ */
+void yutani_window_set_blur_bounds(yutani_t * yctx, yutani_window_t * window, void * _bounds, int blur_mode) {
+	struct decor_bounds * bounds = _bounds;
+	yutani_window_set_blur(yctx, window, YUTANI_BLUR_REQUEST_NO_FLIP | YUTANI_BLUR_REQUEST_SET_MODE | YUTANI_BLUR_REQUEST_NO_SET, YUTANI_BLUR_MODE_BOUNDED | blur_mode);
+	yutani_window_set_blur(yctx, window, YUTANI_BLUR_REQUEST_NO_FLIP | YUTANI_BLUR_REQUEST_SET_LEFT_BOUND, bounds->left_width);
+	yutani_window_set_blur(yctx, window, YUTANI_BLUR_REQUEST_NO_FLIP | YUTANI_BLUR_REQUEST_SET_RIGHT_BOUND, bounds->right_width);
+	yutani_window_set_blur(yctx, window, YUTANI_BLUR_REQUEST_NO_FLIP | YUTANI_BLUR_REQUEST_SET_TOP_BOUND, bounds->top_height);
+	yutani_window_set_blur(yctx, window, YUTANI_BLUR_REQUEST_NO_FLIP | YUTANI_BLUR_REQUEST_SET_BOTTOM_BOUND, bounds->bottom_height);
+}

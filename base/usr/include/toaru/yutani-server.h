@@ -185,6 +185,8 @@ typedef struct YutaniServerWindow {
 	int blur_mode;
 	int blur_passes;
 	int blur_size;
+
+	int blur_bounds[4];
 } yutani_server_window_t;
 
 typedef struct YutaniGlobals {
