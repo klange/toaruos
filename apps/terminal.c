@@ -148,6 +148,7 @@ static bool show_fg_name = 1;
 static int  term_opacity = TERM_DEFAULT_OPAC;
 static bool blur_background = 0;
 static float blur_amount = 0.5;
+static bool blur_focused = 1;
 
 static bool terminal_login_shell_restricted = 0;
 
@@ -1806,12 +1807,10 @@ static void update_bounds(void) {
 	}
 	menu_bar_height = _no_menu_bar ? 0 : 24;
 	yutani_window_set_blur_bounds(yctx, window, &bounds, YUTANI_BLUR_MODE_SCALED);
-	yutani_window_set_blur(yctx, window, YUTANI_BLUR_REQUEST_SET_PASSES | YUTANI_BLUR_REQUEST_NO_FLIP,
-		2);
-	yutani_window_set_blur(yctx, window, YUTANI_BLUR_REQUEST_SET_SIZE | YUTANI_BLUR_REQUEST_NO_FLIP,
-		blur_amount * 100);
-	yutani_window_set_blur(yctx, window, YUTANI_BLUR_REQUEST_SET_MODE | YUTANI_BLUR_REQUEST_NO_FLIP,
-		blur_background ? (YUTANI_BLUR_MODE_SCALED | YUTANI_BLUR_MODE_BOUNDED) : -1);
+	yutani_window_set_blur(yctx, window, YUTANI_BLUR_REQUEST_SET_PASSES | YUTANI_BLUR_REQUEST_NO_FLIP, 2);
+	yutani_window_set_blur(yctx, window, YUTANI_BLUR_REQUEST_SET_SIZE | YUTANI_BLUR_REQUEST_NO_FLIP, blur_amount * 100);
+	yutani_window_set_blur(yctx, window, YUTANI_BLUR_REQUEST_SET_ENABLED | YUTANI_BLUR_REQUEST_NO_FLIP,
+		blur_background && (blur_focused ? (window->focused || !hashmap_is_empty(menu_get_windows_hash())) : 1));
 }
 
 /* Handle window resize event. */
@@ -1956,6 +1955,7 @@ static void * handle_incoming(void) {
 							((term_state_t*)node->value)->focused = wf->focused;
 						}
 						termemu_draw_cursor(current_terminal());
+						if (blur_focused) update_bounds();
 						maybe_flip_display(1);
 					}
 				}
@@ -2231,6 +2231,13 @@ static void _menu_action_toggle_blur(struct MenuEntry * self) {
 	blur_background = !blur_background;
 	update_bounds();
 	menu_update_toggle_state(self, blur_background);
+	render_decors();
+}
+
+static void _menu_action_toggle_blur_focused(struct MenuEntry * self) {
+	blur_focused = !blur_focused;
+	update_bounds();
+	menu_update_toggle_state(self, blur_focused);
 	render_decors();
 }
 
@@ -2557,6 +2564,7 @@ static void load_config(char * argv[], int *max_scrollback, bool *scale_fonts, f
 
 	config_option_bool(argv, config_json, "blur-background", &blur_background);
 	config_option_float(argv, config_json, "blur-amount", &blur_amount);
+	config_option_bool(argv, config_json, "blur-focused", &blur_focused);
 
 config_done:
 	if (config_json) json_free(config_json);
@@ -2826,6 +2834,7 @@ int main(int argc, char ** argv) {
 	menu_insert(m, menu_create_slider(NULL, (float)term_opacity / 0xFF, _menu_action_transparency_slider));
 	menu_insert(m, menu_create_label("Blur Background"));
 	menu_insert(m, menu_create_toggle(NULL, "Enabled", blur_background, _menu_action_toggle_blur));
+	menu_insert(m, menu_create_toggle(NULL, "Only when focused", blur_focused, _menu_action_toggle_blur_focused));
 	menu_insert(m, menu_create_slider(NULL, blur_amount, _menu_action_blur_slider));
 	menu_set_insert(terminal_menu_bar._super.set, "transparency", m);
 
