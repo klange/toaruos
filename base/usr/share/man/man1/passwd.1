@@ -1,0 +1,28 @@
+.TH PASSWD 1 "September, 2026"
+
+.SH NAME
+\fBpasswd\fP \- set user password
+
+.SH SYNOPSIS
+\fBpasswd\fP [\fIuser\fP]
+
+.SH DESCRIPTION
+This utility allows users to change their passwords.
+.PP
+The superuser may change other users' passwords.
+If a user is changing their own password (including the superuser), they will
+be prompted for their current password, a new password, and confirmation of
+the new password.
+If the superuser is changing another user's password, the current
+password is not needed.
+
+.SH FILES
+
+.TP
+.B /etc/master.passwd
+The password database with actual passwords.
+
+.SH SEE ALSO
+.BR login (1)
+
+
