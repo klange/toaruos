@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <pwd.h>
 #include <libgen.h>
+#include <errno.h>
 #include <sys/stat.h>
 #include <err.h>
 #include "toaru/auth.h"
@@ -251,6 +252,10 @@ int toaru_auth_check_pass_entry(struct PasswdEntry * entry, const char * passwor
 }
 
 int toaru_auth_set_pass_entry(struct PasswdEntry * entry, char * password) {
+	if (strlen(password) < 4) return ERANGE;
+	if (strlen(password) > 512) return E2BIG;
+	if (strchr(password, ':')) return EINVAL;
+	if (strchr(password, '\n')) return EINVAL;
 	entry->pwd.pw_passwd = password;
 	return 0;
 }

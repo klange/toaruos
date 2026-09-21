@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <pwd.h>
 #include <err.h>
+#include <errno.h>
 #include <sys/stat.h>
 #include <sys/termios.h>
 #include <toaru/auth.h>
@@ -84,8 +85,20 @@ int main(int argc, char * argv[]) {
 	if (prompt_for_password("Enter new password: ", new_password)) errx(1, "cancelled");
 	if (prompt_for_password("Confirm password: ", confirm_password)) errx(1, "cancelled");
 	if (strcmp(new_password, confirm_password)) errx(1, "passwords do not match");
-	if (toaru_auth_set_pass_entry(entry, new_password)) errx(1, "failed to set password");
+	int result = toaru_auth_set_pass_entry(entry, new_password);
 
-	return toaru_auth_write_passwd("/etc/master.passwd", 0600, entries);
+	if (result) {
+		switch (result) {
+			case ERANGE: errx(1, "Password is too short.");
+			case E2BIG:  errx(1, "Password is too long.");
+			case EINVAL: errx(1, "Password contains invalid characters.");
+			default: errx(1, "Unknown error.");
+		}
+	}
+
+	if (toaru_auth_write_passwd("/etc/master.passwd", 0600, entries)) err(1, "failed to write password database");
+
+	fprintf(stderr, "Password set.\n");
+	return 0;
 }
 
