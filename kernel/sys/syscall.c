@@ -1269,11 +1269,13 @@ long sys_fswait_multi(int c, int fds[], int timeout, int out[]) {
 	return result;
 }
 
-long sys_openpty(int * master, int * slave, char * name, void * _ign0, void * size) {
+long sys_openpty(int * master, int * slave, char * name, struct termios * termp, struct winsize * size) {
 	/* We require a place to put these when we are done. */
 	PTRCHECK(master,sizeof(int),MMU_PTR_WRITE);
 	PTRCHECK(slave,sizeof(int),MMU_PTR_WRITE);
-	if (size) PTRCHECK(size,sizeof(struct winsize),0);
+	if (name)  PTRCHECK(name,128,MMU_PTR_WRITE);
+	if (termp) PTRCHECK(termp,sizeof(struct termios),0);
+	if (size)  PTRCHECK(size,sizeof(struct winsize),0);
 
 	/* Create a new pseudo terminal */
 	fs_node_t * fs_master;
@@ -1283,6 +1285,14 @@ long sys_openpty(int * master, int * slave, char * name, void * _ign0, void * si
 
 	char pty_name[256] = "ptm:";
 	pty->fill_name(pty, 252, pty_name + 4);
+
+	if (name && mmu_validate_user_pointer(name, strlen(pty_name + 4) + 1, MMU_PTR_WRITE)) {
+		memcpy(name, pty_name + 4, strlen(pty_name + 4) + 1);
+	}
+
+	if (termp) {
+		memcpy(&pty->tios, termp, sizeof(struct termios));
+	}
 
 	/* Append the master and slave to the calling process */
 	fs_master->fsn_path = fs_alloc_path_from(pty_name, "openpty");
