@@ -3103,6 +3103,18 @@ int main(int argc, char * argv[]) {
 							}
 							break;
 						}
+						case YUTANI_BLUR_REQUEST_SET_ENABLED: {
+							yutani_server_window_t * w = hashmap_get(yg->wids_to_windows, (void *)(uintptr_t)bl->wid);
+							if (w) {
+								if (bl->value == 0) {
+									w->server_flags &= ~(YUTANI_WINDOW_FLAG_BLUR_BEHIND);
+								} else {
+									w->server_flags |= YUTANI_WINDOW_FLAG_BLUR_BEHIND;
+								}
+								if (should_flip) mark_window(yg, w);
+							}
+							break;
+						}
 						case YUTANI_BLUR_REQUEST_SET_PASSES: {
 							bl->value = max(min(bl->value, 3), 0);
 							if (bl->wid == 0) {
