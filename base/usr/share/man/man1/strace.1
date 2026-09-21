@@ -4,9 +4,9 @@
 \fBstrace\fP \- Trace system calls used by a process.
 
 .SH SYNOPSIS
-\fBstrace\fP [\fB\-o\fP \fIlogfile\fP] [\fB\-e\fP trace=\fIoptions\fP] \fB\-p\fP \fIpid\fP
+\fBstrace\fP [\fB\-o\fP \fIlogfile\fP] [\fB\-e\fP trace=\fIoptions\fP] [\fB\-e\fP decode\-fds=\fIoptions\fP] \fB\-p\fP \fIpid\fP
 .br
-\fBstrace\fP [\fB\-o\fP \fIlogfile\fP] [\fB\-e\fP trace=\fIoptions\fP] \fIcmd\fP [\fIargs\fP]...
+\fBstrace\fP [\fB\-o\fP \fIlogfile\fP] [\fB\-e\fP trace=\fIoptions\fP] [\fB\-e\fP decode\-fds=\fIoptions\fP] \fIcmd\fP [\fIargs\fP]...
 
 .SH DESCRIPTION
 Run a program, or attach to an existing process, and trace the system calls it uses with
@@ -176,6 +176,12 @@ System calls related to getting or setting wall clocks:
 .IR settimeofday .
 
 .RE
+
+.TP
+.B \-e decode\-fds=\fIoptions\fP
+Decode information about file descriptors.
+The only supported option is \fBpath\fP, which will print the
+path of the file descriptor (if possible) from \fBprocfs\fP.
 
 .SH NOTES
 This \fBstrace\fP is inspired by the more common one for Linux, however, as the ABI for

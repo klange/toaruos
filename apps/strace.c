@@ -53,6 +53,8 @@ struct Pid {
 
 static struct Pid *children = NULL;
 static size_t children_count = 0;
+static int decode_fds = 0; /* none */
+#define DECODE_FDS_PATH 1
 
 static struct Pid * find_pid(pid_t p) {
 	struct Pid * c = children;
@@ -609,8 +611,15 @@ static void mode_arg(mode_t val) {
 }
 
 static void fd_arg(pid_t pid, int val) {
-	/* TODO: Look up file in user data? */
 	fprintf(logfile, "%d", val);
+	if (decode_fds & DECODE_FDS_PATH) {
+		char fd_path[1024];
+		snprintf(fd_path, 1024, "/proc/%d/fd/%d", pid, val);
+		char ln_path[PATH_MAX+1] = {0};
+		if (readlink(fd_path, ln_path, PATH_MAX) > 0) {
+			fprintf(logfile, "<%s>", ln_path);
+		}
+	}
 }
 
 static void sock_dom_arg(int domain) {
@@ -737,7 +746,7 @@ static void fds_arg(pid_t pid, size_t ecount, uintptr_t array) {
 	fprintf(logfile, "[");
 	for (size_t count = 0; count < 10 && count < ecount; ++count) {
 		int x = data_read_int(pid, array);
-		fprintf(logfile, "%d", x);
+		fd_arg(pid, x);
 		if (count + 1 < ecount) fprintf(logfile, ",");
 		array += sizeof(int);
 	}
@@ -1855,7 +1864,11 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			uint_arg(uregs_syscall_arg2(r)); COMMA;
 			mmap_prot_arg(uregs_syscall_arg3(r)); COMMA;
 			mmap_flags_arg(uregs_syscall_arg4(r)); COMMA;
-			fd_arg(pid, uregs_syscall_arg5(r)); COMMA;
+			if (uregs_syscall_arg4(r) & MAP_ANONYMOUS) {
+				int_arg(uregs_syscall_arg5(r)); COMMA;
+			} else {
+				fd_arg(pid, uregs_syscall_arg5(r)); COMMA;
+			}
 			int_arg(uregs_syscall_arg6(r));
 			break;
 		case SYS_MUNMAP:
@@ -1928,6 +1941,15 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 		case -1:
 			break; /* This is ptrace(PTRACE_TRACEME)... probably... */
 		/* read() returns data in second value */
+		case SYS_OPEN:
+			if ((intptr_t)uregs_syscall_result(r) >= 0) {
+				fprintf(logfile, ") = ");
+				fd_arg(pid, uregs_syscall_result(r));
+				fprintf(logfile, "\n");
+			} else {
+				maybe_errno(r);
+			}
+			break;
 		case SYS_READ:
 			buffer_arg(pid, uregs_syscall_arg2(r), uregs_syscall_result(r)); COMMA;
 			uint_arg(uregs_syscall_arg3(r));
@@ -2128,7 +2150,7 @@ int main(int argc, char * argv[]) {
 
 					/* Now look at each comma-separated option */
 					char * option = optarg + 6;
-					char * comma = strstr(option, ",");
+					char * comma = strchr(option, ',');
 					while (1) {
 						if (comma) *comma = '\0';
 
@@ -2168,7 +2190,23 @@ int main(int argc, char * argv[]) {
 						}
 						if (!comma) break;
 						option = comma + 1;
-						comma = strstr(option, ",");
+						comma = strchr(option, ',');
+					}
+				} else if (strstr(optarg,"decode-fds=") == optarg) {
+					char * option = strchr(optarg,'=') + 1;
+					char * comma = strchr(option, ',');
+					while (1) {
+						if (comma) *comma = '\0';
+						if (!strcmp(option, "none")) {
+							decode_fds = 0;
+						} else if (!strcmp(option, "path")) {
+							decode_fds |= DECODE_FDS_PATH;
+						} else {
+							fprintf(stderr, "%s: Unsupported option for decode-fds: %s\n", argv[0], option);
+						}
+						if (!comma) break;
+						option = comma + 1;
+						comma = strchr(option, ',');
 					}
 				} else {
 					char * eq = strstr(optarg, "=");
