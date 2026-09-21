@@ -2823,7 +2823,7 @@ int main(int argc, char ** argv) {
 
 	m = menu_create();
 	menu_insert(m, menu_create_label("Transparency"));
-	menu_insert(m, menu_create_slider(NULL, (float)TERM_DEFAULT_OPAC / 0xFF, _menu_action_transparency_slider));
+	menu_insert(m, menu_create_slider(NULL, (float)term_opacity / 0xFF, _menu_action_transparency_slider));
 	menu_insert(m, menu_create_label("Blur Background"));
 	menu_insert(m, menu_create_toggle(NULL, "Enabled", blur_background, _menu_action_toggle_blur));
 	menu_insert(m, menu_create_slider(NULL, blur_amount, _menu_action_blur_slider));
