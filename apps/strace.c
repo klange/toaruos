@@ -1391,7 +1391,7 @@ static void struct_termios_arg(pid_t pid, uintptr_t ptr) {
 
 	int needs_comma = 0;
 
-	fprintf(logfile, ",c_cc=");
+	fprintf(logfile, ",c_cc={");
 #define termios_cc(x) needs_comma = struct_termios_cc_val(logfile, &tios, #x, x, needs_comma)
 	termios_cc(VEOF);
 	termios_cc(VEOL);
