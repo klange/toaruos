@@ -191,11 +191,18 @@ int main (int argc, char ** argv) {
 					}
 					break;
 				case YUTANI_MSG_WINDOW_CLOSE:
+					{
+						struct yutani_msg_window_close * wc = (void*)m->data;
+						fprintf(stderr, "Window Close (wid=%d)\n", (int)wc->wid);
+						should_exit = 1;
+					}
+					break;
 				case YUTANI_MSG_SESSION_END:
+					fprintf(stderr, "Session End\n");
 					should_exit = 1;
 					break;
 				default:
-					fprintf(stderr, "Unknown message, type=%#x\n", m->type);
+					fprintf(stderr, "Unhandled message, type=%#x\n", m->type);
 					break;
 			}
 		}
