@@ -1841,6 +1841,7 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 				yg->screenshot_frame = YUTANI_SCREENSHOT_WINDOW;
 			} else {
 				yg->screenshot_frame = YUTANI_SCREENSHOT_FULL;
+				mark_screen(yg, 0, 0, yg->width, yg->height);
 			}
 		}
 		if ((ke->event.action == KEY_ACTION_DOWN) &&
