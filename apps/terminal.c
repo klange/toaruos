@@ -147,7 +147,7 @@ static bool _no_menu_bar = 0;
 static bool show_fg_name = 1;
 static int  term_opacity = TERM_DEFAULT_OPAC;
 static bool blur_background = 0;
-static float blur_amount = 0.5;
+static float blur_amount = 1.0;
 static bool blur_focused = 1;
 
 static bool terminal_login_shell_restricted = 0;
