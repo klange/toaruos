@@ -22,6 +22,7 @@ static yutani_t * yctx;
 static yutani_window_t * wina;
 static gfx_context_t * ctx;
 static int should_exit = 0;
+static int use_clear_background = 0;
 
 const char * action_name(unsigned int action) {
 	switch (action) {
@@ -83,7 +84,7 @@ const char * mouse_command(unsigned char type) {
 }
 
 void redraw(void) {
-	draw_fill(ctx, rgb(0,0,0));
+	draw_fill(ctx, use_clear_background ? rgba(0,0,0,25) : rgb(0,0,0));
 
 	int w = width - 1, h = height - 1;
 
@@ -200,6 +201,17 @@ int main (int argc, char ** argv) {
 				case YUTANI_MSG_SESSION_END:
 					fprintf(stderr, "Session End\n");
 					should_exit = 1;
+					break;
+				case YUTANI_MSG_WINDOW_SET_BLUR:
+					{
+						struct yutani_msg_window_set_blur * sb = (void*)m->data;
+						fprintf(stderr, "Window Set Blur (wid=%d) request_type=%d value=%d\n",
+							sb->wid, sb->request_type, sb->value);
+						if (sb->request_type == YUTANI_BLUR_REQUEST_SET_ENABLED) {
+							use_clear_background = sb->value;
+							redraw();
+						}
+					}
 					break;
 				default:
 					fprintf(stderr, "Unhandled message, type=%#x\n", m->type);
