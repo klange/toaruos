@@ -1831,6 +1831,9 @@ static void handle_key_event(yutani_globals_t * yg, struct yutani_msg_key_event 
 			if (focused->z != YUTANI_ZORDER_BOTTOM && focused->z != YUTANI_ZORDER_TOP) {
 				focused->server_flags ^= YUTANI_WINDOW_FLAG_BLUR_BEHIND;
 				mark_window(yg, focused);
+				yutani_msg_buildx_window_set_blur_alloc(m);
+				yutani_msg_buildx_window_set_blur(m, focused->wid, YUTANI_BLUR_REQUEST_SET_ENABLED, !!(focused->server_flags & YUTANI_WINDOW_FLAG_BLUR_BEHIND));
+				pex_send(yg->server, focused->owner, m->size, (char *)m);
 			}
 			return;
 		}
