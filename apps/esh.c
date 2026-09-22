@@ -774,7 +774,7 @@ void tab_complete_func(rline_context_t * c) {
 			if (cursor_adj == 1) {
 				completions = msk_commands;
 			} else if (cursor_adj > 1 && !strcmp(argv[command_adj+1],"install")) {
-				FILE * f = fopen("/var/msk/manifest","r");
+				FILE * f = fopen("/var/msk/manifest","re");
 				list_t * packages = list_create();
 				if (f) {
 					while (!feof(f)) {
@@ -786,6 +786,7 @@ void tab_complete_func(rline_context_t * c) {
 							list_insert(packages, strdup(tmp+1));
 						}
 					}
+					fclose(f);
 
 					completions = malloc(sizeof(char *) * (packages->length + 1));
 					free_matches = 1;
