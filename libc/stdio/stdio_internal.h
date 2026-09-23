@@ -37,4 +37,5 @@ struct _FILE {
 extern void __stdio_init_buffers(void);
 extern void __stdio_cleanup(void);
 extern size_t __printf_internal(int (*callback)(void *, char), void * userData, const char * fmt, va_list args);
+extern size_t __print_double(double value, unsigned int width, int (*callback)(void*,char), void * userData, int fill_zero, int align_right, int precision, char mode, int always_sign);
 
