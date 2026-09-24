@@ -1283,6 +1283,8 @@ term_callbacks_t term_callbacks = {
 	full_reset,
 	term_state_change,
 	term_bell,
+	NULL,
+	NULL,
 };
 
 static void scroll_up(int amount) {

@@ -547,6 +547,35 @@ static void input_buffer_stuff(term_state_t * state, char * str) {
 	write_input_buffer(state, str, len);
 }
 
+static uint32_t convert_digit(char index) {
+	if (index >= '0' && index <= '9') return index - '0';
+	else if (index >= 'a' && index <= 'f') return index - 'a' + 0xa;
+	else if (index >= 'A' && index <= 'F') return index - 'A' + 0xa;
+	return 0;
+}
+
+static void term_set_palette(term_state_t * state, char index, char * color) {
+	uint32_t data[2];
+	data[0] = convert_digit(index);
+	if (data[0] >= 16) return;
+
+	data[1] = rgb(
+		(convert_digit(color[0]) << 4) | convert_digit(color[1]),
+		(convert_digit(color[2]) << 4) | convert_digit(color[3]),
+		(convert_digit(color[4]) << 4) | convert_digit(color[5]));
+
+	ioctl(vga_text_fd, IO_VGA_PALETTE, &data);
+	refresh_display(state);
+}
+
+static void term_reset_palette(term_state_t * state) {
+	uint32_t data[2];
+	data[0] = 0xFF;
+	data[1] = 0xFFFFFFFF;
+	ioctl(vga_text_fd, IO_VGA_PALETTE, &data);
+	refresh_display(state);
+}
+
 static term_callbacks_t term_callbacks = {
 	NULL,
 	NULL,
@@ -558,6 +587,8 @@ static term_callbacks_t term_callbacks = {
 	NULL,
 	NULL,
 	NULL,
+	term_set_palette,
+	term_reset_palette,
 };
 
 static int check_for_exit(void) {
