@@ -73,6 +73,7 @@ struct Terminal_Private {
 	int input_buffer_semaphore[2];
 	list_t * input_buffer_queue;
 	int thread_done;
+	uint32_t palette[16];
 };
 
 static list_t * terminals = NULL;
@@ -287,6 +288,8 @@ static void flip_display() {
 }
 
 static void refresh_display(term_state_t * state) {
+	struct Terminal_Private * priv = state->priv;
+	ioctl(vga_text_fd, IO_VGA_PALETTE, priv->palette);
 	memset(state->term_display, 0xFF, sizeof(term_cell_t) * state->width * state->height);
 	flip_display();
 }
@@ -555,25 +558,25 @@ static uint32_t convert_digit(char index) {
 }
 
 static void term_set_palette(term_state_t * state, char index, char * color) {
-	uint32_t data[2];
-	data[0] = convert_digit(index);
-	if (data[0] >= 16) return;
+	struct Terminal_Private * priv = state->priv;
 
-	data[1] = rgb(
+	uint32_t ind = convert_digit(index);
+	if (ind >= 16) return;
+
+	uint32_t val = rgb(
 		(convert_digit(color[0]) << 4) | convert_digit(color[1]),
 		(convert_digit(color[2]) << 4) | convert_digit(color[3]),
 		(convert_digit(color[4]) << 4) | convert_digit(color[5]));
 
-	ioctl(vga_text_fd, IO_VGA_PALETTE, &data);
-	refresh_display(state);
+	priv->palette[ind] = val;
+
+	if (state == current_terminal()) refresh_display(state);
 }
 
 static void term_reset_palette(term_state_t * state) {
-	uint32_t data[2];
-	data[0] = 0xFF;
-	data[1] = 0xFFFFFFFF;
-	ioctl(vga_text_fd, IO_VGA_PALETTE, &data);
-	refresh_display(state);
+	struct Terminal_Private * priv = state->priv;
+	ioctl(vga_text_fd, IO_VGA_DEFAULT_PALETTE, &priv->palette);
+	if (state == current_terminal()) refresh_display(state);
 }
 
 static term_callbacks_t term_callbacks = {
@@ -782,6 +785,8 @@ static term_state_t * terminal_create(int term_width, int term_height, int max_s
 	/* Open a PTY */
 	openpty(&priv->fd_master, &priv->fd_slave, NULL, NULL, NULL);
 	terminal_set_size(out);
+
+	ioctl(vga_text_fd, IO_VGA_DEFAULT_PALETTE, &priv->palette);
 
 	priv->child_pid = fork();
 

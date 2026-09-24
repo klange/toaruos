@@ -1468,6 +1468,8 @@ static void ioctl_cmd_arg(uintptr_t arg) {
 		C(IO_VID_REINIT);
 		C(IO_VGA_MOUSE_ADJ);
 		C(IO_VGA_PALETTE);
+		C(IO_VGA_GET_PALETTE);
+		C(IO_VGA_DEFAULT_PALETTE);
 
 		/* Network stuff */
 		C(SIOCGIFHWADDR);

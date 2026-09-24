@@ -436,18 +436,18 @@ static int ioctl_vga_emul(fs_node_t * node, unsigned long request, void * argp) 
 			if (!mmu_validate_user_pointer(argp, sizeof(int) * 2, MMU_PTR_WRITE)) return -EFAULT;
 			get_cursor_adj(&((int*)argp)[0], &((int*)argp)[1]);
 			return 0;
-		case IO_VGA_PALETTE: {
-			if (!mmu_validate_user_pointer(argp, sizeof(uint32_t) * 2, 0)) return -EFAULT;
-			uint32_t data[2];
-			memcpy(data, argp, sizeof(uint32_t) * 2);
-			if (data[0] == 0xFF && data[1] == 0xFFFFFFFF) {
-				memcpy(term_colors, term_selected_palette, sizeof(term_colors));
-				return 0;
-			}
-			if (data[0] >= 16) return -EINVAL;
-			term_colors[data[0]] = data[1];
+		case IO_VGA_PALETTE:
+			if (!mmu_validate_user_pointer(argp, sizeof(uint32_t) * 16, 0)) return -EFAULT;
+			memcpy(term_colors, argp, sizeof(uint32_t) * 16);
 			return 0;
-		}
+		case IO_VGA_GET_PALETTE:
+			if (!mmu_validate_user_pointer(argp, sizeof(uint32_t) * 16, MMU_PTR_WRITE)) return -EFAULT;
+			memcpy(argp, term_colors, sizeof(uint32_t) * 16);
+			return 0;
+		case IO_VGA_DEFAULT_PALETTE:
+			if (!mmu_validate_user_pointer(argp, sizeof(uint32_t) * 16, MMU_PTR_WRITE)) return -EFAULT;
+			memcpy(argp, term_selected_palette, sizeof(uint32_t) * 16);
+			return 0;
 		default:
 			return -ENOTTY;
 	}
