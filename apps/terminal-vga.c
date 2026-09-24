@@ -103,30 +103,12 @@ static int color_distance(uint32_t a, uint32_t b) {
 	return distance;
 }
 
-static uint32_t vga_base_colors[] = {
-	0x000000,
-	0xAA0000,
-	0x00AA00,
-	0xAA5500,
-	0x0000AA,
-	0xAA00AA,
-	0x00AAAA,
-	0xAAAAAA,
-	0x555555,
-	0xFF5555,
-	0x55AA55,
-	0xFFFF55,
-	0x5555FF,
-	0xFF55FF,
-	0x55FFFF,
-	0xFFFFFF,
-};
-
 static int best_match(uint32_t a) {
+	struct Terminal_Private * priv = current_terminal()->priv;
 	int best_distance = INT32_MAX;
 	int best_index = 0;
 	for (int j = 0; j < 16; ++j) {
-		int distance = color_distance(a, vga_base_colors[j]);
+		int distance = color_distance(a,priv->palette[j]);
 		if (distance < best_distance) {
 			best_index = j;
 			best_distance = distance;
