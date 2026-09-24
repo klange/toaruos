@@ -251,6 +251,10 @@ static void fbterm_init_ega(void) {
 	get_height = ega_get_height;
 	scroll_terminal = ega_scroll_terminal;
 	get_cursor_adj = ega_get_cursor_adj;
+
+	/* for ioctl calls */
+	term_selected_palette = palette_vga;
+	memcpy(term_colors, term_selected_palette, sizeof(term_colors));
 }
 
 static void cursor_update(void) {
