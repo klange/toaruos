@@ -517,6 +517,15 @@ static void _ansi_put(term_state_t * s, char c) {
 				s->buflen = 0;
 				s->escape = 0;
 				return;
+			} else if (c == 'R') {
+				s->buflen = 0;
+				s->escape = 0;
+				if (callbacks->reset_palette) callbacks->reset_palette(s);
+				return;
+			} else if (c == 'P') {
+				s->buflen = 0;
+				s->escape = 7;
+				return;
 			} else {
 				/* Still escaped */
 				if (c == '\n' || s->buflen == 255) {
@@ -569,6 +578,14 @@ static void _ansi_put(term_state_t * s, char c) {
 			if (s->img_collected == s->img_size) {
 				if (callbacks->set_cell_contents) callbacks->set_cell_contents(s, s->x, s->y, s->img_data);
 				term_set_csr(s, min(s->x + 1, s->width - 1), s->y);
+				s->escape = 0;
+				s->buflen = 0;
+			}
+			break;
+		case 7:
+			ansi_buf_add(s,c);
+			if (s->buflen == 7) {
+				if (callbacks->set_palette) callbacks->set_palette(s, s->buffer[0], &s->buffer[1]);
 				s->escape = 0;
 				s->buflen = 0;
 			}

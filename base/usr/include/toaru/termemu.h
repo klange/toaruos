@@ -29,6 +29,8 @@ typedef struct {
 	void (*full_reset)         (struct TermemuState *);
 	void (*state_change)       (struct TermemuState *);
 	void (*bell)               (struct TermemuState *);
+	void (*set_palette)        (struct TermemuState *, char, char *);
+	void (*reset_palette)      (struct TermemuState *);
 } term_callbacks_t;
 
 struct TermemuScrollbackRow {
