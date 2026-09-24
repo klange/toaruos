@@ -1,0 +1,23 @@
+.TH SET-FONT 1 "September, 2026"
+
+.SH NAME
+\fBset\-font\fP \- modify VGA emulation font
+
+.SH SYNOPSIS
+\fBset\-font\fP [\fB\-g\fP] \fIfont\-payload\fP
+
+.SH DESCRIPTION
+Gets or sets the VGA text mode emulation font.
+.PP
+Without the \fB\-g\fP option, the font from \fIfont\-payload\fP is loaded.
+.PP
+The font must be a payload of exactly 4352 (256 x 17) bytes.
+
+.SS Options
+
+.TP
+.B \-g
+Retrieve and store the current font into the file \fIfont-payload\fP.
+
+.SH SEE ALSO
+.BR terminal\-vga (1)
