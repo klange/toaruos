@@ -13,6 +13,7 @@
 #define IO_VID_REINIT 0x5009
 
 #define IO_VGA_MOUSE_ADJ 0x5010
+#define IO_VGA_PALETTE   0x5011
 
 struct vid_size {
 	uint32_t width;

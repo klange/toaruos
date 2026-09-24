@@ -47,7 +47,8 @@ static int fb_left_margin = 0;
 /**
  * @brief Basic 16-color ANSI palette with Tango colors.
  */
-static uint32_t * term_colors;
+static uint32_t term_colors[16] = {0};
+static uint32_t * term_selected_palette = NULL;
 
 static uint32_t palette_tango[] = {
 	/* black  */ 0xFF000000,
@@ -188,12 +189,13 @@ static void fbterm_init_framebuffer(void) {
 	if ((left_margin_val = args_value("fbterm-margin"))) {
 		fb_left_margin = atoi(left_margin_val);
 	}
-	term_colors = palette_tango;
+	term_selected_palette = palette_tango;
 	if ((palette_val = args_value("fbterm-palette"))) {
 		if (!strcmp(palette_val, "vga")) {
-			term_colors = palette_vga;
+			term_selected_palette = palette_vga;
 		}
 	}
+	memcpy(term_colors, term_selected_palette, sizeof(term_colors));
 	if ((logo_val = args_value("fbterm-logo"))) {
 		logo_squares = xtoi(logo_val);
 	}
@@ -434,6 +436,18 @@ static int ioctl_vga_emul(fs_node_t * node, unsigned long request, void * argp) 
 			if (!mmu_validate_user_pointer(argp, sizeof(int) * 2, MMU_PTR_WRITE)) return -EFAULT;
 			get_cursor_adj(&((int*)argp)[0], &((int*)argp)[1]);
 			return 0;
+		case IO_VGA_PALETTE: {
+			if (!mmu_validate_user_pointer(argp, sizeof(uint32_t) * 2, 0)) return -EFAULT;
+			uint32_t data[2];
+			memcpy(data, argp, sizeof(uint32_t) * 2);
+			if (data[0] == 0xFF && data[1] == 0xFFFFFFFF) {
+				memcpy(term_colors, term_selected_palette, sizeof(term_colors));
+				return 0;
+			}
+			if (data[0] >= 16) return -EINVAL;
+			term_colors[data[0]] = data[1];
+			return 0;
+		}
 		default:
 			return -ENOTTY;
 	}
