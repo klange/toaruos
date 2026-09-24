@@ -1470,6 +1470,8 @@ static void ioctl_cmd_arg(uintptr_t arg) {
 		C(IO_VGA_PALETTE);
 		C(IO_VGA_GET_PALETTE);
 		C(IO_VGA_DEFAULT_PALETTE);
+		C(IO_VGA_SETFONT);
+		C(IO_VGA_GETFONT);
 
 		/* Network stuff */
 		C(SIOCGIFHWADDR);

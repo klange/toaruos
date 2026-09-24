@@ -16,6 +16,8 @@
 #define IO_VGA_PALETTE   0x5011
 #define IO_VGA_GET_PALETTE 0x5012
 #define IO_VGA_DEFAULT_PALETTE 0x5013
+#define IO_VGA_SETFONT   0x5014
+#define IO_VGA_GETFONT   0x5015
 
 struct vid_size {
 	uint32_t width;

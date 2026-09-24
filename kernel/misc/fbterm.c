@@ -448,6 +448,14 @@ static int ioctl_vga_emul(fs_node_t * node, unsigned long request, void * argp) 
 			if (!mmu_validate_user_pointer(argp, sizeof(uint32_t) * 16, MMU_PTR_WRITE)) return -EFAULT;
 			memcpy(argp, term_selected_palette, sizeof(uint32_t) * 16);
 			return 0;
+		case IO_VGA_SETFONT:
+			if (!mmu_validate_user_pointer(argp, sizeof(large_font), 0)) return -EFAULT;
+			memcpy(large_font, argp, sizeof(large_font));
+			return 0;
+		case IO_VGA_GETFONT:
+			if (!mmu_validate_user_pointer(argp, sizeof(large_font), MMU_PTR_WRITE)) return -EFAULT;
+			memcpy(argp, large_font, sizeof(large_font));
+			return 0;
 		default:
 			return -ENOTTY;
 	}
