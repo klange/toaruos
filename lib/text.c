@@ -494,23 +494,28 @@ int tt_glyph_for_codepoint(struct TT_Font * font, unsigned int codepoint) {
 		uint16_t segCount = tt_read_16(font) / 2;
 
 		for (int i = 0; i < segCount; ++i) {
-			tt_seek(font, font->cmap_start + 12 + 2 * i);
+			tt_seek(font, font->cmap_start + 14 + 2 * i);
 			uint16_t endCode = tt_read_16(font);
 			if (endCode >= codepoint) {
-				tt_seek(font, font->cmap_start + 12 + 2 * segCount + 2 + 2 * i);
+				tt_seek(font, font->cmap_start + 14 + 2 * segCount + 2 + 2 * i);
 				uint16_t startCode = tt_read_16(font);
 				if (startCode > codepoint) {
 					return 0;
 				}
-				tt_seek(font, font->cmap_start + 12 + 4 * segCount + 2 + 2 * i);
-				int16_t idDelta = tt_read_16(font);
-				tt_seek(font, font->cmap_start + 12 + 6 * segCount + 2 + 2 * i);
+				tt_seek(font, font->cmap_start + 14 + 4 * segCount + 2 + 2 * i);
+				uint16_t idDelta = tt_read_16(font);
+				tt_seek(font, font->cmap_start + 14 + 6 * segCount + 2 + 2 * i);
+				off_t idRangeOffset_addr = tt_tell(font);
 				uint16_t idRangeOffset = tt_read_16(font);
 				if (idRangeOffset == 0) {
-					return idDelta + codepoint;
+					return (idDelta + codepoint) % 65536;
 				} else {
-					tt_seek(font, font->cmap_start + 12 + 6 * segCount + 2 + 2 * i + idRangeOffset + (codepoint - startCode) * 2);
-					return tt_read_16(font);
+					uint32_t glyphIndexAddress = idRangeOffset_addr + idRangeOffset + 2 * (codepoint - startCode);
+					tt_seek(font, glyphIndexAddress);
+					uint16_t val = tt_read_16(font);
+					if (val == 0) return 0;
+					val = (val + idDelta) % 65536;
+					return val;
 				}
 			}
 		}
@@ -530,6 +535,7 @@ static void midpoint(float x_0, float y_0, float cx, float cy, float x_1, float 
 __attribute__((visibility("protected")))
 struct TT_Contour * tt_draw_glyph_into(struct TT_Contour * contour, struct TT_Font * font, float x_offset, float y_offset, unsigned int glyph) {
 	off_t glyf_offset = tt_get_glyph_offset(font, glyph);
+	if (glyf_offset >= (ssize_t)font->glyf_ptr.length) return contour;
 	if (tt_get_glyph_offset(font, glyph + 1) == glyf_offset) return contour;
 
 	tt_seek(font, font->glyf_ptr.offset + glyf_offset);
