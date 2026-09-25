@@ -3,10 +3,16 @@
 .SH NAME
 \fBsysinfo\fP \- display system information for screenshots
 
+.SH SYNOPSIS
+\fBsysinfo\fP [\fIlogo_path\fP]
+
 .SH DESCRIPTION
-Displays a rendition of the OS's logo using ANSI escape sequences
+Displays a logo using ANSI escape sequences
 alongside information collected from various other utilities and
 environment variables.
+.PP
+If \fIlogo_path\fP is not specified, the default is
+\fB/usr/share/icons/sysinfo-logo.png\fP.
 
 .SH ENVIRONMENT
 Some information is sourced from environment variables:

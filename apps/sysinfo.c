@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <sys/utsname.h>
 
 #include <toaru/graphics.h>
@@ -69,7 +70,45 @@ static void background_color(uint32_t color) {
 		(int)_RED(color), (int)_GRE(color), (int)_BLU(color), (int)_ALP(color));
 }
 
+static int help(int argc, char * argv[]) {
+#define X_S "\033[3m"
+#define X_E "\033[0m"
+	fprintf(stderr,
+			"usage: %s [--help] [" X_S "logo_path" X_E "]\n"
+			"\n"
+			" -h --help   " X_S "Show this help message." X_E "\n"
+			"\n",
+			argv[0]);
+	return 0;
+}
+
+static int usage(int argc, char * argv[]) {
+	fprintf(stderr, "usage: %s [logo_path]\n", argv[0]);
+	return 1;
+}
+
 int main(int argc, char * argv[]) {
+	int opt;
+
+	static struct option long_opts[] = {
+		{"help", no_argument, 0, 'h'},
+		{0,0,0,0}
+	};
+
+	while ((opt = getopt_long(argc, argv, "h", long_opts, NULL)) != -1) {
+		switch (opt) {
+			case 'h':
+				return help(argc, argv);
+
+			default:
+				return usage(argc, argv);
+		}
+	}
+
+	char * logo_path = "/usr/share/icons/sysinfo-logo.png";
+
+	if (optind < argc) logo_path = argv[optind];
+	if (optind + 1 < argc) return usage(argc, argv);
 
 	/* Prepare data */
 	char * user = getenv("USER");
@@ -124,7 +163,7 @@ int main(int argc, char * argv[]) {
 	sprintf(data_lines[i++], C_A "RAM: " C_O);
 
 	sprite_t logo;
-	if (load_sprite(&logo, "/usr/share/icons/sysinfo-logo.png")) {
+	if (load_sprite(&logo, logo_path)) {
 		fprintf(stderr, "%s: failed to load OS icon\n", argv[0]);
 		return 1;
 	}
