@@ -95,10 +95,14 @@ static int color_distance(uint32_t a, uint32_t b) {
 	int b_g = (b & 0xFF00) >> 8;
 	int b_b = (b & 0xFF);
 
+	int d_r = abs(a_r - b_r);
+	int d_g = abs(a_g - b_g);
+	int d_b = abs(a_b - b_b);
+
 	int distance = 0;
-	distance += abs(a_r - b_r) * 3;
-	distance += abs(a_g - b_g) * 6;
-	distance += abs(a_b - b_b) * 10;
+	distance += d_r * d_r;
+	distance += d_g * d_g;
+	distance += d_b * d_b;
 
 	return distance;
 }
