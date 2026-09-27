@@ -33,10 +33,23 @@ EMU_CPU  = cortex-a72
 SMP ?= 4
 RAM ?= 4G
 
+
+ifeq (Darwin arm64,$(shell uname -sm))
+  EMU_KVM ?= -accel hvf
+  ifneq ($(EMU_KVM),)
+    EMU_CPU = host
+  endif
+else
+  ifeq (Linux aarch64,$(shell uname -sm))
+    EMU_KVM ?= -enable-kvm
+  endif
+endif
+
 EMU_ARGS  = -M $(EMU_MACH)
 EMU_ARGS += -m $(RAM)
 EMU_ARGS += -smp $(SMP)
 EMU_ARGS += -cpu $(EMU_CPU)
+EMU_ARGS += $(EMU_KVM)
 EMU_ARGS += -no-reboot
 EMU_ARGS += -serial mon:stdio
 EMU_ARGS += -device ramfb
@@ -54,28 +67,16 @@ EMU_KERNEL  = -fw_cfg name=opt/org.toaruos.kernel,file=misaka-kernel
 run: system
 	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session ramfb vid=preset" ${EMU_RAMDISK} ${EMU_KERNEL}
 
-hvf: EMU_CPU = host -accel hvf
-hvf: run
-
 debug: system
 	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session ramfb vid=preset qemu-serial-log debug" ${EMU_RAMDISK} ${EMU_KERNEL}
-
-debug-hvf: EMU_CPU = host -accel hvf
-debug-hvf: debug
 
 vga: system
 	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=--vga ramfb vid=preset" ${EMU_RAMDISK} ${EMU_KERNEL}
 
-vga-hvf: EMU_CPU = host -accel hvf
-vga-hvf: vga
-
 shell: system
-	@${QEMU} -M ${EMU_MACH} -m ${RAM} -smp ${SMP} -cpu ${EMU_CPU} -no-reboot -display none -serial mon:stdio -d guest_errors \
+	@${QEMU} -M ${EMU_MACH} -m ${RAM} -smp ${SMP} -cpu ${EMU_CPU} ${EMU_KVM} -no-reboot -display none -serial mon:stdio -d guest_errors \
 		-net user -netdev hubport,id=u1,hubid=0, -device e1000e,netdev=u1 \
 		-name "ToaruOS ${ARCH}" -kernel bootstub \
 		-append "root=/dev/ram0 migrate start=--headless" ${EMU_RAMDISK} ${EMU_KERNEL} \
 		-fw_cfg name=opt/org.toaruos.gettyargs,string="-a local /dev/ttyS0 115200 ${TERM}"
-
-shell-hvf: EMU_CPU = host -accel hvf
-shell-hvf: shell
 
