@@ -4,9 +4,9 @@
 \fBstrace\fP \- Trace system calls used by a process.
 
 .SH SYNOPSIS
-\fBstrace\fP [\fB\-o\fP \fIlogfile\fP] [\fB\-e\fP trace=\fIoptions\fP] [\fB\-e\fP decode\-fds=\fIoptions\fP] \fB\-p\fP \fIpid\fP
+\fBstrace\fP [\fB\-o\fP \fIlogfile\fP] [\fB\-e\fP \fIoption\fP] \fB\-p\fP \fIpid\fP
 .br
-\fBstrace\fP [\fB\-o\fP \fIlogfile\fP] [\fB\-e\fP trace=\fIoptions\fP] [\fB\-e\fP decode\-fds=\fIoptions\fP] \fIcmd\fP [\fIargs\fP]...
+\fBstrace\fP [\fB\-o\fP \fIlogfile\fP] [\fB\-e\fP \fIoption\fP] \fIcmd\fP [\fIargs\fP]...
 
 .SH DESCRIPTION
 Run a program, or attach to an existing process, and trace the system calls it uses with
@@ -15,8 +15,8 @@ Run a program, or attach to an existing process, and trace the system calls it u
 Each system call will result in a log line, which is printed to standard output by default.
 The output of this logfile can instead be written to a file with the \fB\-o\fP option.
 .PP
-The set of system calls to print a log line for can be controlled with the \fB\-e\fP option,
-which has a cumbersome interface for compatibility with other implementations of this utility.
+Various \fB\-e\fP options control what information is displayed, such as which system calls
+to print a log message for, and how detailed that log message should be.
 .PP
 Each system call reported in a log line includes extracted information about the arguments.
 Arguments that can be read before the system call is completed will be printed upon entry,
@@ -182,6 +182,12 @@ System calls related to getting or setting wall clocks:
 Decode information about file descriptors.
 The only supported option is \fBpath\fP, which will print the
 path of the file descriptor (if possible) from \fBprocfs\fP.
+
+.TP
+.B \-e abbrev=\fIoptions\fP
+Abbreviate long structures.
+\fIoptions\fP can be \fBall\fP (the default), \fBnone\fP, or a system call specifier,
+as with the \fBtrace\fP option above.
 
 .SH NOTES
 This \fBstrace\fP is inspired by the more common one for Linux, however, as the ABI for

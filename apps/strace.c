@@ -56,6 +56,11 @@ static size_t children_count = 0;
 static int decode_fds = 0; /* none */
 #define DECODE_FDS_PATH 1
 
+static char syscall_mask[SYS__COUNT];
+#define SYSCALL_MASK_ENABLED  (1 << 0)
+#define SYSCALL_MASK_ABBREV   (1 << 1)
+#define SYSCALL_MASK_DEFAULTS (SYSCALL_MASK_ENABLED | SYSCALL_MASK_ABBREV)
+
 static struct Pid * find_pid(pid_t p) {
 	struct Pid * c = children;
 	while (c) {
@@ -101,9 +106,8 @@ static void report_pid(struct Pid *child) {
 	}
 }
 
-
 /* System call names */
-const char * syscall_names[] = {
+static const char * syscall_names[SYS__COUNT] = {
 	[SYS_EXT]          = "exit",
 	[SYS_GETEUID]      = "geteuid",
 	[SYS_OPEN]         = "open",
@@ -209,114 +213,6 @@ const char * syscall_names[] = {
 	[SYS_SIGALTSTACK]  = "sigaltstack",
 	[SYS_GETRESUID]    = "getresuid",
 	[SYS_GETRESGID]    = "getresgid",
-};
-
-char syscall_mask[] = {
-	[SYS_EXT]          = 1,
-	[SYS_GETEUID]      = 1,
-	[SYS_OPEN]         = 1,
-	[SYS_READ]         = 1,
-	[SYS_WRITE]        = 1,
-	[SYS_CLOSE]        = 1,
-	[SYS_GETTIMEOFDAY] = 1,
-	[SYS_GETPID]       = 1,
-	[SYS_SBRK]         = 1,
-	[SYS_UNAME]        = 1,
-	[SYS_SEEK]         = 1,
-	[SYS_STAT]         = 1,
-	[SYS_GETUID]       = 1,
-	[SYS_SETUID]       = 1,
-	[SYS_READDIR]      = 1,
-	[SYS_CHDIR]        = 1,
-	[SYS_GETCWD]       = 1,
-	[SYS_SETHOSTNAME]  = 1,
-	[SYS_GETHOSTNAME]  = 1,
-	[SYS_MKDIR]        = 1,
-	[SYS_GETTID]       = 1,
-	[SYS_IOCTL]        = 1,
-	[SYS_ACCESS]       = 1,
-	[SYS_EACCESS]      = 1,
-	[SYS_STATF]        = 1,
-	[SYS_CHMOD]        = 1,
-	[SYS_UMASK]        = 1,
-	[SYS_UNLINK]       = 1,
-	[SYS_MOUNT]        = 1,
-	[SYS_SYMLINK]      = 1,
-	[SYS_READLINK]     = 1,
-	[SYS_LSTAT]        = 1,
-	[SYS_CHOWN]        = 1,
-	[SYS_SETSID]       = 1,
-	[SYS_SETPGID]      = 1,
-	[SYS_GETPGID]      = 1,
-	[SYS_DUP2]         = 1,
-	[SYS_DUP3]         = 1,
-	[SYS_EXECVE]       = 1,
-	[SYS_FORK]         = 1,
-	[SYS_WAITPID]      = 1,
-	[SYS_YIELD]        = 1,
-	[SYS_PIPE]         = 1,
-	[SYS_FSWAIT]       = 1,
-	[SYS_FSWAIT2]      = 1,
-	[SYS_FSWAIT3]      = 1,
-	[SYS_CLONE]        = 1,
-	[SYS_OPENPTY]      = 1,
-	[SYS_SIGNAL]       = 1,
-	[SYS_KILL]         = 1,
-	[SYS_REBOOT]       = 1,
-	[SYS_GETGID]       = 1,
-	[SYS_GETEGID]      = 1,
-	[SYS_SETGID]       = 1,
-	[SYS_GETGROUPS]    = 1,
-	[SYS_SETGROUPS]    = 1,
-	[SYS_TIMES]        = 1,
-	[SYS_PTRACE]       = 1,
-	[SYS_SOCKET]       = 1,
-	[SYS_SETSOCKOPT]   = 1,
-	[SYS_BIND]         = 1,
-	[SYS_ACCEPT]       = 1,
-	[SYS_LISTEN]       = 1,
-	[SYS_CONNECT]      = 1,
-	[SYS_GETSOCKOPT]   = 1,
-	[SYS_RECV]         = 1,
-	[SYS_SEND]         = 1,
-	[SYS_SHUTDOWN]     = 1,
-	[SYS_PREAD]        = 1,
-	[SYS_PWRITE]       = 1,
-	[SYS_SIGACTION]    = 1,
-	[SYS_SIGPENDING]   = 1,
-	[SYS_SIGPROCMASK]  = 1,
-	[SYS_SIGSUSPEND]   = 1,
-	[SYS_SIGWAIT]      = 1,
-	[SYS_RENAME]       = 1,
-	[SYS_FCNTL]        = 1,
-	[SYS_FCHMOD]       = 1,
-	[SYS_FCHOWN]       = 1,
-	[SYS_TRUNCATE]     = 1,
-	[SYS_FTRUNCATE]    = 1,
-	[SYS_SETTIMEOFDAY] = 1,
-	[SYS_GETSOCKNAME]  = 1,
-	[SYS_GETPEERNAME]  = 1,
-	[SYS_GETPPID]      = 1,
-	[SYS_LCHOWN]       = 1,
-	[SYS_GETRUSAGE]    = 1,
-	[SYS_PIPE2]        = 1,
-	[SYS_SIGQUEUE]     = 1,
-	[SYS_SETRESUID]    = 1,
-	[SYS_SETREUID]     = 1,
-	[SYS_SETRESGID]    = 1,
-	[SYS_SETREGID]     = 1,
-	[SYS_MMAP]         = 1,
-	[SYS_MUNMAP]       = 1,
-	[SYS_NPROC]        = 1,
-	[SYS_SETTLSBASE]   = 1,
-	[SYS_INSMOD]       = 1,
-	[SYS_GETSID]       = 1,
-	[SYS_NANOSLEEP]    = 1,
-	[SYS_UTIMENS]      = 1,
-	[SYS_FUTIMENS]     = 1,
-	[SYS_SIGALTSTACK]  = 1,
-	[SYS_GETRESUID]    = 1,
-	[SYS_GETRESGID]    = 1,
 };
 
 static const int syscall_set_net[] = {
@@ -733,13 +629,36 @@ static void sockaddrp_arg(pid_t pid, uintptr_t addr, uintptr_t size_p) {
 	sockaddr_arg(pid,addr,size);
 }
 
-static void uid_gid_ptr_arg(pid_t pid, uintptr_t addr) {
+static void uid_arg(pid_t pid, uid_t uid) {
+	/* TODO: Optionally list user name for uids */
+	fprintf(logfile, "%d", uid);
+}
+
+static void gid_arg(pid_t pid, gid_t gid) {
+	/* TODO: Optionally list group name */
+	fprintf(logfile, "%d", gid);
+}
+
+static void uid_ptr_arg(pid_t pid, uintptr_t addr) {
 	if (addr == 0) {
 		fprintf(logfile, "NULL");
 		return;
 	}
 
-	fprintf(logfile, "{%d}", data_read_int(pid, addr));
+	fprintf(logfile, "{");
+	uid_arg(pid, data_read_int(pid, addr));
+	fprintf(logfile, "}");
+}
+
+static void gid_ptr_arg(pid_t pid, uintptr_t addr) {
+	if (addr == 0) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+
+	fprintf(logfile, "{");
+	gid_arg(pid, data_read_int(pid, addr));
+	fprintf(logfile, "}");
 }
 
 static void fds_arg(pid_t pid, size_t ecount, uintptr_t array) {
@@ -900,7 +819,7 @@ static void struct_timespec_arg(pid_t pid, uintptr_t ptr) {
 		data.tv_sec, data.tv_nsec);
 }
 
-static void struct_stat_arg(pid_t pid, uintptr_t ptr) {
+static void struct_stat_arg(pid_t pid, uintptr_t ptr, bool abbrev) {
 	if (!ptr) {
 		fprintf(logfile, "NULL");
 		return;
@@ -908,8 +827,11 @@ static void struct_stat_arg(pid_t pid, uintptr_t ptr) {
 
 	fprintf(logfile, "{");
 
+	struct stat st;
+	data_read_bytes(pid, ptr, (char*)&st, sizeof(struct stat));
+
 	fprintf(logfile, "st_mode=");
-	mode_t mode = data_read_int(pid, ptr + offsetof(struct stat, st_mode));
+	mode_t mode = st.st_mode;
 	if (mode & S_IFMT) {
 		switch (mode & S_IFMT) {
 			C(S_IFDIR);
@@ -934,11 +856,41 @@ static void struct_stat_arg(pid_t pid, uintptr_t ptr) {
 	mode_arg(mode & 0777);
 	COMMA;
 
-	fprintf(logfile, "st_size=");
-	uint_arg(data_read_ptr(pid, ptr + offsetof(struct stat, st_size)));
+	fprintf(logfile, "st_size=%ld, ", st.st_size);
+
+	if (abbrev) {
+		fprintf(logfile, "...}");
+		return;
+	}
+
+	fprintf(logfile, "st_dev=%lu, ", st.st_dev);
+	fprintf(logfile, "st_ino=%lu, ", st.st_ino);
+	fprintf(logfile, "st_nlink=%u, ", st.st_nlink);
+
+	fprintf(logfile, "st_uid=");
+	uid_arg(pid, st.st_uid);
 	COMMA;
 
-	fprintf(logfile, "...}");
+	fprintf(logfile, "st_gid=");
+	gid_arg(pid, st.st_gid);
+	COMMA;
+
+	fprintf(logfile, "st_atim=");
+	struct_timespec_arg(pid, ptr + offsetof(struct stat, st_atim));
+	COMMA;
+
+	fprintf(logfile, "st_mtim=");
+	struct_timespec_arg(pid, ptr + offsetof(struct stat, st_mtim));
+	COMMA;
+
+	fprintf(logfile, "st_ctim=");
+	struct_timespec_arg(pid, ptr + offsetof(struct stat, st_ctim));
+	COMMA;
+
+	fprintf(logfile, "st_blksize=%lu, ", st.st_blksize);
+	fprintf(logfile, "st_blkcnt=%lu", st.st_blocks);
+
+	fprintf(logfile, "}");
 }
 
 static void struct_dirent_arg(pid_t pid, uintptr_t ptr) {
@@ -1521,8 +1473,8 @@ static void ioctl_val_arg(pid_t pid, uintptr_t cmd, uintptr_t ptr) {
 }
 
 static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
-	if (uregs_syscall_num(r) >= sizeof(syscall_mask)) return;
-	if (!syscall_mask[uregs_syscall_num(r)]) return;
+	if (uregs_syscall_num(r) >= SYS__COUNT) return;
+	if (!(syscall_mask[uregs_syscall_num(r)] & SYSCALL_MASK_ENABLED)) return;
 	if (log_hidden) return;
 
 	report_pid(child);
@@ -1933,8 +1885,8 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 }
 
 static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct URegs * r) {
-	if (syscall >= (int)sizeof(syscall_mask)) return;
-	if (syscall >= 0 && !syscall_mask[syscall]) return;
+	if (syscall >= SYS__COUNT) return;
+	if (syscall >= 0 && !(syscall_mask[syscall] & SYSCALL_MASK_ENABLED)) return;
 	if (log_hidden) return;
 
 	interrupt_log(pid);
@@ -2052,7 +2004,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 		case SYS_STAT:
 		case SYS_LSTAT:
 			if ((intptr_t)uregs_syscall_result(r) >= 0) {
-				struct_stat_arg(pid, uregs_syscall_arg2(r));
+				struct_stat_arg(pid, uregs_syscall_arg2(r), syscall_mask[syscall] & SYSCALL_MASK_ABBREV);
 			} else {
 				pointer_arg(uregs_syscall_arg2(r));
 			}
@@ -2087,10 +2039,15 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			maybe_errno(r);
 			break;
 		case SYS_GETRESUID:
+			uid_ptr_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			uid_ptr_arg(pid, uregs_syscall_arg2(r)); COMMA;
+			uid_ptr_arg(pid, uregs_syscall_arg3(r)); COMMA;
+			maybe_errno(r);
+			break;
 		case SYS_GETRESGID:
-			uid_gid_ptr_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			uid_gid_ptr_arg(pid, uregs_syscall_arg2(r)); COMMA;
-			uid_gid_ptr_arg(pid, uregs_syscall_arg3(r)); COMMA;
+			gid_ptr_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			gid_ptr_arg(pid, uregs_syscall_arg2(r)); COMMA;
+			gid_ptr_arg(pid, uregs_syscall_arg3(r)); COMMA;
 			maybe_errno(r);
 			break;
 		case SYS_IOCTL:
@@ -2131,8 +2088,58 @@ static int usage(char * argv[]) {
 	return 1;
 }
 
+static int trace_option(int syscall) {
+	syscall_mask[syscall] |= SYSCALL_MASK_ENABLED;
+	return 0;
+}
+
+static int abbrev_option(int syscall) {
+	syscall_mask[syscall] |= SYSCALL_MASK_ABBREV;
+	return 0;
+}
+
+static int handle_syscall_set(char ** argv, const char * option, int (*option_callback)(int syscall)) {
+	if (*option == '%') {
+		/* Check for special options */
+		const int *syscalls = NULL;
+
+		for (const struct SyscallSet * set = syscall_sets; set->name; set++) {
+			if (!strcmp(set->name, option+1)) {
+				syscalls = set->syscalls;
+				break;
+			}
+		}
+
+		if (syscalls) {
+			for (const int *i = syscalls; *i != -1; i++) {
+				if (option_callback(*i)) return 1;
+			}
+		} else {
+			fprintf(stderr, "%s: Unrecognized syscall group: %s\n", argv[0], option + 1);
+			return 1;
+		}
+	} else {
+		/* Check the list */
+		int set_something = 0;
+		for (size_t i = 0; i < sizeof(syscall_names) / sizeof(*syscall_names); ++i) {
+			if (syscall_names[i] && !strcmp(option,syscall_names[i])) {
+				if (option_callback(i)) return 1;
+				set_something = 1;
+				break;
+			}
+		}
+		if (!set_something) {
+			fprintf(stderr, "%s: Unrecognized syscall name: %s\n", argv[0], option);
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 int main(int argc, char * argv[]) {
 	logfile = stderr;
+	memset(syscall_mask, SYSCALL_MASK_DEFAULTS, sizeof(syscall_mask));
 
 	pid_t p = 0;
 	int opt;
@@ -2151,48 +2158,16 @@ int main(int argc, char * argv[]) {
 			case 'e':
 				if (strstr(optarg,"trace=") == optarg) {
 					/* First, disable everything. */
-					memset(syscall_mask, 0, sizeof(syscall_mask));
+					for (int i = 0; i < SYS__COUNT; ++i) {
+						syscall_mask[i] &= ~(SYSCALL_MASK_ENABLED);
+					}
 
 					/* Now look at each comma-separated option */
 					char * option = optarg + 6;
 					char * comma = strchr(option, ',');
 					while (1) {
 						if (comma) *comma = '\0';
-
-						if (*option == '%') {
-							/* Check for special options */
-							const int *syscalls = NULL;
-
-							for (const struct SyscallSet * set = syscall_sets; set->name; set++) {
-								if (!strcmp(set->name, option+1)) {
-									syscalls = set->syscalls;
-									break;
-								}
-							}
-
-							if (syscalls) {
-								for (const int *i = syscalls; *i != -1; i++) {
-									syscall_mask[*i] = 1;
-								}
-							} else {
-								fprintf(stderr, "%s: Unrecognized syscall group: %s\n", argv[0], option + 1);
-								return 1;
-							}
-						} else {
-							/* Check the list */
-							int set_something = 0;
-							for (size_t i = 0; i < sizeof(syscall_names) / sizeof(*syscall_names); ++i) {
-								if (syscall_names[i] && !strcmp(option,syscall_names[i])) {
-									syscall_mask[i] = 1;
-									set_something = 1;
-									break;
-								}
-							}
-							if (!set_something) {
-								fprintf(stderr, "%s: Unrecognized syscall name: %s\n", argv[0], option);
-								return 1;
-							}
-						}
+						if (handle_syscall_set(argv, option, trace_option)) return 1;
 						if (!comma) break;
 						option = comma + 1;
 						comma = strchr(option, ',');
@@ -2208,6 +2183,29 @@ int main(int argc, char * argv[]) {
 							decode_fds |= DECODE_FDS_PATH;
 						} else {
 							fprintf(stderr, "%s: Unsupported option for decode-fds: %s\n", argv[0], option);
+						}
+						if (!comma) break;
+						option = comma + 1;
+						comma = strchr(option, ',');
+					}
+				} else if (strstr(optarg, "abbrev=") == optarg) {
+					char * option = strchr(optarg,'=') + 1;
+					char * comma = strchr(option, ',');
+					for (int i = 0; i < SYS__COUNT; ++i) {
+						syscall_mask[i] &= ~(SYSCALL_MASK_ABBREV);
+					}
+					while (1) {
+						if (comma) *comma = '\0';
+						if (!strcmp(option, "none")) {
+							for (int i = 0; i < SYS__COUNT; ++i) {
+								syscall_mask[i] &= ~(SYSCALL_MASK_ABBREV);
+							}
+						} else if (!strcmp(option, "all")) {
+							for (int i = 0; i < SYS__COUNT; ++i) {
+								syscall_mask[i] |= SYSCALL_MASK_ABBREV;
+							}
+						} else {
+							if (handle_syscall_set(argv, option, abbrev_option)) return 1;
 						}
 						if (!comma) break;
 						option = comma + 1;
