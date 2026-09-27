@@ -131,7 +131,7 @@ static ssize_t tty_erase_one(pty_t * pty, int erase) {
 #define erase_one(pty, erase) do { ssize_t written = tty_erase_one(pty, erase); if (written < 0) return written; } while (0)
 
 ssize_t tty_input_process(pty_t * pty, uint8_t c) {
-	pty->slave->mtime = now();
+	pty->subsidiary->mtime = now();
 	if (pty->next_is_verbatim) {
 		pty->next_is_verbatim = 0;
 		if (pty->canon_buflen < pty->canon_bufsize) {
@@ -316,8 +316,8 @@ int pty_ioctl(fs_node_t * node, pty_t * pty, unsigned long request, void * argp)
 			if (this_core->current_process->user != 0) return -EPERM;
 			if (!argp) return -EINVAL;
 			if (!mmu_validate_user_pointer(argp,sizeof(int),0)) return -EFAULT;
-			pty->slave->uid = *(int*)argp;
-			pty->master->uid = *(int*)argp;
+			pty->subsidiary->uid = *(int*)argp;
+			pty->manager->uid = *(int*)argp;
 			return 0;
 		case TIOCSWINSZ:
 			if (!argp) return -EINVAL;
@@ -345,13 +345,13 @@ int pty_ioctl(fs_node_t * node, pty_t * pty, unsigned long request, void * argp)
 		case TIOCGPGRP:
 			if (!argp) return -EINVAL;
 			if (!mmu_validate_user_pointer(argp, sizeof(pid_t), MMU_PTR_WRITE)) return -EFAULT;
-			if (node != pty->master && pty->ct_proc != this_core->current_process->session) return -ENOTTY;
+			if (node != pty->manager && pty->ct_proc != this_core->current_process->session) return -ENOTTY;
 			*(pid_t *)argp = pty->fg_proc;
 			return 0;
 		case TIOCGSID:
 			if (!argp) return -EINVAL;
 			if (!mmu_validate_user_pointer(argp, sizeof(pid_t), MMU_PTR_WRITE)) return -EFAULT;
-			if (node != pty->master && pty->ct_proc != this_core->current_process->session) return -ENOTTY;
+			if (node != pty->manager && pty->ct_proc != this_core->current_process->session) return -ENOTTY;
 			*(pid_t *)argp = pty->ct_proc;
 			return 0;
 		case TIOCSCTTY:
@@ -396,13 +396,13 @@ int pty_ioctl(fs_node_t * node, pty_t * pty, unsigned long request, void * argp)
 	}
 }
 
-ssize_t  read_pty_master(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
+ssize_t  read_pty_manager(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
 
 	/* Standard pipe read */
 	return ring_buffer_read(pty->out, size, buffer);
 }
-ssize_t write_pty_master(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
+ssize_t write_pty_manager(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
 
 	size_t l = 0;
@@ -413,10 +413,10 @@ ssize_t write_pty_master(fs_node_t * node, off_t offset, size_t size, uint8_t *b
 
 	return l;
 }
-void      open_pty_master(fs_node_t * node, unsigned int flags) {
+void      open_pty_manager(fs_node_t * node, unsigned int flags) {
 	return;
 }
-void     close_pty_master(fs_node_t * node) {
+void     close_pty_manager(fs_node_t * node) {
 	pty_t * pty = (pty_t *)node->device;
 	ring_buffer_interrupt(pty->in);
 	ring_buffer_interrupt(pty->out);
@@ -425,8 +425,8 @@ void     close_pty_master(fs_node_t * node) {
 	if (pty->ct_proc) session_send_signal(pty->ct_proc, SIGHUP, 1);
 
 	spin_lock(pty->teardown);
-	pty->master_closed = 1;
-	if (pty->slave_closed) {
+	pty->manager_closed = 1;
+	if (pty->subsidiary_closed) {
 		pty_teardown(pty);
 		return;
 	}
@@ -441,7 +441,7 @@ static int ignoring(int sig) {
 	return 0;
 }
 
-ssize_t read_pty_slave(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
+ssize_t read_pty_subsidiary(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
 
 	/* If this process *is* part of this tty's session, but is NOT in the foreground job
@@ -471,7 +471,7 @@ ssize_t read_pty_slave(fs_node_t * node, off_t offset, size_t size, uint8_t *buf
 	}
 }
 
-ssize_t write_pty_slave(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
+ssize_t write_pty_subsidiary(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
 
 	if (pty->tios.c_lflag & TOSTOP) {
@@ -498,15 +498,15 @@ ssize_t write_pty_slave(fs_node_t * node, off_t offset, size_t size, uint8_t *bu
 
 	return l;
 }
-void      open_pty_slave(fs_node_t * node, unsigned int flags) {
+void      open_pty_subsidiary(fs_node_t * node, unsigned int flags) {
 	return;
 }
-void     close_pty_slave(fs_node_t * node) {
+void     close_pty_subsidiary(fs_node_t * node) {
 	pty_t * pty = (pty_t *)node->device;
 
 	spin_lock(pty->teardown);
-	pty->slave_closed = 1;
-	if (pty->master_closed) {
+	pty->subsidiary_closed = 1;
+	if (pty->manager_closed) {
 		pty_teardown(pty);
 		return;
 	}
@@ -517,14 +517,14 @@ void     close_pty_slave(fs_node_t * node) {
 
 /*
  * These are separate functions just in case I ever feel the need to do
- * things differently in the slave or master.
+ * things differently in the subsidiary or manager.
  */
-int ioctl_pty_master(fs_node_t * node, unsigned long request, void * argp) {
+int ioctl_pty_manager(fs_node_t * node, unsigned long request, void * argp) {
 	pty_t * pty = (pty_t *)node->device;
 	return pty_ioctl(node, pty, request, argp);
 }
 
-int ioctl_pty_slave(fs_node_t * node, unsigned long request, void * argp) {
+int ioctl_pty_subsidiary(fs_node_t * node, unsigned long request, void * argp) {
 	pty_t * pty = (pty_t *)node->device;
 	return pty_ioctl(node, pty, request, argp);
 }
@@ -539,7 +539,7 @@ static ssize_t pty_available_output(fs_node_t * node) {
 	return ring_buffer_unread(pty->out);
 }
 
-static int check_pty_master(fs_node_t * node) {
+static int check_pty_manager(fs_node_t * node) {
 	pty_t * pty = (pty_t *)node->device;
 	if (ring_buffer_unread(pty->out) > 0) {
 		return 0;
@@ -547,7 +547,7 @@ static int check_pty_master(fs_node_t * node) {
 	return 1;
 }
 
-static int check_pty_slave(fs_node_t * node) {
+static int check_pty_subsidiary(fs_node_t * node) {
 	pty_t * pty = (pty_t *)node->device;
 	if (ring_buffer_unread(pty->in) > 0) {
 		return 0;
@@ -555,37 +555,37 @@ static int check_pty_slave(fs_node_t * node) {
 	return 1;
 }
 
-static int wait_pty_master(fs_node_t * node, void * process) {
+static int wait_pty_manager(fs_node_t * node, void * process) {
 	pty_t * pty = (pty_t *)node->device;
 	ring_buffer_select_wait(pty->out, process);
 	return 0;
 }
 
-static int wait_pty_slave(fs_node_t * node, void * process) {
+static int wait_pty_subsidiary(fs_node_t * node, void * process) {
 	pty_t * pty = (pty_t *)node->device;
 	ring_buffer_select_wait(pty->in, process);
 	return 0;
 }
 
-static fs_vtable_t pty_master_ops = {
-	.read  =  read_pty_master,
-	.write = write_pty_master,
-	.open  =  open_pty_master,
-	.close = close_pty_master,
-	.selectcheck = check_pty_master,
-	.selectwait  = wait_pty_master,
-	.ioctl = ioctl_pty_master,
+static fs_vtable_t pty_manager_ops = {
+	.read  =  read_pty_manager,
+	.write = write_pty_manager,
+	.open  =  open_pty_manager,
+	.close = close_pty_manager,
+	.selectcheck = check_pty_manager,
+	.selectwait  = wait_pty_manager,
+	.ioctl = ioctl_pty_manager,
 	.get_size = pty_available_output,
 };
 
-fs_node_t * pty_master_create(pty_t * pty) {
+fs_node_t * pty_manager_create(pty_t * pty) {
 	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 
 	fnode->uid   = this_core->current_process->user;
 	fnode->gid   = this_core->current_process->user_group;
 	fnode->mask  = 0666;
 	fnode->flags = FS_PIPE;
-	fnode->ops   = &pty_master_ops;
+	fnode->ops   = &pty_manager_ops;
 	fnode->ctime   = now();
 	fnode->mtime   = now();
 	fnode->atime   = now();
@@ -595,38 +595,38 @@ fs_node_t * pty_master_create(pty_t * pty) {
 	return fnode;
 }
 
-static int chmod_pty_slave(fs_node_t * node, int mode) {
+static int chmod_pty_subsidiary(fs_node_t * node, int mode) {
 	node->mask = mode;
 	return 0;
 }
 
-static int chown_pty_slave(fs_node_t * node, int uid, int gid) {
+static int chown_pty_subsidiary(fs_node_t * node, int uid, int gid) {
 	if (uid != -1) node->uid = uid;
 	if (gid != -1) node->gid = gid;
 	return 0;
 }
 
-static fs_vtable_t pty_slave_ops = {
-	.read  =  read_pty_slave,
-	.write = write_pty_slave,
-	.open  =  open_pty_slave,
-	.close = close_pty_slave,
-	.selectcheck = check_pty_slave,
-	.selectwait  = wait_pty_slave,
-	.ioctl = ioctl_pty_slave,
-	.chmod = chmod_pty_slave,
-	.chown = chown_pty_slave,
+static fs_vtable_t pty_subsidiary_ops = {
+	.read  =  read_pty_subsidiary,
+	.write = write_pty_subsidiary,
+	.open  =  open_pty_subsidiary,
+	.close = close_pty_subsidiary,
+	.selectcheck = check_pty_subsidiary,
+	.selectwait  = wait_pty_subsidiary,
+	.ioctl = ioctl_pty_subsidiary,
+	.chmod = chmod_pty_subsidiary,
+	.chown = chown_pty_subsidiary,
 	.get_size = pty_available_input,
 };
 
-fs_node_t * pty_slave_create(pty_t * pty) {
+fs_node_t * pty_subsidiary_create(pty_t * pty) {
 	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 
 	fnode->uid   = this_core->current_process->user;
 	fnode->gid   = 3; /* tty group */
 	fnode->mask  = 0620;
 	fnode->flags = FS_CHARDEVICE;
-	fnode->ops   = &pty_slave_ops;
+	fnode->ops   = &pty_subsidiary_ops;
 	fnode->ctime   = now();
 	fnode->mtime   = now();
 	fnode->atime   = now();
@@ -637,7 +637,7 @@ fs_node_t * pty_slave_create(pty_t * pty) {
 }
 
 static int isatty(fs_node_t * node) {
-	return node && (node->ops->ioctl == ioctl_pty_master || node->ops->ioctl == ioctl_pty_slave);
+	return node && (node->ops->ioctl == ioctl_pty_manager || node->ops->ioctl == ioctl_pty_subsidiary);
 }
 
 static ssize_t readlink_dev_tty(fs_node_t * node, char * buf, size_t size) {
@@ -739,7 +739,7 @@ static fs_node_t * finddir_pty(fs_node_t * node, const char * name) {
 		return NULL;
 	}
 
-	return _pty->slave;
+	return _pty->subsidiary;
 }
 
 static fs_vtable_t pty_dir_ops = {
@@ -780,20 +780,20 @@ pty_t * pty_new(struct winsize * size, int index) {
 	pty_t * pty = malloc(sizeof(pty_t));
 
 	spin_init(pty->teardown);
-	pty->master_closed = 0;
-	pty->slave_closed = 0;
+	pty->manager_closed = 0;
+	pty->subsidiary_closed = 0;
 
 	pty->next_is_verbatim = 0;
 
-	/* stdin linkage; characters from terminal → PTY slave */
+	/* stdin linkage; characters from terminal → PTY subsidiary */
 	pty->in  = ring_buffer_create(TTY_BUFFER_SIZE);
 	pty->out = ring_buffer_create(TTY_BUFFER_SIZE);
 
 	/* Master endpoint - writes go to stdin, reads come from stdout */
-	pty->master = pty_master_create(pty);
+	pty->manager = pty_manager_create(pty);
 
 	/* Slave endpoint, reads come from stdin, writes go to stdout */
-	pty->slave  = pty_slave_create(pty);
+	pty->subsidiary  = pty_subsidiary_create(pty);
 
 	/* tty name */
 	pty->name      = index;
@@ -843,11 +843,11 @@ pty_t * pty_new(struct winsize * size, int index) {
 	return pty;
 }
 
-pty_t * pty_create(void *size, fs_node_t ** fs_master, fs_node_t ** fs_slave) {
+pty_t * pty_create(void *size, fs_node_t ** fs_manager, fs_node_t ** fs_subsidiary) {
 	pty_t * pty = pty_new(size, ++_pty_counter);
 
-	*fs_master = pty->master;
-	*fs_slave  = pty->slave;
+	*fs_manager = pty->manager;
+	*fs_subsidiary  = pty->subsidiary;
 
 	return pty;
 }

@@ -1271,19 +1271,19 @@ long sys_fswait_multi(int c, int fds[], int timeout, int out[]) {
 	return result;
 }
 
-long sys_openpty(int * master, int * slave, char * name, struct termios * termp, struct winsize * size) {
+long sys_openpty(int * manager, int * subsidiary, char * name, struct termios * termp, struct winsize * size) {
 	/* We require a place to put these when we are done. */
-	PTRCHECK(master,sizeof(int),MMU_PTR_WRITE);
-	PTRCHECK(slave,sizeof(int),MMU_PTR_WRITE);
+	PTRCHECK(manager,sizeof(int),MMU_PTR_WRITE);
+	PTRCHECK(subsidiary,sizeof(int),MMU_PTR_WRITE);
 	if (name)  PTRCHECK(name,128,MMU_PTR_WRITE);
 	if (termp) PTRCHECK(termp,sizeof(struct termios),0);
 	if (size)  PTRCHECK(size,sizeof(struct winsize),0);
 
 	/* Create a new pseudo terminal */
-	fs_node_t * fs_master;
-	fs_node_t * fs_slave;
+	fs_node_t * fs_manager;
+	fs_node_t * fs_subsidiary;
 
-	pty_t * pty = pty_create(size, &fs_master, &fs_slave);
+	pty_t * pty = pty_create(size, &fs_manager, &fs_subsidiary);
 
 	char pty_name[256] = "ptm:";
 	pty->fill_name(pty, 252, pty_name + 4);
@@ -1296,14 +1296,14 @@ long sys_openpty(int * master, int * slave, char * name, struct termios * termp,
 		memcpy(&pty->tios, termp, sizeof(struct termios));
 	}
 
-	/* Append the master and slave to the calling process */
-	fs_master->fsn_path = fs_alloc_path_from(pty_name, "openpty");
-	*master = process_append_fd((process_t *)this_core->current_process, fs_master,PROC_FD_MODE__RW|PROC_FD_MODE_CLOEXEC);
-	fs_slave->fsn_path = fs_alloc_path_from(pty_name+4, "openpty");
-	*slave  = process_append_fd((process_t *)this_core->current_process, fs_slave, PROC_FD_MODE__RW|PROC_FD_MODE_CLOEXEC);
+	/* Append the manager and subsidiary to the calling process */
+	fs_manager->fsn_path = fs_alloc_path_from(pty_name, "openpty");
+	*manager = process_append_fd((process_t *)this_core->current_process, fs_manager,PROC_FD_MODE__RW|PROC_FD_MODE_CLOEXEC);
+	fs_subsidiary->fsn_path = fs_alloc_path_from(pty_name+4, "openpty");
+	*subsidiary  = process_append_fd((process_t *)this_core->current_process, fs_subsidiary, PROC_FD_MODE__RW|PROC_FD_MODE_CLOEXEC);
 
-	open_fs(fs_master, 0);
-	open_fs(fs_slave, 0);
+	open_fs(fs_manager, 0);
+	open_fs(fs_subsidiary, 0);
 
 	/* Return success */
 	return 0;

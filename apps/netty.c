@@ -24,7 +24,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-int fd_master, fd_slave, fd_serial;
+int fd_manager, fd_subsidiary, fd_serial;
 volatile int _stop = 0;
 
 static int usage(char * argv[]) {
@@ -41,7 +41,7 @@ void * handle_in(void * unused) {
 			case 0: /* fd_serial */
 				r = read(fd_serial, buf, 1);
 				if (r > 0) {
-					write(fd_master, buf, r);
+					write(fd_manager, buf, r);
 				}
 				break;
 		}
@@ -80,7 +80,7 @@ int main(int argc, char * argv[]) {
 	*colon = '\0'; colon++;
 	int remoteport = atoi(colon);
 
-	openpty(&fd_master, &fd_slave, NULL, NULL, NULL);
+	openpty(&fd_manager, &fd_subsidiary, NULL, NULL, NULL);
 
 	int sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
@@ -113,9 +113,9 @@ int main(int argc, char * argv[]) {
 
 	if (!child) {
 		setsid();
-		dup2(fd_slave, 0);
-		dup2(fd_slave, 1);
-		dup2(fd_slave, 2);
+		dup2(fd_subsidiary, 0);
+		dup2(fd_subsidiary, 1);
+		dup2(fd_subsidiary, 2);
 		ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
 		tcsetpgrp(STDIN_FILENO, getpid());
 		signal(SIGHUP, SIG_DFL);
@@ -135,12 +135,12 @@ int main(int argc, char * argv[]) {
 	} else {
 
 		while (1) {
-			int index = fswait2(1,&fd_master,200);
+			int index = fswait2(1,&fd_manager,200);
 			char buf[1024];
 			int r;
 			switch (index) {
-				case 0: /* fd_master */
-					r = read(fd_master, buf, 1024);
+				case 0: /* fd_manager */
+					r = read(fd_manager, buf, 1024);
 					write(fd_serial, buf, r);
 					break;
 				default: /* timeout */

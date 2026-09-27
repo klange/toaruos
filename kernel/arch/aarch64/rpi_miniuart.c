@@ -126,11 +126,11 @@ static void miniuart_thread(void * arg) {
 	pty_t * pty = pty_new(NULL, 0);
 	pty->write_out = miniuart_write_out;
 	pty->fill_name = miniuart_fill_name;
-	pty->slave->gid = 2; /* dialout group */
-	pty->slave->mask = 0660;
+	pty->subsidiary->gid = 2; /* dialout group */
+	pty->subsidiary->mask = 0660;
 	pty->_private = arg;
 	pty->tios.c_cflag = CREAD | CS8 | B921600;
-	vfs_mount("/dev/ttyUART1", pty->slave, "rpiminiuart", "");
+	vfs_mount("/dev/ttyUART1", pty->subsidiary, "rpiminiuart", "");
 
 	/* Enable interrupts */
 	mmio_write(uart_mapped + AUX_MU_IER_REG, 1); /* enable receive interrupt */

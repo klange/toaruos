@@ -66,7 +66,7 @@ struct input_data {
 };
 
 struct Terminal_Private {
-	int fd_master, fd_slave;
+	int fd_manager, fd_subsidiary;
 	pid_t child_pid;
 	pthread_t input_buffer_thread;
 	volatile int input_buffer_lock;
@@ -187,7 +187,7 @@ void * handle_input_writing(void * _state) {
 			}
 			/* Write blob data to the tty */
 			struct input_data * value = blob->value;
-			write(my_term->fd_master, value->data, value->len);
+			write(my_term->fd_manager, value->data, value->len);
 			free(blob->value);
 			free(blob);
 		} else {
@@ -637,8 +637,8 @@ static int check_for_exit(void) {
 
 	struct Terminal_Private * priv = matched->priv;
 	close(priv->input_buffer_semaphore[1]); /* Kills the input processing thread */
-	close(priv->fd_master); /* Hangs up the TTY */
-	close(priv->fd_slave);
+	close(priv->fd_manager); /* Hangs up the TTY */
+	close(priv->fd_subsidiary);
 
 	list_insert(dead_terminals, priv);
 	termemu_free(matched);
@@ -760,7 +760,7 @@ static void terminal_set_size(term_state_t * state) {
 	w.ws_col = state->width;
 	w.ws_xpixel = 0;
 	w.ws_ypixel = 0;
-	ioctl(term->fd_master, TIOCSWINSZ, &w);
+	ioctl(term->fd_manager, TIOCSWINSZ, &w);
 }
 
 static term_state_t * terminal_create(int term_width, int term_height, int max_scrollback, int argc, char * argv[]) {
@@ -775,7 +775,7 @@ static term_state_t * terminal_create(int term_width, int term_height, int max_s
 	pthread_create(&priv->input_buffer_thread, NULL, handle_input_writing, out);
 
 	/* Open a PTY */
-	openpty(&priv->fd_master, &priv->fd_slave, NULL, NULL, NULL);
+	openpty(&priv->fd_manager, &priv->fd_subsidiary, NULL, NULL, NULL);
 	terminal_set_size(out);
 
 	ioctl(vga_text_fd, IO_VGA_DEFAULT_PALETTE, &priv->palette);
@@ -785,9 +785,9 @@ static term_state_t * terminal_create(int term_width, int term_height, int max_s
 	if (!priv->child_pid) {
 		setsid();
 		/* Prepare stdin/out/err */
-		dup2(priv->fd_slave, 0);
-		dup2(priv->fd_slave, 1);
-		dup2(priv->fd_slave, 2);
+		dup2(priv->fd_subsidiary, 0);
+		dup2(priv->fd_subsidiary, 1);
+		dup2(priv->fd_subsidiary, 2);
 
 		ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
 		tcsetpgrp(STDIN_FILENO, getpid());
@@ -920,7 +920,7 @@ int main(int argc, char ** argv) {
 			foreach(node, terminals) {
 				term[i] = node->value;
 				struct Terminal_Private * priv = term[i]->priv;
-				fds[i] = priv->fd_master;
+				fds[i] = priv->fd_manager;
 				i++;
 			}
 			fds[(_kfd_offset = (i++))] = kfd;
@@ -936,7 +936,7 @@ int main(int argc, char ** argv) {
 		for (size_t i = 0; i < terminals->length; ++i) {
 			if (res[i]) {
 				struct Terminal_Private * priv = term[i]->priv;
-				ssize_t r = read(priv->fd_master, buf, BUF_SIZE);
+				ssize_t r = read(priv->fd_manager, buf, BUF_SIZE);
 				for (ssize_t j = 0; j < r; ++j) {
 					termemu_put(term[i], buf[j]);
 				}

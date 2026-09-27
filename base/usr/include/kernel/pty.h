@@ -11,9 +11,8 @@ typedef struct pty {
 	/* the PTY number */
 	intptr_t       name;
 
-	/* Master and slave endpoints */
-	fs_node_t *    master;
-	fs_node_t *    slave;
+	fs_node_t *    manager;
+	fs_node_t *    subsidiary;
 
 	/* term io "window size" struct (width/height) */
 	struct winsize size;
@@ -42,11 +41,11 @@ typedef struct pty {
 	void * _private;
 
 	spin_lock_t teardown;
-	int master_closed;
-	int slave_closed;
+	int manager_closed;
+	int subsidiary_closed;
 } pty_t;
 
-ssize_t tty_output_process_slave(pty_t * pty, uint8_t c);
+ssize_t tty_output_process_subsidiary(pty_t * pty, uint8_t c);
 ssize_t tty_output_process(pty_t * pty, uint8_t c);
 ssize_t tty_input_process(pty_t * pty, uint8_t c);
 pty_t * pty_new(struct winsize * size, int index);

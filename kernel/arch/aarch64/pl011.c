@@ -55,10 +55,10 @@ static void pl011_thread(void * arg) {
 	pty_t * pty = pty_new(NULL, 0);
 	pty->write_out = pl011_write_out;
 	pty->fill_name = pl011_fill_name;
-	pty->slave->gid = 2; /* dialout group */
-	pty->slave->mask = 0660;
+	pty->subsidiary->gid = 2; /* dialout group */
+	pty->subsidiary->mask = 0660;
 	pty->_private = (void*)uart_mapped;
-	vfs_mount("/dev/ttyS0", pty->slave, "pl011", "");
+	vfs_mount("/dev/ttyS0", pty->subsidiary, "pl011", "");
 
 	/* Set up interrupt callback */
 	gic_assign_interrupt(ctx->irq_no, pl011_irq, (void*)uart_mapped);

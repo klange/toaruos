@@ -135,7 +135,7 @@ struct vfs_entry {
 };
 
 extern fs_node_t *fs_root;
-extern struct pty * pty_create(void *size, fs_node_t ** fs_master, fs_node_t ** fs_slave);
+extern struct pty * pty_create(void *, fs_node_t **, fs_node_t **);
 
 #include <bits/access.h>
 

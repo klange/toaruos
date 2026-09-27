@@ -107,7 +107,7 @@ struct Terminal_Private {
 	int input_buffer_semaphore[2];
 	list_t * input_buffer_queue;
 
-	int fd_master, fd_slave;
+	int fd_manager, fd_subsidiary;
 	pid_t child_pid;
 
 	char *tab_title;
@@ -432,7 +432,7 @@ void * handle_input_writing(void * _state) {
 			}
 			/* Write blob data to the tty */
 			struct input_data * value = blob->value;
-			write(my_term->fd_master, value->data, value->len);
+			write(my_term->fd_manager, value->data, value->len);
 			free(blob->value);
 			free(blob);
 		} else {
@@ -503,9 +503,9 @@ static void _menu_action_tab_close(struct MenuEntry * self) {
 	/* To close a tab, we close our end of the PTY, which hangs it up,
 	 * killing session for us; we then pick that up in check_for_exit
 	 * just like when the session ended normally. */
-	if (priv->fd_master != -1) {
-		close(priv->fd_master);
-		priv->fd_master = -1;
+	if (priv->fd_manager != -1) {
+		close(priv->fd_manager);
+		priv->fd_manager = -1;
 	}
 }
 
@@ -805,7 +805,7 @@ static void _menu_action_cache_stats(struct MenuEntry * self) {
 		"Size of sprites: %lu\n",
 		_hits, _misses, _wrongcolor, count, size);
 
-	write(this_term()->fd_slave, msg, strlen(msg));
+	write(this_term()->fd_subsidiary, msg, strlen(msg));
 }
 
 static void _menu_action_clear_cache(struct MenuEntry * self) {
@@ -1572,7 +1572,7 @@ static int check_for_exit(void) {
 		foreach (node, terminals) {
 			term_state_t * term = node->value;
 			struct Terminal_Private * priv = term->priv;
-			pid_t pgrp = tcgetpgrp(priv->fd_master);
+			pid_t pgrp = tcgetpgrp(priv->fd_manager);
 			if (pgrp != -1 && pgrp != priv->fg_pid) {
 				priv->fg_pid = pgrp;
 				free(priv->fg_name);
@@ -1649,8 +1649,8 @@ static int check_for_exit(void) {
 
 	struct Terminal_Private * priv = matched->priv;
 	close(priv->input_buffer_semaphore[1]); /* Kills the input processing thread */
-	if (priv->fd_master != -1) close(priv->fd_master); /* Hangs up the TTY */
-	if (priv->fd_slave != -1) close(priv->fd_slave);
+	if (priv->fd_manager != -1) close(priv->fd_manager); /* Hangs up the TTY */
+	if (priv->fd_subsidiary != -1) close(priv->fd_subsidiary);
 
 	list_insert(dead_terminals, priv);
 	termemu_free(matched);
@@ -1684,7 +1684,7 @@ static void terminal_set_size(term_state_t * state) {
 	w.ws_col = state->width;
 	w.ws_xpixel = state->width * term->char_width;
 	w.ws_ypixel = state->height * term->char_height;
-	ioctl(term->fd_master, TIOCSWINSZ, &w);
+	ioctl(term->fd_manager, TIOCSWINSZ, &w);
 }
 
 /* Reinitialize the terminal after a resize. */
@@ -1747,7 +1747,7 @@ static term_state_t * terminal_create(bool scale_fonts, float font_scaling, int 
 	update_menu_bar_tabs();
 
 	/* Open a PTY */
-	openpty(&priv->fd_master, &priv->fd_slave, NULL, NULL, NULL);
+	openpty(&priv->fd_manager, &priv->fd_subsidiary, NULL, NULL, NULL);
 	terminal_set_size(out);
 
 	priv->child_pid = fork();
@@ -1755,9 +1755,9 @@ static term_state_t * terminal_create(bool scale_fonts, float font_scaling, int 
 	if (!priv->child_pid) {
 		setsid();
 		/* Prepare stdin/out/err */
-		dup2(priv->fd_slave, 0);
-		dup2(priv->fd_slave, 1);
-		dup2(priv->fd_slave, 2);
+		dup2(priv->fd_subsidiary, 0);
+		dup2(priv->fd_subsidiary, 1);
+		dup2(priv->fd_subsidiary, 2);
 
 		ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
 		tcsetpgrp(STDIN_FILENO, getpid());
@@ -2376,7 +2376,7 @@ static void _menu_action_signal(struct MenuEntry * self) {
 
 	/* Note, we don't use fg_pid because it's only updated
 	 * when show_fg_name is enabled. */
-	pid_t pgrp = tcgetpgrp(this_term()->fd_master);
+	pid_t pgrp = tcgetpgrp(this_term()->fd_manager);
 	if (pgrp != -1) kill(pgrp, sig);
 }
 
@@ -2944,7 +2944,7 @@ int main(int argc, char ** argv) {
 			foreach(node, terminals) {
 				term[i] = node->value;
 				struct Terminal_Private * priv = term[i]->priv;
-				fds[i] = priv->fd_master;
+				fds[i] = priv->fd_manager;
 				i++;
 			}
 			res = realloc(res, fds_size * sizeof(int));
@@ -2965,7 +2965,7 @@ int main(int argc, char ** argv) {
 					force_flip = 0;
 					next_wait = 10;
 				}
-				ssize_t r = read(priv->fd_master, buf, 4096);
+				ssize_t r = read(priv->fd_manager, buf, 4096);
 				for (ssize_t j = 0; j < r; ++j) {
 					termemu_put(term[i], buf[j]);
 				}

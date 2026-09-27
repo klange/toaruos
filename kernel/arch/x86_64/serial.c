@@ -215,10 +215,10 @@ static fs_node_t * serial_device_create(int port) {
 		}
 	}
 
-	pty->slave->gid = 2; /* dialout group */
-	pty->slave->mask = 0660;
+	pty->subsidiary->gid = 2; /* dialout group */
+	pty->subsidiary->mask = 0660;
 
-	return pty->slave;
+	return pty->subsidiary;
 }
 
 void serial_initialize(void) {
