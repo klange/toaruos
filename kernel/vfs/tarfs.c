@@ -572,22 +572,15 @@ int tarfs_unpack(char * from_file) {
 
 		switch (file->type[0]) {
 			case '0': /* Regular file */
-				if (!(error = create_file_fs(filename_workspace, mode, &node))) {
-					open_fs(node, 0);
-					chown_fs(node, interpret_uid(file), interpret_gid(file));
-				} else {
-					dprintf("migrate: error from create: %d\n", error);
-				}
+				if ((error = create_file_fs(filename_workspace, mode, &node))) goto _next;
+				open_fs(node, 0);
+				chown_fs(node, interpret_uid(file), interpret_gid(file));
 				break;
 			case '5': /* Directory */
-				if (!(error = mkdir_fs(filename_workspace, mode, &node))) {
-					open_fs(node, O_DIRECTORY);
-					chown_fs(node, interpret_uid(file), interpret_gid(file));
-					close_fs(node);
-				} else if (error != -EEXIST) {
-					dprintf("migrate: error from mkdir: %d\n", error);
-				}
-				goto _next; /* No contents for directory */
+				if ((error = mkdir_fs(filename_workspace, mode, &node))) goto _next;
+				open_fs(node, O_DIRECTORY);
+				chown_fs(node, interpret_uid(file), interpret_gid(file));
+				goto _times;
 			case '2':
 				symlink_fs(file->link, filename_workspace);
 				goto _next;
@@ -613,6 +606,7 @@ int tarfs_unpack(char * from_file) {
 			written += w;
 		}
 
+_times:
 		utimens_fs(node, timestamp, timestamp);
 		close_fs(node);
 
