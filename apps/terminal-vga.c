@@ -556,13 +556,19 @@ static void term_set_palette(term_state_t * state, char index, char * color) {
 
 	priv->palette[ind] = val;
 
-	if (state == current_terminal()) refresh_display(state);
+	if (state == current_terminal()) {
+		ioctl(vga_text_fd, IO_VGA_PALETTE, priv->palette);
+		memset(state->term_display, 0xFF, sizeof(term_cell_t) * state->width * state->height);
+	}
 }
 
 static void term_reset_palette(term_state_t * state) {
 	struct Terminal_Private * priv = state->priv;
 	ioctl(vga_text_fd, IO_VGA_DEFAULT_PALETTE, &priv->palette);
-	if (state == current_terminal()) refresh_display(state);
+	if (state == current_terminal()) {
+		ioctl(vga_text_fd, IO_VGA_PALETTE, priv->palette);
+		memset(state->term_display, 0xFF, sizeof(term_cell_t) * state->width * state->height);
+	}
 }
 
 static term_callbacks_t term_callbacks = {
