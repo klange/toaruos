@@ -64,7 +64,7 @@ debug-hvf: EMU_CPU = host -accel hvf
 debug-hvf: debug
 
 vga: system
-	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=--vga emulvga ramfb vid=preset" ${EMU_RAMDISK} ${EMU_KERNEL}
+	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=--vga ramfb vid=preset" ${EMU_RAMDISK} ${EMU_KERNEL}
 
 vga-hvf: EMU_CPU = host -accel hvf
 vga-hvf: vga

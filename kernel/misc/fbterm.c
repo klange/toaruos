@@ -496,17 +496,17 @@ void fbterm_initialize(void) {
 					vga_height_override = atoi(x+1);
 				}
 			}
-			vga_text_init();
 		}
 	} else {
 #ifdef __x86_64__
 		fbterm_scroll = 1;
 		fbterm_init_ega();
-		vga_text_init();
 #else
 		return;
 #endif
 	}
+
+	vga_text_init();
 
 	previous_writer = printf_output;
 	printf_output = fbterm_write;
