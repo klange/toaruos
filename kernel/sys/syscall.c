@@ -122,16 +122,18 @@ static long stat_node(fs_node_t * fn, struct stat * f) {
 	f->st_size  = fn->length;
 
 	f->st_atim.tv_sec = fn->atime;
-	f->st_atim.tv_nsec = 0;
+	f->st_atim.tv_nsec = fn->atime_nsec;
 	f->st_mtim.tv_sec = fn->mtime;
-	f->st_mtim.tv_nsec = 0;
+	f->st_mtim.tv_nsec = fn->mtime_nsec;
 	f->st_ctim.tv_sec = fn->ctime;
-	f->st_ctim.tv_nsec = 0;
+	f->st_ctim.tv_nsec = fn->ctime_nsec;
 	f->st_blksize = 512; /* whatever */
 
 	if (fn->ops->get_size) {
 		f->st_size = fn->ops->get_size(fn);
 	}
+
+	f->st_blocks  = (f->st_size + 511) / 512;
 
 	return 0;
 }

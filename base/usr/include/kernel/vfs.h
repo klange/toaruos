@@ -106,26 +106,25 @@ struct fs_path {
 };
 
 typedef struct fs_node {
-	struct fs_node * mount;      /* Root fs_node_t entry of mountpoint. */
+	struct fs_node * mount;    /* Root fs_node_t entry of mountpoint. */
 	struct fs_path * fsn_path; /* (temp) Path object, which may change in structure. */
-	void * device;          /* Device object (optional) */
-	mode_t mask;            /* The permissions mask. */
-	uid_t uid;              /* The owning user. */
-	uid_t gid;              /* The owning group. */
-	uint64_t flags;         /* Flags (node type, etc). */
-	uint64_t inode;         /* Inode number. */
-	uint64_t length;        /* Size of the file, in byte. */
-	uint64_t impl;          /* Used to keep track which fs it belongs to. */
-	int64_t refcount;       /* Node reference count */
-	uint64_t nlink;         /* Number of links in underlying filesystem */
-
-	/* times */
-	time_t atime;         /* Accessed */
-	time_t mtime;         /* Modified */
-	time_t ctime;         /* Created  */
-
-	/* File operations */
-	struct fs_vtable *ops;
+	struct fs_vtable *ops;     /* operations table */
+	void * device;             /* Device object (optional) */
+	mode_t mask;               /* The permissions mask. */
+	uid_t uid;                 /* The owning user. */
+	uid_t gid;                 /* The owning group. */
+	uint64_t flags;            /* Flags (node type, etc). */
+	uint64_t inode;            /* Inode number. */
+	uint64_t length;           /* Size of the file, in byte. */
+	uint64_t impl;             /* Used to keep track which fs it belongs to. */
+	int64_t refcount;          /* Node reference count */
+	uint64_t nlink;            /* Number of links in underlying filesystem */
+	time_t atime;              /* Accessed */
+	long   atime_nsec;         /* ... nanoseconds. */
+	time_t mtime;              /* Modified */
+	long   mtime_nsec;         /* ... nanoseconds. */
+	time_t ctime;              /* Created  */
+	long   ctime_nsec;         /* ... nanoseconds. */
 } fs_node_t;
 
 struct vfs_entry {
