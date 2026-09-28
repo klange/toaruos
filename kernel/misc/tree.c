@@ -115,7 +115,9 @@ size_t tree_count_children(tree_node_t * node) {
 void tree_node_parent_remove(tree_t * tree, tree_node_t * parent, tree_node_t * node) {
 	/* remove a node when we know its parent; update node counts for the tree */
 	tree->nodes -= tree_count_children(node) + 1;
-	list_delete(parent->children, list_find(parent->children, node));
+	node_t * n = list_find(parent->children, node);
+	list_delete(parent->children, n);
+	free(n);
 	tree_node_free(node);
 }
 
@@ -144,7 +146,9 @@ void tree_remove(tree_t * tree, tree_node_t * node) {
 	 */
 	if (!parent) return;
 	tree->nodes--;
-	list_delete(parent->children, list_find(parent->children, node));
+	node_t * n = list_find(parent->children, node);
+	list_delete(parent->children, n);
+	free(n);
 	foreach(child, node->children) {
 		/* Reassign the parents */
 		((tree_node_t *)child->value)->parent = parent;
@@ -158,7 +162,9 @@ void tree_remove_reparent_root(tree_t * tree, tree_node_t * node) {
 	tree_node_t * parent = node->parent;
 	if (!parent) return;
 	tree->nodes--;
-	list_delete(parent->children, list_find(parent->children, node));
+	node_t * n = list_find(parent->children, node);
+	list_delete(parent->children, n);
+	free(n);
 	foreach(child, node->children) {
 		/* Reassign the parents */
 		((tree_node_t *)child->value)->parent = tree->root;
@@ -170,7 +176,9 @@ void tree_remove_reparent_root(tree_t * tree, tree_node_t * node) {
 void tree_break_off(tree_t * tree, tree_node_t * node) {
 	tree_node_t * parent = node->parent;
 	if (!parent) return;
-	list_delete(parent->children, list_find(parent->children, node));
+	node_t * n = list_find(parent->children, node);
+	list_delete(parent->children, n);
+	free(n);
 }
 
 tree_node_t * tree_node_find(tree_node_t * node, void * search, tree_comparator_t comparator) {
