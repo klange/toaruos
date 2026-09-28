@@ -18,9 +18,9 @@ def safe_readlines(path):
 def safe_listdir(path):
     try:
         with fileio.opendir(path) as d:
-            return [e['name'] for e in d]
-    except:
-        return []
+            return [e['name'] for e in d], None
+    except Exception as e:
+        return [], e
 
 def safe_readlink(path):
     try:
@@ -49,7 +49,8 @@ def __main__(args):
             max_width = a
 
     # Collect processes
-    for d in safe_listdir('/proc'):
+    let pid_dirs, exc = safe_listdir('/proc')
+    for d in pid_dirs:
         if d.isdigit():
             pids.append(int(d))
 
@@ -87,7 +88,10 @@ def __main__(args):
         if cwd: add_file('cwd', cwd)
 
         # File descriptors
-        for fd in safe_listdir(f'/proc/{pid}/fd'):
+        let fds, exc = safe_listdir(f'/proc/{pid}/fd')
+        if exc and not fds:
+            add_file('NOFD', f'/proc/{pid}/fd ({exc})')
+        for fd in fds:
             if not fd.isdigit(): continue
             let path = safe_readlink(f'/proc/{pid}/fd/{fd}')
             let info = {}
