@@ -403,19 +403,6 @@ const char * errno_names[] = {
 	M(ERESTARTSIGSUSPEND),
 };
 
-const char * fcntl_cmd_names[] = {
-	M(F_GETFD),
-	M(F_SETFD),
-	M(F_GETFL),
-	M(F_SETFL),
-	M(F_DUPFD),
-	M(F_GETLK),
-	M(F_SETLK),
-	M(F_SETLKW),
-	M(F_DUPFD_CLOEXEC),
-	M(F_DUPFD_CLOFORK),
-};
-
 static void open_flags(int flags) {
 	if (!flags) {
 		fprintf(logfile, "O_RDONLY");
@@ -740,12 +727,82 @@ static void msghdr_arg(pid_t pid, uintptr_t msghdr) {
 }
 
 static void fcntl_cmd_arg(long cmd) {
-	const char * name = (cmd >= 0 && (size_t)cmd < (sizeof(fcntl_cmd_names) / sizeof(*fcntl_cmd_names))) ? fcntl_cmd_names[cmd] : NULL;
-	if (name) {
-		fprintf(logfile, "%s", name);
-	} else {
-		fprintf(logfile, "%ld", cmd);
+	switch (cmd) {
+		C(F_GETFD);
+		C(F_SETFD);
+		C(F_GETFL);
+		C(F_SETFL);
+		C(F_DUPFD);
+		C(F_GETLK);
+		C(F_SETLK);
+		C(F_SETLKW);
+		C(F_DUPFD_CLOEXEC);
+		C(F_DUPFD_CLOFORK);
+		default:
+			fprintf(logfile, "%ld", cmd);
+			break;
 	}
+}
+
+static void fcntl_arg_arg(long cmd, long arg) {
+	long flags = arg;
+	int force = 1;
+	switch (cmd) {
+		case F_SETFD:
+			COMMA;
+			force = 0;
+			H(FD_CLOEXEC);
+			H(FD_CLOFORK);
+			break;
+
+		case F_SETFL: {
+			COMMA;
+			force = 0;
+			H(O_APPEND);
+			H(O_NONBLOCK);
+			/* O_SYNC, etc. ? */
+			break;
+		}
+
+		case F_DUPFD:
+		case F_DUPFD_CLOEXEC:
+		case F_DUPFD_CLOFORK:
+			COMMA;
+			/* numeric arg handled below */
+			break;
+
+		default:
+			return;
+	}
+
+	if (flags || force) fprintf(logfile, "%ld", flags);
+}
+
+static void fcntl_ret(pid_t pid, long cmd, long ret) {
+	int force = 1;
+	long flags = ret;
+
+	switch (cmd) {
+		case F_GETFD:
+			force = 0;
+			H(FD_CLOEXEC);
+			H(FD_CLOFORK);
+			break;
+		case F_GETFL:
+			force = 0;
+			if ((ret & (O_RDWR | O_WRONLY)) == 0) fprintf(logfile, "O_RDONLY%s", ret ? "|" : "");
+			H(O_WRONLY);
+			H(O_RDWR);
+			H(O_APPEND);
+			break;
+		case F_DUPFD_CLOEXEC:
+		case F_DUPFD_CLOFORK:
+		case F_DUPFD:
+			fd_arg(pid, ret);
+			return;
+	}
+
+	if (flags || force) fprintf(logfile, "%ld", flags);
 }
 
 static void print_error(int err) {
@@ -1678,8 +1735,8 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			break;
 		case SYS_FCNTL:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			fcntl_cmd_arg(uregs_syscall_arg2(r)); COMMA;
-			int_arg(uregs_syscall_arg3(r));
+			fcntl_cmd_arg(uregs_syscall_arg2(r)); /* Comma is printed by fcntl_arg_arg */
+			fcntl_arg_arg(uregs_syscall_arg2(r), uregs_syscall_arg3(r));
 			break;
 		case SYS_FCHMOD:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
@@ -2053,6 +2110,15 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 		case SYS_IOCTL:
 			ioctl_val_arg(pid, uregs_syscall_arg2(r), uregs_syscall_arg3(r));
 			maybe_errno(r);
+			break;
+		case SYS_FCNTL:
+			if ((intptr_t)uregs_syscall_result(r) >= 0) {
+				fprintf(logfile, ") = ");
+				fcntl_ret(pid, uregs_syscall_arg2(r), uregs_syscall_result(r));
+				fprintf(logfile, "\n");
+			} else {
+				maybe_errno(r);
+			}
 			break;
 		/* Most things return -errno, or positive valid result */
 		default:
