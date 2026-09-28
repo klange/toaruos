@@ -35,6 +35,7 @@
 #include <kernel/misc.h>
 #include <kernel/module.h>
 #include <kernel/ksym.h>
+#include <bits/errno.h>
 #include <sys/mman.h>
 
 #define PROCFS_STANDARD_ENTRIES (sizeof(std_entries) / sizeof(struct procfs_entry))
@@ -99,6 +100,16 @@ static ssize_t procfs_entry_readlink(fs_node_t * node, char * buf, size_t size) 
 	return len;
 }
 
+static ssize_t procfs_entry_readlink_restricted(fs_node_t * node, char * buf, size_t size) {
+	process_t * proc = process_from_pid(node->impl);
+	if (!proc) return 0;
+
+	if (this_core->current_process->user != 0 &&
+		this_core->current_process->user != proc->user) return -EACCES;
+
+	return procfs_entry_readlink(node, buf, size);
+}
+
 static int readdir_procfs_subdir(fs_node_t *node, uint64_t index, struct dirent * out) {
 	if (index == 0) {
 		memset(out, 0x00, sizeof(struct dirent));
@@ -151,6 +162,8 @@ static fs_node_t * finddir_procfs_subdir(fs_node_t * node, const char * name) {
 			if (!strcmp(name, e->name)) {
 				fs_node_t * out = procfs_generic_create(e);
 				out->impl = node->impl;
+				out->uid  = node->uid;
+				out->gid  = node->gid;
 				return out;
 			}
 		}
@@ -169,6 +182,12 @@ static fs_vtable_t procfs_symlink_ops = {
 	.open    = procfs_entry_open,
 	.close   = procfs_entry_close,
 	.readlink = procfs_entry_readlink,
+};
+
+static fs_vtable_t procfs_symlink_ops_restricted = {
+	.open    = procfs_entry_open,
+	.close   = procfs_entry_close,
+	.readlink = procfs_entry_readlink_restricted,
 };
 
 static fs_vtable_t procfs_dir_ops = {
@@ -547,6 +566,15 @@ static fs_node_t * finddir_procfs_procdir(fs_node_t * node, const char * name) {
 	for (unsigned int i = 0; i < PROCFS_PROCDIR_ENTRIES; ++i) {
 		if (!strcmp(name, procdir_entries[i].name)) {
 			fs_node_t * out = procfs_generic_create(&procdir_entries[i]);
+			if (procdir_entries[i].id > 2) {
+				if (out->flags & FS_SYMLINK) {
+					out->ops = &procfs_symlink_ops_restricted;
+				} else {
+					out->mask &= ~07;
+				}
+			}
+			out->uid  = node->uid;
+			out->gid  = node->gid;
 			out->impl = node->impl;
 			return out;
 		}
@@ -565,8 +593,8 @@ static fs_node_t * procfs_procdir_create(process_t * process) {
 	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->inode = pid;
 	fnode->impl = pid;
-	fnode->uid = 0;
-	fnode->gid = 0;
+	fnode->uid = process->user;
+	fnode->gid = process->user_group;
 	fnode->mask = 0555;
 	fnode->flags   = FS_DIRECTORY;
 	fnode->nlink   = 1;
