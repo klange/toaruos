@@ -27,6 +27,7 @@
 #include <kernel/args.h>
 #include <kernel/module.h>
 #include <kernel/mmu.h>
+#include <kernel/process.h>
 
 #include <kernel/arch/x86_64/regs.h>
 #include <kernel/arch/x86_64/ports.h>
