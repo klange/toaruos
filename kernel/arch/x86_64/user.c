@@ -13,6 +13,7 @@
 #include <kernel/string.h>
 #include <kernel/mmu.h>
 #include <kernel/syscall.h>
+#include <kernel/spinlock.h>
 #include <kernel/arch/x86_64/regs.h>
 #include <kernel/arch/x86_64/ports.h>
 
@@ -314,3 +315,15 @@ long arch_syscall_arg4(struct regs * r) { return r->r8; }
 long arch_syscall_arg5(struct regs * r) { return r->r9; }
 long arch_stack_pointer(struct regs * r) { return r->rsp; }
 long arch_user_ip(struct regs * r) { return r->rip; }
+
+void arch_spin_lock_acquire(const char * name, spin_lock_t * lock, const char * func) {
+	while (__sync_lock_test_and_set(lock->latch, 0x01));
+	lock->owner = this_core->cpu_id+1;
+	lock->func = func;
+}
+
+void arch_spin_lock_release(spin_lock_t * lock) {
+	lock->func = NULL;
+	lock->owner = -1;
+	__sync_lock_release(lock->latch);
+}
