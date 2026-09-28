@@ -426,16 +426,21 @@ void process_release_directory(page_directory_t * dir) {
 	}
 }
 
+static void setup_kernel_stack(process_t * proc) {
+	proc->image.stack = (uintptr_t)mmu_map_module(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
+
+	mmu_frame_allocate(
+		mmu_get_page(proc->image.stack - KERNEL_STACK_SIZE, 0),
+		MMU_FLAG_KERNEL);
+}
+
 process_t * spawn_kidle(int bsp) {
 	process_t * idle = calloc(1,sizeof(process_t));
 	idle->process = idle;
 	idle->id = -1;
 	idle->name = strdup("[kidle]");
 	idle->flags = PROC_FLAG_IS_TASKLET | PROC_FLAG_STARTED | PROC_FLAG_RUNNING;
-	idle->image.stack = (uintptr_t)valloc(KERNEL_STACK_SIZE)+ KERNEL_STACK_SIZE;
-	mmu_frame_allocate(
-		mmu_get_page(idle->image.stack - KERNEL_STACK_SIZE, 0),
-		MMU_FLAG_KERNEL);
+	setup_kernel_stack(idle);
 
 	/* TODO arch_initialize_context(uintptr_t) ? */
 	idle->thread.context.ip = (uintptr_t)&_kidle;
@@ -483,10 +488,7 @@ process_t * spawn_init(void) {
 
 	init->image.entry    = 0;
 	init->image.heap     = 0;
-	init->image.stack    = (uintptr_t)valloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
-	mmu_frame_allocate(
-		mmu_get_page(init->image.stack - KERNEL_STACK_SIZE, 0),
-		MMU_FLAG_KERNEL);
+	setup_kernel_stack(init);
 
 	init->flags         = PROC_FLAG_STARTED | PROC_FLAG_RUNNING;
 	init->wait_queue    = list_create("process wait queue (init)", init);
@@ -542,10 +544,7 @@ process_t * spawn_process(volatile process_t * parent, int flags, int close_at_f
 	/* Entry is only stored for reference. */
 	proc->image.entry       = parent->image.entry;
 	proc->image.heap        = parent->image.heap;
-	proc->image.stack       = (uintptr_t)valloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
-	mmu_frame_allocate(
-		mmu_get_page(proc->image.stack - KERNEL_STACK_SIZE, 0),
-		MMU_FLAG_KERNEL);
+	setup_kernel_stack(proc);
 
 	if (flags & PROC_REUSE_FDS) {
 		spin_lock(parent->fds->lock);
@@ -601,12 +600,9 @@ void process_reap(process_t * proc) {
 		free(proc->signals);
 	}
 
-	/* Unmark the stack bottom's fault detector */
-	mmu_frame_allocate(
-		mmu_get_page(proc->image.stack - KERNEL_STACK_SIZE, 0),
-		MMU_FLAG_KERNEL | MMU_FLAG_WRITABLE);
+	/* Then unmap the pages entirely */
+	mmu_unmap_module(proc->image.stack - KERNEL_STACK_SIZE, KERNEL_STACK_SIZE);
 
-	free((void *)(proc->image.stack - KERNEL_STACK_SIZE));
 	process_release_directory(proc->thread.page_directory);
 
 	if (proc->sig_queue) {
@@ -1570,7 +1566,8 @@ process_t * spawn_worker_thread(void (*entrypoint)(void * argp), const char * na
 	proc->thread.page_directory->directory = mmu_clone(mmu_get_kernel_directory());
 	spin_init(proc->thread.page_directory->lock);
 
-	proc->image.stack       = (uintptr_t)valloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
+	setup_kernel_stack(proc);
+
 	PUSH(proc->image.stack, uintptr_t, (uintptr_t)entrypoint);
 	PUSH(proc->image.stack, void*, argp);
 
