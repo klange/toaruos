@@ -258,7 +258,7 @@ _unmap_module:
 extern void process_acquire_big_lock(void);
 extern void process_release_big_lock(void);
 
-static uintptr_t load_from_file(fs_node_t * file, Elf64_Header * header, uintptr_t *base_out, int is_interp, int can_syscall) {
+static uintptr_t load_from_file(fs_node_t * file, Elf64_Header * header, uintptr_t *base_out, int is_interp, int can_syscall, struct fs_file_description * desc) {
 	uintptr_t base = 0;
 	uintptr_t phdr_vaddr = 0;
 
@@ -287,7 +287,7 @@ static uintptr_t load_from_file(fs_node_t * file, Elf64_Header * header, uintptr
 				if (can_syscall && (prot & PROT_EXEC)) {
 					flags |= MAP_SYSCALL;
 				}
-				mapped_to = do_mmap(base + addr, size, prot, flags, file, offset);
+				mapped_to = do_mmap(base + addr, size, prot, flags, desc, offset);
 				if (phdr.p_flags & PF_W) {
 					uintptr_t pad = mapped_to + pageoffset + phdr.p_filesz;
 					if (pad & 0xFFF) {
@@ -320,7 +320,7 @@ static uintptr_t load_from_file(fs_node_t * file, Elf64_Header * header, uintptr
 	return phdr_vaddr;
 }
 
-int elf_exec(const char * path, fs_node_t * file, int argc, const char *const argv[], const char *const env[], int interp) {
+int elf_exec(const char * path, fs_node_t * file, int argc, const char *const argv[], const char *const env[], int interp, struct fs_file_description * desc_in) {
 	Elf64_Header header;
 
 	read_fs(file, 0, sizeof(Elf64_Header), (uint8_t*)&header);
@@ -330,23 +330,24 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	    header.e_ident[2] != ELFMAG2 ||
 	    header.e_ident[3] != ELFMAG3) {
 		printf("Invalid file: Bad header.\n");
-		close_fs(file);
+		fs_close_desc((uintptr_t)desc_in);
 		return -EINVAL;
 	}
 
 	if (header.e_ident[EI_CLASS] != ELFCLASS64) {
 		printf("(Wrong Elf class)\n");
-		close_fs(file);
+		fs_close_desc((uintptr_t)desc_in);
 		return -EINVAL;
 	}
 
 	/* This loader can only handle basic executables. */
 	if (header.e_type != ET_EXEC && header.e_type != ET_DYN) {
-		close_fs(file);
+		fs_close_desc((uintptr_t)desc_in);
 		return -EINVAL;
 	}
 
 	fs_node_t * interpreter = NULL;
+	struct fs_file_description * interpreter_desc = NULL;
 	Elf64_Header interp_header;
 
 	for (int i = 0; i < header.e_phnum; ++i) {
@@ -360,13 +361,16 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 			if (tmp[phdr.p_filesz-1] != '\0') return free(tmp), -EINVAL;
 
 			int error = 0;
-			interpreter = kopen_error(tmp, 0, &error);
+			struct fs_path * int_path = NULL;
+			interpreter = kopen_to_path(tmp, 0, &error, &int_path);
 			free(tmp);
 			if (!interpreter) return -error;
 
+			interpreter_desc = fs_fresh_descriptor(interpreter, 0, int_path);
+
 			ssize_t r = read_fs(interpreter, 0, sizeof(Elf64_Header), (uint8_t*)&interp_header);
-			if (r < 0) return close_fs(interpreter), r;
-			if ((size_t)r < sizeof(Elf64_Header)) return close_fs(interpreter), -EINVAL;
+			if (r < 0) return fs_close_desc((uintptr_t)desc_in), fs_close_desc((uintptr_t)interpreter_desc), r;
+			if ((size_t)r < sizeof(Elf64_Header)) return fs_close_desc((uintptr_t)desc_in), fs_close_desc((uintptr_t)interpreter_desc), -EINVAL;
 
 			if (interp_header.e_ident[0] != ELFMAG0 ||
 			    interp_header.e_ident[1] != ELFMAG1 ||
@@ -374,8 +378,10 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 			    interp_header.e_ident[3] != ELFMAG3 ||
 			    interp_header.e_ident[EI_CLASS] != ELFCLASS64 ||
 			    (interp_header.e_type != ET_EXEC && interp_header.e_type != ET_DYN)) {
-				return close_fs(interpreter), -EINVAL;
+				return fs_close_desc((uintptr_t)desc_in), fs_close_desc((uintptr_t)interpreter_desc), -EINVAL;
 			}
+
+			break;
 		}
 	}
 
@@ -391,11 +397,6 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 	this_core->current_process->saved_user_group = this_core->current_process->user_group;
 
 	process_close_fds((process_t *)this_core->current_process, PROC_FD_MODE_CLOEXEC);
-
-	if (this_core->current_process->exe_node) {
-		close_fs(this_core->current_process->exe_node);
-		this_core->current_process->exe_node = NULL;
-	}
 
 	process_acquire_big_lock();
 	mmu_set_directory(NULL);
@@ -419,17 +420,17 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 
 	/* Load binary */
 	uintptr_t base_addr;
-	uintptr_t phdr_vaddr = load_from_file(file, &header, &base_addr, 0, !interpreter);
+	uintptr_t phdr_vaddr = load_from_file(file, &header, &base_addr, 0, !interpreter, desc_in);
 	uintptr_t entrypoint = header.e_entry + base_addr;
 	uintptr_t interp_base = 0;
 
-	this_core->current_process->exe_node = file; /* already cloned */
+	this_core->current_process->exe = desc_in;
 
 	/* We've loaded the binary, now let's load the interpreter! */
 	if (interpreter) {
-		load_from_file(interpreter, &interp_header, &interp_base, 1, 1);
+		load_from_file(interpreter, &interp_header, &interp_base, 1, 1, interpreter_desc);
 		entrypoint = interp_base + interp_header.e_entry;
-		close_fs(interpreter);
+		fs_close_desc((uintptr_t)interpreter_desc);
 	}
 
 	extern uint32_t rand(void);

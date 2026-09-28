@@ -217,8 +217,8 @@ static void sock_raw_close(sock_t * sock) {
 }
 
 long net_socket_to_fd(sock_t * sock, int flags, const char * sock_type_name, uint64_t sock_type_count) {
-	sock->_fnode.fsn_path = fs_path_printf("socket:[%s:%zu]", sock_type_name, sock_type_count); /* TODO: move to fd */
-	return process_append_fd((process_t *)this_core->current_process, (fs_node_t *)sock, flags | PROC_FD_MODE__RW);
+	return process_new_fd((process_t *)this_core->current_process, (fs_node_t *)sock, flags | PROC_FD_MODE__RW,
+		fs_path_printf("socket:[%s:%zu]", sock_type_name, sock_type_count));
 }
 
 /**

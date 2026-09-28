@@ -2,16 +2,26 @@
 #include <kernel/types.h>
 #include <kernel/process.h>
 
+#define FD_PTR_CLOEXEC 1
+#define FD_PTR_CLOFORK 2
+
+#define FD_PTR_MASK(ptr) ((struct fs_file_description*)(ptr & ~3))
+
 #define FD_INRANGE(FD) \
 	((FD) < (int)this_core->current_process->fds->length && (FD) >= 0)
-#define FD_ENTRY(FD) \
-	(this_core->current_process->fds->entries[(FD)])
-#define FD_CHECK(FD) \
-	(FD_INRANGE(FD) && FD_ENTRY(FD))
-#define FD_OFFSET(FD) \
-	(this_core->current_process->fds->offsets[(FD)])
-#define FD_MODE(FD) \
-	(this_core->current_process->fds->modes[(FD)])
+
+#define FD_FILE(FD)   FD_PTR_MASK(this_core->current_process->fds->entries[(FD)])
+#define FD_ENTRY(FD)  FD_FILE(FD)->inode
+#define FD_CHECK(FD)  (FD_INRANGE(FD) && FD_FILE(FD) && FD_ENTRY(FD))
+#define FD_OFFSET(FD) FD_FILE(FD)->offset
+#define FD_MODE(FD)   FD_FILE(FD)->flags
+
+#define FD_CLO_MODE(FD) (this_core->current_process->fds->entries[(FD)] & 3)
+
+static inline void fd_set_mode_flags(int fd, uintptr_t modes) {
+	uintptr_t ptr = (uintptr_t)FD_FILE(fd);
+	this_core->current_process->fds->entries[fd] = ptr | modes;
+}
 
 #define PTR_INRANGE(PTR) \
 	((uintptr_t)(PTR) < 0x8000000000000000)

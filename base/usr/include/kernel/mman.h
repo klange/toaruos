@@ -7,7 +7,7 @@
 #define MAP_FD_WRITABLE  0x2000
 
 extern long mmap_sbrk(size_t size);
-extern long do_mmap(uintptr_t addr, size_t length, int prot, int flags, fs_node_t * file, off_t offset);
+extern long do_mmap(uintptr_t addr, size_t length, int prot, int flags, struct fs_file_description * file, off_t offset);
 extern long mmap_unmap(uintptr_t addr, size_t length);
 
 enum fault_code {

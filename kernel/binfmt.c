@@ -16,7 +16,7 @@
 #include <kernel/elf.h>
 #include <sys/time.h>
 
-extern int elf_exec(const char * path, fs_node_t * file, int argc, char *const argv[], char *const env[], int interp);
+extern int elf_exec(const char * path, fs_node_t * file, int argc, char *const argv[], char *const env[], int interp, struct fs_file_description *);
 int exec(const char * path, int argc, char *const argv[], char *const env[], int interp_depth);
 
 /**
@@ -24,15 +24,17 @@ int exec(const char * path, int argc, char *const argv[], char *const env[], int
  *
  * Tries to safely read the first line of a script file to find an appropriate loader.
  */
-int exec_shebang(const char * path, fs_node_t * file, int argc, char *const argv[], char *const env[], int interp) {
+int exec_shebang(const char * path, fs_node_t * file, int argc, char *const argv[], char *const env[], int interp, struct fs_file_description * desc_in) {
 	if (interp > 4) {
 		/* If an interpreter calls an interpreter too many times, bail. */
+		fs_close_desc((uintptr_t)desc_in);
 		return -ELOOP;
 	}
 
 	/* Read MAX_LINE... */
 	char tmp[100];
-	read_fs(file, 0, 100, (unsigned char *)tmp); close_fs(file);
+	read_fs(file, 0, 100, (unsigned char *)tmp);
+	fs_close_desc((uintptr_t)desc_in);
 	char * cmd = (char *)&tmp[2];
 	if (*cmd == ' ') cmd++; /* Handle a leading space */
 	char * space_or_linefeed = strpbrk(cmd, " \n");
@@ -81,7 +83,7 @@ int exec_shebang(const char * path, fs_node_t * file, int argc, char *const argv
 }
 
 /* Consider exposing this and making it a list so it can be extended ... */
-typedef int (*exec_func)(const char * path, fs_node_t * file, int argc, char *const argv[], char *const env[], int interp);
+typedef int (*exec_func)(const char * path, fs_node_t * file, int argc, char *const argv[], char *const env[], int interp, struct fs_file_description*);
 typedef struct {
 	exec_func func;
 	unsigned char bytes[4];
@@ -112,11 +114,12 @@ static int matches(unsigned char * a, unsigned char * b, unsigned int len) {
  * @returns Either never or -ENOEXEC on failure.
  */
 int exec(const char * path, int argc, char *const argv[], char *const env[], int interp_depth) {
+	struct fs_path * full_path = NULL;
 	int error = 0;
-	fs_node_t * file = kopen_error(path, 0, &error);
+	fs_node_t * file = kopen_to_path(path, 0, &error, &full_path);
 	if (!file) return -error;
-	if (!has_permission(file, X_OK)) return close_fs(file), -EACCES;
-	if (file->flags & FS_DIRECTORY) return close_fs(file), -EISDIR;
+	if (!has_permission(file, X_OK)) return free(full_path), close_fs(file), -EACCES;
+	if (file->flags & FS_DIRECTORY) return free(full_path), close_fs(file), -EISDIR;
 
 	unsigned char head[4];
 	read_fs(file, 0, 4, head);
@@ -126,10 +129,11 @@ int exec(const char * path, int argc, char *const argv[], char *const env[], int
 
 	for (unsigned int i = 0; i < sizeof(fmts) / sizeof(exec_def_t); ++i) {
 		if (matches(fmts[i].bytes, head, fmts[i].match)) {
-			return fmts[i].func(path, file, argc, argv, env, interp_depth);
+			return fmts[i].func(path, file, argc, argv, env, interp_depth, fs_fresh_descriptor(file, 0, full_path));
 		}
 	}
 
+	free(full_path);
 	close_fs(file);
 	return -ENOEXEC;
 }

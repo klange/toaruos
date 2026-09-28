@@ -258,18 +258,14 @@ int is_valid_process(process_t * process) {
  */
 static void process_fds_grow(process_t * proc) {
 	proc->fds->capacity *= 2;
-	proc->fds->entries = realloc(proc->fds->entries, sizeof(fs_node_t *) * proc->fds->capacity);
-	proc->fds->modes   = realloc(proc->fds->modes,   sizeof(int) * proc->fds->capacity);
-	proc->fds->offsets = realloc(proc->fds->offsets, sizeof(uint64_t) * proc->fds->capacity);
+	proc->fds->entries = realloc(proc->fds->entries, sizeof(uintptr_t) * proc->fds->capacity);
 }
 
 /**
  * @brief Duplicate a file descriptor to a new table entry.
  */
 static void process_fds_copy(process_t * proc, long src, long dest, int extra_mode) {
-	proc->fds->entries[dest] = clone_fs(proc->fds->entries[src]);
-	proc->fds->modes[dest] = (proc->fds->modes[src] & PROC_FD_MODE__RW) | extra_mode;
-	proc->fds->offsets[dest] = proc->fds->offsets[src];
+	proc->fds->entries[dest] = fs_clone_desc(proc->fds->entries[src], extra_mode);
 }
 
 /**
@@ -283,15 +279,12 @@ static void process_fds_copy(process_t * proc, long src, long dest, int extra_mo
  * @param node VFS object to add a reference to.
  * @returns the new file descriptor index
  */
-unsigned long process_append_fd(process_t * proc, fs_node_t * node, int mode) {
+static unsigned long process_append_fd(process_t * proc, struct fs_file_description * desc, uintptr_t mode) {
 	spin_lock(proc->fds->lock);
 	/* Fill gaps */
 	for (unsigned long i = 0; i < proc->fds->length; ++i) {
 		if (!proc->fds->entries[i]) {
-			proc->fds->entries[i] = node;
-			/* modes, offsets must be set by caller */
-			proc->fds->modes[i] = mode;
-			proc->fds->offsets[i] = 0;
+			proc->fds->entries[i] = ((uintptr_t)desc | mode);
 			spin_unlock(proc->fds->lock);
 			return i;
 		}
@@ -300,12 +293,25 @@ unsigned long process_append_fd(process_t * proc, fs_node_t * node, int mode) {
 	if (proc->fds->length == proc->fds->capacity) {
 		process_fds_grow(proc);
 	}
-	proc->fds->entries[proc->fds->length] = node;
-	proc->fds->modes[proc->fds->length] = mode;
-	proc->fds->offsets[proc->fds->length] = 0;
-	proc->fds->length++;
+	proc->fds->entries[proc->fds->length] = ((uintptr_t)desc | mode);
+	unsigned long out = proc->fds->length++;
 	spin_unlock(proc->fds->lock);
-	return proc->fds->length-1;
+	return out;
+}
+
+unsigned long process_new_fd(process_t * proc, fs_node_t * node, int flags, struct fs_path * path) {
+	struct fs_file_description * desc =  fs_fresh_descriptor(node, flags, path);
+
+	uintptr_t fd_flags = 0;
+	if (flags & PROC_FD_MODE_CLOEXEC) fd_flags |= FD_PTR_CLOEXEC;
+	if (flags & PROC_FD_MODE_CLOFORK) fd_flags |= FD_PTR_CLOFORK;
+
+	return process_append_fd(proc, desc, fd_flags);
+}
+
+void process_chdir(process_t * proc, fs_node_t * node, struct fs_path * path) {
+	if (proc->wd) fs_close_desc((uintptr_t)proc->wd);
+	proc->wd = fs_fresh_descriptor(node, PROC_FD_MODE_READ, path);
 }
 
 /**
@@ -334,13 +340,13 @@ long process_fd_dup_least(process_t * proc, long oldfd, long newfd, int flags) {
 
 	/* Then ensure length is at least newfds */
 	while (proc->fds->length <= (unsigned long)newfd) {
-		proc->fds->entries[proc->fds->length] = NULL;
+		proc->fds->entries[proc->fds->length] = 0;
 		proc->fds->length++;
 	}
 
 	/* Then check if anything is available already */
 	for (size_t i = newfd; i < proc->fds->length; ++i) {
-		if (proc->fds->entries[i] == NULL) {
+		if (proc->fds->entries[i] == 0) {
 			/* Found a hit, copy */
 			process_fds_copy(proc, oldfd, i, flags);
 			spin_unlock(proc->fds->lock);
@@ -408,7 +414,7 @@ void process_release_directory(page_directory_t * dir) {
 		if (dir->mappings) {
 			for (memmap_t * map = dir->mappings; map;) {
 				memmap_t * next = map->next;
-				if (map->file) close_fs(map->file);
+				if (map->file) fs_close_desc((uintptr_t)map->file);
 				free(map);
 				map = next;
 			}
@@ -466,16 +472,14 @@ process_t * spawn_init(void) {
 	init->status     = 0;
 	init->signals    = calloc(NUMSIGNALS+1, sizeof(struct signal_config));
 
-	init->fds           = malloc(sizeof(fd_table_t));
+	init->fds           = calloc(1, sizeof(fd_table_t));
 	init->fds->refs     = 1;
 	init->fds->length   = 0;
 	init->fds->capacity = 4;
-	init->fds->entries  = malloc(init->fds->capacity * sizeof(fs_node_t *));
-	init->fds->modes    = malloc(init->fds->capacity * sizeof(int));
-	init->fds->offsets  = malloc(init->fds->capacity * sizeof(uint64_t));
+	init->fds->entries  = calloc(init->fds->capacity, sizeof(uintptr_t *));
 	spin_init(init->fds->lock);
 
-	init->wd_node = clone_fs(fs_root);
+	init->wd = fs_fresh_descriptor(fs_root, PROC_FD_MODE_READ, fs_alloc_path_from("/", "root"));
 
 	init->image.entry    = 0;
 	init->image.heap     = 0;
@@ -550,26 +554,23 @@ process_t * spawn_process(volatile process_t * parent, int flags, int close_at_f
 		proc->fds->refs++;
 		spin_unlock(parent->fds->lock);
 	} else {
-		proc->fds = malloc(sizeof(fd_table_t));
+		proc->fds = calloc(1, sizeof(fd_table_t));
 		spin_init(proc->fds->lock);
 		proc->fds->refs = 1;
 		spin_lock(parent->fds->lock);
 		proc->fds->length = parent->fds->length;
 		proc->fds->capacity = parent->fds->capacity;
-		proc->fds->entries = calloc(proc->fds->capacity, sizeof(fs_node_t *));
-		proc->fds->modes   = calloc(proc->fds->capacity, sizeof(int));
-		proc->fds->offsets = calloc(proc->fds->capacity, sizeof(uint64_t));
+		proc->fds->entries = calloc(proc->fds->capacity, sizeof(uintptr_t));
 		for (uint32_t i = 0; i < parent->fds->length; ++i) {
-			if (close_at_fork && (parent->fds->modes[i] & PROC_FD_MODE_CLOFORK)) continue;
-			proc->fds->entries[i] = clone_fs(parent->fds->entries[i]);
-			proc->fds->modes[i]   = parent->fds->modes[i];
-			proc->fds->offsets[i] = parent->fds->offsets[i];
+			if (!parent->fds->entries[i]) continue;
+			if (close_at_fork && (parent->fds->entries[i] & FD_PTR_CLOFORK)) continue;
+			proc->fds->entries[i] = fs_clone_desc(parent->fds->entries[i], (parent->fds->entries[i] & 3) << 4);
 		}
 		spin_unlock(parent->fds->lock);
 	}
 
-	proc->exe_node = parent->exe_node ? clone_fs(parent->exe_node) : NULL;
-	proc->wd_node = clone_fs(parent->wd_node);
+	proc->exe = parent->exe ? (void*)fs_clone_desc((uintptr_t)parent->exe, 0) : 0;
+	proc->wd  = parent->wd  ? (void*)fs_clone_desc((uintptr_t)parent->wd, 0) : 0;
 
 	proc->wait_queue   = list_create("process wait queue",proc);
 
@@ -1010,19 +1011,25 @@ process_t * process_from_pid(pid_t pid) {
 
 
 long process_move_fd(process_t * proc, long src, long dest, int forbid_noop, int flags) {
-	if ((size_t)src >= proc->fds->length || dest < -1) {
-		return -EBADF;
-	}
+	if ((size_t)src >= proc->fds->length || dest < -1) return -EBADF;
+	if (!proc->fds->entries[src]) return -EBADF;
 	if (dest == src) return forbid_noop ? -EINVAL : dest;
-	if (dest == -1) dest = process_append_fd(proc, NULL, 0);
+	if (dest == -1) {
+		uintptr_t fd_flags = 0;
+		if (flags & PROC_FD_MODE_CLOEXEC) fd_flags |= FD_PTR_CLOEXEC;
+		if (flags & PROC_FD_MODE_CLOFORK) fd_flags |= FD_PTR_CLOFORK;
+		return process_append_fd(proc, FD_PTR_MASK(fs_clone_desc(proc->fds->entries[src], 0)), fd_flags);
+	}
 	if ((size_t)dest >= proc->fds->length) {
 		return process_fd_dup_least(proc, src, dest, flags);
 	}
+	spin_lock(proc->fds->lock);
 	if (proc->fds->entries[dest]) {
-		close_fs(proc->fds->entries[dest]);
-		proc->fds->entries[dest] = NULL;
+		fs_close_desc(proc->fds->entries[dest]);
+		proc->fds->entries[dest] = 0;
 	}
 	process_fds_copy(proc, src, dest, flags);
+	spin_unlock(proc->fds->lock);
 	return dest;
 }
 
@@ -1330,13 +1337,11 @@ void task_exit(long retval) {
 		if (this_core->current_process->fds->refs == 0) {
 			for (uint32_t i = 0; i < this_core->current_process->fds->length; ++i) {
 				if (this_core->current_process->fds->entries[i]) {
-					close_fs(this_core->current_process->fds->entries[i]);
-					this_core->current_process->fds->entries[i] = NULL;
+					fs_close_desc(this_core->current_process->fds->entries[i]);
+					this_core->current_process->fds->entries[i] = 0;
 				}
 			}
 			free(this_core->current_process->fds->entries);
-			free(this_core->current_process->fds->offsets);
-			free(this_core->current_process->fds->modes);
 			free(this_core->current_process->fds);
 			this_core->current_process->fds = NULL;
 		} else {
@@ -1344,13 +1349,8 @@ void task_exit(long retval) {
 		}
 	}
 
-	if (this_core->current_process->exe_node) {
-		close_fs(this_core->current_process->exe_node);
-	}
-
-	if (this_core->current_process->wd_node) {
-		close_fs(this_core->current_process->wd_node);
-	}
+	if (this_core->current_process->exe) fs_close_desc((uintptr_t)this_core->current_process->exe);
+	if (this_core->current_process->wd)  fs_close_desc((uintptr_t)this_core->current_process->wd);
 
 	if (this_core->current_process->tracees) {
 		spin_lock(this_core->current_process->wait_lock);
@@ -1415,11 +1415,12 @@ pid_t fork(void) {
 		nmap->length = maps->length;
 		nmap->flags = maps->flags;
 		nmap->prot = maps->prot;
-		nmap->file = maps->file;
-		nmap->offset = maps->offset;
 		nmap->owner = new_proc->thread.page_directory;
 
-		if (nmap->file) open_fs(nmap->file, 0);
+		if (maps->file) {
+			nmap->file = (void*)fs_clone_desc((uintptr_t)maps->file, 0);
+			nmap->offset = maps->offset;
+		}
 
 		if (!prev) {
 			new_proc->thread.page_directory->mappings = nmap;
@@ -1696,25 +1697,40 @@ int session_send_signal(pid_t session, int signal, int force_root) {
 	return killed_something ? 0 : -ESRCH;
 }
 
+int process_close_fd(process_t * proc, int fd) {
+	int out = 0;
+	spin_lock(proc->fds->lock);
+	if (fd < 0 || (size_t)fd >= proc->fds->length) {
+		out = -EBADF;
+		goto _done;
+	}
+
+	if (!proc->fds->entries[fd]) {
+		out = -EBADF;
+		goto _done;
+	}
+
+	fs_close_desc(proc->fds->entries[fd]);
+	proc->fds->entries[fd] = 0;
+
+_done:
+	spin_unlock(proc->fds->lock);
+	return out;
+}
+
 int process_close_fds(process_t * proc, int for_what) {
+	spin_lock(proc->fds->lock);
 	for (unsigned int i = 0; i < proc->fds->length; ++i) {
-#ifdef MISAKA_DEBUG_CLOEXEC_MISMATCHES
-		if (i >= 3 && proc->fds->entries[i] && !(proc->fds->modes[i] & for_what)) {
-			char * name = NULL, * wname = NULL, * dname = NULL;
-			uintptr_t addr = (uintptr_t)proc->fds->entries[i]->read - ksym_closest((uintptr_t)proc->fds->entries[i]->read, &name);
-			uintptr_t waddr = (uintptr_t)proc->fds->entries[i]->write - ksym_closest((uintptr_t)proc->fds->entries[i]->write, &wname);
-			uintptr_t daddr = (uintptr_t)proc->fds->entries[i]->readdir - ksym_closest((uintptr_t)proc->fds->entries[i]->readdir, &dname);
-			dprintf("probably unintended leak of file descriptor %d execing in pid %d (%s) (read:%s+%#zx) (wread:%s+%#zx) (readdir:%s+%#zx) (name:%s)\n", i, proc->id, proc->name,
-				name, addr, wname, waddr, dname, daddr, proc->fds->entries[i]->name);
-		} else if (i < 3 && proc->fds->entries[i] && (proc->fds->modes[i] & for_what)) {
-			dprintf("probably unintended CLOEXEC of file descriptor %d execing in pid %d\n", i, proc->id);
-		}
-#endif
-		if (proc->fds->entries[i] && (proc->fds->modes[i] & for_what)) {
-			close_fs(proc->fds->entries[i]);
-			proc->fds->entries[i] = NULL;
+		if (proc->fds->entries[i] && (proc->fds->entries[i] & (for_what >> 4))) {
+			fs_close_desc(proc->fds->entries[i]);
+			proc->fds->entries[i] = 0;
 		}
 	}
+	if (proc->exe) {
+		fs_close_desc((uintptr_t)proc->exe);
+		proc->exe = 0;
+	}
+	spin_unlock(proc->fds->lock);
 	return 0;
 }
 

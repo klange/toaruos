@@ -379,12 +379,12 @@ static void proc_status_func(fs_node_t *node) {
 
 static void proc_cwd_func(fs_node_t *node) {
 	process_t * proc = process_from_pid(node->impl);
-	procfs_printf(node,"%s", (proc->wd_node && proc->wd_node->fsn_path) ? proc->wd_node->fsn_path->chars : "/");
+	procfs_printf(node,"%s", (proc->wd && proc->wd->path) ? proc->wd->path->chars : "/");
 }
 
 static void proc_exe_func(fs_node_t *node) {
 	process_t * proc = process_from_pid(node->impl);
-	procfs_printf(node,"%s", (proc->exe_node && proc->exe_node->fsn_path) ? proc->exe_node->fsn_path->chars : "");
+	procfs_printf(node,"%s", (proc->exe && proc->exe->path) ? proc->exe->path->chars : "");
 }
 
 static void proc_maps_func(fs_node_t *node) {
@@ -398,9 +398,9 @@ static void proc_maps_func(fs_node_t *node) {
 			(maps->prot & PROT_EXEC)  ? 'x' : '-',
 			(maps->flags & MAP_PRIVATE) ? 'p' : 's',
 			maps->offset,
-			maps->file ? fs_device_identifier(maps->file) : 0,
-			maps->file ? maps->file->inode : 0,
-			maps->file ? (maps->file->fsn_path ? maps->file->fsn_path->chars : "[dead file]") : (maps->base + maps->length == 0x800000000000) ? "[stack]" : "");
+			maps->file ? fs_device_identifier(maps->file->inode) : 0,
+			maps->file ? maps->file->inode->inode : 0,
+			maps->file ? (maps->file->path ? maps->file->path->chars : "[dead file]") : (maps->base + maps->length == 0x800000000000) ? "[stack]" : "");
 	}
 }
 
@@ -422,8 +422,8 @@ static void proc_fd_ent_func(fs_node_t * node) {
 	if (!proc->fds) return;
 
 	spin_lock(proc->fds->lock);
-	if (proc->fds->entries[self->id] && proc->fds->entries[self->id]->fsn_path) {
-		procfs_printf(node, "%s", proc->fds->entries[self->id]->fsn_path->chars);
+	if (proc->fds->entries[self->id] && FD_PTR_MASK(proc->fds->entries[self->id])->path) {
+		procfs_printf(node, "%s", FD_PTR_MASK(proc->fds->entries[self->id])->path->chars);
 	} else {
 		procfs_printf(node, "fd:%d", self->id);
 	}

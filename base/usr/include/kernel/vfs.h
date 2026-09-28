@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <bits/dirent.h>
 #include <kernel/mmu.h>
+#include <kernel/spinlock.h>
 #include <bits/timespec.h>
 
 #define PATH_SEPARATOR '/'
@@ -107,7 +108,6 @@ struct fs_path {
 
 typedef struct fs_node {
 	struct fs_node * mount;    /* Root fs_node_t entry of mountpoint. */
-	struct fs_path * fsn_path; /* (temp) Path object, which may change in structure. */
 	struct fs_vtable *ops;     /* operations table */
 	void * device;             /* Device object (optional) */
 	mode_t mask;               /* The permissions mask. */
@@ -126,6 +126,15 @@ typedef struct fs_node {
 	time_t ctime;              /* Created  */
 	long   ctime_nsec;         /* ... nanoseconds. */
 } fs_node_t;
+
+typedef struct fs_file_description {
+	spin_lock_t        lock;
+	int64_t            refcount;
+	struct fs_node   * inode;
+	struct fs_path   * path;
+	uint64_t           flags;
+	off_t              offset;
+} fs_file_t;
 
 struct vfs_entry {
 	char * name;
@@ -149,7 +158,7 @@ fs_node_t *finddir_fs(fs_node_t *node, const char *name);
 int mkdir_fs(const char *name, mode_t permission, fs_node_t **out);
 int create_file_fs(const char *name, mode_t permission, fs_node_t **out);
 fs_node_t *kopen_error(const char *filename, unsigned int flags, int *error);
-fs_node_t *clone_fs(fs_node_t * source);
+fs_node_t *kopen_to_path(const char *filename, unsigned int flags, int *error, struct fs_path **path);
 int ioctl_fs(fs_node_t *node, unsigned long request, void * argp);
 int chmod_fs(fs_node_t *node, mode_t mode);
 int chown_fs(fs_node_t *node, uid_t uid, gid_t gid);
@@ -187,3 +196,6 @@ static inline dev_t fs_device_identifier(fs_node_t * fn) {
 char * fs_current_wd(void);
 struct fs_path * fs_alloc_path_from(const char * src, const char * called_from);
 struct fs_path * fs_path_printf(const char * fmt, ...);
+struct fs_file_description * fs_fresh_descriptor(fs_node_t * node, int flags, struct fs_path * path);
+void fs_close_desc(uintptr_t desc_ptr);
+uintptr_t fs_clone_desc(uintptr_t desc_ptr, int extra_mode);

@@ -24,6 +24,7 @@
 #include <kernel/vfs.h>
 #include <kernel/time.h>
 #include <kernel/process.h>
+#include <kernel/syscall.h>
 
 #include <kernel/list.h>
 #include <kernel/hashmap.h>
@@ -282,9 +283,6 @@ void close_fs(fs_node_t *node) {
 		if (node->ops->close) {
 			node->ops->close(node);
 		}
-		if (node->fsn_path) {
-			free(node->fsn_path);
-		}
 		free(node);
 	}
 	spin_unlock(tmp_refcount_lock);
@@ -502,18 +500,6 @@ int utimens_fs(fs_node_t * node, struct timespec access, struct timespec modify)
 		return -EINVAL;
 	}
 	return node->ops->utimens(node, access, modify);
-}
-
-fs_node_t *clone_fs(fs_node_t *source) {
-	if (!source) return NULL;
-
-	spin_lock(tmp_refcount_lock);
-	if (source->refcount >= 0) {
-		source->refcount++;
-	}
-	spin_unlock(tmp_refcount_lock);
-
-	return source;
 }
 
 /**
@@ -751,8 +737,6 @@ void * vfs_mount(const char * path, fs_node_t * local_root, const char * type, c
 	/* Root */
 	tree_node_t * root_node = fs_tree->root;
 
-	if (!local_root->fsn_path) local_root->fsn_path = fs_alloc_path_from(path, "vfs_mount");
-
 	if (*i == '\0') {
 		/* Special case, we're trying to set the root node */
 		struct vfs_entry * root = (struct vfs_entry *)root_node->value;
@@ -929,7 +913,7 @@ static char * path_untokenize(char * path, size_t len, unsigned int depth) {
 }
 
 
-static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_depth, char *relative_to, int * error) {
+static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_depth, char *relative_to, int * error, struct fs_path ** out_path) {
 	/* Simple sanity checks that we actually have a file system */
 	if (!filename) return *error = ENOENT, NULL;
 
@@ -972,7 +956,7 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 			char * relpath = path_untokenize(path, path_len, depth);
 
 			symlink_depth += 1;
-			node_ptr = kopen_recur(symlink_buf, 0, symlink_depth, relpath, error);
+			node_ptr = kopen_recur(symlink_buf, 0, symlink_depth, relpath, error, NULL);
 			free(symlink_buf);
 			free(relpath);
 
@@ -981,9 +965,9 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 
 		/* Found what we were looking for. */
 		if (path_offset >= path+path_len || depth == path_depth) {
-			if (node_ptr && !node_ptr->fsn_path) {
+			if (node_ptr && out_path) {
 				char * rpath = path_untokenize(path, path_len, path_depth + 1);
-				node_ptr->fsn_path = fs_alloc_path_from(rpath, "kopen_recur");
+				*out_path = fs_alloc_path_from(rpath, "kopen_recur");
 				free(rpath);
 			}
 			return free(path), node_ptr;
@@ -1024,13 +1008,77 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
  */
 fs_node_t *kopen_error(const char *filename, unsigned int flags, int *error) {
 	*error = 0;
-	return kopen_recur(filename, flags, 0, fs_current_wd(), error);
+	return kopen_recur(filename, flags, 0, fs_current_wd(), error, NULL);
+}
+
+fs_node_t *kopen_to_path(const char *filename, unsigned int flags, int *error, struct fs_path **path) {
+	*error = 0;
+	return kopen_recur(filename, flags, 0, fs_current_wd(), error, path);
 }
 
 char * fs_current_wd(void) {
-	if (this_core->current_process->wd_node && this_core->current_process->wd_node->fsn_path) {
-		return this_core->current_process->wd_node->fsn_path->chars;
+	if (this_core->current_process->wd && this_core->current_process->wd->path) {
+		return this_core->current_process->wd->path->chars;
 	}
 	return (char*)"/";
+}
+
+struct fs_file_description * fs_fresh_descriptor(fs_node_t * node, int flags, struct fs_path * path) {
+	struct fs_file_description * desc = calloc(1, sizeof(struct fs_file_description));
+
+	spin_init(desc->lock);
+	desc->refcount = 1; /* the one we are making now */
+	desc->inode = node;
+	desc->path = path;
+	desc->flags = flags & ~(PROC_FD_MODE_CLOEXEC | PROC_FD_MODE_CLOFORK);
+	desc->offset = (flags & PROC_FD_MODE_APPEND) ? node->length : 0;
+
+	return desc;
+}
+
+void fs_close_desc(uintptr_t desc_ptr) {
+	struct fs_file_description * desc = FD_PTR_MASK(desc_ptr);
+	if (!desc) {
+		arch_fatal_prepare();
+		dprintf("fs_close_desc() on NULL\n");
+		arch_dump_traceback();
+		arch_fatal();
+	}
+
+	spin_lock(desc->lock);
+
+	desc->refcount--;
+
+	if (desc->refcount == 0) {
+		close_fs(desc->inode);
+		desc->inode = NULL;
+		if (desc->path) free(desc->path);
+		free(desc);
+		return;
+	}
+
+	spin_unlock(desc->lock);
+}
+
+uintptr_t fs_clone_desc(uintptr_t desc_ptr, int extra_mode) {
+	struct fs_file_description * desc = FD_PTR_MASK(desc_ptr);
+
+	if (desc == NULL) {
+		arch_fatal_prepare();
+		dprintf("clone_desc() on NULL\n");
+		arch_dump_traceback();
+		arch_fatal();
+	}
+
+	uintptr_t out = (uintptr_t)desc;
+
+	spin_lock(desc->lock);
+	desc->refcount++;
+	spin_unlock(desc->lock);
+
+	if (extra_mode & PROC_FD_MODE_CLOEXEC) out |= FD_PTR_CLOEXEC;
+	if (extra_mode & PROC_FD_MODE_CLOFORK) out |= FD_PTR_CLOFORK;
+
+	return out;
 }
 

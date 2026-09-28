@@ -103,14 +103,7 @@ static int ioctl_vid(fs_node_t * node, unsigned long request, void * argp) {
 			memcpy(argp, &res_s, sizeof(uint32_t));
 			return 0;
 		case IO_VID_ADDR:
-			/* Map framebuffer into userspace process */
-			{
-				if (!mmu_validate_user_pointer(argp, sizeof(uintptr_t), MMU_PTR_WRITE)) return -EFAULT;
-				size_t size = (lfb_memsize + 0xfff) & ~0xfff;
-				uintptr_t addr = do_mmap(0, size, PROT_READ|PROT_WRITE, MAP_SHARED, node, 0);
-				memcpy(argp, &addr, sizeof(uintptr_t));
-			}
-			return 0;
+			return -EINVAL;
 		case IO_VID_SIGNAL:
 			/* ioctl to register for a signal (vid device change? idk) on display change */
 			display_change_recipient = this_core->current_process->id;

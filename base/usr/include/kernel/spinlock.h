@@ -21,4 +21,3 @@ extern void arch_spin_lock_release(spin_lock_t * lock);
 #define spin_unlock(lock) do { (lock).func = NULL; (lock).owner = -1; __sync_lock_release((lock).latch); } while (0)
 #endif
 
-#include <kernel/process.h>

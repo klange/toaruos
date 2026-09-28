@@ -66,15 +66,14 @@ typedef struct image {
 
 #define PROC_FD_MODE_READ     0x001
 #define PROC_FD_MODE_WRITE    0x002
+#define PROC_FD_MODE_APPEND   0x004
 #define PROC_FD_MODE_CLOEXEC  0x010
 #define PROC_FD_MODE_CLOFORK  0x020
 
 #define PROC_FD_MODE__RW      (PROC_FD_MODE_READ | PROC_FD_MODE_WRITE)
 
 typedef struct file_descriptors {
-	fs_node_t ** entries;
-	uint64_t * offsets;
-	int * modes;
+	uintptr_t * entries;
 	size_t length;
 	size_t capacity;
 	size_t refs;
@@ -122,8 +121,8 @@ typedef struct process {
 	char * name;
 	char ** cmdline;
 
-	fs_node_t * exe_node;
-	fs_node_t * wd_node;
+	struct fs_file_description * exe;
+	struct fs_file_description * wd;
 	fd_table_t *  fds;               /* File descriptor table */
 
 	tree_node_t * tree_entry;
@@ -200,7 +199,7 @@ typedef struct memmap {
 	uintptr_t base;
 	intptr_t  length;
 	off_t     offset;
-	fs_node_t * file;
+	struct fs_file_description * file;
 
 	struct memmap * prev;
 	struct memmap * next;
@@ -271,7 +270,8 @@ static struct ProcessorLocal __seg_gs * const this_core = 0;
 register struct ProcessorLocal * this_core asm("x18");
 #endif
 
-extern unsigned long process_append_fd(process_t * proc, fs_node_t * node, int mode);
+extern unsigned long process_new_fd(process_t * proc, fs_node_t * node, int flags, struct fs_path *);
+extern void process_chdir(process_t * proc, fs_node_t * node, struct fs_path *);
 extern long process_move_fd(process_t * proc, long src, long dest, int forbid_noop, int flags);
 extern void initialize_process_tree(void);
 extern process_t * process_from_pid(pid_t pid);
@@ -304,6 +304,7 @@ extern void update_process_usage(uint64_t clock_ticks, uint64_t perf_scale);
 extern void update_process_times_on_exit(void);
 extern size_t process_collect_by(off_t field, size_t fieldSize, void * target, pid_t ** into, int threads);
 extern int process_close_fds(process_t * proc, int for_what);
+extern int process_close_fd(process_t * proc, int fd);
 extern long process_fd_dup_least(process_t *, long, long, int);
 extern void process_send_sigchld(process_t * proc, process_t * parent, int reason, int status);
 extern size_t process_erase_field(off_t field, size_t fieldSize, void * target);

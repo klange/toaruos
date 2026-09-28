@@ -59,8 +59,13 @@ long sys_write(int fd, char * ptr, unsigned long len) {
 	if (!(FD_MODE(fd) & PROC_FD_MODE_WRITE)) return -EBADF;
 	if (!len) return 0;
 
-	int64_t out = write_fs(node, FD_OFFSET(fd), len, (uint8_t*)ptr);
-	if (out > 0) FD_OFFSET(fd) += out;
+	off_t off = FD_OFFSET(fd);
+	if (FD_MODE(fd) & PROC_FD_MODE_APPEND) {
+		off = FD_OFFSET(fd) = node->length;
+	}
+
+	int64_t out = write_fs(node, off, len, (uint8_t*)ptr);
+	if (out > 0) FD_OFFSET(fd) = off + out;
 	return out;
 }
 
@@ -84,8 +89,9 @@ long sys_read(int fd, char * ptr, unsigned long len) {
 	if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
 	if (!len) return 0;
 
-	int64_t out = read_fs(node, FD_OFFSET(fd), len, (uint8_t *)ptr);
-	if (out > 0) FD_OFFSET(fd) += out;
+	off_t off = FD_OFFSET(fd);
+	int64_t out = read_fs(node, off, len, (uint8_t *)ptr);
+	if (out > 0) FD_OFFSET(fd) = off + out;
 	return out;
 }
 
@@ -195,13 +201,15 @@ long sys_open(const char * file, long flags, mode_t mode_in) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
 	int error = 0;
-	fs_node_t * node = kopen_error((char *)file, flags, &error);
+	struct fs_path * path_obj = NULL;
+	fs_node_t * node = kopen_to_path((char *)file, flags, &error, &path_obj);
 
 	mode_t mode = modify_mode(mode_in);
 
 	int access_bits = 0;
 
 	if (node && (flags & O_CREAT) && (flags & O_EXCL)) {
+		free(path_obj);
 		close_fs(node);
 		return -EEXIST;
 	}
@@ -213,12 +221,14 @@ long sys_open(const char * file, long flags, mode_t mode_in) {
 	}
 
 	if ((flags & O_NOFOLLOW) && (node->flags & FS_SYMLINK)) {
+		free(path_obj);
 		close_fs(node);
 		return -ELOOP;
 	}
 
 	if (!(flags & O_WRONLY) || (flags & O_RDWR)) {
 		if (node && !has_permission(node, R_OK)) {
+			free(path_obj);
 			close_fs(node);
 			return -EACCES;
 		} else {
@@ -228,10 +238,12 @@ long sys_open(const char * file, long flags, mode_t mode_in) {
 
 	if ((flags & O_RDWR) || (flags & O_WRONLY)) {
 		if (node && !has_permission(node, W_OK)) {
+			free(path_obj);
 			close_fs(node);
 			return -EACCES;
 		}
 		if (node && (node->flags & FS_DIRECTORY)) {
+			free(path_obj);
 			close_fs(node);
 			return -EISDIR;
 		}
@@ -243,6 +255,7 @@ long sys_open(const char * file, long flags, mode_t mode_in) {
 
 	if (node && (flags & O_DIRECTORY)) {
 		if (!(node->flags & FS_DIRECTORY)) {
+			free(path_obj);
 			close_fs(node);
 			return -ENOTDIR;
 		}
@@ -250,6 +263,7 @@ long sys_open(const char * file, long flags, mode_t mode_in) {
 
 	if (node && (flags & O_TRUNC)) {
 		if (!(access_bits & PROC_FD_MODE_WRITE)) {
+			free(path_obj);
 			close_fs(node);
 			return -EINVAL;
 		}
@@ -257,31 +271,25 @@ long sys_open(const char * file, long flags, mode_t mode_in) {
 	}
 
 	if (!node) {
+		free(path_obj);
 		return -error;
 	}
 	if (node && (flags & O_CREAT) && (node->flags & FS_DIRECTORY)) {
+		free(path_obj);
 		close_fs(node);
 		return -EISDIR;
 	}
 
 	if (flags & O_CLOEXEC) access_bits |= PROC_FD_MODE_CLOEXEC;
 	if (flags & O_CLOFORK) access_bits |= PROC_FD_MODE_CLOFORK;
+	if (flags & O_APPEND)  access_bits |= PROC_FD_MODE_APPEND;
 
-	int fd = process_append_fd((process_t *)this_core->current_process, node, access_bits);
-	if (flags & O_APPEND) {
-		FD_OFFSET(fd) = node->length;
-	} else {
-		FD_OFFSET(fd) = 0;
-	}
-	return fd;
+	return process_new_fd((process_t *)this_core->current_process, node, access_bits, path_obj);
 }
 
 long sys_close(int fd) {
 	if (!FD_CHECK(fd)) return -EBADF;
-
-	close_fs(FD_ENTRY(fd));
-	FD_ENTRY(fd) = NULL;
-	return 0;
+	return process_close_fd((process_t*)this_core->current_process, fd);
 }
 
 long sys_seek(int fd, long offset, long whence) {
@@ -795,15 +803,22 @@ long sys_uname(struct utsname * name) {
 long sys_chdir(char * newdir) {
 	PTR_VALIDATE(newdir);
 	if (!newdir) return -EFAULT;
+	struct fs_path * path = NULL;
 	int error = 0;
-	fs_node_t * chd = kopen_error(newdir, 0, &error);
-	if (!chd) return  -error;
-	if (!(chd->flags & FS_DIRECTORY)) return -ENOTDIR;
-	if (!has_permission(chd, X_OK)) return close_fs(chd), -EACCES;
+	fs_node_t * chd = kopen_to_path(newdir, 0, &error, &path);
 
-	fs_node_t * old = this_core->current_process->wd_node;
-	this_core->current_process->wd_node = chd;
-	close_fs(old);
+	if (!chd) return  -error;
+
+	if (!(chd->flags & FS_DIRECTORY)) {
+		if (path) free(path);
+		return close_fs(chd), -ENOTDIR;
+	}
+	if (!has_permission(chd, X_OK)) {
+		if (path) free(path);
+		return close_fs(chd), -EACCES;
+	}
+
+	process_chdir((process_t*)this_core->current_process, chd, path);
 
 	return 0;
 }
@@ -835,15 +850,15 @@ long sys_fcntl(int fd, int cmd, long arg) {
 	switch (cmd) {
 		case F_GETFD: {
 			int flags = 0;
-			if (FD_MODE(fd) & PROC_FD_MODE_CLOEXEC) flags |= FD_CLOEXEC;
-			if (FD_MODE(fd) & PROC_FD_MODE_CLOFORK) flags |= FD_CLOFORK;
+			if (FD_CLO_MODE(fd) & FD_PTR_CLOEXEC) flags |= FD_CLOEXEC;
+			if (FD_CLO_MODE(fd) & FD_PTR_CLOFORK) flags |= FD_CLOFORK;
 			return flags;
 		}
 		case F_SETFD: {
-			int new_mode = FD_MODE(fd) & PROC_FD_MODE__RW;
-			if (arg & FD_CLOEXEC) new_mode |= PROC_FD_MODE_CLOEXEC;
-			if (arg & FD_CLOFORK) new_mode |= PROC_FD_MODE_CLOFORK;
-			FD_MODE(fd) = new_mode;
+			int new_mode = 0;
+			if (arg & FD_CLOEXEC) new_mode |= FD_PTR_CLOEXEC;
+			if (arg & FD_CLOFORK) new_mode |= FD_PTR_CLOFORK;
+			fd_set_mode_flags(fd, new_mode);
 			return 0;
 		}
 		case F_GETFL: {
@@ -851,11 +866,13 @@ long sys_fcntl(int fd, int cmd, long arg) {
 			if ((FD_MODE(fd) & PROC_FD_MODE__RW) == PROC_FD_MODE__RW) mode = O_RDWR;
 			else if (FD_MODE(fd) & PROC_FD_MODE_READ) mode = O_RDONLY;
 			else if (FD_MODE(fd) & PROC_FD_MODE_WRITE) mode = O_WRONLY;
-			/* TODO we don't persist O_APPEND and there are other flags we don't support */
+			if ((FD_MODE(fd) & PROC_FD_MODE_APPEND)) mode |= O_APPEND;
 			return mode;
 		}
 		case F_SETFL: {
-			return 0; /* TODO NONBLOCK, APPEND, SYNC... */
+			if (arg & O_APPEND) FD_MODE(fd) |= PROC_FD_MODE_APPEND;
+			else FD_MODE(fd) &= ~(PROC_FD_MODE_APPEND);
+			return 0;
 		}
 		case F_DUPFD_CLOEXEC:
 		case F_DUPFD_CLOFORK:
@@ -1050,10 +1067,10 @@ long sys_pipe2(int pipes[2], int flag) {
 
 	static uint64_t pipe_count = 0;
 	uint64_t pipe_cnt = pipe_count++;
-	outpipes[0]->fsn_path = fs_path_printf("pipe:[%zu]", pipe_cnt);
-	pipes[0] = process_append_fd((process_t *)this_core->current_process, outpipes[0], flags);
-	outpipes[1]->fsn_path = fs_path_printf("pipe:[%zu]", pipe_cnt);
-	pipes[1] = process_append_fd((process_t *)this_core->current_process, outpipes[1], flags);
+
+	/* TODO paths on descriptions... */
+	pipes[0] = process_new_fd((process_t *)this_core->current_process, outpipes[0], flags, fs_path_printf("pipe:[%zu]", pipe_cnt));
+	pipes[1] = process_new_fd((process_t *)this_core->current_process, outpipes[1], flags, fs_path_printf("pipe:[%zu]", pipe_cnt));
 
 	return 0;
 }
@@ -1297,10 +1314,8 @@ long sys_openpty(int * manager, int * subsidiary, char * name, struct termios * 
 	}
 
 	/* Append the manager and subsidiary to the calling process */
-	fs_manager->fsn_path = fs_alloc_path_from(pty_name, "openpty");
-	*manager = process_append_fd((process_t *)this_core->current_process, fs_manager,PROC_FD_MODE__RW|PROC_FD_MODE_CLOEXEC);
-	fs_subsidiary->fsn_path = fs_alloc_path_from(pty_name+4, "openpty");
-	*subsidiary  = process_append_fd((process_t *)this_core->current_process, fs_subsidiary, PROC_FD_MODE__RW|PROC_FD_MODE_CLOEXEC);
+	*manager = process_new_fd((process_t *)this_core->current_process, fs_manager,PROC_FD_MODE__RW|PROC_FD_MODE_CLOEXEC, fs_alloc_path_from(pty_name, "openpty"));
+	*subsidiary  = process_new_fd((process_t *)this_core->current_process, fs_subsidiary, PROC_FD_MODE__RW|PROC_FD_MODE_CLOEXEC, fs_alloc_path_from(pty_name+4, "openpty"));
 
 	open_fs(fs_manager, 0);
 	open_fs(fs_subsidiary, 0);
@@ -1405,7 +1420,7 @@ long sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t 
 	/* Store original file writability */
 	if (FD_MODE(fd) & PROC_FD_MODE_WRITE) flags |= MAP_FD_WRITABLE;
 
-	return do_mmap(addr, length, prot, flags, FD_ENTRY(fd), offset);
+	return do_mmap(addr, length, prot, flags, FD_FILE(fd), offset);
 }
 
 long sys_munmap(uintptr_t addr, size_t length) {

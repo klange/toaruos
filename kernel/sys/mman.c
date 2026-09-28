@@ -46,8 +46,8 @@ _retry: (void)0;
 
 			union PML * page = mmu_get_page_other_x(proc->thread.page_directory->directory, align_down, MMU_GET_MAKE);
 
-			if (maps->file && maps->file->ops->fault_map) {
-				int ret = maps->file->ops->fault_map(maps->file, page, map_fsoff, flags, maps->flags, maps->prot, &mmu_flags);
+			if (maps->file && maps->file->inode->ops->fault_map) {
+				int ret = maps->file->inode->ops->fault_map(maps->file->inode, page, map_fsoff, flags, maps->flags, maps->prot, &mmu_flags);
 
 				if (ret == 0) {
 					/* fault_map did something with the page, we should finish allocating it
@@ -78,7 +78,7 @@ _retry: (void)0;
 
 			char * page_back = mmu_map_from_physical((uintptr_t)page->bits.page << 12);
 			if (maps->file) {
-				ssize_t r = read_fs(maps->file, map_fsoff, 0x1000, (void*)page_back);
+				ssize_t r = read_fs(maps->file->inode, map_fsoff, 0x1000, (void*)page_back);
 				if (r >= 0 && r < 0x1000) {
 					memset((void*)(page_back + r), 0, 0x1000 - r);
 				}
@@ -130,7 +130,7 @@ static void unmap_segments_locked(uintptr_t addr, intptr_t length, process_t * p
 				if (!prev) this_core->current_process->thread.page_directory->mappings = maps->next;
 				else prev->next = maps->next;
 				if (maps->next) maps->next->prev = maps->prev;
-				if (maps->file) close_fs(maps->file);
+				if (maps->file) fs_close_desc((uintptr_t)maps->file);
 				free(maps);
 				continue;
 			} else if (addr <= maps->base && nend < oend) {
@@ -150,10 +150,9 @@ static void unmap_segments_locked(uintptr_t addr, intptr_t length, process_t * p
 				split->owner = maps->owner;
 				split->prot = maps->prot;
 				split->flags = maps->flags;
-				split->file = maps->file;
 				if (maps->file) {
+					split->file = (void*)fs_clone_desc((uintptr_t)maps->file, 0);
 					split->offset = maps->offset + into;
-					open_fs(split->file, 0);
 				}
 
 				split->next = maps->next;
@@ -187,7 +186,7 @@ static void sanity_check(union PML * page) {
 #endif
 }
 
-static void insert_mapping(uintptr_t addr, intptr_t length, int prot, int flags, fs_node_t * node, off_t offset) {
+static void insert_mapping(uintptr_t addr, intptr_t length, int prot, int flags, struct fs_file_description * node, off_t offset) {
 	process_t * proc = this_core->current_process->process;
 	unmap_segments_locked(addr, length, proc);
 
@@ -213,7 +212,7 @@ static void insert_mapping(uintptr_t addr, intptr_t length, int prot, int flags,
 				next->next->prev = prev;
 			}
 
-			if (next->file) close_fs(next->file);
+			if (next->file) fs_close_desc((uintptr_t)next->file);
 			free(next);
 		}
 	} else if (next && next->base == addr + length && next->flags == flags && next->prot == prot && next->file == node && (!node || (offset + length == next->offset))) {
@@ -227,10 +226,9 @@ static void insert_mapping(uintptr_t addr, intptr_t length, int prot, int flags,
 		new_mapping->length = length;
 		new_mapping->prot = prot;
 		new_mapping->flags = flags;
-		new_mapping->file = node;
 		if (node) {
+			new_mapping->file = (void*)fs_clone_desc((uintptr_t)node, 0);
 			new_mapping->offset = offset;
-			open_fs(node, 0);
 		}
 
 		new_mapping->owner = this_core->current_process->thread.page_directory;
@@ -275,7 +273,7 @@ static uintptr_t find_good_spot(process_t * proc, size_t length) {
 	return addr;
 }
 
-long do_mmap(uintptr_t addr, size_t length, int prot, int flags, fs_node_t * file, off_t offset) {
+long do_mmap(uintptr_t addr, size_t length, int prot, int flags, struct fs_file_description * file, off_t offset) {
 	process_t * proc = this_core->current_process->process;
 
 	/* Address must be aligned */
@@ -296,7 +294,7 @@ long do_mmap(uintptr_t addr, size_t length, int prot, int flags, fs_node_t * fil
 	if (file) {
 		if (flags & MAP_ANONYMOUS) return -EINVAL;
 		if (offset & 0xFFF) return -EINVAL;
-		if ((flags & MAP_SHARED) && !file->ops->fault_map) return -EINVAL;
+		if ((flags & MAP_SHARED) && !file->inode->ops->fault_map) return -EINVAL;
 	} else {
 		if (!(flags & MAP_ANONYMOUS)) return -EINVAL;
 		if (flags & MAP_SHARED) return -ENOTSUP;

@@ -25,6 +25,7 @@
 #include <kernel/list.h>
 #include <kernel/hashmap.h>
 #include <kernel/procfs.h>
+#include <kernel/process.h>
 #include <kernel/net/netif.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
