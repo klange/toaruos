@@ -455,6 +455,56 @@ static void proc_fd_func(fs_node_t * node) {
 	spin_unlock(proc->fds->lock);
 }
 
+static void proc_fdinfo_ent_func(fs_node_t * node) {
+	process_t * proc = process_from_pid(node->impl);
+	procfs_entry_t * self = (procfs_entry_t *)node;
+
+	if (!proc->fds) return;
+
+	spin_lock(proc->fds->lock);
+	if (proc->fds->entries[self->id]) {
+		uintptr_t desc_ptr = proc->fds->entries[self->id];
+		struct fs_file_description * desc = FD_PTR_MASK(desc_ptr);
+		uint64_t flags = desc->flags;
+		if (desc_ptr & FD_PTR_CLOEXEC) flags |= PROC_FD_MODE_CLOEXEC;
+		if (desc_ptr & FD_PTR_CLOFORK) flags |= PROC_FD_MODE_CLOFORK;
+		procfs_printf(
+			node,
+			"pos:\t%ld\n"
+			"flags:\t%#x\n"
+			"ino:\t%lu\n",
+			desc->offset,
+			flags,
+			desc->inode->inode);
+	}
+	spin_unlock(proc->fds->lock);
+}
+
+
+static void proc_fdinfo_func(fs_node_t * node) {
+	process_t * proc = process_from_pid(node->impl);
+	procfs_entry_t * self = (procfs_entry_t *)node;
+
+	self->files = list_create("files", node);
+	self->free_node = proc_fd_dir_free;
+
+	if (!proc->fds) return;
+
+	spin_lock(proc->fds->lock);
+	for (uint32_t i = 0; i < proc->fds->length; ++i) {
+		if (proc->fds->entries[i]) {
+			struct procfs_entry * ent = calloc(1, sizeof(struct procfs_entry));
+			ent->id = i;
+			char fd_num[30];
+			snprintf(fd_num, 30, "%u", i);
+			ent->name = strdup(fd_num);
+			ent->func = proc_fdinfo_ent_func;
+			list_insert(self->files, ent);
+		}
+	}
+	spin_unlock(proc->fds->lock);
+}
+
 static struct procfs_entry procdir_entries[] = {
 	{1, "cmdline", proc_cmdline_func, 0},
 	{2, "status",  proc_status_func, 0},
@@ -462,6 +512,7 @@ static struct procfs_entry procdir_entries[] = {
 	{4, "maps",    proc_maps_func, 0},
 	{5, "fd",      proc_fd_func, FS_DIRECTORY},
 	{6, "exe",     proc_exe_func, FS_SYMLINK},
+	{7, "fdinfo",  proc_fdinfo_func, FS_DIRECTORY},
 };
 
 static int readdir_procfs_procdir(fs_node_t *node, uint64_t index, struct dirent * out) {
