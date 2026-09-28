@@ -25,8 +25,8 @@ def safe_listdir(path):
 def safe_readlink(path):
     try:
         return os.readlink(path)
-    except:
-        return None
+    except Exception as e:
+        return f'{path} (readlink: {e})'
 
 def getpwnam(uid):
     '''Because we don't have a 'pwd' module...'''
@@ -37,7 +37,8 @@ def getpwnam(uid):
     return str(uid)
 
 def __main__(args):
-    let columns = ['COMMAND', 'PID', 'USER', 'FD', 'NAME']
+    let columns = ['COMMAND', 'PID', 'USER', 'FD ', 'NAME']
+    let aligns  = ['<',       '>',   '>',    '>',   '<']
     let files = []
     let pids = []
     let max_width = None
@@ -78,8 +79,8 @@ def __main__(args):
             user = getpwnam(userid)
 
         # Shortcut for common parts
-        def add_file(fd, path):
-            files.append((name, pid, user, fd, path))
+        def add_file(fd, path, mode=' '):
+            files.append((name, pid, user, f'{fd}{mode}', path))
 
         # cwd
         let cwd = safe_readlink(f'/proc/{pid}/cwd')
@@ -89,7 +90,18 @@ def __main__(args):
         for fd in safe_listdir(f'/proc/{pid}/fd'):
             if not fd.isdigit(): continue
             let path = safe_readlink(f'/proc/{pid}/fd/{fd}')
-            if path: add_file(fd, path)
+            let info = {}
+            for line in safe_readlines(f'/proc/{pid}/fdinfo/{fd}'):
+                if '\t' in line:
+                let vals = line.strip().split('\t')
+                info[vals[0]] = vals[1]
+            let mode = ' '
+            if 'flags:' in info:
+                let b = int(info['flags:'], base=0)
+                if (b & 3) == 3: mode = 'u' # READ | WRITE
+                else if (b & 1): mode = 'r' # READ
+                else if (b & 2): mode = 'w' # WRITE
+            if path: add_file(fd, path, mode)
 
         # Mapped files
         let seen = set()
@@ -124,11 +136,11 @@ def __main__(args):
             lengths[i] = max(lengths[i], len(str(file[i])))
 
     # Header
-    print(' '.join(columns[i].__format__(str(lengths[i])) for i in range(len(columns)))[:max_width])
+    print(' '.join(columns[i].__format__(f'{aligns[i]}{lengths[i]}') for i in range(len(columns)))[:max_width])
 
     # Print 'em
     for file in files:
-        print(' '.join(file[i].__format__(str(lengths[i])) for i in range(len(columns)))[:max_width])
+        print(' '.join(file[i].__format__(f'{aligns[i]}{lengths[i]}') for i in range(len(columns)))[:max_width])
 
     return 0
 
