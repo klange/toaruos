@@ -516,7 +516,6 @@ process_t * spawn_process(volatile process_t * parent, int flags, int close_at_f
 	proc->id          = get_next_pid();
 	proc->tgid        = proc->id;
 	proc->name        = strdup(parent->name);
-	proc->cmdline     = parent->cmdline; /* FIXME dup it? */
 
 	proc->user        = parent->user;
 	proc->real_user   = parent->real_user;
@@ -615,6 +614,8 @@ void process_reap(process_t * proc) {
 		list_free(proc->sig_queue);
 		free(proc->sig_queue);
 	}
+
+	process_free_cmdline(proc);
 
 	free(proc->name);
 	free(proc);
@@ -1397,6 +1398,29 @@ void task_exit(long retval) {
 #define PUSH(stack, type, item) stack -= sizeof(type); \
 							*((volatile type *) stack) = item
 
+static char ** dup_cmdline(process_t * proc) {
+	if (!proc->cmdline) return NULL;
+
+	size_t sz = 0;
+	while (proc->cmdline[sz]) sz++;
+
+	char ** cmdline = calloc(sz + 1, sizeof(char*));
+	for (size_t j = 0; j < sz; ++j) {
+		cmdline[j] = strdup(proc->cmdline[j]);
+	}
+
+	return cmdline;
+}
+
+void process_free_cmdline(process_t * proc) {
+	if (!proc->cmdline) return;
+	for (int j = 0; proc->cmdline[j]; j++) {
+		free(proc->cmdline[j]);
+	}
+	free(proc->cmdline);
+	proc->cmdline = NULL;
+}
+
 pid_t fork(void) {
 	uintptr_t sp, bp;
 	process_t * parent = (process_t*)this_core->current_process;
@@ -1407,6 +1431,7 @@ pid_t fork(void) {
 	new_proc->thread.page_directory = calloc(1, sizeof(page_directory_t));
 	new_proc->thread.page_directory->refcount = 1;
 	new_proc->thread.page_directory->directory = directory;
+	new_proc->cmdline = dup_cmdline(parent);
 
 	memmap_t * prev = NULL;
 	for (memmap_t * maps = parent->thread.page_directory->mappings; maps; maps = maps->next) {

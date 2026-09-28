@@ -965,6 +965,8 @@ long sys_execve(const char * filename, char *const argv[], char *const envp[]) {
 		}
 	}
 
+	process_free_cmdline((process_t*)this_core->current_process);
+
 	char **argv_ = malloc(sizeof(char*) * (argc + 1));
 	for (int j = 0; j < argc; ++j) {
 		argv_[j] = malloc(strlen(argv[j]) + 1);

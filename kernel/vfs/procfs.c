@@ -238,12 +238,12 @@ static void proc_cmdline_func(fs_node_t *node) {
 		return;
 	}
 
-	if (!proc->cmdline) {
+	if (!proc->cmdline && !proc->process->cmdline) {
 		procfs_printf(node, "%s", proc->name);
 		return;
 	}
 
-	char ** args = proc->cmdline;
+	char ** args = proc->cmdline ? proc->cmdline : proc->process->cmdline;
 	while (*args) {
 		procfs_printf(node, "%s", *args);
 		if (*(args+1)) {
