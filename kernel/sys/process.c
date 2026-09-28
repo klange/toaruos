@@ -677,7 +677,9 @@ void process_delete(process_t * proc) {
 	spin_lock(tree_lock);
 	int has_children = entry->children->length;
 	tree_remove_reparent_root(process_tree, entry);
-	list_delete(process_list, list_find(process_list, proc));
+	node_t * n = list_find(process_list, proc);
+	list_delete(process_list, n);
+	free(n);
 	spin_unlock(tree_lock);
 
 	if (has_children) {
@@ -719,6 +721,8 @@ void make_process_ready(volatile process_t * proc) {
 				list_delete(sleep_queue, proc->timed_sleep_node);
 				proc->sleep_node.owner = NULL;
 				free(proc->timed_sleep_node->value);
+				free(proc->timed_sleep_node);
+				proc->timed_sleep_node = NULL;
 			}
 		} else {
 			/* This was blocked on a semaphore we can interrupt. */
@@ -978,7 +982,7 @@ void sleep_until(process_t * process, unsigned long seconds, unsigned long subse
 		}
 		before = node;
 	}
-	sleeper_t * proc = malloc(sizeof(sleeper_t));
+	sleeper_t * proc = calloc(1, sizeof(sleeper_t));
 	proc->process     = process;
 	proc->end_tick    = seconds;
 	proc->end_subtick = subseconds;
@@ -1157,7 +1161,7 @@ int process_timeout_sleep(process_t * process, int timeout) {
 		}
 		before = node;
 	}
-	sleeper_t * proc = malloc(sizeof(sleeper_t));
+	sleeper_t * proc = calloc(1, sizeof(sleeper_t));
 	proc->process     = process;
 	proc->end_tick    = s;
 	proc->end_subtick = ss;
@@ -1322,6 +1326,8 @@ void task_exit(long retval) {
 	/* free whatever we can */
 	list_free(this_core->current_process->wait_queue);
 	free(this_core->current_process->wait_queue);
+	this_core->current_process->wait_queue = NULL;
+
 	if (this_core->current_process->node_waits) {
 		list_free(this_core->current_process->node_waits);
 		free(this_core->current_process->node_waits);
@@ -1346,8 +1352,14 @@ void task_exit(long retval) {
 		}
 	}
 
-	if (this_core->current_process->exe) fs_close_desc((uintptr_t)this_core->current_process->exe);
-	if (this_core->current_process->wd)  fs_close_desc((uintptr_t)this_core->current_process->wd);
+	if (this_core->current_process->exe) {
+		fs_close_desc((uintptr_t)this_core->current_process->exe);
+		this_core->current_process->exe = NULL;
+	}
+	if (this_core->current_process->wd) {
+		fs_close_desc((uintptr_t)this_core->current_process->wd);
+		this_core->current_process->wd = NULL;
+	}
 
 	if (this_core->current_process->tracees) {
 		spin_lock(this_core->current_process->wait_lock);
@@ -1496,7 +1508,7 @@ pid_t fork(void) {
 pid_t clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 	uintptr_t sp, bp;
 	process_t * parent = (process_t *)this_core->current_process;
-	process_t * new_proc = spawn_process(parent->process, 1, 0);
+	process_t * new_proc = spawn_process(parent->process, PROC_REUSE_FDS, 0);
 	new_proc->process = parent->process;
 	new_proc->tgid = parent->process->id;
 	new_proc->thread.page_directory = this_core->current_process->thread.page_directory;
