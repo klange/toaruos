@@ -1254,6 +1254,7 @@ void mmu_unmap_module(uintptr_t start_address, size_t size) {
 	for (uintptr_t i = start_address; i < end_address; i += 0x1000) {
 		union PML * p = mmu_get_page(i, 0);
 		mmu_frame_clear(p->bits.page << 12);
+		p->raw = 0;
 	}
 
 	/* Reset module base address if it was at the end, to avoid wasting address space */
