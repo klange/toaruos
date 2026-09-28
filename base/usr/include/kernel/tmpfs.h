@@ -7,17 +7,9 @@
 fs_node_t * tmpfs_create(char * name);
 
 struct tmpfs_file {
+	fs_node_t _node;
 	spin_lock_t lock;
-	ino_t  ino;
 	char * name;
-	int    type;
-	int    mask;
-	uid_t  uid;
-	uid_t  gid;
-	unsigned int atime;
-	unsigned int mtime;
-	unsigned int ctime;
-	fs_node_t * mount;
 	size_t length;
 	size_t block_count;
 	size_t pointers;
@@ -28,17 +20,9 @@ struct tmpfs_file {
 struct tmpfs_dir;
 
 struct tmpfs_dir {
+	fs_node_t _node;
 	spin_lock_t lock;
-	ino_t  ino;
 	char * name;
-	int    type;
-	int    mask;
-	uid_t  uid;
-	uid_t  gid;
-	unsigned int atime;
-	unsigned int mtime;
-	unsigned int ctime;
-	fs_node_t * mount;
 	list_t * files;
 	struct tmpfs_dir * parent;
 	spin_lock_t nest_lock;
