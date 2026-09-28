@@ -1481,6 +1481,7 @@ int shell_exec(char * buffer, size_t size, FILE * file, char ** out_buffer, char
 							set_pgrp(getpid());
 							is_subshell = 1;
 							dup2(out_pipe[1], STDOUT_FILENO);
+							close(out_pipe[1]);
 							close(out_pipe[0]);
 							shell_interactive = 0;
 							char * out = NULL;
@@ -1810,6 +1811,7 @@ _nope:
 			if (!nowait) set_pgrp(getpid());
 			is_subshell = 1;
 			dup2(last_output[1], STDOUT_FILENO);
+			close(last_output[1]);
 			close(last_output[0]);
 			add_environment(extra_env);
 			run_cmd(arg_starts[0]);
@@ -1825,6 +1827,8 @@ _nope:
 				set_pgid(pgid);
 				dup2(tmp_out[1], STDOUT_FILENO);
 				dup2(last_output[0], STDIN_FILENO);
+				close(tmp_out[1]);
+				close(last_output[0]);
 				close(tmp_out[0]);
 				close(last_output[1]);
 				add_environment(extra_env);
@@ -1849,6 +1853,7 @@ _nope:
 					exit(1);
 				} else {
 					dup2(fd, STDOUT_FILENO);
+					close(fd);
 				}
 			}
 			if (err_files[cmdi]) {
@@ -1858,9 +1863,11 @@ _nope:
 					exit(1);
 				} else {
 					dup2(fd, STDERR_FILENO);
+					close(fd);
 				}
 			}
 			dup2(last_output[0], STDIN_FILENO);
+			close(last_output[0]);
 			close(last_output[1]);
 			add_environment(extra_env);
 			run_cmd(arg_starts[cmdi]);
@@ -1876,30 +1883,38 @@ _nope:
 			int old_out = -1;
 			int old_err = -1;
 			if (output_files[0]) {
-				old_out = dup(STDOUT_FILENO);
-				fcntl(old_out, F_SETFD, FD_CLOEXEC);
+				old_out = fcntl(STDOUT_FILENO, F_DUPFD_CLOEXEC, 3);
 				int fd = open(output_files[cmdi], file_args[cmdi], 0666);
 				if (fd < 0) {
+					close(old_out);
 					fprintf(stderr, "%s: %s: %s\n", esh_name, output_files[cmdi], strerror(errno));
 					return -1;
 				} else {
 					dup2(fd, STDOUT_FILENO);
+					close(fd);
 				}
 			}
 			if (err_files[0]) {
-				old_err = dup(STDERR_FILENO);
-				fcntl(old_err, F_SETFD, FD_CLOEXEC);
+				old_err = fcntl(STDERR_FILENO, F_DUPFD_CLOEXEC, 3);
 				int fd = open(err_files[cmdi], err_args[cmdi], 0666);
 				if (fd < 0) {
+					close(old_err);
 					fprintf(stderr, "%s: %s: %s\n", esh_name, err_files[cmdi], strerror(errno));
 					return -1;
 				} else {
 					dup2(fd, STDERR_FILENO);
+					close(fd);
 				}
 			}
 			int result = func(argcs[0], arg_starts[0]);
-			if (old_out != -1) dup2(old_out, STDOUT_FILENO);
-			if (old_err != -1) dup2(old_err, STDERR_FILENO);
+			if (old_out != -1) {
+				dup2(old_out, STDOUT_FILENO);
+				close(old_out);
+			}
+			if (old_err != -1) {
+				dup2(old_err, STDERR_FILENO);
+				close(old_err);
+			}
 			return result;
 		} else {
 			struct semaphore s = create_semaphore();
@@ -1916,6 +1931,7 @@ _nope:
 						exit(1);
 					} else {
 						dup2(fd, STDOUT_FILENO);
+						close(fd);
 					}
 				}
 				if (err_files[cmdi]) {
@@ -1925,6 +1941,7 @@ _nope:
 						exit(1);
 					} else {
 						dup2(fd, STDERR_FILENO);
+						close(fd);
 					}
 				}
 				add_environment(extra_env);
@@ -2109,8 +2126,7 @@ int main(int argc, char ** argv) {
 
 	install_commands();
 
-	int err = dup(STDERR_FILENO);
-	fcntl(err, F_SETFD, FD_CLOEXEC);
+	int err = fcntl(STDERR_FILENO, F_DUPFD_CLOEXEC, 3);
 	shell_stderr = fdopen(err, "w");
 
 	if (argc > 1) {
@@ -2482,6 +2498,7 @@ uint32_t shell_cmd_export_cmd(int argc, char * argv[]) {
 		set_pgrp(getpid());
 		is_subshell = 1;
 		dup2(pipe_fds[1], STDOUT_FILENO);
+		close(pipe_fds[1]);
 		close(pipe_fds[0]);
 		run_cmd(&argv[2]);
 	}
