@@ -124,6 +124,7 @@ int exec(const char * path, int argc, char *const argv[], char *const env[], int
 	unsigned char head[4];
 	read_fs(file, 0, 4, head);
 
+	if (this_core->current_process->name) free(this_core->current_process->name);
 	this_core->current_process->name = strdup(path);
 	gettimeofday((struct timeval*)&this_core->current_process->start, NULL);
 
