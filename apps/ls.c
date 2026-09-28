@@ -22,6 +22,7 @@
 #include <wchar.h>
 #include <getopt.h>
 #include <errno.h>
+#include <err.h>
 
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -270,7 +271,7 @@ static void print_entry_long(int * widths, int * colwidth, struct tfile * file) 
 	if (show_slash && S_ISDIR(file->statbuf.st_mode)) {
 		printf("/");
 	}
-	if (S_ISLNK(file->statbuf.st_mode)) {
+	if (S_ISLNK(file->statbuf.st_mode) && *file->link) {
 		printf(" -> ");
 		const char * s = file->lstatres == 0 ? ls_color_str(file->link, &file->statbufl) : LS_C(MISS);
 		if (use_color && s) {
@@ -415,6 +416,10 @@ static int display_dir(char * p) {
 			f->link = malloc(f->statbuf.st_size + 1);
 			ssize_t len = readlink(tmp, f->link, f->statbuf.st_size);
 			if (len >= 0) f->link[len] = '\0';
+			else {
+				warn("cannot read symbolic link '%s'", tmp);
+				f->link[0] = '\0';
+			}
 		}
 
 		list_insert(ents_list, (void *)f);
@@ -532,8 +537,7 @@ int main (int argc, char * argv[]) {
 					} else if (!strcmp(optarg, "always")) {
 						use_color = 1;
 					} else {
-						fprintf(stderr, "%s: --color= must be one of 'never', 'auto', or 'always'\n", argv[0]);
-						return 1;
+						errx(1, "--color= must be one of 'never', 'auto', or 'always'");
 					}
 				} else {
 					use_color = 1; /* --color is equivalent to --color=always */
@@ -574,7 +578,7 @@ int main (int argc, char * argv[]) {
 
 	if (argc == 1 || optind == argc) {
 		if (display_dir(p) == 2) {
-			fprintf(stderr, "%s: %s: %s\n", argv[0], p, strerror(errno));
+			warn("cannot access '%s'", p);
 		}
 	} else {
 		list_t * files = list_create();
@@ -585,7 +589,7 @@ int main (int argc, char * argv[]) {
 			int t = lstat(p, &f->statbuf);
 
 			if (t < 0) {
-				fprintf(stderr, "%s: %s: %s\n", argv[0], p, strerror(errno));
+				warn("cannot access '%s'", p);
 				free(f);
 				out = 2;
 			} else {
@@ -594,6 +598,10 @@ int main (int argc, char * argv[]) {
 					f->link = malloc(f->statbuf.st_size + 1);
 					ssize_t len = readlink(p, f->link, f->statbuf.st_size);
 					if (len >= 0) f->link[len] = '\0';
+					else {
+						warn("cannot read symbolic link '%s'", p);
+						f->link[0] = '\0';
+					}
 				}
 				list_insert(files, f);
 			}
@@ -636,7 +644,7 @@ int main (int argc, char * argv[]) {
 				printf("\n");
 			}
 			if (display_dir(file_arr[i]->name) == 2) {
-				fprintf(stderr, "%s: %s: %s\n", argv[0], file_arr[i]->name, strerror(errno));
+				warn("cannot access '%s'", file_arr[i]->name);
 			}
 		}
 	}
