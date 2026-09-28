@@ -117,12 +117,6 @@ void * __attribute__ ((malloc)) valloc(uintptr_t size) {
 
 void free(void * ptr) {
 	spin_lock(mem_lock);
-#ifndef __aarch64__
-	if (ptr < (void*)0xffffff0000000000) {
-		printf("Invalid free detected (%p)\n", ptr);
-		while (1) {};
-	}
-#endif
 	klfree(ptr);
 	spin_unlock(mem_lock);
 }
