@@ -1043,20 +1043,29 @@ struct fs_file_description * kopen_at(
 		mode_t mode, /* access modes with O_CREAT */
 		int *error /* E output */
 ) {
+	struct fs_path * path = NULL;
+	int access_bits = 0;
+	*error = 0;
 
+	/* Only reject bad dirfd if path is relative */
 	if (*filename != '/' && !dirfd) return (*error = EBADF), NULL;
 	if (*filename != '/' && !(dirfd->inode->flags & FS_DIRECTORY)) return (*error = ENOTDIR), NULL;
 
-	*error = 0;
-	struct fs_path * path = NULL;
+	if (flags & O_PATH) flags &= (O_PATH | O_NOFOLLOW | O_DIRECTORY); /* Ignore everything else */
 
 	fs_node_t * node = kopen_recur(filename, flags, 0 /* depth */, (dirfd && dirfd->path) ? dirfd->path->chars : (char*)"/", error, &path, mode);
 
 	if (!node) return NULL;
 
+	/* Reject non-directory with O_DIRECTORY early */
+	if ((flags & O_DIRECTORY) && !(node->flags & FS_DIRECTORY)) return close_fs(node), free(path), *error = ENOTDIR, NULL;
+
+	/* Accept whatever we got at this point. */
+	if (flags & O_PATH) return fs_fresh_descriptor(node, 0, path);
+
 	if ((flags & O_NOFOLLOW) && (node->flags & FS_SYMLINK)) return close_fs(node), free(path), *error = ELOOP, NULL;
 
-	int access_bits = 0;
+	/* TODO O_EXEC/O_SEARCH */
 
 	if (!(flags & O_WRONLY) || (flags & O_RDWR)) {
 		if (!has_permission(node, R_OK)) return close_fs(node), free(path), *error = EACCES, NULL;
@@ -1068,8 +1077,6 @@ struct fs_file_description * kopen_at(
 		if (node->flags & FS_DIRECTORY) return close_fs(node), free(path), *error = EISDIR, NULL;
 		access_bits |= PROC_FD_MODE_WRITE;
 	}
-
-	if ((flags & O_DIRECTORY) && !(node->flags & FS_DIRECTORY)) return close_fs(node), free(path), *error = ENOTDIR, NULL;
 
 	if (flags & O_TRUNC) {
 		if (!(access_bits & PROC_FD_MODE_WRITE)) return close_fs(node), free(path), *error = EINVAL, NULL;
@@ -1151,7 +1158,8 @@ uint64_t fs_convert_descriptor_flags(uintptr_t desc_ptr) {
 	if (desc_ptr & FD_PTR_CLOFORK) flags |= O_CLOFORK;
 
 	/* File description access bits */
-	if ((desc->flags & PROC_FD_MODE__RW) == PROC_FD_MODE__RW) flags |= O_RDWR;
+	if ((desc->flags & PROC_FD_MODE__RW) == 0) flags |= O_PATH;
+	else if ((desc->flags & PROC_FD_MODE__RW) == PROC_FD_MODE__RW) flags |= O_RDWR;
 	else if (desc->flags & PROC_FD_MODE_READ) flags |= O_RDONLY; /* (this is zero) */
 	else if (desc->flags & PROC_FD_MODE_WRITE) flags |= O_WRONLY;
 

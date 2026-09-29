@@ -159,6 +159,7 @@ int mkdir_fs(const char *name, mode_t permission, fs_node_t **out);
 int create_file_fs(const char *name, mode_t permission, fs_node_t **out);
 fs_node_t *kopen_error(const char *filename, unsigned int flags, int *error);
 fs_node_t *kopen_to_path(const char *filename, unsigned int flags, int *error, struct fs_path **path);
+struct fs_file_description * kopen_at(struct fs_file_description *, const char *, unsigned int, mode_t, int*);
 int ioctl_fs(fs_node_t *node, unsigned long request, void * argp);
 int chmod_fs(fs_node_t *node, mode_t mode);
 int chown_fs(fs_node_t *node, uid_t uid, gid_t gid);

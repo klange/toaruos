@@ -45,6 +45,12 @@ int ptr_validate(void * ptr, const char * syscall) {
 
 #define PTRCHECK(addr,size,flags) do { if (!mmu_validate_user_pointer(addr,size,flags)) return -EFAULT; } while (0)
 
+static struct fs_file_description * do_dirfd(int dirfd) {
+	if (dirfd == AT_FDCWD) return this_core->current_process->wd;
+	else if (FD_CHECK(dirfd)) return FD_FILE(dirfd);
+	return NULL;
+}
+
 __attribute__((noreturn))
 long sys_exit(long exitcode) {
 	task_exit(((unsigned char)exitcode) << 8);
@@ -53,10 +59,10 @@ long sys_exit(long exitcode) {
 
 long sys_write(int fd, char * ptr, unsigned long len) {
 	if (!FD_CHECK(fd)) return -EBADF;
+	if (!(FD_MODE(fd) & PROC_FD_MODE_WRITE)) return -EBADF;
 	PTRCHECK(ptr,len,MMU_PTR_NULL);
 
 	fs_node_t * node = FD_ENTRY(fd);
-	if (!(FD_MODE(fd) & PROC_FD_MODE_WRITE)) return -EBADF;
 	if (!len) return 0;
 
 	off_t off = FD_OFFSET(fd);
@@ -71,11 +77,11 @@ long sys_write(int fd, char * ptr, unsigned long len) {
 
 long sys_pwrite(int fd, void * ptr, size_t count, off_t offset) {
 	if (!FD_CHECK(fd)) return -EBADF;
+	if (!(FD_MODE(fd) & PROC_FD_MODE_WRITE)) return -EBADF;
 	if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ESPIPE;
 	PTRCHECK(ptr,count,MMU_PTR_NULL);
 
 	fs_node_t * node = FD_ENTRY(fd);
-	if (!(FD_MODE(fd) & PROC_FD_MODE_WRITE)) return -EBADF;
 	if (!count) return 0;
 
 	return write_fs(node, offset, count, (uint8_t*)ptr);
@@ -83,10 +89,10 @@ long sys_pwrite(int fd, void * ptr, size_t count, off_t offset) {
 
 long sys_read(int fd, char * ptr, unsigned long len) {
 	if (!FD_CHECK(fd)) return -EBADF;
+	if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
 	PTRCHECK(ptr,len,MMU_PTR_NULL|MMU_PTR_WRITE);
 
 	fs_node_t * node = FD_ENTRY(fd);
-	if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
 	if (!len) return 0;
 
 	off_t off = FD_OFFSET(fd);
@@ -97,11 +103,11 @@ long sys_read(int fd, char * ptr, unsigned long len) {
 
 long sys_pread(int fd, void * ptr, size_t count, off_t offset) {
 	if (!FD_CHECK(fd)) return -EBADF;
+	if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
 	if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ESPIPE;
 	PTRCHECK(ptr,count,MMU_PTR_NULL|MMU_PTR_WRITE);
 
 	fs_node_t * node = FD_ENTRY(fd);
-	if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
 	if (!count) return 0;
 
 	return read_fs(node, offset, count, (uint8_t *)ptr);
@@ -197,126 +203,23 @@ static mode_t modify_mode(mode_t mode_in) {
 	return mode_in & ~(this_core->current_process->process->mask & 0777);
 }
 
-long sys_open(const char * file, long flags, mode_t mode_in) {
-	PTR_VALIDATE(file);
-	if (!file) return -EFAULT;
-	int error = 0;
-	struct fs_path * path_obj = NULL;
-	fs_node_t * node = kopen_to_path((char *)file, flags, &error, &path_obj);
-
+long sys_openat(int dirfd, const char *filename, int flags, mode_t mode_in) {
+	PTR_VALIDATE(filename);
 	mode_t mode = modify_mode(mode_in);
-
-	int access_bits = 0;
-
-	if (node && (flags & O_CREAT) && (flags & O_EXCL)) {
-		free(path_obj);
-		close_fs(node);
-		return -EEXIST;
-	}
-
-	if (!node && (flags & O_CREAT)) {
-		int result = create_file_fs((char *)file, mode, &node);
-		if (result) return result;
-		open_fs(node, flags);
-	}
-
-	if ((flags & O_NOFOLLOW) && (node->flags & FS_SYMLINK)) {
-		free(path_obj);
-		close_fs(node);
-		return -ELOOP;
-	}
-
-	if (!(flags & O_WRONLY) || (flags & O_RDWR)) {
-		if (node && !has_permission(node, R_OK)) {
-			free(path_obj);
-			close_fs(node);
-			return -EACCES;
-		} else {
-			access_bits |= PROC_FD_MODE_READ;
-		}
-	}
-
-	if ((flags & O_RDWR) || (flags & O_WRONLY)) {
-		if (node && !has_permission(node, W_OK)) {
-			free(path_obj);
-			close_fs(node);
-			return -EACCES;
-		}
-		if (node && (node->flags & FS_DIRECTORY)) {
-			free(path_obj);
-			close_fs(node);
-			return -EISDIR;
-		}
-		if ((flags & O_RDWR) || (flags & O_WRONLY)) {
-			/* truncate doesn't grant write permissions */
-			access_bits |= PROC_FD_MODE_WRITE;
-		}
-	}
-
-	if (node && (flags & O_DIRECTORY)) {
-		if (!(node->flags & FS_DIRECTORY)) {
-			free(path_obj);
-			close_fs(node);
-			return -ENOTDIR;
-		}
-	}
-
-	if (node && (flags & O_TRUNC)) {
-		if (!(access_bits & PROC_FD_MODE_WRITE)) {
-			free(path_obj);
-			close_fs(node);
-			return -EINVAL;
-		}
-		truncate_fs(node, 0);
-	}
-
-	if (!node) {
-		free(path_obj);
-		return -error;
-	}
-	if (node && (flags & O_CREAT) && (node->flags & FS_DIRECTORY)) {
-		free(path_obj);
-		close_fs(node);
-		return -EISDIR;
-	}
-
-	if (flags & O_CLOEXEC) access_bits |= PROC_FD_MODE_CLOEXEC;
-	if (flags & O_CLOFORK) access_bits |= PROC_FD_MODE_CLOFORK;
-	if (flags & O_APPEND)  access_bits |= PROC_FD_MODE_APPEND;
-
-	return process_new_fd((process_t *)this_core->current_process, node, access_bits, path_obj);
-}
-
-long sys_openat(int dirfd, const char *filename, int flags, mode_t mode) {
-	extern struct fs_file_description * kopen_at(
-			struct fs_file_description * dirfd,
-			const char *filename,
-			unsigned int flags, /* O_ flags */
-			mode_t mode, /* access modes with O_CREAT */
-			int *error /* E output */
-	);
-
-	struct fs_file_description * fd = NULL;
-	if (dirfd == AT_FDCWD) {
-		fd = this_core->current_process->wd;
-	} else if (FD_CHECK(dirfd)) {
-		fd = FD_FILE(dirfd);
-	}
-
 	int error = 0;
-
-	if (fd) fs_clone_desc((uintptr_t)fd, 0);
+	struct fs_file_description * fd = do_dirfd(dirfd);
 	struct fs_file_description * out = kopen_at(fd, filename, flags, mode, &error);
-	if (fd) fs_close_desc((uintptr_t)fd);
-
 	if (!out) return -error;
-
 	uintptr_t clo_flags = 0;
 
 	if (flags & O_CLOEXEC) clo_flags |= FD_PTR_CLOEXEC;
 	if (flags & O_CLOFORK) clo_flags |= FD_PTR_CLOFORK;
 
 	return process_append_fd((process_t*)this_core->current_process, out, clo_flags);
+}
+
+long sys_open(const char * file, long flags, mode_t mode_in) {
+	return sys_openat(AT_FDCWD, file, flags, mode_in);
 }
 
 long sys_close(int fd) {
@@ -347,6 +250,7 @@ long sys_seek(int fd, long offset, long whence) {
 
 long sys_ioctl(int fd, unsigned long request, void * argp) {
 	if (!FD_CHECK(fd)) return -EBADF;
+	if (!(FD_MODE(fd) & PROC_FD_MODE__RW)) return -EBADF;
 	PTR_VALIDATE(argp);
 
 	return ioctl_fs(FD_ENTRY(fd), request, argp);
@@ -354,6 +258,7 @@ long sys_ioctl(int fd, unsigned long request, void * argp) {
 
 long sys_readdir(int fd, long index, struct dirent * entry) {
 	if (!FD_CHECK(fd)) return -EBADF;
+	if (!(FD_MODE(fd) & PROC_FD_MODE__RW)) return -EBADF;
 	PTRCHECK(entry,sizeof(struct dirent),MMU_PTR_WRITE);
 
 	fs_node_t * node = FD_ENTRY(fd);
@@ -412,6 +317,7 @@ long sys_chmod(char * file, long mode) {
 
 long sys_fchmod(int fd, long mode) {
 	if (!FD_CHECK(fd)) return -EBADF;
+	if (!(FD_MODE(fd) & PROC_FD_MODE__RW)) return -EBADF;
 	return chmod_node(FD_ENTRY(fd), mode);
 }
 
@@ -480,6 +386,7 @@ long sys_lchown(char * file, uid_t uid, gid_t gid) {
 
 long sys_fchown(int fd, uid_t uid, gid_t gid) {
 	if (!FD_CHECK(fd)) return -EBADF;
+	if (!(FD_MODE(fd) & PROC_FD_MODE__RW)) return -EBADF;
 	return chown_node(FD_ENTRY(fd), uid, gid);
 }
 
@@ -533,6 +440,7 @@ long sys_utimens(char * file, const struct timespec * access, const struct times
 
 long sys_futimens(int fd, const struct timespec * access, const struct timespec * modify) {
 	if (!FD_CHECK(fd)) return -EBADF;
+	if (!(FD_MODE(fd) & PROC_FD_MODE__RW)) return -EBADF;
 	return utimens_node(FD_ENTRY(fd), access, modify);
 }
 
@@ -1436,6 +1344,7 @@ long sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t 
 	if (flags & MAP_ANONYMOUS) return do_mmap(addr, length, prot, flags, NULL, 0);
 
 	if (!FD_CHECK(fd)) return -EBADF;
+	if (!(FD_MODE(fd) & PROC_FD_MODE__RW)) return -EBADF;
 
 	/* File must be something we can actually map. */
 	if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ENODEV;

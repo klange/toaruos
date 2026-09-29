@@ -802,7 +802,8 @@ static void fcntl_ret(pid_t pid, long cmd, long ret) {
 			break;
 		case F_GETFL:
 			force = 0;
-			if ((ret & (O_RDWR | O_WRONLY)) == 0) fprintf(logfile, "O_RDONLY%s", ret ? "|" : "");
+			if ((ret & (O_RDWR | O_WRONLY | O_PATH)) == 0) fprintf(logfile, "O_RDONLY%s", ret ? "|" : "");
+			H(O_PATH);
 			H(O_WRONLY);
 			H(O_RDWR);
 			H(O_APPEND);
