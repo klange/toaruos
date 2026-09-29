@@ -219,6 +219,19 @@ long sys_readlink(const char * file, char * ptr, long len) {
 	return rv;
 }
 
+long sys_readlinkat(int dirfd, const char * file, char * ptr, long len) {
+	PTR_VALIDATE(file);
+	PTRCHECK(ptr,len,MMU_PTR_WRITE);
+	if (!file) return -EFAULT;
+	int error = 0;
+	struct fs_file_description * fd = do_dirfd(dirfd);
+	struct fs_file_description * out = kopen_at(fd, file, O_PATH | O_NOFOLLOW, 0, &error);
+	if (!out) return -error;
+	long rv = readlink_fs(out->inode, ptr, len);
+	fs_close_desc((uintptr_t)out);
+	return rv;
+}
+
 static mode_t modify_mode(mode_t mode_in) {
 	return mode_in & ~(this_core->current_process->process->mask & 0777);
 }
@@ -505,6 +518,23 @@ long sys_utimens(char * file, const struct timespec * access, const struct times
 	if (!fn) return -error;
 	long ret = utimens_node(fn, access, modify);
 	close_fs(fn);
+	return ret;
+}
+
+long sys_utimensat(int dirfd, const char * file, const struct timespec * access, const struct timespec * modify, int flag) {
+	PTR_VALIDATE(file);
+	if (!file) return -EFAULT;
+	if (flag & ~(AT_SYMLINK_NOFOLLOW)) return -EINVAL;
+
+	int flags = O_PATH;
+	if (flag & AT_SYMLINK_NOFOLLOW) flags |= O_NOFOLLOW;
+
+	int error = 0;
+	struct fs_file_description * fd = do_dirfd(dirfd);
+	struct fs_file_description * out = kopen_at(fd, file, flags, 0, &error);
+	if (!out) return -error;
+	long ret = utimens_node(out->inode, access, modify);
+	fs_close_desc((uintptr_t)out);
 	return ret;
 }
 
@@ -1570,6 +1600,8 @@ static scall_func syscalls[] = {
 	[SYS_FACCESSAT]    = (scall_func)(uintptr_t)sys_faccessat,
 	[SYS_FCHMODAT]     = (scall_func)(uintptr_t)sys_fchmodat,
 	[SYS_FCHOWNAT]     = (scall_func)(uintptr_t)sys_fchownat,
+	[SYS_READLINKAT]   = (scall_func)(uintptr_t)sys_readlinkat,
+	[SYS_UTIMENSAT]    = (scall_func)(uintptr_t)sys_utimensat,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

@@ -8,6 +8,7 @@
 
 DEFN_SYSCALL3(utimens, SYS_UTIMENS, const char *, const struct timespec *, const struct timespec *);
 DEFN_SYSCALL3(futimens, SYS_FUTIMENS, int, const struct timespec *, const struct timespec *);
+DEFN_SYSCALL5(utimensat, SYS_UTIMENSAT, int, const char *, const struct timespec *, const struct timespec *, int);
 
 int futimes(int fd, const struct timeval times[2]) {
 	struct timespec access;
@@ -34,8 +35,6 @@ int futimens(int fd, const struct timespec times[2]) {
 }
 
 int utimensat(int fd, const char *path, const struct timespec times[2], int flag) {
-	if (fd != AT_FDCWD) return -ENOTSUP;
-	if (flag != 0) return -ENOTSUP;
-	__sets_errno(syscall_utimens(path, &times[0], &times[1]));
+	__sets_errno(syscall_utimensat(fd, path, &times[0], &times[1], flag));
 }
 

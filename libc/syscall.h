@@ -248,7 +248,7 @@ DECL_SYSCALL3(waitpid, int, int *, int);
 DECL_SYSCALL1(pipe,  int *);
 DECL_SYSCALL5(mount, char *, char *, char *, unsigned long, void *);
 DECL_SYSCALL2(symlink, const char *, const char *);
-DECL_SYSCALL3(readlink, char *, char *, int);
+DECL_SYSCALL3(readlink, char *, char *, size_t);
 DECL_SYSCALL2(lstat, char *, void *);
 DECL_SYSCALL2(fswait,int,int*);
 DECL_SYSCALL3(fswait2,int,int*,int);
@@ -312,6 +312,8 @@ DECL_SYSCALL4(faccessat, int, const char *, int, int);
 DECL_SYSCALL1(fchdir, int);
 DECL_SYSCALL4(fchmodat, int, const char *, mode_t, int);
 DECL_SYSCALL5(fchownat, int, const char *, uid_t, gid_t, int);
+DECL_SYSCALL4(readlinkat, int, const char *, char *, size_t);
+DECL_SYSCALL5(utimensat, int, const char *,  const struct timespec *, const struct timespec *, int);
 
 _End_C_Header
 

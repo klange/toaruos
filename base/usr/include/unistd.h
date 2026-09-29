@@ -63,6 +63,7 @@ extern ssize_t read(int fd, void * buf, size_t count);
 
 extern int symlink(const char *target, const char *linkpath);
 extern ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
+extern ssize_t readlinkat(int fd, const char * name, char * buf, size_t len);
 
 extern int chdir(const char *path);
 extern int fchdir(int fd);
