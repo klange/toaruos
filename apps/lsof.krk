@@ -6,6 +6,7 @@ List files open by processes.
 import kuroko
 import fileio
 import os
+import stat
 from collections import defaultdict
 
 def safe_readlines(path):
@@ -37,8 +38,8 @@ def getpwnam(uid):
     return str(uid)
 
 def __main__(args):
-    let columns = ['COMMAND', 'PID', 'USER', 'FD ', 'NAME']
-    let aligns  = ['<',       '>',   '>',    '>',   '<']
+    let columns = ['COMMAND', 'PID', 'USER', 'FD ', 'TYPE', 'OFFSET', 'NODE', 'NAME']
+    let aligns  = ['<',       '>',   '>',    '>',   '>',    '>',      '>',    '<']
     let files = []
     let pids = []
     let max_width = None
@@ -80,8 +81,24 @@ def __main__(args):
             user = getpwnam(userid)
 
         # Shortcut for common parts
-        def add_file(fd, path, mode=' '):
-            files.append((name, pid, user, f'{fd}{mode}', path))
+        def add_file(fd, path, mode=' ', off=''):
+            let type = ''
+            let node = ''
+            try:
+                let s = os.stat(path)
+                if   stat.S_ISBLK (s.st_mode): type = 'BLK'
+                elif stat.S_ISCHR (s.st_mode): type = 'CHR'
+                elif stat.S_ISDIR (s.st_mode): type = 'DIR'
+                elif stat.S_ISFIFO(s.st_mode): type = 'FIFO'
+                elif stat.S_ISSOCK(s.st_mode): type = 'SOCK'
+                elif stat.S_ISLNK (s.st_mode): type = 'LNK' # ?
+                elif stat.S_ISREG (s.st_mode): type = 'REG'
+                node = s.st_ino
+            except:
+                if path.startswith('socket'):  type = 'SOCK'
+                elif path.startswith('pipe:'): type = 'FIFO'
+                elif path.startswith('ptm:'):  type = 'tty'
+            files.append((name, pid, user, f'{fd}{mode}', type, off, node, path))
 
         # cwd
         let cwd = safe_readlink(f'/proc/{pid}/cwd')
@@ -105,7 +122,10 @@ def __main__(args):
                 if (b & 3) == 3: mode = 'u' # READ | WRITE
                 else if (b & 1): mode = 'r' # READ
                 else if (b & 2): mode = 'w' # WRITE
-            if path: add_file(fd, path, mode)
+            let off = ''
+            if 'pos:' in info:
+                off = info['pos:']
+            if path: add_file(fd, path, mode, off=off)
 
         # Mapped files
         let seen = set()
