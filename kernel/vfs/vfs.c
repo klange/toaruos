@@ -913,7 +913,7 @@ static char * path_untokenize(char * path, size_t len, unsigned int depth) {
 }
 
 
-static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_depth, char *relative_to, int * error, struct fs_path ** out_path) {
+static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_depth, char *relative_to, int * error, struct fs_path ** out_path, mode_t mode) {
 	/* Simple sanity checks that we actually have a file system */
 	if (!filename) return *error = ENOENT, NULL;
 
@@ -925,6 +925,7 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 	/* If strlen(path) == 1, then path = "/"; return root */
 	if (path_len == 1) {
 		free(path);
+		if ((flags & O_CREAT) && (flags & O_EXCL)) return NULL;
 		open_fs(fs_root, flags);
 		return fs_root;
 	}
@@ -956,7 +957,7 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 			char * relpath = path_untokenize(path, path_len, depth);
 
 			symlink_depth += 1;
-			node_ptr = kopen_recur(symlink_buf, 0, symlink_depth, relpath, error, NULL);
+			node_ptr = kopen_recur(symlink_buf, 0, symlink_depth, relpath, error, NULL, 0);
 			free(symlink_buf);
 			free(relpath);
 
@@ -965,6 +966,7 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 
 		/* Found what we were looking for. */
 		if (path_offset >= path+path_len || depth == path_depth) {
+			if ((flags & O_CREAT) && (flags & O_EXCL)) return *error = EEXIST, free(path), NULL;
 			if (node_ptr && out_path) {
 				char * rpath = path_untokenize(path, path_len, path_depth + 1);
 				*out_path = fs_alloc_path_from(rpath, "kopen_recur");
@@ -979,9 +981,20 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 
 		/* Search for the requested file. */
 		fs_node_t * node_next = finddir_fs(node_ptr, path_offset);
-		close_fs(node_ptr);
 
-		if (!node_next) return free(path), *error = ENOENT, NULL;
+		if (!node_next) {
+			if (depth + 1 == path_depth && (flags & O_CREAT)) {
+				if (!has_permission(node_ptr, W_OK|X_OK)) return close_fs(node_ptr), free(path), *error = EACCES, NULL;
+				if (!node_ptr->ops->create) return close_fs(node_ptr), free(path), *error = EROFS, NULL;
+				*error = node_ptr->ops->create(node_ptr, path_offset, mode, &node_next);
+				if (*error < 0) return close_fs(node_ptr), free(path), NULL;
+				flags &= ~O_EXCL; /* Ensure next step doesn't fail */
+			} else {
+				return close_fs(node_ptr), free(path), *error = ENOENT, NULL;
+			}
+		}
+
+		close_fs(node_ptr);
 		node_ptr = node_next;
 		open_fs(node_ptr, flags);
 
@@ -1008,12 +1021,12 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
  */
 fs_node_t *kopen_error(const char *filename, unsigned int flags, int *error) {
 	*error = 0;
-	return kopen_recur(filename, flags, 0, fs_current_wd(), error, NULL);
+	return kopen_recur(filename, flags & ~(O_CREAT), 0, fs_current_wd(), error, NULL, 0);
 }
 
 fs_node_t *kopen_to_path(const char *filename, unsigned int flags, int *error, struct fs_path **path) {
 	*error = 0;
-	return kopen_recur(filename, flags, 0, fs_current_wd(), error, path);
+	return kopen_recur(filename, flags & ~(O_CREAT), 0, fs_current_wd(), error, path, 0);
 }
 
 char * fs_current_wd(void) {
@@ -1022,6 +1035,52 @@ char * fs_current_wd(void) {
 	}
 	return (char*)"/";
 }
+
+struct fs_file_description * kopen_at(
+		struct fs_file_description * dirfd,
+		const char *filename,
+		unsigned int flags, /* O_ flags */
+		mode_t mode, /* access modes with O_CREAT */
+		int *error /* E output */
+) {
+
+	if (*filename != '/' && !dirfd) return (*error = EBADF), NULL;
+	if (*filename != '/' && !(dirfd->inode->flags & FS_DIRECTORY)) return (*error = ENOTDIR), NULL;
+
+	*error = 0;
+	struct fs_path * path = NULL;
+
+	fs_node_t * node = kopen_recur(filename, flags, 0 /* depth */, (dirfd && dirfd->path) ? dirfd->path->chars : (char*)"/", error, &path, mode);
+
+	if (!node) return NULL;
+
+	if ((flags & O_NOFOLLOW) && (node->flags & FS_SYMLINK)) return close_fs(node), free(path), *error = ELOOP, NULL;
+
+	int access_bits = 0;
+
+	if (!(flags & O_WRONLY) || (flags & O_RDWR)) {
+		if (!has_permission(node, R_OK)) return close_fs(node), free(path), *error = EACCES, NULL;
+		access_bits |= PROC_FD_MODE_READ;
+	}
+
+	if ((flags & O_RDWR) || (flags & O_WRONLY)) {
+		if (!has_permission(node, W_OK)) return close_fs(node), free(path), *error = EACCES, NULL;
+		if (node->flags & FS_DIRECTORY) return close_fs(node), free(path), *error = EISDIR, NULL;
+		access_bits |= PROC_FD_MODE_WRITE;
+	}
+
+	if ((flags & O_DIRECTORY) && !(node->flags & FS_DIRECTORY)) return close_fs(node), free(path), *error = ENOTDIR, NULL;
+
+	if (flags & O_TRUNC) {
+		if (!(access_bits & PROC_FD_MODE_WRITE)) return close_fs(node), free(path), *error = EINVAL, NULL;
+		truncate_fs(node, 0);
+	}
+
+	if (flags & O_APPEND) access_bits |= PROC_FD_MODE_APPEND;
+
+	return fs_fresh_descriptor(node, access_bits, path);
+}
+
 
 struct fs_file_description * fs_fresh_descriptor(fs_node_t * node, int flags, struct fs_path * path) {
 	struct fs_file_description * desc = calloc(1, sizeof(struct fs_file_description));

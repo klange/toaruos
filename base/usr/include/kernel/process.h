@@ -271,6 +271,7 @@ register struct ProcessorLocal * this_core asm("x18");
 #endif
 
 extern unsigned long process_new_fd(process_t * proc, fs_node_t * node, int flags, struct fs_path *);
+extern unsigned long process_append_fd(process_t * proc, struct fs_file_description * desc, uintptr_t mode);
 extern void process_chdir(process_t * proc, fs_node_t * node, struct fs_path *);
 extern long process_move_fd(process_t * proc, long src, long dest, int forbid_noop, int flags);
 extern void initialize_process_tree(void);

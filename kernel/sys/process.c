@@ -279,7 +279,7 @@ static void process_fds_copy(process_t * proc, long src, long dest, int extra_mo
  * @param node VFS object to add a reference to.
  * @returns the new file descriptor index
  */
-static unsigned long process_append_fd(process_t * proc, struct fs_file_description * desc, uintptr_t mode) {
+unsigned long process_append_fd(process_t * proc, struct fs_file_description * desc, uintptr_t mode) {
 	spin_lock(proc->fds->lock);
 	/* Fill gaps */
 	for (unsigned long i = 0; i < proc->fds->length; ++i) {

@@ -58,6 +58,7 @@ struct flock {
 extern int open (const char *, int, ...);
 extern int fcntl(int fd, int cmd, ...);
 extern int creat(const char *path, mode_t mode);
+extern int openat(int dirfd, const char *name, int flags, ...);
 #endif
 
 _End_C_Header

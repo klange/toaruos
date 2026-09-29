@@ -213,6 +213,7 @@ static const char * syscall_names[SYS__COUNT] = {
 	[SYS_SIGALTSTACK]  = "sigaltstack",
 	[SYS_GETRESUID]    = "getresuid",
 	[SYS_GETRESGID]    = "getresgid",
+	[SYS_OPENAT]       = "openat",
 };
 
 static const int syscall_set_net[] = {
@@ -225,14 +226,16 @@ static const int syscall_set_file[] = {
 	SYS_OPEN, SYS_STATF, SYS_LSTAT, SYS_ACCESS, SYS_EXECVE,
 	SYS_GETCWD, SYS_CHDIR, SYS_MKDIR, SYS_SYMLINK, SYS_UNLINK,
 	SYS_CHMOD, SYS_CHOWN, SYS_MOUNT, SYS_READLINK, SYS_RENAME,
-	SYS_TRUNCATE, SYS_EACCESS, SYS_LCHOWN, SYS_UTIMENS, -1
+	SYS_TRUNCATE, SYS_EACCESS, SYS_LCHOWN, SYS_UTIMENS,
+	SYS_OPENAT, -1
 };
 
 static const int syscall_set_desc[] = {
 	SYS_OPEN, SYS_READ, SYS_WRITE, SYS_CLOSE, SYS_STAT, SYS_FSWAIT,
 	SYS_FSWAIT2, SYS_FSWAIT3, SYS_SEEK, SYS_IOCTL, SYS_PIPE, SYS_PIPE2,
 	SYS_DUP2, SYS_READDIR, SYS_OPENPTY, SYS_PREAD, SYS_PWRITE, SYS_FCNTL,
-	SYS_FCHMOD, SYS_FCHOWN, SYS_FTRUNCATE, SYS_DUP3, SYS_INSMOD, SYS_FUTIMENS, -1
+	SYS_FCHMOD, SYS_FCHOWN, SYS_FTRUNCATE, SYS_DUP3, SYS_INSMOD, SYS_FUTIMENS,
+	SYS_OPENAT, -1
 };
 
 static const int syscall_set_memory[] = {
@@ -503,6 +506,15 @@ static void fd_arg(pid_t pid, int val) {
 			fprintf(logfile, "<%s>", ln_path);
 		}
 	}
+}
+
+static void fd_at_arg(pid_t pid, int val) {
+	if (val == AT_FDCWD) {
+		fprintf(logfile, "AT_FDCWD");
+		return;
+	}
+
+	fd_arg(pid, val);
 }
 
 static void sock_dom_arg(int domain) {
@@ -1546,6 +1558,15 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 				mode_arg(uregs_syscall_arg3(r));
 			}
 			break;
+		case SYS_OPENAT:
+			fd_at_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			filename_arg(pid, uregs_syscall_arg2(r)); COMMA;
+			open_flags(uregs_syscall_arg3(r));
+			if (uregs_syscall_arg3(r) & O_CREAT) {
+				COMMA;
+				mode_arg(uregs_syscall_arg4(r));
+			}
+			break;
 		case SYS_CHMOD:
 			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			mode_arg(uregs_syscall_arg2(r));
@@ -1956,6 +1977,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			break; /* This is ptrace(PTRACE_TRACEME)... probably... */
 		/* read() returns data in second value */
 		case SYS_OPEN:
+		case SYS_OPENAT:
 			if ((intptr_t)uregs_syscall_result(r) >= 0) {
 				fprintf(logfile, ") = ");
 				fd_arg(pid, uregs_syscall_result(r));

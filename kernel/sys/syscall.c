@@ -287,6 +287,38 @@ long sys_open(const char * file, long flags, mode_t mode_in) {
 	return process_new_fd((process_t *)this_core->current_process, node, access_bits, path_obj);
 }
 
+long sys_openat(int dirfd, const char *filename, int flags, mode_t mode) {
+	extern struct fs_file_description * kopen_at(
+			struct fs_file_description * dirfd,
+			const char *filename,
+			unsigned int flags, /* O_ flags */
+			mode_t mode, /* access modes with O_CREAT */
+			int *error /* E output */
+	);
+
+	struct fs_file_description * fd = NULL;
+	if (dirfd == AT_FDCWD) {
+		fd = this_core->current_process->wd;
+	} else if (FD_CHECK(dirfd)) {
+		fd = FD_FILE(dirfd);
+	}
+
+	int error = 0;
+
+	if (fd) fs_clone_desc((uintptr_t)fd, 0);
+	struct fs_file_description * out = kopen_at(fd, filename, flags, mode, &error);
+	if (fd) fs_close_desc((uintptr_t)fd);
+
+	if (!out) return -error;
+
+	uintptr_t clo_flags = 0;
+
+	if (flags & O_CLOEXEC) clo_flags |= FD_PTR_CLOEXEC;
+	if (flags & O_CLOFORK) clo_flags |= FD_PTR_CLOFORK;
+
+	return process_append_fd((process_t*)this_core->current_process, out, clo_flags);
+}
+
 long sys_close(int fd) {
 	if (!FD_CHECK(fd)) return -EBADF;
 	return process_close_fd((process_t*)this_core->current_process, fd);
@@ -1549,6 +1581,7 @@ static scall_func syscalls[] = {
 	[SYS_SIGALTSTACK]  = (scall_func)(uintptr_t)sys_sigaltstack,
 	[SYS_GETRESUID]    = (scall_func)(uintptr_t)sys_getresuid,
 	[SYS_GETRESGID]    = (scall_func)(uintptr_t)sys_getresgid,
+	[SYS_OPENAT]       = (scall_func)(uintptr_t)sys_openat,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,
