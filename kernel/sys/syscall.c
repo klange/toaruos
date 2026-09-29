@@ -177,27 +177,12 @@ long sys_fstatat(int dirfd, const char * filename, struct stat * st, int flag) {
 	return result;
 }
 
-static long do_stat_path(char *file, struct stat *st, int flags) {
-	PTR_VALIDATE(file);
-	PTRCHECK(st,sizeof(struct stat),MMU_PTR_WRITE);
-	if (!file || !st) return -EFAULT;
-	int error = 0;
-	fs_node_t * fn = kopen_error(file, flags, &error);
-	if (!fn) {
-		memset(st, 0, sizeof(struct stat));
-		return -error;
-	}
-	long result = stat_node(fn, st);
-	close_fs(fn);
-	return result;
-}
-
 long sys_statf(char * file, struct stat * st) {
-	return do_stat_path(file, st, 0);
+	return sys_fstatat(AT_FDCWD, file, st, 0);
 }
 
 long sys_lstat(char * file, struct stat * st) {
-	return do_stat_path(file, st, O_NOFOLLOW);
+	return sys_fstatat(AT_FDCWD, file, st, AT_SYMLINK_NOFOLLOW);
 }
 
 long sys_symlink(char * target, char * name) {
@@ -205,18 +190,6 @@ long sys_symlink(char * target, char * name) {
 	PTR_VALIDATE(name);
 	if (!target || !name) return -EFAULT;
 	return symlink_fs(target, name);
-}
-
-long sys_readlink(const char * file, char * ptr, long len) {
-	PTR_VALIDATE(file);
-	PTRCHECK(ptr,len,MMU_PTR_WRITE);
-	if (!file) return -EFAULT;
-	int error = 0;
-	fs_node_t * node = kopen_error((char *) file, O_NOFOLLOW, &error);
-	if (!node) return -error;
-	long rv = readlink_fs(node, ptr, len);
-	close_fs(node);
-	return rv;
 }
 
 long sys_readlinkat(int dirfd, const char * file, char * ptr, long len) {
@@ -230,6 +203,10 @@ long sys_readlinkat(int dirfd, const char * file, char * ptr, long len) {
 	long rv = readlink_fs(out->inode, ptr, len);
 	fs_close_desc((uintptr_t)out);
 	return rv;
+}
+
+long sys_readlink(const char * file, char * ptr, long len) {
+	return sys_readlinkat(AT_FDCWD, file, ptr, len);
 }
 
 static mode_t modify_mode(mode_t mode_in) {
@@ -307,31 +284,6 @@ long sys_mkdir(char * path, uint64_t mode) {
 	return mkdir_fs(path, modify_mode(mode), NULL);
 }
 
-long sys_access(const char * file, long flags) {
-	PTR_VALIDATE(file);
-	if (!file) return -EFAULT;
-	if (flags < 0 || flags > 7) return -EINVAL;
-	int error = 0;
-	fs_node_t * node = kopen_error((char *)file, 0, &error);
-	if (!node) return -error;
-	flags |= 010;
-	int ret = flags ? (!has_permission(node, flags) ? -EACCES : 0) : 0;
-	close_fs(node);
-	return ret;
-}
-
-long sys_eaccess(const char * file, long flags) {
-	PTR_VALIDATE(file);
-	if (!file) return -EFAULT;
-	if (flags < 0 || flags > 7) return -EINVAL;
-	int error = 0;
-	fs_node_t * node = kopen_error((char *)file, 0, &error);
-	if (!node) return -error;
-	int ret = flags ? (!has_permission(node, flags) ? -EACCES : 0) : 0;
-	close_fs(node);
-	return ret;
-}
-
 long sys_faccessat(int dirfd, const char *path, int amode, int flag) {
 	PTR_VALIDATE(path);
 	if (!path) return -EFAULT;
@@ -351,20 +303,17 @@ long sys_faccessat(int dirfd, const char *path, int amode, int flag) {
 	return ret;
 }
 
+long sys_access(const char * file, long flags) {
+	return sys_faccessat(AT_FDCWD, file, flags, 0);
+}
+
+long sys_eaccess(const char * file, long flags) {
+	return sys_faccessat(AT_FDCWD, file, flags, AT_EACCESS);
+}
+
 static long chmod_node(fs_node_t * fn, mode_t mode) {
 	if (this_core->current_process->user != 0 && this_core->current_process->user != fn->uid) return -EACCES;
 	return chmod_fs(fn, mode);
-}
-
-long sys_chmod(char * file, long mode) {
-	PTR_VALIDATE(file);
-	if (!file) return -EFAULT;
-	int error = 0;
-	fs_node_t * fn = kopen_error(file, 0, &error);
-	if (!fn) return -error;
-	long ret = chmod_node(fn, mode);
-	close_fs(fn);
-	return ret;
 }
 
 long sys_fchmodat(int dirfd, const char * file, mode_t mode, int flag) {
@@ -380,6 +329,10 @@ long sys_fchmodat(int dirfd, const char * file, mode_t mode, int flag) {
 	long ret = chmod_node(out->inode, mode);
 	fs_close_desc((uintptr_t)out);
 	return ret;
+}
+
+long sys_chmod(const char * file, mode_t mode) {
+	return sys_fchmodat(AT_FDCWD, file, mode, 0);
 }
 
 long sys_fchmod(int fd, long mode) {
@@ -429,28 +382,6 @@ static long chown_node(fs_node_t * fn, uid_t uid, gid_t gid) {
 	return chown_fs(fn, uid, gid);
 }
 
-long sys_chown(char * file, uid_t uid, gid_t gid) {
-	PTR_VALIDATE(file);
-	if (!file) return -EFAULT;
-	int error = 0;
-	fs_node_t * fn = kopen_error(file, 0, &error);
-	if (!fn) return -error;
-	long ret = chown_node(fn, uid, gid);
-	close_fs(fn);
-	return ret;
-}
-
-long sys_lchown(char * file, uid_t uid, gid_t gid) {
-	PTR_VALIDATE(file);
-	if (!file) return -EFAULT;
-	int error = 0;
-	fs_node_t * fn = kopen_error(file, O_NOFOLLOW, &error);
-	if (!fn) return -error;
-	long ret = chown_node(fn, uid, gid);
-	close_fs(fn);
-	return ret;
-}
-
 long sys_fchownat(int dirfd, const char * file, uid_t uid, gid_t gid, int flag) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
@@ -466,6 +397,13 @@ long sys_fchownat(int dirfd, const char * file, uid_t uid, gid_t gid, int flag) 
 	return ret;
 }
 
+long sys_chown(char * file, uid_t uid, gid_t gid) {
+	return sys_fchownat(AT_FDCWD, file, uid, gid, 0);
+}
+
+long sys_lchown(char * file, uid_t uid, gid_t gid) {
+	return sys_fchownat(AT_FDCWD, file, uid, gid, AT_SYMLINK_NOFOLLOW);
+}
 
 long sys_fchown(int fd, uid_t uid, gid_t gid) {
 	if (!FD_CHECK(fd)) return -EBADF;
@@ -478,12 +416,12 @@ long sys_truncate(char * file, off_t size) {
 	if (!file) return -EFAULT;
 	if (size < 0) return -EINVAL;
 	int error = 0;
-	fs_node_t * fn = kopen_error(file, 0, &error);
-	if (!fn) return -error;
-	if (!has_permission(fn, W_OK)) return close_fs(fn), -EACCES;
-	long out = truncate_fs(fn, size);
-	close_fs(fn);
-	return out;
+	struct fs_file_description * fd = do_dirfd(AT_FDCWD);
+	struct fs_file_description * out = kopen_at(fd, file, O_WRONLY, 0, &error);
+	if (!out) return -error;
+	long ret = truncate_fs(out->inode, size);
+	fs_close_desc((uintptr_t)out);
+	return ret;
 }
 
 long sys_ftruncate(int fd, off_t size) {
@@ -510,17 +448,6 @@ static long utimens_node(fs_node_t * node, const struct timespec * access, const
 	return utimens_fs(node, _access, _modify);
 }
 
-long sys_utimens(char * file, const struct timespec * access, const struct timespec * modify) {
-	PTR_VALIDATE(file);
-	if (!file) return -EFAULT;
-	int error = 0;
-	fs_node_t * fn = kopen_error(file, 0, &error);
-	if (!fn) return -error;
-	long ret = utimens_node(fn, access, modify);
-	close_fs(fn);
-	return ret;
-}
-
 long sys_utimensat(int dirfd, const char * file, const struct timespec * access, const struct timespec * modify, int flag) {
 	PTR_VALIDATE(file);
 	if (!file) return -EFAULT;
@@ -536,6 +463,10 @@ long sys_utimensat(int dirfd, const char * file, const struct timespec * access,
 	long ret = utimens_node(out->inode, access, modify);
 	fs_close_desc((uintptr_t)out);
 	return ret;
+}
+
+long sys_utimens(char * file, const struct timespec * access, const struct timespec * modify) {
+	return sys_utimensat(AT_FDCWD, file, access, modify, 0);
 }
 
 long sys_futimens(int fd, const struct timespec * access, const struct timespec * modify) {
