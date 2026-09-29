@@ -16,3 +16,8 @@ int eaccess(const char *pathname, int mode) {
 	__sets_errno(syscall_eaccess((char*)pathname, mode));
 }
 
+DEFN_SYSCALL4(faccessat, SYS_FACCESSAT, int, const char *, int, int);
+
+int faccessat(int fd, const char * path, int amode, int flag) {
+	__sets_errno(syscall_faccessat(fd, path, amode, flag));
+}

@@ -308,7 +308,7 @@ DECL_SYSCALL3(futimens, int, const struct timespec *, const struct timespec *);
 DECL_SYSCALL2(sigaltstack, const stack_t *, stack_t *);
 DECL_SYSCALL4(openat, int, const char *, long, mode_t);
 DECL_SYSCALL4(fstatat, int, const char *, void *, int);
-
+DECL_SYSCALL4(faccessat, int, const char *, int, int);
 DECL_SYSCALL1(fchdir, int);
 
 _End_C_Header

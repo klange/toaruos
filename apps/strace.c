@@ -216,6 +216,7 @@ static const char * syscall_names[SYS__COUNT] = {
 	[SYS_OPENAT]       = "openat",
 	[SYS_FSTATAT]      = "fstatat",
 	[SYS_FCHDIR]       = "fchdir",
+	[SYS_FACCESSAT]    = "faccessat",
 };
 
 static const int syscall_set_net[] = {
@@ -229,7 +230,7 @@ static const int syscall_set_file[] = {
 	SYS_GETCWD, SYS_CHDIR, SYS_MKDIR, SYS_SYMLINK, SYS_UNLINK,
 	SYS_CHMOD, SYS_CHOWN, SYS_MOUNT, SYS_READLINK, SYS_RENAME,
 	SYS_TRUNCATE, SYS_EACCESS, SYS_LCHOWN, SYS_UTIMENS,
-	SYS_OPENAT, -1
+	SYS_OPENAT, SYS_FACCESSAT, -1
 };
 
 static const int syscall_set_desc[] = {
@@ -520,6 +521,11 @@ static void fd_at_arg(pid_t pid, int val) {
 }
 
 static void at_flag_arg(long flags) {
+	if (flags == 0) {
+		fprintf(logfile, "0");
+		return;
+	}
+
 	H(AT_EACCESS);
 	H(AT_SYMLINK_NOFOLLOW);
 	H(AT_SYMLINK_FOLLOW);
@@ -1696,6 +1702,12 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 		case SYS_EACCESS:
 			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			access_mode_arg(uregs_syscall_arg2(r));
+			break;
+		case SYS_FACCESSAT:
+			fd_at_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			filename_arg(pid, uregs_syscall_arg2(r)); COMMA;
+			access_mode_arg(uregs_syscall_arg3(r)); COMMA;
+			at_flag_arg(uregs_syscall_arg4(r));
 			break;
 		case SYS_PTRACE:
 			switch (uregs_syscall_arg1(r)) {

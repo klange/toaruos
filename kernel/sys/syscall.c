@@ -319,6 +319,25 @@ long sys_eaccess(const char * file, long flags) {
 	return ret;
 }
 
+long sys_faccessat(int dirfd, const char *path, int amode, int flag) {
+	PTR_VALIDATE(path);
+	if (!path) return -EFAULT;
+	if (amode < 0 || amode > 7) return -EINVAL;
+	if (flag & ~(AT_EACCESS)) return -EINVAL;
+
+	int error = 0;
+	struct fs_file_description * fd = do_dirfd(dirfd);
+	struct fs_file_description * out = kopen_at(fd, path, O_PATH, 0, &error);
+
+	if (!out) return -error;
+
+	if (!(flag & AT_EACCESS)) amode |= 010;
+
+	int ret = amode ? (!has_permission(out->inode, amode) ? -EACCES : 0) : 0;
+	fs_close_desc((uintptr_t)out);
+	return ret;
+}
+
 static long chmod_node(fs_node_t * fn, mode_t mode) {
 	if (this_core->current_process->user != 0 && this_core->current_process->user != fn->uid) return -EACCES;
 	return chmod_fs(fn, mode);
@@ -1517,6 +1536,7 @@ static scall_func syscalls[] = {
 	[SYS_OPENAT]       = (scall_func)(uintptr_t)sys_openat,
 	[SYS_FSTATAT]      = (scall_func)(uintptr_t)sys_fstatat,
 	[SYS_FCHDIR]       = (scall_func)(uintptr_t)sys_fchdir,
+	[SYS_FACCESSAT]    = (scall_func)(uintptr_t)sys_faccessat,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

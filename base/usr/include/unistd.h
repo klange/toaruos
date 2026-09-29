@@ -78,6 +78,8 @@ extern int access(const char * pathname, int mode);
 extern int eaccess(const char * pathname, int mode);
 #endif
 
+extern int faccessat(int fd, const char * path, int amode, int flag);
+
 #if defined(_GNU_SOURCE) || defined(_TOARU_SOURCE)
 extern int gettid(void);
 #endif
