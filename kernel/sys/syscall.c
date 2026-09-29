@@ -862,12 +862,7 @@ long sys_fcntl(int fd, int cmd, long arg) {
 			return 0;
 		}
 		case F_GETFL: {
-			int mode = 0;
-			if ((FD_MODE(fd) & PROC_FD_MODE__RW) == PROC_FD_MODE__RW) mode = O_RDWR;
-			else if (FD_MODE(fd) & PROC_FD_MODE_READ) mode = O_RDONLY;
-			else if (FD_MODE(fd) & PROC_FD_MODE_WRITE) mode = O_WRONLY;
-			if ((FD_MODE(fd) & PROC_FD_MODE_APPEND)) mode |= O_APPEND;
-			return mode;
+			return (long)fs_convert_descriptor_flags((uintptr_t)FD_FILE(fd));
 		}
 		case F_SETFL: {
 			if (arg & O_APPEND) FD_MODE(fd) |= PROC_FD_MODE_APPEND;
