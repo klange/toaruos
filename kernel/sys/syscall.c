@@ -151,10 +151,30 @@ static long stat_node(fs_node_t * fn, struct stat * f) {
 }
 
 long sys_stat(int fd, struct stat * st) {
+	if (!FD_CHECK(fd)) return -EBADF;
 	PTRCHECK(st,sizeof(struct stat),MMU_PTR_WRITE);
 	if (!st) return -EFAULT;
-	if (!FD_CHECK(fd)) return -EBADF;
 	return stat_node(FD_ENTRY(fd), st);
+}
+
+long sys_fstatat(int dirfd, const char * filename, struct stat * st, int flag) {
+	if (flag & ~AT_SYMLINK_NOFOLLOW) return -EINVAL;
+	PTR_VALIDATE(filename);
+	PTRCHECK(st,sizeof(struct stat),MMU_PTR_WRITE);
+	if (!filename || !st) return -EFAULT;
+
+	int flags = O_PATH;
+
+	if (flag & AT_SYMLINK_NOFOLLOW) flags |= O_NOFOLLOW;
+
+	int error = 0;
+	struct fs_file_description * fd = do_dirfd(dirfd);
+	struct fs_file_description * out = kopen_at(fd, filename, flags, 0, &error);
+	if (!out) return -error;
+
+	long result = stat_node(out->inode, st);
+	fs_close_desc((uintptr_t)out);
+	return result;
 }
 
 static long do_stat_path(char *file, struct stat *st, int flags) {
@@ -1491,6 +1511,7 @@ static scall_func syscalls[] = {
 	[SYS_GETRESUID]    = (scall_func)(uintptr_t)sys_getresuid,
 	[SYS_GETRESGID]    = (scall_func)(uintptr_t)sys_getresgid,
 	[SYS_OPENAT]       = (scall_func)(uintptr_t)sys_openat,
+	[SYS_FSTATAT]      = (scall_func)(uintptr_t)sys_fstatat,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

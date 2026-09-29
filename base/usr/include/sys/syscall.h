@@ -106,5 +106,6 @@
 #define SYS_GETRESUID 103
 #define SYS_GETRESGID 104
 #define SYS_OPENAT 105
+#define SYS_FSTATAT 106
 
-#define SYS__COUNT 106
+#define SYS__COUNT 107

@@ -54,6 +54,16 @@ struct flock {
 
 #define AT_FDCWD (-100)
 
+/*
+ * All of these should be mutually exclusive in use,
+ * but let's make them all different just in case, and
+ * so we can be rude and reject them when they're wrong.
+ */
+#define AT_EACCESS           0x0001
+#define AT_SYMLINK_NOFOLLOW  0x0002
+#define AT_SYMLINK_FOLLOW    0x0004
+#define AT_REMOVEDIR         0x0008
+
 #ifndef __kernel__
 extern int open (const char *, int, ...);
 extern int fcntl(int fd, int cmd, ...);

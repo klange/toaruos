@@ -28,3 +28,13 @@ int lstat(const char *path, struct stat *st) {
 		return -1;
 	}
 }
+
+DEFN_SYSCALL4(fstatat, SYS_FSTATAT, int, const char *, void *, int);
+
+int fstatat(int dirfd, const char * path, struct stat *st, int flag) {
+	int ret = syscall_fstatat(dirfd, path, st, flag);
+	if (ret >= 0) return ret;
+	errno = -ret;
+	memset(st, 0, sizeof(struct stat));
+	return -1;
+}

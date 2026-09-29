@@ -214,6 +214,7 @@ static const char * syscall_names[SYS__COUNT] = {
 	[SYS_GETRESUID]    = "getresuid",
 	[SYS_GETRESGID]    = "getresgid",
 	[SYS_OPENAT]       = "openat",
+	[SYS_FSTATAT]      = "fstatat",
 };
 
 static const int syscall_set_net[] = {
@@ -515,6 +516,14 @@ static void fd_at_arg(pid_t pid, int val) {
 	}
 
 	fd_arg(pid, val);
+}
+
+static void at_flag_arg(long flags) {
+	H(AT_EACCESS);
+	H(AT_SYMLINK_NOFOLLOW);
+	H(AT_SYMLINK_FOLLOW);
+	H(AT_REMOVEDIR);
+	if (flags) fprintf(logfile, "%ld", flags);
 }
 
 static void sock_dom_arg(int domain) {
@@ -1626,6 +1635,11 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			/* Plus one more when done */
 			break;
+		case SYS_FSTATAT:
+			fd_at_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			filename_arg(pid, uregs_syscall_arg2(r)); COMMA;
+			/* Plus one more when done */
+			break;
 		case SYS_STAT:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			/* Plus one more when done */
@@ -2088,6 +2102,15 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			} else {
 				pointer_arg(uregs_syscall_arg2(r));
 			}
+			maybe_errno(r);
+			break;
+		case SYS_FSTATAT:
+			if ((intptr_t)uregs_syscall_result(r) >= 0) {
+				struct_stat_arg(pid, uregs_syscall_arg3(r), syscall_mask[syscall] & SYSCALL_MASK_ABBREV); COMMA;
+			} else {
+				pointer_arg(uregs_syscall_arg3(r)); COMMA;
+			}
+			at_flag_arg(uregs_syscall_arg4(r));
 			maybe_errno(r);
 			break;
 		case SYS_READDIR:
