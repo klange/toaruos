@@ -70,7 +70,7 @@ run: system
 debug: system
 	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=live-session ramfb vid=preset qemu-serial-log debug" ${EMU_RAMDISK} ${EMU_KERNEL}
 
-vga: system
+run-vga: system
 	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=--vga ramfb vid=preset" ${EMU_RAMDISK} ${EMU_KERNEL}
 
 shell: system
