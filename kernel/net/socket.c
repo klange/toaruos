@@ -217,7 +217,7 @@ static void sock_raw_close(sock_t * sock) {
 }
 
 long net_socket_to_fd(sock_t * sock, int flags, const char * sock_type_name, uint64_t sock_type_count) {
-	return process_new_fd((process_t *)this_core->current_process, (fs_node_t *)sock, flags | PROC_FD_MODE__RW,
+	return process_new_fd((process_t *)this_core->current_process, (fs_node_t *)sock, flags | PROC_FD_MODE__RW | PROC_FD_MODE_SOCK,
 		fs_path_printf("socket:[%s:%zu]", sock_type_name, sock_type_count));
 }
 
@@ -299,8 +299,7 @@ extern long net_so_ipv4_socket(struct SockData * sock, int optname, const void *
 
 static inline int is_socket(int sockfd) {
 	if (!FD_CHECK(sockfd)) return -EBADF;
-	fs_node_t * node = FD_ENTRY(sockfd);
-	if (!(node->flags & FS_SOCKET)) return -ENOTSOCK;
+	if (!(FD_MODE(sockfd) & PROC_FD_MODE_SOCK)) return -ENOTSOCK;
 	return 0;
 }
 

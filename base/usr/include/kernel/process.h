@@ -67,6 +67,7 @@ typedef struct image {
 #define PROC_FD_MODE_READ     0x001
 #define PROC_FD_MODE_WRITE    0x002
 #define PROC_FD_MODE_APPEND   0x004
+#define PROC_FD_MODE_SOCK     0x008
 #define PROC_FD_MODE_CLOEXEC  0x010
 #define PROC_FD_MODE_CLOFORK  0x020
 
