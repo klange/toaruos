@@ -217,6 +217,8 @@ static const char * syscall_names[SYS__COUNT] = {
 	[SYS_FSTATAT]      = "fstatat",
 	[SYS_FCHDIR]       = "fchdir",
 	[SYS_FACCESSAT]    = "faccessat",
+	[SYS_FCHMODAT]     = "fchmodat",
+	[SYS_FCHOWNAT]     = "fchownat",
 };
 
 static const int syscall_set_net[] = {
@@ -230,7 +232,7 @@ static const int syscall_set_file[] = {
 	SYS_GETCWD, SYS_CHDIR, SYS_MKDIR, SYS_SYMLINK, SYS_UNLINK,
 	SYS_CHMOD, SYS_CHOWN, SYS_MOUNT, SYS_READLINK, SYS_RENAME,
 	SYS_TRUNCATE, SYS_EACCESS, SYS_LCHOWN, SYS_UTIMENS,
-	SYS_OPENAT, SYS_FACCESSAT, -1
+	SYS_OPENAT, SYS_FACCESSAT, SYS_FCHMODAT, SYS_FCHOWNAT, -1
 };
 
 static const int syscall_set_desc[] = {
@@ -1588,6 +1590,16 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			mode_arg(uregs_syscall_arg2(r));
 			break;
+		case SYS_FCHMODAT:
+			fd_at_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			filename_arg(pid, uregs_syscall_arg2(r)); COMMA;
+			mode_arg(uregs_syscall_arg3(r)); COMMA;
+			at_flag_arg(uregs_syscall_arg4(r));
+			break;
+		case SYS_FCHMOD:
+			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			mode_arg(uregs_syscall_arg2(r));
+			break;
 		case SYS_UTIMENS:
 			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			struct_timespec_arg(pid, uregs_syscall_arg2(r)); COMMA;
@@ -1596,8 +1608,20 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 		case SYS_CHOWN:
 		case SYS_LCHOWN:
 			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			int_arg(uregs_syscall_arg2(r)); COMMA;
-			int_arg(uregs_syscall_arg3(r));
+			uid_arg(pid, uregs_syscall_arg2(r)); COMMA;
+			gid_arg(pid, uregs_syscall_arg3(r));
+			break;
+		case SYS_FCHOWN:
+			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			uid_arg(pid, uregs_syscall_arg2(r)); COMMA;
+			gid_arg(pid, uregs_syscall_arg3(r));
+			break;
+		case SYS_FCHOWNAT:
+			fd_at_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			filename_arg(pid, uregs_syscall_arg2(r)); COMMA;
+			uid_arg(pid, uregs_syscall_arg3(r)); COMMA;
+			gid_arg(pid, uregs_syscall_arg4(r)); COMMA;
+			at_flag_arg(uregs_syscall_arg5(r));
 			break;
 		case SYS_TRUNCATE:
 			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
@@ -1789,15 +1813,6 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			fcntl_cmd_arg(uregs_syscall_arg2(r)); /* Comma is printed by fcntl_arg_arg */
 			fcntl_arg_arg(uregs_syscall_arg2(r), uregs_syscall_arg3(r));
-			break;
-		case SYS_FCHMOD:
-			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			mode_arg(uregs_syscall_arg2(r));
-			break;
-		case SYS_FCHOWN:
-			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			int_arg(uregs_syscall_arg2(r)); COMMA;
-			int_arg(uregs_syscall_arg3(r));
 			break;
 		case SYS_FTRUNCATE:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;

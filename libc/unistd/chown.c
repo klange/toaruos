@@ -20,3 +20,9 @@ DEFN_SYSCALL3(lchown, SYS_LCHOWN, const char *, uid_t, gid_t);
 int lchown(const char * pathname, uid_t owner, gid_t group) {
 	__sets_errno(syscall_lchown(pathname,owner,group));
 }
+
+DEFN_SYSCALL5(fchownat, SYS_FCHOWNAT, int, const char *, uid_t, gid_t, int);
+
+int fchownat(int fd, const char * pathname, uid_t owner, gid_t group, int flag) {
+	__sets_errno(syscall_fchownat(fd, pathname, owner, group, flag));
+}

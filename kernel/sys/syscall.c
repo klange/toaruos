@@ -354,6 +354,21 @@ long sys_chmod(char * file, long mode) {
 	return ret;
 }
 
+long sys_fchmodat(int dirfd, const char * file, mode_t mode, int flag) {
+	PTR_VALIDATE(file);
+	if (!file) return -EFAULT;
+	if (flag & ~(AT_SYMLINK_NOFOLLOW)) return -EINVAL;
+	int flags = O_PATH;
+	if (flag & AT_SYMLINK_NOFOLLOW) flags |= O_NOFOLLOW;
+	int error = 0;
+	struct fs_file_description * fd = do_dirfd(dirfd);
+	struct fs_file_description * out = kopen_at(fd, file, flags, 0, &error);
+	if (!out) return -error;
+	long ret = chmod_node(out->inode, mode);
+	fs_close_desc((uintptr_t)out);
+	return ret;
+}
+
 long sys_fchmod(int fd, long mode) {
 	if (!FD_CHECK(fd)) return -EBADF;
 	if (!(FD_MODE(fd) & PROC_FD_MODE__RW)) return -EBADF;
@@ -422,6 +437,22 @@ long sys_lchown(char * file, uid_t uid, gid_t gid) {
 	close_fs(fn);
 	return ret;
 }
+
+long sys_fchownat(int dirfd, const char * file, uid_t uid, gid_t gid, int flag) {
+	PTR_VALIDATE(file);
+	if (!file) return -EFAULT;
+	if (flag & ~(AT_SYMLINK_NOFOLLOW)) return -EINVAL;
+	int flags = O_PATH;
+	if (flag & AT_SYMLINK_NOFOLLOW) flags |= O_NOFOLLOW;
+	int error = 0;
+	struct fs_file_description * fd = do_dirfd(dirfd);
+	struct fs_file_description * out = kopen_at(fd, file, flags, 0, &error);
+	if (!out) return -error;
+	long ret = chown_node(out->inode, uid, gid);
+	fs_close_desc((uintptr_t)out);
+	return ret;
+}
+
 
 long sys_fchown(int fd, uid_t uid, gid_t gid) {
 	if (!FD_CHECK(fd)) return -EBADF;
@@ -1537,6 +1568,8 @@ static scall_func syscalls[] = {
 	[SYS_FSTATAT]      = (scall_func)(uintptr_t)sys_fstatat,
 	[SYS_FCHDIR]       = (scall_func)(uintptr_t)sys_fchdir,
 	[SYS_FACCESSAT]    = (scall_func)(uintptr_t)sys_faccessat,
+	[SYS_FCHMODAT]     = (scall_func)(uintptr_t)sys_fchmodat,
+	[SYS_FCHOWNAT]     = (scall_func)(uintptr_t)sys_fchownat,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

@@ -310,6 +310,8 @@ DECL_SYSCALL4(openat, int, const char *, long, mode_t);
 DECL_SYSCALL4(fstatat, int, const char *, void *, int);
 DECL_SYSCALL4(faccessat, int, const char *, int, int);
 DECL_SYSCALL1(fchdir, int);
+DECL_SYSCALL4(fchmodat, int, const char *, mode_t, int);
+DECL_SYSCALL5(fchownat, int, const char *, uid_t, gid_t, int);
 
 _End_C_Header
 

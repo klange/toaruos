@@ -85,6 +85,7 @@ extern int fchmod(int fd, mode_t mode);
 extern int futimens(int fd, const struct timespec times[2]);
 extern int utimensat(int fd, const char *path, const struct timespec times[2], int flag);
 extern int fstatat(int dirfd, const char * filename, struct stat * st, int flag);
+extern int fchmodat(int fd, const char * path, mode_t mode, int flag);
 
 __redirect(stat,__statns);
 __redirect(lstat,__lstatns);

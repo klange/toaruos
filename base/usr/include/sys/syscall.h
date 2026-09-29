@@ -109,5 +109,7 @@
 #define SYS_FSTATAT 106
 #define SYS_FCHDIR  107
 #define SYS_FACCESSAT 108
+#define SYS_FCHMODAT 109
+#define SYS_FCHOWNAT 110
 
-#define SYS__COUNT 109
+#define SYS__COUNT 111
