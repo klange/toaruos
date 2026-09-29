@@ -16,7 +16,7 @@
 #include <kernel/elf.h>
 #include <sys/time.h>
 
-extern int elf_exec(const char * path, fs_node_t * file, int argc, char *const argv[], char *const env[], int interp, struct fs_file_description *);
+extern int elf_exec(const char *, struct fs_file_description *, int argc, char *const argv[], char *const env[], int interp);
 int exec(const char * path, int argc, char *const argv[], char *const env[], int interp_depth);
 
 /**
@@ -24,7 +24,7 @@ int exec(const char * path, int argc, char *const argv[], char *const env[], int
  *
  * Tries to safely read the first line of a script file to find an appropriate loader.
  */
-int exec_shebang(const char * path, fs_node_t * file, int argc, char *const argv[], char *const env[], int interp, struct fs_file_description * desc_in) {
+int exec_shebang(const char * path, struct fs_file_description * desc_in, int argc, char *const argv[], char *const env[], int interp) {
 	if (interp > 4) {
 		/* If an interpreter calls an interpreter too many times, bail. */
 		fs_close_desc((uintptr_t)desc_in);
@@ -33,7 +33,7 @@ int exec_shebang(const char * path, fs_node_t * file, int argc, char *const argv
 
 	/* Read MAX_LINE... */
 	char tmp[100];
-	read_fs(file, 0, 100, (unsigned char *)tmp);
+	read_fs(desc_in->inode, 0, 100, (unsigned char *)tmp);
 	fs_close_desc((uintptr_t)desc_in);
 	char * cmd = (char *)&tmp[2];
 	if (*cmd == ' ') cmd++; /* Handle a leading space */
@@ -83,7 +83,7 @@ int exec_shebang(const char * path, fs_node_t * file, int argc, char *const argv
 }
 
 /* Consider exposing this and making it a list so it can be extended ... */
-typedef int (*exec_func)(const char * path, fs_node_t * file, int argc, char *const argv[], char *const env[], int interp, struct fs_file_description*);
+typedef int (*exec_func)(const char *, struct fs_file_description*, int argc, char *const argv[], char *const env[], int interp);
 typedef struct {
 	exec_func func;
 	unsigned char bytes[4];
@@ -114,15 +114,15 @@ static int matches(unsigned char * a, unsigned char * b, unsigned int len) {
  * @returns Either never or -ENOEXEC on failure.
  */
 int exec(const char * path, int argc, char *const argv[], char *const env[], int interp_depth) {
-	struct fs_path * full_path = NULL;
 	int error = 0;
-	fs_node_t * file = kopen_to_path(path, 0, &error, &full_path);
-	if (!file) return -error;
-	if (!has_permission(file, X_OK)) return free(full_path), close_fs(file), -EACCES;
-	if (file->flags & FS_DIRECTORY) return free(full_path), close_fs(file), -EISDIR;
+	struct fs_file_description * desc = kopen_at(this_core->current_process->wd, path, O_PATH, 0, &error);
+	if (!desc) return -error;
+
+	if (!has_permission(desc->inode, X_OK)) return fs_close_desc((uintptr_t)desc), -EACCES;
+	if (desc->inode->flags & FS_DIRECTORY) return fs_close_desc((uintptr_t)desc), -EISDIR;
 
 	unsigned char head[4];
-	read_fs(file, 0, 4, head);
+	read_fs(desc->inode, 0, 4, head);
 
 	if (this_core->current_process->name) free(this_core->current_process->name);
 	this_core->current_process->name = strdup(path);
@@ -130,12 +130,11 @@ int exec(const char * path, int argc, char *const argv[], char *const env[], int
 
 	for (unsigned int i = 0; i < sizeof(fmts) / sizeof(exec_def_t); ++i) {
 		if (matches(fmts[i].bytes, head, fmts[i].match)) {
-			return fmts[i].func(path, file, argc, argv, env, interp_depth, fs_fresh_descriptor(file, 0, full_path));
+			return fmts[i].func(path, desc, argc, argv, env, interp_depth);
 		}
 	}
 
-	free(full_path);
-	close_fs(file);
+	fs_close_desc((uintptr_t)desc);
 	return -ENOEXEC;
 }
 

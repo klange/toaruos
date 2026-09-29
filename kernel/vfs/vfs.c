@@ -1024,11 +1024,6 @@ fs_node_t *kopen_error(const char *filename, unsigned int flags, int *error) {
 	return kopen_recur(filename, flags & ~(O_CREAT), 0, fs_current_wd(), error, NULL, 0);
 }
 
-fs_node_t *kopen_to_path(const char *filename, unsigned int flags, int *error, struct fs_path **path) {
-	*error = 0;
-	return kopen_recur(filename, flags & ~(O_CREAT), 0, fs_current_wd(), error, path, 0);
-}
-
 char * fs_current_wd(void) {
 	if (this_core->current_process->wd && this_core->current_process->wd->path) {
 		return this_core->current_process->wd->path->chars;

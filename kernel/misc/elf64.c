@@ -320,10 +320,10 @@ static uintptr_t load_from_file(fs_node_t * file, Elf64_Header * header, uintptr
 	return phdr_vaddr;
 }
 
-int elf_exec(const char * path, fs_node_t * file, int argc, const char *const argv[], const char *const env[], int interp, struct fs_file_description * desc_in) {
+int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int argc, const char *const argv[], const char *const env[], int interp) {
 	Elf64_Header header;
 
-	read_fs(file, 0, sizeof(Elf64_Header), (uint8_t*)&header);
+	read_fs(desc_in->inode, 0, sizeof(Elf64_Header), (uint8_t*)&header);
 
 	if (header.e_ident[0] != ELFMAG0 ||
 	    header.e_ident[1] != ELFMAG1 ||
@@ -346,29 +346,25 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 		return -EINVAL;
 	}
 
-	fs_node_t * interpreter = NULL;
 	struct fs_file_description * interpreter_desc = NULL;
 	Elf64_Header interp_header;
 
 	for (int i = 0; i < header.e_phnum; ++i) {
 		Elf64_Phdr phdr;
-		read_fs(file, header.e_phoff + header.e_phentsize * i, sizeof(Elf64_Phdr), (uint8_t*)&phdr);
+		read_fs(desc_in->inode, header.e_phoff + header.e_phentsize * i, sizeof(Elf64_Phdr), (uint8_t*)&phdr);
 		if (phdr.p_type == PT_INTERP) {
 			/* Must load interpreter */
-			if (phdr.p_filesz < 2 || phdr.p_filesz > 256) return -EINVAL;
+			if (phdr.p_filesz < 2 || phdr.p_filesz > 256) return fs_close_desc((uintptr_t)desc_in), -EINVAL;
 			char * tmp = malloc(phdr.p_filesz);
-			read_fs(file, phdr.p_offset, phdr.p_filesz, (uint8_t*)tmp);
-			if (tmp[phdr.p_filesz-1] != '\0') return free(tmp), -EINVAL;
+			read_fs(desc_in->inode, phdr.p_offset, phdr.p_filesz, (uint8_t*)tmp);
+			if (tmp[phdr.p_filesz-1] != '\0') return fs_close_desc((uintptr_t)desc_in), free(tmp), -EINVAL;
 
 			int error = 0;
-			struct fs_path * int_path = NULL;
-			interpreter = kopen_to_path(tmp, 0, &error, &int_path);
+			interpreter_desc = kopen_at(NULL, tmp, 0, 0, &error);
 			free(tmp);
-			if (!interpreter) return -error;
+			if (!interpreter_desc) return -error;
 
-			interpreter_desc = fs_fresh_descriptor(interpreter, 0, int_path);
-
-			ssize_t r = read_fs(interpreter, 0, sizeof(Elf64_Header), (uint8_t*)&interp_header);
+			ssize_t r = read_fs(interpreter_desc->inode, 0, sizeof(Elf64_Header), (uint8_t*)&interp_header);
 			if (r < 0) return fs_close_desc((uintptr_t)desc_in), fs_close_desc((uintptr_t)interpreter_desc), r;
 			if ((size_t)r < sizeof(Elf64_Header)) return fs_close_desc((uintptr_t)desc_in), fs_close_desc((uintptr_t)interpreter_desc), -EINVAL;
 
@@ -389,8 +385,8 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 
 	int at_secure = 0;
 	if (!(this_core->current_process->flags & (PROC_FLAGS_TRACE)) && !this_core->current_process->tracer) {
-		if (file->mask & S_ISUID) { at_secure = 1; this_core->current_process->user = file->uid; } /* set-user-ID */
-		if (file->mask & S_ISGID) { at_secure = 1; this_core->current_process->user_group = file->gid; } /* set-group-ID */
+		if (desc_in->inode->mask & S_ISUID) { at_secure = 1; this_core->current_process->user = desc_in->inode->uid; } /* set-user-ID */
+		if (desc_in->inode->mask & S_ISGID) { at_secure = 1; this_core->current_process->user_group = desc_in->inode->gid; } /* set-group-ID */
 	}
 
 	this_core->current_process->saved_user = this_core->current_process->user;
@@ -420,15 +416,15 @@ int elf_exec(const char * path, fs_node_t * file, int argc, const char *const ar
 
 	/* Load binary */
 	uintptr_t base_addr;
-	uintptr_t phdr_vaddr = load_from_file(file, &header, &base_addr, 0, !interpreter, desc_in);
+	uintptr_t phdr_vaddr = load_from_file(desc_in->inode, &header, &base_addr, 0, !interpreter_desc, desc_in);
 	uintptr_t entrypoint = header.e_entry + base_addr;
 	uintptr_t interp_base = 0;
 
 	this_core->current_process->exe = desc_in;
 
 	/* We've loaded the binary, now let's load the interpreter! */
-	if (interpreter) {
-		load_from_file(interpreter, &interp_header, &interp_base, 1, 1, interpreter_desc);
+	if (interpreter_desc) {
+		load_from_file(interpreter_desc->inode, &interp_header, &interp_base, 1, 1, interpreter_desc);
 		entrypoint = interp_base + interp_header.e_entry;
 		fs_close_desc((uintptr_t)interpreter_desc);
 	}
