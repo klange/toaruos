@@ -1082,3 +1082,21 @@ uintptr_t fs_clone_desc(uintptr_t desc_ptr, int extra_mode) {
 	return out;
 }
 
+uint64_t fs_convert_descriptor_flags(uintptr_t desc_ptr) {
+	struct fs_file_description * desc = FD_PTR_MASK(desc_ptr);
+
+	uint64_t flags = 0;
+
+	/* File descriptor bits */
+	if (desc_ptr & FD_PTR_CLOEXEC) flags |= O_CLOEXEC;
+	if (desc_ptr & FD_PTR_CLOFORK) flags |= O_CLOFORK;
+
+	/* File description access bits */
+	if ((desc->flags & PROC_FD_MODE__RW) == PROC_FD_MODE__RW) flags |= O_RDWR;
+	else if (desc->flags & PROC_FD_MODE_READ) flags |= O_RDONLY; /* (this is zero) */
+	else if (desc->flags & PROC_FD_MODE_WRITE) flags |= O_WRONLY;
+
+	if (desc->flags & PROC_FD_MODE_APPEND) flags |= O_APPEND;
+
+	return flags;
+}

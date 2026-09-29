@@ -484,9 +484,7 @@ static void proc_fdinfo_ent_func(fs_node_t * node) {
 	if (proc->fds->entries[self->id]) {
 		uintptr_t desc_ptr = proc->fds->entries[self->id];
 		struct fs_file_description * desc = FD_PTR_MASK(desc_ptr);
-		uint64_t flags = desc->flags;
-		if (desc_ptr & FD_PTR_CLOEXEC) flags |= PROC_FD_MODE_CLOEXEC;
-		if (desc_ptr & FD_PTR_CLOFORK) flags |= PROC_FD_MODE_CLOFORK;
+		uint64_t flags = fs_convert_descriptor_flags(desc_ptr);
 		procfs_printf(
 			node,
 			"pos:\t%ld\n"

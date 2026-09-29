@@ -119,9 +119,9 @@ def __main__(args):
             let mode = ' '
             if 'flags:' in info:
                 let b = int(info['flags:'], base=0)
-                if (b & 3) == 3: mode = 'u' # READ | WRITE
-                else if (b & 1): mode = 'r' # READ
-                else if (b & 2): mode = 'w' # WRITE
+                if (b & os.O_RDWR): mode = 'u'
+                else if (b & os.O_WRONLY): mode = 'w'
+                else: mode = 'r' # must be readonly
             let off = ''
             if 'pos:' in info:
                 off = info['pos:']
