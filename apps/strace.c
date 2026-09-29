@@ -215,6 +215,7 @@ static const char * syscall_names[SYS__COUNT] = {
 	[SYS_GETRESGID]    = "getresgid",
 	[SYS_OPENAT]       = "openat",
 	[SYS_FSTATAT]      = "fstatat",
+	[SYS_FCHDIR]       = "fchdir",
 };
 
 static const int syscall_set_net[] = {
@@ -236,7 +237,7 @@ static const int syscall_set_desc[] = {
 	SYS_FSWAIT2, SYS_FSWAIT3, SYS_SEEK, SYS_IOCTL, SYS_PIPE, SYS_PIPE2,
 	SYS_DUP2, SYS_READDIR, SYS_OPENPTY, SYS_PREAD, SYS_PWRITE, SYS_FCNTL,
 	SYS_FCHMOD, SYS_FCHOWN, SYS_FTRUNCATE, SYS_DUP3, SYS_INSMOD, SYS_FUTIMENS,
-	SYS_OPENAT, -1
+	SYS_OPENAT, SYS_FCHDIR, -1
 };
 
 static const int syscall_set_memory[] = {
@@ -1664,6 +1665,9 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			break;
 		case SYS_CHDIR:
 			filename_arg(pid, uregs_syscall_arg1(r));
+			break;
+		case SYS_FCHDIR:
+			fd_arg(pid, uregs_syscall_arg1(r));
 			break;
 		case SYS_GETCWD:
 			/* output is first arg */

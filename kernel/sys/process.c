@@ -309,9 +309,10 @@ unsigned long process_new_fd(process_t * proc, fs_node_t * node, int flags, stru
 	return process_append_fd(proc, desc, fd_flags);
 }
 
-void process_chdir(process_t * proc, fs_node_t * node, struct fs_path * path) {
-	if (proc->wd) fs_close_desc((uintptr_t)proc->wd);
-	proc->wd = fs_fresh_descriptor(node, PROC_FD_MODE_READ, path);
+void process_chdir(process_t * proc, struct fs_file_description * newfd) {
+	struct fs_file_description *old = proc->wd;
+	proc->wd = (void*)fs_clone_desc((uintptr_t)newfd, 0);
+	if (old) fs_close_desc((uintptr_t)old);
 }
 
 /**

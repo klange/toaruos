@@ -65,7 +65,7 @@ extern int symlink(const char *target, const char *linkpath);
 extern ssize_t readlink(const char *pathname, char *buf, size_t bufsiz);
 
 extern int chdir(const char *path);
-//extern int fchdir(int fd);
+extern int fchdir(int fd);
 extern int isatty(int fd);
 
 extern unsigned int sleep(unsigned int seconds);

@@ -9,3 +9,8 @@ int chdir(const char *path) {
 	__sets_errno(syscall_chdir((char*)path));
 }
 
+DEFN_SYSCALL1(fchdir, SYS_FCHDIR, int);
+
+int fchdir(int fd) {
+	__sets_errno(syscall_fchdir(fd));
+}

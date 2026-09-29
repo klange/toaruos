@@ -763,23 +763,27 @@ long sys_uname(struct utsname * name) {
 long sys_chdir(char * newdir) {
 	PTR_VALIDATE(newdir);
 	if (!newdir) return -EFAULT;
-	struct fs_path * path = NULL;
 	int error = 0;
-	fs_node_t * chd = kopen_to_path(newdir, 0, &error, &path);
+	struct fs_file_description * fd = kopen_at(do_dirfd(AT_FDCWD), newdir, O_DIRECTORY | O_PATH, 0, &error);
+	if (!fd) return -error;
 
-	if (!chd) return  -error;
-
-	if (!(chd->flags & FS_DIRECTORY)) {
-		if (path) free(path);
-		return close_fs(chd), -ENOTDIR;
-	}
-	if (!has_permission(chd, X_OK)) {
-		if (path) free(path);
-		return close_fs(chd), -EACCES;
+	/* Need X permission at least... */
+	if (!has_permission(fd->inode, X_OK)) {
+		fs_close_desc((uintptr_t)fd);
+		return -EACCES;
 	}
 
-	process_chdir((process_t*)this_core->current_process, chd, path);
+	process_chdir((process_t*)this_core->current_process, fd);
 
+	fs_close_desc((uintptr_t)fd);
+	return 0;
+}
+
+long sys_fchdir(int dirfd) {
+	if (!FD_CHECK(dirfd)) return -EBADF;
+	if (!(FD_ENTRY(dirfd)->flags & FS_DIRECTORY)) return -ENOTDIR;
+	if (!has_permission(FD_ENTRY(dirfd), X_OK)) return -EACCES;
+	process_chdir((process_t*)this_core->current_process, FD_FILE(dirfd));
 	return 0;
 }
 
@@ -1512,6 +1516,7 @@ static scall_func syscalls[] = {
 	[SYS_GETRESGID]    = (scall_func)(uintptr_t)sys_getresgid,
 	[SYS_OPENAT]       = (scall_func)(uintptr_t)sys_openat,
 	[SYS_FSTATAT]      = (scall_func)(uintptr_t)sys_fstatat,
+	[SYS_FCHDIR]       = (scall_func)(uintptr_t)sys_fchdir,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,
