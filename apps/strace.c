@@ -110,7 +110,6 @@ static void report_pid(struct Pid *child) {
 static const char * syscall_names[SYS__COUNT] = {
 	[SYS_EXT]          = "exit",
 	[SYS_GETEUID]      = "geteuid",
-	[SYS_OPEN]         = "open",
 	[SYS_READ]         = "read",
 	[SYS_WRITE]        = "write",
 	[SYS_CLOSE]        = "close",
@@ -127,20 +126,10 @@ static const char * syscall_names[SYS__COUNT] = {
 	[SYS_GETCWD]       = "getcwd",
 	[SYS_SETHOSTNAME]  = "sethostname",
 	[SYS_GETHOSTNAME]  = "gethostname",
-	[SYS_MKDIR]        = "mkdir",
 	[SYS_GETTID]       = "gettid",
 	[SYS_IOCTL]        = "ioctl",
-	[SYS_ACCESS]       = "access",
-	[SYS_EACCESS]      = "eaccess",
-	[SYS_STATF]        = "statf",
-	[SYS_CHMOD]        = "chmod",
 	[SYS_UMASK]        = "umask",
-	[SYS_UNLINK]       = "unlink",
 	[SYS_MOUNT]        = "mount",
-	[SYS_SYMLINK]      = "symlink",
-	[SYS_READLINK]     = "readlink",
-	[SYS_LSTAT]        = "lstat",
-	[SYS_CHOWN]        = "chown",
 	[SYS_SETSID]       = "setsid",
 	[SYS_SETPGID]      = "setpgid",
 	[SYS_GETPGID]      = "getpgid",
@@ -150,7 +139,6 @@ static const char * syscall_names[SYS__COUNT] = {
 	[SYS_FORK]         = "fork",
 	[SYS_WAITPID]      = "waitpid",
 	[SYS_YIELD]        = "yield",
-	[SYS_PIPE]         = "pipe",
 	[SYS_FSWAIT]       = "fswait",
 	[SYS_FSWAIT2]      = "fswait_timeout",
 	[SYS_FSWAIT3]      = "fswait_multi",
@@ -183,7 +171,6 @@ static const char * syscall_names[SYS__COUNT] = {
 	[SYS_SIGWAIT]      = "sigwait",
 	[SYS_PREAD]        = "pread",
 	[SYS_PWRITE]       = "pwrite",
-	[SYS_RENAME]       = "rename",
 	[SYS_FCNTL]        = "fcntl",
 	[SYS_FCHMOD]       = "fchmod",
 	[SYS_FCHOWN]       = "fchown",
@@ -193,7 +180,6 @@ static const char * syscall_names[SYS__COUNT] = {
 	[SYS_GETSOCKNAME]  = "getsockname",
 	[SYS_GETPEERNAME]  = "getpeername",
 	[SYS_GETPPID]      = "getppid",
-	[SYS_LCHOWN]       = "lchown",
 	[SYS_GETRUSAGE]    = "getrusage",
 	[SYS_PIPE2]        = "pipe2",
 	[SYS_SIGQUEUE]     = "sigqueue",
@@ -208,7 +194,6 @@ static const char * syscall_names[SYS__COUNT] = {
 	[SYS_INSMOD]       = "insmod",
 	[SYS_GETSID]       = "getsid",
 	[SYS_NANOSLEEP]    = "nanosleep",
-	[SYS_UTIMENS]      = "utimens",
 	[SYS_FUTIMENS]     = "futimens",
 	[SYS_SIGALTSTACK]  = "sigaltstack",
 	[SYS_GETRESUID]    = "getresuid",
@@ -234,18 +219,15 @@ static const int syscall_set_net[] = {
 };
 
 static const int syscall_set_file[] = {
-	SYS_OPEN, SYS_STATF, SYS_LSTAT, SYS_ACCESS, SYS_EXECVE,
-	SYS_GETCWD, SYS_CHDIR, SYS_MKDIR, SYS_SYMLINK, SYS_UNLINK,
-	SYS_CHMOD, SYS_CHOWN, SYS_MOUNT, SYS_READLINK, SYS_RENAME,
-	SYS_TRUNCATE, SYS_EACCESS, SYS_LCHOWN, SYS_UTIMENS,
+	SYS_EXECVE, SYS_GETCWD, SYS_CHDIR, SYS_MOUNT, SYS_TRUNCATE,
 	SYS_OPENAT, SYS_FACCESSAT, SYS_FCHMODAT, SYS_FCHOWNAT,
 	SYS_READLINKAT, SYS_UTIMENSAT, SYS_MKDIRAT, SYS_SYMLINKAT,
 	SYS_RENAMEAT, SYS_UNLINKAT, -1
 };
 
 static const int syscall_set_desc[] = {
-	SYS_OPEN, SYS_READ, SYS_WRITE, SYS_CLOSE, SYS_STAT, SYS_FSWAIT,
-	SYS_FSWAIT2, SYS_FSWAIT3, SYS_SEEK, SYS_IOCTL, SYS_PIPE, SYS_PIPE2,
+	SYS_READ, SYS_WRITE, SYS_CLOSE, SYS_STAT, SYS_FSWAIT,
+	SYS_FSWAIT2, SYS_FSWAIT3, SYS_SEEK, SYS_IOCTL, SYS_PIPE2,
 	SYS_DUP2, SYS_READDIR, SYS_OPENPTY, SYS_PREAD, SYS_PWRITE, SYS_FCNTL,
 	SYS_FCHMOD, SYS_FCHOWN, SYS_FTRUNCATE, SYS_DUP3, SYS_INSMOD, SYS_FUTIMENS,
 	SYS_OPENAT, SYS_FCHDIR, -1
@@ -272,7 +254,7 @@ static const int syscall_set_creds[] = {
 };
 
 static const int syscall_set_stat[] = {
-	SYS_STAT, SYS_STATF, SYS_LSTAT, -1
+	SYS_STAT, SYS_FSTATAT, -1
 };
 
 static const int syscall_set_clock[] = {
@@ -1577,14 +1559,6 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 
 	fprintf(logfile, "%s(", syscall_names[uregs_syscall_num(r)]);
 	switch (uregs_syscall_num(r)) {
-		case SYS_OPEN:
-			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			open_flags(uregs_syscall_arg2(r));
-			if (uregs_syscall_arg2(r) & O_CREAT) {
-				COMMA;
-				mode_arg(uregs_syscall_arg3(r));
-			}
-			break;
 		case SYS_OPENAT:
 			fd_at_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			filename_arg(pid, uregs_syscall_arg2(r)); COMMA;
@@ -1593,10 +1567,6 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 				COMMA;
 				mode_arg(uregs_syscall_arg4(r));
 			}
-			break;
-		case SYS_CHMOD:
-			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			mode_arg(uregs_syscall_arg2(r));
 			break;
 		case SYS_FCHMODAT:
 			fd_at_arg(pid, uregs_syscall_arg1(r)); COMMA;
@@ -1607,11 +1577,6 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 		case SYS_FCHMOD:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			mode_arg(uregs_syscall_arg2(r));
-			break;
-		case SYS_UTIMENS:
-			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			struct_timespec_arg(pid, uregs_syscall_arg2(r)); COMMA;
-			struct_timespec_arg(pid, uregs_syscall_arg3(r));
 			break;
 		case SYS_UTIMENSAT:
 			fd_at_arg(pid, uregs_syscall_arg1(r)); COMMA;
@@ -1624,12 +1589,6 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			struct_timespec_arg(pid, uregs_syscall_arg2(r)); COMMA;
 			struct_timespec_arg(pid, uregs_syscall_arg3(r));
-			break;
-		case SYS_CHOWN:
-		case SYS_LCHOWN:
-			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			uid_arg(pid, uregs_syscall_arg2(r)); COMMA;
-			gid_arg(pid, uregs_syscall_arg3(r));
 			break;
 		case SYS_FCHOWN:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
@@ -1682,10 +1641,6 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 				default: int_arg(uregs_syscall_arg3(r)); break;
 			}
 			break;
-		case SYS_STATF:
-			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			/* Plus one more when done */
-			break;
 		case SYS_FSTATAT:
 			fd_at_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			filename_arg(pid, uregs_syscall_arg2(r)); COMMA;
@@ -1693,10 +1648,6 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			break;
 		case SYS_STAT:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			/* Plus one more when done */
-			break;
-		case SYS_LSTAT:
-			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			/* Plus one more when done */
 			break;
 		case SYS_READDIR:
@@ -1734,29 +1685,16 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 		case SYS_GETHOSTNAME:
 			/* plus one more when done */
 			break;
-		case SYS_MKDIR:
-			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			mode_arg(uregs_syscall_arg2(r));
-			break;
 		case SYS_MKDIRAT:
 			fd_at_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			filename_arg(pid, uregs_syscall_arg2(r)); COMMA;
 			mode_arg(uregs_syscall_arg3(r));
-			break;
-		case SYS_RENAME:
-			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			filename_arg(pid, uregs_syscall_arg2(r));
 			break;
 		case SYS_RENAMEAT:
 			fd_at_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			filename_arg(pid, uregs_syscall_arg2(r)); COMMA;
 			fd_at_arg(pid, uregs_syscall_arg3(r)); COMMA;
 			filename_arg(pid, uregs_syscall_arg4(r));
-			break;
-		case SYS_ACCESS:
-		case SYS_EACCESS:
-			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			access_mode_arg(uregs_syscall_arg2(r));
 			break;
 		case SYS_FACCESSAT:
 			fd_at_arg(pid, uregs_syscall_arg1(r)); COMMA;
@@ -1822,9 +1760,6 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			struct_timespec_arg(pid, uregs_syscall_arg1(r)); COMMA
 			/* One output */
 			break;
-		case SYS_PIPE:
-			/* Arg is a pointer */
-			break;
 		case SYS_PIPE2:
 			/* Output-filled pointer */
 			break;
@@ -1857,9 +1792,6 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			break;
 		case SYS_UMASK:
 			mode_arg(uregs_syscall_arg1(r));
-			break;
-		case SYS_UNLINK:
-			filename_arg(pid, uregs_syscall_arg1(r));
 			break;
 		case SYS_UNLINKAT:
 			fd_at_arg(pid, uregs_syscall_arg1(r)); COMMA;
@@ -1995,18 +1927,10 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			int_arg(uregs_syscall_arg2(r)); COMMA;
 			string_array_arg(pid, uregs_syscall_arg3(r));
 			break;
-		case SYS_SYMLINK:
-			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			filename_arg(pid, uregs_syscall_arg2(r));
-			break;
 		case SYS_SYMLINKAT:
 			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			fd_at_arg(pid, uregs_syscall_arg2(r)); COMMA;
 			filename_arg(pid, uregs_syscall_arg3(r));
-			break;
-		case SYS_READLINK:
-			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			/* Plus two more when done */
 			break;
 		case SYS_READLINKAT:
 			fd_at_arg(pid, uregs_syscall_arg1(r)); COMMA;
@@ -2063,7 +1987,6 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 		case -1:
 			break; /* This is ptrace(PTRACE_TRACEME)... probably... */
 		/* read() returns data in second value */
-		case SYS_OPEN:
 		case SYS_OPENAT:
 			if ((intptr_t)uregs_syscall_result(r) >= 0) {
 				fprintf(logfile, ") = ");
@@ -2091,10 +2014,6 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			break;
 		case SYS_UNAME:
 			struct_utsname_arg(pid, uregs_syscall_arg1(r));
-			maybe_errno(r);
-			break;
-		case SYS_PIPE:
-			fds_arg(pid, 2, uregs_syscall_arg1(r));
 			maybe_errno(r);
 			break;
 		case SYS_PIPE2:
@@ -2166,9 +2085,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 				maybe_errno(r);
 			}
 			break;
-		case SYS_STATF:
 		case SYS_STAT:
-		case SYS_LSTAT:
 			if ((intptr_t)uregs_syscall_result(r) >= 0) {
 				struct_stat_arg(pid, uregs_syscall_arg2(r), syscall_mask[syscall] & SYSCALL_MASK_ABBREV);
 			} else {
@@ -2193,11 +2110,6 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			} else {
 				pointer_arg(uregs_syscall_arg3(r));
 			}
-			maybe_errno(r);
-			break;
-		case SYS_READLINK:
-			buffer_arg(pid, uregs_syscall_arg2(r), uregs_syscall_arg3(r)); COMMA;
-			uint_arg(uregs_syscall_arg3(r));
 			maybe_errno(r);
 			break;
 		case SYS_READLINKAT:

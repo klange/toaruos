@@ -248,7 +248,7 @@ FILE * fopen(const char *path, const char *mode) {
 
 	int flags, mask;
 	parse_mode(mode, &flags, &mask);
-	int fd = syscall_open(path, flags, mask);
+	int fd = syscall_openat(AT_FDCWD, path, flags, mask);
 
 	if (fd < 0) {
 		errno = -fd;
@@ -291,7 +291,7 @@ FILE * freopen(const char *path, const char *mode, FILE * stream) {
 		}
 		int flags, mask;
 		parse_mode(mode, &flags, &mask);
-		int fd = syscall_open(path, flags, mask);
+		int fd = syscall_openat(AT_FDCWD, path, flags, mask);
 		stream->fd = fd;
 		stream->available = 0;
 		stream->read_from = 0;

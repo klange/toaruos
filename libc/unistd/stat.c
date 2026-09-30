@@ -1,33 +1,9 @@
+#include <fcntl.h>
 #include <errno.h>
 #include <libc/syscall.h>
 #include <sys/syscall.h>
 #include <sys/stat.h>
 #include <string.h>
-
-DEFN_SYSCALL2(statf, SYS_STATF, char *, void *);
-DEFN_SYSCALL2(lstat, SYS_LSTAT, char *, void *);
-
-int stat(const char *file, struct stat *st){
-	int ret = syscall_statf((char *)file, (void *)st);
-	if (ret >= 0) {
-		return ret;
-	} else {
-		errno = -ret;
-		memset(st, 0x00, sizeof(struct stat));
-		return -1;
-	}
-}
-
-int lstat(const char *path, struct stat *st) {
-	int ret = syscall_lstat((char *)path, (void *)st);
-	if (ret >= 0) {
-		return ret;
-	} else {
-		errno = -ret;
-		memset(st, 0x00, sizeof(struct stat));
-		return -1;
-	}
-}
 
 DEFN_SYSCALL4(fstatat, SYS_FSTATAT, int, const char *, void *, int);
 
@@ -37,4 +13,12 @@ int fstatat(int dirfd, const char * path, struct stat *st, int flag) {
 	errno = -ret;
 	memset(st, 0, sizeof(struct stat));
 	return -1;
+}
+
+int stat(const char * file, struct stat *st) {
+	return fstatat(AT_FDCWD, file, st, 0);
+}
+
+int lstat(const char * file, struct stat *st) {
+	return fstatat(AT_FDCWD, file, st, AT_SYMLINK_NOFOLLOW);
 }

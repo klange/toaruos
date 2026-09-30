@@ -177,22 +177,10 @@ long sys_fstatat(int dirfd, const char * filename, struct stat * st, int flag) {
 	return result;
 }
 
-long sys_statf(char * file, struct stat * st) {
-	return sys_fstatat(AT_FDCWD, file, st, 0);
-}
-
-long sys_lstat(char * file, struct stat * st) {
-	return sys_fstatat(AT_FDCWD, file, st, AT_SYMLINK_NOFOLLOW);
-}
-
 long sys_symlinkat(const char * target, int dirfd, const char * name) {
 	PTR_VALIDATE(target);
 	PTR_VALIDATE(name);
 	return symlink_fs_at(target, do_dirfd(dirfd), name);
-}
-
-long sys_symlink(const char * target, const char * name) {
-	return sys_symlinkat(target, AT_FDCWD, name);
 }
 
 long sys_readlinkat(int dirfd, const char * file, char * ptr, long len) {
@@ -206,10 +194,6 @@ long sys_readlinkat(int dirfd, const char * file, char * ptr, long len) {
 	long rv = readlink_fs(out->inode, ptr, len);
 	fs_close_desc((uintptr_t)out);
 	return rv;
-}
-
-long sys_readlink(const char * file, char * ptr, long len) {
-	return sys_readlinkat(AT_FDCWD, file, ptr, len);
 }
 
 static mode_t modify_mode(mode_t mode_in) {
@@ -229,10 +213,6 @@ long sys_openat(int dirfd, const char *filename, int flags, mode_t mode_in) {
 	if (flags & O_CLOFORK) clo_flags |= FD_PTR_CLOFORK;
 
 	return process_append_fd((process_t*)this_core->current_process, out, clo_flags);
-}
-
-long sys_open(const char * file, long flags, mode_t mode_in) {
-	return sys_openat(AT_FDCWD, file, flags, mode_in);
 }
 
 long sys_close(int fd) {
@@ -294,10 +274,6 @@ long sys_mkdirat(int dirfd, const char * path, mode_t mode_in) {
 	return 0;
 }
 
-long sys_mkdir(const char * path, mode_t mode) {
-	return sys_mkdirat(AT_FDCWD, path, mode);
-}
-
 long sys_faccessat(int dirfd, const char *path, int amode, int flag) {
 	PTR_VALIDATE(path);
 	if (!path) return -EFAULT;
@@ -315,14 +291,6 @@ long sys_faccessat(int dirfd, const char *path, int amode, int flag) {
 	int ret = amode ? (!has_permission(out->inode, amode) ? -EACCES : 0) : 0;
 	fs_close_desc((uintptr_t)out);
 	return ret;
-}
-
-long sys_access(const char * file, long flags) {
-	return sys_faccessat(AT_FDCWD, file, flags, 0);
-}
-
-long sys_eaccess(const char * file, long flags) {
-	return sys_faccessat(AT_FDCWD, file, flags, AT_EACCESS);
 }
 
 static long chmod_node(fs_node_t * fn, mode_t mode) {
@@ -345,10 +313,6 @@ long sys_fchmodat(int dirfd, const char * file, mode_t mode, int flag) {
 	return ret;
 }
 
-long sys_chmod(const char * file, mode_t mode) {
-	return sys_fchmodat(AT_FDCWD, file, mode, 0);
-}
-
 long sys_fchmod(int fd, long mode) {
 	if (!FD_CHECK(fd)) return -EBADF;
 	if (!(FD_MODE(fd) & PROC_FD_MODE__RW)) return -EBADF;
@@ -362,10 +326,6 @@ long sys_renameat(int srcfd, const char * src, int destfd, const char * dest) {
 	if (!dest) return -EFAULT;
 
 	return rename_file_fs_at(do_dirfd(srcfd), src, do_dirfd(destfd), dest);
-}
-
-long sys_rename(const char * src, const char * dest) {
-	return sys_renameat(AT_FDCWD, src, AT_FDCWD, dest);
 }
 
 static int current_group_matches(gid_t gid) {
@@ -412,14 +372,6 @@ long sys_fchownat(int dirfd, const char * file, uid_t uid, gid_t gid, int flag) 
 	long ret = chown_node(out->inode, uid, gid);
 	fs_close_desc((uintptr_t)out);
 	return ret;
-}
-
-long sys_chown(char * file, uid_t uid, gid_t gid) {
-	return sys_fchownat(AT_FDCWD, file, uid, gid, 0);
-}
-
-long sys_lchown(char * file, uid_t uid, gid_t gid) {
-	return sys_fchownat(AT_FDCWD, file, uid, gid, AT_SYMLINK_NOFOLLOW);
 }
 
 long sys_fchown(int fd, uid_t uid, gid_t gid) {
@@ -480,10 +432,6 @@ long sys_utimensat(int dirfd, const char * file, const struct timespec * access,
 	long ret = utimens_node(out->inode, access, modify);
 	fs_close_desc((uintptr_t)out);
 	return ret;
-}
-
-long sys_utimens(char * file, const struct timespec * access, const struct timespec * modify) {
-	return sys_utimensat(AT_FDCWD, file, access, modify, 0);
 }
 
 long sys_futimens(int fd, const struct timespec * access, const struct timespec * modify) {
@@ -933,10 +881,6 @@ long sys_unlinkat(int dirfd, const char * name, int flag) {
 	return unlink_fs_at(do_dirfd(dirfd), name, flag);
 }
 
-long sys_unlink(const char * file) {
-	return sys_unlinkat(AT_FDCWD, file, AT_REMOVEDIR);
-}
-
 long sys_execve(const char * filename, char *const argv[], char *const envp[]) {
 	PTR_VALIDATE(filename);
 	PTR_VALIDATE(argv);
@@ -1068,10 +1012,6 @@ long sys_pipe2(int pipes[2], int flag) {
 	pipes[1] = process_new_fd((process_t *)this_core->current_process, outpipes[1], flags, fs_path_printf("pipe:[%zu]", pipe_cnt));
 
 	return 0;
-}
-
-long sys_pipe(int pipes[2]) {
-	return sys_pipe2(pipes, 0);
 }
 
 long sys_signal(long signum, uintptr_t handler) {
@@ -1458,7 +1398,6 @@ static scall_func syscalls[] = {
 	/* System Call Table */
 	[SYS_EXT]          = (scall_func)(uintptr_t)sys_exit,
 	[SYS_GETEUID]      = (scall_func)(uintptr_t)sys_geteuid,
-	[SYS_OPEN]         = (scall_func)(uintptr_t)sys_open,
 	[SYS_READ]         = (scall_func)(uintptr_t)sys_read,
 	[SYS_WRITE]        = (scall_func)(uintptr_t)sys_write,
 	[SYS_CLOSE]        = (scall_func)(uintptr_t)sys_close,
@@ -1475,20 +1414,10 @@ static scall_func syscalls[] = {
 	[SYS_GETCWD]       = (scall_func)(uintptr_t)sys_getcwd,
 	[SYS_SETHOSTNAME]  = (scall_func)(uintptr_t)sys_sethostname,
 	[SYS_GETHOSTNAME]  = (scall_func)(uintptr_t)sys_gethostname,
-	[SYS_MKDIR]        = (scall_func)(uintptr_t)sys_mkdir,
 	[SYS_GETTID]       = (scall_func)(uintptr_t)sys_gettid,
 	[SYS_IOCTL]        = (scall_func)(uintptr_t)sys_ioctl,
-	[SYS_ACCESS]       = (scall_func)(uintptr_t)sys_access,
-	[SYS_EACCESS]      = (scall_func)(uintptr_t)sys_eaccess,
-	[SYS_STATF]        = (scall_func)(uintptr_t)sys_statf,
-	[SYS_CHMOD]        = (scall_func)(uintptr_t)sys_chmod,
 	[SYS_UMASK]        = (scall_func)(uintptr_t)sys_umask,
-	[SYS_UNLINK]       = (scall_func)(uintptr_t)sys_unlink,
 	[SYS_MOUNT]        = (scall_func)(uintptr_t)sys_mount,
-	[SYS_SYMLINK]      = (scall_func)(uintptr_t)sys_symlink,
-	[SYS_READLINK]     = (scall_func)(uintptr_t)sys_readlink,
-	[SYS_LSTAT]        = (scall_func)(uintptr_t)sys_lstat,
-	[SYS_CHOWN]        = (scall_func)(uintptr_t)sys_chown,
 	[SYS_SETSID]       = (scall_func)(uintptr_t)sys_setsid,
 	[SYS_SETPGID]      = (scall_func)(uintptr_t)sys_setpgid,
 	[SYS_GETPGID]      = (scall_func)(uintptr_t)sys_getpgid,
@@ -1497,7 +1426,6 @@ static scall_func syscalls[] = {
 	[SYS_FORK]         = (scall_func)(uintptr_t)sys_fork,
 	[SYS_WAITPID]      = (scall_func)(uintptr_t)sys_waitpid,
 	[SYS_YIELD]        = (scall_func)(uintptr_t)sys_yield,
-	[SYS_PIPE]         = (scall_func)(uintptr_t)sys_pipe,
 	[SYS_PIPE2]        = (scall_func)(uintptr_t)sys_pipe2,
 	[SYS_FSWAIT]       = (scall_func)(uintptr_t)sys_fswait,
 	[SYS_FSWAIT2]      = (scall_func)(uintptr_t)sys_fswait_timeout,
@@ -1522,14 +1450,12 @@ static scall_func syscalls[] = {
 	[SYS_SIGWAIT]      = (scall_func)(uintptr_t)sys_sigwait,
 	[SYS_PREAD]        = (scall_func)(uintptr_t)sys_pread,
 	[SYS_PWRITE]       = (scall_func)(uintptr_t)sys_pwrite,
-	[SYS_RENAME]       = (scall_func)(uintptr_t)sys_rename,
 	[SYS_FCNTL]        = (scall_func)(uintptr_t)sys_fcntl,
 	[SYS_FCHMOD]       = (scall_func)(uintptr_t)sys_fchmod,
 	[SYS_FCHOWN]       = (scall_func)(uintptr_t)sys_fchown,
 	[SYS_TRUNCATE]     = (scall_func)(uintptr_t)sys_truncate,
 	[SYS_FTRUNCATE]    = (scall_func)(uintptr_t)sys_ftruncate,
 	[SYS_GETPPID]      = (scall_func)(uintptr_t)sys_getppid,
-	[SYS_LCHOWN]       = (scall_func)(uintptr_t)sys_lchown,
 	[SYS_GETRUSAGE]    = (scall_func)(uintptr_t)sys_getrusage,
 	[SYS_SIGQUEUE]     = (scall_func)(uintptr_t)sys_sigqueue,
 	[SYS_SETRESUID]    = (scall_func)(uintptr_t)sys_setresuid,
@@ -1543,7 +1469,6 @@ static scall_func syscalls[] = {
 	[SYS_INSMOD]       = (scall_func)(uintptr_t)sys_insmod,
 	[SYS_GETSID]       = (scall_func)(uintptr_t)sys_getsid,
 	[SYS_NANOSLEEP]    = (scall_func)(uintptr_t)sys_nanosleep,
-	[SYS_UTIMENS]      = (scall_func)(uintptr_t)sys_utimens,
 	[SYS_FUTIMENS]     = (scall_func)(uintptr_t)sys_futimens,
 	[SYS_SIGALTSTACK]  = (scall_func)(uintptr_t)sys_sigaltstack,
 	[SYS_GETRESUID]    = (scall_func)(uintptr_t)sys_getresuid,

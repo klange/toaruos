@@ -2,7 +2,7 @@
 
 #define SYS_EXT 0
 #define SYS_GETEUID 1
-#define SYS_OPEN 2
+#define SYS_OPENAT 2
 #define SYS_READ 3
 #define SYS_WRITE 4
 #define SYS_CLOSE 5
@@ -34,7 +34,7 @@
 #define SYS_SETHOSTNAME 31
 #define SYS_GETHOSTNAME 32
 #define SYS_PTRACE 33
-#define SYS_MKDIR 34
+#define SYS_MKDIRAT 34
 #define SYS_NANOSLEEP 35
 #define SYS_SIGALTSTACK 36
 #define SYS_KILL 37
@@ -45,23 +45,23 @@
 #define SYS_YIELD 42
 #define SYS_INSMOD 43
 #define SYS_SHUTDOWN 44
-#define SYS_UTIMENS 45
+#define SYS_UTIMENSAT 45
 #define SYS_FUTIMENS 46
 #define SYS_IOCTL 47
-#define SYS_ACCESS 48
-#define SYS_STATF 49
-#define SYS_CHMOD 50
+#define SYS_FACCESSAT 48
+#define SYS_FSTATAT 49
+#define SYS_FCHMODAT 50
 #define SYS_UMASK 51
-#define SYS_UNLINK 52
+#define SYS_UNLINKAT 52
 #define SYS_WAITPID 53
-#define SYS_PIPE 54
+#define SYS_FCHDIR  54
 #define SYS_MOUNT 55
-#define SYS_SYMLINK 56
-#define SYS_READLINK 57
-#define SYS_LSTAT 58
+#define SYS_SYMLINKAT 56
+#define SYS_READLINKAT 57
+// 58 is available
 #define SYS_FSWAIT 59
 #define SYS_FSWAIT2 60
-#define SYS_CHOWN 61
+#define SYS_FCHOWNAT 61
 #define SYS_SETSID 62
 #define SYS_SETPGID 63
 #define SYS_GETPGID 64
@@ -82,14 +82,14 @@
 #define SYS_GETPEERNAME 79
 #define SYS_PREAD 80
 #define SYS_PWRITE 81
-#define SYS_RENAME 82
+#define SYS_RENAMEAT 82
 #define SYS_FCNTL 83
 #define SYS_FCHMOD 84
 #define SYS_FCHOWN 85
 #define SYS_TRUNCATE 86
 #define SYS_FTRUNCATE 87
 #define SYS_GETPPID 88
-#define SYS_LCHOWN 89
+// 89 is available
 #define SYS_GETRUSAGE 90
 #define SYS_PIPE2 91
 #define SYS_DUP3 92
@@ -105,17 +105,6 @@
 #define SYS_GETSID 102
 #define SYS_GETRESUID 103
 #define SYS_GETRESGID 104
-#define SYS_OPENAT 105
-#define SYS_FSTATAT 106
-#define SYS_FCHDIR  107
-#define SYS_FACCESSAT 108
-#define SYS_FCHMODAT 109
-#define SYS_FCHOWNAT 110
-#define SYS_READLINKAT 111
-#define SYS_UTIMENSAT 112
-#define SYS_MKDIRAT 113
-#define SYS_SYMLINKAT 114
-#define SYS_RENAMEAT 115
-#define SYS_UNLINKAT 116
 
-#define SYS__COUNT 117
+
+#define SYS__COUNT 105
