@@ -582,7 +582,7 @@ int tarfs_unpack(char * from_file) {
 				chown_fs(fd->inode, interpret_uid(file), interpret_gid(file));
 				goto _times;
 			case '2':
-				symlink_fs(file->link, filename_workspace);
+				symlink_fs_at(file->link, NULL, filename_workspace);
 				goto _next;
 
 			default:

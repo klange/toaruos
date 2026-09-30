@@ -424,14 +424,17 @@ int unlink_fs(const char * name) {
 	return ret;
 }
 
-int symlink_fs(const char * target, const char * name) {
-	int error = 0;
-	fs_node_t * parent = file_get_parent(name, &error);
-	if (!parent) return -error;
-	if (!has_permission(parent, W_OK|X_OK)) return close_fs(parent), -EACCES;
-	if (!parent->ops->symlink) return close_fs(parent), -EPERM;
+int symlink_fs_at(const char * target, struct fs_file_description * dirfd, const char * name) {
+	fs_node_t * parent = NULL;
+	fs_node_t * file = NULL;
+
 	const char * src = fs_basename(name);
 	if (!*src || *src == '/') return -EINVAL;
+
+	int err = kopen_parent(dirfd, name, &parent, &file);
+	if (!parent) return err; /* err is already negative */
+	if (file) return close_fs(file), close_fs(parent), -EEXIST;
+	if (!has_permission(parent, W_OK|X_OK)) return close_fs(parent), -EACCES;
 
 	int ret = parent->ops->symlink(parent, target, src);
 	close_fs(parent);
@@ -881,7 +884,7 @@ static char * path_untokenize(char * path, size_t len, unsigned int depth) {
 }
 
 
-static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_depth, char *relative_to, int * error, struct fs_path ** out_path, mode_t mode) {
+static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t symlink_depth, char *relative_to, int * error, struct fs_path ** out_path, mode_t mode, fs_node_t ** parent) {
 	/* Simple sanity checks that we actually have a file system */
 	if (!filename) return *error = ENOENT, NULL;
 
@@ -893,7 +896,11 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 	/* If strlen(path) == 1, then path = "/"; return root */
 	if (path_len == 1) {
 		free(path);
-		if ((flags & O_CREAT) && (flags & O_EXCL)) return NULL;
+		if (parent) {
+			*parent = fs_root;
+			open_fs(fs_root, 0);
+		}
+		if ((flags & O_CREAT) && (flags & O_EXCL)) return *error = EEXIST, NULL;
 		open_fs(fs_root, flags);
 		return fs_root;
 	}
@@ -925,11 +932,42 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 			char * relpath = path_untokenize(path, path_len, depth);
 
 			symlink_depth += 1;
-			node_ptr = kopen_recur(symlink_buf, 0, symlink_depth, relpath, error, NULL, 0);
+
+			struct fs_path * npath = NULL;
+			node_ptr = kopen_recur(symlink_buf, 0, symlink_depth, relpath, error, &npath, 0, NULL);
 			free(symlink_buf);
 			free(relpath);
 
-			if (!node_ptr) return free((void *)path), NULL;
+			if (!node_ptr) return free((void *)path), free(npath), NULL;
+
+			/* Reconstitute path for rest of walk */
+			if (path_offset >= path + path_len) {
+				free(path);
+				path = malloc(npath->len + 1);
+				memcpy(path, npath->chars, npath->len + 1);
+				path_tokenize(path, npath->len, &path_depth);
+				path_offset = path + npath->len;
+				path_len = npath->len;
+				depth = path_depth;
+			} else {
+				int relative_depth = path_depth - depth;
+				size_t remaining = path_len - (path_offset - path);
+
+				char * nnpath = malloc(npath->len + remaining + 2);
+				memcpy(nnpath, npath->chars, npath->len + 1);
+				path_tokenize(nnpath, npath->len, &depth);
+
+				memcpy(nnpath + npath->len + 1, path_offset, remaining + 1);
+				free(path);
+
+				path_depth = depth + relative_depth;
+				path_offset = nnpath + npath->len + 1;
+				path_len = npath->len + remaining + 1;
+
+				path = nnpath;
+			}
+
+			free(npath);
 		}
 
 		/* Found what we were looking for. */
@@ -949,6 +987,13 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 
 		/* Search for the requested file. */
 		fs_node_t * node_next = finddir_fs(node_ptr, path_offset);
+
+		if (parent && depth + 1 == path_depth) {
+			*parent = node_ptr;
+			free(path);
+			if (node_next) return open_fs(node_next, 0), node_next;
+			return *error = ENOENT, NULL;
+		}
 
 		if (!node_next) {
 			if (depth + 1 == path_depth && (flags & O_CREAT)) {
@@ -994,7 +1039,7 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
  */
 fs_node_t *kopen_error(const char *filename, unsigned int flags, int *error) {
 	*error = 0;
-	return kopen_recur(filename, flags & ~(O_CREAT), 0, fs_current_wd(), error, NULL, 0);
+	return kopen_recur(filename, flags & ~(O_CREAT), 0, fs_current_wd(), error, NULL, 0, NULL);
 }
 
 char * fs_current_wd(void) {
@@ -1002,6 +1047,20 @@ char * fs_current_wd(void) {
 		return this_core->current_process->wd->path->chars;
 	}
 	return (char*)"/";
+}
+
+int kopen_parent(struct fs_file_description * dirfd, const char *filename, fs_node_t ** parent, fs_node_t ** file) {
+	int err = 0;
+	*parent = NULL;
+	*file = NULL;
+
+	/* Only reject bad dirfd if path is relative */
+	if (*filename != '/' && !dirfd) return -EBADF;
+	if (*filename != '/' && !(dirfd->inode->flags & FS_DIRECTORY)) return -ENOTDIR;
+
+	*file = kopen_recur(filename, O_NOFOLLOW, 0, (dirfd && dirfd->path) ? dirfd->path->chars : (char*)"/", &err, NULL, 0, parent);
+
+	return -err;
 }
 
 struct fs_file_description * kopen_at(
@@ -1021,7 +1080,7 @@ struct fs_file_description * kopen_at(
 
 	if (flags & O_PATH) flags &= (O_PATH | O_NOFOLLOW | O_DIRECTORY); /* Ignore everything else */
 
-	fs_node_t * node = kopen_recur(filename, flags, 0 /* depth */, (dirfd && dirfd->path) ? dirfd->path->chars : (char*)"/", error, &path, mode);
+	fs_node_t * node = kopen_recur(filename, flags, 0 /* depth */, (dirfd && dirfd->path) ? dirfd->path->chars : (char*)"/", error, &path, mode, NULL);
 
 	if (!node) return NULL;
 

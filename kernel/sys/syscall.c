@@ -185,11 +185,15 @@ long sys_lstat(char * file, struct stat * st) {
 	return sys_fstatat(AT_FDCWD, file, st, AT_SYMLINK_NOFOLLOW);
 }
 
-long sys_symlink(char * target, char * name) {
+long sys_symlinkat(const char * target, int dirfd, const char * name) {
 	PTR_VALIDATE(target);
 	PTR_VALIDATE(name);
-	if (!target || !name) return -EFAULT;
-	return symlink_fs(target, name);
+	struct fs_file_description * fd = do_dirfd(dirfd);
+	return symlink_fs_at(target, fd, name);
+}
+
+long sys_symlink(const char * target, const char * name) {
+	return sys_symlinkat(target, AT_FDCWD, name);
 }
 
 long sys_readlinkat(int dirfd, const char * file, char * ptr, long len) {
