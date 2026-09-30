@@ -917,7 +917,16 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 	char * path_offset = path_tokenize(path, path_len, &path_depth);
 
 	unsigned int depth = 0;
-	fs_node_t *node_ptr = get_mount_point(path, path_depth, &path_offset, &depth);
+	fs_node_t *node_ptr;
+	if (flags & (1 << 30)) {
+		/* XXX Temporary workaround: Ignore the mount tree. We should probably
+		 * filter this out of userspace calls, but whatever. Used by the tarfs
+		 * migration when creating directories so it can make /dev and /proc
+		 * as directories in the root. */
+		node_ptr = fs_root;
+	} else {
+		node_ptr = get_mount_point(path, path_depth, &path_offset, &depth);
+	}
 
 	if (!node_ptr) return *error = ENOENT, NULL;
 	open_fs(node_ptr, flags);
@@ -979,8 +988,15 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 
 		/* Found what we were looking for. */
 		if (path_offset >= path+path_len || depth == path_depth) {
-			if ((flags & O_CREAT) && (flags & O_EXCL)) return *error = EEXIST, free(path), NULL;
-			if (node_ptr && out_path) {
+			if ((flags & O_CREAT) && (flags & O_EXCL)) return *error = EEXIST, free(path), close_fs(node_ptr), NULL;
+			if (parent) {
+				/* XXX If we got here with 'parent' set, then our target file is, itself, a
+				 * mount point, and we don't have a good idea of its parent with the way
+				 * mounts currently work; we should refuse whatever request this was anyway
+				 * (rename, unlink, symlink). */
+				return *error = EROFS, free(path), close_fs(node_ptr), NULL;
+			}
+			if (out_path) {
 				char * rpath = path_untokenize(path, path_len, path_depth + 1);
 				*out_path = fs_alloc_path_from(rpath, "kopen_recur");
 				free(rpath);

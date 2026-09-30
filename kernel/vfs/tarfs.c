@@ -577,7 +577,7 @@ int tarfs_unpack(char * from_file) {
 				chown_fs(fd->inode, interpret_uid(file), interpret_gid(file));
 				break;
 			case '5': /* Directory */
-				fd = kopen_at(NULL, filename_workspace, O_CREAT | O_DIRECTORY, mode, &error);
+				fd = kopen_at(NULL, filename_workspace, O_CREAT | O_DIRECTORY | (1 << 30), mode, &error);
 				if (!fd) goto _next;
 				chown_fs(fd->inode, interpret_uid(file), interpret_gid(file));
 				goto _times;
