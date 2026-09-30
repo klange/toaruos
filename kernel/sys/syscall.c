@@ -188,8 +188,7 @@ long sys_lstat(char * file, struct stat * st) {
 long sys_symlinkat(const char * target, int dirfd, const char * name) {
 	PTR_VALIDATE(target);
 	PTR_VALIDATE(name);
-	struct fs_file_description * fd = do_dirfd(dirfd);
-	return symlink_fs_at(target, fd, name);
+	return symlink_fs_at(target, do_dirfd(dirfd), name);
 }
 
 long sys_symlink(const char * target, const char * name) {
@@ -356,14 +355,17 @@ long sys_fchmod(int fd, long mode) {
 	return chmod_node(FD_ENTRY(fd), mode);
 }
 
-long sys_rename(const char * src, const char * dest) {
+long sys_renameat(int srcfd, const char * src, int destfd, const char * dest) {
 	PTR_VALIDATE(src);
 	if (!src) return -EFAULT;
 	PTR_VALIDATE(dest);
 	if (!dest) return -EFAULT;
 
-	extern int rename_file_fs(const char * src, const char * dest);
-	return rename_file_fs(src, dest);
+	return rename_file_fs_at(do_dirfd(srcfd), src, do_dirfd(destfd), dest);
+}
+
+long sys_rename(const char * src, const char * dest) {
+	return sys_renameat(AT_FDCWD, src, AT_FDCWD, dest);
 }
 
 static int current_group_matches(gid_t gid) {
@@ -923,10 +925,16 @@ long sys_umask(mode_t mode) {
 	return old_mode;
 }
 
-long sys_unlink(char * file) {
-	PTR_VALIDATE(file);
-	if (!file) return -EFAULT;
-	return unlink_fs(file);
+long sys_unlinkat(int dirfd, const char * name, int flag) {
+	PTR_VALIDATE(name);
+	if (!name) return -EFAULT;
+	if (flag & ~(AT_REMOVEDIR)) return -EINVAL;
+
+	return unlink_fs_at(do_dirfd(dirfd), name, flag);
+}
+
+long sys_unlink(const char * file) {
+	return sys_unlinkat(AT_FDCWD, file, AT_REMOVEDIR);
 }
 
 long sys_execve(const char * filename, char *const argv[], char *const envp[]) {
@@ -1550,6 +1558,8 @@ static scall_func syscalls[] = {
 	[SYS_UTIMENSAT]    = (scall_func)(uintptr_t)sys_utimensat,
 	[SYS_MKDIRAT]      = (scall_func)(uintptr_t)sys_mkdirat,
 	[SYS_SYMLINKAT]    = (scall_func)(uintptr_t)sys_symlinkat,
+	[SYS_RENAMEAT]     = (scall_func)(uintptr_t)sys_renameat,
+	[SYS_UNLINKAT]     = (scall_func)(uintptr_t)sys_unlinkat,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

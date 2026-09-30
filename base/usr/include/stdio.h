@@ -77,6 +77,7 @@ extern int setvbuf(FILE * stream, char * buf, int mode, size_t size);
 
 extern int remove(const char * pathname);
 extern int rename(const char * oldpath, const char * newpath);
+extern int renameat(int oldfd, const char * oldpath, int newfd, const char * newpath);
 
 #define _IONBF 0
 #define _IOLBF 1

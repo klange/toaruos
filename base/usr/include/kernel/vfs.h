@@ -161,7 +161,7 @@ int kopen_parent(struct fs_file_description * dirfd, const char *filename, fs_no
 int ioctl_fs(fs_node_t *node, unsigned long request, void * argp);
 int chmod_fs(fs_node_t *node, mode_t mode);
 int chown_fs(fs_node_t *node, uid_t uid, gid_t gid);
-int unlink_fs(const char * name);
+int unlink_fs_at(struct fs_file_description * fd, const char * name, int flag);
 int symlink_fs(const char * value, const char * name);
 int symlink_fs_at(const char * target, struct fs_file_description * dirfd, const char * name);
 ssize_t readlink_fs(fs_node_t * node, char * buf, size_t size);
@@ -169,6 +169,7 @@ int selectcheck_fs(fs_node_t * node);
 int selectwait_fs(fs_node_t * node, void * process);
 int truncate_fs(fs_node_t * node, size_t size);
 int utimens_fs(fs_node_t * node, struct timespec access, struct timespec modify);
+int rename_file_fs_at(struct fs_file_description * src_fd, const char * src, struct fs_file_description * dest_fd, const char * dest);
 
 void vfs_install(void);
 void * vfs_mount(const char * path, fs_node_t * local_root, const char * type, const char * options);

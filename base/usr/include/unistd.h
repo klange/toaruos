@@ -93,6 +93,7 @@ extern int optind, opterr, optopt;
 
 extern int link(const char *target, const char *linkpath);
 extern int unlink(const char * pathname);
+extern int unlinkat(int fd, const char * pathname, int flag);
 
 /* Unimplemented stubs */
 extern int rmdir(const char *pathname); /* TODO  rm probably just works */

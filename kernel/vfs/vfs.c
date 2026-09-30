@@ -348,14 +348,6 @@ int ioctl_fs(fs_node_t *node, unsigned long request, void * argp) {
 	return node->ops->ioctl ? node->ops->ioctl(node, request, argp) : -ENOTTY;
 }
 
-fs_node_t * file_get_parent(const char * path, int *error) {
-	char * parent_path = malloc(strlen(path) + 5);
-	snprintf(parent_path, strlen(path) + 4, "%s/..", path);
-	fs_node_t * parent  = kopen_error(parent_path, 0, error);
-	free(parent_path);
-	return parent;
-}
-
 static const char * fs_basename(const char * path) {
 	const char * f_path = path + strlen(path) - 1;
 	while (f_path > path && *f_path == '/') {
@@ -377,47 +369,60 @@ static const char * fs_basename(const char * path) {
 	return f_path;
 }
 
-int rename_file_fs(const char * src, const char * dest) {
-	int error = 0;
+int rename_file_fs_at(struct fs_file_description * src_fd, const char * src, struct fs_file_description * dest_fd, const char * dest) {
 	if (!*src || !*dest) return -ENOENT;
-	fs_node_t * src_parent = file_get_parent(src, &error);
-	if (!src_parent) return -error;
-	fs_node_t * dest_parent = file_get_parent(dest, &error);
-	if (!dest_parent) { close_fs(src_parent); return -error; }
 
-	int out = 0;
-	if (!src_parent->mount) { out = -EROFS; goto _nope; }
-	if (src_parent->mount != dest_parent->mount) { out = -EXDEV; goto _nope; }
-	if (!src_parent->mount->ops->rename) { out = -ENOTSUP; goto _nope; }
-
-	if (!has_permission(src_parent, W_OK|X_OK)) { out = -EACCES; goto _nope; }
-	if (!has_permission(dest_parent, W_OK|X_OK)) { out = -EACCES; goto _nope; }
-
-	/* Get basename of each path component */
 	const char * src_name = fs_basename(src);
 	const char * dest_name = fs_basename(dest);
 
-	if (!*src_name || !*dest_name) { out = -EINVAL; goto _nope; }
-	if (*src_name == '/' || *dest_name == '/') { out = -EINVAL; goto _nope; }
+	if (!*src_name || !*dest_name) return -EINVAL;
+	if (*src_name == '/' || *dest_name == '/') return -EINVAL;
 
-	out = src_parent->mount->ops->rename(src_parent->mount, src_parent, src_name, dest_parent, dest_name);
+	fs_node_t * src_parent;
+	fs_node_t * src_file;
 
-_nope:
+	int src_err = kopen_parent(src_fd, src, &src_parent, &src_file);
+	if (!src_parent) return src_err;
+	if (!src_file) return close_fs(src_parent), src_err;
+	close_fs(src_file); /* don't need it any more */
+
+	if (!src_parent->mount) return close_fs(src_parent), -EROFS;
+	if (!src_parent->mount->ops->rename) return close_fs(src_parent), -ENOTSUP;
+	if (!has_permission(src_parent, W_OK|X_OK)) return close_fs(src_parent), -EACCES;
+
+	fs_node_t * dest_parent;
+	fs_node_t * dest_file;
+
+	int dest_err = kopen_parent(dest_fd, dest, &dest_parent, &dest_file);
+	if (!dest_parent) return close_fs(src_parent), dest_err;
+	if (dest_file) close_fs(dest_file); /* don't need that */
+
+	/* cross-device */
+	if (src_parent->mount != dest_parent->mount) return close_fs(src_parent), close_fs(dest_parent), -EXDEV;
+	if (!has_permission(dest_parent, W_OK|X_OK)) return close_fs(src_parent), close_fs(dest_parent), -EACCES;
+
+	int out = src_parent->mount->ops->rename(src_parent->mount, src_parent, src_name, dest_parent, dest_name);
+
 	close_fs(dest_parent);
 	close_fs(src_parent);
 	return out;
 }
 
-int unlink_fs(const char * name) {
-	int error = 0;
-	fs_node_t * parent = file_get_parent(name, &error);
-	if (!parent) return -error;
+int unlink_fs_at(struct fs_file_description * fd, const char * name, int flags) {
+	fs_node_t * parent = NULL;
+	fs_node_t * file = NULL;
+
+	const char * src = fs_basename(name);
+	if (!*src || *src == '/') return -EINVAL;
+
+	int err = kopen_parent(fd, name, &parent, &file);
+	if (!parent) return err; /* err is already negative */
+	if (!file) return close_fs(parent), -ENOENT;
+	if (!(flags & AT_REMOVEDIR) && (file->flags & FS_DIRECTORY)) return close_fs(parent), close_fs(file), -EPERM;
+	close_fs(file);
 
 	if (!has_permission(parent, W_OK|X_OK)) return close_fs(parent), -EACCES;
 	if (!parent->ops->unlink) return close_fs(parent), -EROFS;
-
-	const char * src = fs_basename(name);
-	if (!*src || *src == '/') return close_fs(parent), -EINVAL;
 
 	int ret = parent->ops->unlink(parent, src);
 	close_fs(parent);
@@ -435,6 +440,7 @@ int symlink_fs_at(const char * target, struct fs_file_description * dirfd, const
 	if (!parent) return err; /* err is already negative */
 	if (file) return close_fs(file), close_fs(parent), -EEXIST;
 	if (!has_permission(parent, W_OK|X_OK)) return close_fs(parent), -EACCES;
+	if (!parent->ops->symlink) return close_fs(parent), -ENOTSUP;
 
 	int ret = parent->ops->symlink(parent, target, src);
 	close_fs(parent);
