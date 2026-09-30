@@ -40,6 +40,8 @@ static FILE * logfile;
 static bool log_hidden = true;
 static bool follow_forks = false;
 static int print_timestamps = 0;
+static bool print_number = false;
+static bool print_instruction = false;
 static pid_t unfinished_child = 0;
 static size_t string_max_len = 32;
 
@@ -49,6 +51,7 @@ struct Pid {
 	pid_t pid;
 	int previous_syscall;
 	bool unfinished;
+	uintptr_t iptr;
 };
 
 static struct Pid *children = NULL;
@@ -103,6 +106,12 @@ static void report_pid(struct Pid *child) {
 		char timebuf[100];
 		strftime(timebuf, 100, "%T", timeinfo);
 		fprintf(logfile, print_timestamps > 1 ? "%s.%06lu " : "%s ", timebuf, now.tv_usec);
+	}
+	if (print_number) {
+		fprintf(logfile, "[%4d] ", child->previous_syscall);
+	}
+	if (print_instruction) {
+		fprintf(logfile, "[%016zx] ", child->iptr);
 	}
 }
 
@@ -679,10 +688,10 @@ static void fds_arg(pid_t pid, size_t ecount, uintptr_t array) {
 	fprintf(logfile, "]");
 }
 
-static void string_array_arg(pid_t pid, uintptr_t array) {
+static void string_array_arg(pid_t pid, uintptr_t array, int abbrev) {
 	fprintf(logfile, "[");
 	uintptr_t val = data_read_ptr(pid, array);
-	for (size_t count = 0; count < 10; ++count) {
+	for (size_t count = 0; count < (abbrev ? 10 : (size_t)-1); ++count) {
 		string_arg(pid, val);
 		array += sizeof(uintptr_t);
 		val = data_read_ptr(pid, array);
@@ -692,7 +701,11 @@ static void string_array_arg(pid_t pid, uintptr_t array) {
 	fprintf(logfile, "]");
 }
 
-static void envp_arg(pid_t pid, uintptr_t array) {
+static void envp_arg(pid_t pid, uintptr_t array, int abbrev) {
+	if (!abbrev) {
+		string_array_arg(pid, array, 0);
+		return;
+	}
 	pointer_arg(array);
 
 	/* try to count them */
@@ -1297,7 +1310,7 @@ static int struct_termios_cc_val(FILE * logfile, struct termios *tios, char * na
 	return 1;
 }
 
-static void struct_termios_arg(pid_t pid, uintptr_t ptr) {
+static void struct_termios_arg(pid_t pid, uintptr_t ptr, int abbrev) {
 	if (!ptr) {
 		fprintf(logfile, "NULL");
 		return;
@@ -1419,6 +1432,11 @@ static void struct_termios_arg(pid_t pid, uintptr_t ptr) {
 		}
 	}
 
+	if (abbrev) {
+		fprintf(logfile, ",...}");
+		return;
+	}
+
 	int needs_comma = 0;
 
 	fprintf(logfile, ",c_cc={");
@@ -1527,7 +1545,7 @@ static void ioctl_cmd_arg(uintptr_t arg) {
 	}
 }
 
-static void ioctl_val_arg(pid_t pid, uintptr_t cmd, uintptr_t ptr) {
+static void ioctl_val_arg(pid_t pid, uintptr_t cmd, uintptr_t ptr, int is_abbrev) {
 	if (!ptr) {
 		fprintf(logfile, "NULL");
 		return;
@@ -1538,7 +1556,7 @@ static void ioctl_val_arg(pid_t pid, uintptr_t cmd, uintptr_t ptr) {
 		case TCSETS:
 		case TCSETSW:
 		case TCSETSF:
-			struct_termios_arg(pid, ptr);
+			struct_termios_arg(pid, ptr, is_abbrev);
 			return;
 
 		case TIOCGWINSZ:
@@ -1551,14 +1569,17 @@ static void ioctl_val_arg(pid_t pid, uintptr_t cmd, uintptr_t ptr) {
 }
 
 static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
-	if (uregs_syscall_num(r) >= SYS__COUNT) return;
-	if (!(syscall_mask[uregs_syscall_num(r)] & SYSCALL_MASK_ENABLED)) return;
+	int syscall = uregs_syscall_num(r);
+	if (syscall < 0 || syscall >= SYS__COUNT) return;
+	if (!(syscall_mask[syscall] & SYSCALL_MASK_ENABLED)) return;
 	if (log_hidden) return;
 
 	report_pid(child);
 
-	fprintf(logfile, "%s(", syscall_names[uregs_syscall_num(r)]);
-	switch (uregs_syscall_num(r)) {
+	int is_abbrev = syscall_mask[syscall] & SYSCALL_MASK_ABBREV;
+
+	fprintf(logfile, "%s(", syscall_names[syscall]);
+	switch (syscall) {
 		case SYS_OPENAT:
 			fd_at_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			filename_arg(pid, uregs_syscall_arg2(r)); COMMA;
@@ -1718,8 +1739,8 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			break;
 		case SYS_EXECVE:
 			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			string_array_arg(pid, uregs_syscall_arg2(r)); COMMA;
-			envp_arg(pid, uregs_syscall_arg3(r));
+			string_array_arg(pid, uregs_syscall_arg2(r), is_abbrev); COMMA;
+			envp_arg(pid, uregs_syscall_arg3(r), is_abbrev);
 			break;
 		case SYS_SIGNAL:
 			signal_arg(uregs_syscall_arg1(r)); COMMA;
@@ -1925,7 +1946,7 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 		case SYS_INSMOD:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			int_arg(uregs_syscall_arg2(r)); COMMA;
-			string_array_arg(pid, uregs_syscall_arg3(r));
+			string_array_arg(pid, uregs_syscall_arg3(r), is_abbrev);
 			break;
 		case SYS_SYMLINKAT:
 			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
@@ -1983,6 +2004,8 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 	if (child->unfinished) fprintf(logfile, "/* %s resumed */ ", syscall_names[syscall]);
 	child->unfinished = false;
 
+	int is_abbrev = syscall_mask[syscall] & SYSCALL_MASK_ABBREV;
+
 	switch (syscall) {
 		case -1:
 			break; /* This is ptrace(PTRACE_TRACEME)... probably... */
@@ -2033,7 +2056,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			fds_arg(pid, 1, uregs_syscall_arg1(r)); COMMA;
 			fds_arg(pid, 1, uregs_syscall_arg2(r)); COMMA;
 			string_arg(pid, uregs_syscall_arg3(r)); COMMA; /* string but unused */
-			struct_termios_arg(pid, uregs_syscall_arg4(r)); COMMA; /* termios */
+			struct_termios_arg(pid, uregs_syscall_arg4(r), is_abbrev); COMMA; /* termios */
 			struct_winsize_arg(pid, uregs_syscall_arg5(r)); /* window size */
 			maybe_errno(r);
 			break;
@@ -2095,7 +2118,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			break;
 		case SYS_STAT:
 			if ((intptr_t)uregs_syscall_result(r) >= 0) {
-				struct_stat_arg(pid, uregs_syscall_arg2(r), syscall_mask[syscall] & SYSCALL_MASK_ABBREV);
+				struct_stat_arg(pid, uregs_syscall_arg2(r), is_abbrev);
 			} else {
 				pointer_arg(uregs_syscall_arg2(r));
 			}
@@ -2103,7 +2126,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			break;
 		case SYS_FSTATAT:
 			if ((intptr_t)uregs_syscall_result(r) >= 0) {
-				struct_stat_arg(pid, uregs_syscall_arg3(r), syscall_mask[syscall] & SYSCALL_MASK_ABBREV); COMMA;
+				struct_stat_arg(pid, uregs_syscall_arg3(r), is_abbrev); COMMA;
 			} else {
 				pointer_arg(uregs_syscall_arg3(r)); COMMA;
 			}
@@ -2155,7 +2178,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			maybe_errno(r);
 			break;
 		case SYS_IOCTL:
-			ioctl_val_arg(pid, uregs_syscall_arg2(r), uregs_syscall_arg3(r));
+			ioctl_val_arg(pid, uregs_syscall_arg2(r), uregs_syscall_arg3(r), is_abbrev);
 			maybe_errno(r);
 			break;
 		case SYS_FCNTL:
@@ -2254,9 +2277,22 @@ int main(int argc, char * argv[]) {
 	logfile = stderr;
 	memset(syscall_mask, SYSCALL_MASK_DEFAULTS, sizeof(syscall_mask));
 
+	static struct option long_opts[] = {
+		{"output",              required_argument, 0, 'o'},
+		{"attach",              required_argument, 0, 'p'},
+		{"string-limit",        required_argument, 0, 's'},
+		{"follow-forks",        no_argument,       0, 'f'},
+		{"syscall-number",      no_argument,       0, 'n'},
+		{"instruction-pointer", no_argument,       0, 'i'},
+		{"no-abbrev",           no_argument,       0, 'v'},
+		{"help",                no_argument,       0, 'h'},
+		{"absolute-timestamps", optional_argument, 0, 1000},
+		{0,0,0,0}
+	};
+
 	pid_t p = 0;
 	int opt;
-	while ((opt = getopt(argc, argv, "+ho:e:p:fts:-:")) != -1) {
+	while ((opt = getopt_long(argc, argv, "+ho:e:p:fts:inv", long_opts, NULL)) != -1) {
 		switch (opt) {
 			case 'p':
 				p = atoi(optarg);
@@ -2331,6 +2367,11 @@ int main(int argc, char * argv[]) {
 					return 1;
 				}
 				break;
+			case 'v':
+				for (int i = 0; i < SYS__COUNT; ++i) {
+					syscall_mask[i] &= ~(SYSCALL_MASK_ABBREV);
+				}
+				break;
 			case 'f':
 				follow_forks = true;
 				break;
@@ -2340,17 +2381,21 @@ int main(int argc, char * argv[]) {
 			case 's':
 				string_max_len = strtoul(optarg, NULL, 10);
 				break;
+			case 'n':
+				print_number = true;
+				break;
+			case 'i':
+				print_instruction = true;
+				break;
+			case 1000:
+				print_timestamps = 1;
+				if (optarg) {
+					if (!strcmp(optarg,"precision:us")) print_timestamps = 3;
+					else return fprintf(stderr, "%s: unrecognized option for --absolute-timestamps: %s\n", argv[0], optarg), usage(argv);
+				}
+				break;
 			case 'h':
 				return usage(argv), 0;
-			case '-':
-				if (!strcmp(optarg,"follow-forks")) {
-					follow_forks = true;
-					break;
-				} else if (!strcmp(optarg, "help")) {
-					return usage(argv), 0;
-				}
-				fprintf(stderr, "%s: Unrecognized option: --%s\n", argv[0], optarg);
-				// fallthrough
 			case '?':
 				return usage(argv);
 		}
@@ -2448,10 +2493,12 @@ int main(int argc, char * argv[]) {
 				fprintf(logfile, "Process %d attached\n", res);
 			}
 
+			struct URegs regs;
+			ptrace(PTRACE_GETREGS, res, NULL, &regs);
+			child->iptr = uregs_ip(&regs);
+
 			if (WIFSTOPPED(status)) {
 				if (WSTOPSIG(status) == SIGTRAP) {
-					struct URegs regs;
-					ptrace(PTRACE_GETREGS, res, NULL, &regs);
 
 					/* Event type */
 					int event = (status >> 16) & 0xFF;

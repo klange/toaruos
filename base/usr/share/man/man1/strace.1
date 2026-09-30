@@ -4,9 +4,9 @@
 \fBstrace\fP \- Trace system calls used by a process.
 
 .SH SYNOPSIS
-\fBstrace\fP [\fB\-o\fP \fIlogfile\fP] [\fB\-e\fP \fIoption\fP] \fB\-p\fP \fIpid\fP
+\fBstrace\fP [\fB\-fintv\fP] [\fB\-o\fP \fIlogfile\fP] [\fB\-e\fP \fIoption\fP] [\fB\-s\fP \fIlen\fP] \fB\-p\fP \fIpid\fP
 .br
-\fBstrace\fP [\fB\-o\fP \fIlogfile\fP] [\fB\-e\fP \fIoption\fP] \fIcmd\fP [\fIargs\fP]...
+\fBstrace\fP [\fB\-fintv\fP] [\fB\-o\fP \fIlogfile\fP] [\fB\-e\fP \fIoption\fP] [\fB\-s\fP \fIlen\fP] \fIcmd\fP [\fIargs\fP]...
 
 .SH DESCRIPTION
 Run a program, or attach to an existing process, and trace the system calls it uses with
@@ -37,8 +37,17 @@ original call.
 Follow forked children.
 
 .TP
-.B \-p \fIpid\fP
+.B \-p \fIpid\fP \fRor\fP \-\-attach \fIpid\fP
 Attach to an existing process rather than starting a new one.
+
+.TP
+.B \-i \fRor\fP \-\-instruction-pointer
+Print the instruction pointer (technically, usually the return address) at the time of the latest event.
+For system call entry, this is likely to be an address within the libc.
+
+.TP
+.B \-n \fRor\fP \-\-syscall-number
+Include the raw system call number (of the latest system call) in log messages.
 
 .TP
 .B \-t[t]
@@ -46,12 +55,16 @@ Print timestamps before each log entry (possibly after a PID).
 Specify twice for higher precision.
 
 .TP
-.B \-s \fIstrsize\fP
+.B \-v \fRor\fP \-\-no-abbrev
+Do not abbreviate structures (same as \fB\-e abbrev=none\fP).
+
+.TP
+.B \-s \fIstrsize\fP \fRor\fP \-\-string\-limit \fIstrsize\fP
 Limit the printing of strings and buffers to \fIstrsize\fP characters before truncating.
 Filenames are always printed in full.
 
 .TP
-.B \-o \fIlogfile\fP
+.B \-o \fIlogfile\fP \fRor\fP \-\-output \fIlogfile\fP
 Write log output to \fIlogfile\fP instead of the standard output. The \fIlogfile\fP will be truncated
 if it already exists.
 
