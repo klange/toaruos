@@ -908,6 +908,7 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 		}
 		if ((flags & O_CREAT) && (flags & O_EXCL)) return *error = EEXIST, NULL;
 		open_fs(fs_root, flags);
+		if (out_path) *out_path = fs_alloc_path_from("/", "kopen_recur");
 		return fs_root;
 	}
 
