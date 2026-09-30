@@ -45,6 +45,22 @@ int ptr_validate(void * ptr, const char * syscall) {
 
 #define PTRCHECK(addr,size,flags) do { if (!mmu_validate_user_pointer(addr,size,flags)) return -EFAULT; } while (0)
 
+static int check_user_string(const char * str) {
+	/* This should really do a copy operation that we can then discard later,
+	 * but we're continuing to be lazy. This still needs to scan the whole
+	 * string in case it comes from a binary that isn't mapped, and to ensure
+	 * the whole string is actually valid for reading at least at call time. */
+	const char * c = str;
+	if (!c) return 1;
+	while (1) {
+		if (!mmu_validate_user_pointer(c, 1, 0)) return 1;
+		do {
+			if (!*c) return 0;
+			c++;
+		} while ((uintptr_t)c & 0xFFF);
+	}
+}
+
 static struct fs_file_description * do_dirfd(int dirfd) {
 	if (dirfd == AT_FDCWD) return this_core->current_process->wd;
 	else if (FD_CHECK(dirfd)) return FD_FILE(dirfd);
@@ -159,7 +175,7 @@ long sys_stat(int fd, struct stat * st) {
 
 long sys_fstatat(int dirfd, const char * filename, struct stat * st, int flag) {
 	if (flag & ~AT_SYMLINK_NOFOLLOW) return -EINVAL;
-	PTR_VALIDATE(filename);
+	if (check_user_string(filename)) return -EFAULT;
 	PTRCHECK(st,sizeof(struct stat),MMU_PTR_WRITE);
 	if (!filename || !st) return -EFAULT;
 
@@ -178,15 +194,13 @@ long sys_fstatat(int dirfd, const char * filename, struct stat * st, int flag) {
 }
 
 long sys_symlinkat(const char * target, int dirfd, const char * name) {
-	PTR_VALIDATE(target);
-	PTR_VALIDATE(name);
+	if (check_user_string(target) || check_user_string(name)) return -EFAULT;
 	return symlink_fs_at(target, do_dirfd(dirfd), name);
 }
 
 long sys_readlinkat(int dirfd, const char * file, char * ptr, long len) {
-	PTR_VALIDATE(file);
+	if (check_user_string(file)) return -EFAULT;
 	PTRCHECK(ptr,len,MMU_PTR_WRITE);
-	if (!file) return -EFAULT;
 	int error = 0;
 	struct fs_file_description * fd = do_dirfd(dirfd);
 	struct fs_file_description * out = kopen_at(fd, file, O_PATH | O_NOFOLLOW, 0, &error);
@@ -201,7 +215,7 @@ static mode_t modify_mode(mode_t mode_in) {
 }
 
 long sys_openat(int dirfd, const char *filename, int flags, mode_t mode_in) {
-	PTR_VALIDATE(filename);
+	if (check_user_string(filename)) return -EFAULT;
 	mode_t mode = modify_mode(mode_in);
 	int error = 0;
 	struct fs_file_description * fd = do_dirfd(dirfd);
@@ -261,7 +275,7 @@ long sys_readdir(int fd, long index, struct dirent * entry) {
 }
 
 long sys_mkdirat(int dirfd, const char * path, mode_t mode_in) {
-	PTR_VALIDATE(path);
+	if (check_user_string(path)) return -EFAULT;
 	if (!path) return -EFAULT;
 	mode_t mode = modify_mode(mode_in);
 
@@ -275,8 +289,7 @@ long sys_mkdirat(int dirfd, const char * path, mode_t mode_in) {
 }
 
 long sys_faccessat(int dirfd, const char *path, int amode, int flag) {
-	PTR_VALIDATE(path);
-	if (!path) return -EFAULT;
+	if (check_user_string(path)) return -EFAULT;
 	if (amode < 0 || amode > 7) return -EINVAL;
 	if (flag & ~(AT_EACCESS)) return -EINVAL;
 
@@ -299,8 +312,7 @@ static long chmod_node(fs_node_t * fn, mode_t mode) {
 }
 
 long sys_fchmodat(int dirfd, const char * file, mode_t mode, int flag) {
-	PTR_VALIDATE(file);
-	if (!file) return -EFAULT;
+	if (check_user_string(file)) return -EFAULT;
 	if (flag & ~(AT_SYMLINK_NOFOLLOW)) return -EINVAL;
 	int flags = O_PATH;
 	if (flag & AT_SYMLINK_NOFOLLOW) flags |= O_NOFOLLOW;
@@ -320,10 +332,7 @@ long sys_fchmod(int fd, long mode) {
 }
 
 long sys_renameat(int srcfd, const char * src, int destfd, const char * dest) {
-	PTR_VALIDATE(src);
-	if (!src) return -EFAULT;
-	PTR_VALIDATE(dest);
-	if (!dest) return -EFAULT;
+	if (check_user_string(src) || check_user_string(dest)) return -EFAULT;
 
 	return rename_file_fs_at(do_dirfd(srcfd), src, do_dirfd(destfd), dest);
 }
@@ -360,8 +369,7 @@ static long chown_node(fs_node_t * fn, uid_t uid, gid_t gid) {
 }
 
 long sys_fchownat(int dirfd, const char * file, uid_t uid, gid_t gid, int flag) {
-	PTR_VALIDATE(file);
-	if (!file) return -EFAULT;
+	if (check_user_string(file)) return -EFAULT;
 	if (flag & ~(AT_SYMLINK_NOFOLLOW)) return -EINVAL;
 	int flags = O_PATH;
 	if (flag & AT_SYMLINK_NOFOLLOW) flags |= O_NOFOLLOW;
@@ -381,8 +389,7 @@ long sys_fchown(int fd, uid_t uid, gid_t gid) {
 }
 
 long sys_truncate(char * file, off_t size) {
-	PTR_VALIDATE(file);
-	if (!file) return -EFAULT;
+	if (check_user_string(file)) return -EFAULT;
 	if (size < 0) return -EINVAL;
 	int error = 0;
 	struct fs_file_description * fd = do_dirfd(AT_FDCWD);
@@ -418,8 +425,7 @@ static long utimens_node(fs_node_t * node, const struct timespec * access, const
 }
 
 long sys_utimensat(int dirfd, const char * file, const struct timespec * access, const struct timespec * modify, int flag) {
-	PTR_VALIDATE(file);
-	if (!file) return -EFAULT;
+	if (check_user_string(file)) return -EFAULT;
 	if (flag & ~(AT_SYMLINK_NOFOLLOW)) return -EINVAL;
 
 	int flags = O_PATH;
@@ -737,8 +743,7 @@ long sys_uname(struct utsname * name) {
 }
 
 long sys_chdir(char * newdir) {
-	PTR_VALIDATE(newdir);
-	if (!newdir) return -EFAULT;
+	if (check_user_string(newdir)) return -EFAULT;
 	int error = 0;
 	struct fs_file_description * fd = kopen_at(do_dirfd(AT_FDCWD), newdir, O_DIRECTORY | O_PATH, 0, &error);
 	if (!fd) return -error;
@@ -874,15 +879,14 @@ long sys_umask(mode_t mode) {
 }
 
 long sys_unlinkat(int dirfd, const char * name, int flag) {
-	PTR_VALIDATE(name);
-	if (!name) return -EFAULT;
+	if (check_user_string(name)) return -EFAULT;
 	if (flag & ~(AT_REMOVEDIR)) return -EINVAL;
 
 	return unlink_fs_at(do_dirfd(dirfd), name, flag);
 }
 
 long sys_execve(const char * filename, char *const argv[], char *const envp[]) {
-	PTR_VALIDATE(filename);
+	if (check_user_string(filename)) return -EFAULT;
 	PTR_VALIDATE(argv);
 	PTR_VALIDATE(envp);
 
@@ -891,13 +895,13 @@ long sys_execve(const char * filename, char *const argv[], char *const envp[]) {
 	int argc = 0;
 	int envc = 0;
 	while (argv[argc]) {
-		PTR_VALIDATE(argv[argc]);
+		if (check_user_string(argv[argc])) return -EFAULT;
 		++argc;
 	}
 
 	if (envp) {
 		while (envp[envc]) {
-			PTR_VALIDATE(envp[envc]);
+			if (check_user_string(envp[envc])) return -EFAULT;
 			++envc;
 		}
 	}
@@ -1165,8 +1169,8 @@ long sys_sigwait(sigset_t * set, siginfo_t *info) {
 }
 
 long sys_fswait(int c, int fds[]) {
-	PTR_VALIDATE(fds);
-	if (!fds || c < 0) return -EFAULT;
+	if (c < 0) return -EFAULT;
+	PTRCHECK(fds, sizeof(int) * c, 0);
 	for (int i = 0; i < c; ++i) {
 		if (!FD_CHECK(fds[i])) return -EBADF;
 	}
@@ -1182,8 +1186,8 @@ long sys_fswait(int c, int fds[]) {
 }
 
 long sys_fswait_timeout(int c, int fds[], int timeout) {
-	PTR_VALIDATE(fds);
-	if (!fds || c < 0) return -EFAULT;
+	if (c < 0) return -EFAULT;
+	PTRCHECK(fds, sizeof(int) * c, 0);
 	for (int i = 0; i < c; ++i) {
 		if (!FD_CHECK(fds[i])) return -EBADF;
 	}
@@ -1199,9 +1203,9 @@ long sys_fswait_timeout(int c, int fds[], int timeout) {
 }
 
 long sys_fswait_multi(int c, int fds[], int timeout, int out[]) {
-	PTR_VALIDATE(fds);
-	PTR_VALIDATE(out);
 	if (!fds || !out || c < 0) return -EFAULT;
+	PTRCHECK(fds, sizeof(int) * c, 0);
+	PTRCHECK(out, sizeof(int) * c, MMU_PTR_WRITE);
 	int has_match = -1;
 	for (int i = 0; i < c; ++i) {
 		if (!FD_CHECK(fds[i])) {
@@ -1383,7 +1387,7 @@ long sys_insmod(int fd, int argc, char **argv) {
 	if (argc < 1) return -EINVAL;
 	PTRCHECK(argv, sizeof(char*) * argc, 0);
 	for (int i = 0; i < argc; ++i) {
-		PTR_VALIDATE(argv[i]);
+		if (check_user_string(argv[i])) return -EFAULT;
 	}
 	if (!FD_CHECK(fd)) return -EBADF;
 	if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
