@@ -2113,7 +2113,11 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			maybe_errno(r);
 			break;
 		case SYS_READLINKAT:
-			buffer_arg(pid, uregs_syscall_arg3(r), uregs_syscall_arg4(r)); COMMA;
+			if ((intptr_t)uregs_syscall_result(r) >= 0) {
+				buffer_arg(pid, uregs_syscall_arg3(r), uregs_syscall_result(r)); COMMA;
+			} else {
+				pointer_arg(uregs_syscall_arg3(r)); COMMA;
+			}
 			uint_arg(uregs_syscall_arg4(r));
 			maybe_errno(r);
 			break;
