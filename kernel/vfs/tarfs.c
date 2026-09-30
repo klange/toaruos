@@ -561,7 +561,7 @@ int tarfs_unpack(char * from_file) {
 		strncat(filename_workspace, file->filename, 100);
 
 		mode_t mode = interpret_mode(file);
-		fs_node_t * node = NULL;
+		struct fs_file_description * fd = NULL;
 		int error = 0;
 
 		if (filename_workspace[strlen(filename_workspace)-1] == '/') {
@@ -572,14 +572,14 @@ int tarfs_unpack(char * from_file) {
 
 		switch (file->type[0]) {
 			case '0': /* Regular file */
-				if ((error = create_file_fs(filename_workspace, mode, &node))) goto _next;
-				open_fs(node, 0);
-				chown_fs(node, interpret_uid(file), interpret_gid(file));
+				fd = kopen_at(NULL, filename_workspace, O_CREAT | O_RDWR, mode, &error);
+				if (!fd) goto _next;
+				chown_fs(fd->inode, interpret_uid(file), interpret_gid(file));
 				break;
 			case '5': /* Directory */
-				if ((error = mkdir_fs(filename_workspace, mode, &node))) goto _next;
-				open_fs(node, O_DIRECTORY);
-				chown_fs(node, interpret_uid(file), interpret_gid(file));
+				fd = kopen_at(NULL, filename_workspace, O_CREAT | O_DIRECTORY, mode, &error);
+				if (!fd) goto _next;
+				chown_fs(fd->inode, interpret_uid(file), interpret_gid(file));
 				goto _times;
 			case '2':
 				symlink_fs(file->link, filename_workspace);
@@ -597,7 +597,7 @@ int tarfs_unpack(char * from_file) {
 			uint8_t buf[512];
 			ssize_t r = read_fs(self->device, offset + 512 + written, (to_write < 512) ? to_write : 512, buf);
 			if (r <= 0) break;
-			ssize_t w = write_fs(node, written, r, buf);
+			ssize_t w = write_fs(fd->inode, written, r, buf);
 			if (w <= 0) {
 				dprintf("migrate: write error\n");
 				break;
@@ -607,8 +607,8 @@ int tarfs_unpack(char * from_file) {
 		}
 
 _times:
-		utimens_fs(node, timestamp, timestamp);
-		close_fs(node);
+		utimens_fs(fd->inode, timestamp, timestamp);
+		fs_close_desc((uintptr_t)fd);
 
 _next:
 		offset += 512;

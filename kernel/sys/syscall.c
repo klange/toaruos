@@ -277,11 +277,22 @@ long sys_readdir(int fd, long index, struct dirent * entry) {
 	return readdir_fs(node, (uint64_t)index, entry);
 }
 
-long sys_mkdir(char * path, uint64_t mode) {
+long sys_mkdirat(int dirfd, const char * path, mode_t mode_in) {
 	PTR_VALIDATE(path);
 	if (!path) return -EFAULT;
+	mode_t mode = modify_mode(mode_in);
 
-	return mkdir_fs(path, modify_mode(mode), NULL);
+	int error = 0;
+	struct fs_file_description * fd = do_dirfd(dirfd);
+	struct fs_file_description * out = kopen_at(fd, path, O_DIRECTORY | O_CREAT | O_EXCL, mode, &error);
+	if (!out) return -error;
+
+	fs_close_desc((uintptr_t)out);
+	return 0;
+}
+
+long sys_mkdir(const char * path, mode_t mode) {
+	return sys_mkdirat(AT_FDCWD, path, mode);
 }
 
 long sys_faccessat(int dirfd, const char *path, int amode, int flag) {

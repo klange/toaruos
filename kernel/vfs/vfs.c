@@ -408,23 +408,6 @@ _nope:
 	return out;
 }
 
-int create_file_fs(const char *name, mode_t permission, fs_node_t **out) {
-	int error = 0;
-	fs_node_t * parent = file_get_parent(name, &error);
-	if (!parent) return -error;
-
-	/* Need both exec and write on the parent to create a new entry */
-	if (!has_permission(parent, W_OK|X_OK)) return close_fs(parent), -EACCES;
-	if (!parent->ops->create) return close_fs(parent), -EROFS;
-
-	const char * src = fs_basename(name);
-	if (!*src || *src == '/') return close_fs(parent), -EINVAL;
-
-	int ret = parent->ops->create(parent, src, permission, out);
-	close_fs(parent);
-	return ret;
-}
-
 int unlink_fs(const char * name) {
 	int error = 0;
 	fs_node_t * parent = file_get_parent(name, &error);
@@ -437,21 +420,6 @@ int unlink_fs(const char * name) {
 	if (!*src || *src == '/') return close_fs(parent), -EINVAL;
 
 	int ret = parent->ops->unlink(parent, src);
-	close_fs(parent);
-	return ret;
-}
-
-int mkdir_fs(const char *name, mode_t permission, fs_node_t **out) {
-	int error = 0;
-	fs_node_t * parent = file_get_parent(name, &error);
-	if (!parent) return -error;
-	if (!parent->ops->mkdir) return close_fs(parent), -EROFS;
-
-	const char * src = fs_basename(name);
-	if (!*src || *src == '/') return close_fs(parent), -EEXIST;
-
-	/* ->mkdir checks perms on parent itself; no need to do that here. */
-	int ret = parent->ops->mkdir(parent, src, permission, out);
 	close_fs(parent);
 	return ret;
 }
@@ -985,8 +953,13 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 		if (!node_next) {
 			if (depth + 1 == path_depth && (flags & O_CREAT)) {
 				if (!has_permission(node_ptr, W_OK|X_OK)) return close_fs(node_ptr), free(path), *error = EACCES, NULL;
-				if (!node_ptr->ops->create) return close_fs(node_ptr), free(path), *error = EROFS, NULL;
-				*error = node_ptr->ops->create(node_ptr, path_offset, mode, &node_next);
+				if (flags & O_DIRECTORY) {
+					if (!node_ptr->ops->mkdir) return close_fs(node_ptr), free(path), *error = EROFS, NULL;
+					*error = node_ptr->ops->mkdir(node_ptr, path_offset, mode, &node_next);
+				} else {
+					if (!node_ptr->ops->create) return close_fs(node_ptr), free(path), *error = EROFS, NULL;
+					*error = node_ptr->ops->create(node_ptr, path_offset, mode, &node_next);
+				}
 				if (*error < 0) return close_fs(node_ptr), free(path), NULL;
 				flags &= ~O_EXCL; /* Ensure next step doesn't fail */
 			} else {
