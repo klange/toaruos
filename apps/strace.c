@@ -222,6 +222,7 @@ static const char * syscall_names[SYS__COUNT] = {
 	[SYS_READLINKAT]   = "readlinkat",
 	[SYS_UTIMENSAT]    = "utimensat",
 	[SYS_MKDIRAT]      = "mkdirat",
+	[SYS_SYMLINKAT]    = "symlinkat",
 };
 
 static const int syscall_set_net[] = {
@@ -236,7 +237,7 @@ static const int syscall_set_file[] = {
 	SYS_CHMOD, SYS_CHOWN, SYS_MOUNT, SYS_READLINK, SYS_RENAME,
 	SYS_TRUNCATE, SYS_EACCESS, SYS_LCHOWN, SYS_UTIMENS,
 	SYS_OPENAT, SYS_FACCESSAT, SYS_FCHMODAT, SYS_FCHOWNAT,
-	SYS_READLINKAT, SYS_UTIMENSAT, SYS_MKDIRAT, -1
+	SYS_READLINKAT, SYS_UTIMENSAT, SYS_MKDIRAT, SYS_SYMLINKAT, -1
 };
 
 static const int syscall_set_desc[] = {
@@ -1983,6 +1984,11 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 		case SYS_SYMLINK:
 			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			filename_arg(pid, uregs_syscall_arg2(r));
+			break;
+		case SYS_SYMLINKAT:
+			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			fd_at_arg(pid, uregs_syscall_arg2(r)); COMMA;
+			filename_arg(pid, uregs_syscall_arg3(r));
 			break;
 		case SYS_READLINK:
 			filename_arg(pid, uregs_syscall_arg1(r)); COMMA;

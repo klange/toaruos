@@ -10,3 +10,8 @@ int symlink(const char *target, const char *name) {
 	__sets_errno(syscall_symlink(target, name));
 }
 
+DEFN_SYSCALL3(symlinkat, SYS_SYMLINKAT, const char *, int, const char *);
+
+int symlinkat(const char *target, int fd, const char *name) {
+	__sets_errno(syscall_symlinkat(target, fd, name));
+}
