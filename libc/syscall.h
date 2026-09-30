@@ -314,6 +314,7 @@ DECL_SYSCALL4(fchmodat, int, const char *, mode_t, int);
 DECL_SYSCALL5(fchownat, int, const char *, uid_t, gid_t, int);
 DECL_SYSCALL4(readlinkat, int, const char *, char *, size_t);
 DECL_SYSCALL5(utimensat, int, const char *,  const struct timespec *, const struct timespec *, int);
+DECL_SYSCALL3(mkdirat, int, const char *, mode_t);
 
 _End_C_Header
 

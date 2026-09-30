@@ -79,6 +79,7 @@ extern int stat(const char *file, struct stat *st);
 extern int lstat(const char *path, struct stat *st);
 extern int fstat(int fd, struct stat *st);
 extern int mkdir(const char *pathname, mode_t mode);
+extern int mkdirat(int fd, const char *pathname, mode_t mode);
 extern mode_t umask(mode_t mask);
 extern int chmod(const char *path, mode_t mode);
 extern int fchmod(int fd, mode_t mode);

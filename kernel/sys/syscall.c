@@ -1544,6 +1544,7 @@ static scall_func syscalls[] = {
 	[SYS_FCHOWNAT]     = (scall_func)(uintptr_t)sys_fchownat,
 	[SYS_READLINKAT]   = (scall_func)(uintptr_t)sys_readlinkat,
 	[SYS_UTIMENSAT]    = (scall_func)(uintptr_t)sys_utimensat,
+	[SYS_MKDIRAT]      = (scall_func)(uintptr_t)sys_mkdirat,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,
