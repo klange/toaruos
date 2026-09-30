@@ -601,6 +601,11 @@ void process_reap(process_t * proc) {
 		free(proc->signals);
 	}
 
+	if (proc->wait_queue) {
+		list_free(proc->wait_queue);
+		free(proc->wait_queue);
+	}
+
 	/* Then unmap the pages entirely */
 	mmu_unmap_module(proc->image.stack - KERNEL_STACK_SIZE, KERNEL_STACK_SIZE);
 
@@ -1323,11 +1328,6 @@ void task_exit(long retval) {
 		}
 		if (children) free(children);
 	}
-
-	/* free whatever we can */
-	list_free(this_core->current_process->wait_queue);
-	free(this_core->current_process->wait_queue);
-	this_core->current_process->wait_queue = NULL;
 
 	if (this_core->current_process->node_waits) {
 		list_free(this_core->current_process->node_waits);
