@@ -1,20 +1,84 @@
-.TH LN 1 "March, 2026"
+.TH LN 1 "October, 2026"
 
 .SH NAME
 \fBln\fP \- create links
 
 .SH SYNOPSIS
-\fBln\fP [\fB\-s\fP] \fItarget\fP \fIname\fP
+\fBln\fP [\fB\-snfPL\fP] \fItarget\fP \fIlink_name\fP
+.br
+\fBln\fP [\fB\-snfPL\fP] \fItarget\fP... \fIdirectory\fP
 
 .SH DESCRIPTION
-Makes \fIname\fP a link to \fItarget\fP.
+Create a link to \fItarget\fP at the path \fIlink_name\fP.
+If more than one \fItarget\fP is specified, or if \fIlink_name\fP is an existing directory, create links for
+each \fItarget\fP within \fIdirectory\fP using the last path element of each \fItarget\fP as the name of the
+new link.
 .PP
-Only symlinks are supported by the kernel at the moment, so failing to use the \fB\-s\fP flag will result in an error.
+For symbolic links, no restrictions are placed on \fItarget\fP.
+For hard links, \fItarget\fP must exist, must be on the same filesystem as the resulting link,
+and probably can't be a directory.
+.PP
+If a link name already exists and the \fB\-f\fP option is not provided, the new link
+will not be created.
+
+.SS Options
 
 .TP
-.B \-s
-Create a symlink rather than a hard link.
+.B \-s \fRor\fP \-\-symbolic
+Create symlinks rather than hard links.
+
+.TP
+.B \-n \fRor\fP \-\-no\-dereference
+In the first form, if \fIlink_name\fP is an existing symbolic link to a directory,
+treat this as an existing file to either fail on or attempt to unlink.
+
+.TP
+.B \-f \fRor\fP \-\-force
+If the resulting link path is an existing file, attempt to unlink it before creating the requested link.
+
+.TP
+.B \-P \fRor\fP \-\-physical
+When creating hard links, if a \fItarget\fP names a symbolic link, the resulting
+link will reference the symbolic link.
+This is the default.
+This option has no effect when creating symbolic links.
+
+.TP
+.B \-L \fRor\fP \-\-logical
+When creating hard links, if a \fItarget\fP names a symbolic link, follow the
+symbolic link and create a link to the resulting path.
+This option has no effect when creating symbolic links.
+
+.SH NOTES
+
+Note that when creating symbolic links, \fItarget\fP names are
+arbitary strings and are not treated as files to dereference.
+As such, using relative paths which resolve in the current directory
+while attempting to create links in another directory will probably
+not do what you want.
+This is standard behavior.
+.PP
+As of writing, only the \fBtmpfs\fP filesystem in Misaka supports
+the creation of hard links, and hard links to directories are
+disallowed by that filesystem.
+Thus, hard links may only be made to regular files or symbolic links.
+
+.SH BUGS
+
+As of writing, the kernel's path resolution algorithm does not handle
+symbolic links to directories very well.
+If a symbolic link is made to a directory which has mount points
+underneath it, those mount points will not be visible when
+the symbolic link is dereferenced.
+
+.SH HISTORY
+
+This implementation replaced a prior implementation which only supported one target
+and did not evaluate whether \fIlink_name\fP referred to a directory.
+.PP
+Hard link support was added to Misaka in 3.0.
 
 .SH SEE ALSO
-.BR symlink (2),
-.BR link (2)
+.BR symlinkat (2),
+.BR linkat (2),
+.BR unlinkat (2)
