@@ -58,7 +58,7 @@
 #define SYS_MOUNT 55
 #define SYS_SYMLINKAT 56
 #define SYS_READLINKAT 57
-// 58 is available
+#define SYS_LINKAT 58
 #define SYS_FSWAIT 59
 #define SYS_FSWAIT2 60
 #define SYS_FCHOWNAT 61

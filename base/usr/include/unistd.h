@@ -91,7 +91,8 @@ extern int getopt(int argc, char * const argv[], const char * optstring);
 extern char * optarg;
 extern int optind, opterr, optopt;
 
-extern int link(const char *target, const char *linkpath);
+extern int link(const char *dest, const char *src);
+extern int linkat(int fd1, const char *path1, int fd2, const char *path2, int flag);
 extern int unlink(const char * pathname);
 extern int unlinkat(int fd, const char * pathname, int flag);
 

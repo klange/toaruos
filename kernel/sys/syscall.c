@@ -885,6 +885,10 @@ long sys_unlinkat(int dirfd, const char * name, int flag) {
 	return unlink_fs_at(do_dirfd(dirfd), name, flag);
 }
 
+long sys_linkat(int fd1, const char *path1, int fd2, const char *path2, int flag) {
+	return -ENOTSUP;
+}
+
 long sys_execve(const char * filename, char *const argv[], char *const envp[]) {
 	if (check_user_string(filename)) return -EFAULT;
 	PTR_VALIDATE(argv);
@@ -1489,6 +1493,7 @@ static scall_func syscalls[] = {
 	[SYS_SYMLINKAT]    = (scall_func)(uintptr_t)sys_symlinkat,
 	[SYS_RENAMEAT]     = (scall_func)(uintptr_t)sys_renameat,
 	[SYS_UNLINKAT]     = (scall_func)(uintptr_t)sys_unlinkat,
+	[SYS_LINKAT]       = (scall_func)(uintptr_t)sys_linkat,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

@@ -303,6 +303,7 @@ DECL_SYSCALL3(mkdirat, int, const char *, mode_t);
 DECL_SYSCALL3(symlinkat, const char *, int, const char *);
 DECL_SYSCALL4(renameat, int, const char *, int, const char *);
 DECL_SYSCALL3(unlinkat, int, const char *, int);
+DECL_SYSCALL5(linkat, int, const char *, int, const char *, int);
 
 _End_C_Header
 
