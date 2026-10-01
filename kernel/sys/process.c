@@ -485,7 +485,7 @@ process_t * spawn_init(void) {
 	init->fds->entries  = calloc(init->fds->capacity, sizeof(uintptr_t *));
 	spin_init(init->fds->lock);
 
-	init->wd = fs_fresh_descriptor(fs_root, PROC_FD_MODE_READ, fs_alloc_path_from("/", "root"));
+	init->wd = NULL;
 
 	init->image.entry    = 0;
 	init->image.heap     = 0;

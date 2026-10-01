@@ -149,6 +149,7 @@ int system(const char * path, int argc, char *const argv[], char *const envin[])
 		argv_[j] = malloc((strlen(argv[j]) + 1));
 		memcpy((void*)argv_[j], argv[j], strlen(argv[j]) + 1);
 	}
+	if (!this_core->current_process->wd && fs_root) process_chdir((process_t*)this_core->current_process, fs_fresh_descriptor(fs_root, 0, fs_alloc_path_from("/", "system")));
 	argv_[argc] = NULL;
 	char * env[] = {NULL};
 	this_core->current_process->thread.page_directory = calloc(1, sizeof(page_directory_t));
