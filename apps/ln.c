@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <err.h>
 #include <libgen.h>
+#include <sys/stat.h>
 
 static int show_usage(char * argv[]) {
 	fprintf(stderr,
@@ -84,6 +85,15 @@ int main(int argc, char * argv[]) {
 		if (target_is_dir) tname = basename(argv[i]);
 		int ret = 0;
 		if (force && !faccessat(fd, tname, F_OK, AT_SYMLINK_NOFOLLOW)) {
+			struct stat a, b; /* Make sure it's not the file we're about to link... */
+			if (!fstatat(fd, tname, &a, AT_SYMLINK_NOFOLLOW) &&
+			    !fstatat(AT_FDCWD, argv[i], &b, AT_SYMLINK_NOFOLLOW) &&
+			    a.st_dev == b.st_dev &&
+			    a.st_ino == b.st_ino) {
+				out |= 1;
+				warnx("'%s' and '%s' are the same file", argv[i], tname);
+				continue;
+			}
 			ret = unlinkat(fd, tname, 0);
 		}
 		if (!ret) {
