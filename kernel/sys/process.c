@@ -313,6 +313,12 @@ void process_chdir(process_t * proc, struct fs_file_description * newfd) {
 	struct fs_file_description *old = proc->wd;
 	proc->wd = (void*)fs_clone_desc((uintptr_t)newfd, 0);
 	if (old) fs_close_desc((uintptr_t)old);
+	if (proc->wd->inode == NULL) {
+		arch_fatal_prepare();
+		dprintf("chdir into NULL\n");
+		arch_dump_traceback();
+		arch_fatal();
+	}
 }
 
 /**

@@ -1142,6 +1142,13 @@ struct fs_file_description * kopen_at(
 struct fs_file_description * fs_fresh_descriptor(fs_node_t * node, int flags, struct fs_path * path) {
 	struct fs_file_description * desc = calloc(1, sizeof(struct fs_file_description));
 
+	if (node == NULL) {
+		arch_fatal_prepare();
+		dprintf("NULL inode passed to fs_fresh_descriptor\n");
+		arch_dump_traceback();
+		arch_fatal();
+	}
+
 	spin_init(desc->lock);
 	desc->refcount = 1; /* the one we are making now */
 	desc->inode = node;
