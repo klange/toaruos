@@ -2320,10 +2320,25 @@ uint32_t shell_cmd_help(int argc, char * argv[]) {
 		}
 	}
 
-	/* Then print the commands their help text */
-	for (int i = 0; i < shell_commands_len; ++i) {
-		if (!shell_descript[i]) continue;
-		printf(" %-*s - %s\n", max_len + 1, shell_commands[i], shell_descript[i]);
+	struct winsize w;
+	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+
+	if (w.ws_col > (max_len + 20)) {
+		/* Two-column layout */
+		int avail_width = (w.ws_col - 2) / 2 - 6 - max_len;
+		int c = 0;
+		for (int i = 0; i < shell_commands_len; ++i) {
+			if (!shell_descript[i]) continue;
+			printf(" %-*s - %-*s%c", max_len + 1, shell_commands[i], avail_width, shell_descript[i],
+				(strlen(shell_descript[i]) > (size_t)avail_width) ? '>' : ' ');
+			printf("%c", "\n "[(c = !c)]);
+		}
+		if (c == 1) printf("\n");
+	} else {
+		for (int i = 0; i < shell_commands_len; ++i) {
+			if (!shell_descript[i]) continue;
+			printf(" %-*s - %s\n", max_len + 1, shell_commands[i], shell_descript[i]);
+		}
 	}
 
 	return 0;
