@@ -88,6 +88,11 @@ extern int utimensat(int fd, const char *path, const struct timespec times[2], i
 extern int fstatat(int dirfd, const char * filename, struct stat * st, int flag);
 extern int fchmodat(int fd, const char * path, mode_t mode, int flag);
 
+extern int mknod(const char*, mode_t, dev_t);
+extern int mknodat(int, const char*, mode_t, dev_t);
+extern int mkfifo(const char*, mode_t);
+extern int mkfifoat(int, const char*, mode_t);
+
 __redirect(stat,__statns);
 __redirect(lstat,__lstatns);
 __redirect(fstat,__fstatns);
