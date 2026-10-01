@@ -11,7 +11,7 @@ char *getcwd(char *buf, size_t size) {
 
 	/* If you want us to allocate exactly enough space, you can't provide a pointer. */
 	if (buf && !size) {
-		errno = -EINVAL;
+		errno = EINVAL;
 		return NULL;
 	}
 

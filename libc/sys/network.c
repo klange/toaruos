@@ -409,7 +409,8 @@ _nope:
 int getnameinfo(const struct sockaddr *addr, socklen_t addrlen,
                 char *host, socklen_t hostlen,
                 char *serv, socklen_t servlen, int flags) {
-	return -ENOSYS;
+	errno = ENOSYS;
+	return EAI_SYSTEM;
 }
 
 int getaddrinfo(const char *node, const char *service,
@@ -423,14 +424,14 @@ int getaddrinfo(const char *node, const char *service,
 	int protocol = 0;
 	unsigned long long port = 0;
 
-	if (!service && !node) return -EAI_NONAME;
+	if (!service && !node) return EAI_NONAME;
 
 	if (hints) {
 		family   = hints->ai_family;
 		socktype = hints->ai_socktype;
 		protocol = hints->ai_protocol;
 
-		if (family != AF_UNSPEC && family != AF_INET) return -EAI_FAMILY;
+		if (family != AF_UNSPEC && family != AF_INET) return EAI_FAMILY;
 	}
 
 	if (!family) family = AF_INET;
@@ -438,11 +439,11 @@ int getaddrinfo(const char *node, const char *service,
 	if (!protocol && family == AF_INET && socktype == SOCK_STREAM) protocol = IPPROTO_TCP;
 
 	if (service) {
-		if (!*service) return -EAI_SERVICE; /* Blank service */
+		if (!*service) return EAI_SERVICE; /* Blank service */
 		char *end = NULL;
 		port = strtoull(service, &end, 10);
 		if (!*end) {
-			if (port > 65535) return -EAI_SERVICE; /* Invalid or out of range port */
+			if (port > 65535) return EAI_SERVICE; /* Invalid or out of range port */
 			/* Numeric service */
 		} else {
 			/* Some built-in service names */
@@ -452,14 +453,14 @@ int getaddrinfo(const char *node, const char *service,
 			else if (protocol != IPPROTO_UDP && !strcmp(service, "http-alt")) { port = 8080; socktype = SOCK_STREAM; protocol = IPPROTO_TCP; }
 			else if (protocol != IPPROTO_UDP && !strcmp(service, "https"))    { port = 443; socktype = SOCK_STREAM; protocol = IPPROTO_TCP; }
 			else if (protocol != IPPROTO_TCP && !strcmp(service, "toast"))    { port = 1030; socktype = SOCK_DGRAM; protocol = IPPROTO_UDP; }
-			else return -EAI_SERVICE; /* Named services are unsupported */
+			else return EAI_SERVICE; /* Named services are unsupported */
 		}
 		port = htons(port);
 	}
 
 	if (node) {
 		ent = gethostbyname(node);
-		if (!ent) return -EAI_NONAME;
+		if (!ent) return EAI_NONAME;
 	}
 
 	*res = malloc(sizeof(struct addrinfo));

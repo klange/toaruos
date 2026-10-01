@@ -42,9 +42,6 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 				fds[i].revents |= POLLOUT;
 				return 1;
 			}
-			//if (fds[i].events & POLLIN) continue;
-			//fprintf(stderr, "%s: poll: the above error is fatal\n", __argv[0]);
-			//return -EINVAL;
 		}
 	}
 

@@ -20,7 +20,7 @@ int munmap(void *addr, size_t length) {
 }
 
 int shm_open(const char * name, int flag, mode_t mode) {
-	if (*name != '/') return -EINVAL;
+	if (*name != '/') return errno = EINVAL, -1;
 	char rname[PATH_MAX];
 	memcpy(rname,"/dev/shm",8);
 	memcpy(rname+8,name,strlen(name)+1);
@@ -28,7 +28,7 @@ int shm_open(const char * name, int flag, mode_t mode) {
 }
 
 int shm_unlink(const char * name) {
-	if (*name != '/') return -EINVAL;
+	if (*name != '/') return errno = EINVAL, -1;
 	char rname[PATH_MAX];
 	memcpy(rname,"/dev/shm",8);
 	memcpy(rname+8,name,strlen(name)+1);
