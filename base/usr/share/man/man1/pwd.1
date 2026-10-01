@@ -4,13 +4,26 @@
 \fBpwd\fP \- print the name of the current working directory
 
 .SH SYNOPSIS
-\fBpwd\fP
+\fBpwd\fP [\fB\-L\fP|\fB\-P\fP]
 
 .SH DESCRIPTION
 Uses
 .IR getcwd (3)
 to obtain the current working directory and prints it, followed by a line feed,
 to the standard output.
+
+.SS Options
+
+.TP
+.B \-L
+Print the value of the \fB$PWD\fP environment variable, if it is sensible and
+represents the current directory.
+
+.TP
+.B \-P
+Print the result of
+.IR getcwd (3).
+This is the default.
 
 .SH NOTES
 .IR esh (1)

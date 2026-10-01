@@ -164,9 +164,6 @@ void install_commands();
 /* Maximum command length */
 #define LINE_LEN 4096
 
-/* Current working directory */
-char cwd[1024] = {'/',0};
-
 /* Username */
 char username[1024];
 
@@ -223,17 +220,18 @@ void print_extended_ps(char * format, char * buffer, int * display_width) {
 	char time_buffer[80];
 	strftime(time_buffer, 80, "%H:%M:%S", timeinfo);
 
-	/* Collect the current working directory */
-	getcwd(cwd, 512);
-	char _cwd[512];
-	strcpy(_cwd, cwd);
+	char * cwd;
+	asprintf(&cwd, "%s", getenv("PWD"));
 
 	/* Collect the user's home directory and apply it to cwd */
 	char * home = getenv("HOME");
 	if (home && strstr(cwd, home) == cwd) {
 		char * c = cwd + strlen(home);
 		if (*c == '/' || *c == 0) {
-			sprintf(_cwd, "~%s", c);
+			char *ncwd;
+			asprintf(&ncwd, "~%s", c);
+			free(cwd);
+			cwd = ncwd;
 		}
 	}
 
@@ -328,9 +326,9 @@ void print_extended_ps(char * format, char * buffer, int * display_width) {
 					break;
 				case 'w':
 					{
-						int size = sprintf(buffer+offset, "%s", _cwd);
+						int size = sprintf(buffer+offset, "%s", cwd);
 						offset += size;
-						if (is_visible) { dispout += sprintf(dispout, "%s", _cwd); }
+						if (is_visible) { dispout += sprintf(dispout, "%s", cwd); }
 					}
 					format++;
 					break;
@@ -374,6 +372,8 @@ void print_extended_ps(char * format, char * buffer, int * display_width) {
 	*display_width = display_width_of_string(dispchars);
 
 	buffer[offset] = '\0';
+
+	free(cwd);
 }
 
 volatile int break_while = 0;
@@ -2109,6 +2109,34 @@ void source_eshrc(void) {
 	run_script(f);
 }
 
+static void set_pwd(void) {
+	do {
+		char * pwd = getenv("PWD");
+		if (!pwd) break;
+		if (*pwd != '/') break;
+		if (strstr(pwd, "/../") || strstr(pwd, "/./")) break;
+		if (strlen(pwd) > 2 && !strcmp(pwd + strlen(pwd) - 2, "/.")) break;
+		if (strlen(pwd) > 3 && !strcmp(pwd + strlen(pwd) - 3, "/..")) break;
+
+		struct stat st_pwd, st_dot;
+		if (stat(pwd, &st_pwd)) break;
+		if (stat(".", &st_dot)) break;
+
+		if (st_dot.st_ino != st_pwd.st_ino || st_dot.st_dev != st_pwd.st_dev) break;
+
+		/* PWD is a sensible value */
+		return;
+	} while (0);
+
+	char * npwd = getcwd(NULL, 0);
+	if (npwd) {
+		setenv("PWD", npwd, 1);
+		free(npwd);
+	} else {
+		setenv("PWD", "/", 1);
+	}
+}
+
 int main(int argc, char ** argv) {
 
 	pid = getpid();
@@ -2125,6 +2153,8 @@ int main(int argc, char ** argv) {
 	gethost();
 
 	install_commands();
+
+	set_pwd();
 
 	int err = fcntl(STDERR_FILENO, F_DUPFD_CLOEXEC, 3);
 	shell_stderr = fdopen(err, "w");
@@ -2229,32 +2259,141 @@ _restart: (void)0;
 	return 0;
 }
 
+static void _append_dir(char *out, char *element) {
+	strcat(out,"/");
+	strcat(out,element);
+}
+
+static void _remove_last(char * out) {
+	char * last = strrchr(out,'/');
+	if (last) {
+		*last = '\0';
+	}
+}
+
+char *fake_realpath(const char *path) {
+	char * resolved_path = malloc(PATH_MAX+1);
+	char working_path[PATH_MAX+1];
+	memcpy(working_path, path, strlen(path)+1);
+	*resolved_path = 0;
+
+	char *save;
+	char *tok = strtok_r(working_path,"/",&save);
+	if (tok) {
+		do {
+			if (!strcmp(tok,".")) continue;
+			if (!strcmp(tok,"..")) {
+				_remove_last(resolved_path);
+				continue;
+			}
+			_append_dir(resolved_path, tok);
+		} while ((tok = strtok_r(NULL,"/",&save)));
+	}
+
+	if (resolved_path[0] == '\0') strcat(resolved_path,"/");
+	return resolved_path;
+}
+
 /*
  * cd [path]
  */
 uint32_t shell_cmd_cd(int argc, char * argv[]) {
-	if (argc > 1) {
-		if (chdir(argv[1])) {
-			goto cd_error;
-		} /* else success */
-	} else /* argc < 2 */ {
-		char * home = getenv("HOME");
-		if (home) {
-			if (chdir(home)) {
-				goto cd_error;
-			}
-		} else {
-			char home_path[1200];
-			sprintf(home_path, "/home/%s", username);
-			if (chdir(home_path)) {
-				goto cd_error;
-			}
+	optind = 0; /* reset */
+	int opt;
+
+	int error_on_getcwd = 0;
+	int logical = 1;
+
+	char * target = NULL;
+
+	while ((opt = getopt(argc, argv, "+LPe")) != -1) {
+		switch (opt) {
+			case 'L':
+				logical = 1;
+				break;
+			case 'P':
+				logical = 0;
+				break;
+			case 'e':
+				error_on_getcwd = 1;
+				break;
+			default:
+				return 1;
 		}
 	}
+
+	if (optind + 1 < argc) {
+		fprintf(stderr, "%s: %s: too many arguments\n", esh_name, argv[0]);
+		return 1;
+	}
+
+	if (optind == argc) {
+		char * home = getenv("HOME");
+		if (!home) {
+			asprintf(&target, "/home/%s", username);
+		} else {
+			asprintf(&target, "%s", home);
+		}
+	} else {
+		asprintf(&target, "%s", argv[optind]);
+	}
+
+	/* TODO CDPATH */
+
+	if (!logical) {
+		int ret = chdir(target);
+		if (ret < 0) {
+			fprintf(stderr, "%s: %s: %s: %s\n", esh_name, argv[0], target, strerror(errno));
+			free(target);
+			return 1;
+		}
+
+		free(target);
+
+		char tmp[PATH_MAX + 1];
+		char *pret = getcwd(tmp, PATH_MAX);
+		if (!pret && error_on_getcwd) return 1;
+
+		setenv("PWD", tmp, 1);
+		return 0;
+	}
+
+	char tmp[PATH_MAX + 1];
+	char *pwd = getenv("PWD");
+	if (!pwd) {
+		getcwd(tmp, PATH_MAX);
+		pwd = tmp;
+	}
+	char * slash = "";
+	if (*pwd && pwd[strlen(pwd)-1] != '/') slash = "/";
+
+	if (target[0] != '/') {
+		char *ntarget;
+
+		asprintf(&ntarget, "%s%s%s", pwd, slash, target);
+
+		free(target);
+		target = ntarget;
+	}
+
+	char * resolvedpath = fake_realpath(target);
+	free(target);
+
+	/* Possible relative */
+	char * chdir_path = resolvedpath;
+	if (strstr(chdir_path, pwd) == chdir_path && (!*slash || (chdir_path[strlen(pwd)] == '/'))) {
+		chdir_path = chdir_path + strlen(pwd) + !!*slash;
+	}
+
+	int ret = chdir(chdir_path);
+	if (ret < 0) {
+		fprintf(stderr, "%s: %s: %s: %s\n", esh_name, argv[0], resolvedpath, strerror(errno));
+		free(resolvedpath);
+		return 1;
+	}
+
+	setenv("PWD", resolvedpath, 1);
 	return 0;
-cd_error:
-	fprintf(stderr, "%s: could not cd '%s': %s\n", argv[0], argv[1], strerror(errno));
-	return 1;
 }
 
 /*
@@ -2590,7 +2729,7 @@ uint32_t shell_cmd_source(int argc, char * argv[]) {
 }
 
 uint32_t shell_cmd_exec(int argc, char * argv[]) {
-	optind = 1; /* reset */
+	optind = 0; /* reset */
 	int opt;
 
 	int is_login = 0;
