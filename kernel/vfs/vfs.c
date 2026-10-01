@@ -479,7 +479,7 @@ _bail:
 	if (src_parent)  close_fs(src_parent);
 	if (src_file)    close_fs(src_file);
 
-	fs_close_desc((uintptr_t)dest_file);
+	fs_close_desc(dest_file);
 	return err;
 }
 
@@ -1195,8 +1195,7 @@ struct fs_file_description * fs_fresh_descriptor(fs_node_t * node, int flags, st
 	return desc;
 }
 
-void fs_close_desc(uintptr_t desc_ptr) {
-	struct fs_file_description * desc = FD_PTR_MASK(desc_ptr);
+int fs_close_desc(struct fs_file_description * desc) {
 	if (!desc) {
 		arch_fatal_prepare();
 		dprintf("fs_close_desc() on NULL\n");
@@ -1213,15 +1212,14 @@ void fs_close_desc(uintptr_t desc_ptr) {
 		desc->inode = NULL;
 		if (desc->path) free(desc->path);
 		free(desc);
-		return;
+		return 1;
 	}
 
 	spin_unlock(desc->lock);
+	return 0;
 }
 
-uintptr_t fs_clone_desc(uintptr_t desc_ptr, int extra_mode) {
-	struct fs_file_description * desc = FD_PTR_MASK(desc_ptr);
-
+uintptr_t fs_clone_desc(struct fs_file_description * desc, int extra_mode) {
 	if (desc == NULL) {
 		arch_fatal_prepare();
 		dprintf("clone_desc() on NULL\n");

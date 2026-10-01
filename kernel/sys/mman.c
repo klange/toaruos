@@ -130,7 +130,7 @@ static void unmap_segments_locked(uintptr_t addr, intptr_t length, process_t * p
 				if (!prev) this_core->current_process->thread.page_directory->mappings = maps->next;
 				else prev->next = maps->next;
 				if (maps->next) maps->next->prev = maps->prev;
-				if (maps->file) fs_close_desc((uintptr_t)maps->file);
+				if (maps->file) fs_close_desc(maps->file);
 				free(maps);
 				continue;
 			} else if (addr <= maps->base && nend < oend) {
@@ -151,7 +151,7 @@ static void unmap_segments_locked(uintptr_t addr, intptr_t length, process_t * p
 				split->prot = maps->prot;
 				split->flags = maps->flags;
 				if (maps->file) {
-					split->file = (void*)fs_clone_desc((uintptr_t)maps->file, 0);
+					split->file = (void*)fs_clone_desc(maps->file, 0);
 					split->offset = maps->offset + into;
 				}
 
@@ -212,7 +212,7 @@ static void insert_mapping(uintptr_t addr, intptr_t length, int prot, int flags,
 				next->next->prev = prev;
 			}
 
-			if (next->file) fs_close_desc((uintptr_t)next->file);
+			if (next->file) fs_close_desc(next->file);
 			free(next);
 		}
 	} else if (next && next->base == addr + length && next->flags == flags && next->prot == prot && next->file == node && (!node || (offset + length == next->offset))) {
@@ -227,7 +227,7 @@ static void insert_mapping(uintptr_t addr, intptr_t length, int prot, int flags,
 		new_mapping->prot = prot;
 		new_mapping->flags = flags;
 		if (node) {
-			new_mapping->file = (void*)fs_clone_desc((uintptr_t)node, 0);
+			new_mapping->file = (void*)fs_clone_desc(node, 0);
 			new_mapping->offset = offset;
 		}
 

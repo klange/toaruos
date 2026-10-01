@@ -265,7 +265,7 @@ static void process_fds_grow(process_t * proc) {
  * @brief Duplicate a file descriptor to a new table entry.
  */
 static void process_fds_copy(process_t * proc, long src, long dest, int extra_mode) {
-	proc->fds->entries[dest] = fs_clone_desc(proc->fds->entries[src], extra_mode);
+	proc->fds->entries[dest] = fs_clone_desc(FD_PTR_MASK(proc->fds->entries[src]), extra_mode);
 }
 
 /**
@@ -311,8 +311,8 @@ unsigned long process_new_fd(process_t * proc, fs_node_t * node, int flags, stru
 
 void process_chdir(process_t * proc, struct fs_file_description * newfd) {
 	struct fs_file_description *old = proc->wd;
-	proc->wd = (void*)fs_clone_desc((uintptr_t)newfd, 0);
-	if (old) fs_close_desc((uintptr_t)old);
+	proc->wd = (void*)fs_clone_desc(newfd, 0);
+	if (old) fs_close_desc(old);
 	if (proc->wd->inode == NULL) {
 		arch_fatal_prepare();
 		dprintf("chdir into NULL\n");
@@ -421,7 +421,7 @@ void process_release_directory(page_directory_t * dir) {
 		if (dir->mappings) {
 			for (memmap_t * map = dir->mappings; map;) {
 				memmap_t * next = map->next;
-				if (map->file) fs_close_desc((uintptr_t)map->file);
+				if (map->file) fs_close_desc(map->file);
 				free(map);
 				map = next;
 			}
@@ -569,13 +569,13 @@ process_t * spawn_process(volatile process_t * parent, int flags, int close_at_f
 		for (uint32_t i = 0; i < parent->fds->length; ++i) {
 			if (!parent->fds->entries[i]) continue;
 			if (close_at_fork && (parent->fds->entries[i] & FD_PTR_CLOFORK)) continue;
-			proc->fds->entries[i] = fs_clone_desc(parent->fds->entries[i], (parent->fds->entries[i] & 3) << 4);
+			proc->fds->entries[i] = fs_clone_desc(FD_PTR_MASK(parent->fds->entries[i]), (parent->fds->entries[i] & 3) << 4);
 		}
 		spin_unlock(parent->fds->lock);
 	}
 
-	proc->exe = parent->exe ? (void*)fs_clone_desc((uintptr_t)parent->exe, 0) : 0;
-	proc->wd  = parent->wd  ? (void*)fs_clone_desc((uintptr_t)parent->wd, 0) : 0;
+	proc->exe = parent->exe ? (void*)fs_clone_desc(parent->exe, 0) : 0;
+	proc->wd  = parent->wd  ? (void*)fs_clone_desc(parent->wd, 0) : 0;
 
 	proc->wait_queue   = list_create("process wait queue",proc);
 
@@ -1031,14 +1031,14 @@ long process_move_fd(process_t * proc, long src, long dest, int forbid_noop, int
 		uintptr_t fd_flags = 0;
 		if (flags & PROC_FD_MODE_CLOEXEC) fd_flags |= FD_PTR_CLOEXEC;
 		if (flags & PROC_FD_MODE_CLOFORK) fd_flags |= FD_PTR_CLOFORK;
-		return process_append_fd(proc, FD_PTR_MASK(fs_clone_desc(proc->fds->entries[src], 0)), fd_flags);
+		return process_append_fd(proc, FD_PTR_MASK(fs_clone_desc(FD_PTR_MASK(proc->fds->entries[src]), 0)), fd_flags);
 	}
 	if ((size_t)dest >= proc->fds->length) {
 		return process_fd_dup_least(proc, src, dest, flags);
 	}
 	spin_lock(proc->fds->lock);
 	if (proc->fds->entries[dest]) {
-		fs_close_desc(proc->fds->entries[dest]);
+		fs_close_desc(FD_PTR_MASK(proc->fds->entries[dest]));
 		proc->fds->entries[dest] = 0;
 	}
 	process_fds_copy(proc, src, dest, flags);
@@ -1347,7 +1347,7 @@ void task_exit(long retval) {
 		if (this_core->current_process->fds->refs == 0) {
 			for (uint32_t i = 0; i < this_core->current_process->fds->length; ++i) {
 				if (this_core->current_process->fds->entries[i]) {
-					fs_close_desc(this_core->current_process->fds->entries[i]);
+					fs_close_desc(FD_PTR_MASK(this_core->current_process->fds->entries[i]));
 					this_core->current_process->fds->entries[i] = 0;
 				}
 			}
@@ -1360,11 +1360,11 @@ void task_exit(long retval) {
 	}
 
 	if (this_core->current_process->exe) {
-		fs_close_desc((uintptr_t)this_core->current_process->exe);
+		fs_close_desc(this_core->current_process->exe);
 		this_core->current_process->exe = NULL;
 	}
 	if (this_core->current_process->wd) {
-		fs_close_desc((uintptr_t)this_core->current_process->wd);
+		fs_close_desc(this_core->current_process->wd);
 		this_core->current_process->wd = NULL;
 	}
 
@@ -1458,7 +1458,7 @@ pid_t fork(void) {
 		nmap->owner = new_proc->thread.page_directory;
 
 		if (maps->file) {
-			nmap->file = (void*)fs_clone_desc((uintptr_t)maps->file, 0);
+			nmap->file = (void*)fs_clone_desc(maps->file, 0);
 			nmap->offset = maps->offset;
 		}
 
@@ -1751,7 +1751,7 @@ int process_close_fd(process_t * proc, int fd) {
 		goto _done;
 	}
 
-	fs_close_desc(proc->fds->entries[fd]);
+	fs_close_desc(FD_PTR_MASK(proc->fds->entries[fd]));
 	proc->fds->entries[fd] = 0;
 
 _done:
@@ -1763,12 +1763,12 @@ int process_close_fds(process_t * proc, int for_what) {
 	spin_lock(proc->fds->lock);
 	for (unsigned int i = 0; i < proc->fds->length; ++i) {
 		if (proc->fds->entries[i] && (proc->fds->entries[i] & (for_what >> 4))) {
-			fs_close_desc(proc->fds->entries[i]);
+			fs_close_desc(FD_PTR_MASK(proc->fds->entries[i]));
 			proc->fds->entries[i] = 0;
 		}
 	}
 	if (proc->exe) {
-		fs_close_desc((uintptr_t)proc->exe);
+		fs_close_desc(proc->exe);
 		proc->exe = 0;
 	}
 	spin_unlock(proc->fds->lock);

@@ -189,7 +189,7 @@ long sys_fstatat(int dirfd, const char * filename, struct stat * st, int flag) {
 	if (!out) return -error;
 
 	long result = stat_node(out->inode, st);
-	fs_close_desc((uintptr_t)out);
+	fs_close_desc(out);
 	return result;
 }
 
@@ -206,7 +206,7 @@ long sys_readlinkat(int dirfd, const char * file, char * ptr, long len) {
 	struct fs_file_description * out = kopen_at(fd, file, O_PATH | O_NOFOLLOW, 0, &error);
 	if (!out) return -error;
 	long rv = readlink_fs(out->inode, ptr, len);
-	fs_close_desc((uintptr_t)out);
+	fs_close_desc(out);
 	return rv;
 }
 
@@ -284,7 +284,7 @@ long sys_mkdirat(int dirfd, const char * path, mode_t mode_in) {
 	struct fs_file_description * out = kopen_at(fd, path, O_DIRECTORY | O_CREAT | O_EXCL, mode, &error);
 	if (!out) return -error;
 
-	fs_close_desc((uintptr_t)out);
+	fs_close_desc(out);
 	return 0;
 }
 
@@ -304,7 +304,7 @@ long sys_faccessat(int dirfd, const char *path, int amode, int flag) {
 	if (!(flag & AT_EACCESS)) amode |= 010;
 
 	int ret = amode ? (!has_permission(out->inode, amode) ? -EACCES : 0) : 0;
-	fs_close_desc((uintptr_t)out);
+	fs_close_desc(out);
 	return ret;
 }
 
@@ -323,7 +323,7 @@ long sys_fchmodat(int dirfd, const char * file, mode_t mode, int flag) {
 	struct fs_file_description * out = kopen_at(fd, file, flags, 0, &error);
 	if (!out) return -error;
 	long ret = chmod_node(out->inode, mode);
-	fs_close_desc((uintptr_t)out);
+	fs_close_desc(out);
 	return ret;
 }
 
@@ -380,7 +380,7 @@ long sys_fchownat(int dirfd, const char * file, uid_t uid, gid_t gid, int flag) 
 	struct fs_file_description * out = kopen_at(fd, file, flags, 0, &error);
 	if (!out) return -error;
 	long ret = chown_node(out->inode, uid, gid);
-	fs_close_desc((uintptr_t)out);
+	fs_close_desc(out);
 	return ret;
 }
 
@@ -398,7 +398,7 @@ long sys_truncate(char * file, off_t size) {
 	struct fs_file_description * out = kopen_at(fd, file, O_WRONLY, 0, &error);
 	if (!out) return -error;
 	long ret = truncate_fs(out->inode, size);
-	fs_close_desc((uintptr_t)out);
+	fs_close_desc(out);
 	return ret;
 }
 
@@ -438,7 +438,7 @@ long sys_utimensat(int dirfd, const char * file, const struct timespec * access,
 	struct fs_file_description * out = kopen_at(fd, file, flags, 0, &error);
 	if (!out) return -error;
 	long ret = utimens_node(out->inode, access, modify);
-	fs_close_desc((uintptr_t)out);
+	fs_close_desc(out);
 	return ret;
 }
 
@@ -752,13 +752,13 @@ long sys_chdir(char * newdir) {
 
 	/* Need X permission at least... */
 	if (!has_permission(fd->inode, X_OK)) {
-		fs_close_desc((uintptr_t)fd);
+		fs_close_desc(fd);
 		return -EACCES;
 	}
 
 	process_chdir((process_t*)this_core->current_process, fd);
 
-	fs_close_desc((uintptr_t)fd);
+	fs_close_desc(fd);
 	return 0;
 }
 

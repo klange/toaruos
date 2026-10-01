@@ -201,6 +201,6 @@ char * fs_current_wd(void);
 struct fs_path * fs_alloc_path_from(const char * src, const char * called_from);
 struct fs_path * fs_path_printf(const char * fmt, ...);
 struct fs_file_description * fs_fresh_descriptor(fs_node_t * node, int flags, struct fs_path * path);
-void fs_close_desc(uintptr_t desc_ptr);
-uintptr_t fs_clone_desc(uintptr_t desc_ptr, int extra_mode);
+int fs_close_desc(struct fs_file_description *);
+uintptr_t fs_clone_desc(struct fs_file_description *, int);
 uint64_t fs_convert_descriptor_flags(uintptr_t desc_ptr);

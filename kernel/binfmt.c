@@ -27,14 +27,14 @@ int exec(const char * path, int argc, char *const argv[], char *const env[], int
 int exec_shebang(const char * path, struct fs_file_description * desc_in, int argc, char *const argv[], char *const env[], int interp) {
 	if (interp > 4) {
 		/* If an interpreter calls an interpreter too many times, bail. */
-		fs_close_desc((uintptr_t)desc_in);
+		fs_close_desc(desc_in);
 		return -ELOOP;
 	}
 
 	/* Read MAX_LINE... */
 	char tmp[100];
 	read_fs(desc_in->inode, 0, 100, (unsigned char *)tmp);
-	fs_close_desc((uintptr_t)desc_in);
+	fs_close_desc(desc_in);
 	char * cmd = (char *)&tmp[2];
 	if (*cmd == ' ') cmd++; /* Handle a leading space */
 	char * space_or_linefeed = strpbrk(cmd, " \n");
@@ -118,8 +118,8 @@ int exec(const char * path, int argc, char *const argv[], char *const env[], int
 	struct fs_file_description * desc = kopen_at(this_core->current_process->wd, path, O_PATH, 0, &error);
 	if (!desc) return -error;
 
-	if (!has_permission(desc->inode, X_OK)) return fs_close_desc((uintptr_t)desc), -EACCES;
-	if (desc->inode->flags & FS_DIRECTORY) return fs_close_desc((uintptr_t)desc), -EISDIR;
+	if (!has_permission(desc->inode, X_OK)) return fs_close_desc(desc), -EACCES;
+	if (desc->inode->flags & FS_DIRECTORY) return fs_close_desc(desc), -EISDIR;
 
 	unsigned char head[4];
 	read_fs(desc->inode, 0, 4, head);
@@ -134,7 +134,7 @@ int exec(const char * path, int argc, char *const argv[], char *const env[], int
 		}
 	}
 
-	fs_close_desc((uintptr_t)desc);
+	fs_close_desc(desc);
 	return -ENOEXEC;
 }
 

@@ -608,7 +608,7 @@ int tarfs_unpack(char * from_file) {
 
 _times:
 		utimens_fs(fd->inode, timestamp, timestamp);
-		fs_close_desc((uintptr_t)fd);
+		fs_close_desc(fd);
 
 _next:
 		offset += 512;

@@ -330,19 +330,19 @@ int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int
 	    header.e_ident[2] != ELFMAG2 ||
 	    header.e_ident[3] != ELFMAG3) {
 		printf("Invalid file: Bad header.\n");
-		fs_close_desc((uintptr_t)desc_in);
+		fs_close_desc(desc_in);
 		return -EINVAL;
 	}
 
 	if (header.e_ident[EI_CLASS] != ELFCLASS64) {
 		printf("(Wrong Elf class)\n");
-		fs_close_desc((uintptr_t)desc_in);
+		fs_close_desc(desc_in);
 		return -EINVAL;
 	}
 
 	/* This loader can only handle basic executables. */
 	if (header.e_type != ET_EXEC && header.e_type != ET_DYN) {
-		fs_close_desc((uintptr_t)desc_in);
+		fs_close_desc(desc_in);
 		return -EINVAL;
 	}
 
@@ -354,10 +354,10 @@ int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int
 		read_fs(desc_in->inode, header.e_phoff + header.e_phentsize * i, sizeof(Elf64_Phdr), (uint8_t*)&phdr);
 		if (phdr.p_type == PT_INTERP) {
 			/* Must load interpreter */
-			if (phdr.p_filesz < 2 || phdr.p_filesz > 256) return fs_close_desc((uintptr_t)desc_in), -EINVAL;
+			if (phdr.p_filesz < 2 || phdr.p_filesz > 256) return fs_close_desc(desc_in), -EINVAL;
 			char * tmp = malloc(phdr.p_filesz);
 			read_fs(desc_in->inode, phdr.p_offset, phdr.p_filesz, (uint8_t*)tmp);
-			if (tmp[phdr.p_filesz-1] != '\0') return fs_close_desc((uintptr_t)desc_in), free(tmp), -EINVAL;
+			if (tmp[phdr.p_filesz-1] != '\0') return fs_close_desc(desc_in), free(tmp), -EINVAL;
 
 			int error = 0;
 			interpreter_desc = kopen_at(NULL, tmp, 0, 0, &error);
@@ -365,8 +365,8 @@ int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int
 			if (!interpreter_desc) return -error;
 
 			ssize_t r = read_fs(interpreter_desc->inode, 0, sizeof(Elf64_Header), (uint8_t*)&interp_header);
-			if (r < 0) return fs_close_desc((uintptr_t)desc_in), fs_close_desc((uintptr_t)interpreter_desc), r;
-			if ((size_t)r < sizeof(Elf64_Header)) return fs_close_desc((uintptr_t)desc_in), fs_close_desc((uintptr_t)interpreter_desc), -EINVAL;
+			if (r < 0) return fs_close_desc(desc_in), fs_close_desc(interpreter_desc), r;
+			if ((size_t)r < sizeof(Elf64_Header)) return fs_close_desc(desc_in), fs_close_desc(interpreter_desc), -EINVAL;
 
 			if (interp_header.e_ident[0] != ELFMAG0 ||
 			    interp_header.e_ident[1] != ELFMAG1 ||
@@ -374,7 +374,7 @@ int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int
 			    interp_header.e_ident[3] != ELFMAG3 ||
 			    interp_header.e_ident[EI_CLASS] != ELFCLASS64 ||
 			    (interp_header.e_type != ET_EXEC && interp_header.e_type != ET_DYN)) {
-				return fs_close_desc((uintptr_t)desc_in), fs_close_desc((uintptr_t)interpreter_desc), -EINVAL;
+				return fs_close_desc(desc_in), fs_close_desc(interpreter_desc), -EINVAL;
 			}
 
 			break;
@@ -426,7 +426,7 @@ int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int
 	if (interpreter_desc) {
 		load_from_file(interpreter_desc->inode, &interp_header, &interp_base, 1, 1, interpreter_desc);
 		entrypoint = interp_base + interp_header.e_entry;
-		fs_close_desc((uintptr_t)interpreter_desc);
+		fs_close_desc(interpreter_desc);
 	}
 
 	extern uint32_t rand(void);
