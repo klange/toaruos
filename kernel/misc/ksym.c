@@ -39,6 +39,7 @@ hashmap_t * ksym_get_map(void) {
 
 uintptr_t ksym_closest(uintptr_t ip, char ** name) {
 	hashmap_t * symbols = ksym_hash;
+	if (!symbols) return 0;
 	uintptr_t best_match = 0;
 	for (size_t i = 0; i < symbols->size; ++i) {
 		hashmap_entry_t * x = symbols->entries[i];

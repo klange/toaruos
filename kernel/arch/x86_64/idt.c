@@ -198,6 +198,8 @@ void irq_install_handler(size_t irq, irq_handler_chain_t handler, const char * d
 static struct LoadedModule * find_module(uintptr_t addr, char ** name) {
 	hashmap_t * modules = modules_get_list();
 
+	if (!modules) return NULL;
+
 	for (size_t i = 0; i < modules->size; ++i) {
 		hashmap_entry_t * x = modules->entries[i];
 		while (x) {
@@ -230,7 +232,7 @@ static int validate_pointer(uintptr_t base, size_t size) {
 	uintptr_t page_end  =  end >> 12;
 	for (uintptr_t page = page_base; page <= page_end; ++page) {
 		if ((page & 0xffff800000000) != 0 && (page & 0xffff800000000) != 0xffff800000000) return 0;
-		union PML * page_entry = mmu_get_page_other(this_core->current_process->thread.page_directory->directory, page << 12);
+		union PML * page_entry = mmu_get_page_other(this_core->current_pml, page << 12);
 		if (!page_entry) return 0;
 		if (!page_entry->bits.present) return 0;
 	}
@@ -256,6 +258,7 @@ extern char end[];
  */
 static uintptr_t matching_symbol(uintptr_t ip, char ** name) {
 	hashmap_t * symbols = ksym_get_map();
+	if (!symbols) return 0;
 	uintptr_t best_match = 0;
 	for (size_t i = 0; i < symbols->size; ++i) {
 		hashmap_entry_t * x = symbols->entries[i];
