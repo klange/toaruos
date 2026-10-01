@@ -4,8 +4,6 @@
 #include <kernel/spinlock.h>
 #include <sys/types.h>
 
-fs_node_t * tmpfs_create(char * name);
-
 struct tmpfs_file {
 	fs_node_t _node;
 	spin_lock_t lock;

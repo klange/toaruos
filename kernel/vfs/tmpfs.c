@@ -36,15 +36,14 @@ static fs_vtable_t tmpfs_file_ops;
 static fs_vtable_t tmpfs_dir_ops;
 static fs_vtable_t tmpfs_link_ops;
 
-static struct tmpfs_file * tmpfs_file_new(const char * name, fs_node_t * parent) {
+static struct tmpfs_file * tmpfs_file_new(fs_node_t * parent) {
 	struct tmpfs_file * t = calloc(1, sizeof(struct tmpfs_file));
 	spin_init(t->lock);
-	t->name = strdup(name);
 	t->pointers = 2;
 
 	t->_node.mount = parent->mount;
-	t->_node.mount = parent->device;
-	t->_node.refcount = 1; /* parent directory */
+	t->_node.device = parent->device;
+	t->_node.refcount = 0; /* parent directory */
 	t->_node.flags = FS_FILE;
 	t->_node.atime = now();
 	t->_node.mtime = t->_node.atime;
@@ -57,15 +56,15 @@ static struct tmpfs_file * tmpfs_file_new(const char * name, fs_node_t * parent)
 	return t;
 }
 
-static struct tmpfs_dir * tmpfs_dir_new(const char * name, struct tmpfs_dir * parent) {
+static struct tmpfs_dir * tmpfs_dir_new(struct tmpfs_dir * parent) {
 	struct tmpfs_dir * d = calloc(1, sizeof(struct tmpfs_dir));
 	spin_init(d->lock);
 	spin_init(d->nest_lock);
 	d->parent = parent;
-	d->name = strdup(name);
 
-	d->_node.mount = parent ? parent->_node.mount : NULL;
-	d->_node.refcount = 1;
+	d->_node.mount = parent ? parent->_node.mount : (fs_node_t*)d;
+	d->_node.device = parent ? parent->_node.device : (fs_node_t*)d;
+	d->_node.refcount = 0;
 	d->_node.flags = FS_DIRECTORY;
 	d->_node.atime = now();
 	d->_node.mtime = d->_node.atime;
@@ -77,32 +76,70 @@ static struct tmpfs_dir * tmpfs_dir_new(const char * name, struct tmpfs_dir * pa
 	return d;
 }
 
+struct tmpfs_dirent {
+	struct tmpfs_file * inode;
+	char * name;
+};
+
+static int path_comp(const char * a, const char * b) {
+	while (*a && *b && *a != '/' && *b != '/') {
+		if (*a != *b) return 1;
+		a++;
+		b++;
+	}
+
+	if ((*a == '/' || !*a) && (*b == '/' || !*b)) return 0;
+	return 1;
+}
+
+static struct tmpfs_dirent * get_file(struct tmpfs_dir * d, const char * name, node_t ** node, int accept_slash) {
+	foreach(f, d->files) {
+		struct tmpfs_dirent * de = (struct tmpfs_dirent *)f->value;
+		if (accept_slash) {
+			if (!path_comp(name, de->name)) {
+				if (node) *node = f;
+				return de;
+			}
+		} else if (!strcmp(name, de->name)) {
+			if (node) *node = f;
+			return de;
+		}
+	}
+	return NULL;
+}
+
+static void add_new_file(struct tmpfs_dir * d, const char * name, struct tmpfs_file * f) {
+	struct tmpfs_dirent * ndent = calloc(1, sizeof(struct tmpfs_dirent));
+	f->_node.refcount++;
+	f->_node.nlink++;
+	ndent->inode = f;
+	ndent->name = strdup(name);
+	list_insert(d->files, ndent);
+}
 
 static int symlink_tmpfs(fs_node_t * parent, const char * target, const char * name) {
 	struct tmpfs_dir * d = (struct tmpfs_dir *)parent;
 
 	spin_lock(d->lock);
-	foreach(f, d->files) {
-		struct tmpfs_file * t = (struct tmpfs_file *)f->value;
-		if (!strcmp(name, t->name)) {
-			spin_unlock(d->lock);
-			return -EEXIST; /* Already exists */
-		}
+	struct tmpfs_dirent * de = get_file(d, name, NULL, 0);
+	if (de) {
+		spin_unlock(d->lock);
+		return -EEXIST;
 	}
-	spin_unlock(d->lock);
 
-	struct tmpfs_file * t = tmpfs_file_new(name, parent);
+	struct tmpfs_file * t = tmpfs_file_new(parent);
 	t->_node.flags = FS_SYMLINK;
 	t->_node.mask = 0777;
 	t->_node.uid = this_core->current_process->user;
 	t->_node.gid = this_core->current_process->user;
 	t->_node.length = strlen(target);
 	t->_node.ops = &tmpfs_link_ops;
+	spin_lock(t->lock);
 
 	t->target = strdup(target);
 
-	spin_lock(d->lock);
-	list_insert(d->files, t);
+	add_new_file(d, name, t);
+	spin_unlock(t->lock);
 	spin_unlock(d->lock);
 
 	return 0;
@@ -124,7 +161,12 @@ static ssize_t readlink_tmpfs(fs_node_t * node, char * buf, size_t size) {
 	return len;
 }
 
-static void tmpfs_file_free(struct tmpfs_file * t) {
+static void close_tmpfs(fs_node_t * node) {
+	if (node->nlink != 0) {
+		dprintf("tmpfs: unexpected close of file with links\n");
+		return;
+	}
+	struct tmpfs_file * t = (void*)node;
 	spin_lock(t->lock);
 	if (t->_node.flags & FS_SYMLINK) {
 		/* free target string */
@@ -136,7 +178,6 @@ static void tmpfs_file_free(struct tmpfs_file * t) {
 		tmpfs_total_blocks--;
 	}
 	spin_unlock(t->lock);
-	close_fs((fs_node_t*)t);
 }
 
 static void tmpfs_file_blocks_embiggen(struct tmpfs_file * t) {
@@ -392,6 +433,7 @@ static fs_vtable_t tmpfs_file_ops = {
 	.truncate = truncate_tmpfs,
 	.fault_map = fault_map_tmpfs,
 	.utimens = utimens_tmpfs,
+	.close   = close_tmpfs,
 };
 
 static fs_vtable_t tmpfs_link_ops = {
@@ -422,9 +464,9 @@ static int readdir_tmpfs(fs_node_t *node, uint64_t index, struct dirent * out) {
 
 	foreach(f, d->files) {
 		if (i == index) {
-			struct tmpfs_file * t = (struct tmpfs_file *)f->value;
+			struct tmpfs_dirent * t = (struct tmpfs_dirent *)f->value;
 			memset(out, 0x00, sizeof(struct dirent));
-			out->d_ino = (uint64_t)t;
+			out->d_ino = (uint64_t)t->inode;
 			strcpy(out->d_name, t->name);
 			return 1;
 		} else {
@@ -438,21 +480,29 @@ static fs_node_t * finddir_tmpfs(fs_node_t * node, const char * name) {
 	if (!name) return NULL;
 
 	struct tmpfs_dir * d = (struct tmpfs_dir *)node;
-
 	spin_lock(d->lock);
-
-	foreach(f, d->files) {
-		struct tmpfs_file * t = (struct tmpfs_file *)f->value;
-		if (!strcmp(name, t->name)) {
-			spin_unlock(d->lock);
-			return (fs_node_t*)t;
-		}
-	}
-
+	struct tmpfs_dirent * de = get_file(d, name, NULL, 0);
 	spin_unlock(d->lock);
-	return NULL;
+	if (!de) return NULL;
+	return (fs_node_t*)de->inode;
 }
 
+static void close_tmpfs_dir(fs_node_t * node) {
+	if (node->nlink != 0) {
+		dprintf("tmpfs: unexpected close of directory with nlinks\n");
+		return;
+	}
+
+	struct tmpfs_dir * d = (void*)node;
+	if (d->files->length) {
+		dprintf("tmpfs: unexpected close of directory with files?\n");
+		return;
+	}
+
+	free(d->files);
+
+	/* close itself frees the directory */
+}
 
 static int try_free_dir(struct tmpfs_dir * d) {
 	spin_lock(d->lock);
@@ -460,8 +510,9 @@ static int try_free_dir(struct tmpfs_dir * d) {
 		spin_unlock(d->lock);
 		return 1;
 	}
-	free(d->files);
+	d->_node.nlink--;
 	spin_unlock(d->lock);
+	close_fs((fs_node_t*)d);
 	return 0;
 }
 
@@ -474,36 +525,34 @@ static int sticky_check(fs_node_t * node, struct tmpfs_dir * d, struct tmpfs_fil
 
 static int unlink_tmpfs(fs_node_t * node, const char * name) {
 	struct tmpfs_dir * d = (struct tmpfs_dir *)node;
-	int i = -1, j = 0;
 
 	spin_lock(d->lock);
-	foreach(f, d->files) {
-		struct tmpfs_file * t = (struct tmpfs_file *)f->value;
-		if (!strcmp(name, t->name)) {
-			if (sticky_check(node, d, t)) {
-				spin_unlock(d->lock);
-				return -EPERM;
-			}
-			if (t->_node.flags & FS_DIRECTORY) {
-				if (try_free_dir((void*)t)) {
-					spin_unlock(d->lock);
-					return -ENOTEMPTY;
-				}
-			} else {
-				tmpfs_file_free(t);
-			}
-			i = j;
-			break;
-		}
-		j++;
-	}
-
-	if (i >= 0) {
-		list_remove(d->files, i);
-	} else {
+	node_t * d_node = NULL;
+	struct tmpfs_dirent * de = get_file(d, name, &d_node, 0);
+	if (!de) {
 		spin_unlock(d->lock);
 		return -ENOENT;
 	}
+
+	if (sticky_check(node, d, de->inode)) {
+		spin_unlock(d->lock);
+		return -EPERM;
+	}
+
+	if (de->inode->_node.flags & FS_DIRECTORY) {
+		if (try_free_dir((void*)de->inode)) {
+			spin_unlock(d->lock);
+			return -ENOTEMPTY;
+		}
+	} else {
+		de->inode->_node.nlink--;
+		close_fs((void*)de->inode); /* Remove this reference */
+	}
+
+	free(de->name);
+	free(de);
+	list_delete(d->files, d_node);
+	free(d_node);
 
 	spin_unlock(d->lock);
 	return 0;
@@ -513,24 +562,20 @@ static int create_tmpfs(fs_node_t *parent, const char *name, mode_t permission, 
 	if (!name) return -EINVAL;
 
 	struct tmpfs_dir * d = (struct tmpfs_dir *)parent;
-
 	spin_lock(d->lock);
-	foreach(f, d->files) {
-		struct tmpfs_file * t = (struct tmpfs_file *)f->value;
-		if (!strcmp(name, t->name)) {
-			spin_unlock(d->lock);
-			return -EEXIST; /* Already exists */
-		}
-	}
-	spin_unlock(d->lock);
 
-	struct tmpfs_file * t = tmpfs_file_new(name, parent);
+	struct tmpfs_dirent * de = get_file(d, name, NULL, 0);
+	if (de) {
+		spin_unlock(d->lock);
+		return -EEXIST; /* Already exists */
+	}
+
+	struct tmpfs_file * t = tmpfs_file_new(parent);
 	t->_node.mask = permission;
 	t->_node.uid = this_core->current_process->user;
 	t->_node.gid = this_core->current_process->user_group;
 
-	spin_lock(d->lock);
-	list_insert(d->files, t);
+	add_new_file(d, name, t);
 	*out = (fs_node_t*)t;
 	spin_unlock(d->lock);
 
@@ -542,44 +587,31 @@ static int mkdir_tmpfs(fs_node_t * parent, const char * name, mode_t permission,
 	if (!strlen(name)) return -EINVAL;
 
 	struct tmpfs_dir * d = (struct tmpfs_dir *)parent;
-
 	spin_lock(d->lock);
-	foreach(f, d->files) {
-		struct tmpfs_file * t = (struct tmpfs_file *)f->value;
-		if (!strcmp(name, t->name)) {
-			spin_unlock(d->lock);
-			return -EEXIST; /* Already exists */
-		}
+
+	struct tmpfs_dirent * de = get_file(d, name, NULL, 0);
+	if (de) {
+		spin_unlock(d->lock);
+		return -EEXIST; /* Already exists */
 	}
-	spin_unlock(d->lock);
 
 	/* Need both exec and write on the parent to create a new entry */
 	if (!has_permission(parent, W_OK|X_OK)) {
+		spin_unlock(d->lock);
 		return -EACCES;
 	}
 
-	struct tmpfs_dir * out = tmpfs_dir_new(name, d);
+	struct tmpfs_dir * out = tmpfs_dir_new(d);
 	out->_node.mask = permission;
 	out->_node.uid  = this_core->current_process->user;
 	out->_node.gid  = this_core->current_process->user;
 
-	spin_lock(d->lock);
-	list_insert(d->files, out);
+	add_new_file(d, name, (struct tmpfs_file*)out);
+
 	if (out_node) *out_node = (fs_node_t*)out;
 	spin_unlock(d->lock);
 
 	return 0;
-}
-
-static int path_comp(const char * a, const char * b) {
-	while (*a && *b && *a != '/' && *b != '/') {
-		if (*a != *b) return 1;
-		a++;
-		b++;
-	}
-
-	if ((*a == '/' || !*a) && (*b == '/' || !*b)) return 0;
-	return 1;
 }
 
 static int endswith(const char * str, char ch) {
@@ -609,21 +641,16 @@ static int rename_tmpfs(fs_node_t * mount_root, fs_node_t * src_dir, const char 
 	spin_lock(ds->lock);
 
 	/* First, get the source file */
-	struct tmpfs_file * src_file = NULL;
 	node_t * src_node = NULL;
-	foreach(f, ds->files) {
-		struct tmpfs_file * t = (struct tmpfs_file *)f->value;
-		if (!path_comp(src_name, t->name)) {
-			src_file = t;
-			src_node = f;
-			break;
-		}
-	}
+	struct tmpfs_file * src_file = NULL;
+	struct tmpfs_dirent * src_dent = get_file(ds, src_name, &src_node, 1);
 
-	if (!src_file) {
+	if (!src_dent) {
 		ret = -ENOENT;
 		goto _cleanup_src;
 	}
+
+	src_file = src_dent->inode;
 
 	if (!(src_file->_node.flags & FS_DIRECTORY) && endswith(src_name, '/')) {
 		/* Source ended with trailing slashes, but was not a directory. */
@@ -639,16 +666,10 @@ static int rename_tmpfs(fs_node_t * mount_root, fs_node_t * src_dir, const char 
 	struct tmpfs_dir * dd = (struct tmpfs_dir *)dest_dir;
 	if (dd != ds) spin_lock(dd->lock);
 
-	struct tmpfs_file * dest_file = NULL;
 	node_t * dest_node = NULL;
-	foreach(f, dd->files) {
-		struct tmpfs_file * t = (struct tmpfs_file *)f->value;
-		if (!path_comp(dest_name, t->name)) {
-			dest_file = t;
-			dest_node = f;
-			break;
-		}
-	}
+	struct tmpfs_file * dest_file = NULL;
+	struct tmpfs_dirent * dest_dent = get_file(dd, dest_name, &dest_node, 1);
+	if (dest_dent) dest_file = dest_dent->inode;
 
 	if (dest_file && !(dest_file->_node.flags & FS_DIRECTORY) && endswith(dest_name, '/')) {
 		/* Destination ended with trailing slashes, but was not a directory. */
@@ -674,12 +695,18 @@ static int rename_tmpfs(fs_node_t * mount_root, fs_node_t * src_dir, const char 
 			ret = -ENOTDIR;
 			goto _cleanup;
 		}
-		char * old_name = src_file->name;
-		src_file->name = path_dup(dest_name);
-		free(old_name);
 
-		list_insert(dd->files, src_file);
+		char * dest__name = path_dup(dest_name);
+		add_new_file(dd, dest__name, src_file); /* Increments counter */
+		free(dest__name);
+
+		src_file->_node.nlink--;
+		close_fs((void*)src_file);
+
 		list_delete(ds->files, src_node);
+		free(src_dent->name);
+		free(src_dent);
+		free(src_node);
 	} else if (src_file == dest_file) {
 		/* Do nothing */
 	} else {
@@ -706,20 +733,17 @@ static int rename_tmpfs(fs_node_t * mount_root, fs_node_t * src_dir, const char 
 			goto _cleanup;
 		}
 
-		/* Rename src */
-		char * old_name = src_file->name;
-		src_file->name = path_dup(dest_name);
-		free(old_name);
+		/* Point existing directory entry to new target */
+		dest_dent->inode = src_file;
+
+		/* Close old target to decrement refcount */
+		dest_file->_node.nlink--;
+		close_fs((void*)dest_file);
 
 		list_delete(ds->files, src_node);
-		dest_node->value = src_file;
-
-		/* Unlink the original destination file */
-		if (dest_file->_node.flags & FS_DIRECTORY) {
-			try_free_dir((void*)dest_file);
-		} else {
-			tmpfs_file_free(dest_file);
-		}
+		free(src_dent->name);
+		free(src_dent);
+		free(src_node);
 	}
 
 _cleanup:
@@ -728,6 +752,15 @@ _cleanup_src:
 	spin_unlock(ds->lock);
 	spin_unlock(root->nest_lock);
 	return ret;
+}
+
+static int hardlink_tmpfs(struct fs_node * dirnode, const char * name, struct fs_node * target) {
+	/* No hard linking directories because I said so. */
+	if (target->flags & FS_DIRECTORY) return -EPERM;
+	/* Probably good enough, increases link and refcount, and
+	 * VFS should have checked if file exists... TOCTOUs aside. */
+	add_new_file((struct tmpfs_dir*)dirnode, name, (struct tmpfs_file*)target);
+	return 0;
 }
 
 static ssize_t get_size_tmpfsdir(fs_node_t * node) {
@@ -747,16 +780,13 @@ static fs_vtable_t tmpfs_dir_ops = {
 	.chmod   = chmod_tmpfs,
 	.rename  = rename_tmpfs,
 	.utimens = utimens_tmpfs,
+	.hardlink = hardlink_tmpfs,
+	.close = close_tmpfs_dir,
 };
 
-fs_node_t * tmpfs_create(char * name) {
-	struct tmpfs_dir * tmpfs_root = tmpfs_dir_new(name, NULL);
+fs_node_t * tmpfs_create(void) {
+	struct tmpfs_dir * tmpfs_root = tmpfs_dir_new(NULL);
 	tmpfs_root->_node.mask = 0777;
-	tmpfs_root->_node.uid  = 0;
-	tmpfs_root->_node.gid  = 0;
-	tmpfs_root->_node.mount = (fs_node_t*)tmpfs_root;
-	tmpfs_root->_node.device = (fs_node_t*)tmpfs_root;
-
 	return (fs_node_t*)tmpfs_root;
 }
 
@@ -765,7 +795,8 @@ fs_node_t * tmpfs_mount(const char * device, const char * mount_path) {
 	char * argv[10];
 	int argc = tokenize(arg, ",", argv);
 
-	fs_node_t * fs = tmpfs_create(argv[0]);
+	fs_node_t * fs = tmpfs_create();
+	fs->refcount = 1;
 
 	if (argc > 1) {
 		if (strlen(argv[1]) < 3) {
