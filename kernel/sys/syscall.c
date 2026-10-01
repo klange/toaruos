@@ -291,11 +291,13 @@ long sys_mkdirat(int dirfd, const char * path, mode_t mode_in) {
 long sys_faccessat(int dirfd, const char *path, int amode, int flag) {
 	if (check_user_string(path)) return -EFAULT;
 	if (amode < 0 || amode > 7) return -EINVAL;
-	if (flag & ~(AT_EACCESS)) return -EINVAL;
+	if (flag & ~(AT_EACCESS | AT_SYMLINK_NOFOLLOW)) return -EINVAL;
 
+	int flags = O_PATH;
+	if (flag & AT_SYMLINK_NOFOLLOW) flags |= O_NOFOLLOW;
 	int error = 0;
 	struct fs_file_description * fd = do_dirfd(dirfd);
-	struct fs_file_description * out = kopen_at(fd, path, O_PATH, 0, &error);
+	struct fs_file_description * out = kopen_at(fd, path, flags, 0, &error);
 
 	if (!out) return -error;
 
