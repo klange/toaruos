@@ -886,7 +886,11 @@ long sys_unlinkat(int dirfd, const char * name, int flag) {
 }
 
 long sys_linkat(int fd1, const char *path1, int fd2, const char *path2, int flag) {
-	return -ENOTSUP;
+	if (check_user_string(path1) || check_user_string(path2)) return -EFAULT;
+	struct fs_file_description * fd1_fd = do_dirfd(fd1);
+	struct fs_file_description * fd2_fd = do_dirfd(fd2);
+
+	return link_fs_at(fd1_fd, path1, fd2_fd, path2, flag);
 }
 
 long sys_execve(const char * filename, char *const argv[], char *const envp[]) {

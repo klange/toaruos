@@ -57,6 +57,7 @@ typedef int (*truncate_type_t) (struct fs_node *, size_t size);
 typedef int (*rename_type_t) (struct fs_node *, struct fs_node *, const char *, struct fs_node *, const char *);
 typedef int (*fault_map_t) (struct fs_node *, union PML *, off_t offset, int fault_flags, int map_flags, int prot, int *mmu_flags);
 typedef int (*utimens_type_t) (struct fs_node *, struct timespec access, struct timespec modify);
+typedef int (*hardlink_type_t) (struct fs_node *, const char *, struct fs_node *);
 
 typedef struct fs_vtable {
 	read_type_t read;
@@ -80,6 +81,7 @@ typedef struct fs_vtable {
 	rename_type_t rename;
 	fault_map_t fault_map;
 	utimens_type_t utimens;
+	hardlink_type_t hardlink;
 } fs_vtable_t;
 
 /* These paths are a temporary stop-gap implementation.
@@ -170,6 +172,7 @@ int selectwait_fs(fs_node_t * node, void * process);
 int truncate_fs(fs_node_t * node, size_t size);
 int utimens_fs(fs_node_t * node, struct timespec access, struct timespec modify);
 int rename_file_fs_at(struct fs_file_description * src_fd, const char * src, struct fs_file_description * dest_fd, const char * dest);
+int link_fs_at(struct fs_file_description * dest_fd, const char * dest_path, struct fs_file_description * src_fd, const char * src_path, int flag);
 
 void vfs_install(void);
 void * vfs_mount(const char * path, fs_node_t * local_root, const char * type, const char * options);

@@ -447,6 +447,42 @@ int symlink_fs_at(const char * target, struct fs_file_description * dirfd, const
 	return ret;
 }
 
+int link_fs_at(struct fs_file_description * dest_fd, const char * dest_path, struct fs_file_description * src_fd, const char * src_path, int flag) { 
+	if (flag & ~(AT_SYMLINK_FOLLOW)) return -EINVAL;
+	fs_node_t * src_parent = NULL;
+	fs_node_t * src_file = NULL;
+
+	const char * src  = fs_basename(src_path);
+	if (!*src || *src == '/') return -EINVAL;
+
+	int open_error = 0;
+	int open_flags = O_PATH;
+
+	if (!(flag & AT_SYMLINK_FOLLOW)) open_flags |= O_NOFOLLOW;
+
+	/* First, verify the destination even exists. */
+	struct fs_file_description * dest_file = kopen_at(dest_fd, dest_path, open_flags, 0, &open_error);
+	if (!dest_file) return -open_error;
+
+	/* Verify where we're putting the link */
+	int err = kopen_parent(src_fd, src_path, &src_parent, &src_file);
+	if (!src_parent) goto _bail;
+	if (src_file) { err = -EEXIST; goto _bail; }
+	if (!has_permission(src_parent, W_OK|X_OK)) { err = -EACCES; goto _bail; }
+	if (!src_parent->mount) { err = -ENOTSUP; goto _bail; }
+	if (!src_parent->ops->hardlink) { err = -ENOTSUP; goto _bail; }
+	if (src_parent->mount != dest_file->inode->mount) { err = -EXDEV; goto _bail; }
+
+	err = src_parent->ops->hardlink(src_parent, src, dest_file->inode);
+
+_bail:
+	if (src_parent)  close_fs(src_parent);
+	if (src_file)    close_fs(src_file);
+
+	fs_close_desc((uintptr_t)dest_file);
+	return err;
+}
+
 ssize_t readlink_fs(fs_node_t *node, char * buf, size_t size) {
 	if (!node) return -ENOENT;
 	if (!node->ops->readlink) return -EINVAL;
