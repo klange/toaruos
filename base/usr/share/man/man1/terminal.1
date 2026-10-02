@@ -23,11 +23,17 @@ recommended for typical users.
 
 .TP
 .B \-b \fRor\fP \-\-bitmap[=yes]
-Enable the bitmap font by default. This can also be toggled using menus at runtime.
+Enable the bitmap font by default.
+This can also be toggled using menus at runtime, or through the configuration file.
 
 .TP
 .B \-\-bitmap=no
 Disable the bitmap font.
+
+.TP
+.B \-\-bitmap\-font \fIpath\fP
+Override the bitmap font with \fIpath\fP.
+The file at \fIpath\fP must be exactly 256 glyphs of 17 bytes.
 
 .TP
 .B \-e \fRor\fP \-\-emulatebold[=yes]
@@ -129,6 +135,12 @@ The file should contain a JSON object with any of the following keys:
 .TP
 .B bitmap \fIbool\fP
 Enable the bitmap font.
+
+.TP
+.B bitmap\-font \fIpath\fP
+Override the bitmap font with \fIpath\fP.
+The file at \fIpath\fP must be exactly 256 glyphs of 17 bytes.
+A leading \fB~/\fP will be evaluated to the user's home directory.
 
 .TP
 .B emulatebold \fIbool\fP

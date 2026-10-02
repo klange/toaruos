@@ -2529,6 +2529,35 @@ static int config_option_int(char * argv[], struct JSON_Value * config, char * n
 	return 0;
 }
 
+static int config_option_str(char * argv[], struct JSON_Value * config, char * name, char **sets) {
+	if (hashmap_has(config->object, name)) {
+		struct JSON_Value * value = hashmap_get(config->object, name);
+		if (value->type != JSON_TYPE_STRING) {
+			fprintf(stderr, "%s: config option '%s' must be a string\n",
+				argv[0], name);
+			return 1;
+		}
+
+		*sets = value->string;
+	}
+
+	return 0;
+}
+
+static int load_bitmap_font(char * argv[], const char * path) {
+	int fd = open(path, O_RDONLY);
+	if (fd < 0) goto _nope;
+	struct stat sb;
+	if (fstat(fd, &sb)) goto _nope;
+	if (sb.st_size != sizeof(large_font)) goto _nope;
+	if (read(fd, large_font, sizeof(large_font)) != sizeof(large_font)) goto _nope;
+	return 0;
+
+_nope:
+	fprintf(stderr, "%s: ignoring invalid font '%s'\n", argv[0], path);
+	return 1;
+}
+
 static void load_config(char * argv[], int *max_scrollback, bool *scale_fonts, float *font_scaling, bool *truetype, bool *emulatebold) {
 	char * home = getenv("HOME");
 	if (!home) return;
@@ -2557,6 +2586,18 @@ static void load_config(char * argv[], int *max_scrollback, bool *scale_fonts, f
 	bool bitmap = !*truetype;
 	config_option_bool(argv, config_json, "bitmap", &bitmap);
 	*truetype = !bitmap;
+
+	char * bitmap_font = NULL;
+	config_option_str(argv, config_json, "bitmap-font", &bitmap_font);
+	if (bitmap_font) {
+		char * tmp = NULL;
+		if (strstr(bitmap_font, "~/") == bitmap_font) {
+			asprintf(&tmp, "%s/%s", home, bitmap_font + 2);
+			bitmap_font = tmp;
+		}
+		load_bitmap_font(argv, bitmap_font);
+		free(tmp);
+	}
 
 	config_option_bool(argv, config_json, "emulatebold", emulatebold);
 	config_option_bool(argv, config_json, "scale-fonts", scale_fonts);
@@ -2592,7 +2633,6 @@ static struct MenuEntry * menu_create_label(const char * title) {
 	menu_update_enabled(out, 0);
 	return out;
 }
-
 
 int main(int argc, char ** argv) {
 
@@ -2635,6 +2675,7 @@ int main(int argc, char ** argv) {
 		{"tab-numbers",  optional_argument, 0, 1001},
 		{"emulatebold",  optional_argument, 0, 1002},
 		{"bitmap",       optional_argument, 0, 1003},
+		{"bitmap-font",  required_argument, 0, 1004},
 		{0,0,0,0}
 	};
 
@@ -2669,6 +2710,9 @@ int main(int argc, char ** argv) {
 				break;
 			case 1002: /* --emulatebold[=no] */
 				set_bold = (!optarg || *optarg != 'n');
+				break;
+			case 1004:
+				load_bitmap_font(argv, optarg);
 				break;
 			case 'h':
 				usage(argv);
