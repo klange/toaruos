@@ -1117,7 +1117,7 @@ int kopen_parent(struct fs_file_description * dirfd, const char *filename, fs_no
 	if (*filename != '/' && !dirfd) return -EBADF;
 	if (*filename != '/' && !(dirfd->inode->flags & FS_DIRECTORY)) return -ENOTDIR;
 
-	*file = kopen_recur(filename, O_NOFOLLOW, 0, (dirfd && dirfd->path) ? dirfd->path->chars : (char*)"/", &err, NULL, 0, parent);
+	*file = kopen_recur(filename, O_NOFOLLOW | O_PATH, 0, (dirfd && dirfd->path) ? dirfd->path->chars : (char*)"/", &err, NULL, 0, parent);
 
 	return -err;
 }
