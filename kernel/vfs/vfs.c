@@ -1087,6 +1087,10 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 /**
  * @brief Open a file by name.
  *
+ * @deprecated This interface should not be used.
+ *
+ * @warning This only produces a reference to an fs_node_t.
+ *
  * Explore the file system tree to find the appropriate node for
  * for a given path. The path can be relative to the working directory
  * and will be canonicalized by the kernel.
@@ -1101,6 +1105,11 @@ fs_node_t *kopen_error(const char *filename, unsigned int flags, int *error) {
 	return kopen_recur(filename, flags & ~(O_CREAT), 0, fs_current_wd(), error, NULL, 0, NULL);
 }
 
+/**
+ * @brief Get a path name for the current working directory.
+ *
+ * In the future, the result of this function might need to be freed...
+ */
 char * fs_current_wd(void) {
 	if (this_core->current_process->wd && this_core->current_process->wd->path) {
 		return this_core->current_process->wd->path->chars;
@@ -1108,6 +1117,28 @@ char * fs_current_wd(void) {
 	return (char*)"/";
 }
 
+/**
+ * @brief Open a file alongside its parent, or only its parent if the file itself does not exist.
+ *
+ * This is used internally to implement functions that create new special files or rename
+ * or delete files, such as @c symlink_fs_at or @c unlink_fs_at.
+ *
+ * Callers should examine @p parent as the main indicator of some sort of success, as
+ * the returned error value will be set even when the parent is found if there was an
+ * issue opening the @p file itself.
+ *
+ * Files are opened with @c O_PATH and @c O_NOFOLLOW so the resulting @p file can be
+ * a symbolic link and no specific permissions are needed on the file itself; most
+ * callers only care about permissions on the parent and the existence or non-existence
+ * of a file. If further permissions are needed on the file itself, callers should check
+ * this themselves.
+ *
+ * @param dirfd Directory reference for relative paths.
+ * @param filename Path to open.
+ * @param parent Out pointer for parent fs_node.
+ * @param file Out pointer for actual file fs_node; will be NULL if only the parent exists.
+ * @returns A positive errno value if either the file or parent could not be found, else 0.
+ */
 int kopen_parent(struct fs_file_description * dirfd, const char *filename, fs_node_t ** parent, fs_node_t ** file) {
 	int err = 0;
 	*parent = NULL;
@@ -1174,7 +1205,24 @@ struct fs_file_description * kopen_at(
 	return fs_fresh_descriptor(node, access_bits, path);
 }
 
-
+/**
+ * @brief Allocate a new file description for an fs_node and fs_path.
+ *
+ * Allocates a fresh open file description referencing the given @p node and @p path
+ * and with access rights described in @p flags (PROC_FD_MODE_*).
+ *
+ * The new file descirption will have one reference.
+ *
+ * If @p flags includes @c PROC_FD_MODE_APPEND then the offset of the new file
+ * description will be the current end of the file.
+ *
+ * The file description will take the current reference from @p node.
+ *
+ * @param node File node.
+ * @param flags PROC_FD_MODE_* access permissions for the descriptor.
+ * @param path Path, generally allocated through @c kopen_recur
+ * @returns A new file description.
+ */
 struct fs_file_description * fs_fresh_descriptor(fs_node_t * node, int flags, struct fs_path * path) {
 	struct fs_file_description * desc = calloc(1, sizeof(struct fs_file_description));
 
@@ -1195,6 +1243,17 @@ struct fs_file_description * fs_fresh_descriptor(fs_node_t * node, int flags, st
 	return desc;
 }
 
+/**
+ * @brief Decrement the reference count for an open file description.
+ *
+ * Drops the reference count for a file description by one.
+ * If this reduces the reference count to zero, the underlying
+ * fs_node then has its reference down decremented as well, and
+ * the file description is freed.
+ *
+ * @param desc Open file description to decrement the reference count on.
+ * @returns 1 if closing this description resulted in it being freed, else 0.
+ */
 int fs_close_desc(struct fs_file_description * desc) {
 	if (!desc) {
 		arch_fatal_prepare();
@@ -1219,6 +1278,20 @@ int fs_close_desc(struct fs_file_description * desc) {
 	return 0;
 }
 
+/**
+ * @brief Increemnt the reference count for an open file description and apply close flags.
+ *
+ * Increements the reference count for a file description and returns a modified
+ * pointer with the requested close modes (using @c PROC_FD_MODE_* flags), suitable
+ * for directly placing in a file descriptor table.
+ *
+ * Callers that do not need a modified pointer can ignore the returned value, as the
+ * underlying raw poitner will be the same as the input.
+ *
+ * @param desc File description to obtain a new reference to.
+ * @param extra_mode Optional close modes to apply to the returned modified pointer.
+ * @returns A modified pointer in which the lower bits represent close modes.
+ */
 uintptr_t fs_clone_desc(struct fs_file_description * desc, int extra_mode) {
 	if (desc == NULL) {
 		arch_fatal_prepare();
@@ -1239,6 +1312,20 @@ uintptr_t fs_clone_desc(struct fs_file_description * desc, int extra_mode) {
 	return out;
 }
 
+/**
+ * @brief Convert a modified file description pointer to equivalent open flags.
+ *
+ * Evaluates the flags of the file description and the close bits encoded
+ * in the modified pointer and converts them to an appropriate set of open flags.
+ * This is mostly for use in the procfs and @c fcntl system call.
+ *
+ * Note that some open flags are not encoded in file descriptions, such as
+ * @c O_DIRECTORY and some file description flags are not represented by
+ * open flags, such as @c PROC_FD_MODE_SOCK.
+ *
+ * @param desc_ptr Modified file description pointer.
+ * @returns A combination of O_* flags appropriately describing the file descriptor.
+ */
 uint64_t fs_convert_descriptor_flags(uintptr_t desc_ptr) {
 	struct fs_file_description * desc = FD_PTR_MASK(desc_ptr);
 

@@ -271,12 +271,12 @@ static void process_fds_copy(process_t * proc, long src, long dest, int extra_mo
 /**
  * @brief Allocate a new file descriptor.
  *
- * Adds a new entry to the file descriptor table for @p proc
- * pointing to the file @p node. The file descriptor's offset
- * and file modes must be set by the caller afterwards.
+ * Adds a new file descriptor for the given file description and
+ * close modes (FD_PTR_ flags) to a process's file descriptor table.
  *
- * @param proc Process whose file descriptor should be modified.
- * @param node VFS object to add a reference to.
+ * @param proc Process whose file descriptor table should be modified.
+ * @param desc File description, reference will be taken.
+ * @param mode FD_PTR flags for close mode.
  * @returns the new file descriptor index
  */
 unsigned long process_append_fd(process_t * proc, struct fs_file_description * desc, uintptr_t mode) {
@@ -299,6 +299,19 @@ unsigned long process_append_fd(process_t * proc, struct fs_file_description * d
 	return out;
 }
 
+/**
+ * @brief Allocate a file descriptor from an anonymous fs_node, such as a socket.
+ *
+ * Allocates a new open file description for the given fs_node, with the requested
+ * permissions from @p flags (PROC_FD_MODE_*) and the given path object (which can
+ * be allocated via, eg., @c fs_path_printf or @c fs_alloc_path_from for such an
+ * anonymous node).
+ *
+ * @param proc Process whose file descriptor table should be modified.
+ * @param node File node to attach to the new description and descriptor.
+ * @param flags PROC_FD_MODE_* flags for the new description and descriptor.
+ * @returns The new file descriptor index
+ */
 unsigned long process_new_fd(process_t * proc, fs_node_t * node, int flags, struct fs_path * path) {
 	struct fs_file_description * desc =  fs_fresh_descriptor(node, flags, path);
 
@@ -309,6 +322,15 @@ unsigned long process_new_fd(process_t * proc, fs_node_t * node, int flags, stru
 	return process_append_fd(proc, desc, fd_flags);
 }
 
+/**
+ * @brief Change the working directory of a process.
+ *
+ * Assigns a new working directory to a process and closes the previous one.
+ * A new reference to the provided file description will be made.
+ *
+ * @param proc Process to modify the working directory for.
+ * @param newfd New working directory file description.
+ */
 void process_chdir(process_t * proc, struct fs_file_description * newfd) {
 	struct fs_file_description *old = proc->wd;
 	proc->wd = (void*)fs_clone_desc(newfd, 0);
