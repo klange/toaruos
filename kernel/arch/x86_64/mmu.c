@@ -760,7 +760,7 @@ void mmu_free(union PML * from) {
 		}
 	}
 
-	mmu_frame_clear((((uintptr_t)from) & PHYS_MASK));
+	mmu_frame_clear(mmu_map_to_physical(this_core->current_pml, (uintptr_t)from));
 	spin_unlock(frame_alloc_lock);
 }
 
