@@ -196,3 +196,4 @@ struct fs_file_description * fs_fresh_descriptor(fs_node_t * node, int flags, st
 int fs_close_desc(struct fs_file_description *);
 uintptr_t fs_clone_desc(struct fs_file_description *, int);
 uint64_t fs_convert_descriptor_flags(uintptr_t desc_ptr);
+const char * fs_basename(const char * path);

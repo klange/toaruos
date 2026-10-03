@@ -912,8 +912,6 @@ static int do_exec_args(char *const argv[], char *const envp[], int * argc_out, 
 		}
 	}
 
-	process_free_cmdline((process_t*)this_core->current_process);
-
 	*argc_out = argc;
 
 	char **argv_ = malloc(sizeof(char*) * (argc + 1));
@@ -934,8 +932,6 @@ static int do_exec_args(char *const argv[], char *const envp[], int * argc_out, 
 		envp_ = malloc(sizeof(char*));
 		envp_[0] = NULL;
 	}
-
-	this_core->current_process->cmdline = argv_;
 
 	*argv_out = argv_;
 	*envp_out = envp_;

@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <libgen.h>
 #include <toaru/procfs.h>
 
 struct PidList {
@@ -35,7 +36,9 @@ int pidof_callback(struct process * proc, void * ctx) {
 
 	if (this->single_shot && this->found_something) return 1;
 
-	if (!strcmp(proc->name, this->argv[this->i])) {
+	char * name = proc->exe ? basename(proc->exe) : proc->name;
+
+	if (!strcmp(name, this->argv[this->i])) {
 		struct PidList * omit = this->omit;
 		while (omit) {
 			if (omit->pid == proc->pid) return 0;
@@ -116,7 +119,7 @@ int main (int argc, char * argv[]) {
 
 	for (int i = optind; i < argc; ++i) {
 		ctx.i = i;
-		if (procfs_iterate(pidof_callback, &ctx, PROCFSLIB_NO_THREADS)) break;
+		if (procfs_iterate(pidof_callback, &ctx, PROCFSLIB_NO_THREADS | PROCFSLIB_COLLECT_COMMANDLINE)) break;
 	}
 
 	if (!ctx.found_something) return 1;

@@ -168,15 +168,8 @@ void print_process_tree_node(struct PstreeContext * ctx, tree_node_t * node, siz
 		depth = depth_in + (indented ? 3 : 0);
 		fputc(' ', stdout);
 
-		/* Skip name */
-		char * cmdline = proc->cmdline;
-		while (*cmdline && *cmdline != 30) cmdline++;
-		if (*cmdline == 30) cmdline++;
-
-		/* Replace record separators with space */
-		while (*cmdline) {
-			fputc(*cmdline == 30 ? ' ' : *cmdline, stdout);
-			cmdline++;
+		for (size_t i = strlen(proc->cmdline) + 1; i < (proc->cmdline_len ?: 1) - 1; ++i) {
+			fputc(proc->cmdline[i] ?: ' ', stdout);
 		}
 	}
 

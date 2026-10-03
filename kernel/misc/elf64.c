@@ -320,7 +320,9 @@ static uintptr_t load_from_file(fs_node_t * file, Elf64_Header * header, uintptr
 	return phdr_vaddr;
 }
 
-int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int argc, const char *const argv[], const char *const env[], int interp) {
+int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int argc, char * argv[], char * env[], int interp) {
+	int error = EINVAL;
+
 	Elf64_Header header;
 
 	read_fs(desc_in->inode, 0, sizeof(Elf64_Header), (uint8_t*)&header);
@@ -330,20 +332,17 @@ int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int
 	    header.e_ident[2] != ELFMAG2 ||
 	    header.e_ident[3] != ELFMAG3) {
 		printf("Invalid file: Bad header.\n");
-		fs_close_desc(desc_in);
-		return -EINVAL;
+		goto _free_most;
 	}
 
 	if (header.e_ident[EI_CLASS] != ELFCLASS64) {
 		printf("(Wrong Elf class)\n");
-		fs_close_desc(desc_in);
-		return -EINVAL;
+		goto _free_most;
 	}
 
 	/* This loader can only handle basic executables. */
 	if (header.e_type != ET_EXEC && header.e_type != ET_DYN) {
-		fs_close_desc(desc_in);
-		return -EINVAL;
+		goto _free_most;
 	}
 
 	struct fs_file_description * interpreter_desc = NULL;
@@ -354,10 +353,13 @@ int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int
 		read_fs(desc_in->inode, header.e_phoff + header.e_phentsize * i, sizeof(Elf64_Phdr), (uint8_t*)&phdr);
 		if (phdr.p_type == PT_INTERP) {
 			/* Must load interpreter */
-			if (phdr.p_filesz < 2 || phdr.p_filesz > 256) return fs_close_desc(desc_in), -EINVAL;
+			if (phdr.p_filesz < 2 || phdr.p_filesz > 256) goto _free_most;
 			char * tmp = malloc(phdr.p_filesz);
 			read_fs(desc_in->inode, phdr.p_offset, phdr.p_filesz, (uint8_t*)tmp);
-			if (tmp[phdr.p_filesz-1] != '\0') return fs_close_desc(desc_in), free(tmp), -EINVAL;
+			if (tmp[phdr.p_filesz-1] != '\0') {
+				free(tmp);
+				goto _free_most;
+			}
 
 			int error = 0;
 			interpreter_desc = kopen_at(NULL, tmp, 0, 0, &error);
@@ -365,8 +367,11 @@ int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int
 			if (!interpreter_desc) return -error;
 
 			ssize_t r = read_fs(interpreter_desc->inode, 0, sizeof(Elf64_Header), (uint8_t*)&interp_header);
-			if (r < 0) return fs_close_desc(desc_in), fs_close_desc(interpreter_desc), r;
-			if ((size_t)r < sizeof(Elf64_Header)) return fs_close_desc(desc_in), fs_close_desc(interpreter_desc), -EINVAL;
+			if (r < 0) {
+				error = -r;
+				goto _free_interp;
+			}
+			if ((size_t)r < sizeof(Elf64_Header)) goto _free_interp;
 
 			if (interp_header.e_ident[0] != ELFMAG0 ||
 			    interp_header.e_ident[1] != ELFMAG1 ||
@@ -374,7 +379,7 @@ int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int
 			    interp_header.e_ident[3] != ELFMAG3 ||
 			    interp_header.e_ident[EI_CLASS] != ELFCLASS64 ||
 			    (interp_header.e_type != ET_EXEC && interp_header.e_type != ET_DYN)) {
-				return fs_close_desc(desc_in), fs_close_desc(interpreter_desc), -EINVAL;
+				goto _free_interp;
 			}
 
 			break;
@@ -393,6 +398,8 @@ int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int
 	this_core->current_process->saved_user_group = this_core->current_process->user_group;
 
 	process_close_fds((process_t *)this_core->current_process, PROC_FD_MODE_CLOEXEC);
+
+	gettimeofday((struct timeval*)&this_core->current_process->start, NULL);
 
 	process_acquire_big_lock();
 	mmu_set_directory(NULL);
@@ -460,7 +467,9 @@ int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int
 	} while (l>=0); \
 } while (0)
 
-	char * argv_ptrs[argc];
+	process_free_cmdline((process_t*)this_core->current_process, argv);
+
+	char ** argv_ptrs = malloc(sizeof(char*)*argc);
 	for (int i = 0; i < argc; ++i) {
 		PUSHSTR(argv[i]);
 		argv_ptrs[i] = (char*)userstack;
@@ -473,11 +482,13 @@ int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int
 		envc++;
 		envpp++;
 	}
-	char * envp_ptrs[envc];
+	char ** envp_ptrs = malloc(sizeof(char*)*envc);
 	for (int i = 0; i < envc; ++i) {
 		PUSHSTR(env[i]);
 		envp_ptrs[i] = (char*)userstack;
+		free(env[i]);
 	}
+	free(env);
 
 	char * at_execfn = NULL;
 	if (this_core->current_process->name) {
@@ -519,11 +530,13 @@ int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int
 	for (int i = envc; i > 0; i--) {
 		PUSH(char*,envp_ptrs[i-1]);
 	}
+	free(envp_ptrs);
 	char ** _envp = (char**)userstack;
 	PUSH(uintptr_t, 0); /* argv NULL */
 	for (int i = argc; i > 0; i--) {
 		PUSH(char*,argv_ptrs[i-1]);
 	}
+	free(argv_ptrs);
 	char ** _argv = (char**)userstack;
 	PUSH(uintptr_t, argc);
 
@@ -532,4 +545,12 @@ int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int
 
 	task_exit(127 << 8);
 	__builtin_unreachable();
+
+_free_interp:
+	fs_close_desc(interpreter_desc);
+_free_most:
+	free(argv);
+	free(env);
+	fs_close_desc(desc_in);
+	return -error;
 }

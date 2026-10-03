@@ -8,6 +8,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <dirent.h>
 #include <sys/stat.h>
@@ -72,8 +73,6 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 			proc->pgid = atoi(tab);
 		} else if (strstr(line, "Name:") == line) {
 			proc->name = strdup(tab);
-		} else if (strstr(line, "Path:") == line) {
-			proc->path = strdup(tab);
 		} else if (strstr(line, "Uid:") == line) {
 			proc->uid = atoi(tab);
 		} else if (strstr(line, "VmSize:") == line) {
@@ -102,7 +101,6 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 	if (line) free(line);
 
 	if (!proc->name) proc->name = strdup("");
-	if (!proc->path) proc->path = strdup("");
 	if (!proc->state) proc->state = strdup("");
 	if (!proc->tty) proc->tty = strdup("");
 
@@ -130,6 +128,14 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 			}
 			fclose(f);
 		}
+
+		asprintf(&tmp, "/proc/%s/exe", dent->d_name);
+		char exe_path[4096] = {0};
+		ssize_t r = readlink(tmp, exe_path, 4096);
+		if (r != 4096 && r > 0) {
+			proc->exe = strdup(exe_path);
+		}
+		free(tmp);
 	}
 
 	if (flags & PROCFSLIB_COLLECT_STARTTIME) {
@@ -147,10 +153,10 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 
 void procfs_free(struct process * proc) {
 	free(proc->name);
-	free(proc->path);
 	free(proc->state);
 	free(proc->tty);
 	if (proc->cmdline) free(proc->cmdline);
+	if (proc->exe) free(proc->exe);
 	free(proc);
 }
 

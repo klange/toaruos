@@ -83,6 +83,12 @@ static void procfs_entry_open(fs_node_t * node, unsigned int flags) {
 	node->length = entry->used;
 }
 
+static ssize_t procfs_entry_write(fs_node_t * node, off_t off, size_t len, uint8_t * buf) {
+	procfs_entry_t * entry = (void*)node;
+	if (entry->write_func) return entry->write_func(node, off, len, buf);
+	return -EPERM;
+}
+
 static void procfs_entry_close(fs_node_t * node) {
 	procfs_entry_t * entry = (void*)node;
 	if (entry->free_node) entry->free_node(entry);
@@ -176,6 +182,7 @@ static fs_vtable_t procfs_file_ops = {
 	.open    = procfs_entry_open,
 	.close   = procfs_entry_close,
 	.read    = procfs_entry_read,
+	.write   = procfs_entry_write,
 };
 
 static fs_vtable_t procfs_symlink_ops = {
@@ -211,7 +218,7 @@ static fs_node_t * procfs_generic_create(struct procfs_entry * ent_def) {
 	entry->fnode.gid = 0;
 	entry->fnode.mask    = 0444;
 
-	int flags = ent_def->flags;
+	int flags = ent_def->flags & 0xFF;
 	if (flags == INO_LNK) {
 		entry->fnode.type = INO_LNK;
 		entry->fnode.ops = &procfs_symlink_ops;
@@ -222,6 +229,9 @@ static fs_node_t * procfs_generic_create(struct procfs_entry * ent_def) {
 	} else {
 		entry->fnode.type = INO_REG;
 		entry->fnode.ops = &procfs_file_ops;
+		if (ent_def->flags & 0x100) {
+			entry->fnode.mask |= S_IWUSR;
+		}
 	}
 
 	entry->fnode.ctime   = now();
@@ -246,11 +256,36 @@ static void proc_cmdline_func(fs_node_t *node) {
 	char ** args = proc->cmdline ? proc->cmdline : proc->process->cmdline;
 	while (*args) {
 		procfs_printf(node, "%s", *args);
-		if (*(args+1)) {
-			procfs_printf(node, "\036");
-		}
+		procfs_printf(node, "%c", 0);
 		args++;
 	}
+}
+
+static ssize_t proc_comm_write(fs_node_t * node, off_t off, size_t len, uint8_t * buf) {
+	process_t * proc = process_from_pid(node->impl);
+	char tmp[16] = {0};
+	size_t size = len > 15 ? 15 : len;
+	memcpy(tmp, buf, size);
+
+	if (!proc) return -ESRCH;
+	if (proc->tgid != this_core->current_process->tgid) return -EINVAL;
+
+	char * nbuf = strdup(tmp);
+	char * old  = proc->name;
+	proc->name  = nbuf;
+	free(old);
+
+	return len;
+}
+
+static void proc_comm_func(fs_node_t *node) {
+	process_t * proc = process_from_pid(node->impl);
+	procfs_entry_t * self = (procfs_entry_t *)node;
+	self->write_func = proc_comm_write;
+
+	if (!proc) return;
+	if (!proc->name) return;
+	procfs_printf(node, "%s\n", proc->name);
 }
 
 extern void process_acquire_big_lock(void);
@@ -284,17 +319,6 @@ static void proc_status_func(fs_node_t *node) {
 		state = 'Z'; /* Zombie - exited but not yet reaped */
 	} else if ((proc->flags & PROC_FLAG_SUSPENDED)) {
 		state = 'T'; /* Stopped; TODO can we differentiate stopped tracees correctly? */
-	}
-
-	char * name = proc->name + strlen(proc->name) - 1;
-
-	while (1) {
-		if (*name == '/') {
-			name++;
-			break;
-		}
-		if (name == proc->name) break;
-		name--;
 	}
 
 	/* Calculate process memory usage */
@@ -344,7 +368,6 @@ static void proc_status_func(fs_node_t *node) {
 			"SC4:\t%#zx\n"
 			"SC5:\t%#zx\n"
 			"UserStack:\t%#zx\n"
-			"Path:\t%s\n"
 			"VmSize:\t %lu kB\n"
 			"VmRSS:\t %lu kB\n"
 			"RssAnon:\t %lu kB\n"
@@ -362,7 +385,7 @@ static void proc_status_func(fs_node_t *node) {
 			"SigCgt:\t%016zx\n"
 			"Tty:\t%s\n"
 			,
-			name,
+			proc->name,
 			state,
 			proc->tgid,
 			proc->id,
@@ -379,7 +402,6 @@ static void proc_status_func(fs_node_t *node) {
 			proc->syscall_registers ? arch_syscall_arg4(proc->syscall_registers) : 0,
 			proc->syscall_registers ? arch_syscall_arg5(proc->syscall_registers) : 0,
 			proc->syscall_registers ? arch_stack_pointer(proc->syscall_registers) : 0,
-			proc->cmdline ? proc->cmdline[0] : "(none)",
 			mem_usage, res_usage, res_anon, res_file, res_shm, mem_permille,
 			proc->owner,
 			proc->time_total / arch_cpu_mhz(),
@@ -525,11 +547,12 @@ static void proc_fdinfo_func(fs_node_t * node) {
 static struct procfs_entry procdir_entries[] = {
 	{1, "cmdline", proc_cmdline_func, 0},
 	{2, "status",  proc_status_func, 0},
-	{3, "cwd",     proc_cwd_func, INO_LNK},
-	{4, "maps",    proc_maps_func, 0},
-	{5, "fd",      proc_fd_func, INO_DIR},
-	{6, "exe",     proc_exe_func, INO_LNK},
-	{7, "fdinfo",  proc_fdinfo_func, INO_DIR},
+	{3, "comm",    proc_comm_func, 0x100}, /* Writable */
+	{4, "cwd",     proc_cwd_func, INO_LNK},
+	{5, "maps",    proc_maps_func, 0},
+	{6, "fd",      proc_fd_func, INO_DIR},
+	{7, "exe",     proc_exe_func, INO_LNK},
+	{8, "fdinfo",  proc_fdinfo_func, INO_DIR},
 };
 
 static int readdir_procfs_procdir(fs_node_t *node, uint64_t index, struct dirent * out) {

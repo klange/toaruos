@@ -1577,9 +1577,9 @@ static int check_for_exit(void) {
 				priv->fg_pid = pgrp;
 				free(priv->fg_name);
 				priv->fg_name = NULL;
-				struct process * fg_proc = procfs_get_pid(priv->fg_pid, 0);
+				struct process * fg_proc = procfs_get_pid(priv->fg_pid, PROCFSLIB_COLLECT_COMMANDLINE);
 				if (fg_proc) {
-					asprintf(&priv->fg_name, " (%s)", basename(fg_proc->path));
+					asprintf(&priv->fg_name, " (%s)", basename(fg_proc->cmdline));
 					procfs_free(fg_proc);
 				}
 

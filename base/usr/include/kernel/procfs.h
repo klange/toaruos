@@ -21,6 +21,7 @@ typedef struct procfs_entry_node {
 	list_t * files;
 	intptr_t id;
 	void (*free_node)(struct procfs_entry_node*);
+	write_type_t write_func;
 } procfs_entry_t;
 
 extern int procfs_install(struct procfs_entry * entry);

@@ -21,7 +21,6 @@
 #include <kernel/printf.h>
 #include <kernel/misc.h>
 
-extern int system(const char * path, int argc, const char ** argv, const char ** envin);
 extern void tarfs_register_init(void);
 extern void tmpfs_register_init(void);
 extern void tasking_start(void);
@@ -83,16 +82,16 @@ int generic_main(void) {
 
 	dprintf("generic: Running %s as init process.\n", boot_app);
 
-	const char * argv[] = {
-		boot_app,
-		boot_arg,
-		NULL
-	};
-	int argc = 0;
-	while (argv[argc]) argc++;
-	system(argv[0], argc, argv, NULL);
+	process_chdir((process_t*)this_core->current_process, fs_fresh_descriptor(fs_root, 0, fs_alloc_path_from("/", "system")));
 
-	dprintf("generic: Failed to execute %s.\n", boot_app);
+	int argc = boot_arg ? 2 : 1;
+	char ** args = calloc(argc + 1, sizeof(char *));
+	args[0] = strdup(boot_app);
+	args[1] = boot_arg ? strdup(boot_arg) : NULL;
+
+	int error = exec(boot_app, argc, args, calloc(1, sizeof(char*)), 0);
+
+	dprintf("generic: Failed to execute %s (%d).\n", boot_app, error);
 	switch_task(0);
 	return 0;
 }

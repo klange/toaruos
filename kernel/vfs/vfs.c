@@ -348,7 +348,7 @@ int ioctl_fs(fs_node_t *node, unsigned long request, void * argp) {
 	return node->ops->ioctl ? node->ops->ioctl(node, request, argp) : -ENOTTY;
 }
 
-static const char * fs_basename(const char * path) {
+const char * fs_basename(const char * path) {
 	const char * f_path = path + strlen(path) - 1;
 	while (f_path > path && *f_path == '/') {
 		/* Trailing slashes */

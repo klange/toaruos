@@ -60,6 +60,7 @@ static int cpu_count = 1;
 static int sort_column = COLUMN_CPU;
 static int show_help = 0;
 static int combine_threads = 1;
+static int name_mode = 0;
 
 static const char * help_text[] = {
 	"q: quit",
@@ -182,17 +183,15 @@ static int size_column(struct process * proc, int column_id) {
  * @brief Print the column headings.
  */
 void print_header(void) {
+	static const char * name_mode_str[] = {"CMD", "EXE", "COMM"};
 	printf(T_H);
 	for (int * c = columns; *c; ++c) {
 		if (*c == sort_column) printf(T_S);
 		printf(ColumnDescriptions[*c].formatter == FORMATTER_STRING ? "%-*s " : "%*s ", ColumnDescriptions[*c].width, ColumnDescriptions[*c].title);
 		if (*c == sort_column) printf(T_R);
 	}
-	if (sort_column == COLUMN_NONE) {
-		printf(T_B T_S "CMD" T_R);
-	} else {
-		printf("CMD");
-	}
+	printf(sort_column == COLUMN_NONE ? (T_B T_S "%s" T_R) : "%s",
+		name_mode_str[name_mode]);
 	printf(T_K T_E "\n");
 }
 
@@ -223,7 +222,7 @@ void print_entry(struct process * out, int width) {
 
 	if (width > used) {
 		printf("%s", color);
-		used += printf("%.*s", width - used, out->name);
+		used += printf("%.*s", width - used, out->exe);
 		printf(T_E);
 		if (width > used && out->cmdline) {
 			printf("%.*s", width - used, out->cmdline);
@@ -310,18 +309,36 @@ int top_callback(struct process * out, void * ctx) {
 
 	out->user_pdata = format_username(out->uid);
 
+	switch (name_mode) {
+		case 1:
+			if (out->exe) break;
+			/* fallthrough */
+		case 0:
+			if (out->cmdline) {
+				free(out->exe);
+				out->exe = strdup(out->cmdline);
+				break;
+			}
+			/* fallthrough */
+		case 2:
+			free(out->exe);
+			out->exe = strdup(out->name);
+			break;
+	}
+
 	if (out->cmdline) {
 		char * args = out->cmdline;
-		while (*args && *args != 30) args++;
+		while (*args) args++;
 
 		for (size_t i = args - out->cmdline; i < out->cmdline_len; ++i) {
-			if (out->cmdline[i] == 30) out->cmdline[i] = ' ';
+			if (out->cmdline[i] == 0) out->cmdline[i] = ' ';
 		}
 
 		args = strdup(args);
 		free(out->cmdline);
 		out->cmdline = args;
 	}
+
 
 	update_column_widths(out);
 	return 0;
@@ -338,7 +355,7 @@ static int sort_processes(const void * a, const void * b) {
 	struct columns * column = &ColumnDescriptions[sort_column];
 
 	if (sort_column == COLUMN_NONE) {
-		return strcmp(left->name, right->name);
+		return strcmp(left->exe, right->exe);
 	}
 
 	switch (column->formatter) {
@@ -526,6 +543,11 @@ static void toggle_threads(void) {
 	}
 }
 
+static void toggle_mode(void) {
+	name_mode += 1;
+	if (name_mode > 2) name_mode = 0;
+}
+
 /**
  * @brief Collect information on running processes.
  */
@@ -710,6 +732,7 @@ _again: (void)0;
 			case 'W': prev_sort_order(); break;
 			case 'h': show_help = !show_help; break;
 			case 'T': toggle_threads(); break;
+			case 'm': toggle_mode(); break;
 			case '\033': goto _again;
 			case '[': goto _again;
 		}
@@ -778,7 +801,7 @@ static int do_log(void) {
 		for (int * c = columns; *c; ++c) {
 			print_column(out, *c, 0);
 		}
-		printf("%s%s\n", out->name, out->cmdline);
+		printf("%s%s\n", out->exe, out->cmdline);
 		free_entry(out);
 	}
 	free(processList);

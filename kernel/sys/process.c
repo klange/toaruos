@@ -534,7 +534,8 @@ process_t * spawn_init(void) {
 
 	init->thread.page_directory = calloc(1, sizeof(page_directory_t));
 	init->thread.page_directory->refcount = 1;
-	init->thread.page_directory->directory = this_core->current_pml;
+	init->thread.page_directory->directory = mmu_clone(NULL);
+	mmu_set_directory(init->thread.page_directory->directory);
 	spin_init(init->thread.page_directory->lock);
 	list_insert(process_list, (void*)init);
 
@@ -645,7 +646,7 @@ void process_reap(process_t * proc) {
 		free(proc->sig_queue);
 	}
 
-	process_free_cmdline(proc);
+	process_free_cmdline(proc, NULL);
 
 	free(proc->name);
 	free(proc);
@@ -1449,13 +1450,16 @@ static char ** dup_cmdline(process_t * proc) {
 	return cmdline;
 }
 
-void process_free_cmdline(process_t * proc) {
-	if (!proc->cmdline) return;
-	for (int j = 0; proc->cmdline[j]; j++) {
-		free(proc->cmdline[j]);
+void process_free_cmdline(process_t * proc, char **ncmd) {
+	char ** old = proc->cmdline;
+	proc->cmdline = ncmd;
+
+	if (!old) return;
+
+	for (int j = 0; old[j]; j++) {
+		free(old[j]);
 	}
-	free(proc->cmdline);
-	proc->cmdline = NULL;
+	free(old);
 }
 
 pid_t fork(void) {

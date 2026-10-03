@@ -98,8 +98,8 @@ int ps_callback(struct process * proc, void * ctx) {
 
 	if (collect_commandline && proc->cmdline) {
 		/* Replace \x1e with spaces */
-		for (size_t i = 0; i < proc->cmdline_len; ++i) {
-			if (proc->cmdline[i] == 30) proc->cmdline[i] = ' ';
+		for (size_t i = 0; i < (proc->cmdline_len ?: 1) - 1; ++i) {
+			if (proc->cmdline[i] == 0) proc->cmdline[i] = ' ';
 		}
 	}
 

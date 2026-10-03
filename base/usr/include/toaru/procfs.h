@@ -11,12 +11,13 @@ typedef struct process {
 	int cpu[4];
 	unsigned long time;
 	char *name;
-	char *path;
 	char * state;
 	time_t starttime;
 
 	char * cmdline;
 	size_t cmdline_len;
+
+	char * exe;
 
 	int user_data;
 	void * user_pdata;

@@ -301,8 +301,8 @@ extern process_t * spawn_worker_thread(void (*entrypoint)(void * argp), const ch
 extern pid_t fork(void);
 extern pid_t clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg);
 extern int waitpid(int pid, int * status, int options);
-extern int exec(const char * path, int argc, char *const argv[], char *const env[], int interp_depth);
-extern int fexec(struct fs_file_description *, int, char *const argv[], char *const envp[]);
+extern int exec(const char * path, int argc, char * argv[], char * env[], int interp_depth);
+extern int fexec(struct fs_file_description *, int, char * argv[], char * envp[]);
 extern void update_process_usage(uint64_t clock_ticks, uint64_t perf_scale);
 extern void update_process_times_on_exit(void);
 extern size_t process_collect_by(off_t field, size_t fieldSize, void * target, pid_t ** into, int threads);
@@ -312,7 +312,7 @@ extern long process_fd_dup_least(process_t *, long, long, int);
 extern void process_send_sigchld(process_t * proc, process_t * parent, int reason, int status);
 extern size_t process_erase_field(off_t field, size_t fieldSize, void * target);
 extern size_t process_get_tty(process_t * proc, size_t len, char * out);
-extern void process_free_cmdline(process_t *);
+extern void process_free_cmdline(process_t *, char **);
 
 extern tree_t * process_tree;  /* Parent->Children tree */
 extern list_t * process_list;  /* Flat storage */

@@ -115,10 +115,14 @@ def __main__(args):
             for line in safe_readlines(f'/proc/{pid}/fdinfo/{fd}'):
                 if '\t' in line:
                 let vals = line.strip().split('\t')
-                info[vals[0]] = vals[1]
+                if len(vals) == 2:
+                    info[vals[0]] = vals[1]
             let mode = ' '
             if 'flags:' in info:
-                let b = int(info['flags:'], base=0)
+                let t = info['flags:']
+                if t.startswith('0') and not t.startswith('0x'):
+                    t = '0o' + t
+                let b = int(t, base=0)
                 if (b & os.O_RDWR): mode = 'u'
                 else if (b & os.O_WRONLY): mode = 'w'
                 else: mode = 'r' # must be readonly

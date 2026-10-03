@@ -16,18 +16,20 @@
 #include <kernel/elf.h>
 #include <sys/time.h>
 
-extern int elf_exec(const char *, struct fs_file_description *, int argc, char *const argv[], char *const env[], int interp);
-int exec(const char * path, int argc, char *const argv[], char *const env[], int interp_depth);
+extern int elf_exec(const char *, struct fs_file_description *, int argc, char * argv[], char * env[], int interp);
+int exec(const char * path, int argc, char * argv[], char * env[], int interp_depth);
 
 /**
  * @brief hash-exclamation parser
  *
  * Tries to safely read the first line of a script file to find an appropriate loader.
  */
-int exec_shebang(const char * path, struct fs_file_description * desc_in, int argc, char *const argv[], char *const env[], int interp) {
+int exec_shebang(const char * path, struct fs_file_description * desc_in, int argc, char * argv[], char * env[], int interp) {
 	if (interp > 4) {
 		/* If an interpreter calls an interpreter too many times, bail. */
 		fs_close_desc(desc_in);
+		free(argv);
+		free(env);
 		return -ELOOP;
 	}
 
@@ -43,6 +45,8 @@ int exec_shebang(const char * path, struct fs_file_description * desc_in, int ar
 	/* We read too much stuff before finding EOL or another signal
 	 * that the interpreter was found, so bail. */
 	if (!space_or_linefeed) {
+		free(argv);
+		free(env);
 		return -ENOEXEC;
 	}
 
@@ -55,6 +59,8 @@ int exec_shebang(const char * path, struct fs_file_description * desc_in, int ar
 		space_or_linefeed = strpbrk(space_or_linefeed, "\n");
 		if (!space_or_linefeed) {
 			/* If we didn't find one, bail. */
+			free(argv);
+			free(env);
 			return -ENOEXEC;
 		}
 	}
@@ -62,12 +68,11 @@ int exec_shebang(const char * path, struct fs_file_description * desc_in, int ar
 	/* Make sure interpreter or argument is nil-terminated */
 	*space_or_linefeed = '\0';
 
-	char script[strlen(path)+1];
-	memcpy(script, path, strlen(path)+1);
+	char * script = strdup(path);
 
 	unsigned int nargc = argc + (arg ? 2 : 1);
-	char * args[nargc + 2];
-	args[0] = cmd;
+	char ** args = calloc(nargc + 2, sizeof(char*));
+	args[0] = strdup(cmd);
 	args[1] = arg ? arg : script;
 	args[2] = arg ? script : NULL;
 	args[3] = NULL;
@@ -78,12 +83,14 @@ int exec_shebang(const char * path, struct fs_file_description * desc_in, int ar
 	}
 	args[j] = NULL;
 
+	free(argv);
+
 	/* Try to execut the interpreter with the new arguments */
 	return exec(cmd, nargc, args, env, interp+1);
 }
 
 /* Consider exposing this and making it a list so it can be extended ... */
-typedef int (*exec_func)(const char *, struct fs_file_description*, int argc, char *const argv[], char *const env[], int interp);
+typedef int (*exec_func)(const char *, struct fs_file_description*, int argc, char * argv[], char * env[], int interp);
 typedef struct {
 	exec_func func;
 	unsigned char bytes[4];
@@ -103,6 +110,27 @@ static int matches(unsigned char * a, unsigned char * b, unsigned int len) {
 	return 1;
 }
 
+static int exec_common(struct fs_file_description * desc, const char * path, int argc, char * argv[], char * env[], int interp_depth) {
+	unsigned char head[4];
+	read_fs(desc->inode, 0, 4, head);
+
+	if (interp_depth == 0) {
+		if (this_core->current_process->name) free(this_core->current_process->name);
+		this_core->current_process->name = strdup(fs_basename(path));
+	}
+
+	for (unsigned int i = 0; i < sizeof(fmts) / sizeof(exec_def_t); ++i) {
+		if (matches(fmts[i].bytes, head, fmts[i].match)) {
+			return fmts[i].func(path, desc, argc, argv, env, interp_depth);
+		}
+	}
+
+	free(argv);
+	free(env);
+	fs_close_desc(desc);
+	return -ENOEXEC;
+}
+
 /**
  * @brief Replace the current process with a new one.
  *
@@ -113,73 +141,38 @@ static int matches(unsigned char * a, unsigned char * b, unsigned int len) {
  * @param interp_depth Should be 0 for all external callers.
  * @returns Either never or -ENOEXEC on failure.
  */
-int exec(const char * path, int argc, char *const argv[], char *const env[], int interp_depth) {
+int exec(const char * path, int argc, char * argv[], char * env[], int interp_depth) {
 	int error = 0;
 	struct fs_file_description * desc = kopen_at(this_core->current_process->wd, path, O_PATH, 0, &error);
-	if (!desc) return -error;
+	if (!desc) goto _free_args;
 
-	if (!has_permission(desc->inode, X_OK)) return fs_close_desc(desc), -EACCES;
-	if (desc->inode->type == INO_DIR) return fs_close_desc(desc), -EISDIR;
-
-	unsigned char head[4];
-	read_fs(desc->inode, 0, 4, head);
-
-	if (this_core->current_process->name) free(this_core->current_process->name);
-	this_core->current_process->name = strdup(path);
-	gettimeofday((struct timeval*)&this_core->current_process->start, NULL);
-
-	for (unsigned int i = 0; i < sizeof(fmts) / sizeof(exec_def_t); ++i) {
-		if (matches(fmts[i].bytes, head, fmts[i].match)) {
-			return fmts[i].func(path, desc, argc, argv, env, interp_depth);
-		}
+	if (!has_permission(desc->inode, X_OK)) {
+		error = EACCES;
+		goto _free_desc;
+	}
+	if (desc->inode->type == INO_DIR) {
+		error = EISDIR;
+		goto _free_desc;
 	}
 
+	return exec_common(desc, path, argc, argv, env, interp_depth);
+
+_free_desc:
 	fs_close_desc(desc);
-	return -ENOEXEC;
-}
 
-int fexec(struct fs_file_description * desc, int argc, char *const argv[], char *const env[]) {
-	if (desc->inode->type == INO_DIR) return -EISDIR;
-
-	fs_clone_desc(desc, 0); /* desc is from fd table which will be wiped, obtain a new reference */
-
-	unsigned char head[4];
-	read_fs(desc->inode, 0, 4, head);
-
-	if (this_core->current_process->name) free(this_core->current_process->name);
-	this_core->current_process->name = strdup(desc->path->chars);
-	gettimeofday((struct timeval*)&this_core->current_process->start, NULL);
-
-	for (unsigned int i = 0; i < sizeof(fmts) / sizeof(exec_def_t); ++i) {
-		if (matches(fmts[i].bytes, head, fmts[i].match)) {
-			return fmts[i].func(desc->path->chars, desc, argc, argv, env, 0);
-		}
-	}
-
-	fs_close_desc(desc);
-	return -ENOEXEC;
+_free_args:
+	free(argv);
+	free(env);
+	return -error;
 }
 
 /**
- * This is generally only called by system startup code to launch /bin/init.
- * Copies arguments from kernel constants into the heap, sets up a new MMU context
- * from the kernel boot context, and then calls @ref exec.
+ * @brief Replace current process with a new one, from an open file description.
  */
-int system(const char * path, int argc, char *const argv[], char *const envin[]) {
-	char ** argv_ = malloc(sizeof(char*) * (argc + 1));
-	for (int j = 0; j < argc; ++j) {
-		argv_[j] = malloc((strlen(argv[j]) + 1));
-		memcpy((void*)argv_[j], argv[j], strlen(argv[j]) + 1);
-	}
-	if (!this_core->current_process->wd && fs_root) process_chdir((process_t*)this_core->current_process, fs_fresh_descriptor(fs_root, 0, fs_alloc_path_from("/", "system")));
-	argv_[argc] = NULL;
-	char * env[] = {NULL};
-	this_core->current_process->thread.page_directory = calloc(1, sizeof(page_directory_t));
-	this_core->current_process->thread.page_directory->directory = mmu_clone(NULL); /* base PML? for exec? */
-	this_core->current_process->thread.page_directory->refcount = 1;
-	spin_init(this_core->current_process->thread.page_directory->lock);
-	mmu_set_directory(this_core->current_process->thread.page_directory->directory);
-	this_core->current_process->cmdline = (char**)argv_;
-	exec(path,argc,argv_,envin ? envin : env,0);
-	return -EINVAL;
+int fexec(struct fs_file_description * desc, int argc, char * argv[], char * env[]) {
+	if (desc->inode->type == INO_DIR) return free(argv), free(env), -EISDIR;
+	fs_clone_desc(desc, 0); /* desc is from fd table which will be wiped, obtain a new reference */
+
+	return exec_common(desc, desc->path->chars, argc, argv, env, 0);
 }
+
