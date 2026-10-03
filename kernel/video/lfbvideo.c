@@ -154,7 +154,7 @@ static fs_vtable_t vid_ops = {
 static fs_node_t * lfb_video_device_create(void /* TODO */) {
 	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->length  = 0;
-	fnode->flags   = FS_BLOCKDEVICE; /* Framebuffers are block devices */
+	fnode->type    = INO_BLK; /* Framebuffers are block devices */
 	fnode->mask    = 0660; /* Only accessible to root user/group */
 	fnode->ops     = &vid_ops;
 	return fnode;

@@ -249,7 +249,7 @@ void dtb_device(void) {
 	fnode->gid = 0;
 	fnode->mask    = 0770;
 	fnode->length  = 1048576;
-	fnode->flags   = FS_BLOCKDEVICE;
+	fnode->type = INO_BLK;
 	fnode->ops     = &dtb_ops;
 	vfs_mount("/dev/dtb", fnode, "dtb", "");
 }

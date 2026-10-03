@@ -44,7 +44,7 @@ static struct tmpfs_file * tmpfs_file_new(fs_node_t * parent) {
 	t->_node.mount = parent->mount;
 	t->_node.device = parent->device;
 	t->_node.refcount = 0; /* parent directory */
-	t->_node.flags = FS_FILE;
+	t->_node.type  = INO_REG;
 	t->_node.atime = now();
 	t->_node.mtime = t->_node.atime;
 	t->_node.ctime = t->_node.atime;
@@ -65,7 +65,7 @@ static struct tmpfs_dir * tmpfs_dir_new(struct tmpfs_dir * parent) {
 	d->_node.mount = parent ? parent->_node.mount : (fs_node_t*)d;
 	d->_node.device = parent ? parent->_node.device : (fs_node_t*)d;
 	d->_node.refcount = 0;
-	d->_node.flags = FS_DIRECTORY;
+	d->_node.type  = INO_DIR;
 	d->_node.atime = now();
 	d->_node.mtime = d->_node.atime;
 	d->_node.ctime = d->_node.atime;
@@ -128,7 +128,7 @@ static int symlink_tmpfs(fs_node_t * parent, const char * target, const char * n
 	}
 
 	struct tmpfs_file * t = tmpfs_file_new(parent);
-	t->_node.flags = FS_SYMLINK;
+	t->_node.type = INO_LNK;
 	t->_node.mask = 0777;
 	t->_node.uid = this_core->current_process->user;
 	t->_node.gid = this_core->current_process->user;
@@ -149,7 +149,7 @@ static ssize_t readlink_tmpfs(fs_node_t * node, char * buf, size_t size) {
 	struct tmpfs_file * t = (struct tmpfs_file *)node;
 
 	spin_lock(t->lock);
-	if (!(t->_node.flags & FS_SYMLINK)) {
+	if (t->_node.type != INO_LNK) {
 		spin_unlock(t->lock);
 		return -EINVAL;
 	}
@@ -168,7 +168,7 @@ static void close_tmpfs(fs_node_t * node) {
 	}
 	struct tmpfs_file * t = (void*)node;
 	spin_lock(t->lock);
-	if (t->_node.flags & FS_SYMLINK) {
+	if (t->_node.type == INO_LNK) {
 		/* free target string */
 		free(t->target);
 		t->target = NULL;
@@ -539,7 +539,7 @@ static int unlink_tmpfs(fs_node_t * node, const char * name) {
 		return -EPERM;
 	}
 
-	if (de->inode->_node.flags & FS_DIRECTORY) {
+	if (de->inode->_node.type == INO_DIR) {
 		if (try_free_dir((void*)de->inode)) {
 			spin_unlock(d->lock);
 			return -ENOTEMPTY;
@@ -652,7 +652,7 @@ static int rename_tmpfs(fs_node_t * mount_root, fs_node_t * src_dir, const char 
 
 	src_file = src_dent->inode;
 
-	if (!(src_file->_node.flags & FS_DIRECTORY) && endswith(src_name, '/')) {
+	if (src_file->_node.type != INO_DIR && endswith(src_name, '/')) {
 		/* Source ended with trailing slashes, but was not a directory. */
 		ret = -ENOTDIR;
 		goto _cleanup_src;
@@ -671,14 +671,14 @@ static int rename_tmpfs(fs_node_t * mount_root, fs_node_t * src_dir, const char 
 	struct tmpfs_dirent * dest_dent = get_file(dd, dest_name, &dest_node, 1);
 	if (dest_dent) dest_file = dest_dent->inode;
 
-	if (dest_file && !(dest_file->_node.flags & FS_DIRECTORY) && endswith(dest_name, '/')) {
+	if (dest_file && dest_file->_node.type != INO_DIR  && endswith(dest_name, '/')) {
 		/* Destination ended with trailing slashes, but was not a directory. */
 		ret = -ENOTDIR;
 		goto _cleanup;
 	}
 
 	/* Check that src_file isn't a parent of dest_file */
-	if (src_file->_node.flags & FS_DIRECTORY) {
+	if (src_file->_node.type == INO_DIR) {
 		struct tmpfs_dir * pd = dd;
 		while (pd) {
 			if ((void*)pd == (void*)src_file) {
@@ -690,7 +690,7 @@ static int rename_tmpfs(fs_node_t * mount_root, fs_node_t * src_dir, const char 
 	}
 
 	if (!dest_file) {
-		if (endswith(dest_name,'/') && !(src_file->_node.flags & FS_DIRECTORY)) {
+		if (endswith(dest_name,'/') && src_file->_node.type != INO_DIR) {
 			/* Destination did not exist, ended with trailing slashes, but the source was not a directory. */
 			ret = -ENOTDIR;
 			goto _cleanup;
@@ -710,19 +710,19 @@ static int rename_tmpfs(fs_node_t * mount_root, fs_node_t * src_dir, const char 
 	} else if (src_file == dest_file) {
 		/* Do nothing */
 	} else {
-		if (dest_file->_node.flags & FS_DIRECTORY) {
+		if (dest_file->_node.type == INO_DIR) {
 			struct tmpfs_dir * dest = (struct tmpfs_dir*)dest_file;
 			if (dest->files && dest->files->length) {
 				/* Destination is not empty */
 				ret = -ENOTEMPTY;
 				goto _cleanup;
 			}
-			if (!(src_file->_node.flags & FS_DIRECTORY)) {
+			if (src_file->_node.type != INO_DIR) {
 				/* Source is not a directory but destination is */
 				ret = -EISDIR;
 				goto _cleanup;
 			}
-		} else if (src_file->_node.flags & FS_DIRECTORY) {
+		} else if (src_file->_node.type == INO_DIR) {
 			/* Source is a directory, but destination is not */
 			ret = -ENOTDIR;
 			goto _cleanup;
@@ -756,7 +756,7 @@ _cleanup_src:
 
 static int hardlink_tmpfs(struct fs_node * dirnode, const char * name, struct fs_node * target) {
 	/* No hard linking directories because I said so. */
-	if (target->flags & FS_DIRECTORY) return -EPERM;
+	if (target->type == INO_DIR) return -EPERM;
 	/* Probably good enough, increases link and refcount, and
 	 * VFS should have checked if file exists... TOCTOUs aside. */
 	add_new_file((struct tmpfs_dir*)dirnode, name, (struct tmpfs_file*)target);

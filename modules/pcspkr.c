@@ -76,7 +76,7 @@ static fs_node_t * spkr_device_create(void) {
 	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->mask    = 0660; /* TODO need a speaker group */
 	fnode->gid     = 1;
-	fnode->flags   = FS_CHARDEVICE;
+	fnode->type    = INO_CHR;
 	fnode->ops     = &spkr_ops;
 	return fnode;
 }

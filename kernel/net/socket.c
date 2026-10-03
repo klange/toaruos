@@ -164,7 +164,7 @@ fs_vtable_t sock_ops = {
 
 sock_t * net_sock_create(void) {
 	sock_t * sock = calloc(sizeof(struct SockData),1);
-	sock->_fnode.flags = FS_SOCKET; /* uh, FS_SOCKET? */
+	sock->_fnode.type = INO_SOCK;
 	sock->_fnode.mask = 0600;
 	sock->_fnode.device = NULL;
 	sock->_fnode.ops = &sock_ops;

@@ -102,7 +102,7 @@ static fs_vtable_t loop_ops = {
 
 static void loop_init(struct loop_nic * nic) {
 	nic->eth.device_node = calloc(sizeof(fs_node_t),1);
-	nic->eth.device_node->flags = FS_BLOCKDEVICE;
+	nic->eth.device_node->type  = INO_BLK;
 	nic->eth.device_node->mask  = 0666;
 	nic->eth.device_node->ops = &loop_ops;
 	nic->eth.device_node->device = nic;

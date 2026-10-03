@@ -111,7 +111,7 @@ static fs_node_t * ramdisk_device_create(int device_number, uintptr_t location, 
 	fnode->gid = 0;
 	fnode->mask    = 0770;
 	fnode->length  = size;
-	fnode->flags   = FS_BLOCKDEVICE;
+	fnode->type    = INO_BLK;
 	fnode->ops     = &ramdisk_ops;
 	return fnode;
 }

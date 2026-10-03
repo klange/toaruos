@@ -38,7 +38,7 @@ static void procfs_net_dir(fs_node_t * node) {
 	((procfs_entry_t*)node)->files = procfs_net_files;
 }
 
-static struct procfs_entry procfs_net_pex  = { 0, "net", procfs_net_dir,  FS_DIRECTORY };
+static struct procfs_entry procfs_net_pex  = { 0, "net", procfs_net_dir,  INO_DIR };
 
 void net_install(void) {
 	/* Set up virtual devices */

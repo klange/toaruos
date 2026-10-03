@@ -402,19 +402,19 @@ static fs_node_t * file_from_ustar(struct tarfs * self, struct ustar * file, uns
 	fs->length = interpret_size(file);
 	fs->mask = interpret_mode(file);
 	fs->nlink = 0; /* Unsupported */
-	fs->flags = FS_FILE;
+	fs->type = INO_REG;
 	if (file->type[0] == '5') {
-		fs->flags = FS_DIRECTORY;
+		fs->type = INO_DIR;
 		fs->ops = &tarfs_dir_ops;
 	} else if (file->type[0] == '1') {
 		//debug_print(ERROR, "Hardlink detected");
 		/* go through file and find target, reassign inode to point to that */
 		fs->ops = &dummy_ops;
 	} else if (file->type[0] == '2') {
-		fs->flags = FS_SYMLINK;
+		fs->type = INO_LNK;
 		fs->ops = &tarfs_symlink_ops;
 	} else {
-		fs->flags = FS_FILE;
+		fs->type = INO_REG;
 		fs->ops = &tarfs_file_ops;
 	}
 	free(file);
@@ -513,7 +513,7 @@ static fs_node_t * tar_mount(const char * device, const char * mount_path) {
 	root->length  = 0;
 	root->mask    = 0555;
 	root->ops     = &tarfs_root_ops;
-	root->flags   = FS_DIRECTORY;
+	root->type    = INO_DIR;
 	root->device  = self;
 
 	return root;

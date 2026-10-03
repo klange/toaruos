@@ -97,7 +97,7 @@ static fs_node_t * dospart_device_create(int i, fs_node_t * dev, mbr_t * mbr, in
 	fnode->gid = 0;
 	fnode->mask    = 0660;
 	fnode->length  = device->partition.sector_count * SECTORSIZE; /* TODO */
-	fnode->flags   = FS_BLOCKDEVICE;
+	fnode->type    = INO_BLK;
 	fnode->ops     = &dospart_ops;
 	return fnode;
 }

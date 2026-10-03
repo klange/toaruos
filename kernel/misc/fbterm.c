@@ -473,7 +473,7 @@ static fs_vtable_t vga_ops = {
 static void vga_text_init(void) {
 	vga_text_device = calloc(sizeof(fs_node_t), 1);
 	vga_text_device->length = 0;
-	vga_text_device->flags  = FS_BLOCKDEVICE;
+	vga_text_device->type   = INO_BLK;
 	vga_text_device->mask   = 0660;
 	vga_text_device->ops    = &vga_ops;
 	vfs_mount("/dev/vga0", vga_text_device, "vgatext", "");

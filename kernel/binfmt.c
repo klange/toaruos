@@ -119,7 +119,7 @@ int exec(const char * path, int argc, char *const argv[], char *const env[], int
 	if (!desc) return -error;
 
 	if (!has_permission(desc->inode, X_OK)) return fs_close_desc(desc), -EACCES;
-	if (desc->inode->flags & FS_DIRECTORY) return fs_close_desc(desc), -EISDIR;
+	if (desc->inode->type == INO_DIR) return fs_close_desc(desc), -EISDIR;
 
 	unsigned char head[4];
 	read_fs(desc->inode, 0, 4, head);

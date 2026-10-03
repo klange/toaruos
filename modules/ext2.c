@@ -1530,27 +1530,27 @@ static int node_from_file(ext2_fs_t * this, ext2_inodetable_t *inode, ext2_dir_t
 	fnode->mask = inode->mode & 0xFFF;
 	fnode->nlink = inode->links_count;
 	/* File Flags */
-	fnode->flags = 0;
+	fnode->type = INO_REG;
 	fnode->ops = &ext2_dummy_ops;
 	if ((inode->mode & EXT2_S_IFREG) == EXT2_S_IFREG) {
-		fnode->flags   |= FS_FILE;
+		fnode->type = INO_REG;
 		fnode->ops = &ext2_file_ops;
 	}
 	if ((inode->mode & EXT2_S_IFDIR) == EXT2_S_IFDIR) {
-		fnode->flags   |= FS_DIRECTORY;
+		fnode->type = INO_DIR;
 		fnode->ops = &ext2_dir_ops;
 	}
 	if ((inode->mode & EXT2_S_IFBLK) == EXT2_S_IFBLK) {
-		fnode->flags |= FS_BLOCKDEVICE;
+		fnode->type = INO_BLK;
 	}
 	if ((inode->mode & EXT2_S_IFCHR) == EXT2_S_IFCHR) {
-		fnode->flags |= FS_CHARDEVICE;
+		fnode->type = INO_CHR;
 	}
 	if ((inode->mode & EXT2_S_IFIFO) == EXT2_S_IFIFO) {
-		fnode->flags |= FS_PIPE;
+		fnode->type = INO_FIFO;
 	}
 	if ((inode->mode & EXT2_S_IFLNK) == EXT2_S_IFLNK) {
-		fnode->flags   |= FS_SYMLINK;
+		fnode->type = INO_LNK;
 		fnode->ops = &ext2_symlink_ops;
 	}
 
@@ -1575,7 +1575,7 @@ static int ext2_root(ext2_fs_t * this, ext2_inodetable_t *inode, fs_node_t *fnod
 	fnode->mask = inode->mode & 0xFFF;
 	fnode->nlink = inode->links_count;
 	/* File Flags */
-	fnode->flags = 0;
+	fnode->type = INO_REG;
 	if ((inode->mode & EXT2_S_IFREG) == EXT2_S_IFREG) {
 		debug_print(CRITICAL, "Root appears to be a regular file.");
 		debug_print(CRITICAL, "This is probably very, very wrong.");
@@ -1600,7 +1600,7 @@ static int ext2_root(ext2_fs_t * this, ext2_inodetable_t *inode, fs_node_t *fnod
 	fnode->mtime   = inode->mtime;
 	fnode->ctime   = inode->ctime;
 
-	fnode->flags |= FS_DIRECTORY;
+	fnode->type = INO_DIR;
 	fnode->ops     = &ext2_dir_ops;
 	return 1;
 }

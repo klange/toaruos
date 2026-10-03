@@ -94,7 +94,7 @@ long sys_write(int fd, char * ptr, unsigned long len) {
 long sys_pwrite(int fd, void * ptr, size_t count, off_t offset) {
 	if (!FD_CHECK(fd)) return -EBADF;
 	if (!(FD_MODE(fd) & PROC_FD_MODE_WRITE)) return -EBADF;
-	if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ESPIPE;
+	if ((FD_ENTRY(fd)->type == INO_FIFO) || (FD_ENTRY(fd)->type == INO_CHR) || (FD_ENTRY(fd)->type == INO_SOCK)) return -ESPIPE;
 	PTRCHECK(ptr,count,MMU_PTR_NULL);
 
 	fs_node_t * node = FD_ENTRY(fd);
@@ -120,7 +120,7 @@ long sys_read(int fd, char * ptr, unsigned long len) {
 long sys_pread(int fd, void * ptr, size_t count, off_t offset) {
 	if (!FD_CHECK(fd)) return -EBADF;
 	if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
-	if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ESPIPE;
+	if ((FD_ENTRY(fd)->type == INO_FIFO) || (FD_ENTRY(fd)->type == INO_CHR) || (FD_ENTRY(fd)->type == INO_SOCK)) return -ESPIPE;
 	PTRCHECK(ptr,count,MMU_PTR_NULL|MMU_PTR_WRITE);
 
 	fs_node_t * node = FD_ENTRY(fd);
@@ -134,13 +134,15 @@ static long stat_node(fs_node_t * fn, struct stat * f) {
 	f->st_ino   = fn->inode;
 
 	uint32_t flags = 0;
-	if (fn->flags & FS_FILE)        { flags |= _IFREG; }
-	if (fn->flags & FS_DIRECTORY)   { flags |= _IFDIR; }
-	if (fn->flags & FS_CHARDEVICE)  { flags |= _IFCHR; }
-	if (fn->flags & FS_BLOCKDEVICE) { flags |= _IFBLK; }
-	if (fn->flags & FS_PIPE)        { flags |= _IFIFO; }
-	if (fn->flags & FS_SYMLINK)     { flags |= _IFLNK; }
-	if (fn->flags & FS_SOCKET)      { flags |= _IFSOCK; }
+	switch (fn->type) {
+		case INO_REG:  flags = _IFREG; break;
+		case INO_DIR:  flags = _IFDIR; break;
+		case INO_CHR:  flags = _IFCHR; break;
+		case INO_BLK:  flags = _IFBLK; break;
+		case INO_FIFO: flags = _IFIFO; break;
+		case INO_LNK:  flags = _IFLNK; break;
+		case INO_SOCK: flags = _IFSOCK; break;
+	}
 
 	f->st_mode  = fn->mask | flags;
 	f->st_nlink = fn->nlink;
@@ -236,7 +238,7 @@ long sys_close(int fd) {
 
 long sys_seek(int fd, long offset, long whence) {
 	if (!FD_CHECK(fd)) return -EBADF;
-	if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ESPIPE;
+	if ((FD_ENTRY(fd)->type == INO_FIFO) || (FD_ENTRY(fd)->type == INO_CHR) || (FD_ENTRY(fd)->type == INO_SOCK)) return -ESPIPE;
 
 	switch (whence) {
 		case 0:
@@ -764,7 +766,7 @@ long sys_chdir(char * newdir) {
 
 long sys_fchdir(int dirfd) {
 	if (!FD_CHECK(dirfd)) return -EBADF;
-	if (!(FD_ENTRY(dirfd)->flags & FS_DIRECTORY)) return -ENOTDIR;
+	if (FD_ENTRY(dirfd)->type != INO_DIR) return -ENOTDIR;
 	if (!has_permission(FD_ENTRY(dirfd), X_OK)) return -EACCES;
 	process_chdir((process_t*)this_core->current_process, FD_FILE(dirfd));
 	return 0;
@@ -1359,7 +1361,7 @@ long sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t 
 	if (!(FD_MODE(fd) & PROC_FD_MODE__RW)) return -EBADF;
 
 	/* File must be something we can actually map. */
-	if ((FD_ENTRY(fd)->flags & FS_PIPE) || (FD_ENTRY(fd)->flags & FS_CHARDEVICE) || (FD_ENTRY(fd)->flags & FS_SOCKET)) return -ENODEV;
+	if ((FD_ENTRY(fd)->type == INO_FIFO) || (FD_ENTRY(fd)->type == INO_CHR) || (FD_ENTRY(fd)->type == INO_SOCK)) return -ENODEV;
 
 	/* File must be open at least for reading. */
 	if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EACCES;

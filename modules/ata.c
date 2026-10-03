@@ -458,7 +458,7 @@ static fs_node_t * atapi_device_create(struct ata_device * device) {
 	fnode->gid = 0;
 	fnode->mask    = 0664;
 	fnode->length  = atapi_max_offset(device);
-	fnode->flags   = FS_BLOCKDEVICE;
+	fnode->type = INO_BLK;
 	fnode->ops = &atapi_ops;
 	return fnode;
 }
@@ -479,7 +479,7 @@ static fs_node_t * ata_device_create(struct ata_device * device) {
 	fnode->gid = 0;
 	fnode->mask    = 0660;
 	fnode->length  = ata_max_offset(device); /* TODO */
-	fnode->flags   = FS_BLOCKDEVICE;
+	fnode->type = INO_BLK;
 	fnode->ops     = &ata_ops;
 	return fnode;
 }

@@ -51,7 +51,7 @@ static fs_node_t * random_device_create(void) {
 	fnode->gid = 0;
 	fnode->mask = 0444;
 	fnode->length  = 1024;
-	fnode->flags   = FS_CHARDEVICE;
+	fnode->type    = INO_CHR;
 	fnode->ops     = &random_ops;
 	return fnode;
 }

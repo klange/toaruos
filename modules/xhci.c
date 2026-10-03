@@ -362,7 +362,7 @@ void xhci_thread(void * arg) {
 	char devName[20] = "/dev/xhciN";
 	snprintf(devName, 19, "/dev/xhci%d", 0);
 	fs_node_t * fnode = calloc(sizeof(fs_node_t), 1);
-	fnode->flags   = FS_BLOCKDEVICE;
+	fnode->type    = INO_BLK;
 	fnode->mask    = 0660; /* Only accessible to root user/group */
 	fnode->ops     = &xhci_fs_ops;
 	fnode->device  = controller;

@@ -342,7 +342,7 @@ static int vbox_install(int argc, char * argv[]) {
 
 
 	mouse_pipe = make_pipe(sizeof(mouse_device_packet_t) * PACKETS_IN_PIPE);
-	mouse_pipe->flags = FS_CHARDEVICE;
+	mouse_pipe->type = INO_CHR;
 	memcpy(&mouse_ops, mouse_pipe->ops, sizeof(fs_vtable_t));
 	mouse_ops.ioctl = ioctl_mouse;
 	mouse_pipe->ops   = &mouse_ops;
@@ -455,7 +455,7 @@ static int vbox_install(int argc, char * argv[]) {
 				//fprintf(&vb, "Successfully initialized cursor, going to allow compositor to set it.\n");
 				pointer_pipe = calloc(1, sizeof(fs_node_t));
 				pointer_pipe->mask = 0666;
-				pointer_pipe->flags = FS_CHARDEVICE;
+				pointer_pipe->type = INO_CHR;
 				pointer_pipe->ops   = &pointer_ops;
 
 				vfs_mount("/dev/vboxpointer", pointer_pipe, "vbox-pointer", "");
@@ -480,7 +480,7 @@ static int vbox_install(int argc, char * argv[]) {
 
 		rect_pipe = calloc(1, sizeof(fs_node_t));
 		rect_pipe->mask = 0666;
-		rect_pipe->flags = FS_CHARDEVICE;
+		rect_pipe->type = INO_CHR;
 		rect_pipe->ops   = &rectpipe_ops;
 
 		vfs_mount("/dev/vboxrects", rect_pipe, "vbox-rects", "");

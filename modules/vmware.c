@@ -491,7 +491,7 @@ static int vmware_initialize(int argc, char * argv[]) {
 	if (!detect_device()) return -ENODEV;
 
 	mouse_pipe = make_pipe(sizeof(mouse_device_packet_t) * PACKETS_IN_PIPE);
-	mouse_pipe->flags = FS_CHARDEVICE;
+	mouse_pipe->type = INO_CHR;
 	memcpy(&mouse_ops, mouse_pipe->ops, sizeof(fs_vtable_t));
 	mouse_ops.ioctl = ioctl_mouse;
 	mouse_pipe->ops   = &mouse_ops;

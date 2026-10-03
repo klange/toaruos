@@ -40,16 +40,16 @@ static fs_vtable_t zero_ops = {
 static fs_node_t * null_device_create(void) {
 	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->mask = 0666;
-	fnode->flags   = FS_CHARDEVICE;
-	fnode->ops     = &null_ops;
+	fnode->type = INO_CHR;
+	fnode->ops  = &null_ops;
 	return fnode;
 }
 
 static fs_node_t * zero_device_create(void) {
 	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->mask = 0666;
-	fnode->flags   = FS_CHARDEVICE;
-	fnode->ops     = &zero_ops;
+	fnode->type = INO_CHR;
+	fnode->ops  = &zero_ops;
 	return fnode;
 }
 

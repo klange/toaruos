@@ -119,8 +119,8 @@ static fs_node_t * console_device_create(void) {
 	fnode->uid = 0;
 	fnode->gid = 1;
 	fnode->mask = 0660;
-	fnode->flags   = FS_CHARDEVICE;
-	fnode->ops     = &console_ops;
+	fnode->type = INO_CHR;
+	fnode->ops  = &console_ops;
 	return fnode;
 }
 

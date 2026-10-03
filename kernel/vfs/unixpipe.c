@@ -125,8 +125,8 @@ int make_unix_pipe(fs_node_t ** pipes) {
 	pipes[0]->mask = 0666;
 	pipes[1]->mask = 0666;
 
-	pipes[0]->flags = FS_PIPE;
-	pipes[1]->flags = FS_PIPE;
+	pipes[0]->type = INO_FIFO;
+	pipes[1]->type = INO_FIFO;
 
 	pipes[0]->ops  = &read_end_ops;
 	pipes[1]->ops  = &write_end_ops;

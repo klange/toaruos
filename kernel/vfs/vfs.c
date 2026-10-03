@@ -78,7 +78,7 @@ int has_permission(fs_node_t * node, int permission_bit) {
 
 	if (whom == USER_ROOT_UID) {
 		if (!(permission_bit & 01)) return 1;
-		if (node->flags & FS_DIRECTORY) return 1;
+		if (node->type == INO_DIR) return 1;
 	}
 
 	uint64_t permissions = node->mask;
@@ -141,7 +141,7 @@ static fs_vtable_t mapper_ops = {
 static fs_node_t * vfs_mapper(void) {
 	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
 	fnode->mask    = 0555;
-	fnode->flags   = FS_DIRECTORY;
+	fnode->type    = INO_DIR;
 	fnode->ops     = &mapper_ops;
 	fnode->ctime   = now();
 	fnode->mtime   = now();
@@ -189,7 +189,7 @@ ssize_t read_fs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	if (node->ops->read) {
 		return node->ops->read(node, offset, size, buffer);
 	} else {
-		if (node->flags & FS_DIRECTORY) return -EISDIR;
+		if (node->type == INO_DIR) return -EISDIR;
 		return -EINVAL;
 	}
 }
@@ -208,7 +208,7 @@ ssize_t write_fs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	if (node->ops->write) {
 		return node->ops->write(node, offset, size, buffer);
 	} else {
-		if (node->flags & FS_DIRECTORY) return -EISDIR;
+		if (node->type == INO_DIR) return -EISDIR;
 		return -EROFS;
 	}
 }
@@ -319,7 +319,7 @@ int chown_fs(fs_node_t *node, uid_t uid, gid_t gid) {
  * @returns A dirent object.
  */
 int readdir_fs(fs_node_t *node, unsigned long index, struct dirent * out) {
-	if (!node || !(node->flags & FS_DIRECTORY) || !node->ops->readdir) return -EINVAL;
+	if (!node || node->type != INO_DIR || !node->ops->readdir) return -EINVAL;
 	return node->ops->readdir(node, index, out);
 }
 
@@ -331,7 +331,7 @@ int readdir_fs(fs_node_t *node, unsigned long index, struct dirent * out) {
  * @returns An fs_node that the caller can free
  */
 fs_node_t *finddir_fs(fs_node_t *node, const char *name) {
-	if (!node || !(node->flags & FS_DIRECTORY) || !node->ops->finddir) return NULL;
+	if (!node || node->type != INO_DIR || !node->ops->finddir) return NULL;
 	return node->ops->finddir(node, name);
 }
 
@@ -418,7 +418,7 @@ int unlink_fs_at(struct fs_file_description * fd, const char * name, int flags) 
 	int err = kopen_parent(fd, name, &parent, &file);
 	if (!parent) return err; /* err is already negative */
 	if (!file) return close_fs(parent), -ENOENT;
-	if (!(flags & AT_REMOVEDIR) && (file->flags & FS_DIRECTORY)) return close_fs(parent), close_fs(file), -EPERM;
+	if (!(flags & AT_REMOVEDIR) && (file->type == INO_DIR)) return close_fs(parent), close_fs(file), -EPERM;
 	close_fs(file);
 
 	if (!has_permission(parent, W_OK|X_OK)) return close_fs(parent), -EACCES;
@@ -968,7 +968,7 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 	open_fs(node_ptr, flags);
 
 	do {
-		if ((node_ptr->flags & FS_SYMLINK) && !((flags & O_NOFOLLOW) && depth == path_depth)) {
+		if (node_ptr->type == INO_LNK && !((flags & O_NOFOLLOW) && depth == path_depth)) {
 			if (symlink_depth >= MAX_SYMLINK_DEPTH) return *error = ELOOP, free(path), close_fs(node_ptr), NULL;
 			char *symlink_buf = calloc(MAX_SYMLINK_SIZE+1, 1);
 
@@ -1041,7 +1041,7 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 		}
 
 		/* We are still searching, so this needs to be a directory. */
-		if (!(node_ptr->flags & FS_DIRECTORY)) return *error = ENOTDIR, free(path), close_fs(node_ptr), NULL;
+		if (node_ptr->type != INO_DIR) return *error = ENOTDIR, free(path), close_fs(node_ptr), NULL;
 		if (!has_permission(node_ptr, X_OK)) return *error = EACCES, free(path), close_fs(node_ptr), NULL;
 
 		/* Search for the requested file. */
@@ -1146,7 +1146,7 @@ int kopen_parent(struct fs_file_description * dirfd, const char *filename, fs_no
 
 	/* Only reject bad dirfd if path is relative */
 	if (*filename != '/' && !dirfd) return -EBADF;
-	if (*filename != '/' && !(dirfd->inode->flags & FS_DIRECTORY)) return -ENOTDIR;
+	if (*filename != '/' && dirfd->inode->type != INO_DIR) return -ENOTDIR;
 
 	*file = kopen_recur(filename, O_NOFOLLOW | O_PATH, 0, (dirfd && dirfd->path) ? dirfd->path->chars : (char*)"/", &err, NULL, 0, parent);
 
@@ -1166,7 +1166,7 @@ struct fs_file_description * kopen_at(
 
 	/* Only reject bad dirfd if path is relative */
 	if (*filename != '/' && !dirfd) return (*error = EBADF), NULL;
-	if (*filename != '/' && !(dirfd->inode->flags & FS_DIRECTORY)) return (*error = ENOTDIR), NULL;
+	if (*filename != '/' && dirfd->inode->type != INO_DIR) return (*error = ENOTDIR), NULL;
 
 	if (flags & O_PATH) flags &= (O_PATH | O_NOFOLLOW | O_DIRECTORY); /* Ignore everything else */
 
@@ -1175,12 +1175,12 @@ struct fs_file_description * kopen_at(
 	if (!node) return NULL;
 
 	/* Reject non-directory with O_DIRECTORY early */
-	if ((flags & O_DIRECTORY) && !(node->flags & FS_DIRECTORY)) return close_fs(node), free(path), *error = ENOTDIR, NULL;
+	if ((flags & O_DIRECTORY) && node->type != INO_DIR) return close_fs(node), free(path), *error = ENOTDIR, NULL;
 
 	/* Accept whatever we got at this point. */
 	if (flags & O_PATH) return fs_fresh_descriptor(node, 0, path);
 
-	if ((flags & O_NOFOLLOW) && (node->flags & FS_SYMLINK)) return close_fs(node), free(path), *error = ELOOP, NULL;
+	if ((flags & O_NOFOLLOW) && node->type == INO_LNK) return close_fs(node), free(path), *error = ELOOP, NULL;
 
 	/* TODO O_EXEC/O_SEARCH */
 
@@ -1191,7 +1191,7 @@ struct fs_file_description * kopen_at(
 
 	if ((flags & O_RDWR) || (flags & O_WRONLY)) {
 		if (!has_permission(node, W_OK)) return close_fs(node), free(path), *error = EACCES, NULL;
-		if (node->flags & FS_DIRECTORY) return close_fs(node), free(path), *error = EISDIR, NULL;
+		if (node->type == INO_DIR) return close_fs(node), free(path), *error = EISDIR, NULL;
 		access_bits |= PROC_FD_MODE_WRITE;
 	}
 

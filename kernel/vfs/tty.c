@@ -584,7 +584,7 @@ fs_node_t * pty_manager_create(pty_t * pty) {
 	fnode->uid   = this_core->current_process->user;
 	fnode->gid   = this_core->current_process->user_group;
 	fnode->mask  = 0666;
-	fnode->flags = FS_PIPE;
+	fnode->type  = INO_FIFO;
 	fnode->ops   = &pty_manager_ops;
 	fnode->ctime   = now();
 	fnode->mtime   = now();
@@ -625,7 +625,7 @@ fs_node_t * pty_subsidiary_create(pty_t * pty) {
 	fnode->uid   = this_core->current_process->user;
 	fnode->gid   = 3; /* tty group */
 	fnode->mask  = 0620;
-	fnode->flags = FS_CHARDEVICE;
+	fnode->type  = INO_CHR;
 	fnode->ops   = &pty_subsidiary_ops;
 	fnode->ctime   = now();
 	fnode->mtime   = now();
@@ -674,7 +674,7 @@ static fs_node_t * create_dev_tty(void) {
 	fnode->mask = 0777;
 	fnode->uid  = 0;
 	fnode->gid  = 0;
-	fnode->flags   = FS_FILE | FS_SYMLINK;
+	fnode->type = INO_LNK;
 	fnode->ops     = &dev_tty_ops;
 	fnode->length  = 99;
 	fnode->nlink   = 1;
@@ -753,7 +753,7 @@ static fs_node_t * create_pty_dir(void) {
 	fnode->mask = 0555;
 	fnode->uid  = 0;
 	fnode->gid  = 0;
-	fnode->flags   = FS_DIRECTORY;
+	fnode->type = INO_DIR;
 	fnode->ops     = &pty_dir_ops;
 	fnode->nlink   = 1;
 	fnode->ctime   = now();

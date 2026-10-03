@@ -212,15 +212,15 @@ static fs_node_t * procfs_generic_create(struct procfs_entry * ent_def) {
 	entry->fnode.mask    = 0444;
 
 	int flags = ent_def->flags;
-	if (flags == FS_SYMLINK) {
-		entry->fnode.flags   = FS_FILE | FS_SYMLINK;
+	if (flags == INO_LNK) {
+		entry->fnode.type = INO_LNK;
 		entry->fnode.ops = &procfs_symlink_ops;
-	} else if (flags == FS_DIRECTORY) {
-		entry->fnode.flags = FS_DIRECTORY;
-		entry->fnode.ops = &procfs_dir_ops;
+	} else if (flags == INO_DIR) {
+		entry->fnode.type = INO_DIR;
+		entry->fnode.ops  = &procfs_dir_ops;
 		entry->fnode.mask = 0555;
 	} else {
-		entry->fnode.flags   = FS_FILE;
+		entry->fnode.type = INO_REG;
 		entry->fnode.ops = &procfs_file_ops;
 	}
 
@@ -466,7 +466,7 @@ static void proc_fd_func(fs_node_t * node) {
 			char fd_num[30];
 			snprintf(fd_num, 30, "%u", i);
 			ent->name = strdup(fd_num);
-			ent->flags = FS_SYMLINK;
+			ent->flags = INO_LNK;
 			ent->func = proc_fd_ent_func;
 			list_insert(self->files, ent);
 		}
@@ -525,11 +525,11 @@ static void proc_fdinfo_func(fs_node_t * node) {
 static struct procfs_entry procdir_entries[] = {
 	{1, "cmdline", proc_cmdline_func, 0},
 	{2, "status",  proc_status_func, 0},
-	{3, "cwd",     proc_cwd_func, FS_SYMLINK},
+	{3, "cwd",     proc_cwd_func, INO_LNK},
 	{4, "maps",    proc_maps_func, 0},
-	{5, "fd",      proc_fd_func, FS_DIRECTORY},
-	{6, "exe",     proc_exe_func, FS_SYMLINK},
-	{7, "fdinfo",  proc_fdinfo_func, FS_DIRECTORY},
+	{5, "fd",      proc_fd_func, INO_DIR},
+	{6, "exe",     proc_exe_func, INO_LNK},
+	{7, "fdinfo",  proc_fdinfo_func, INO_DIR},
 };
 
 static int readdir_procfs_procdir(fs_node_t *node, uint64_t index, struct dirent * out) {
@@ -565,7 +565,7 @@ static fs_node_t * finddir_procfs_procdir(fs_node_t * node, const char * name) {
 		if (!strcmp(name, procdir_entries[i].name)) {
 			fs_node_t * out = procfs_generic_create(&procdir_entries[i]);
 			if (procdir_entries[i].id > 2) {
-				if (out->flags & FS_SYMLINK) {
+				if (out->type == INO_LNK) {
 					out->ops = &procfs_symlink_ops_restricted;
 				} else {
 					out->mask &= ~07;
@@ -594,7 +594,7 @@ static fs_node_t * procfs_procdir_create(process_t * process) {
 	fnode->uid = process->user;
 	fnode->gid = process->user_group;
 	fnode->mask = 0555;
-	fnode->flags   = FS_DIRECTORY;
+	fnode->type    = INO_DIR;
 	fnode->nlink   = 1;
 	fnode->ctime   = process->start.tv_sec;
 	fnode->mtime   = process->start.tv_sec;
@@ -757,7 +757,7 @@ static void self_func(fs_node_t *fnode) {
 }
 
 static struct procfs_entry std_entries[] = {
-	{-1, "self",     self_func, FS_SYMLINK},
+	{-1, "self",     self_func, INO_LNK},
 	{-2, "meminfo",  meminfo_func, 0},
 	{-3, "uptime",   uptime_func, 0},
 	{-4, "cmdline",  cmdline_func, 0},
@@ -901,7 +901,7 @@ static fs_node_t * procfs_create(void) {
 	fnode->mask = 0555;
 	fnode->uid  = 0;
 	fnode->gid  = 0;
-	fnode->flags   = FS_DIRECTORY;
+	fnode->type    = INO_DIR;
 	fnode->ops     = &procfs_root_ops;
 	fnode->nlink   = 1;
 	fnode->ctime   = now();

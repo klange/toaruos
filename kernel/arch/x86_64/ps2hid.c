@@ -323,7 +323,7 @@ void ps2hid_install(void) {
 	uint8_t status, result;
 
 	mouse_pipe = make_pipe(sizeof(mouse_device_packet_t) * PACKETS_IN_PIPE);
-	mouse_pipe->flags = FS_CHARDEVICE;
+	mouse_pipe->type = INO_CHR;
 	memcpy(&mouse_ops, mouse_pipe->ops, sizeof(fs_vtable_t));
 	mouse_ops.ioctl = ioctl_mouse;
 	mouse_pipe->ops = &mouse_ops;
@@ -331,7 +331,7 @@ void ps2hid_install(void) {
 	vfs_mount("/dev/mouse", mouse_pipe, "ps2-mouse", "");
 
 	keyboard_pipe = make_pipe(128);
-	keyboard_pipe->flags = FS_CHARDEVICE;
+	keyboard_pipe->type = INO_CHR;
 	vfs_mount("/dev/kbd", keyboard_pipe, "ps2-kbd", "");
 
 	/* Disable both ports. */

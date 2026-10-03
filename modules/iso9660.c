@@ -392,10 +392,10 @@ static void file_from_dir_entry(iso_9660_fs_t * this, size_t sector, iso_9660_di
 	fs->mask = 0555;
 	fs->nlink = 0; /* Unsupported */
 	if (dir->flags & FLAG_DIRECTORY) {
-		fs->flags = FS_DIRECTORY;
+		fs->type = INO_DIR;
 		fs->ops = &iso_dir_ops;
 	} else {
-		fs->flags = FS_FILE;
+		fs->type = INO_REG;
 		fs->ops = &iso_file_ops;
 	}
 	/* Other things not supported */
