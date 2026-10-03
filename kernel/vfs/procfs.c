@@ -242,11 +242,7 @@ static fs_node_t * procfs_generic_create(struct procfs_entry * ent_def) {
 
 static void proc_cmdline_func(fs_node_t *node) {
 	process_t * proc = process_from_pid(node->impl);
-
-	if (!proc) {
-		/* wat */
-		return;
-	}
+	if (!proc) return;
 
 	if (!proc->cmdline && !proc->process->cmdline) {
 		procfs_printf(node, "%s", proc->name);
@@ -420,16 +416,19 @@ static void proc_status_func(fs_node_t *node) {
 
 static void proc_cwd_func(fs_node_t *node) {
 	process_t * proc = process_from_pid(node->impl);
+	if (!proc) return;
 	procfs_printf(node,"%s", (proc->wd && proc->wd->path) ? proc->wd->path->chars : "/");
 }
 
 static void proc_exe_func(fs_node_t *node) {
 	process_t * proc = process_from_pid(node->impl);
+	if (!proc) return;
 	procfs_printf(node,"%s", (proc->exe && proc->exe->path) ? proc->exe->path->chars : "");
 }
 
 static void proc_maps_func(fs_node_t *node) {
 	process_t * proc = process_from_pid(node->impl);
+	if (!proc) return;
 	for (memmap_t * maps = proc->thread.page_directory->mappings; maps; maps = maps->next) {
 		procfs_printf(node,"%08zx-%08zx %c%c%c%c %08zx %zx %zu %s\n",
 			maps->base,
@@ -458,6 +457,8 @@ static void proc_fd_dir_free(struct procfs_entry_node *node) {
 
 static void proc_fd_ent_func(fs_node_t * node) {
 	process_t * proc = process_from_pid(node->impl);
+	if (!proc) return;
+
 	procfs_entry_t * self = (procfs_entry_t *)node;
 
 	if (!proc->fds) return;
@@ -473,6 +474,8 @@ static void proc_fd_ent_func(fs_node_t * node) {
 
 static void proc_fd_func(fs_node_t * node) {
 	process_t * proc = process_from_pid(node->impl);
+	if (!proc) return;
+
 	procfs_entry_t * self = (procfs_entry_t *)node;
 
 	self->files = list_create("files", node);
@@ -498,6 +501,8 @@ static void proc_fd_func(fs_node_t * node) {
 
 static void proc_fdinfo_ent_func(fs_node_t * node) {
 	process_t * proc = process_from_pid(node->impl);
+	if (!proc) return;
+
 	procfs_entry_t * self = (procfs_entry_t *)node;
 
 	if (!proc->fds) return;
@@ -522,6 +527,8 @@ static void proc_fdinfo_ent_func(fs_node_t * node) {
 
 static void proc_fdinfo_func(fs_node_t * node) {
 	process_t * proc = process_from_pid(node->impl);
+	if (!proc) return;
+
 	procfs_entry_t * self = (procfs_entry_t *)node;
 
 	self->files = list_create("files", node);
