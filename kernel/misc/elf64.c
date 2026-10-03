@@ -361,10 +361,9 @@ int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int
 				goto _free_most;
 			}
 
-			int error = 0;
 			interpreter_desc = kopen_at(NULL, tmp, 0, 0, &error);
 			free(tmp);
-			if (!interpreter_desc) return -error;
+			if (!interpreter_desc) goto _free_most;
 
 			ssize_t r = read_fs(interpreter_desc->inode, 0, sizeof(Elf64_Header), (uint8_t*)&interp_header);
 			if (r < 0) {
