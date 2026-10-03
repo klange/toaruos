@@ -8,10 +8,15 @@
 #include <errno.h>
 
 DEFN_SYSCALL3(execve, SYS_EXECVE, char *, char **, char **);
+DEFN_SYSCALL3(fexecve, SYS_FEXECVE, int, char * const *, char * const *);
 
 extern char ** environ;
 
 #define DEFAULT_PATH "/bin:/usr/bin"
+
+int fexecve(int fd, char * const argv[], char * const envp[]) {
+	__sets_errno(syscall_fexecve(fd, argv, envp));
+}
 
 int execve(const char *name, char * const argv[], char * const envp[]) {
 	__sets_errno(syscall_execve((char*)name,(char**)argv,(char**)envp));

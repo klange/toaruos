@@ -138,6 +138,28 @@ int exec(const char * path, int argc, char *const argv[], char *const env[], int
 	return -ENOEXEC;
 }
 
+int fexec(struct fs_file_description * desc, int argc, char *const argv[], char *const env[]) {
+	if (desc->inode->type == INO_DIR) return -EISDIR;
+
+	fs_clone_desc(desc, 0); /* desc is from fd table which will be wiped, obtain a new reference */
+
+	unsigned char head[4];
+	read_fs(desc->inode, 0, 4, head);
+
+	if (this_core->current_process->name) free(this_core->current_process->name);
+	this_core->current_process->name = strdup(desc->path->chars);
+	gettimeofday((struct timeval*)&this_core->current_process->start, NULL);
+
+	for (unsigned int i = 0; i < sizeof(fmts) / sizeof(exec_def_t); ++i) {
+		if (matches(fmts[i].bytes, head, fmts[i].match)) {
+			return fmts[i].func(desc->path->chars, desc, argc, argv, env, 0);
+		}
+	}
+
+	fs_close_desc(desc);
+	return -ENOEXEC;
+}
+
 /**
  * This is generally only called by system startup code to launch /bin/init.
  * Copies arguments from kernel constants into the heap, sets up a new MMU context

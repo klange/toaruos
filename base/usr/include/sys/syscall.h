@@ -89,7 +89,7 @@
 #define SYS_TRUNCATE 86
 #define SYS_FTRUNCATE 87
 #define SYS_GETPPID 88
-// 89 is available
+#define SYS_FEXECVE 89
 #define SYS_GETRUSAGE 90
 #define SYS_PIPE2 91
 #define SYS_DUP3 92

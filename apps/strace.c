@@ -145,6 +145,7 @@ static const char * syscall_names[SYS__COUNT] = {
 	[SYS_DUP2]         = "dup2",
 	[SYS_DUP3]         = "dup3",
 	[SYS_EXECVE]       = "execve",
+	[SYS_FEXECVE]      = "fexecve",
 	[SYS_FORK]         = "fork",
 	[SYS_WAITPID]      = "waitpid",
 	[SYS_YIELD]        = "yield",
@@ -240,7 +241,7 @@ static const int syscall_set_desc[] = {
 	SYS_FSWAIT2, SYS_FSWAIT3, SYS_SEEK, SYS_IOCTL, SYS_PIPE2,
 	SYS_DUP2, SYS_READDIR, SYS_OPENPTY, SYS_PREAD, SYS_PWRITE, SYS_FCNTL,
 	SYS_FCHMOD, SYS_FCHOWN, SYS_FTRUNCATE, SYS_DUP3, SYS_INSMOD, SYS_FUTIMENS,
-	SYS_OPENAT, SYS_FCHDIR, -1
+	SYS_OPENAT, SYS_FCHDIR, SYS_FEXECVE, -1
 };
 
 static const int syscall_set_memory[] = {
@@ -254,7 +255,7 @@ static const int syscall_set_signal[] = {
 
 static const int syscall_set_process[] = {
 	SYS_EXT, SYS_EXECVE, SYS_FORK, SYS_CLONE, SYS_WAITPID, SYS_KILL,
-	SYS_SIGQUEUE, -1
+	SYS_SIGQUEUE, SYS_FEXECVE, -1
 };
 
 static const int syscall_set_creds[] = {
@@ -1743,6 +1744,11 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			string_array_arg(pid, uregs_syscall_arg2(r), is_abbrev); COMMA;
 			envp_arg(pid, uregs_syscall_arg3(r), is_abbrev);
 			break;
+		case SYS_FEXECVE:
+			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			string_array_arg(pid, uregs_syscall_arg2(r), is_abbrev); COMMA;
+			envp_arg(pid, uregs_syscall_arg3(r), is_abbrev);
+			break;
 		case SYS_SIGNAL:
 			signal_arg(uregs_syscall_arg1(r)); COMMA;
 			pointer_arg(uregs_syscall_arg2(r));
@@ -2078,6 +2084,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			fprintf(logfile, ") = %#zx\n", uregs_syscall_result(r));
 			break;
 		case SYS_EXECVE:
+		case SYS_FEXECVE:
 			if (r == NULL) fprintf(logfile, ") = 0\n");
 			else maybe_errno(r);
 			break;
@@ -2512,9 +2519,13 @@ int main(int argc, char * argv[]) {
 					int event = (status >> 16) & 0xFF;
 					switch (event) {
 						case PTRACE_EVENT_SYSCALL_ENTER:
-							if (child->previous_syscall == SYS_EXECVE) finish_syscall(child, res, SYS_EXECVE,NULL);
+							if (child->previous_syscall == SYS_EXECVE || child->previous_syscall == SYS_FEXECVE) {
+								finish_syscall(child, res, child->previous_syscall, NULL);
+							}
 							child->previous_syscall = uregs_syscall_num(&regs);
-							if (log_hidden && child->previous_syscall == SYS_EXECVE) log_hidden = false;
+							if (log_hidden && (child->previous_syscall == SYS_EXECVE || child->previous_syscall == SYS_FEXECVE)) {
+								log_hidden = false;
+							}
 							handle_syscall(child, res, &regs);
 							break;
 						case PTRACE_EVENT_SYSCALL_EXIT:

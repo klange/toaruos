@@ -897,28 +897,24 @@ long sys_linkat(int fd1, const char *path1, int fd2, const char *path2, int flag
 	return link_fs_at(fd1_fd, path1, fd2_fd, path2, flag);
 }
 
-long sys_execve(const char * filename, char *const argv[], char *const envp[]) {
-	if (check_user_string(filename)) return -EFAULT;
-	PTR_VALIDATE(argv);
-	PTR_VALIDATE(envp);
-
-	if (!filename || !argv) return -EFAULT;
-
+static int do_exec_args(char *const argv[], char *const envp[], int * argc_out, char *** argv_out, char *** envp_out) {
 	int argc = 0;
 	int envc = 0;
 	while (argv[argc]) {
-		if (check_user_string(argv[argc])) return -EFAULT;
+		if (check_user_string(argv[argc])) return 1;
 		++argc;
 	}
 
 	if (envp) {
 		while (envp[envc]) {
-			if (check_user_string(envp[envc])) return -EFAULT;
+			if (check_user_string(envp[envc])) return 1;
 			++envc;
 		}
 	}
 
 	process_free_cmdline((process_t*)this_core->current_process);
+
+	*argc_out = argc;
 
 	char **argv_ = malloc(sizeof(char*) * (argc + 1));
 	for (int j = 0; j < argc; ++j) {
@@ -940,7 +936,39 @@ long sys_execve(const char * filename, char *const argv[], char *const envp[]) {
 	}
 
 	this_core->current_process->cmdline = argv_;
+
+	*argv_out = argv_;
+	*envp_out = envp_;
+
+	return 0;
+}
+
+long sys_execve(const char * filename, char *const argv[], char *const envp[]) {
+	if (check_user_string(filename)) return -EFAULT;
+	PTR_VALIDATE(argv);
+	PTR_VALIDATE(envp);
+
+	if (!filename || !argv) return -EFAULT;
+
+	int argc;
+	char ** argv_, **envp_;
+	if (do_exec_args(argv, envp, &argc, &argv_, &envp_)) return -EFAULT;
+
 	return exec(filename, argc, argv_, envp_, 0);
+}
+
+long sys_fexecve(int fd, char *const argv[], char *const envp[]) {
+	PTR_VALIDATE(argv);
+	PTR_VALIDATE(envp);
+
+	if (!FD_CHECK(fd)) return -EBADF;
+	if (FD_MODE(fd) & PROC_FD_MODE_WRITE) return -ENOEXEC;
+
+	int argc;
+	char ** argv_, **envp_;
+	if (do_exec_args(argv, envp, &argc, &argv_, &envp_)) return -EFAULT;
+
+	return fexec(FD_FILE(fd), argc, argv_, envp_);
 }
 
 long sys_fork(void) {
@@ -1439,6 +1467,7 @@ static scall_func syscalls[] = {
 	[SYS_GETPGID]      = (scall_func)(uintptr_t)sys_getpgid,
 	[SYS_DUP2]         = (scall_func)(uintptr_t)sys_dup2,
 	[SYS_EXECVE]       = (scall_func)(uintptr_t)sys_execve,
+	[SYS_FEXECVE]      = (scall_func)(uintptr_t)sys_fexecve,
 	[SYS_FORK]         = (scall_func)(uintptr_t)sys_fork,
 	[SYS_WAITPID]      = (scall_func)(uintptr_t)sys_waitpid,
 	[SYS_YIELD]        = (scall_func)(uintptr_t)sys_yield,
