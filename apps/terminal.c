@@ -2261,6 +2261,20 @@ static void _menu_action_toggle_blur_focused(struct MenuEntry * self) {
 	render_decors();
 }
 
+static void _menu_action_toggle_base_bg(struct MenuEntry * self) {
+	base_transparent_bg = !base_transparent_bg;
+	update_bounds();
+	menu_update_toggle_state(self, base_transparent_bg);
+	memset(current_terminal()->term_display, 0xFF, sizeof(term_cell_t) * current_terminal()->width * current_terminal()->height);
+}
+
+static void _menu_action_toggle_always_bg(struct MenuEntry * self) {
+	always_transparent_bg = !always_transparent_bg;
+	update_bounds();
+	menu_update_toggle_state(self, always_transparent_bg);
+	memset(current_terminal()->term_display, 0xFF, sizeof(term_cell_t) * current_terminal()->width * current_terminal()->height);
+}
+
 static void _menu_action_blur_slider(struct MenuEntry * _self) {
 	struct MenuEntry_Slider * self = (void *)_self;
 	blur_amount = self->value;
@@ -2958,6 +2972,8 @@ int main(int argc, char ** argv) {
 	m = menu_create();
 	menu_insert(m, menu_create_label("Transparency"));
 	menu_insert(m, menu_create_slider(NULL, (float)term_opacity / 0xFF, _menu_action_transparency_slider));
+	menu_insert(m, menu_create_toggle(NULL, "For base colors", base_transparent_bg, _menu_action_toggle_base_bg));
+	menu_insert(m, menu_create_toggle(NULL, "For all colors", always_transparent_bg, _menu_action_toggle_always_bg));
 	menu_insert(m, menu_create_label("Blur Background"));
 	menu_insert(m, (_menu_blur_background = menu_create_toggle(NULL, "Enabled", blur_background, _menu_action_toggle_blur)));
 	menu_insert(m, menu_create_toggle(NULL, "Only when focused", blur_focused, _menu_action_toggle_blur_focused));
