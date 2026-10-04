@@ -2977,10 +2977,11 @@ int main(int argc, char ** argv) {
 	menu_insert(m, menu_create_slider(NULL, (float)term_opacity / 0xFF, _menu_action_transparency_slider));
 	menu_insert(m, menu_create_toggle(NULL, "For base colors", base_transparent_bg, _menu_action_toggle_base_bg));
 	menu_insert(m, menu_create_toggle(NULL, "For all colors", always_transparent_bg, _menu_action_toggle_always_bg));
+	menu_insert(m, menu_create_separator());
 	menu_insert(m, menu_create_label("Blur Background"));
+	menu_insert(m, menu_create_slider(NULL, blur_amount, _menu_action_blur_slider));
 	menu_insert(m, (_menu_blur_background = menu_create_toggle(NULL, "Enabled", blur_background, _menu_action_toggle_blur)));
 	menu_insert(m, menu_create_toggle(NULL, "Only when focused", blur_focused, _menu_action_toggle_blur_focused));
-	menu_insert(m, menu_create_slider(NULL, blur_amount, _menu_action_blur_slider));
 	menu_set_insert(terminal_menu_bar._super.set, "transparency", m);
 
 	m = menu_create();
