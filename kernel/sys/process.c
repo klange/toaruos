@@ -515,7 +515,6 @@ process_t * spawn_init(void) {
 
 	init->wd = NULL;
 
-	init->image.entry    = 0;
 	init->image.heap     = 0;
 	setup_kernel_stack(init);
 
@@ -572,7 +571,6 @@ process_t * spawn_process(volatile process_t * parent, int flags, int close_at_f
 	proc->thread.context.ip = 0;
 
 	/* Entry is only stored for reference. */
-	proc->image.entry       = parent->image.entry;
 	proc->image.heap        = parent->image.heap;
 	setup_kernel_stack(proc);
 

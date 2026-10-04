@@ -57,11 +57,10 @@ typedef struct thread {
 } thread_t;
 
 typedef struct image {
-	uintptr_t entry;
-	uintptr_t heap;
-	uintptr_t stack;
-	uintptr_t userstack;
-	spin_lock_t lock;
+	uintptr_t heap;      /* Doesn't do what it used to. */
+	uintptr_t stack;     /* Bottom (highest address) of kernel stack */
+	uintptr_t userstack; /* Bottom (highest address) of user stack, even though we use a fixed one... */
+	spin_lock_t lock;    /* Should only be used for atomic access to heap, but is misused for mapings? */
 } image_t;
 
 #define PROC_FD_MODE_READ     0x001

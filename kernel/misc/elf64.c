@@ -437,15 +437,8 @@ int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int
 
 	extern uint32_t rand(void);
 
-	#if 0
-	uintptr_t shake = (rand() & 0x7FFF) * 0x100000;
-	this_core->current_process->image.heap  = 0x100000000 + shake;
-	#endif
-	/* TODO some stuff breaks with the bigger heap */
+	/* TODO Support MAP_32BIT so we can help oblige things that need lower heap. */
 	this_core->current_process->image.heap  = 0x60000000;
-	this_core->current_process->image.entry = entrypoint;
-
-	// arch_set_...?
 
 	/* Map stack space */
 	uintptr_t userstack = 0x800000000000;
