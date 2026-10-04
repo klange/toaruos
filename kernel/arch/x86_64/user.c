@@ -143,7 +143,6 @@ void arch_enter_signal_handler(struct signal_config * config, siginfo_t * cause,
 
 		/* Bottom of ucontext_t */
 		PUSH(ret.rsp, uintptr_t, 0); /* TODO uc_link */
-		ucontext_addr = ret.rsp;
 	}
 
 	PUSH(ret.rsp, struct regs, *r);
@@ -161,6 +160,8 @@ void arch_enter_signal_handler(struct signal_config * config, siginfo_t * cause,
 	PUSH(ret.rsp, sigset_t, this_core->current_process->blocked_signals);
 
 	this_core->current_process->blocked_signals |= config->mask | (config->flags & SA_NODEFER ? 0 : (1UL << cause->si_signo));
+
+	if (config->flags & SA_SIGINFO) ucontext_addr = ret.rsp;
 
 	PUSH(ret.rsp, uintptr_t, 0x516);
 
