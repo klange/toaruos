@@ -293,17 +293,26 @@ void aarch64_sync_enter(struct regs * r) {
 		esr, far, elr, spsr);
 	#endif
 
+	if (this_core->current_process) {
+		this_core->current_process->time_switch = arch_perf_timer();
+	}
+
 	if (esr == 0x2000000) {
+#if 0
 		arch_fatal_prepare();
 		dprintf("Unknown exception: ESR: %#zx FAR: %#zx ELR: %#zx SPSR: %#zx\n", esr, far, elr, spsr);
 		dprintf("Instruction at ELR: 0x%08x\n", *(uint32_t*)elr);
 		arch_dump_traceback();
 		aarch64_regs(r);
 		arch_fatal();
-	}
-
-	if (this_core->current_process) {
-		this_core->current_process->time_switch = arch_perf_timer();
+#else
+		int signo = SIGSEGV;
+		siginfo_t cause = {0};
+		cause.si_code = SEGV_ACCERR;
+		cause.si_addr = (void*)far;
+		send_signal_info(this_core->current_process->id, signo, 1, &cause);
+		goto _resume_user;
+#endif
 	}
 
 	if ((esr >> 26) == 0x32) {
