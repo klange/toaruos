@@ -57,6 +57,9 @@ _Begin_C_Header
 #define CLD_STOPPED 5
 #define CLD_CONTINUED 6
 
+/* si_code values for SIGSYS */
+#define SYS_USER_DISPATCH 2
+
 #define SA_NOCLDSTOP 1
 #define SA_SIGINFO   2
 #define SA_NODEFER   4
@@ -98,6 +101,9 @@ typedef struct {
 	int          si_errno;
 	int          si_status;
 } siginfo_t;
+
+#define si_call_addr si_addr
+#define si_syscall   si_value.sival_int
 
 typedef unsigned long sigset_t;
 typedef void (*_sig_func_ptr)(int);

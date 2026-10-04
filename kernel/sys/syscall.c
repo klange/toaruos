@@ -1549,8 +1549,14 @@ void syscall_handler(struct regs * r) {
 	this_core->current_process->syscall_registers = r;
 
 	if (!mmu_check_syscall_capability(this_core->current_process->process, arch_user_ip(r))) {
-		arch_syscall_return(r, -EFAULT);
-		send_signal(this_core->current_process->id, SIGSYS, 1);
+		siginfo_t cause = {0};
+		cause.si_code = SYS_USER_DISPATCH;
+		cause.si_addr = (void*)arch_user_ip(r);
+		cause.si_syscall = arch_syscall_number(r); /* Do this now before we overwrite it. */
+
+		arch_syscall_return(r, -EFAULT); /* If SIGSYS is being ignored... */
+
+		send_signal_info(this_core->current_process->id, SIGSYS, 1, &cause);
 		return;
 	}
 

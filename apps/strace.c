@@ -1206,6 +1206,14 @@ static void siginfo_ptr_arg(pid_t pid, uintptr_t ptr) {
 							break;
 					}
 					break;
+				case SIGSYS:
+					switch (info.si_code) {
+							C(SYS_USER_DISPATCH);
+						default:
+							fprintf(logfile,"%d",info.si_code);
+							break;
+					}
+					break;
 				default:
 					fprintf(logfile,"%d",info.si_code);
 					break;
@@ -1227,6 +1235,16 @@ static void siginfo_ptr_arg(pid_t pid, uintptr_t ptr) {
 				fprintf(logfile, ",si_pid=%d", info.si_pid);
 				fprintf(logfile, ",si_uid=%d", info.si_uid);
 				fprintf(logfile, ",si_status=%d", info.si_status);
+				break;
+			case SIGSYS:
+				fprintf(logfile, ",si_call_addr=");
+				pointer_arg((uintptr_t)info.si_call_addr);
+				fprintf(logfile, ",si_syscall=");
+				if ((unsigned int)info.si_syscall < SYS__COUNT) {
+					fprintf(logfile, "%s", syscall_names[(unsigned int)info.si_syscall]);
+				} else {
+					fprintf(logfile, "%d", info.si_syscall);
+				}
 				break;
 		}
 	}
