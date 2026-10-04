@@ -229,7 +229,7 @@ static fs_node_t * procfs_generic_create(struct procfs_entry * ent_def) {
 	} else {
 		entry->fnode.type = INO_REG;
 		entry->fnode.ops = &procfs_file_ops;
-		if (ent_def->flags & 0x100) {
+		if (ent_def->flags & PROCFS_FLAG_WRITABLE) {
 			entry->fnode.mask |= S_IWUSR;
 		}
 	}
@@ -554,7 +554,7 @@ static void proc_fdinfo_func(fs_node_t * node) {
 static struct procfs_entry procdir_entries[] = {
 	{1, "cmdline", proc_cmdline_func, 0},
 	{2, "status",  proc_status_func, 0},
-	{3, "comm",    proc_comm_func, 0x100}, /* Writable */
+	{3, "comm",    proc_comm_func, PROCFS_FLAG_WRITABLE}, /* Writable */
 	{4, "cwd",     proc_cwd_func, INO_LNK},
 	{5, "maps",    proc_maps_func, 0},
 	{6, "fd",      proc_fd_func, INO_DIR},

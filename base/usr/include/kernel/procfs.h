@@ -3,6 +3,8 @@
 #include <kernel/vfs.h>
 #include <kernel/list.h>
 
+#define PROCFS_FLAG_WRITABLE 0x100
+
 typedef void (*procfs_populate_t)(fs_node_t * node);
 
 struct procfs_entry {
