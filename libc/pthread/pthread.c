@@ -73,8 +73,7 @@ void pthread_exit(void * value) {
 
 static void * __thread_start(void * pthreadbase) {
 	struct __pthread * this = pthreadbase;
-	this->tid = gettid();
-	this->err_addr = &this->thread_err_val;
+	this->tid = gettid(); /* in case we run first */
 	char ** tlsbase = (char**)((char*)this + 4096);
 	*tlsbase = (char*)tlsbase;
 	syscall_set_tls_base((uintptr_t)tlsbase);
@@ -88,7 +87,8 @@ int pthread_create(pthread_t * thread, pthread_attr_t * attr, void *(*start_rout
 	*thread = this;
 	this->entry = start_routine;
 	this->arg = arg;
-	clone((uintptr_t)this, (uintptr_t)__thread_start, this);
+	this->err_addr = &this->thread_err_val;
+	this->tid = clone((uintptr_t)this, (uintptr_t)__thread_start, this);
 	return 0;
 }
 

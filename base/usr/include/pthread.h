@@ -2,6 +2,7 @@
 
 #include <_cheader.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 _Begin_C_Header
 
@@ -44,5 +45,10 @@ extern int pthread_rwlock_wrlock(pthread_rwlock_t * lock);
 extern int pthread_rwlock_rdlock(pthread_rwlock_t * lock);
 extern int pthread_rwlock_unlock(pthread_rwlock_t * lock);
 extern int pthread_rwlock_destroy(pthread_rwlock_t * lock);
+
+#if defined(_GNU_SOURCE) || defined(_TOARU_SOURCE)
+extern int pthread_setname_np(pthread_t, const char *);
+extern int pthread_getname_np(pthread_t, char *, size_t);
+#endif
 
 _End_C_Header
