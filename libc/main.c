@@ -99,6 +99,9 @@ _hidden void __libc_init(void) {
 
 void __libc_start_main(int argc, char * argv[], char ** envp, int (*main)(int,char**,char**)) {
 	if (!__libc_init_called) {
+#ifdef ENABLE_STATIC_PIE
+		__static_relocs(envp);
+#endif
 		__argv = argv;
 		__libc_init();
 	}

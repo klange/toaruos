@@ -141,24 +141,11 @@ static char * simple_getenv(const char * var) {
 /**
  * @brief Obtain own base address.
  *
- * Magic. On some platforms, we need to do silly tricks to ensure
- * we're getting the right resolved PC-relative address, which is
- * weird but whatever. Otherwise, this is the address of the start
- * of our headers which ld helpfully makes a symbol for but only
- * if we ask for one.
+ * Less magic as apparently 'const' fixed the issue I used to have...
  */
-static uintptr_t load_addr(void) {
-	uintptr_t out;
-#if defined(__aarch64__)
-	__asm__(
-	"  adrp %0, __ehdr_start\n"
-	"  add %0, %0, #:lo12:__ehdr_start\n"
-	:"=r"(out));
-#else
-	extern char __ehdr_start[] __attribute__((weak, visibility("hidden")));
-	out = (uintptr_t)&__ehdr_start;
-#endif
-	return out;
+static inline uintptr_t load_addr(void) {
+	extern const Elf64_Header __ehdr_start __attribute__((visibility("hidden")));
+	return (uintptr_t)&__ehdr_start;
 }
 
 /**
@@ -902,6 +889,25 @@ static void calculate_tls_size(struct DlLib * lib) {
 	}
 }
 
+static Elf64_Dyn * __fill_dyn(uintptr_t *dyn, Elf64_Phdr *phdrs, size_t phnum, uintptr_t base) {
+	for (int i = 0; i<32; ++i) dyn[i] = 0;
+	Elf64_Dyn * _ldso_dyn = NULL;
+
+	for (size_t i = 0; i < phnum; i++) {
+		if (phdrs[i].p_type == PT_DYNAMIC) {
+			Elf64_Dyn *_dyn = (void*)(phdrs[i].p_vaddr + base);
+			_ldso_dyn = _dyn;
+			while (_dyn->d_tag) {
+				if (_dyn->d_tag < 32) dyn[_dyn->d_tag] = _dyn->d_un.d_val;
+				_dyn++;
+			}
+			break;
+		}
+	}
+	return _ldso_dyn;
+}
+
+
 /**
  * @brief Fill out a DlLib object and load dependencies.
  *
@@ -917,17 +923,7 @@ static void calculate_tls_size(struct DlLib * lib) {
 static void setup_lib(struct DlLib * app, Elf64_Phdr *phdrs, size_t phnum) {
 	app->phdr  = phdrs;
 	app->phnum = phnum;
-	for (size_t i = 0; i < phnum; ++i) {
-		if (phdrs[i].p_type == PT_DYNAMIC) {
-			Elf64_Dyn *_dyn = (void*)(phdrs[i].p_vaddr + app->base);
-			app->full_dyn = _dyn;
-			while (_dyn->d_tag) {
-				if (_dyn->d_tag < 32) app->dyn[_dyn->d_tag] = _dyn->d_un.d_val;
-				_dyn++;
-			}
-			break;
-		}
-	}
+	app->full_dyn = __fill_dyn(app->dyn, phdrs, phnum, app->base);
 
 	if (!app->full_dyn) return;
 
@@ -1207,6 +1203,18 @@ unsigned long getauxval(unsigned long type) {
 	return 0;
 }
 
+__attribute__((visibility("hidden")))
+void __static_relocs(char ** envp) {
+	uintptr_t base = load_addr();
+	uintptr_t dyn[32];
+
+	Elf64_Header * ehdr = (void*)base;
+	Elf64_Phdr * phdrs = (void*)(base + ehdr->e_phoff);
+	Elf64_Dyn * has_dyn = __fill_dyn(dyn, phdrs, ehdr->e_phnum, base);
+
+	if (has_dyn && dyn[DT_RELA]) simple_relocs(dyn[DT_RELA] + base, dyn[DT_RELASZ], base, (void*)(dyn[DT_SYMTAB] + base));
+}
+
 /**
  * @brief Entry point of ld.so.
  *
@@ -1246,23 +1254,9 @@ int __libc_start(int argc, char *argv[], char *envp[]) {
 	uintptr_t base = auxv[AT_BASE] ?: load_addr();
 
 	uintptr_t dyn[32];
-	for (i = 0; i<32; ++i) dyn[i] = 0;
-
 	Elf64_Header * ehdr = (void*)base;
 	Elf64_Phdr * phdrs = (void*)(base + ehdr->e_phoff);
-	Elf64_Dyn * _ldso_dyn = NULL;
-
-	for (size_t i = 0; i < ehdr->e_phnum; i++) {
-		if (phdrs[i].p_type == PT_DYNAMIC) {
-			Elf64_Dyn *_dyn = (void*)(phdrs[i].p_vaddr + base);
-			_ldso_dyn = _dyn;
-			while (_dyn->d_tag) {
-				if (_dyn->d_tag < 32) dyn[_dyn->d_tag] = _dyn->d_un.d_val;
-				_dyn++;
-			}
-			break;
-		}
-	}
+	Elf64_Dyn * _ldso_dyn = __fill_dyn(dyn, phdrs, ehdr->e_phnum, base);
 
 	simple_relocs(dyn[DT_RELA] + base, dyn[DT_RELASZ], base, (void*)(dyn[DT_SYMTAB] + base));
 	simple_relocs(dyn[DT_JMPREL] + base, dyn[DT_PLTRELSZ], base, (void*)(dyn[DT_SYMTAB] + base));
