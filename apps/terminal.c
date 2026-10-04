@@ -149,6 +149,8 @@ static int  term_opacity = TERM_DEFAULT_OPAC;
 static bool blur_background = 0;
 static float blur_amount = 1.0;
 static bool blur_focused = 1;
+static bool always_transparent_bg = 0;
+static bool base_transparent_bg = 0;
 
 static bool terminal_login_shell_restricted = 0;
 
@@ -874,14 +876,20 @@ static void term_write_char(term_state_t * state, uint32_t val, uint16_t x, uint
 	/* Select background color from aplette. */
 	if (bg < PALETTE_COLORS) {
 		_bg = term_colors[bg];
-		if (flags & ANSI_SPECBG) {
+		if ((flags & ANSI_SPECBG) && !base_transparent_bg && !always_transparent_bg) {
 			_bg |= 0xFF << 24;
 		} else {
+			_bg &= ~(0xFF << 24);
 			_bg |= term_opacity << 24;
 			_bg = premultiply(_bg);
 		}
 	} else {
 		_bg = bg;
+		if (always_transparent_bg) {
+			_bg &= ~(0xFF << 24);
+			_bg |= term_opacity << 24;
+			_bg = premultiply(_bg);
+		}
 	}
 
 	if (_fullscreen) {
@@ -2558,6 +2566,13 @@ _nope:
 	return 1;
 }
 
+static uint32_t convert_digit(char index) {
+	if (index >= '0' && index <= '9') return index - '0';
+	else if (index >= 'a' && index <= 'f') return index - 'a' + 0xa;
+	else if (index >= 'A' && index <= 'F') return index - 'A' + 0xa;
+	return 0;
+}
+
 static void load_config(char * argv[], int *max_scrollback, bool *scale_fonts, float *font_scaling, bool *truetype, bool *emulatebold) {
 	char * home = getenv("HOME");
 	if (!home) return;
@@ -2582,11 +2597,12 @@ static void load_config(char * argv[], int *max_scrollback, bool *scale_fonts, f
 		goto config_done;
 	}
 
-	/* This one is backwards */
+	/* @p bitmap Enable the bitmap font by default. */
 	bool bitmap = !*truetype;
 	config_option_bool(argv, config_json, "bitmap", &bitmap);
 	*truetype = !bitmap;
 
+	/* @p bitmap_font Provide a path to an alternate 8x17 bitmap font. */
 	char * bitmap_font = NULL;
 	config_option_str(argv, config_json, "bitmap-font", &bitmap_font);
 	if (bitmap_font) {
@@ -2599,25 +2615,79 @@ static void load_config(char * argv[], int *max_scrollback, bool *scale_fonts, f
 		free(tmp);
 	}
 
+	/* @p emulatebold Emulate bold text with bitmap fonts by double striking. */
 	config_option_bool(argv, config_json, "emulatebold", emulatebold);
+
+	/* @p scale-fonts Enable scaling by the factor in @p font-scaling by default. */
 	config_option_bool(argv, config_json, "scale-fonts", scale_fonts);
+
+	/* @p font-scaling Scale TrueType fonts by this factor. */
 	config_option_float(argv, config_json, "font-scaling", font_scaling);
+
+	/* @p max-scrollback Store at most this many lines of scrollback. */
 	config_option_int(argv, config_json, "max-scrollback", max_scrollback);
 
+	/* @p beep-on-bell Produce an audible beep on BEL characters. */
 	config_option_bool(argv, config_json, "beep-on-bell", &beep_on_bell);
+
+	/* @p tab-numbers Display an index number in tabs. */
 	config_option_bool(argv, config_json, "tab-numbers", &show_tab_numbers);
+
+	/* @p no-frame Disable window decorations. */
 	config_option_bool(argv, config_json, "no-frame", &_no_frame);
+
+	/* @p no-menu-bar Hide the menu bar. */
 	config_option_bool(argv, config_json, "no-menu-bar", &_no_menu_bar);
 
+	/* @p fg-name Try to show the name of the foreground process in tabs. */
 	config_option_bool(argv, config_json, "fg-name", &show_fg_name);
 
+	/* @p bg-opacity Set the background opacity (1 is opaque, 0 is clear) */
 	float opacity = (float)term_opacity / 0xFF;
 	config_option_float(argv, config_json, "bg-opacity", &opacity);
 	term_opacity = opacity * 0xFF;
 
+	/* @p blue-background Blur behind the terminal. */
 	config_option_bool(argv, config_json, "blur-background", &blur_background);
+
+	/* @p blur-amount Control the radius of the blur based on the system maximum. */
 	config_option_float(argv, config_json, "blur-amount", &blur_amount);
+
+	/* @p blur-focused Only enable blurring if this terminal is focused. */
 	config_option_bool(argv, config_json, "blur-focused", &blur_focused);
+
+	/* @p always-transparent-bg Always apply background opacity to background color,
+	 *                          even if it is an extended palette or 24/32-bit color. */
+	config_option_bool(argv, config_json, "always-transparent-bg", &always_transparent_bg);
+
+	/* @p base-transparent-bg   Apply the background opacity if the background is set
+	 *                          to one of the base 16 colors, not just the default. */
+	config_option_bool(argv, config_json, "base-transparent-bg", &base_transparent_bg);
+
+	/* @p palette-X Set the a color it the 16-color base palette where X is a single hex digit.
+	 *              The value must be a 6-character hex string. */
+	for (int i = 0; i < 16; ++i) {
+		char config_name[] = "palette- ";
+		snprintf(config_name, sizeof(config_name), "palette-%01x", i);
+
+		char * color = NULL;
+		config_option_str(argv, config_json, config_name, &color);
+		if (color) {
+			fprintf(stderr, "override color %01x (%d)\n", i, i);
+			if (strlen(color) != 6) {
+				fprintf(stderr, "%s: color '%s' must be 6 hex digits (was '%s')", argv[0], config_name, color);
+				continue;
+			}
+
+			uint32_t val = rgba(
+				(convert_digit(color[0]) << 4) | convert_digit(color[1]),
+				(convert_digit(color[2]) << 4) | convert_digit(color[3]),
+				(convert_digit(color[4]) << 4) | convert_digit(color[5]),
+				0);
+
+			term_colors[i] = val;
+		}
+	}
 
 config_done:
 	if (config_json) json_free(config_json);
