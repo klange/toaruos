@@ -12,6 +12,7 @@
  * of the NCSA / University of Illinois License - see LICENSE.md
  * Copyright (C) 2013-2026 K. Lange
  */
+#define _TOARU_SOURCE
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -1751,6 +1752,7 @@ static term_state_t * terminal_create(bool scale_fonts, float font_scaling, int 
 	pipe2(priv->input_buffer_semaphore, O_CLOEXEC);
 	priv->input_buffer_queue = list_create();
 	pthread_create(&priv->input_buffer_thread, NULL, handle_input_writing, out);
+	pthread_setname_np(priv->input_buffer_thread, "TerminalInput");
 
 	update_menu_bar_tabs();
 
@@ -1938,6 +1940,7 @@ static void maybe_exit(void) {
 
 	have_exit_dialog = 1;
 	pthread_create(&exit_dialog_thread, NULL, show_exit_dialog, NULL);
+	pthread_setname_np(exit_dialog_thread, "TerminalExit");
 }
 
 /* Handle Yutani messages */
