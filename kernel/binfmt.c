@@ -19,24 +19,30 @@
 extern int elf_exec(const char *, struct fs_file_description *, int argc, char * argv[], char * env[], int interp);
 int exec(const char * path, int argc, char * argv[], char * env[], int interp_depth);
 
+void binfmt_exec_cleanup(struct fs_file_description *desc_in, int argc, char **argv, char **env) {
+	for (int i = 0; i < argc; i++) free(argv[i]);
+	free(argv);
+	for (char ** a = env; *a; a++) free(*a);
+	free(env);
+	if (desc_in) fs_close_desc(desc_in);
+}
+
 /**
  * @brief hash-exclamation parser
  *
  * Tries to safely read the first line of a script file to find an appropriate loader.
  */
 int exec_shebang(const char * path, struct fs_file_description * desc_in, int argc, char * argv[], char * env[], int interp) {
+	int error = 0;
 	if (interp > 4) {
-		/* If an interpreter calls an interpreter too many times, bail. */
-		fs_close_desc(desc_in);
-		free(argv);
-		free(env);
-		return -ELOOP;
+		error = -ELOOP;
+		goto _free_most;
 	}
 
 	/* Read MAX_LINE... */
-	char tmp[100];
-	read_fs(desc_in->inode, 0, 100, (unsigned char *)tmp);
-	fs_close_desc(desc_in);
+	char tmp[101] = {0};
+	error = read_fs(desc_in->inode, 0, 100, (unsigned char *)tmp);
+	if (error < 0) goto _free_most;
 	char * cmd = (char *)&tmp[2];
 	if (*cmd == ' ') cmd++; /* Handle a leading space */
 	char * space_or_linefeed = strpbrk(cmd, " \n");
@@ -45,9 +51,8 @@ int exec_shebang(const char * path, struct fs_file_description * desc_in, int ar
 	/* We read too much stuff before finding EOL or another signal
 	 * that the interpreter was found, so bail. */
 	if (!space_or_linefeed) {
-		free(argv);
-		free(env);
-		return -ENOEXEC;
+		error = -ENOEXEC;
+		goto _free_most;
 	}
 
 	/* If we found a space, accept one argument before the path... */
@@ -58,10 +63,8 @@ int exec_shebang(const char * path, struct fs_file_description * desc_in, int ar
 		/* ... and look for another EOL. */
 		space_or_linefeed = strpbrk(space_or_linefeed, "\n");
 		if (!space_or_linefeed) {
-			/* If we didn't find one, bail. */
-			free(argv);
-			free(env);
-			return -ENOEXEC;
+			error = -ENOEXEC;
+			goto _free_most;
 		}
 	}
 
@@ -69,11 +72,12 @@ int exec_shebang(const char * path, struct fs_file_description * desc_in, int ar
 	*space_or_linefeed = '\0';
 
 	char * script = strdup(path);
+	fs_close_desc(desc_in);
 
 	unsigned int nargc = argc + (arg ? 2 : 1);
 	char ** args = calloc(nargc + 2, sizeof(char*));
 	args[0] = strdup(cmd);
-	args[1] = arg ? arg : script;
+	args[1] = arg ? strdup(arg) : script;
 	args[2] = arg ? script : NULL;
 	args[3] = NULL;
 
@@ -83,10 +87,15 @@ int exec_shebang(const char * path, struct fs_file_description * desc_in, int ar
 	}
 	args[j] = NULL;
 
+	free(argv[0]);
 	free(argv);
 
 	/* Try to execut the interpreter with the new arguments */
-	return exec(cmd, nargc, args, env, interp+1);
+	return exec(args[0], nargc, args, env, interp+1);
+
+_free_most:
+	binfmt_exec_cleanup(desc_in, argc, argv, env);
+	return error;
 }
 
 /* Consider exposing this and making it a list so it can be extended ... */
@@ -125,9 +134,7 @@ static int exec_common(struct fs_file_description * desc, const char * path, int
 		}
 	}
 
-	free(argv);
-	free(env);
-	fs_close_desc(desc);
+	binfmt_exec_cleanup(desc, argc, argv, env);
 	return -ENOEXEC;
 }
 
@@ -148,21 +155,17 @@ int exec(const char * path, int argc, char * argv[], char * env[], int interp_de
 
 	if (!has_permission(desc->inode, X_OK)) {
 		error = EACCES;
-		goto _free_desc;
+		goto _free_args;
 	}
 	if (desc->inode->type == INO_DIR) {
 		error = EISDIR;
-		goto _free_desc;
+		goto _free_args;
 	}
 
 	return exec_common(desc, path, argc, argv, env, interp_depth);
 
-_free_desc:
-	fs_close_desc(desc);
-
 _free_args:
-	free(argv);
-	free(env);
+	binfmt_exec_cleanup(desc, argc, argv, env);
 	return -error;
 }
 
@@ -170,7 +173,10 @@ _free_args:
  * @brief Replace current process with a new one, from an open file description.
  */
 int fexec(struct fs_file_description * desc, int argc, char * argv[], char * env[]) {
-	if (desc->inode->type == INO_DIR) return free(argv), free(env), -EISDIR;
+	if (desc->inode->type == INO_DIR) {
+		binfmt_exec_cleanup(NULL, argc, argv, env);
+		return -EISDIR;
+	}
 	fs_clone_desc(desc, 0); /* desc is from fd table which will be wiped, obtain a new reference */
 
 	return exec_common(desc, desc->path->chars, argc, argv, env, 0);

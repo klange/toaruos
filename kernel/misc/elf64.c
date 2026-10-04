@@ -30,6 +30,8 @@
 #include <sys/auxv.h>
 #include <sys/mman.h>
 
+extern void binfmt_exec_cleanup(struct fs_file_description *desc_in, int argc, char **argv, char **env);
+
 hashmap_t * _modules_table = NULL;
 sched_mutex_t * _modules_mutex = NULL;
 
@@ -541,8 +543,6 @@ int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int
 _free_interp:
 	fs_close_desc(interpreter_desc);
 _free_most:
-	free(argv);
-	free(env);
-	fs_close_desc(desc_in);
+	binfmt_exec_cleanup(desc_in, argc, argv, env);
 	return -error;
 }
