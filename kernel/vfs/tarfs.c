@@ -12,6 +12,7 @@
 #include <kernel/vfs.h>
 #include <kernel/printf.h>
 #include <kernel/tokenize.h>
+#include <kernel/process.h>
 
 #include <kernel/list.h>
 #include <kernel/hashmap.h>
@@ -19,7 +20,7 @@
 #define TARFS_LOG_LEVEL WARNING
 
 struct tarfs {
-	fs_node_t * device;
+	struct fs_file_description * device;
 	unsigned int length;
 };
 
@@ -121,7 +122,6 @@ static unsigned int round_to_512(unsigned int i) {
 static int ustar_from_offset(struct tarfs * self, unsigned int offset, struct ustar * out);
 static fs_node_t * file_from_ustar(struct tarfs * self, struct ustar * file, unsigned int offset);
 
-#ifndef strncat
 /**
  * @brief Copy up to n characters from src to the end of dest.
  *
@@ -149,7 +149,6 @@ static char * strncat(char *dest, const char *src, size_t n) {
 	*end = '\0';
 	return dest;
 }
-#endif
 
 static int count_slashes(char * string) {
 	int i = 0;
@@ -236,7 +235,7 @@ static ssize_t read_tarfs(fs_node_t * node, off_t offset, size_t size, uint8_t *
 
 	free(file);
 
-	return read_fs(self->device, offset + node->inode + 512, size, buffer);
+	return read_fs(self->device->inode, offset + node->inode + 512, size, buffer);
 }
 
 static int readdir_tarfs(fs_node_t *node, unsigned long index, struct dirent *out) {
@@ -407,7 +406,6 @@ static fs_node_t * file_from_ustar(struct tarfs * self, struct ustar * file, uns
 		fs->type = INO_DIR;
 		fs->ops = &tarfs_dir_ops;
 	} else if (file->type[0] == '1') {
-		//debug_print(ERROR, "Hardlink detected");
 		/* go through file and find target, reassign inode to point to that */
 		fs->ops = &dummy_ops;
 	} else if (file->type[0] == '2') {
@@ -417,13 +415,13 @@ static fs_node_t * file_from_ustar(struct tarfs * self, struct ustar * file, uns
 		fs->type = INO_REG;
 		fs->ops = &tarfs_file_ops;
 	}
+
+	time_t mtime = interpret_mtime(file);
+	fs->atime = mtime;
+	fs->mtime = mtime;
+	fs->ctime = mtime;
+
 	free(file);
-#if 0
-	/* TODO times are also available from the file */
-	fs->atime = now();
-	fs->mtime = now();
-	fs->ctime = now();
-#endif
 	return fs;
 }
 
@@ -464,7 +462,7 @@ static fs_node_t * finddir_tar_root(fs_node_t *node, const char *name) {
 }
 
 static int ustar_from_offset(struct tarfs * self, unsigned int offset, struct ustar * out) {
-	read_fs(self->device, offset, sizeof(struct ustar), (unsigned char*)out);
+	read_fs(self->device->inode, offset, sizeof(struct ustar), (unsigned char*)out);
 	if (out->ustar[0] != 'u' ||
 		out->ustar[1] != 's' ||
 		out->ustar[2] != 't' ||
@@ -486,17 +484,22 @@ static fs_node_t * tar_mount(const char * device, const char * mount_path) {
 	int argc = tokenize(arg, ",", argv);
 
 	if (argc > 1) {
-		//debug_print(WARNING, "tarfs driver takes no options");
-		printf("tarfs got unexpected mount arguments: %s\n", device);
+		printf("tarfs: warning: got unexpected mount arguments: %s\n", device);
 	}
 
 	int error = 0;
-	fs_node_t * dev = kopen_error(argv[0], 0, &error);
+	struct fs_file_description * dev = kopen_at(*argv[0] != '/' ? this_core->current_process->wd : NULL, argv[0], O_RDONLY, 0, &error);
 	free(arg); /* Shouldn't need the filename or args anymore */
 
 	if (!dev) {
-		//debug_print(ERROR, "failed to open %s", device);
-		printf("tarfs could not open target device: %d\n", error);
+		printf("tarfs: could not open target device: %d\n", error);
+		return NULL;
+	}
+
+	if (dev->inode->type != INO_REG && dev->inode->type != INO_BLK) {
+		/* Inappropriate device. */
+		printf("tarfs: inappropriate device type\n");
+		fs_close_desc(dev);
 		return NULL;
 	}
 
@@ -504,7 +507,7 @@ static fs_node_t * tar_mount(const char * device, const char * mount_path) {
 	struct tarfs * self = malloc(sizeof(struct tarfs));
 
 	self->device = dev;
-	self->length = dev->length;
+	self->length = dev->inode->length;
 
 	fs_node_t * root = calloc(1,sizeof(fs_node_t));
 
@@ -532,16 +535,24 @@ int tarfs_register_init(void) {
  * issues with freeing the ramdisk.
  */
 int tarfs_unpack(char * from_file) {
+	if (*from_file != '/') return EINVAL;
 	int error = 0;
-	fs_node_t * dev = kopen_error(from_file, 0, &error);
+	struct fs_file_description * dev = kopen_at(NULL, from_file, O_RDONLY, 0, &error);
 	if (!dev) {
 		dprintf("migrate: could not open '%s'\n", from_file);
 		return error;
 	}
 
+	if (dev->inode->type != INO_REG && dev->inode->type != INO_BLK) {
+		/* inappropriate type */
+		dprintf("migrate: '%s' is not the right kind of device\n", from_file);
+		fs_close_desc(dev);
+		return EPIPE;
+	}
+
 	struct tarfs * self = calloc(1, sizeof(struct tarfs));
 	self->device = dev;
-	self->length = dev->length;
+	self->length = dev->inode->length;
 
 	struct ustar * file = calloc(1, sizeof(struct ustar));
 	off_t offset = 0;
@@ -595,7 +606,7 @@ int tarfs_unpack(char * from_file) {
 		size_t written = 0;
 		while (to_write) {
 			uint8_t buf[512];
-			ssize_t r = read_fs(self->device, offset + 512 + written, (to_write < 512) ? to_write : 512, buf);
+			ssize_t r = read_fs(self->device->inode, offset + 512 + written, (to_write < 512) ? to_write : 512, buf);
 			if (r <= 0) break;
 			ssize_t w = write_fs(fd->inode, written, r, buf);
 			if (w <= 0) {
@@ -618,6 +629,8 @@ _next:
 	free(self);
 
 	/* Tell the ramdisk to zero itself. */
-	ioctl_fs(dev, 0x4001, NULL);
+	ioctl_fs(dev->inode, 0x4001, NULL);
+
+	fs_close_desc(dev);
 	return 0;
 }
