@@ -144,7 +144,7 @@ typedef struct TermemuState {
 
 /* Default color settings */
 #define TERM_DEFAULT_FG     0x07 /* Index of default foreground */
-#define TERM_DEFAULT_BG     0x10 /* Index of default background */
+#define TERM_DEFAULT_BG     0x00 /* Index of default background */
 #define TERM_DEFAULT_FLAGS  0x00 /* Default flags for a cell */
 #define TERM_DEFAULT_OPAC   0xF2 /* For background, default transparency */
 
