@@ -231,7 +231,7 @@ arch_restore_context:
     mov  %gs:0x10,%rax
     cmp  %gs:0x0,%rax
     je   1f
-    lock andl $0xFFFFfff7,0x14(%rax)
+    lock andl $0xFFFFfff7,0x0(%rax)
 1:
     movq 0(%rdi), %rsp
     movq 8(%rdi), %rbp

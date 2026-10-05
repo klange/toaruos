@@ -102,54 +102,71 @@ struct signal_config {
 #define PROC_FLAG_RESTORE_SIGMASK    0x100
 
 typedef struct process {
-	pid_t id;    /* PID */
-	pid_t tgid; /* thread group */
-	pid_t job;   /* tty job */
-	pid_t session; /* tty session */
-	int status; /* status code */
-	unsigned int flags; /* finished, started, running, isTasklet */
-	int owner;
+	unsigned int flags;      /* finished, started, running, isTasklet */
+	int status;              /* status code (for wait) */
 
-	uid_t user;
-	uid_t real_user;
+	struct process *process; /* Main thread of process */
 
-	gid_t user_group;
-	gid_t real_user_group;
+	pid_t id;                /* TID */
+	pid_t tgid;              /* PID ("thread group" ID) */
 
-	unsigned int mask;
+	struct pty * pty;        /* controlling terminal */
+	pid_t job;               /* tty job */
+	pid_t session;           /* tty session */
 
-	char * name;
-	char ** cmdline;
+	int owner;               /* last core ID that ran this thread */
+	mode_t mask;             /* umask */
 
-	struct fs_file_description * exe;
-	struct fs_file_description * wd;
-	fd_table_t *  fds;               /* File descriptor table */
+	/* User/group identity */
+	uid_t user;              /* euid FIXME rename all of these */
+	uid_t real_user;         /*  uid */
+	gid_t user_group;        /* egid */
+	gid_t real_user_group;   /*  gid */
+	uid_t saved_user;        /* saved set uid */
+	gid_t saved_user_group;  /* saved set gid */
+	int supplementary_group_count;    /* for setgroups()/getgroups(), file access */
+	gid_t * supplementary_group_list; /* allocated array from above; these should probably be refcounted and reused */
 
-	tree_node_t * tree_entry;
-	struct regs * syscall_registers;
-	list_t * wait_queue;
-	list_t * node_waits;
+	/* Thread naming */
+	char * name;             /* process name set by exec */
+	char ** cmdline;         /* arguments passed to exec */
 
-	node_t sched_node;
-	node_t sleep_node;
-	node_t * timed_sleep_node;
-	node_t * timeout_node;
+	/* Thread state */
+	thread_t thread;                  /* All of the actual (kernel) CPU context. */
+	image_t image;                    /* Kernel + userspace stack tops, and user heap pointer */
+	struct regs * syscall_registers;  /* Userspace context within kernel interrupt context */
 
-	struct timeval start;
-	int awoken_index;
+	/* Files */
+	struct fs_file_description * exe; /* Reference to main executable file */
+	struct fs_file_description * wd;  /* Current working directory */
+	fd_table_t *  fds;                /* File descriptor table */
 
-	thread_t thread;
-	image_t image;
+	/* Signals */
+	struct signal_config *signals; /* Signal dispositions. */
+	list_t * sig_queue;            /* Extending signal information for pending signal, probably should be an embedded chain and end pointer */
+	sigset_t blocked_signals;      /* Bitmap of blocked signals. */
+	sigset_t pending_signals;      /* Bitmap of pending signals. */
+	sigset_t awaited_signals;      /* Bitmap of signals being awaited by @c signal_await */
+	sigset_t restored_signals;     /* Restored blocked signal maps */
+	stack_t altstack;              /* Signal alternate stack */
+	long interrupted_system_call;  /* Restartable system call */
 
+	/* Locks */
+	spin_lock_t sig_lock;
 	spin_lock_t sched_lock;
+	spin_lock_t wait_lock;
 
-	struct signal_config *signals;
-	sigset_t blocked_signals;
-	sigset_t pending_signals;
-	sigset_t awaited_signals;
+	/* Scheduling stuff, all of this is garbage. */
+	tree_node_t * tree_entry;  /* FIXME Replace with reference to parent, siblings, first child? */
+	list_t * wait_queue;       /* This is for wait(), but this process can be in it? */
+	list_t * node_waits;       /* This gets one entry for each fs node we are waiting on */
+	node_t sched_node;         /* This goes in the scheduler queue for running processes */
+	node_t sleep_node;         /* This gets put in queues we @c sleep_on() */
+	node_t * timed_sleep_node; /* When we @c sleep_until() this is an allocated node for some reason */
+	node_t * timeout_node;     /* When we @c process_timeout_sleep() this is an allocated node as well */
 
-	int supplementary_group_count;
-	gid_t * supplementary_group_list;
+	struct timeval start;    /* Only used for procfs... */
+	long awoken_index;       /* Index into an fswait array of the thing responsible for waking us up. */
 
 	/* Process times */
 	uint64_t time_prev;         /* user time from previous update of usage[] */
@@ -162,27 +179,11 @@ typedef struct process {
 	uint16_t usage[4];          /* four permille samples over some period (currently 4Hz) */
 
 	/* Tracing */
-	pid_t tracer;
-	spin_lock_t wait_lock;
-	list_t * tracees;
-
-	/* Syscall restarting */
-	long interrupted_system_call;
-	sigset_t restored_signals;
-	spin_lock_t sig_lock;
-
-	list_t * sig_queue;
-
-	uid_t saved_user;
-	gid_t saved_user_group;
-	struct pty * pty;
-
-	struct process * process;
-
-	stack_t altstack;
+	pid_t tracer;               /* ptrace tracer; this should probably be a pointer... */
+	list_t * tracees;           /* threads this process is tracing in ptrace FIXME inline, can only have one tracer */
 } process_t;
 
-_Static_assert((__builtin_offsetof(process_t,flags) == 20), "flags is not at expected offset for assembly");
+_Static_assert((__builtin_offsetof(process_t,flags) == 0), "flags must be the head of process struct");
 
 typedef struct {
 	uint64_t end_tick;

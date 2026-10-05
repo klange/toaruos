@@ -30,8 +30,6 @@ arch_restore_context:
     ldr x2, [x18, 0]  /* get current */
     cmp x2, x1 /* compare current to prev, into x2 */
     beq _restore_context_same
-    /* 20 is the offset of ->flags. */
-    add x1, x1, 20
     /* equivalent to __atomic_and_and_fetch */
 _restore_context_loop:
     ldxr w2, [x1] /* Load exclusive */
