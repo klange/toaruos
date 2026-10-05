@@ -5,7 +5,8 @@ ls \- list directory contents
 
 .SH SYNOPSIS
 \fBls\fP [\fB\-a\fP|\fB\-A\fP] [\fB\-f\fP] [\fB\-F\fP|\fB\-p\fP] [\fB\-h\fP]
-[\fB\-i\fP] [\fB\-k\fP] [\fB\-s\fP] [\fB\-l\fP|\fB\-x\fP|\fB\-C\fP|\fB\-1\fP] [\fIpath\fP]...
+[\fB\-i\fP] [\fB\-k\fP] [\fB\-s\fP] [\fB\-l\fP|\fB\-x\fP|\fB\-C\fP|\fB\-1\fP]
+[\fB\-L\fP|\fB\-H\fP|\fB\-P\fP] [\fIpath\fP]...
 
 .SH DESCRIPTION
 List information about the files in a directory, sorted by name.
@@ -35,6 +36,16 @@ When printing file sizes, use human-readable values like \fB2M\fP.
 Also applies to the block sizes from the \fB\-s\fP option.
 
 .TP
+.B \-H
+Arguments provided on the commandline which refer to symbolic links
+to directories will be followed (if the \fBstat\fP call made after
+the initial \fBlstat\fP call for a commandline argument indicates
+that the argument points to a directory, the \fBstat\fP result
+will be used instead of the \fBlstat\fP result).
+This is the default unless \fB\-l\fP or \fB\-F\fP is enabled,
+and can otherwise be disabled with \fB\-P\fP.
+
+.TP
 .BR \-i " or " \-\-inode
 Display the serial number of each file before its name.
 
@@ -48,8 +59,20 @@ Included for compatibility.
 Format each file on one line, with details.
 
 .TP
+.BR \-L " or " \-\-dereference
+Follow symbolic links.
+Effectively switches all \fBlstat\fP calls with \fBstat\fP calls.
+
+.TP
 .B \-p
 Display a '/' after the name of a directory.
+
+.TP
+.B \-P
+Do not follow symbolic links.
+Cancels the effects of \fB\-H\fP and \fB\-L\fP.
+Symbolic links will still be \fBstat\fP-ed to determine how to color
+them or to print their targets when using \fB\-l\fP.
 
 .TP
 .BR \-s " or " \-\-size

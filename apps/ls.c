@@ -51,6 +51,8 @@ static int show_slash = 0;
 static int use_color = 0;
 static int min_col_spacing = 1;
 static int use_sym_target = 0;
+static int follow_cmdline_dir_links = 0;
+static int follow_all_links = 0;
 
 struct tfile {
 	char * name;
@@ -300,10 +302,14 @@ static int show_help(int argc, char * argv[]) {
 			" -f                    " X_S "display entries in original order" X_E "\n"
 			" -F  --classify        " X_S "show characters after files depending on type" X_E "\n"
 			" -h  --human-readable  " X_S "human-readable file sizes" X_E "\n"
+			" -H                    " X_S "follow symlinks to directories on the command line" X_E "\n"
+			"                       " X_S "(this is the default unless -l or -F is given)" X_E "\n"
 			" -i  --inode           " X_S "display inode number before name" X_E "\n"
 			" -k  --kibibytes       " X_S "(no-op; block size is always 1024)" X_E "\n"
 			" -l                    " X_S "use a long listing format" X_E "\n"
+			" -L  --dereference     " X_S "follow symbolic links" X_E "\n"
 			" -p                    " X_S "show a / after directory names" X_E "\n"
+			" -P                    " X_S "never follow links; cancel -L and -H" X_E "\n"
 			" -s  --size            " X_S "show size (in block) before file names" X_E "\n"
 			" -x                    " X_S "sort entries across columns instead of down" X_E "\n"
 			" -C                    " X_S "format output by columns (default)" X_E "\n"
@@ -413,7 +419,7 @@ static int display_dir(char * p) {
 
 		char tmp[strlen(p)+strlen(ent->d_name)+2];
 		sprintf(tmp, "%s/%s", p, ent->d_name);
-		lstat(tmp, &f->statbuf);
+		(follow_all_links ? stat : lstat)(tmp, &f->statbuf);
 		if (S_ISLNK(f->statbuf.st_mode)) {
 			f->lstatres = stat(tmp, &f->statbufl);
 			f->link = malloc(f->statbuf.st_size + 1);
@@ -464,6 +470,7 @@ static void setup_colors(void) {
 }
 
 int main (int argc, char * argv[]) {
+	int assume_no_follow = 0;
 	char * p = ".";
 
 	static struct option long_opts[] = {
@@ -471,6 +478,7 @@ int main (int argc, char * argv[]) {
 		{"all", no_argument, 0, 'a'},
 		{"almost-all", no_argument, 0, 'A'},
 		{"classify", no_argument, 0, 'F'},
+		{"dereference", no_argument, 0, 'L'},
 		{"human-readable", no_argument, 0, 'h'},
 		{"inode", no_argument, 0, 'i'},
 		{"kibibytes", no_argument, 0, 'k'},
@@ -483,7 +491,7 @@ int main (int argc, char * argv[]) {
 	use_color = stdout_is_tty; /* we default to 'auto' */
 
 	int opt, index;
-	while ((opt = getopt_long(argc, argv, "aAfFhiklpsxC1?", long_opts, &index)) != -1) {
+	while ((opt = getopt_long(argc, argv, "aAfFhHiklLpPsxC1?", long_opts, &index)) != -1) {
 		switch (opt) {
 			case 'a':
 				show_hidden = 1;
@@ -496,6 +504,7 @@ int main (int argc, char * argv[]) {
 				break;
 			case 'F':
 				show_slash = 2;
+				assume_no_follow = 1;
 				break;
 			case 'h':
 				human_readable = 1;
@@ -508,12 +517,26 @@ int main (int argc, char * argv[]) {
 				break;
 			case 'l':
 				long_mode = 1;
+				assume_no_follow = 1;
 				break;
 			case 'p':
 				show_slash = 1;
 				break;
 			case 's':
 				show_size = 1;
+				break;
+			case 'H':
+				follow_cmdline_dir_links = 1;
+				break;
+			case 'L':
+				follow_cmdline_dir_links = 1;
+				follow_all_links = 1;
+				assume_no_follow = 0;
+				break;
+			case 'P':
+				follow_cmdline_dir_links = 0;
+				follow_all_links = 0;
+				assume_no_follow = 1;
 				break;
 
 			/* TODO These two should also force the multi-column
@@ -558,6 +581,7 @@ int main (int argc, char * argv[]) {
 	if (optind < argc) p = argv[optind];
 	if (optind + 1 < argc) print_dir = 1;
 
+	if (!assume_no_follow) follow_cmdline_dir_links = 1;
 
 	if (long_mode) {
 		struct tm * timeinfo;
@@ -589,7 +613,7 @@ int main (int argc, char * argv[]) {
 			struct tfile * f = malloc(sizeof(struct tfile));
 
 			f->name = p;
-			int t = lstat(p, &f->statbuf);
+			int t = (follow_all_links ? stat : lstat)(p, &f->statbuf);
 
 			if (t < 0) {
 				warn("cannot access '%s'", p);
@@ -598,6 +622,10 @@ int main (int argc, char * argv[]) {
 			} else {
 				if (S_ISLNK(f->statbuf.st_mode)) {
 					f->lstatres = stat(p, &f->statbufl);
+					if (follow_cmdline_dir_links && S_ISDIR(f->statbufl.st_mode)) {
+						memcpy(&f->statbuf, &f->statbufl, sizeof(struct stat));
+						goto _insert;
+					}
 					f->link = malloc(f->statbuf.st_size + 1);
 					ssize_t len = readlink(p, f->link, f->statbuf.st_size);
 					if (len >= 0) f->link[len] = '\0';
@@ -606,6 +634,7 @@ int main (int argc, char * argv[]) {
 						f->link[0] = '\0';
 					}
 				}
+_insert:
 				list_insert(files, f);
 			}
 
