@@ -41,7 +41,6 @@ static int show_hidden = 0;
 static int long_mode   = 0;
 static int print_dir   = 0;
 static int term_width = 0;
-static int term_height = 0;
 static int columns = 1;
 static int in_order = 0;
 static int show_inode = 0;
@@ -544,10 +543,12 @@ int main (int argc, char * argv[]) {
 			case 'x':
 				long_mode = 0;
 				columns = 0;
+				term_width = 79;
 				break;
 			case 'C':
 				long_mode = 0;
 				columns = 1;
+				term_width = 79;
 				break;
 
 			case '1':
@@ -595,7 +596,6 @@ int main (int argc, char * argv[]) {
 		struct winsize w;
 		ioctl(1, TIOCGWINSZ, &w);
 		term_width = w.ws_col;
-		term_height = w.ws_row;
 		term_width -= 1; /* And this just helps clean up our math */
 	}
 
