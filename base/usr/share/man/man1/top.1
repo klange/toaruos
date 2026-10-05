@@ -42,6 +42,23 @@ Switch to the previous (left) sort column.
 Toggle the separate display of threads.
 
 .TP
+.B m
+Toggle display mode for the final column.
+.RS
+.TP
+.B CMD
+The first part of the command line is shown.
+
+.TP
+.B EXE
+The resolved path to the binary is shown.
+
+.TP
+.B COMM
+The name of the process or thread, as set in \fB/proc/{pid}/comm\fP, is shown.
+.RE
+
+.TP
 .B h
 Show a help message describing these options.
 
