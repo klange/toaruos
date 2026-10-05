@@ -36,7 +36,7 @@ def checksum(data):
     pack_into('6s',  data, 148, format(csum, '06o').encode())
     data[148+6] = 0
 
-let output = fileio.open('ramdisk.tar','wb')
+let output = None
 
 def do_file(p, fn, recurse=True):
     let sr = os.lstat(p)
@@ -142,43 +142,45 @@ def artificial_symlink(fn, dest, uid=0, gid=0, mode=0o777):
     output.write(bytes(data))
 
 
-do_file('base','/',False)
-recurse_directory('base')
-artificial_symlink('bin/sh','esh')
-artificial_symlink('bin/mandelbrot','julia')
-artificial_symlink('bin/fgrep','grep')
-artificial_symlink('bin/cksum','crc32')
-artificial_symlink('lib/ld.so','libc.so')
-artificial_symlink('bin/ldd','/lib/libc.so')
-artificial_symlink('bin/apropos','man')
-artificial_symlink('bin/whatis','man')
-artificial_symlink('bin/[','test')
+if __name__ == '__main__':
+    output = fileio.open('ramdisk.tar','wb')
+    do_file('base','/',False)
+    recurse_directory('base')
+    artificial_symlink('bin/sh','esh')
+    artificial_symlink('bin/mandelbrot','julia')
+    artificial_symlink('bin/fgrep','grep')
+    artificial_symlink('bin/cksum','crc32')
+    artificial_symlink('lib/ld.so','libc.so')
+    artificial_symlink('bin/ldd','/lib/libc.so')
+    artificial_symlink('bin/apropos','man')
+    artificial_symlink('bin/whatis','man')
+    artificial_symlink('bin/[','test')
 
-let fonts = {
-    'sans-serif': 'truetype/dejavu/DejaVuSans.ttf',
-    'sans-serif.bold': 'truetype/dejavu/DejaVuSans-Bold.ttf',
-    'sans-serif.italic': 'truetype/dejavu/DejaVuSans-Oblique.ttf',
-    'sans-serif.bolditalic': 'truetype/dejavu/DejaVuSans-BoldOblique.ttf',
-    'monospace': 'truetype/dejavu/DejaVuSansMono.ttf',
-    'monospace.bold': 'truetype/dejavu/DejaVuSansMono-Bold.ttf',
-    'monospace.italic': 'truetype/dejavu/DejaVuSansMono-Oblique.ttf',
-    'monospace.bolditalic': 'truetype/dejavu/DejaVuSansMono-BoldOblique.ttf',
-}
+    let fonts = {
+        'sans-serif': 'truetype/dejavu/DejaVuSans.ttf',
+        'sans-serif.bold': 'truetype/dejavu/DejaVuSans-Bold.ttf',
+        'sans-serif.italic': 'truetype/dejavu/DejaVuSans-Oblique.ttf',
+        'sans-serif.bolditalic': 'truetype/dejavu/DejaVuSans-BoldOblique.ttf',
+        'monospace': 'truetype/dejavu/DejaVuSansMono.ttf',
+        'monospace.bold': 'truetype/dejavu/DejaVuSansMono-Bold.ttf',
+        'monospace.italic': 'truetype/dejavu/DejaVuSansMono-Oblique.ttf',
+        'monospace.bolditalic': 'truetype/dejavu/DejaVuSansMono-BoldOblique.ttf',
+    }
 
-do_file('base','usr/share/fonts/default',False)
-for ident, path in fonts.items():
-    artificial_symlink(f'usr/share/fonts/default/{ident}', f'../{path}')
+    do_file('base','usr/share/fonts/default',False)
+    for ident, path in fonts.items():
+        artificial_symlink(f'usr/share/fonts/default/{ident}', f'../{path}')
 
-do_file('util/auto-dep.krk','bin/auto-dep.krk')
-do_file('kuroko/src/kuroko','usr/include/kuroko/')
+    do_file('util/auto-dep.krk','bin/auto-dep.krk')
+    do_file('kuroko/src/kuroko','usr/include/kuroko/')
 
-if os.environ.get('NO_SRC_DIR') != '1':
-    do_file('base','src/',False)
-    do_file('base','src/bim/',False)
-    for s in ('apps/','kernel/','lib/','libc/','boot/','modules/','tests/','tags','bim/bim.c','bim/bim.h'):
-        if os.access(s,os.F_OK):
-            do_file(s,'src/' + s)
-    do_file('kuroko/src','src/kuroko/')
-    do_file('base','src/util/',False)
-    for s in ('createramdisk.krk','generate-etc-issue.krk','generate-etc-os-release.krk','__init__.krk'):
-        do_file(f'util/{s}',f'src/util/{s}')
+    if os.environ.get('NO_SRC_DIR') != '1':
+        do_file('base','src/',False)
+        do_file('base','src/bim/',False)
+        for s in ('apps/','kernel/','lib/','libc/','boot/','modules/','tests/','tags','bim/bim.c','bim/bim.h'):
+            if os.access(s,os.F_OK):
+                do_file(s,'src/' + s)
+        do_file('kuroko/src','src/kuroko/')
+        do_file('base','src/util/',False)
+        for s in ('createramdisk.krk','generate-etc-issue.krk','generate-etc-os-release.krk','__init__.krk'):
+            do_file(f'util/{s}',f'src/util/{s}')
