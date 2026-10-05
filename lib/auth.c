@@ -342,3 +342,18 @@ struct GroupEntry * toaru_auth_get_group_by_name(struct GroupEntry * entries, co
 	return entries;
 }
 
+int toaru_auth_validate_name(const char * name) {
+	if (*name < 'a' || *name > 'z') return 0; /* names must begin with a lowercase letter */
+	name++;
+
+	for (; *name; name++) {
+		if (*name >= 'a' && *name <= 'z') continue; /* name may contain lowercase letters */
+		if (*name >= '0' && *name <= '9') continue; /* name may contain numerals */
+		if (*name == '-' || *name == '_') continue; /* name may contain - or _ */
+		if (*name == '$' && name[1] == 0) return 1; /* name may end with a $ */
+
+		return 0; /* invalid name character */
+	}
+
+	return 1;
+}

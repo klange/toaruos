@@ -75,4 +75,6 @@ int toaru_auth_read_group(const char * which, struct GroupEntry **out);
 int toaru_auth_write_group(const char * which, mode_t perms, struct GroupEntry *entries);
 struct GroupEntry * toaru_auth_get_group_by_name(struct GroupEntry * entries, const char * name);
 
+int toaru_auth_validate_name(const char * name);
+
 _End_C_Header
