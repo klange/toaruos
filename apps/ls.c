@@ -113,6 +113,24 @@ static void prefixes(int *colwidth, struct tfile * file) {
 	}
 }
 
+static void print_classifier(struct stat *statbuf, int hide_link) {
+	if (show_slash) {
+		if (S_ISDIR(statbuf->st_mode)) {
+			printf("/");
+		} else if (show_slash > 1 && S_ISLNK(statbuf->st_mode)) {
+			if (!hide_link) printf("@");
+		} else if (show_slash > 1 && S_ISFIFO(statbuf->st_mode)) {
+			printf("|");
+		} else if (show_slash > 1 && (statbuf->st_mode & 0111)) {
+			printf("*");
+		} else if (show_slash > 1 && S_ISSOCK(statbuf->st_mode)) {
+			printf("=");
+		} else {
+			printf(" ");
+		}
+	}
+}
+
 static void print_entry(struct tfile * file, int *colwidth) {
 	prefixes(colwidth,file);
 
@@ -134,21 +152,7 @@ static void print_entry(struct tfile * file, int *colwidth) {
 	}
 
 	/* These classifiers are accounted for in width calculations separately */
-	if (show_slash) {
-		if (S_ISDIR(file->statbuf.st_mode)) {
-			printf("/");
-		} else if (show_slash > 1 && S_ISLNK(file->statbuf.st_mode)) {
-			printf("@");
-		} else if (show_slash > 1 && S_ISFIFO(file->statbuf.st_mode)) {
-			printf("|");
-		} else if (show_slash > 1 && (file->statbuf.st_mode & 0111)) {
-			printf("*");
-		} else if (show_slash > 1 && S_ISSOCK(file->statbuf.st_mode)) {
-			printf("=");
-		} else {
-			printf(" ");
-		}
-	}
+	print_classifier(&file->statbuf, 0);
 
 	/* Pad the rest of the column */
 	for (int rem = colwidth[0] - display_width_of_string(file->name); rem > 0; rem--) {
@@ -268,9 +272,7 @@ static void print_entry_long(int * widths, int * colwidth, struct tfile * file) 
 	} else {
 		printf("%s", file->name);
 	}
-	if (show_slash && S_ISDIR(file->statbuf.st_mode)) {
-		printf("/");
-	}
+	print_classifier(&file->statbuf, 1);
 	if (S_ISLNK(file->statbuf.st_mode) && *file->link) {
 		printf(" -> ");
 		const char * s = file->lstatres == 0 ? ls_color_str(file->link, &file->statbufl) : LS_C(MISS);
@@ -279,6 +281,7 @@ static void print_entry_long(int * widths, int * colwidth, struct tfile * file) 
 		} else {
 			printf("%s", file->link);
 		}
+		print_classifier(&file->statbufl, 1);
 	}
 
 	printf("\n");
