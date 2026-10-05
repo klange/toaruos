@@ -119,7 +119,7 @@ int main (int argc, char * argv[]) {
 
 	for (int i = optind; i < argc; ++i) {
 		ctx.i = i;
-		if (procfs_iterate(pidof_callback, &ctx, PROCFSLIB_NO_THREADS | PROCFSLIB_COLLECT_COMMANDLINE)) break;
+		if (procfs_iterate(pidof_callback, &ctx, PROCFSLIB_NO_THREADS | PROCFSLIB_COLLECT_EXE)) break;
 	}
 
 	if (!ctx.found_something) return 1;

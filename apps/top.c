@@ -559,7 +559,7 @@ static struct process ** read_processes(size_t * count) {
 	ents_list = list_create();
 	process_ents = hashmap_create_int(10);
 
-	procfs_iterate(top_callback, NULL, PROCFSLIB_NO_FREE | PROCFSLIB_COLLECT_COMMANDLINE | PROCFSLIB_NO_CURLY_THREADS);
+	procfs_iterate(top_callback, NULL, PROCFSLIB_NO_FREE | PROCFSLIB_COLLECT_COMMANDLINE | PROCFSLIB_NO_CURLY_THREADS | PROCFSLIB_COLLECT_EXE);
 
 	hashmap_free(process_ents);
 	free(process_ents);

@@ -112,7 +112,7 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 	}
 
 	if (flags & PROCFSLIB_COLLECT_COMMANDLINE) {
-		char * tmp;
+		char * tmp = NULL;
 		asprintf(&tmp, "/proc/%s/cmdline", dent->d_name);
 		f = fopen(tmp, "r");
 		free(tmp);
@@ -128,7 +128,10 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 			}
 			fclose(f);
 		}
+	}
 
+	if (flags & PROCFSLIB_COLLECT_EXE) {
+		char * tmp = NULL;
 		asprintf(&tmp, "/proc/%s/exe", dent->d_name);
 		char exe_path[4096] = {0};
 		ssize_t r = readlink(tmp, exe_path, 4096);
