@@ -131,9 +131,8 @@ int main(int argc, char * argv[]) {
 		}
 	}
 
+	if (optind == argc || optind + 2 < argc) return usage(argc, argv); /* excess arguments */
 	if (geteuid() != 0) errx(54, "must be root");
-
-	if (optind + 2 < argc) return usage(argc, argv); /* excess arguments */
 
 	char * name = argv[optind];
 
