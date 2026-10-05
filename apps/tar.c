@@ -51,8 +51,10 @@ struct ustar {
 
 static struct ustar * extract_file(FILE * f) {
 	static struct ustar _ustar;
-	if (fread(&_ustar, 1, sizeof(struct ustar), f) != sizeof(struct ustar)) {
-		fprintf(stderr, "failed to read file\n");
+	size_t r = fread(&_ustar, 1, sizeof(struct ustar), f);
+	if (r == 0) return NULL; /* EOF ? */
+	if (r != sizeof(struct ustar)) {
+		fprintf(stderr, "tar: unexpected end of file\n");
 		return NULL;
 	}
 
