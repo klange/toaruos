@@ -262,3 +262,83 @@ int toaru_auth_set_pass_entry(struct PasswdEntry * entry, char * password) {
 	entry->pwd.pw_passwd = password;
 	return 0;
 }
+
+static struct GroupEntry * get_grent(FILE * stream) {
+	struct GroupEntry * result = calloc(1, sizeof(struct GroupEntry));
+	struct group * _result = NULL;
+
+	if (fgetgrent_t(stream, &result->grp, &result->orig_line, &result->orig_line_space, &_result)) {
+		free(result->orig_line);
+		free(result);
+		return NULL;
+	}
+
+	return result;
+}
+
+
+int toaru_auth_read_group(const char * which, struct GroupEntry **out) {
+	FILE * groupfile = fopen(which, "r");
+	if (!groupfile) return -1;
+
+	struct GroupEntry * last = NULL;
+	*out = NULL;
+
+	while (!feof(groupfile)) {
+		struct GroupEntry * ent = get_grent(groupfile);
+		if (!ent) continue;
+		if (!last) *out = ent;
+		else last->next = ent;
+		last = ent;
+	}
+
+	fclose(groupfile);
+	return 0;
+}
+
+
+int toaru_auth_write_group(const char * which, mode_t perms, struct GroupEntry *entries) {
+	/* First write to a temporary file */
+	char *name = NULL;
+	asprintf(&name, "%s.%d", which, getpid());
+
+	mode_t prev = umask(S_IXUSR | S_IRWXG | S_IRWXO);
+	FILE * f = fopen(name, "wx");
+	umask(prev);
+
+	if (!f) err(1, "%s", name);
+
+	if (fchown(fileno(f), 0, 0)) err(1, "fchown");
+	if (fchmod(fileno(f), perms)) err(1, "fchmod");
+
+	struct GroupEntry * ent = entries;
+
+	while (ent) {
+		fprintf(f, "%s:%s:%d:",
+			ent->grp.gr_name,
+			ent->grp.gr_passwd,
+			ent->grp.gr_gid);
+
+		for (char ** mem = ent->grp.gr_mem; *mem; mem++) {
+			fprintf(f, "%s%s", *mem, mem[1] ? "," : "");
+		}
+
+		fputc('\n', f);
+
+		ent = ent->next;
+	}
+
+	fflush(f);
+	fclose(f);
+
+	if (rename(name, which) < 0) err(1, "rename");
+
+	free(name);
+	return 0;
+}
+
+struct GroupEntry * toaru_auth_get_group_by_name(struct GroupEntry * entries, const char * name) {
+	while (entries && strcmp(entries->grp.gr_name, name)) entries = entries->next;
+	return entries;
+}
+

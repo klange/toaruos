@@ -16,6 +16,7 @@
 #include <_cheader.h>
 #include <unistd.h>
 #include <pwd.h>
+#include <grp.h>
 
 _Begin_C_Header
 
@@ -62,5 +63,16 @@ int toaru_auth_write_passwd(const char * which, mode_t perms, struct PasswdEntry
 int toaru_auth_free_passwd(struct PasswdEntry * entries);
 int toaru_auth_check_pass_entry(struct PasswdEntry * entry, const char * password);
 int toaru_auth_set_pass_entry(struct PasswdEntry * entry, char * password);
+
+struct GroupEntry {
+	char * orig_line;
+	size_t orig_line_space;
+	struct group grp;
+	struct GroupEntry * next;
+};
+
+int toaru_auth_read_group(const char * which, struct GroupEntry **out);
+int toaru_auth_write_group(const char * which, mode_t perms, struct GroupEntry *entries);
+struct GroupEntry * toaru_auth_get_group_by_name(struct GroupEntry * entries, const char * name);
 
 _End_C_Header
