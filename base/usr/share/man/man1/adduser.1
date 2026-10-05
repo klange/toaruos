@@ -1,0 +1,69 @@
+.TH ADDUSER 1 "October, 2026"
+
+.SH NAME
+\fBadduser\fP \- add users and groups (and users to groups)
+
+.SH SYNOPSIS
+\fBadduser\fP [\fB\-\-home\fP \fIdir\fP] [\fB\-\-uid\fP \fIuid\fP]  [\fB\-\-gid\fP \fIgid\fP] [\fB\-\-gecos\fP \fIname\fP] [\fB\-\-theme\fP \fItheme\fP] \fIuser\fP
+.br
+\fBadduser\fP \fB\-\-group\fP [\fB\-\-gid\fP gid\fP] \fIgroup\fP
+.br
+\fBadduser\fP \fIuser\fP \fIgroup\fP
+
+.SH DESCRIPTION
+This utility attempts to add new users and groups to the password and group database.
+.PP
+In the first form, a new user is created.
+A password must be entered and confirmed interactively.
+Defaults for most values will be set automatically.
+.PP
+In the second form, a new group is created.
+All of the same options as from the first form are supported, but a password will not be collected
+and the resulting name will be added to the group database instead of the master password database.
+.PP
+In the third form, an existing user is added to an existing group.
+
+.SS Options
+
+.TP
+.B \-\-uid \fIuid\fP
+Override the UID for the new user.
+This option is ignored when adding a new group.
+A default will be selected based on the highest current UID.
+
+.TP
+.B \-\-gid \fIgid\fP
+Override the default group ID of the new user, or the ID of a new group.
+By default, the GID will match the UID.
+Groups must have the same UID and GID, and using this option when adding
+groups will override both.
+When adding new groups, the default GID is the highest available UID/GID
+(these share a namespace) lower than 1000.
+
+.TP
+.B \-\-home \fIdir\fP
+Select an alternate home directory.
+Home directories are created by this utility and given appropriate ownership,
+and the default home directory is normally \fB/home/{user}\fP.
+Groups are given the home directory \fB/tmp\fP, and home directories
+are not created when adding new groups.
+
+.TP
+.B \-\-gecos \fIname\fP
+Set the "gecos" field for the user, which typically holds a full name.
+
+.TP
+.B \-\-theme \fItheme\fP
+Set the comment field of the new user, which ToaruOS uses to store decorator theme configurations.
+No restrictions are placed on the \fItheme\fP value when using this utility;
+when users use \fBchsh\fP, they are restricted to strings consistingly only of lower case letters.
+
+.SH NOTES
+Only \fBroot\fP can usefully run this.
+
+.SH SEE ALSO
+.BR login (1),
+.BR chsh (1)
+
+.SH STANDARDS
+This utility tries to emulate some of the behavior of the Debian version.
