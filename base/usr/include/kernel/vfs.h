@@ -75,6 +75,7 @@ typedef struct fs_vtable {
 	fault_map_t fault_map;
 	utimens_type_t utimens;
 	hardlink_type_t hardlink;
+	int can_mount;
 } fs_vtable_t;
 
 /* These paths are a temporary stop-gap implementation.

@@ -41,6 +41,8 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <sys/reboot.h>
+#include <sys/stat.h>
+#include <sys/mount.h>
 
 #define INITD_PATH "/etc/startup.d"
 
@@ -94,6 +96,10 @@ static int not_hidden(const struct dirent *ent) {
 }
 
 int main(int argc, char * argv[]) {
+	/* Ensure /dev is mounted */
+	mkdir("/dev", 0555);
+	mount("", "/dev", "devfs", 0, NULL);
+
 	/* Initialize stdin/out/err */
 	set_console();
 

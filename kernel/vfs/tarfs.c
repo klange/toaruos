@@ -22,6 +22,7 @@
 struct tarfs {
 	struct fs_file_description * device;
 	unsigned int length;
+	hashmap_t * dircache;
 };
 
 struct ustar {
@@ -378,6 +379,7 @@ static ssize_t readlink_tarfs(fs_node_t * node, char * buf, size_t size) {
 static fs_vtable_t tarfs_dir_ops = {
 	.readdir = readdir_tarfs,
 	.finddir = finddir_tarfs,
+	.can_mount = 1,
 };
 
 static fs_vtable_t tarfs_symlink_ops = {
@@ -391,6 +393,12 @@ static fs_vtable_t tarfs_file_ops = {
 static fs_vtable_t dummy_ops = { 0 };
 
 static fs_node_t * file_from_ustar(struct tarfs * self, struct ustar * file, unsigned int offset) {
+
+	if (hashmap_has(self->dircache, (void*)(uintptr_t)offset)) {
+		free(file);
+		return hashmap_get(self->dircache, (void*)(uintptr_t)offset);
+	}
+
 	fs_node_t * fs = calloc(1, sizeof(fs_node_t));
 	fs->device = self;
 	fs->inode  = offset;
@@ -405,15 +413,21 @@ static fs_node_t * file_from_ustar(struct tarfs * self, struct ustar * file, uns
 	if (file->type[0] == '5') {
 		fs->type = INO_DIR;
 		fs->ops = &tarfs_dir_ops;
+		fs->refcount++;
+		hashmap_set(self->dircache, (void*)(uintptr_t)offset, fs);
 	} else if (file->type[0] == '1') {
 		/* go through file and find target, reassign inode to point to that */
 		fs->ops = &dummy_ops;
 	} else if (file->type[0] == '2') {
 		fs->type = INO_LNK;
 		fs->ops = &tarfs_symlink_ops;
-	} else {
+		fs->length = strlen(file->link);
+	} else if (file->type[0] == '0') {
 		fs->type = INO_REG;
 		fs->ops = &tarfs_file_ops;
+	} else {
+		dprintf("tarfs: warning: unhandled type\n");
+		fs->ops = &dummy_ops;
 	}
 
 	time_t mtime = interpret_mtime(file);
@@ -492,13 +506,13 @@ static fs_node_t * tar_mount(const char * device, const char * mount_path) {
 	free(arg); /* Shouldn't need the filename or args anymore */
 
 	if (!dev) {
-		printf("tarfs: could not open target device: %d\n", error);
+		dprintf("tarfs: could not open target device: %d\n", error);
 		return NULL;
 	}
 
 	if (dev->inode->type != INO_REG && dev->inode->type != INO_BLK) {
 		/* Inappropriate device. */
-		printf("tarfs: inappropriate device type\n");
+		dprintf("tarfs: inappropriate device type\n");
 		fs_close_desc(dev);
 		return NULL;
 	}
@@ -508,6 +522,7 @@ static fs_node_t * tar_mount(const char * device, const char * mount_path) {
 
 	self->device = dev;
 	self->length = dev->inode->length;
+	self->dircache = hashmap_create_int(10);
 
 	fs_node_t * root = calloc(1,sizeof(fs_node_t));
 
@@ -539,7 +554,7 @@ int tarfs_unpack(char * from_file) {
 	int error = 0;
 	struct fs_file_description * dev = kopen_at(NULL, from_file, O_RDONLY, 0, &error);
 	if (!dev) {
-		dprintf("migrate: could not open '%s'\n", from_file);
+		dprintf("migrate: could not open '%s' (error = %d)\n", from_file, error);
 		return error;
 	}
 
@@ -588,7 +603,7 @@ int tarfs_unpack(char * from_file) {
 				chown_fs(fd->inode, interpret_uid(file), interpret_gid(file));
 				break;
 			case '5': /* Directory */
-				fd = kopen_at(NULL, filename_workspace, O_CREAT | O_DIRECTORY | (1 << 30), mode, &error);
+				fd = kopen_at(NULL, filename_workspace, O_CREAT | O_DIRECTORY, mode, &error);
 				if (!fd) goto _next;
 				chown_fs(fd->inode, interpret_uid(file), interpret_gid(file));
 				goto _times;

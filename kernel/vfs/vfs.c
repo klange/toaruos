@@ -587,15 +587,12 @@ int vfs_register(const char * name, vfs_mount_callback callback) {
 	return 0;
 }
 
+static struct fs_vtable mountpoint_ops = {0};
 static void * vfs_mount(const char * path, fs_node_t * local_root, const char * type, const char * options);
 
 int vfs_mount_type(const char * type, const char * arg, const char * mountpoint) {
-
 	vfs_mount_callback t = (vfs_mount_callback)(uintptr_t)hashmap_get(fs_types, type);
-	if (!t) {
-		debug_print(WARNING, "Unknown filesystem type: %s", type);
-		return -ENODEV;
-	}
+	if (!t) return -ENODEV;
 
 	fs_node_t * n = t(arg, mountpoint);
 
@@ -604,11 +601,30 @@ int vfs_mount_type(const char * type, const char * arg, const char * mountpoint)
 
 	if (!n) return -EINVAL;
 
-	tree_node_t * node = vfs_mount(mountpoint, n, type, arg);
-	if (!node) return -EINVAL;
+	if (!strcmp(mountpoint, "/")) {
+		return (!vfs_mount(mountpoint, n, type, arg)) ? -EINVAL : 0;
+	}
 
-	debug_print(NOTICE, "Mounted %s[%s] to %s: %p", type, arg, mountpoint, (void*)n);
+	fs_node_t * parent = NULL;
+	fs_node_t * file = NULL;
+	int error = kopen_parent(NULL, mountpoint, &parent, &file);
+	if (!parent) return error;
+	close_fs(parent);
+	if (!file) return error;
+	if (file->type != INO_DIR && file->type != INO_MOUNT) return -ENOTDIR;
+	if (file->type == INO_DIR && !file->ops->can_mount) return -EPERM;
+ 
+	if (file->type == INO_MOUNT) dprintf("vfs: replacing existing mount at %s\n", mountpoint);
 
+	n->refcount++;
+
+	file->type = INO_MOUNT;
+	file->mount = n;
+	file->ops = &mountpoint_ops;
+
+	vfs_mount(mountpoint, n, type, arg);
+
+	close_fs(file);
 	return 0;
 }
 
@@ -668,91 +684,62 @@ static spin_lock_t tmp_vfs_lock = { 0 };
  * Paths here must be absolute.
  */
 static void * vfs_mount(const char * path, fs_node_t * local_root, const char * type, const char * options) {
-	if (!fs_tree) {
-		debug_print(ERROR, "VFS hasn't been initialized, you can't mount things yet!");
-		return NULL;
-	}
-	if (!path || path[0] != '/') {
-		debug_print(ERROR, "Path must be absolute for mountpoint.");
-		return NULL;
+	if (!fs_tree || !path || *path != '/') return NULL;
+
+	if (!strcmp(path,"/")) {
+		struct vfs_entry * root = (struct vfs_entry *)fs_tree->root->value;
+		root->file = local_root;
+		root->device = strdup(options);
+		root->fs_type = strdup(type);
+		local_root->refcount++;
+		fs_root = local_root;
+		return fs_tree->root;
 	}
 
 	spin_lock(tmp_vfs_lock);
-
 	vfs_lock(local_root);
-
 	tree_node_t * ret_val = NULL;
 
 	char * p = strdup(path);
 	char * i = p;
+	int path_len  = strlen(p);
 
-	int path_len   = strlen(p);
-
-	/* Chop the path up */
-	while (i < p + path_len) {
-		if (*i == PATH_SEPARATOR) {
-			*i = '\0';
-		}
-		i++;
-	}
-	/* Clean up */
+	for (; i < p + path_len; i++) if (*i == '/') *i = '\0';
 	p[path_len] = '\0';
 	i = p + 1;
 
-	/* Root */
 	tree_node_t * root_node = fs_tree->root;
 
-	if (*i == '\0') {
-		/* Special case, we're trying to set the root node */
-		struct vfs_entry * root = (struct vfs_entry *)root_node->value;
-		if (root->file) {
-			debug_print(WARNING, "Path %s already mounted, unmount before trying to mount something else.", path);
-		}
-		root->file = local_root;
-		root->device = strdup(options);
-		root->fs_type = strdup(type);
-		/* We also keep a legacy shortcut around for that */
-		fs_root = local_root;
-		ret_val = root_node;
-	} else {
-		tree_node_t * node = root_node;
-		char * at = i;
-		while (1) {
-			if (at >= p + path_len) {
+	tree_node_t * node = root_node;
+	char * at = i;
+	while (1) {
+		if (at >= p + path_len) break;
+		int found = 0;
+		foreach(child, node->children) {
+			tree_node_t * tchild = (tree_node_t *)child->value;
+			struct vfs_entry * ent = (struct vfs_entry *)tchild->value;
+			if (!strcmp(ent->name, at)) {
+				found = 1;
+				node = tchild;
+				ret_val = node;
 				break;
 			}
-			int found = 0;
-			debug_print(NOTICE, "Searching for %s", at);
-			foreach(child, node->children) {
-				tree_node_t * tchild = (tree_node_t *)child->value;
-				struct vfs_entry * ent = (struct vfs_entry *)tchild->value;
-				if (!strcmp(ent->name, at)) {
-					found = 1;
-					node = tchild;
-					ret_val = node;
-					break;
-				}
-			}
-			if (!found) {
-				debug_print(NOTICE, "Did not find %s, making it.", at);
-				struct vfs_entry * ent = malloc(sizeof(struct vfs_entry));
-				ent->name = strdup(at);
-				ent->file = NULL;
-				ent->device = NULL;
-				ent->fs_type = NULL;
-				node = tree_node_insert_child(fs_tree, node, ent);
-			}
-			at = at + strlen(at) + 1;
 		}
-		struct vfs_entry * ent = (struct vfs_entry *)node->value;
-		if (ent->file) {
-			debug_print(WARNING, "Path %s already mounted, unmount before trying to mount something else.", path);
+		if (!found) {
+			struct vfs_entry * ent = malloc(sizeof(struct vfs_entry));
+			ent->name = strdup(at);
+			ent->file = NULL;
+			ent->device = NULL;
+			ent->fs_type = NULL;
+			node = tree_node_insert_child(fs_tree, node, ent);
 		}
-		ent->file = local_root;
-		ent->device = strdup(options);
-		ent->fs_type = strdup(type);
-		ret_val = node;
+		at = at + strlen(at) + 1;
 	}
+	struct vfs_entry * ent = (struct vfs_entry *)node->value;
+	ent->file = local_root;
+	ent->device = strdup(options);
+	ent->fs_type = strdup(type);
+	ret_val = node;
 
 	free(p);
 	spin_unlock(tmp_vfs_lock);
@@ -774,10 +761,8 @@ void devfs_setup(void) {
 
 	vfs_register("devfs", devfs_mount);
 
-	#if 0
 	int error = 0;
 	kopen_at(NULL, "/dev", O_CREAT | O_DIRECTORY, 0555, &error);
-	#endif
 
 	vfs_mount_type("devfs", "", "/dev");
 }
@@ -793,53 +778,6 @@ fs_node_t * vfs_dev_subdir(const char* name) {
 	fs_node_t * out = NULL;
 	vfs_dev->ops->mkdir(vfs_dev, name, 0555, &out);
 	return out;
-}
-
-/**
- * get_mount_point
- *
- */
-fs_node_t *get_mount_point(char * path, unsigned int path_depth, char **outpath, unsigned int * outdepth) {
-	size_t depth;
-
-	for (depth = 0; depth <= path_depth; ++depth) {
-		path += strlen(path) + 1;
-	}
-
-	/* Last available node */
-	fs_node_t   * last = fs_root;
-	tree_node_t * node = fs_tree->root;
-
-	char * at = *outpath;
-	int _depth = 1;
-	int _tree_depth = 0;
-
-	while (1) {
-		if (at >= path) break;
-		int found = 0;
-		debug_print(INFO, "Searching for %s", at);
-		foreach(child, node->children) {
-			tree_node_t * tchild = (tree_node_t *)child->value;
-			struct vfs_entry * ent = (struct vfs_entry *)tchild->value;
-			if (!strcmp(ent->name, at)) {
-				found = 1;
-				node = tchild;
-				at = at + strlen(at) + 1;
-				if (ent->file) {
-					_tree_depth = _depth;
-					last = ent->file;
-					*outpath = at;
-				}
-				break;
-			}
-		}
-		if (!found) break;
-		_depth++;
-	}
-
-	*outdepth = _tree_depth;
-
-	return last;
 }
 
 static char * path_tokenize(char * path, size_t len, unsigned int *depth) {
@@ -897,16 +835,7 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 	char * path_offset = path_tokenize(path, path_len, &path_depth);
 
 	unsigned int depth = 0;
-	fs_node_t *node_ptr;
-	if (flags & (1 << 30)) {
-		/* XXX Temporary workaround: Ignore the mount tree. We should probably
-		 * filter this out of userspace calls, but whatever. Used by the tarfs
-		 * migration when creating directories so it can make /dev and /proc
-		 * as directories in the root. */
-		node_ptr = fs_root;
-	} else {
-		node_ptr = get_mount_point(path, path_depth, &path_offset, &depth);
-	}
+	fs_node_t *node_ptr = fs_root;
 
 	if (!node_ptr) return *error = ENOENT, NULL;
 	open_fs(node_ptr, flags);
@@ -996,6 +925,10 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 			free(path);
 			if (node_next) return open_fs(node_next, 0), node_next;
 			return *error = ENOENT, NULL;
+		}
+
+		if (node_next && node_next->type == INO_MOUNT) {
+			node_next = node_next->mount; /* jumped mounts */
 		}
 
 		if (!node_next) {

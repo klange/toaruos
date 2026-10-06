@@ -41,7 +41,7 @@ void generic_startup(void) {
 	vfs_install();
 	tarfs_register_init();
 	tmpfs_register_init();
-	//vfs_mount_type("tmpfs","x,755","/");
+	vfs_mount_type("tmpfs","x,755","/");
 	devfs_setup();
 	console_initialize();
 	zero_initialize();
@@ -65,7 +65,6 @@ int generic_main(void) {
 				dprintf("migrate: can not migrate from non-tar root\n");
 				arch_fatal();
 			}
-			vfs_mount_type("tmpfs","x,755","/");
 			tarfs_unpack(args_value("root"));
 		} else {
 			int r = vfs_mount_type(root_type,args_value("root"),"/");

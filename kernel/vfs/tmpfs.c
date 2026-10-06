@@ -782,6 +782,7 @@ static fs_vtable_t tmpfs_dir_ops = {
 	.utimens = utimens_tmpfs,
 	.hardlink = hardlink_tmpfs,
 	.close = close_tmpfs_dir,
+	.can_mount = 1,
 };
 
 fs_node_t * tmpfs_create(void) {
