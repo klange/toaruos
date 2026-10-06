@@ -360,6 +360,7 @@ void aarch64_sync_enter(struct regs * r) {
 		uint64_t tpidr_el0;
 		asm volatile ("mrs %0, TPIDR_EL0" : "=r"(tpidr_el0));
 		dprintf("  TPIDR_EL0=%#zx\n", tpidr_el0);
+		arch_dump_traceback();
 	}
 
 	int signo = SIGSEGV;

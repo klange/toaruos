@@ -496,7 +496,7 @@ static int vmware_initialize(int argc, char * argv[]) {
 	mouse_ops.ioctl = ioctl_mouse;
 	mouse_pipe->ops   = &mouse_ops;
 
-	vfs_mount("/dev/vmmouse", mouse_pipe, "vmware-mouse", "");
+	vfs_add_dev("vmmouse", mouse_pipe);
 
 
 	/*

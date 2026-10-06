@@ -466,7 +466,7 @@ static int readdir_tmpfs(fs_node_t *node, uint64_t index, struct dirent * out) {
 		if (i == index) {
 			struct tmpfs_dirent * t = (struct tmpfs_dirent *)f->value;
 			memset(out, 0x00, sizeof(struct dirent));
-			out->d_ino = (uint64_t)t->inode;
+			out->d_ino = ((fs_node_t*)t->inode)->inode;
 			strcpy(out->d_name, t->name);
 			return 1;
 		} else {

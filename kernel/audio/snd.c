@@ -384,8 +384,8 @@ static fs_node_t * init_dev_mixer(void) {
 }
 
 void snd_install(void) {
-	vfs_mount("/dev/dsp", init_dev_dsp(), "dsp", "");
-	vfs_mount("/dev/snd", init_dev_snd(), "snd", "");
-	vfs_mount("/dev/mixer", init_dev_mixer(), "mixer", "");
+	vfs_add_dev("dsp", init_dev_dsp());
+	vfs_add_dev("snd", init_dev_snd());
+	vfs_add_dev("mixer", init_dev_mixer());
 }
 

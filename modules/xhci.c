@@ -359,14 +359,14 @@ void xhci_thread(void * arg) {
 
 	xhci_command(controller, 0, 0, 0, (23 << 10));
 
-	char devName[20] = "/dev/xhciN";
-	snprintf(devName, 19, "/dev/xhci%d", 0);
+	char devName[20] = "xhciN";
+	snprintf(devName, 19, "xhci%d", 0);
 	fs_node_t * fnode = calloc(sizeof(fs_node_t), 1);
 	fnode->type    = INO_BLK;
 	fnode->mask    = 0660; /* Only accessible to root user/group */
 	fnode->ops     = &xhci_fs_ops;
 	fnode->device  = controller;
-	vfs_mount(devName, fnode, "xhci", "");
+	vfs_add_dev(devName, fnode);
 
 	int event_deq = 0;
 	uint32_t event_cycle_state = 1;

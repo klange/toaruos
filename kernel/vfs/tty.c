@@ -767,8 +767,8 @@ void pty_install(void) {
 	_pty_dir   = create_pty_dir();
 	_dev_tty   = create_dev_tty();
 
-	vfs_mount("/dev/pts", _pty_dir, "pts", "");
-	vfs_mount("/dev/tty", _dev_tty, "devtty", "");
+	vfs_add_dev("pts", _pty_dir);
+	vfs_add_dev("tty", _dev_tty);
 }
 
 pty_t * pty_new(struct winsize * size, int index) {

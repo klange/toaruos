@@ -58,7 +58,7 @@ static void pl011_thread(void * arg) {
 	pty->subsidiary->gid = 2; /* dialout group */
 	pty->subsidiary->mask = 0660;
 	pty->_private = (void*)uart_mapped;
-	vfs_mount("/dev/ttyS0", pty->subsidiary, "pl011", "");
+	vfs_add_dev("ttyS0", pty->subsidiary);
 
 	/* Set up interrupt callback */
 	gic_assign_interrupt(ctx->irq_no, pl011_irq, (void*)uart_mapped);

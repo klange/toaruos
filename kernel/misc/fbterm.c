@@ -476,7 +476,7 @@ static void vga_text_init(void) {
 	vga_text_device->type   = INO_BLK;
 	vga_text_device->mask   = 0660;
 	vga_text_device->ops    = &vga_ops;
-	vfs_mount("/dev/vga0", vga_text_device, "vgatext", "");
+	vfs_add_dev("vga0", vga_text_device);
 }
 
 

@@ -196,7 +196,7 @@ static void finalize_graphics(const char * driver) {
 	char info[100];
 	snprintf(info, 99, "%s,%ux%u", driver, lfb_resolution_x, lfb_resolution_y);
 
-	vfs_mount("/dev/fb0", lfb_device, "lfb", info);
+	vfs_add_dev("fb0", lfb_device);
 
 	procfs_install(&framebuffer_entry);
 }

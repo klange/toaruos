@@ -142,6 +142,12 @@ static long stat_node(fs_node_t * fn, struct stat * f) {
 		case INO_FIFO: flags = _IFIFO; break;
 		case INO_LNK:  flags = _IFLNK; break;
 		case INO_SOCK: flags = _IFSOCK; break;
+		case INO_MOUNT:
+			arch_fatal_prepare();
+			dprintf("Leaked mount node to userspace stat\n");
+			arch_dump_traceback();
+			arch_fatal();
+			break;
 	}
 
 	f->st_mode  = fn->mask | flags;

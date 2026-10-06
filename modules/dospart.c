@@ -110,6 +110,7 @@ static fs_node_t * dospart_map(const char * device, const char * mount_path) {
 	int error = 0;
 	fs_node_t * dev = kopen_error(argv[0], 0, &error);
 	if (!dev) {
+		free(arg);
 		return NULL;
 	}
 
@@ -121,13 +122,13 @@ static fs_node_t * dospart_map(const char * device, const char * mount_path) {
 			if (mbr.partitions[i].status & 0x80) {
 				fs_node_t * node = dospart_device_create(i, dev, &mbr, i);
 				char tmp[64];
-				snprintf(tmp, 20, "%s%d", device, i);
-				vfs_mount(tmp, node, "dospart", tmp);
+				snprintf(tmp, 20, "%s%d", fs_basename(device), i);
+				vfs_add_dev(tmp, node);
 			}
 		}
 	}
 
-	/* VFS_MOUNT_PARTITION_MAPPER_SUCCESS? */
+	free(arg);
 	return (fs_node_t*)1;
 }
 

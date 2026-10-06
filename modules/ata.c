@@ -723,11 +723,9 @@ static int ata_device_detect(struct ata_device * dev) {
 		}
 
 		char devname[64];
-		snprintf((char *)&devname, 20, "/dev/hd%c", ata_drive_char);
+		snprintf((char *)&devname, 20, "hd%c", ata_drive_char);
 		fs_node_t * node = ata_device_create(dev);
-		char options[21];
-		snprintf(options, 20, "%c", ata_drive_char);
-		vfs_mount(devname, node, "ata-hd", options);
+		vfs_add_dev(devname, node);
 		node->length  = sectors;
 
 		ata_drive_char++;
@@ -737,15 +735,13 @@ static int ata_device_detect(struct ata_device * dev) {
 	           (cl == 0x69 && ch == 0x96)) {
 
 		char devname[64];
-		snprintf((char *)&devname, 20, "/dev/cdrom%d", cdrom_number);
+		snprintf((char *)&devname, 20, "cdrom%d", cdrom_number);
 
 		if (atapi_device_init(dev)) {
 			return 0;
 		}
 		fs_node_t * node = atapi_device_create(dev);
-		char options[21];
-		snprintf(options, 20, "%d", cdrom_number);
-		vfs_mount(devname, node, "atapi-cdrom", options);
+		vfs_add_dev(devname, node);
 
 		cdrom_number++;
 		found_something = 1;

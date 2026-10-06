@@ -57,8 +57,8 @@ static fs_node_t * random_device_create(void) {
 }
 
 void random_initialize(void) {
-	vfs_mount("/dev/random", random_device_create(), "random", "");
-	vfs_mount("/dev/urandom", random_device_create(), "random", "");
+	vfs_add_dev("random", random_device_create());
+	vfs_add_dev("urandom", random_device_create());
 	uint32_t seed = now();
 	x = 123456789  ^ (seed << 16) ^ (seed >> 16);
 }

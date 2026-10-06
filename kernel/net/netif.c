@@ -40,9 +40,12 @@ static void procfs_net_dir(fs_node_t * node) {
 
 static struct procfs_entry procfs_net_pex  = { 0, "net", procfs_net_dir,  INO_DIR };
 
+static fs_node_t * dev_net_fd = NULL;
+
 void net_install(void) {
 	/* Set up virtual devices */
-	map_vfs_directory("/dev/net");
+	dev_net_fd = vfs_dev_subdir("net");
+
 	procfs_net_files = list_create("procfs net files", NULL);
 	procfs_install(&procfs_net_pex);
 	interfaces = hashmap_create(10);
@@ -58,13 +61,10 @@ void net_install(void) {
 /* kinda temporary for now */
 int net_add_interface(const char * name, fs_node_t * deviceNode) {
 	hashmap_set(interfaces, name, deviceNode);
-
-	char tmp[100];
-	snprintf(tmp,100,"/dev/net/%s", name);
-	vfs_mount(tmp, deviceNode, "netif", "");
-
+	if (dev_net_fd) {
+		dev_net_fd->ops->hardlink(dev_net_fd, name, deviceNode);
+	}
 	if (!_if_first) _if_first = deviceNode;
-
 	return 0;
 }
 

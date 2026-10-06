@@ -24,6 +24,7 @@ enum ino_type {
 	INO_FIFO,
 	INO_LNK,
 	INO_SOCK,
+	INO_MOUNT,
 };
 
 struct fs_node;
@@ -167,16 +168,12 @@ int rename_file_fs_at(struct fs_file_description * src_fd, const char * src, str
 int link_fs_at(struct fs_file_description * dest_fd, const char * dest_path, struct fs_file_description * src_fd, const char * src_path, int flag);
 
 void vfs_install(void);
-void * vfs_mount(const char * path, fs_node_t * local_root, const char * type, const char * options);
 typedef fs_node_t * (*vfs_mount_callback)(const char * arg, const char * mount_point);
 int vfs_register(const char * name, vfs_mount_callback callback);
 int vfs_mount_type(const char * type, const char * arg, const char * mountpoint);
 void vfs_lock(fs_node_t * node);
-
-/* Debug purposes only, please */
-void debug_print_vfs_tree(void);
-
-void map_vfs_directory(const char *);
+void vfs_add_dev(const char * name, fs_node_t * node);
+fs_node_t * vfs_dev_subdir(const char*);
 
 int make_unix_pipe(fs_node_t ** pipes);
 

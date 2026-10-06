@@ -83,7 +83,7 @@ static fs_node_t * spkr_device_create(void) {
 
 static int init(int argc, char * argv[]) {
 	fs_node_t * node = spkr_device_create();
-	vfs_mount("/dev/spkr", node, "pcspkr", "");
+	vfs_add_dev("spkr", node);
 	return 0;
 }
 

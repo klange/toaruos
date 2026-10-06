@@ -31,6 +31,9 @@ extern void snd_install(void);
 extern void net_install(void);
 extern void console_initialize(void);
 extern void modules_install(void);
+extern void devfs_setup(void);
+extern void vfs_remount_devices(void);
+extern int tarfs_unpack(char * from_file);
 
 void generic_startup(void) {
 	args_parse(arch_get_cmdline());
@@ -38,7 +41,8 @@ void generic_startup(void) {
 	vfs_install();
 	tarfs_register_init();
 	tmpfs_register_init();
-	map_vfs_directory("/dev");
+	//vfs_mount_type("tmpfs","x,755","/");
+	devfs_setup();
 	console_initialize();
 	zero_initialize();
 	procfs_initialize();
@@ -62,10 +66,11 @@ int generic_main(void) {
 				arch_fatal();
 			}
 			vfs_mount_type("tmpfs","x,755","/");
-			extern int tarfs_unpack(char * from_file);
 			tarfs_unpack(args_value("root"));
 		} else {
-			vfs_mount_type(root_type,args_value("root"),"/");
+			int r = vfs_mount_type(root_type,args_value("root"),"/");
+			if (r != 0) dprintf("generic: failed to mount root (%d)\n", r);
+			/* You're on your own. */
 		}
 	}
 

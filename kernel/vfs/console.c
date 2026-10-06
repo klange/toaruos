@@ -126,5 +126,5 @@ static fs_node_t * console_device_create(void) {
 
 void console_initialize(void) {
 	console_dev = console_device_create();
-	vfs_mount("/dev/console", console_dev, "console", "");
+	vfs_add_dev("console", console_dev);
 }

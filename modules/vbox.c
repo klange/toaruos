@@ -347,7 +347,7 @@ static int vbox_install(int argc, char * argv[]) {
 	mouse_ops.ioctl = ioctl_mouse;
 	mouse_pipe->ops   = &mouse_ops;
 
-	vfs_mount("/dev/absmouse", mouse_pipe, "vbox-tablet", "");
+	vfs_add_dev("absmouse", mouse_pipe);
 
 	vbox_irq = pci_get_interrupt(vbox_device);
 	//fprintf(&vb, "irq line is %d\n", vbox_irq);
@@ -458,7 +458,7 @@ static int vbox_install(int argc, char * argv[]) {
 				pointer_pipe->type = INO_CHR;
 				pointer_pipe->ops   = &pointer_ops;
 
-				vfs_mount("/dev/vboxpointer", pointer_pipe, "vbox-pointer", "");
+				vfs_add_dev("vboxpointer", pointer_pipe);
 			}
 		}
 	}
@@ -483,7 +483,7 @@ static int vbox_install(int argc, char * argv[]) {
 		rect_pipe->type = INO_CHR;
 		rect_pipe->ops   = &rectpipe_ops;
 
-		vfs_mount("/dev/vboxrects", rect_pipe, "vbox-rects", "");
+		vfs_add_dev("vboxrects", rect_pipe);
 	}
 
 	/* device memory region mapping? */

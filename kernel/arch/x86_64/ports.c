@@ -113,5 +113,5 @@ static fs_node_t * port_device_create(void) {
 }
 
 void portio_initialize(void) {
-	vfs_mount("/dev/port", port_device_create(), "port", "");
+	vfs_add_dev("port", port_device_create());
 }

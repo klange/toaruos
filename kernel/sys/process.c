@@ -214,6 +214,8 @@ void switch_task(uint8_t reschedule) {
 	switch_next();
 }
 
+static process_t dummy_process = {0};
+
 /**
  * @brief Initial scheduler datastructures.
  *
@@ -226,6 +228,8 @@ void initialize_process_tree(void) {
 	process_queue = list_create("global scheduler queue",NULL);
 	sleep_queue = list_create("global timed sleep queue",NULL);
 	reap_queue = list_create("processes awaiting later cleanup",NULL);
+
+	this_core->current_process = &dummy_process;
 
 	/* TODO: PID bitset? */
 }

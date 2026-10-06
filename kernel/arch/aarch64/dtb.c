@@ -251,6 +251,6 @@ void dtb_device(void) {
 	fnode->length  = 1048576;
 	fnode->type = INO_BLK;
 	fnode->ops     = &dtb_ops;
-	vfs_mount("/dev/dtb", fnode, "dtb", "");
+	vfs_add_dev("dtb", fnode);
 }
 

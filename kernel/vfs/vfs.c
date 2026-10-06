@@ -100,55 +100,6 @@ int has_permission(fs_node_t * node, int permission_bit) {
 	return (permission_bit & my_permissions) == permission_bit;
 }
 
-static int readdir_mapper(fs_node_t *node, unsigned long index, struct dirent * dir) {
-	tree_node_t * d = (tree_node_t *)node->device;
-
-	if (!d) return 0;
-
-	if (index == 0) {
-		strcpy(dir->d_name, ".");
-		dir->d_ino = 0;
-		return 1;
-	} else if (index == 1) {
-		strcpy(dir->d_name, "..");
-		dir->d_ino = 1;
-		return 1;
-	}
-
-	index -= 2;
-	unsigned long i = 0;
-	foreach(child, d->children) {
-		if (i == index) {
-			/* Recursively print the children */
-			tree_node_t * tchild = (tree_node_t *)child->value;
-			struct vfs_entry * n = (struct vfs_entry *)tchild->value;
-
-			size_t len = strlen(n->name) + 1;
-			memcpy(&dir->d_name, n->name, MIN(256, len));
-			dir->d_ino = i;
-			return 1;
-		}
-		++i;
-	}
-
-	return 0;
-}
-
-static fs_vtable_t mapper_ops = {
-	.readdir = readdir_mapper,
-};
-
-static fs_node_t * vfs_mapper(void) {
-	fs_node_t * fnode = calloc(1, sizeof(fs_node_t));
-	fnode->mask    = 0555;
-	fnode->type    = INO_DIR;
-	fnode->ops     = &mapper_ops;
-	fnode->ctime   = now();
-	fnode->mtime   = now();
-	fnode->atime   = now();
-	return fnode;
-}
-
 /**
  * @brief Check if a read from this file would block.
  */
@@ -636,6 +587,8 @@ int vfs_register(const char * name, vfs_mount_callback callback) {
 	return 0;
 }
 
+static void * vfs_mount(const char * path, fs_node_t * local_root, const char * type, const char * options);
+
 int vfs_mount_type(const char * type, const char * arg, const char * mountpoint) {
 
 	vfs_mount_callback t = (vfs_mount_callback)(uintptr_t)hashmap_get(fs_types, type);
@@ -655,7 +608,6 @@ int vfs_mount_type(const char * type, const char * arg, const char * mountpoint)
 	if (!node) return -EINVAL;
 
 	debug_print(NOTICE, "Mounted %s[%s] to %s: %p", type, arg, mountpoint, (void*)n);
-	debug_print_vfs_tree();
 
 	return 0;
 }
@@ -715,7 +667,7 @@ static spin_lock_t tmp_vfs_lock = { 0 };
  *
  * Paths here must be absolute.
  */
-void * vfs_mount(const char * path, fs_node_t * local_root, const char * type, const char * options) {
+static void * vfs_mount(const char * path, fs_node_t * local_root, const char * type, const char * options) {
 	if (!fs_tree) {
 		debug_print(ERROR, "VFS hasn't been initialized, you can't mount things yet!");
 		return NULL;
@@ -807,48 +759,40 @@ void * vfs_mount(const char * path, fs_node_t * local_root, const char * type, c
 	return ret_val;
 }
 
-void map_vfs_directory(const char * c) {
-	fs_node_t * f = vfs_mapper();
-	tree_node_t * e = vfs_mount((char*)c, f, "vfs_mapper", "");
-	if (!strcmp(c, "/")) {
-		f->device = fs_tree->root;
-	} else {
-		f->device = e;
-	}
+static fs_node_t * vfs_dev = NULL;
+
+static fs_node_t * devfs_mount(const char * device, const char * mount_path) {
+	vfs_dev->refcount++;
+	return vfs_dev;
 }
 
+void devfs_setup(void) {
+	extern fs_node_t * tmpfs_create(void);
+	fs_node_t * f = tmpfs_create();
+	f->mask = 0755;
+	vfs_dev = f;
 
-static void debug_print_vfs_tree_node(tree_node_t * node, size_t height) {
-	/* End recursion on a blank entry */
-	if (!node) return;
-#ifdef MISAKA_DEBUG_PRINT_VFS_TREE
-	char * tmp = malloc(512);
-	memset(tmp, 0, 512);
-	char * c = tmp;
-	/* Indent output */
-	for (uint32_t i = 0; i < height; ++i) {
-		c += snprintf(c, 3, "  ");
-	}
-	/* Get the current process */
-	struct vfs_entry * fnode = (struct vfs_entry *)node->value;
-	/* Print the process name */
-	if (fnode->file) {
-		c += snprintf(c, 100, "%s → %s %p (%s, %s)", fnode->name, fnode->device, (void*)fnode->file, fnode->fs_type, fnode->file->name);
-	} else {
-		c += snprintf(c, 100, "%s → (empty)", fnode->name);
-	}
-	/* Linefeed */
-	debug_print(NOTICE, "%s", tmp);
-	free(tmp);
-	foreach(child, node->children) {
-		/* Recursively print the children */
-		debug_print_vfs_tree_node(child->value, height + 1);
-	}
-#endif
+	vfs_register("devfs", devfs_mount);
+
+	#if 0
+	int error = 0;
+	kopen_at(NULL, "/dev", O_CREAT | O_DIRECTORY, 0555, &error);
+	#endif
+
+	vfs_mount_type("devfs", "", "/dev");
 }
 
-void debug_print_vfs_tree(void) {
-	debug_print_vfs_tree_node(fs_tree->root, 0);
+void vfs_add_dev(const char * name, fs_node_t * node) {
+	enum ino_type original_type = node->type;
+	if (node->type == INO_DIR) node->type = INO_REG;
+	vfs_dev->ops->hardlink(vfs_dev, name, node);
+	node->type = original_type;
+}
+
+fs_node_t * vfs_dev_subdir(const char* name) {
+	fs_node_t * out = NULL;
+	vfs_dev->ops->mkdir(vfs_dev, name, 0555, &out);
+	return out;
 }
 
 /**
