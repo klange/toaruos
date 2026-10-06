@@ -167,7 +167,7 @@ if __name__ == '__main__':
         'monospace.bolditalic': 'truetype/dejavu/DejaVuSansMono-BoldOblique.ttf',
     }
 
-    do_file('base','usr/share/fonts/default',False)
+    do_file('base','usr/share/fonts/default/',False)
     for ident, path in fonts.items():
         artificial_symlink(f'usr/share/fonts/default/{ident}', f'../{path}')
 
