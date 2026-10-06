@@ -940,10 +940,15 @@ static fs_node_t * procfs_create(void) {
 	return fnode;
 }
 
-void procfs_initialize(void) {
-	/* TODO Move this to some sort of config */
-	vfs_mount("/proc", procfs_create(), "procfs", "");
+static fs_node_t * _the_procfs;
 
-	//debug_print_vfs_tree();
+static fs_node_t * procfs_mount(const char * device, const char * mount_path) {
+	_the_procfs->refcount++;
+	return _the_procfs;
+}
+
+void procfs_initialize(void) {
+	_the_procfs = procfs_create();
+	vfs_register("procfs", procfs_mount);
 }
 
