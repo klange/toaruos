@@ -119,6 +119,7 @@ static char * _error_strings[] = {
 	[EOWNERDEAD] = "Previous owner died",
 	[ESTRPIPE] = "Streams pipe error",
 	[ERESTARTSYS] = "Restartable system call was interrupted",
+	[EILSEQ] = "Illegal byte sequence",
 };
 
 static char _error_string[100];

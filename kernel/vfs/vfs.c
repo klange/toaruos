@@ -328,6 +328,7 @@ int rename_file_fs_at(struct fs_file_description * src_fd, const char * src, str
 
 	if (!*src_name || !*dest_name) return -EINVAL;
 	if (*src_name == '/' || *dest_name == '/') return -EINVAL;
+	if (strchr(dest_name, '\n')) return -EILSEQ;
 
 	fs_node_t * src_parent;
 	fs_node_t * src_file;
@@ -386,6 +387,7 @@ int symlink_fs_at(const char * target, struct fs_file_description * dirfd, const
 
 	const char * src = fs_basename(name);
 	if (!*src || *src == '/') return -EINVAL;
+	if (strchr(src, '\n')) return -EILSEQ;
 
 	int err = kopen_parent(dirfd, name, &parent, &file);
 	if (!parent) return err; /* err is already negative */
@@ -405,6 +407,7 @@ int link_fs_at(struct fs_file_description * dest_fd, const char * dest_path, str
 
 	const char * src  = fs_basename(src_path);
 	if (!*src || *src == '/') return -EINVAL;
+	if (strchr(src, '\n')) return -EILSEQ;
 
 	int open_error = 0;
 	int open_flags = O_PATH;
@@ -933,6 +936,7 @@ static fs_node_t *kopen_recur(const char *filename, uint64_t flags, uint64_t sym
 
 		if (!node_next) {
 			if (depth + 1 == path_depth && (flags & O_CREAT)) {
+				if (strchr(path_offset, '\n')) return close_fs(node_ptr), free(path), *error = EILSEQ, NULL;
 				if (!has_permission(node_ptr, W_OK|X_OK)) return close_fs(node_ptr), free(path), *error = EACCES, NULL;
 				if (flags & O_DIRECTORY) {
 					if (!node_ptr->ops->mkdir) return close_fs(node_ptr), free(path), *error = EROFS, NULL;
