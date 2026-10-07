@@ -101,12 +101,14 @@ struct {
 	int nest_height;
 	int max_blur_size;
 	int max_blur_passes;
+	int stretchy_windows;
 } yutani_options = {
 	.nested = 0,
 	.nest_width = 640,
 	.nest_height = 480,
 	.max_blur_size = 30,
 	.max_blur_passes = 2,
+	.stretchy_windows = 0,
 };
 
 /*

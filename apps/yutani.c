@@ -102,6 +102,17 @@ static int usage(char * argv[]) {
 	return 1;
 }
 
+static int yes_or_no(const char * arg, int default_if_unset, int original_value) {
+	if (!arg) return default_if_unset;
+
+	for (const char ** x = (const char *[]){"yes", "y", "on", NULL}; *x; x++) if (!strcasecmp(arg, *x)) return 1;
+	for (const char ** x = (const char *[]){"no", "n", "off", NULL}; *x; x++) if (!strcasecmp(arg, *x)) return 0;
+
+	fprintf(stderr, "yutani: ignoring malformed option argument\n");
+
+	return original_value;
+}
+
 /**
  * Parse arguments
  */
@@ -112,6 +123,7 @@ static int parse_args(int argc, char * argv[], int * out) {
 		{"help",       no_argument,       0, 'h'},
 		{"blur-size",  required_argument, 0, 1000},
 		{"blur-passes",required_argument, 0, 1001},
+		{"stretch",    optional_argument, 0, 1002},
 		{0,0,0,0}
 	};
 
@@ -144,6 +156,9 @@ static int parse_args(int argc, char * argv[], int * out) {
 				break;
 			case 1001:
 				yutani_options.max_blur_passes = max(min(atoi(optarg), 3), 0);
+				break;
+			case 1002:
+				yutani_options.stretchy_windows = yes_or_no(optarg, 1, 0);
 				break;
 			case '?':
 				return usage(argv);
@@ -750,16 +765,41 @@ static void apply_rotation(yutani_globals_t * yg, yutani_server_window_t * windo
 			gfx_matrix_rotate(m, (double)r * M_PI / 180.0);
 			gfx_matrix_translate(m, -yg->resizing_init_w / 2, -yg->resizing_init_h / 2);
 		}
-		double x_scale = (double)yg->resizing_w / (double)yg->resizing_window->width;
-		double y_scale = (double)yg->resizing_h / (double)yg->resizing_window->height;
-		if (x_scale < 0.00001) {
-			x_scale = 0.00001;
+		if (yutani_options.stretchy_windows) {
+			double x_scale = (double)yg->resizing_w / (double)yg->resizing_window->width;
+			double y_scale = (double)yg->resizing_h / (double)yg->resizing_window->height;
+			if (x_scale < 0.00001) {
+				x_scale = 0.00001;
+			}
+			if (y_scale < 0.00001) {
+				y_scale = 0.00001;
+			}
+			gfx_matrix_translate(m, (int)yg->resizing_offset_x, (int)yg->resizing_offset_y);
+			gfx_matrix_scale(m, x_scale, y_scale);
+		} else {
+			int x = (int)yg->resizing_offset_x;
+			int y = (int)yg->resizing_offset_y;
+
+			switch (yg->resizing_direction) {
+				case SCALE_UP:
+				case SCALE_UP_LEFT:
+				case SCALE_UP_RIGHT:
+					y += yg->resizing_h - yg->resizing_window->height;
+					break;
+				default: break;
+			}
+
+			switch (yg->resizing_direction) {
+				case SCALE_LEFT:
+				case SCALE_UP_LEFT:
+				case SCALE_DOWN_LEFT:
+					x += yg->resizing_w - yg->resizing_window->width;
+					break;
+				default: break;
+			}
+
+			gfx_matrix_translate(m, x, y);
 		}
-		if (y_scale < 0.00001) {
-			y_scale = 0.00001;
-		}
-		gfx_matrix_translate(m, (int)yg->resizing_offset_x, (int)yg->resizing_offset_y);
-		gfx_matrix_scale(m, x_scale, y_scale);
 	} else if (r) {
 		gfx_matrix_translate(m, window->width / 2, window->height / 2);
 		gfx_matrix_rotate(m, (double)r * M_PI / 180.0);
@@ -1384,17 +1424,40 @@ static void mark_window_relative(yutani_globals_t * yg, yutani_server_window_t *
 		fake_window.y = window->y;
 		fake_window.rotation = window->rotation;
 
-		double x_scale = (double)yg->resizing_w / (double)yg->resizing_window->width;
-		double y_scale = (double)yg->resizing_h / (double)yg->resizing_window->height;
+		if (yutani_options.stretchy_windows) {
+			double x_scale = (double)yg->resizing_w / (double)yg->resizing_window->width;
+			double y_scale = (double)yg->resizing_h / (double)yg->resizing_window->height;
 
-		x *= x_scale;
-		x += yg->resizing_offset_x - 1;
+			x *= x_scale;
+			x += yg->resizing_offset_x - 1;
 
-		y *= y_scale;
-		y += yg->resizing_offset_y - 1;
+			y *= y_scale;
+			y += yg->resizing_offset_y - 1;
 
-		width *= x_scale;
-		height *= y_scale;
+			width *= x_scale;
+			height *= y_scale;
+		} else {
+			x += yg->resizing_offset_x - 1;
+			y += yg->resizing_offset_y - 1;
+
+			switch (yg->resizing_direction) {
+				case SCALE_UP:
+				case SCALE_UP_LEFT:
+				case SCALE_UP_RIGHT:
+					y += yg->resizing_h - yg->resizing_window->height;
+					break;
+				default: break;
+			}
+
+			switch (yg->resizing_direction) {
+				case SCALE_LEFT:
+				case SCALE_UP_LEFT:
+				case SCALE_DOWN_LEFT:
+					x += yg->resizing_w - yg->resizing_window->width;
+					break;
+				default: break;
+			}
+		}
 
 		width += 2;
 		height += 2;
@@ -2392,8 +2455,7 @@ int main(int argc, char * argv[]) {
 	int results = parse_args(argc, argv, &argx);
 	if (results) return results;
 
-	yutani_globals_t * yg = malloc(sizeof(yutani_globals_t));
-	memset(yg, 0x00, sizeof(yutani_globals_t));
+	yutani_globals_t * yg = calloc(1, sizeof(yutani_globals_t));
 
 	if (yutani_options.nested) {
 		yg->host_context = yutani_init();
