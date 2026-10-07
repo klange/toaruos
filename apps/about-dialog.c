@@ -219,6 +219,7 @@ int main(int argc, char * argv[]) {
 		yutani_window_move(yctx, window, req_center_x - window->width / 2, req_center_y - window->height / 2);
 	}
 
+	yutani_window_set_minimum_size(yctx, window, width + bounds.width, height + bounds.height);
 	yutani_window_advertise_icon(yctx, window, title_str, icon_name);
 	ctx = init_graphics_yutani_double_buffer(window);
 
