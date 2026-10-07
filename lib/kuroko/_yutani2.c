@@ -913,6 +913,14 @@ KRK_Method(Window,reinit) {
 	reinit_graphics_yutani(self->ctx, self->window);
 	return NONE_VAL();
 }
+
+KRK_Method(Window,set_minimum_size) {
+	unsigned int w, h;
+	if (!krk_parseArgs(".II", (const char*[]){"width","height"}, &w, &h)) return NONE_VAL();
+	INIT_CHECK(Window);
+	yutani_window_set_minimum_size(yctxInstance->yctx, self->window, w, h);
+	return NONE_VAL();
+}
 #undef CURRENT_CTYPE
 
 static void _yutani_Subregion_gcsweep(KrkInstance * _self) {
@@ -2359,6 +2367,7 @@ KRK_Module(_yutani2) {
 	BIND_METHOD(Window,show_mouse);
 	BIND_METHOD(Window,warp_mouse);
 	BIND_METHOD(Window,reinit);
+	BIND_METHOD(Window,set_minimum_size);
 
 	BIND_PROP(Window,title);
 	BIND_PROP(Window,icon);
