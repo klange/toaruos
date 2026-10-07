@@ -148,7 +148,6 @@ do_fork:
 		ioctl(STDIN_FILENO, IOCTLTTYLOGIN, &uid);
 		setsid();
 		ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
-		tcsetpgrp(STDIN_FILENO, getpid());
 		toaru_set_credentials(uid,gid);
 		toaru_auth_exec_shell(1);
 		return 1;

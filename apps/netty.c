@@ -117,7 +117,6 @@ int main(int argc, char * argv[]) {
 		dup2(fd_subsidiary, 1);
 		dup2(fd_subsidiary, 2);
 		ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
-		tcsetpgrp(STDIN_FILENO, getpid());
 		signal(SIGHUP, SIG_DFL);
 
 		system("ttysize -q");

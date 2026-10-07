@@ -790,7 +790,6 @@ static term_state_t * terminal_create(int term_width, int term_height, int max_s
 		dup2(priv->fd_subsidiary, 2);
 
 		ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
-		tcsetpgrp(STDIN_FILENO, getpid());
 
 		signal(SIGHUP, SIG_DFL);
 

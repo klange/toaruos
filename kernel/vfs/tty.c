@@ -372,6 +372,7 @@ int pty_ioctl(fs_node_t * node, pty_t * pty, unsigned long request, void * argp)
 			}
 			pty->ct_proc = this_core->current_process->session;
 			this_core->current_process->process->pty = pty;
+			pty->fg_proc = this_core->current_process->job;
 			return 0;
 		case TCSETS:
 		case TCSETSW:
