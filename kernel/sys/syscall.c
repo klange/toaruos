@@ -417,24 +417,18 @@ long sys_ftruncate(int fd, off_t size) {
 	return truncate_fs(FD_ENTRY(fd), size);
 }
 
-static long utimens_node(fs_node_t * node, const struct timespec * access, const struct timespec * modify) {
-	struct timespec _access = {0};
-	struct timespec _modify = {0};
+static long utimens_node(fs_node_t * node, const struct timespec * times) {
+	struct timespec _access[2] = {{0, UTIME_NOW}, {0, UTIME_NOW}};
 
-	if (access) {
-		PTRCHECK(access, sizeof(struct timespec), 0);
-		memcpy(&_access, access, sizeof(struct timespec));
+	if (times) {
+		PTRCHECK(times, 2 * sizeof(struct timespec), 0);
+		memcpy(&_access, times, 2 * sizeof(struct timespec));
 	}
 
-	if (modify) {
-		PTRCHECK(modify, sizeof(struct timespec), 0);
-		memcpy(&_modify, modify, sizeof(struct timespec));
-	}
-
-	return utimens_fs(node, _access, _modify);
+	return utimens_fs(node, _access[0], _access[1]);
 }
 
-long sys_utimensat(int dirfd, const char * file, const struct timespec * access, const struct timespec * modify, int flag) {
+long sys_utimensat(int dirfd, const char * file, const struct timespec * times, int flag) {
 	if (check_user_string(file)) return -EFAULT;
 	if (flag & ~(AT_SYMLINK_NOFOLLOW)) return -EINVAL;
 
@@ -445,15 +439,15 @@ long sys_utimensat(int dirfd, const char * file, const struct timespec * access,
 	struct fs_file_description * fd = do_dirfd(dirfd);
 	struct fs_file_description * out = kopen_at(fd, file, flags, 0, &error);
 	if (!out) return -error;
-	long ret = utimens_node(out->inode, access, modify);
+	long ret = utimens_node(out->inode, times);
 	fs_close_desc(out);
 	return ret;
 }
 
-long sys_futimens(int fd, const struct timespec * access, const struct timespec * modify) {
+long sys_futimens(int fd, const struct timespec * times) {
 	if (!FD_CHECK(fd)) return -EBADF;
 	if (!(FD_MODE(fd) & PROC_FD_MODE__RW)) return -EBADF;
-	return utimens_node(FD_ENTRY(fd), access, modify);
+	return utimens_node(FD_ENTRY(fd), times);
 }
 
 long sys_gettimeofday(struct timeval * tv, void * tz) {

@@ -288,7 +288,7 @@ DECL_SYSCALL6(mmap, void*, size_t, int, int, int, off_t);
 DECL_SYSCALL1(getsid, pid_t);
 
 DECL_SYSCALL2(nanosleep, const struct timespec *, struct timespec *);
-DECL_SYSCALL3(futimens, int, const struct timespec *, const struct timespec *);
+DECL_SYSCALL2(futimens, int, const struct timespec *);
 
 DECL_SYSCALL2(sigaltstack, const stack_t *, stack_t *);
 DECL_SYSCALL4(openat, int, const char *, long, mode_t);
@@ -298,7 +298,7 @@ DECL_SYSCALL1(fchdir, int);
 DECL_SYSCALL4(fchmodat, int, const char *, mode_t, int);
 DECL_SYSCALL5(fchownat, int, const char *, uid_t, gid_t, int);
 DECL_SYSCALL4(readlinkat, int, const char *, char *, size_t);
-DECL_SYSCALL5(utimensat, int, const char *,  const struct timespec *, const struct timespec *, int);
+DECL_SYSCALL4(utimensat, int, const char *,  const struct timespec *, int);
 DECL_SYSCALL3(mkdirat, int, const char *, mode_t);
 DECL_SYSCALL3(symlinkat, const char *, int, const char *);
 DECL_SYSCALL4(renameat, int, const char *, int, const char *);

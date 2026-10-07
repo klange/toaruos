@@ -872,19 +872,25 @@ static void struct_utsname_arg(pid_t pid, uintptr_t ptr) {
 	fprintf(logfile, "...}");
 }
 
-static void struct_timeval_arg(pid_t pid, uintptr_t ptr) {
+static void time_comment(time_t time) {
+	struct tm * timeinfo = localtime(&time);
+	char timebuf[100];
+	strftime(timebuf, 100, "%FT%T%z", timeinfo);
+	fprintf(logfile, " /* %s */", timebuf);
+}
+
+static void struct_timeval_arg(pid_t pid, uintptr_t ptr, int show_comment) {
 	if (!ptr) {
 		fprintf(logfile, "NULL");
 		return;
 	}
 
-	fprintf(logfile, "{");
-	fprintf(logfile, "tv_sec=");
-	int_arg(data_read_ptr(pid, ptr + offsetof(struct timeval, tv_sec)));
-	COMMA;
-	fprintf(logfile, "tv_usec=");
-	int_arg(data_read_ptr(pid, ptr + offsetof(struct timeval, tv_usec)));
-	fprintf(logfile, "}");
+	struct timeval tv = {0};
+	data_read_bytes(pid, ptr, (char*)&tv, sizeof(struct timeval));
+
+	fprintf(logfile, "{tv_sec=%ld, tv_usec=%ld}", tv.tv_sec, tv.tv_usec);
+
+	if (show_comment) time_comment(tv.tv_sec);
 }
 
 static void struct_rusage_arg(pid_t pid, uintptr_t ptr) {
@@ -894,22 +900,42 @@ static void struct_rusage_arg(pid_t pid, uintptr_t ptr) {
 	}
 
 	fprintf(logfile, "{ru_utime=");
-	struct_timeval_arg(pid, ptr + offsetof(struct rusage, ru_utime));
+	struct_timeval_arg(pid, ptr + offsetof(struct rusage, ru_utime), 0);
 	COMMA;
 	fprintf(logfile, "ru_stime=");
-	struct_timeval_arg(pid, ptr + offsetof(struct rusage, ru_stime));
+	struct_timeval_arg(pid, ptr + offsetof(struct rusage, ru_stime), 0);
 	fprintf(logfile, "}");
 }
 
-static void struct_timespec_arg(pid_t pid, uintptr_t ptr) {
+static void struct_timespec_arg(pid_t pid, uintptr_t ptr, int utimes, int show_comment) {
 	if (!ptr) {
 		fprintf(logfile, "NULL");
 		return;
 	}
 	struct timespec data = {0};
 	data_read_bytes(pid, ptr, (char*)&data, sizeof(struct timespec));
-	fprintf(logfile, "{tv_sec=%ld,tv_nsec=%ld}",
-		data.tv_sec, data.tv_nsec);
+	if (utimes && data.tv_sec == 0 && data.tv_nsec == UTIME_NOW) {
+		fprintf(logfile, "UTIME_NOW");
+	} else if (utimes && data.tv_sec == 0 && data.tv_nsec == UTIME_OMIT) {
+		fprintf(logfile, "UTIME_OMIT");
+	} else {
+		fprintf(logfile, "{tv_sec=%ld, tv_nsec=%ld}",
+			data.tv_sec, data.tv_nsec);
+
+		if (show_comment) time_comment(data.tv_sec);
+	}
+}
+
+static void struct_timespec_array_arg(pid_t pid, uintptr_t ptr) {
+	if (!ptr) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+	fprintf(logfile, "[");
+	struct_timespec_arg(pid, ptr, 1, 1);
+	fprintf(logfile, ", ");
+	struct_timespec_arg(pid, ptr + sizeof(struct timespec), 1, 1);
+	fprintf(logfile, "]");
 }
 
 static void struct_stat_arg(pid_t pid, uintptr_t ptr, bool abbrev) {
@@ -969,15 +995,15 @@ static void struct_stat_arg(pid_t pid, uintptr_t ptr, bool abbrev) {
 	COMMA;
 
 	fprintf(logfile, "st_atim=");
-	struct_timespec_arg(pid, ptr + offsetof(struct stat, st_atim));
+	struct_timespec_arg(pid, ptr + offsetof(struct stat, st_atim), 0, 1);
 	COMMA;
 
 	fprintf(logfile, "st_mtim=");
-	struct_timespec_arg(pid, ptr + offsetof(struct stat, st_mtim));
+	struct_timespec_arg(pid, ptr + offsetof(struct stat, st_mtim), 0, 1);
 	COMMA;
 
 	fprintf(logfile, "st_ctim=");
-	struct_timespec_arg(pid, ptr + offsetof(struct stat, st_ctim));
+	struct_timespec_arg(pid, ptr + offsetof(struct stat, st_ctim), 0, 1);
 	COMMA;
 
 	fprintf(logfile, "st_blksize=%lu, ", st.st_blksize);
@@ -1622,14 +1648,12 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 		case SYS_UTIMENSAT:
 			fd_at_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			filename_arg(pid, uregs_syscall_arg2(r)); COMMA;
-			struct_timespec_arg(pid, uregs_syscall_arg3(r)); COMMA;
-			struct_timespec_arg(pid, uregs_syscall_arg4(r)); COMMA;
-			at_flag_arg(uregs_syscall_arg5(r));
+			struct_timespec_array_arg(pid, uregs_syscall_arg3(r)); COMMA;
+			at_flag_arg(uregs_syscall_arg4(r));
 			break;
 		case SYS_FUTIMENS:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
-			struct_timespec_arg(pid, uregs_syscall_arg2(r)); COMMA;
-			struct_timespec_arg(pid, uregs_syscall_arg3(r));
+			struct_timespec_array_arg(pid, uregs_syscall_arg2(r));
 			break;
 		case SYS_FCHOWN:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
@@ -1803,7 +1827,7 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			/* One output arg */
 			break;
 		case SYS_NANOSLEEP:
-			struct_timespec_arg(pid, uregs_syscall_arg1(r)); COMMA
+			struct_timespec_arg(pid, uregs_syscall_arg1(r), 0, 0); COMMA
 			/* One output */
 			break;
 		case SYS_PIPE2:
@@ -1848,7 +1872,7 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			/* two output args */
 			break;
 		case SYS_SETTIMEOFDAY:
-			struct_timeval_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			struct_timeval_arg(pid, uregs_syscall_arg1(r), 1); COMMA;
 			pointer_arg(uregs_syscall_arg2(r));
 			break;
 		case SYS_SIGACTION:
@@ -2093,7 +2117,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			maybe_errno(r);
 			break;
 		case SYS_GETTIMEOFDAY:
-			struct_timeval_arg(pid, uregs_syscall_arg1(r)); COMMA;
+			struct_timeval_arg(pid, uregs_syscall_arg1(r), 1); COMMA;
 			pointer_arg(uregs_syscall_arg2(r));
 			maybe_errno(r);
 			break;
@@ -2195,7 +2219,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			maybe_errno(r);
 			break;
 		case SYS_NANOSLEEP:
-			struct_timespec_arg(pid, uregs_syscall_arg2(r));
+			struct_timespec_arg(pid, uregs_syscall_arg2(r), 0, 0);
 			maybe_errno(r);
 			break;
 		case SYS_GETRESUID:
