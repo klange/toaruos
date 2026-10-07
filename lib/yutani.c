@@ -74,7 +74,7 @@ size_t yutani_query(yutani_t * y) {
  * WELCOME: Update the display_width and display_height for the connection.
  * WINDOW_MOVE: Update the window location.
  */
-static void _handle_internal(yutani_t * y, yutani_msg_t * out) {
+static yutani_msg_t * _handle_internal(yutani_t * y, yutani_msg_t * out) {
 	switch (out->type) {
 		case YUTANI_MSG_WELCOME:
 			{
@@ -100,11 +100,20 @@ static void _handle_internal(yutani_t * y, yutani_msg_t * out) {
 				if (win) {
 					win->decorator_flags &= ~(DECOR_FLAG_TILED);
 					win->decorator_flags |= (wr->flags & YUTANI_RESIZE_TILED) << 2;
+					if ((win->minimum_width && wr->width < win->minimum_width) || (win->minimum_height && wr->height < win->minimum_height)) {
+						yutani_window_resize_offer(y, win,
+							(win->minimum_width && wr->width < win->minimum_width) ? win->minimum_width : wr->width,
+							(win->minimum_height && wr->height < win->minimum_height) ? win->minimum_height : wr->height);
+						free(out);
+						return NULL;
+					}
 				}
 			}
+			break;
 		default:
 			break;
 	}
+	return out;
 }
 
 /**
@@ -120,8 +129,7 @@ yutani_msg_t * yutani_poll(yutani_t * y) {
 		node_t * node = list_dequeue(y->queued);
 		out = (yutani_msg_t *)node->value;
 		free(node);
-		_handle_internal(y, out);
-		return out;
+		return _handle_internal(y, out);
 	}
 
 	ssize_t size;
@@ -133,9 +141,7 @@ yutani_msg_t * yutani_poll(yutani_t * y) {
 		memcpy(out, tmp, size);
 	}
 
-	_handle_internal(y, out);
-
-	return out;
+	return _handle_internal(y, out);
 }
 
 /**
@@ -582,7 +588,7 @@ int yutani_msg_send(yutani_t * y, yutani_msg_t * msg) {
 }
 
 yutani_t * yutani_context_create(FILE * socket) {
-	yutani_t * out = malloc(sizeof(yutani_t));
+	yutani_t * out = calloc(1,sizeof(yutani_t));
 
 	out->sock = socket;
 	out->display_width  = 0;
@@ -640,7 +646,7 @@ yutani_window_t * yutani_window_create_flags(yutani_t * y, int width, int height
 	}
 	va_end(ap);
 
-	yutani_window_t * win = malloc(sizeof(yutani_window_t));
+	yutani_window_t * win = calloc(1, sizeof(yutani_window_t));
 
 	yutani_msg_buildx_window_new_flags_alloc(m);
 	yutani_msg_buildx_window_new_flags(m, width, height, flags, parent_wid);
@@ -1208,7 +1214,7 @@ FILE * yutani_open_clipboard(yutani_t * yctx) {
  * Create a graphical context around a Yutani window.
  */
 gfx_context_t * init_graphics_yutani(yutani_window_t * window) {
-	gfx_context_t * out = malloc(sizeof(gfx_context_t));
+	gfx_context_t * out = calloc(1, sizeof(gfx_context_t));
 	out->width  = window->width;
 	out->height = window->height;
 	out->stride = window->width * sizeof(uint32_t);
@@ -1295,4 +1301,10 @@ void yutani_window_set_blur_bounds(yutani_t * yctx, yutani_window_t * window, vo
 	yutani_window_set_blur(yctx, window, YUTANI_BLUR_REQUEST_NO_FLIP | YUTANI_BLUR_REQUEST_SET_RIGHT_BOUND, bounds->right_width);
 	yutani_window_set_blur(yctx, window, YUTANI_BLUR_REQUEST_NO_FLIP | YUTANI_BLUR_REQUEST_SET_TOP_BOUND, bounds->top_height);
 	yutani_window_set_blur(yctx, window, YUTANI_BLUR_REQUEST_NO_FLIP | YUTANI_BLUR_REQUEST_SET_BOTTOM_BOUND, bounds->bottom_height);
+}
+
+void yutani_window_set_minimum_size(yutani_t * yctx, yutani_window_t * window, uint32_t min_w, uint32_t min_h) {
+	(void)yctx; /* unused, but might be sent to server later */
+	window->minimum_width = min_w;
+	window->minimum_height = min_h;
 }

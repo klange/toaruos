@@ -84,6 +84,9 @@ typedef struct yutani_window {
 	int32_t mouse_state;
 
 	char *icon;
+
+	uint32_t minimum_width;
+	uint32_t minimum_height;
 } yutani_window_t;
 
 typedef struct yutani_message {
@@ -660,6 +663,7 @@ extern void reinit_graphics_yutani(gfx_context_t * out, yutani_window_t * window
 extern void release_graphics_yutani(gfx_context_t * gfx);
 extern void yutani_internal_refocus(yutani_t * yctx, yutani_window_t * window);
 extern void yutani_window_set_blur_bounds(yutani_t * yctx, yutani_window_t * window, void * bounds, int blur_mode);
+extern void yutani_window_set_minimum_size(yutani_t * yctx, yutani_window_t * window, uint32_t min_w, uint32_t min_h);
 
 _End_C_Header
 
