@@ -243,6 +243,8 @@ int main(int argc, char * argv[]) {
 		yutani_window_move(yctx, window, req_center_x - window->width / 2, req_center_y - window->height / 2);
 	}
 
+	yutani_window_set_minimum_size(yctx, window, window->width, window->height); /* whatever we started with */
+
 	icon = image_or_icon(icon_path);
 	yutani_window_advertise_icon(yctx, window, title_str, ad_icon);
 

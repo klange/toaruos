@@ -518,6 +518,7 @@ int main(int argc, char * argv[]) {
 	yctx = yutani_init();
 	init_decorations();
 	main_window = yutani_window_create(yctx, 640, 480);
+	yutani_window_set_minimum_size(yctx, main_window, 300, 300);
 	yutani_window_move(yctx, main_window, yctx->display_width / 2 - main_window->width / 2, yctx->display_height / 2 - main_window->height / 2);
 	ctx = init_graphics_yutani_double_buffer(main_window);
 

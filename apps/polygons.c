@@ -84,6 +84,7 @@ int main (int argc, char ** argv) {
 	init_decorations();
 
 	wina = yutani_window_create(yctx, 500, 500);
+	yutani_window_set_minimum_size(yctx, wina, 200, 100);
 	yutani_window_move(yctx, wina, 100, 100);
 	yutani_window_advertise_icon(yctx, wina, "polygons", "polygons");
 

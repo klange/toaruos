@@ -112,6 +112,9 @@ int main (int argc, char ** argv) {
 
 	init_decorations();
 
+	struct decor_bounds bounds;
+	decor_get_bounds(wina, &bounds);
+	yutani_window_set_minimum_size(yctx, wina, bounds.width + 200, bounds.height + 10);
 	yutani_window_move(yctx, wina, 100, 100);
 	yutani_window_advertise_icon(yctx, wina, "drawlines", "drawlines");
 

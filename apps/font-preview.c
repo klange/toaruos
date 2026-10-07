@@ -136,6 +136,7 @@ int main(int argc, char * argv[]) {
 	decor_height = bounds.height;
 
 	window = yutani_window_create(yctx, width + decor_width, height + decor_height);
+	yutani_window_set_minimum_size(yctx, window, 300, 300);
 	yutani_window_move(yctx, window, 100, 100);
 
 	tt_font_name = tt_get_name_string(tt_font, 4);

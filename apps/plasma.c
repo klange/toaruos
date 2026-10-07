@@ -139,6 +139,7 @@ int main (int argc, char ** argv) {
 
 	/* Do something with a window */
 	wina = yutani_window_create(yctx, win_width + bounds.width, win_height + bounds.height);
+	yutani_window_set_minimum_size(yctx, wina, bounds.width + 200, bounds.height + 1);
 	yutani_window_move(yctx, wina, 300, 300);
 
 	decor_get_bounds(wina, &bounds);

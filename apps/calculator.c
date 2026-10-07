@@ -223,10 +223,6 @@ void setup_buttons(void) {
 }
 
 void resize_finish(int w, int h) {
-	if (w < 300 || h < 240) {
-		yutani_window_resize_offer(yctx, window, w < 300 ? 300 : w, h < 240 ? 240 : h);
-		return;
-	}
 	yutani_window_resize_accept(yctx, window, w, h);
 	reinit_graphics_yutani(ctx, window);
 	width  = w;
@@ -322,6 +318,8 @@ int main(int argc, char * argv[]) {
 	window = yutani_window_create(yctx, width + bounds.width, height + bounds.height);
 	req_center_x = yctx->display_width / 2;
 	req_center_y = yctx->display_height / 2;
+
+	yutani_window_set_minimum_size(yctx, window, 300, 240);
 
 	yutani_window_move(yctx, window, req_center_x - window->width / 2, req_center_y - window->height / 2);
 

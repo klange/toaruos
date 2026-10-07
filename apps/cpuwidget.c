@@ -502,10 +502,6 @@ static void initial_stuff(void) {
 }
 
 void resize_finish(int w, int h) {
-
-	if (w < 300) w = 300;
-	if (h < 300) h = 300;
-
 	free(ctx_cpu);
 	free(ctx_mem);
 	free(ctx_net);
@@ -592,6 +588,7 @@ int main (int argc, char ** argv) {
 	decor_get_bounds(NULL, &bounds);
 
 	wina = yutani_window_create(yctx, width + bounds.width, height + bounds.height + MENU_BAR_HEIGHT);
+	yutani_window_set_minimum_size(yctx, wina, bounds.width + 300, bounds.height + 300);
 	yutani_window_move(yctx, wina, left, top);
 	yutani_window_advertise_icon(yctx, wina, "System Monitor", "system-monitor");
 

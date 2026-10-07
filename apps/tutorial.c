@@ -342,6 +342,7 @@ int main(int argc, char * argv[]) {
 	window->decorator_flags |= DECOR_FLAG_NO_MAXIMIZE;
 	req_center_x = yctx->display_width / 2;
 	req_center_y = yctx->display_height / 2;
+	yutani_window_set_minimum_size(yctx, window, window->width, window->height);
 	yutani_window_move(yctx, window, req_center_x - window->width / 2, req_center_y - window->height / 2);
 
 	/* Load icons */

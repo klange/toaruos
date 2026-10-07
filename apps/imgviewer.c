@@ -188,6 +188,7 @@ int main(int argc, char * argv[]) {
 	height = img.height < 300 ? 300 : img.height;
 
 	window = yutani_window_create(yctx, width + decor_width, height + decor_height);
+	yutani_window_set_minimum_size(yctx, window, 300 + decor_width, 300 + decor_height);
 	yutani_window_move(yctx, window, left, top);
 
 	snprintf(window_title, 1023, "%s - " APPLICATION_TITLE, basename(argv[1]));

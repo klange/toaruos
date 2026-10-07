@@ -508,6 +508,7 @@ int main(int argc, char * argv[]) {
 	decor_height = bounds.height;
 
 	window = yutani_window_create(yctx, width + decor_width, height + decor_height);
+	yutani_window_set_minimum_size(yctx, window, 200 + decor_width, 100 + decor_height);
 	yutani_window_move(yctx, window, left, top);
 
 	yutani_window_advertise_icon(yctx, window, app_name, app_icon);

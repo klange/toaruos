@@ -279,6 +279,7 @@ int main(int argc, char * argv[]) {
 	get_default_wallpaper();
 	read_wallpapers();
 
+	yutani_window_set_minimum_size(yctx, window, bounds.width + 300, bounds.height + 200);
 	yutani_window_move(yctx, window, req_center_x - window->width / 2, req_center_y - window->height / 2);
 
 	yutani_window_advertise_icon(yctx, window, title_str, "wallpaper-picker");
