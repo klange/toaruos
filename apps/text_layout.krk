@@ -182,6 +182,7 @@ def check_list(entries, default=0):
 class MyWindow(Window):
     def __init__(self):
         super().__init__(640, 480, title=app_name, doublebuffer=True)
+        self.set_minimum_size(200,200)
         self.bgc = rgb(255,255,255)
         self.dejavu = Font("sans-serif", 13)
         self.mb = MenuBar((("File",'file'),("View",'view'),("Help",'help')))

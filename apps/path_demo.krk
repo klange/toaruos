@@ -84,6 +84,7 @@ def check_list(entries, default=0):
 class MyWindow(Window):
     def __init__(self):
         super().__init__(640, 480, title="Path Demo", doublebuffer=True)
+        self.set_minimum_size(200,200)
         self.bgc = rgb(255,255,255)
         self.mb = MenuBar((("File",'file'),("View",'view'),("Help",'help')))
         let _menu_File = MenuList()

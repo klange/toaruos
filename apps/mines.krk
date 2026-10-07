@@ -113,6 +113,7 @@ class MinesWindow(Window):
     def __init__(self):
         let bounds = decor_get_bounds()
         super().__init__(self.base_width + bounds['width'], self.base_height + bounds['height'], title=app_name, icon="mines", doublebuffer=True)
+        self.set_minimum_size(200,200)
         self.move(100,100)
         self.button_width = {}
         self.button_height = 0
