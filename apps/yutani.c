@@ -507,6 +507,29 @@ static uint32_t server_window_resize(yutani_globals_t * yg, yutani_server_window
 	return win->newbufid;
 }
 
+static void resize_calculate_offset(yutani_globals_t *yg, int *x, int *y) {
+	*x += (int)yg->resizing_offset_x;
+	*y += (int)yg->resizing_offset_y;
+
+	switch (yg->resizing_direction) {
+		case SCALE_UP:
+		case SCALE_UP_LEFT:
+		case SCALE_UP_RIGHT:
+			*y += yg->resizing_h - yg->resizing_window->height;
+			break;
+		default: break;
+	}
+
+	switch (yg->resizing_direction) {
+		case SCALE_LEFT:
+		case SCALE_UP_LEFT:
+		case SCALE_DOWN_LEFT:
+			*x += yg->resizing_w - yg->resizing_window->width;
+			break;
+		default: break;
+	}
+}
+
 /**
  * Finish the resize process.
  *
@@ -537,11 +560,16 @@ static void server_window_resize_finish(yutani_globals_t * yg, yutani_server_win
 					.y = yg->resizing_window->y,
 					.rotation = yg->resizing_window->rotation,
 				};
-				yutani_window_to_device(&fake_window, yg->resizing_offset_x + yg->resizing_w / 2, yg->resizing_offset_y + yg->resizing_h / 2, &center_x, &center_y);
-				x = center_x - yg->resizing_w / 2;
-				y = center_y - yg->resizing_h / 2;
+				int xx = yg->resizing_window->width / 2;
+				int yy = yg->resizing_window->height / 2;
+				resize_calculate_offset(yg, &xx, &yy);
+				yutani_window_to_device(&fake_window, xx, yy, &center_x, &center_y);
+				x = center_x - yg->resizing_window->width / 2;
+				y = center_y - yg->resizing_window->height / 2;
 			} else {
-				yutani_window_to_device(yg->resizing_window, yg->resizing_offset_x, yg->resizing_offset_y, &x, &y);
+				int xx = 0, yy = 0;
+				resize_calculate_offset(yg, &xx, &yy);
+				yutani_window_to_device(yg->resizing_window, xx, yy, &x, &y);
 			}
 			TRACE("resize complete, now %d x %d", yg->resizing_w, yg->resizing_h);
 			window_move(yg, yg->resizing_window, x,y);
@@ -777,27 +805,8 @@ static void apply_rotation(yutani_globals_t * yg, yutani_server_window_t * windo
 			gfx_matrix_translate(m, (int)yg->resizing_offset_x, (int)yg->resizing_offset_y);
 			gfx_matrix_scale(m, x_scale, y_scale);
 		} else {
-			int x = (int)yg->resizing_offset_x;
-			int y = (int)yg->resizing_offset_y;
-
-			switch (yg->resizing_direction) {
-				case SCALE_UP:
-				case SCALE_UP_LEFT:
-				case SCALE_UP_RIGHT:
-					y += yg->resizing_h - yg->resizing_window->height;
-					break;
-				default: break;
-			}
-
-			switch (yg->resizing_direction) {
-				case SCALE_LEFT:
-				case SCALE_UP_LEFT:
-				case SCALE_DOWN_LEFT:
-					x += yg->resizing_w - yg->resizing_window->width;
-					break;
-				default: break;
-			}
-
+			int x = 0, y = 0;
+			resize_calculate_offset(yg, &x, &y);
 			gfx_matrix_translate(m, x, y);
 		}
 	} else if (r) {
@@ -1437,26 +1446,9 @@ static void mark_window_relative(yutani_globals_t * yg, yutani_server_window_t *
 			width *= x_scale;
 			height *= y_scale;
 		} else {
-			x += yg->resizing_offset_x - 1;
-			y += yg->resizing_offset_y - 1;
-
-			switch (yg->resizing_direction) {
-				case SCALE_UP:
-				case SCALE_UP_LEFT:
-				case SCALE_UP_RIGHT:
-					y += yg->resizing_h - yg->resizing_window->height;
-					break;
-				default: break;
-			}
-
-			switch (yg->resizing_direction) {
-				case SCALE_LEFT:
-				case SCALE_UP_LEFT:
-				case SCALE_DOWN_LEFT:
-					x += yg->resizing_w - yg->resizing_window->width;
-					break;
-				default: break;
-			}
+			x--;
+			y--;
+			resize_calculate_offset(yg, &x, &y);
 		}
 
 		width += 2;
