@@ -146,6 +146,7 @@ class AsyncMainloop():
 
     def handle_message(self):
         let msg = yctx.poll()
+        if msg is None: return True
         if yctx.menu_process_event(msg):
             if self.menu_closed_callback:
                 self.maybe_coro(self.menu_closed_callback())
