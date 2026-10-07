@@ -108,7 +108,7 @@ struct Terminal_Private {
 	int input_buffer_semaphore[2];
 	list_t * input_buffer_queue;
 
-	int fd_manager, fd_subsidiary;
+	int fd_manager;
 	pid_t child_pid;
 
 	char *tab_title;
@@ -801,14 +801,14 @@ static void _menu_action_cache_stats(struct MenuEntry * self) {
 	}
 
 	snprintf(msg, 400,
-		"Hits: %lu\n"
-		"Misses: %lu\n"
-		"Wrong color: %lu\n"
-		"Populated cache entries: %lu\n"
-		"Size of sprites: %lu\n",
+		"Hits: %lu\r\n"
+		"Misses: %lu\r\n"
+		"Wrong color: %lu\r\n"
+		"Populated cache entries: %lu\r\n"
+		"Size of sprites: %lu\r\n",
 		_hits, _misses, _wrongcolor, count, size);
 
-	write(this_term()->fd_subsidiary, msg, strlen(msg));
+	for (char * x = msg; *x; x++) termemu_put(current_terminal(), *x);
 }
 
 static void _menu_action_clear_cache(struct MenuEntry * self) {
@@ -1659,7 +1659,6 @@ static int check_for_exit(void) {
 	struct Terminal_Private * priv = matched->priv;
 	close(priv->input_buffer_semaphore[1]); /* Kills the input processing thread */
 	if (priv->fd_manager != -1) close(priv->fd_manager); /* Hangs up the TTY */
-	if (priv->fd_subsidiary != -1) close(priv->fd_subsidiary);
 
 	list_insert(dead_terminals, priv);
 	termemu_free(matched);
@@ -1686,14 +1685,14 @@ static void terminal_calculate_font_size(struct Terminal_Private * priv) {
 	}
 }
 
-static void terminal_set_size(term_state_t * state) {
+static struct winsize terminal_set_size(term_state_t * state) {
 	struct Terminal_Private * term = state->priv;
 	struct winsize w;
 	w.ws_row = state->height;
 	w.ws_col = state->width;
 	w.ws_xpixel = state->width * term->char_width;
 	w.ws_ypixel = state->height * term->char_height;
-	ioctl(term->fd_manager, TIOCSWINSZ, &w);
+	return w;
 }
 
 /* Reinitialize the terminal after a resize. */
@@ -1718,7 +1717,8 @@ static void reinit(void) {
 	}
 
 	termemu_reinit(current_terminal(), term_width, term_height);
-	terminal_set_size(current_terminal());
+	struct winsize w = terminal_set_size(current_terminal());
+	ioctl(this->fd_manager, TIOCSWINSZ, &w);
 
 	/* Redraw the window */
 _done:
@@ -1757,20 +1757,10 @@ static term_state_t * terminal_create(bool scale_fonts, float font_scaling, int 
 	update_menu_bar_tabs();
 
 	/* Open a PTY */
-	openpty(&priv->fd_manager, &priv->fd_subsidiary, NULL, NULL, NULL);
-	terminal_set_size(out);
-
-	priv->child_pid = fork();
+	struct winsize w = terminal_set_size(out);
+	priv->child_pid = forkpty(&priv->fd_manager, NULL, NULL, &w);
 
 	if (!priv->child_pid) {
-		setsid();
-		/* Prepare stdin/out/err */
-		dup2(priv->fd_subsidiary, 0);
-		dup2(priv->fd_subsidiary, 1);
-		dup2(priv->fd_subsidiary, 2);
-
-		ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
-
 		signal(SIGHUP, SIG_DFL);
 
 		/* Set the TERM environment variable. */

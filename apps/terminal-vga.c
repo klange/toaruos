@@ -66,7 +66,7 @@ struct input_data {
 };
 
 struct Terminal_Private {
-	int fd_manager, fd_subsidiary;
+	int fd_manager;
 	pid_t child_pid;
 	pthread_t input_buffer_thread;
 	volatile int input_buffer_lock;
@@ -638,7 +638,6 @@ static int check_for_exit(void) {
 	struct Terminal_Private * priv = matched->priv;
 	close(priv->input_buffer_semaphore[1]); /* Kills the input processing thread */
 	close(priv->fd_manager); /* Hangs up the TTY */
-	close(priv->fd_subsidiary);
 
 	list_insert(dead_terminals, priv);
 	termemu_free(matched);
@@ -753,16 +752,6 @@ static void handle_mouse_abs(mouse_device_packet_t * packet) {
 	handle_mouse_event(packet);
 }
 
-static void terminal_set_size(term_state_t * state) {
-	struct Terminal_Private * term = state->priv;
-	struct winsize w;
-	w.ws_row = state->height;
-	w.ws_col = state->width;
-	w.ws_xpixel = 0;
-	w.ws_ypixel = 0;
-	ioctl(term->fd_manager, TIOCSWINSZ, &w);
-}
-
 static term_state_t * terminal_create(int term_width, int term_height, int max_scrollback, int argc, char * argv[]) {
 	struct Terminal_Private * priv = calloc(1, sizeof(struct Terminal_Private));
 	term_state_t * out = termemu_init(term_width, term_height, max_scrollback, &term_callbacks);
@@ -774,23 +763,15 @@ static term_state_t * terminal_create(int term_width, int term_height, int max_s
 	priv->input_buffer_queue = list_create();
 	pthread_create(&priv->input_buffer_thread, NULL, handle_input_writing, out);
 
-	/* Open a PTY */
-	openpty(&priv->fd_manager, &priv->fd_subsidiary, NULL, NULL, NULL);
-	terminal_set_size(out);
-
 	ioctl(vga_text_fd, IO_VGA_DEFAULT_PALETTE, &priv->palette);
 
-	priv->child_pid = fork();
+	struct winsize w = {0};
+	w.ws_row = out->height;
+	w.ws_col = out->width;
+
+	priv->child_pid = forkpty(&priv->fd_manager, NULL, NULL, &w);
 
 	if (!priv->child_pid) {
-		setsid();
-		/* Prepare stdin/out/err */
-		dup2(priv->fd_subsidiary, 0);
-		dup2(priv->fd_subsidiary, 1);
-		dup2(priv->fd_subsidiary, 2);
-
-		ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
-
 		signal(SIGHUP, SIG_DFL);
 
 		/* Set the TERM environment variable. */
