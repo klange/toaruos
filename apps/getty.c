@@ -52,11 +52,7 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
-	setsid();
-	dup2(fd_serial, 0);
-	dup2(fd_serial, 1);
-	dup2(fd_serial, 2);
-	ioctl(STDIN_FILENO, TIOCSCTTY, &(int){1});
+	login_tty(fd_serial);
 
 	system("stty sane");
 
