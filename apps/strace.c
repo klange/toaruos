@@ -423,6 +423,7 @@ static void open_flags(int flags) {
 	H(O_WRONLY);
 	H(O_RDWR);
 	H(O_APPEND);
+	H(O_NOCTTY);
 	H(O_CREAT);
 	H(O_TRUNC);
 	H(O_EXCL);
