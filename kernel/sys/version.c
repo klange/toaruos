@@ -21,7 +21,7 @@ const char * __kernel_name = "Misaka";
 int    __kernel_version_major = 3;
 int    __kernel_version_minor = 0;
 int    __kernel_version_lower = 0;
-const char * __kernel_version_tag = "a1";
+const char * __kernel_version_tag = "a2";
 
 /* Kernel build suffix, which doesn't necessarily
  * mean anything, but can be used to distinguish
