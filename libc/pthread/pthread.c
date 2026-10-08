@@ -71,6 +71,8 @@ void pthread_exit(void * value) {
 	__builtin_unreachable();
 }
 
+long __set_tls_base(uintptr_t addr) __attribute__((weak,alias("syscall_set_tls_base")));
+
 static void * __thread_start(void * pthreadbase) {
 	struct __pthread * this = pthreadbase;
 	this->tid = gettid(); /* in case we run first */
