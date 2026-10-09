@@ -332,4 +332,5 @@ extern void arch_enter_signal_handler(struct signal_config *, siginfo_t *,struct
 extern void arch_wakeup_others(void);
 extern int arch_return_from_signal_handler(struct regs *r);
 extern void arch_clear_icache(uintptr_t,uintptr_t);
+extern void arch_set_singlestep(process_t * proc, int enabled);
 

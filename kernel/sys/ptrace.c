@@ -461,13 +461,7 @@ long ptrace_singlestep(pid_t pid, int sig) {
 	process_t * tracee = process_from_pid(pid);
 	if (!tracee || (tracee->tracer != this_core->current_process->id) || !(tracee->flags & PROC_FLAG_SUSPENDED)) return -ESRCH;
 
-	/* arch_set_singlestep? */
-	#if defined(__x86_64__)
-	struct regs * target = tracee->syscall_registers;
-	target->rflags |= (1 << 8);
-	#elif defined(__aarch64__)
-	tracee->thread.context.saved[11] |= (1 << 21);
-	#endif
+	arch_set_singlestep(tracee, 1);
 
 	__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_SUSPENDED));
 	tracee->status = (sig << 8);

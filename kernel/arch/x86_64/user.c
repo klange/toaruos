@@ -328,3 +328,12 @@ void arch_spin_lock_release(spin_lock_t * lock) {
 	lock->owner = -1;
 	__sync_lock_release(lock->latch);
 }
+
+void arch_set_singlestep(process_t * proc, int enabled) {
+	struct regs * target = proc->syscall_registers;
+	if (enabled) {
+		target->rflags |= (1 << 8);
+	} else {
+		target->rflags &= ~(1 << 8);
+	}
+}

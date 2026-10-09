@@ -656,3 +656,11 @@ static struct procfs_entry procfs_cpuinfo = { 0, "cpuinfo", cpuinfo_func, 0 };
 void procfs_install_aarch64(void) {
 	procfs_install(&procfs_cpuinfo);
 }
+
+void arch_set_singlestep(process_t * proc, int enabled) {
+	if (enabled) {
+		proc->thread.context.saved[11] |= (1 << 21);
+	} else {
+		proc->thread.context.saved[11] &= ~(1 << 21);
+	}
+}
