@@ -40,6 +40,19 @@ void arch_enter_user(uintptr_t entrypoint, int argc, char * argv[], char * envp[
 		::
 		"r"(entrypoint), "r"(stack), "r"(0));
 
+	/* Maintain single-step state across exec */
+	if (this_core->current_process->thread.context.saved[11] & 0x200000) {
+		asm volatile (
+			"mrs x0, SPSR_EL1\n" /* EL 0 */
+			"orr x0, x0, #0x200000\n"
+			"msr SPSR_EL1, x0\n"
+			"mrs x0, MDSCR_EL1\n"
+			"orr x0, x0, #1\n"
+			"msr MDSCR_EL1, x0\n"
+			::: "x0"
+		);
+	}
+
 	update_process_times_on_exit();
 
 	register uint64_t x0 __asm__("x0") = argc;
@@ -95,7 +108,7 @@ int arch_return_from_signal_handler(struct regs *r) {
 
 	/* Process state */
 	POP(sp, uintptr_t, spsr);
-	this_core->current_process->thread.context.saved[11] = (spsr & 0xf0000000);
+	this_core->current_process->thread.context.saved[11] = (spsr & 0xf0200000);
 	asm volatile ("msr SPSR_EL1, %0" :: "r"(this_core->current_process->thread.context.saved[11]));
 	POP(sp, uintptr_t, this_core->current_process->thread.context.saved[10]);
 	asm volatile ("msr ELR_EL1, %0" :: "r"(this_core->current_process->thread.context.saved[10]));
