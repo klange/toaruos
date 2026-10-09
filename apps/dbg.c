@@ -318,7 +318,7 @@ static void show_commandline(pid_t pid, int status, struct URegs * regs) {
 				continue;
 			}
 
-			if (!strcmp(arg, "regs")) {
+			if (!strcmp(arg, "regs") || !strcmp(arg, "registers")) {
 				dump_regs(regs);
 			} else if (!strcmp(arg, "libs")) {
 				show_libs(pid);
