@@ -785,6 +785,7 @@ long sys_dup2(int old, int new) {
 }
 
 long sys_dup3(int old, int new, int flag) {
+	if (!FD_CHECK(old)) return -EBADF;
 	if (new < 0) return -EBADF; /* only dup2 syscall interface accepts -1 */
 	int flags = 0;
 	if (flag & ~(O_CLOEXEC | O_CLOFORK)) return -EINVAL;
@@ -1462,6 +1463,7 @@ static scall_func syscalls[] = {
 	[SYS_SETPGID]      = (scall_func)(uintptr_t)sys_setpgid,
 	[SYS_GETPGID]      = (scall_func)(uintptr_t)sys_getpgid,
 	[SYS_DUP2]         = (scall_func)(uintptr_t)sys_dup2,
+	[SYS_DUP3]         = (scall_func)(uintptr_t)sys_dup3,
 	[SYS_EXECVE]       = (scall_func)(uintptr_t)sys_execve,
 	[SYS_FEXECVE]      = (scall_func)(uintptr_t)sys_fexecve,
 	[SYS_FORK]         = (scall_func)(uintptr_t)sys_fork,
