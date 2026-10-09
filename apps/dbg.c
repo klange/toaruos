@@ -612,6 +612,17 @@ int main(int argc, char * argv[]) {
 
 					printf("Program received signal %s.\n", signame);
 
+					siginfo_t siginfo;
+					ptrace(PTRACE_GETSIGINFO, res, NULL, &siginfo);
+					if (siginfo.si_signo) {
+						switch (siginfo.si_signo) {
+							case SIGSEGV:
+								printf("   Fault address: %p\n", siginfo.si_addr);
+								break;
+							default: break;
+						}
+					}
+
 					struct URegs regs;
 					ptrace(PTRACE_GETREGS, res, NULL, &regs);
 
