@@ -1563,13 +1563,13 @@ void syscall_handler(struct regs * r) {
 	}
 
 	long result;
+	scall_func func;
 
-	if (arch_syscall_number(r) < 0 || arch_syscall_number(r) >= num_syscalls) {
+	if (arch_syscall_number(r) < 0 || arch_syscall_number(r) >= num_syscalls || !(func = syscalls[arch_syscall_number(r)])) {
 		result = -EINVAL;
 		goto _finish_syscall;
 	}
 
-	scall_func func = syscalls[arch_syscall_number(r)];
 	result = func(
 		arch_syscall_arg0(r), arch_syscall_arg1(r), arch_syscall_arg2(r),
 		arch_syscall_arg3(r), arch_syscall_arg4(r), arch_syscall_arg5(r));
