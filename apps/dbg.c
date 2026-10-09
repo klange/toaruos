@@ -493,6 +493,20 @@ static void pass_sig(int sig) {
 	signal(SIGINT, pass_sig);
 }
 
+static int is_quiet_signal(int sig) {
+	switch (sig) {
+		case SIGSYS:
+		case SIGWINCH:
+		case SIGUSR1:
+		case SIGUSR2:
+		case SIGCAT:
+			return 1;
+
+		default:
+			return 0;
+	}
+}
+
 int main(int argc, char * argv[]) {
 	pid_t target_pid = 0;
 	int opt;
@@ -511,9 +525,6 @@ int main(int argc, char * argv[]) {
 	if (optind == argc) {
 		return usage(argv);
 	}
-
-	/* TODO find argv[optind] */
-	/* TODO load symbols from it, and from its dependencies... with offsets... from ld.so... */
 
 	binary_path = find_binary(argv[optind]);
 
@@ -591,6 +602,8 @@ int main(int argc, char * argv[]) {
 							ptrace(PTRACE_CONT, res, NULL, NULL);
 							break;
 					}
+				} else if (is_quiet_signal(WSTOPSIG(status))) {
+					ptrace(PTRACE_CONT, res, NULL, (void*)(uintptr_t)(WSTOPSIG(status)));
 				} else {
 					char signame[SIG2STR_MAX+3] = {'S','I','G',0};
 					if (sig2str(WSTOPSIG(status), signame+3)) {
