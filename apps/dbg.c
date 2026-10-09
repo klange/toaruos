@@ -26,12 +26,14 @@
 #include <toaru/hashmap.h>
 #include <kernel/elf.h>
 #include <sys/uregs.h>
+#include <sys/syscall.h>
 
 static char * last_command = NULL;
 static char * binary_path = NULL;
 static FILE * binary_obj = NULL;
 static pid_t  binary_pid = 0;
 static int    binary_is_child = 0;
+static uintptr_t _until_ip = 0;
 
 static void dump_regs(struct URegs * r) {
 	fprintf(stdout, UREGS_FMT, UREGS_ARGS(r));
@@ -352,6 +354,11 @@ static void show_commandline(pid_t pid, int status, struct URegs * regs) {
 			if (signum == SIGINT) signum = 0;
 			ptrace(PTRACE_SINGLESTEP, pid, NULL, (void*)(uintptr_t)signum);
 			return;
+		} else if (!strcmp(buf, "until")) {
+			_until_ip = strtoul(arg, NULL, 0);
+			fprintf(stderr, "until %#zx\n", _until_ip);
+			ptrace(PTRACE_SINGLESTEP, pid, NULL, (void*)0);
+			return;
 		} else if (!strcmp(buf, "poke")) {
 			char * addr = arg;
 			char * data = strstr(addr, " ");
@@ -508,12 +515,16 @@ static int is_quiet_signal(int sig) {
 }
 
 int main(int argc, char * argv[]) {
+	int wait_on_enter = 0;
 	pid_t target_pid = 0;
 	int opt;
-	while ((opt = getopt(argc, argv, "+o:p:h")) != -1) {
+	while ((opt = getopt(argc, argv, "+o:p:wh")) != -1) {
 		switch (opt) {
 			case 'p':
 				target_pid = atoi(optarg);
+				break;
+			case 'w':
+				wait_on_enter = 1;
 				break;
 			case 'h':
 				return (usage(argv), 0);
@@ -576,6 +587,8 @@ int main(int argc, char * argv[]) {
 		signal(SIGINT, SIG_IGN);
 	}
 
+	int last_syscall = 0;
+
 	while (1) {
 		int status = 0;
 		pid_t res = waitpid(binary_pid, &status, WSTOPPED);
@@ -594,16 +607,34 @@ int main(int argc, char * argv[]) {
 						case PTRACE_EVENT_SINGLESTEP: {
 								struct URegs regs;
 								ptrace(PTRACE_GETREGS, res, NULL, &regs);
+								if (_until_ip) {
+									if (_until_ip != uregs_ip(&regs)) {
+										ptrace(PTRACE_SINGLESTEP, res, NULL, (void*)0);
+										break;
+									}
+									_until_ip = 0;
+								}
 								show_commandline(res, status, &regs);
 							}
 							break;
+						case PTRACE_EVENT_SYSCALL_ENTER:
+							if (wait_on_enter) {
+								struct URegs regs;
+								ptrace(PTRACE_GETREGS, res, NULL, &regs);
+								last_syscall = uregs_syscall_num(&regs);
+								if (last_syscall == SYS_EXECVE || last_syscall == SYS_FEXECVE) {
+									wait_on_enter = 0;
+									show_commandline(res, status, &regs);
+									break;
+								}
+							}
+							/* fallthrough */
 						default:
-							//ptrace(PTRACE_SIGNALS_ONLY_PLZ, p, NULL, NULL);
-							ptrace(PTRACE_CONT, res, NULL, NULL);
+							ptrace(_until_ip ? PTRACE_SINGLESTEP : PTRACE_CONT, res, NULL, NULL);
 							break;
 					}
 				} else if (is_quiet_signal(WSTOPSIG(status))) {
-					ptrace(PTRACE_CONT, res, NULL, (void*)(uintptr_t)(WSTOPSIG(status)));
+					ptrace(_until_ip ? PTRACE_SINGLESTEP : PTRACE_CONT, res, NULL, (void*)(uintptr_t)(WSTOPSIG(status)));
 				} else {
 					char signame[SIG2STR_MAX+3] = {'S','I','G',0};
 					if (sig2str(WSTOPSIG(status), signame+3)) {
