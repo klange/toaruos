@@ -147,7 +147,7 @@ int handle_signal(process_t * proc, int signum, struct regs *r, siginfo_t * caus
 
 	/* Are we being traced? */
 	if (this_core->current_process->flags & PROC_FLAG_TRACE_SIGNALS) {
-		signum = ptrace_signal(signum, 0);
+		signum = ptrace_signal(signum, 0, cause);
 	}
 
 	if (proc->flags & PROC_FLAG_FINISHED) {

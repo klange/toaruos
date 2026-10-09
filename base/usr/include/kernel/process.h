@@ -181,6 +181,7 @@ typedef struct process {
 	/* Tracing */
 	pid_t tracer;               /* ptrace tracer; this should probably be a pointer... */
 	list_t * tracees;           /* threads this process is tracing in ptrace FIXME inline, can only have one tracer */
+	siginfo_t * sig_cause;      /* cause of the current signal we are stopped for tracing by */
 } process_t;
 
 _Static_assert((__builtin_offsetof(process_t,flags) == 0), "flags must be the head of process struct");

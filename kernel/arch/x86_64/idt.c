@@ -419,7 +419,7 @@ static void _debug_int(struct regs * r) {
 
 	/* If the current process was debugging, trigger a SINGLESTEP event. */
 	if (this_core->current_process->flags & PROC_FLAG_TRACE_SIGNALS) {
-		ptrace_signal(SIGTRAP, PTRACE_EVENT_SINGLESTEP);
+		ptrace_signal(SIGTRAP, PTRACE_EVENT_SINGLESTEP, NULL);
 	}
 }
 

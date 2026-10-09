@@ -323,7 +323,7 @@ void aarch64_sync_enter(struct regs * r) {
 		asm volatile("msr MDSCR_EL1, %0" :: "r"(val));
 
 		if (this_core->current_process->flags & PROC_FLAG_TRACE_SIGNALS) {
-			ptrace_signal(SIGTRAP, PTRACE_EVENT_SINGLESTEP);
+			ptrace_signal(SIGTRAP, PTRACE_EVENT_SINGLESTEP, NULL);
 		}
 
 		goto _resume_user;

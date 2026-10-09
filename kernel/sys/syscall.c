@@ -1559,7 +1559,7 @@ void syscall_handler(struct regs * r) {
 	}
 
 	if (this_core->current_process->flags & PROC_FLAG_TRACE_SYSCALLS) {
-		ptrace_signal(SIGTRAP, PTRACE_EVENT_SYSCALL_ENTER);
+		ptrace_signal(SIGTRAP, PTRACE_EVENT_SYSCALL_ENTER, NULL);
 	}
 
 	long result;
@@ -1582,6 +1582,6 @@ _finish_syscall:
 	arch_syscall_return(r, result);
 
 	if (this_core->current_process->flags & PROC_FLAG_TRACE_SYSCALLS) {
-		ptrace_signal(SIGTRAP, PTRACE_EVENT_SYSCALL_EXIT);
+		ptrace_signal(SIGTRAP, PTRACE_EVENT_SYSCALL_EXIT, NULL);
 	}
 }

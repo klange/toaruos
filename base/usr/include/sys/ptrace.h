@@ -17,6 +17,7 @@ enum __ptrace_request {
 	PTRACE_SINGLESTEP,
 	PTRACE_SETREGS,
 	PTRACE_SETOPTIONS,
+	PTRACE_GETSIGINFO,
 };
 
 enum __ptrace_event {

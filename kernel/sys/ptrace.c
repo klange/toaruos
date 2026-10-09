@@ -183,9 +183,11 @@ long ptrace_self(void) {
  * @param reason PTRACE_EVENT value describing the event; 0 for signal delivery.
  * @returns Signal number from tracee status upon resumption.
  */
-long ptrace_signal(int signal, int reason) {
+long ptrace_signal(int signal, int reason, void * cause) {
 	this_core->current_process->status = 0x7F | (signal << 8) | (reason << 16);
 	__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_SUSPENDED);
+
+	this_core->current_process->sig_cause = cause;
 
 	process_t * parent = process_from_pid(this_core->current_process->tracer);
 	if (parent && !(parent->flags & PROC_FLAG_FINISHED)) {
@@ -194,6 +196,8 @@ long ptrace_signal(int signal, int reason) {
 		spin_unlock(parent->wait_lock);
 	}
 	switch_task(0);
+
+	this_core->current_process->sig_cause = NULL;
 
 	int signum = (this_core->current_process->status >> 8);
 	this_core->current_process->status = 0;
@@ -493,6 +497,15 @@ long ptrace_setoptions(pid_t pid, int options) {
 	return 0;
 }
 
+long ptrace_getsiginfo(pid_t pid, siginfo_t * out) {
+	process_t * tracee = process_from_pid(pid);
+	if (!tracee || (tracee->tracer != this_core->current_process->id)) return -ESRCH;
+	if (!mmu_validate_user_pointer(out, sizeof(siginfo_t), MMU_PTR_WRITE)) return -EFAULT;
+	if (!tracee->sig_cause) memset(out, 0, sizeof(siginfo_t));
+	else memcpy(out, tracee->sig_cause, sizeof(siginfo_t));
+	return 0;
+}
+
 /**
  * @brief Handle ptrace system call requests.
  *
@@ -532,6 +545,8 @@ long ptrace_handle(long request, pid_t pid, void * addr, void * data) {
 			return ptrace_setregs(pid,data);
 		case PTRACE_SETOPTIONS:
 			return ptrace_setoptions(pid,(uintptr_t)data);
+		case PTRACE_GETSIGINFO:
+			return ptrace_getsiginfo(pid,data);
 		default:
 			return -EINVAL;
 	}
