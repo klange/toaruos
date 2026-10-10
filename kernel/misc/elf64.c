@@ -484,11 +484,8 @@ int elf_exec(const char * unused_path, struct fs_file_description * desc_in, int
 	}
 	free(env);
 
-	char * at_execfn = NULL;
-	if (this_core->current_process->name) {
-		PUSHSTR(this_core->current_process->name);
-		at_execfn = (char*)userstack;
-	}
+	PUSHSTR(desc_in->path->chars);
+	char * at_execfn = (char*)userstack;
 
 	PUSHSTR(__kernel_arch);
 	char *at_platform = (char*)userstack;
