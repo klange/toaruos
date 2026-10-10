@@ -183,6 +183,9 @@ int main(int argc, char * argv[]) {
 	struct PasswdEntry * shadow_entry = calloc(1, sizeof(struct PasswdEntry));
 	passwd_append(shadow_entries, shadow_entry);
 
+	struct GroupEntry * new_group = calloc(1, sizeof(struct GroupEntry));
+	group_append(groups, new_group);
+
 	if (is_addgroup && opt_gid != -1) {
 		opt_uid = opt_gid;
 	}
@@ -244,6 +247,11 @@ int main(int argc, char * argv[]) {
 	shadow_entry->pwd.pw_dir     = opt_home;
 	shadow_entry->pwd.pw_comment = opt_theme;
 
+	new_group->grp.gr_name    = name;
+	new_group->grp.gr_passwd  = "x";
+	new_group->grp.gr_gid     = opt_gid;
+	new_group->grp.gr_mem     = calloc(1, sizeof(char*));
+
 	if (!is_addgroup) {
 		struct PasswdEntry * master_entry = calloc(1, sizeof(struct PasswdEntry));
 		passwd_append(master_entries, master_entry);
@@ -278,22 +286,10 @@ int main(int argc, char * argv[]) {
 		}
 
 		if (toaru_auth_write_passwd("/etc/master.passwd", 0600, master_entries)) err(1, "failed to write password database");
-		if (toaru_auth_write_passwd("/etc/passwd", 0644, shadow_entries)) err(1, "failed to write user database");
-	} else {
-
-		/* Groups do not get home directories and we don't put passwords on groups (they can't log in) */
-		struct GroupEntry * new_group = calloc(1, sizeof(struct GroupEntry));
-
-		new_group->grp.gr_name    = name;
-		new_group->grp.gr_passwd  = "x";
-		new_group->grp.gr_gid     = opt_gid;
-		new_group->grp.gr_mem     = calloc(1, sizeof(char*));
-
-		group_append(groups, new_group);
-
-		if (toaru_auth_write_group("/etc/group", 644, groups)) err(1, "failed to write group database");
-		if (toaru_auth_write_passwd("/etc/passwd", 0644, shadow_entries)) err(1, "failed to write user database");
 	}
+
+	if (toaru_auth_write_group("/etc/group", 644, groups)) err(1, "failed to write group database");
+	if (toaru_auth_write_passwd("/etc/passwd", 0644, shadow_entries)) err(1, "failed to write user database");
 
 	return 0;
 }
