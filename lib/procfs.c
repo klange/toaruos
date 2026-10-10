@@ -163,25 +163,38 @@ void procfs_free(struct process * proc) {
 	free(proc);
 }
 
-int procfs_iterate(int (*callback)(struct process *,void*), void *ctx, int flags) {
+static int procfs_iterate_dir(int (*callback)(struct process *,void*), void *ctx, int flags, char * dir, int recur) {
 	int ret = 0;
-	DIR * dirp = opendir("/proc");
+	DIR * dirp = opendir(dir);
 
 	for (struct dirent * ent = readdir(dirp); ent; ent = readdir(dirp)) {
 		if (ent->d_name[0] >= '0' && ent->d_name[0] <= '9') {
 			p_t * proc = build_entry(ent, flags);
 			if (!proc) continue;
+			if (!recur && proc->pid == proc->tgid) {
+				procfs_free(proc);
+				continue;
+			}
 			if ((flags & PROCFSLIB_NO_THREADS) && proc->pid != proc->tgid) {
 				procfs_free(proc);
 				continue;
 			}
 			if (callback(proc,ctx)) ret = 1;
 			if (!(flags & PROCFSLIB_NO_FREE)) procfs_free(proc);
+			if (recur && !(flags & PROCFSLIB_NO_THREADS)) {
+				char tasks_dir[1000];
+				snprintf(tasks_dir, 1000, "%s/%s/task", dir, ent->d_name);
+				if (procfs_iterate_dir(callback, ctx, flags, tasks_dir, 0)) ret = 1;
+			}
 		}
 		if (ret) break;
 	}
 	closedir(dirp);
 	return ret;
+}
+
+int procfs_iterate(int (*callback)(struct process *,void*), void *ctx, int flags) {
+	return procfs_iterate_dir(callback, ctx, flags, "/proc", 1);
 }
 
 struct process * procfs_get_pid(pid_t pid, int flags) {
