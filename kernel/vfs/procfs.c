@@ -866,9 +866,10 @@ static int readdir_procfs_root(fs_node_t *node, uint64_t index, struct dirent * 
 	pid_t pid = 0;
 
 	foreach(lnode, process_list) {
+		process_t * proc = (process_t *)lnode->value;
+		if (proc->tgid != proc->id) continue;
 		i--;
 		if (i == 0) {
-			process_t * proc = (process_t *)lnode->value;
 			pid = proc->id;
 			break;
 		}
