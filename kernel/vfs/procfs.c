@@ -621,16 +621,46 @@ static void proc_fdinfo_func(fs_node_t * node) {
 	spin_unlock(proc->fds->lock);
 }
 
+static void proc_task_ent_func(fs_node_t * node) {
+	procfs_entry_t * self = (procfs_entry_t *)node;
+	procfs_printf(node, "../../%u", self->id);
+}
+
+static void proc_task_func(fs_node_t * node) {
+	process_t * proc = process_from_pid(node->impl);
+	if (!proc) return;
+
+	procfs_entry_t * self = (procfs_entry_t *)node;
+
+	self->files = list_create("files", node);
+	self->free_node = proc_fd_dir_free;
+
+	pid_t * threads = NULL;
+	size_t thread_count = process_collect_by(offsetof(process_t, tgid), sizeof(pid_t), (void*)&proc->tgid, &threads, 1);
+	for (size_t i = 0; i < thread_count; ++i) {
+		struct procfs_entry * ent = calloc(1, sizeof(struct procfs_entry));
+		ent->id = threads[i];
+		char pid_num[30];
+		snprintf(pid_num, 30, "%u", threads[i]);
+		ent->name = strdup(pid_num);
+		ent->func = proc_task_ent_func;
+		ent->flags = INO_LNK;
+		list_insert(self->files, ent);
+	}
+}
+
 static struct procfs_entry procdir_entries[] = {
 	{1, "cmdline", proc_cmdline_func, 0},
 	{2, "status",  proc_status_func, 0},
 	{3, "comm",    proc_comm_func, PROCFS_FLAG_WRITABLE}, /* Writable */
 	{4, "stat",    proc_stat_func, 0},
-	{5, "cwd",     proc_cwd_func, INO_LNK},
-	{6, "maps",    proc_maps_func, 0},
-	{7, "fd",      proc_fd_func, INO_DIR},
-	{8, "exe",     proc_exe_func, INO_LNK},
-	{9, "fdinfo",  proc_fdinfo_func, INO_DIR},
+	{5, "task",    proc_task_func, INO_DIR},
+	/* start privileged */
+	{6, "cwd",     proc_cwd_func, INO_LNK},
+	{7, "maps",    proc_maps_func, 0},
+	{8, "fd",      proc_fd_func, INO_DIR},
+	{9, "exe",     proc_exe_func, INO_LNK},
+	{10,"fdinfo",  proc_fdinfo_func, INO_DIR},
 };
 
 static int readdir_procfs_procdir(fs_node_t *node, uint64_t index, struct dirent * out) {
@@ -665,7 +695,7 @@ static fs_node_t * finddir_procfs_procdir(fs_node_t * node, const char * name) {
 	for (unsigned int i = 0; i < PROCFS_PROCDIR_ENTRIES; ++i) {
 		if (!strcmp(name, procdir_entries[i].name)) {
 			fs_node_t * out = procfs_generic_create(&procdir_entries[i]);
-			if (procdir_entries[i].id > 4) {
+			if (procdir_entries[i].id > 5) {
 				if (out->type == INO_LNK) {
 					out->ops = &procfs_symlink_ops_restricted;
 				} else {
