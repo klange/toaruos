@@ -35,8 +35,6 @@
 #include <kernel/ptrace.h>
 #include <kernel/syscall.h>
 
-static spin_lock_t sig_lock;
-
 #define SIG_DISP_Ign  0
 #define SIG_DISP_Term 1
 #define SIG_DISP_Core 2
@@ -44,7 +42,7 @@ static spin_lock_t sig_lock;
 #define SIG_DISP_Cont 4
 
 static char sig_defaults[] = {
-	0, /* 0? */
+	0, /* 0 is reserved for the "null signal" that can be "sent" by @c kill() */
 	[SIGHUP     ] = SIG_DISP_Term,
 	[SIGINT     ] = SIG_DISP_Term,
 	[SIGQUIT    ] = SIG_DISP_Core,
@@ -93,6 +91,8 @@ static char sig_defaults[] = {
  * on how the signal was handled.
  *
  * @param r Registers after restoration from signal return.
+ * @param signum Signal that was being handled.
+ * @param no_handler 1 when not coming from signal handler.
  */
 static void maybe_restart_system_call(struct regs * r, int signum, int no_handler) {
 	if (signum < 0 || signum >= NUMSIGNALS) return;
@@ -206,45 +206,26 @@ _ignore_signal:
 }
 
 /**
- * @brief Deliver a signal to another process.
+ * @brief Enqueue a signal for delivery in a process.
  *
- * Called by both system calls like @c kill as well as by some things
- * that want to trigger SIGSEGV, SIGPIPE, and so on.
+ * If the signal would be handled immediately but is being ignored, nothing happens.
  *
- * @param process    PID to deliver to. Must be a single PID, not a group specifier.
- * @param signal     Signal number to deliver.
- * @param force_root If the current process isn't root, it can't send signals to
- *                   processes owned by other users, which means we can't send soft
- *                   signals as part operations like SIGPIPE or SIGCHLD. Kernel callers
- *                   can use this parameter to skip this check.
- * @returns General status, should be suitable for sys_kill return value.
+ * Otherwise, the signal cause is placed in the process's queue and the signal
+ * is marked as pending.
+ *
+ * @param receiver Process (thread) that will receive the signal.
+ * @param signal   Signal to send.
+ * @param cause    Signal info
+ * @returns 1 if ignored, 2 if blocked, else 0.
  */
-int send_signal_info(pid_t process, int signal, int force_root, siginfo_t *cause) {
-	process_t * receiver = process_from_pid(process);
-
-	if (!receiver) return -ESRCH;
-	if (!force_root && receiver->user != this_core->current_process->user && this_core->current_process->user != USER_ROOT_UID &&
-		receiver->real_user != this_core->current_process->user &&
-		!(signal == SIGCONT && receiver->session == this_core->current_process->session)) return -EPERM;
-	if (receiver->flags & PROC_FLAG_IS_TASKLET) return -EPERM;
-	if (signal >= NUMSIGNALS || signal < 0) return -EINVAL;
-	if (receiver->flags & PROC_FLAG_FINISHED) return -ESRCH;
-	if (signal == 0) return 0;
-
+static int enqueue_signal(process_t * receiver, int signal, siginfo_t * cause) {
 	int awaited = receiver->awaited_signals & shift_signal(signal);
 	int ignored = !receiver->signals[signal].handler && !sig_defaults[signal];
 	int blocked = (receiver->blocked_signals & shift_signal(signal)) && signal != SIGKILL && signal != SIGSTOP;
 
-	/* sigcont always unsuspends */
-	if (sig_defaults[signal] == SIG_DISP_Cont && (receiver->flags & PROC_FLAG_SUSPENDED)) {
-		__sync_and_and_fetch(&receiver->flags, ~(PROC_FLAG_SUSPENDED));
-		receiver->status = 0;
-	}
-
 	/* Do nothing if the signal is not being waited for or blocked and the default disposition is to ignore. */
-	if (!awaited && !blocked && ignored) return 0;
+	if (!awaited && !blocked && ignored) return 1;
 
-	/* Mark the signal for delivery. */
 	spin_lock(receiver->sig_lock);
 
 	if (cause) {
@@ -263,8 +244,64 @@ int send_signal_info(pid_t process, int signal, int force_root, siginfo_t *cause
 
 	spin_unlock(receiver->sig_lock);
 
-	/* If the signal is blocked and not being awaited, end here. */
-	if (blocked && !awaited) return 0;
+	if (blocked && !awaited) return 2;
+	return 0;
+}
+
+/**
+ * @brief Raise a signal in the current thread.
+ *
+ * Skips all of the normal checks from @c send_signal_info and directly
+ * enqueues a signal for delivery to the current thread, with the same
+ * semantics as @c enqueue_signal above.
+ *
+ * This should normally be used to send synchronous signals.
+ *
+ * @param signal Signal to raise.
+ * @param cause  Signal info.
+ * @returns 1 if ignored, 2 if blocked, else 0.
+ */
+int raise_signal(int signal, siginfo_t *cause) {
+	return enqueue_signal((process_t*)this_core->current_process, signal, cause);
+}
+
+/**
+ * @brief Deliver a signal to another process.
+ *
+ * Called by both system calls like @c kill and some things that automatically
+ * send signals on events, but should not be used for synchronous signals
+ * (see @c raise_signal for that).
+ *
+ * @param process    PID to deliver to. Must be a single PID, not a group specifier.
+ * @param signal     Signal number to deliver.
+ * @param force_root If the current process isn't root, it can't send signals to
+ *                   processes owned by other users, which means we can't send soft
+ *                   signals as part operations like SIGPIPE or SIGCHLD. Kernel callers
+ *                   can use this parameter to skip this check.
+ * @param cause      Signal info.
+ * @returns General status, should be suitable for sys_kill return value.
+ */
+int send_signal_info(pid_t process, int signal, int force_root, siginfo_t *cause) {
+	process_t * receiver = process_from_pid(process);
+
+	if (!receiver) return -ESRCH;
+	if (!force_root && receiver->user != this_core->current_process->user && this_core->current_process->user != USER_ROOT_UID &&
+		receiver->real_user != this_core->current_process->user &&
+		!(signal == SIGCONT && receiver->session == this_core->current_process->session)) return -EPERM;
+	if (receiver->flags & PROC_FLAG_IS_TASKLET) return -EPERM;
+	if (receiver->flags & PROC_FLAG_FINISHED) return -ESRCH;
+
+	if (signal >= NUMSIGNALS || signal < 0) return -EINVAL;
+	if (signal == 0) return 0;
+
+	/* sigcont always unsuspends */
+	if (sig_defaults[signal] == SIG_DISP_Cont && (receiver->flags & PROC_FLAG_SUSPENDED)) {
+		__sync_and_and_fetch(&receiver->flags, ~(PROC_FLAG_SUSPENDED));
+		receiver->status = 0;
+	}
+
+	/* Mark the signal for delivery. */
+	if (enqueue_signal(receiver, signal, cause)) return 0;
 
 	/* Informs any blocking events that the process has been interrupted
 	 * by a signal, which should trigger those blocking events to complete
@@ -280,6 +317,21 @@ int send_signal_info(pid_t process, int signal, int force_root, siginfo_t *cause
 	return 0;
 }
 
+/**
+ * @brief Send a signal to a process without a premade cause.
+ *
+ * @deprecated Use @c send_signal_info instead.
+ *
+ * This is the legacy interface. Callers should prefer to always
+ * include a siginfo cause when sending signals. If a non-system
+ * signal is sent by this function, a cause identifying the source
+ * thread / user will be automatically attached.
+ *
+ * @param process Thread ID to send the signal to.
+ * @param signal  Signal to send.
+ * @param force_root (see @c send_signal_info for details)
+ * @returns 0 on success, or negative error number.
+ */
 int send_signal(pid_t process, int signal, int force_root) {
 	siginfo_t cause = {0};
 	if (!force_root) {
@@ -292,6 +344,23 @@ int send_signal(pid_t process, int signal, int force_root) {
 	return send_signal_info(process, signal, force_root, force_root ? NULL : &cause);
 }
 
+/**
+ * @brief Retrieve one instance of a signal from the pending queue.
+ *
+ * Looks through the current thread's signal queue and retrieves
+ * the first instance of the requested signal, if any, removing
+ * it from the queue.
+ *
+ * If the queue still contains another instance of the same signal,
+ * the signal will remain pending, otherwise it will be unset in
+ * the pending signal mask.
+ *
+ * If no associated siginfo cause is found in the queue, default
+ * information will be filled in.
+ *
+ * @param signal Signal type to pop.
+ * @param cause  Where to put the cause data.
+ */
 static void signal_pop(int signal, siginfo_t * cause) {
 	cause->si_signo = signal;
 	cause->si_code = SI_KERNEL;

@@ -113,7 +113,8 @@ ssize_t read_pipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	pipe_device_t * pipe = (pipe_device_t *)node->device;
 
 	if (pipe->dead) {
-		send_signal(this_core->current_process->id, SIGPIPE, 1);
+		siginfo_t cause = {.si_errno = EPIPE};
+		raise_signal(SIGPIPE, &cause);
 		return 0;
 	}
 
@@ -147,7 +148,8 @@ ssize_t write_pipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) 
 	pipe_device_t * pipe = (pipe_device_t *)node->device;
 
 	if (pipe->dead) {
-		send_signal(this_core->current_process->id, SIGPIPE, 1);
+		siginfo_t cause = {.si_errno = EPIPE};
+		raise_signal(SIGPIPE, &cause);
 		return 0;
 	}
 

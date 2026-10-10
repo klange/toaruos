@@ -50,7 +50,8 @@ static ssize_t read_unixpipe(fs_node_t * node, off_t offset, size_t size, uint8_
 static ssize_t write_unixpipe(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
 	struct unix_pipe * self = node->device;
 	if (self->read_closed) {
-		send_signal(this_core->current_process->id, SIGPIPE, 1);
+		siginfo_t cause = {.si_errno = EPIPE};
+		raise_signal(SIGPIPE, &cause);
 		return -EPIPE;
 	}
 	return ring_buffer_write(self->buffer, size, buffer);

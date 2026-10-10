@@ -446,7 +446,8 @@ static void _general_protection_fault(struct regs * r) {
 	}
 
 	/* Else, segfault the current process. */
-	send_signal(this_core->current_process->id, SIGSEGV, 1);
+	siginfo_t cause = {.si_code = SEGV_ACCERR};
+	raise_signal(SIGSEGV, &cause);
 }
 
 /**
@@ -496,7 +497,7 @@ static void _page_fault(struct regs * r) {
 	cause.si_code = fault_resp == FAULT_RESPONSE_NO_MAPPING ? SEGV_MAPERR : SEGV_ACCERR;
 	cause.si_addr = (void*)faulting_address;
 
-	send_signal_info(this_core->current_process->id, signo, 1, &cause);
+	raise_signal(signo, &cause);
 }
 
 /**
@@ -519,13 +520,14 @@ static void _local_timer(struct regs * r) {
  * @param r           Interrupt register context
  * @param description Textual description of the exception, for panic messages.
  */
-static void _exception(struct regs * r, const char * description, int signum) {
+static void _exception(struct regs * r, const char * description, int signum, int code) {
 	/* If we were in kernel space, this is a panic */
 	if (!this_core->current_process || r->cs == 0x08) {
 		panic(description, r, r->int_no);
 	}
-	/* Otherwise, these interrupts should trigger a signal */
-	send_signal(this_core->current_process->id, signum, 1);
+
+	siginfo_t cause = {.si_code = code};
+	raise_signal(signum, &cause);
 }
 
 /**
@@ -546,37 +548,37 @@ static void _handle_irq(struct regs * r, int irq) {
 	irq_ack(irq);
 }
 
-#define EXC(i,n,s) case i: _exception(r, n, s); break;
+#define EXC(i,n,s,c) case i: _exception(r, n, s, c); break;
 #define IRQ(i) case i: _handle_irq(r,i-32); break;
 
 void isr_handler_inner(struct regs * r) {
 	switch (r->int_no) {
-		EXC(0,"divide-by-zero",SIGFPE);
+		EXC(0,"divide-by-zero",SIGFPE,FPE_INTDIV);
 		case 1: _debug_int(r); return;
 		/* NMI doesn't reach here, we use it as a panic signal. */
-		EXC(3,"breakpoint",SIGTRAP); /* TODO: This should map to a ptrace event */
-		EXC(4,"overflow",SIGFPE);
-		EXC(5,"bound range exceeded",SIGBUS);
-		EXC(6,"invalid opcode",SIGILL);
-		EXC(7,"device not available",SIGBUS);
+		EXC(3,"breakpoint",SIGTRAP,TRAP_BRKPT); /* TODO: This should map to a ptrace event */
+		EXC(4,"overflow",SIGFPE,FPE_INTOVF);
+		EXC(5,"bound range exceeded",SIGSEGV,SEGV_MAPERR);
+		EXC(6,"invalid opcode",SIGILL,ILL_ILLOPC);
+		EXC(7,"device not available",SIGBUS,BUS_OBJERR);
 		case 8: _double_fault(r); break;
 		/* 9 is a legacy exception that shouldn't happen */
-		EXC(10,"invalid TSS",SIGBUS);
-		EXC(11,"segment not present",SIGBUS);
-		EXC(12,"stack-segment fault",SIGBUS);
+		EXC(10,"invalid TSS",SIGBUS,BUS_OBJERR);
+		EXC(11,"segment not present",SIGBUS,BUS_ADRERR);
+		EXC(12,"stack-segment fault",SIGBUS,BUS_ADRERR);
 		case 13: _general_protection_fault(r); break;
 		case 14: _page_fault(r); break;
 		/* 15 is reserved */
-		EXC(16,"floating point exception",SIGFPE);
-		EXC(17,"alignment check",SIGBUS);
-		EXC(18,"machine check",SIGBUS);
-		EXC(19,"SIMD floating-point exception",SIGFPE);
-		EXC(20,"virtualization exception",SIGBUS);
-		EXC(21,"control protection exception",SIGBUS);
+		EXC(16,"floating point exception",SIGFPE,FPE_FLTINV);
+		EXC(17,"alignment check",SIGBUS,BUS_ADRALN);
+		EXC(18,"machine check",SIGBUS,BUS_OBJERR);
+		EXC(19,"SIMD floating-point exception",SIGFPE,FPE_FLTINV);
+		EXC(20,"virtualization exception",SIGBUS,BUS_OBJERR);
+		EXC(21,"control protection exception",SIGSEGV,SEGV_ACCERR);
 		/* 22 through 27 are reserved */
-		EXC(28,"hypervisor injection exception",SIGBUS);
-		EXC(29,"VMM communication exception",SIGBUS);
-		EXC(30,"security exception",SIGBUS);
+		EXC(28,"hypervisor injection exception",SIGBUS,BUS_OBJERR);
+		EXC(29,"VMM communication exception",SIGBUS,BUS_OBJERR);
+		EXC(30,"security exception",SIGBUS,BUS_OBJERR);
 		/* 31 is reserved */
 
 		/* 16 IRQs that go to the general IRQ chain */

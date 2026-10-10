@@ -38,5 +38,13 @@ int main(int argc, char * argv[]) {
 	int val = syscall_getpid();
 	dprintf(2, "syscall_getpid() = %d\n", val);
 
+	sigset_t sigsys;
+	sigemptyset(&sigsys);
+	sigaddset(&sigsys, SIGSYS);
+	sigprocmask(SIG_BLOCK, &sigsys, NULL);
+
+	int val2 = syscall_getpid();
+	dprintf(2, "syscall_getpid() = %d\n", val2);
+
 	return 0;
 }

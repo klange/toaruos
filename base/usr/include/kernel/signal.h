@@ -27,3 +27,4 @@ extern int signal_await(sigset_t awaited, siginfo_t * cause);
  * so they'll stay in this header for now. */
 extern int group_send_signal(pid_t group, int signal, int force_root);
 extern int session_send_signal(pid_t session, int signal, int force_root);
+extern int raise_signal(int signal, siginfo_t *cause);

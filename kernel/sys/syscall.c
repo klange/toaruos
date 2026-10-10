@@ -1554,9 +1554,30 @@ void syscall_handler(struct regs * r) {
 		siginfo_t cause = {0};
 		cause.si_code = SYS_USER_DISPATCH;
 		cause.si_addr = (void*)arch_user_ip(r);
-		cause.si_syscall = arch_syscall_number(r); /* Do this now before we overwrite it. */
+		cause.si_syscall = arch_syscall_number(r);
 
-		send_signal_info(this_core->current_process->id, SIGSYS, 1, &cause);
+		/*
+		 * There are two expected situations for a system call to be made outside of the
+		 * allowed mapping:
+		 *
+		 * - An application has erroneously attempted to make a direct system call outside
+		 *   of the libc. Assuming this wasn't caused by a security exploit, instead of
+		 *   upgrading this to something more deadly if it is blocked or ignored, we want
+		 *   to return something sensible for most system calls.
+		 *
+		 * - Foreign code is running in a system call emulation layer. For this case,
+		 *   a handler will have been installed, and we want to ensure that the register
+		 *   state remains clean for it - especially as foreign system call ABIs may use
+		 *   registers differently, so our saved syscall number may not be a syscall
+		 *   number at all.
+		 *
+		 * To account for both of these, we first try to send the signal, and only if it was
+		 * blocked or ignored do we overwrite the return register (in our ABI) with -EFAULT.
+		 */
+		if (raise_signal(SIGSYS, &cause)) {
+			arch_syscall_return(r, -EFAULT);
+		}
+
 		return;
 	}
 
