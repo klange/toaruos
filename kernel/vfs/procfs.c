@@ -414,6 +414,76 @@ static void proc_status_func(fs_node_t *node) {
 	process_release_big_lock();
 }
 
+static void proc_stat_func(fs_node_t *node) {
+	process_acquire_big_lock();
+	process_t * proc = process_from_pid(node->impl);
+
+	if (!proc) {
+		process_release_big_lock();
+		return;
+	}
+
+	process_t * parent = process_get_parent(proc->process);
+
+	char state = 'S';
+
+	/* Base state */
+	if ((proc->flags & PROC_FLAG_RUNNING) || process_is_ready(proc)) {
+		state = 'R'; /* Running or runnable */
+	} else if ((proc->flags & PROC_FLAG_FINISHED)) {
+		state = 'Z'; /* Zombie - exited but not yet reaped */
+	} else if ((proc->flags & PROC_FLAG_SUSPENDED)) {
+		state = 'T'; /* Stopped; TODO can we differentiate stopped tracees correctly? */
+	}
+
+	/* Calculate process memory usage */
+	spin_lock(proc->thread.page_directory->lock);
+	size_t mem_usage = count_mappings(proc->thread.page_directory->mappings);
+	extern int mmu_count_resident(process_t * proc, union PML * directory, size_t * anon, size_t * file, size_t * shm);
+	size_t res_anon, res_file, res_shm;
+	mmu_count_resident(proc, proc->thread.page_directory->directory, &res_anon, &res_file, &res_shm);
+	res_anon *= 4;
+	res_file *= 4;
+	res_shm *= 4;
+	mem_usage += res_shm; /* Because these aren't in the mappings yet. */
+	size_t res_usage = res_anon + res_file + res_shm;
+	spin_unlock(proc->thread.page_directory->lock);
+
+	extern uint64_t arch_boot_time;
+
+	procfs_printf(node,
+			"%d "   /* pid (tid?) */
+			"(%s) " /* name */
+			"%c "   /* state */
+			"%d "   /* ppid */
+			"%d "   /* pgrp */
+			"%d "   /* session */
+			"0 -1 0 "  /* ttynr, tpgrp, flags */
+			"0 0 0 0 " /* fault counts */
+			"%lu %lu %lu %lu " /* utime, stime, cutime, cstime */
+			"0 0 0 0 " /* priority, nice, thread count, it_real_value */
+			"%lu " /* start time */
+			"%lu " /* vsize */
+			"%lu " /* vrss */
+			,
+			proc->id,
+			proc->name,
+			state,
+			parent ? parent->id : 0,
+			proc->job,
+			proc->session,
+			(proc->time_total - proc->time_sys) / arch_cpu_mhz(),
+			proc->time_sys / arch_cpu_mhz(),
+			(proc->time_children - proc->time_sys_children) / arch_cpu_mhz(),
+			proc->time_sys_children / arch_cpu_mhz(),
+			(proc->start.tv_sec - arch_boot_time) * 1000000 + proc->start.tv_usec,
+			mem_usage,
+			res_usage
+			);
+
+	process_release_big_lock();
+}
+
 static void proc_cwd_func(fs_node_t *node) {
 	process_t * proc = process_from_pid(node->impl);
 	if (!proc) return;
@@ -555,11 +625,12 @@ static struct procfs_entry procdir_entries[] = {
 	{1, "cmdline", proc_cmdline_func, 0},
 	{2, "status",  proc_status_func, 0},
 	{3, "comm",    proc_comm_func, PROCFS_FLAG_WRITABLE}, /* Writable */
-	{4, "cwd",     proc_cwd_func, INO_LNK},
-	{5, "maps",    proc_maps_func, 0},
-	{6, "fd",      proc_fd_func, INO_DIR},
-	{7, "exe",     proc_exe_func, INO_LNK},
-	{8, "fdinfo",  proc_fdinfo_func, INO_DIR},
+	{4, "stat",    proc_stat_func, 0},
+	{5, "cwd",     proc_cwd_func, INO_LNK},
+	{6, "maps",    proc_maps_func, 0},
+	{7, "fd",      proc_fd_func, INO_DIR},
+	{8, "exe",     proc_exe_func, INO_LNK},
+	{9, "fdinfo",  proc_fdinfo_func, INO_DIR},
 };
 
 static int readdir_procfs_procdir(fs_node_t *node, uint64_t index, struct dirent * out) {
@@ -594,7 +665,7 @@ static fs_node_t * finddir_procfs_procdir(fs_node_t * node, const char * name) {
 	for (unsigned int i = 0; i < PROCFS_PROCDIR_ENTRIES; ++i) {
 		if (!strcmp(name, procdir_entries[i].name)) {
 			fs_node_t * out = procfs_generic_create(&procdir_entries[i]);
-			if (procdir_entries[i].id > 2) {
+			if (procdir_entries[i].id > 4) {
 				if (out->type == INO_LNK) {
 					out->ops = &procfs_symlink_ops_restricted;
 				} else {
