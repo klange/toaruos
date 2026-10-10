@@ -310,7 +310,7 @@ void aarch64_sync_enter(struct regs * r) {
 		siginfo_t cause = {0};
 		cause.si_code = SEGV_ACCERR;
 		cause.si_addr = (void*)far;
-		send_signal_info(this_core->current_process->id, signo, 1, &cause);
+		raise_signal(signo, &cause);
 		goto _resume_user;
 #endif
 	}
@@ -367,8 +367,7 @@ void aarch64_sync_enter(struct regs * r) {
 	siginfo_t cause = {0};
 	cause.si_code = fault_resp == FAULT_RESPONSE_NO_MAPPING ? SEGV_MAPERR : SEGV_ACCERR;
 	cause.si_addr = (void*)far;
-
-	send_signal_info(this_core->current_process->id, signo, 1, &cause);
+	raise_signal(signo, &cause);
 
 _resume_user:
 	process_check_signals(r);
