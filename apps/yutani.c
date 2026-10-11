@@ -1705,7 +1705,6 @@ static void window_tile(yutani_globals_t * yg, yutani_server_window_t * window, 
 		window->untiled_height = window->height;
 		window->untiled_left = window->x;
 		window->untiled_top = window->y;
-		window->tiled = 1;
 	}
 
 	int w = yg->width / width_div;
@@ -1744,6 +1743,8 @@ static void window_tile(yutani_globals_t * yg, yutani_server_window_t * window, 
 	if (y < height_div-1) {
 		tile &= ~YUTANI_RESIZE_TILE_DOWN;
 	}
+
+	window->tiled = tile;
 
 	window_move(yg, window, _x, _y);
 	yutani_msg_buildx_window_resize_alloc(response);
