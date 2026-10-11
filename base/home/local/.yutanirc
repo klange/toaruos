@@ -1,5 +1,7 @@
 #!/bin/esh
 
+export WM_THEME=fancy
+
 # Start wallpaper
 cd ~/Desktop
 file-browser --wallpaper &

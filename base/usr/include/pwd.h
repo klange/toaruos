@@ -11,7 +11,7 @@ struct passwd {
 	char * pw_passwd;  // password (not meaningful)
 	uid_t  pw_uid;     // user id
 	gid_t  pw_gid;     // group id
-	char * pw_comment; // used for decoration settings in toaruos
+	char * pw_comment; // "alias" for pw_gecos
 	char * pw_gecos;   // full name
 	char * pw_dir;     // home directory
 	char * pw_shell;   // shell

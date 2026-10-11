@@ -68,7 +68,6 @@ enum option_vals {
 	OPT_SHELL,
 	OPT_HOME,
 	OPT_GECOS,
-	OPT_THEME,
 	OPT_GROUP,
 	OPT_HELP,
 };
@@ -81,7 +80,6 @@ int main(int argc, char * argv[]) {
 	char * opt_shell = NULL;
 	char * opt_home  = NULL;
 	char * opt_gecos = NULL;
-	char * opt_theme = NULL;
 	int is_addgroup = !strcmp(basename(argv[0]),"addgroup");
 
 	struct option long_opts[] = {
@@ -90,7 +88,6 @@ int main(int argc, char * argv[]) {
 		{"shell",  required_argument, 0, OPT_SHELL},
 		{"home",   required_argument, 0, OPT_HOME},
 		{"gecos",  required_argument, 0, OPT_GECOS},
-		{"theme",  required_argument, 0, OPT_THEME},
 		{"group",  no_argument,       0, OPT_GROUP},
 		{"help",   no_argument,       0, OPT_HELP},
 		{0,0,0,0},
@@ -116,10 +113,6 @@ int main(int argc, char * argv[]) {
 
 			case OPT_GECOS:
 				opt_gecos = optarg;
-				break;
-
-			case OPT_THEME:
-				opt_theme = optarg;
 				break;
 
 			case OPT_GROUP:
@@ -224,19 +217,10 @@ int main(int argc, char * argv[]) {
 		}
 	}
 
-	if (opt_theme == NULL) {
-		if (is_addgroup) {
-			opt_theme = "none";
-		} else {
-			opt_theme = "fancy";
-		}
-	}
-
 	/* Validate things aren't empty */
 	if (!*opt_gecos) errx(1, "gecos unset");
 	if (!*opt_home)  errx(1, "home unset");
 	if (!*opt_shell) errx(1, "shell unset");
-	if (!*opt_theme) errx(1, "theme unset");
 
 	shadow_entry->pwd.pw_name    = name;
 	shadow_entry->pwd.pw_passwd  = "x";
@@ -245,7 +229,6 @@ int main(int argc, char * argv[]) {
 	shadow_entry->pwd.pw_gecos   = opt_gecos;
 	shadow_entry->pwd.pw_shell   = opt_shell;
 	shadow_entry->pwd.pw_dir     = opt_home;
-	shadow_entry->pwd.pw_comment = opt_theme;
 
 	new_group->grp.gr_name    = name;
 	new_group->grp.gr_passwd  = "x";
@@ -262,7 +245,6 @@ int main(int argc, char * argv[]) {
 		master_entry->pwd.pw_gecos   = opt_gecos;
 		master_entry->pwd.pw_shell   = opt_shell;
 		master_entry->pwd.pw_dir     = opt_home;
-		master_entry->pwd.pw_comment = opt_theme;
 
 		mkdir(opt_home, 0750);
 		chown(opt_home, opt_uid, opt_gid);

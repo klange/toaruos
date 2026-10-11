@@ -22,7 +22,7 @@ struct passwd {
 	char * pw_passwd;  // password (not meaningful)
 	uid_t  pw_uid;     // user id
 	gid_t  pw_gid;     // group id
-	char * pw_comment; // used for decoration settings in toaruos
+	char * pw_comment; // alias for pw_gecos
 	char * pw_gecos;   // full name
 	char * pw_dir;     // home directory
 	char * pw_shell;   // shell
@@ -49,7 +49,7 @@ static void pwbuf_common(struct passwd *pwbuf, char *tokens[]) {
 	pwbuf->pw_gecos   = tokens[4];
 	pwbuf->pw_dir     = tokens[5];
 	pwbuf->pw_shell   = tokens[6];
-	pwbuf->pw_comment = tokens[7];
+	pwbuf->pw_comment = tokens[4];
 }
 
 /*
@@ -72,7 +72,7 @@ int fgetpwent_t(FILE * stream, struct passwd *pwbuf, char ** _buf, size_t *_bufl
 		tokens[i] = p;
 	}
 
-	if (i < 8) {
+	if (i < 7) {
 		*pwbufp = NULL;
 		return ENOENT;
 	}
@@ -119,7 +119,7 @@ int fgetpwent_r(FILE * stream, struct passwd *pwbuf, char * buf, size_t buflen, 
 		tokens[i] = p;
 	}
 
-	if (i < 8) {
+	if (i < 7) {
 		*pwbufp = NULL;
 		return ENOENT;
 	}
@@ -153,7 +153,7 @@ struct passwd * fgetpwent(FILE * stream) {
 		tokens[i] = p;
 	}
 
-	if (i < 8) return NULL;
+	if (i < 7) return NULL;
 
 	pwbuf_common(&pw_ent, tokens);
 

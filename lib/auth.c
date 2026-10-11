@@ -69,7 +69,6 @@ void toaru_auth_set_vars(void) {
 		setenv("USER", strdup(p->pw_name), 1);
 		setenv("HOME", strdup(p->pw_dir), 1);
 		setenv("SHELL", strdup(p->pw_shell), 1);
-		setenv("WM_THEME", strdup(p->pw_comment), 1);
 	}
 	endpwent();
 
@@ -221,11 +220,11 @@ int toaru_auth_write_passwd(const char * which, mode_t perms, struct PasswdEntry
 	struct PasswdEntry * ent = entries;
 
 	while (ent) {
-		fprintf(f, "%s:%s:%d:%d:%s:%s:%s:%s\n",
+		fprintf(f, "%s:%s:%d:%d:%s:%s:%s\n",
 			ent->pwd.pw_name, ent->pwd.pw_passwd,
 			ent->pwd.pw_uid, ent->pwd.pw_gid,
 			ent->pwd.pw_gecos, ent->pwd.pw_dir,
-			ent->pwd.pw_shell, ent->pwd.pw_comment);
+			ent->pwd.pw_shell);
 
 		ent = ent->next;
 	}

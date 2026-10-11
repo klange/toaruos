@@ -4,7 +4,7 @@
 \fBadduser\fP \- add users and groups (and users to groups)
 
 .SH SYNOPSIS
-\fBadduser\fP [\fB\-\-home\fP \fIdir\fP] [\fB\-\-uid\fP \fIuid\fP]  [\fB\-\-gid\fP \fIgid\fP] [\fB\-\-gecos\fP \fIname\fP] [\fB\-\-theme\fP \fItheme\fP] \fIuser\fP
+\fBadduser\fP [\fB\-\-home\fP \fIdir\fP] [\fB\-\-uid\fP \fIuid\fP]  [\fB\-\-gid\fP \fIgid\fP] [\fB\-\-gecos\fP \fIname\fP] \fIuser\fP
 .br
 \fBadduser\fP \fB\-\-group\fP [\fB\-\-gid\fP gid\fP] \fIgroup\fP
 .br
@@ -51,12 +51,6 @@ are not created when adding new groups.
 .TP
 .B \-\-gecos \fIname\fP
 Set the "gecos" field for the user, which typically holds a full name.
-
-.TP
-.B \-\-theme \fItheme\fP
-Set the comment field of the new user, which ToaruOS uses to store decorator theme configurations.
-No restrictions are placed on the \fItheme\fP value when using this utility;
-when users use \fBchsh\fP, they are restricted to strings consistingly only of lower case letters.
 
 .SH NOTES
 Only \fBroot\fP can usefully run this.

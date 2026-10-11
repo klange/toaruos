@@ -18,7 +18,7 @@
 
 static int usage(int argc, char * argv[]) {
 	fprintf(stderr,
-		"usage: %s [-s shell] [-t theme] [user]\n",
+		"usage: %s [-s shell] [user]\n",
 		argv[0]);
 	return 1;
 }
@@ -72,16 +72,12 @@ int main(int argc, char * argv[]) {
 	if (geteuid() != 0) errx(1, "euid is not root");
 
 	char * desired_shell = NULL;
-	char * desired_theme = NULL;
 	int opt;
 
-	while ((opt = getopt(argc, argv, "s:t:")) != -1) {
+	while ((opt = getopt(argc, argv, "s:")) != -1) {
 		switch (opt) {
 			case 's':
 				desired_shell = optarg;
-				break;
-			case 't':
-				desired_theme = optarg;
 				break;
 			default:
 				return usage(argc, argv);
@@ -107,7 +103,7 @@ int main(int argc, char * argv[]) {
 	if (!entry) errx(1, "user not found");
 	if (me != 0 && me != entry->pwd.pw_uid) errx(2, "can not modify other user's shell");
 
-	if (!desired_shell && !desired_theme)  {
+	if (!desired_shell)  {
 		/* print them and ask */
 		fprintf(stderr, "Login Shell [%s]: ", entry->pwd.pw_shell);
 		fflush(stderr);
@@ -127,11 +123,6 @@ int main(int argc, char * argv[]) {
 		/* Check if the desired shell is acceptable. */
 		if (me != 0 && !validate_shell(desired_shell)) errx(1, "%s is an invalid shell", desired_shell);
 		entry->pwd.pw_shell = desired_shell;
-	}
-
-	if (desired_theme) {
-		for (char *t = desired_theme; *t; t++) if (*t < 'a' || *t > 'z') errx(2, "%s is an invalid theme", desired_theme);
-		entry->pwd.pw_comment = desired_theme;
 	}
 
 	return toaru_auth_write_passwd("/etc/passwd", 0644, entries);
