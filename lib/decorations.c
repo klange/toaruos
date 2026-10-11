@@ -284,21 +284,23 @@ static yutani_scale_direction_t check_resize_direction(struct yutani_msg_window_
 	decor_get_bounds(window, &bounds);
 	yutani_scale_direction_t resize_direction = SCALE_NONE;
 
-	if (LEFT_SIDE && !TOP_SIDE && !BOTTOM_SIDE) {
+	int df = window->decorator_flags & DECOR_FLAG_TILED;
+
+	if (LEFT_SIDE && !TOP_SIDE && !BOTTOM_SIDE && !(df & DECOR_FLAG_TILE_LEFT)) {
 		resize_direction = SCALE_LEFT;
-	} else if (RIGHT_SIDE && !TOP_SIDE && !BOTTOM_SIDE) {
+	} else if (RIGHT_SIDE && !TOP_SIDE && !BOTTOM_SIDE && !(df & DECOR_FLAG_TILE_RIGHT)) {
 		resize_direction = SCALE_RIGHT;
-	} else if (BOTTOM_SIDE && !LEFT_SIDE && !RIGHT_SIDE) {
+	} else if (BOTTOM_SIDE && !LEFT_SIDE && !RIGHT_SIDE && !(df & DECOR_FLAG_TILE_DOWN)) {
 		resize_direction = SCALE_DOWN;
-	} else if (BOTTOM_SIDE && LEFT_SIDE) {
+	} else if (BOTTOM_SIDE && LEFT_SIDE && !(df & (DECOR_FLAG_TILE_LEFT | DECOR_FLAG_TILE_DOWN))) {
 		resize_direction = SCALE_DOWN_LEFT;
-	} else if (BOTTOM_SIDE && RIGHT_SIDE) {
+	} else if (BOTTOM_SIDE && RIGHT_SIDE && !(df & (DECOR_FLAG_TILE_RIGHT | DECOR_FLAG_TILE_DOWN))) {
 		resize_direction = SCALE_DOWN_RIGHT;
-	} else if (TOP_SIDE && LEFT_SIDE) {
+	} else if (TOP_SIDE && LEFT_SIDE && !(df & (DECOR_FLAG_TILE_UP | DECOR_FLAG_TILE_LEFT))) {
 		resize_direction = SCALE_UP_LEFT;
-	} else if (TOP_SIDE && RIGHT_SIDE) {
+	} else if (TOP_SIDE && RIGHT_SIDE && !(df & (DECOR_FLAG_TILE_UP | DECOR_FLAG_TILE_RIGHT))) {
 		resize_direction = SCALE_UP_RIGHT;
-	} else if (TOP_SIDE && (me->new_y < 5)) {
+	} else if (TOP_SIDE && (me->new_y < 5) && !(df & (DECOR_FLAG_TILE_UP))) {
 		resize_direction = SCALE_UP;
 	}
 	return resize_direction;
