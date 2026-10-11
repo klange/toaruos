@@ -14,6 +14,7 @@
 #include <getopt.h>
 #include <pwd.h>
 #include <libgen.h>
+#include <fcntl.h>
 #include <err.h>
 #include <errno.h>
 #include <sys/stat.h>
@@ -58,6 +59,21 @@ static int prompt_for_password(const char * prompt, char * password) {
 	password[strlen(password)-1] = '\0';
 	tcsetattr(fileno(stdin), TCSAFLUSH, &old);
 	fprintf(stderr, "\n");
+
+	return 0;
+}
+
+static int mkdir_user(const char * base, const char * extra, uid_t opt_uid, gid_t opt_gid) {
+	char * path;
+	asprintf(&path, "%s%s", base, extra);
+	int fd = open(path, O_CREAT | O_DIRECTORY, 0750);
+
+	if (fd < 0) return 1;
+
+	fchown(fd, opt_uid, opt_gid);
+	fchmod(fd, 0750);
+
+	close(fd);
 
 	return 0;
 }
@@ -246,9 +262,8 @@ int main(int argc, char * argv[]) {
 		master_entry->pwd.pw_shell   = opt_shell;
 		master_entry->pwd.pw_dir     = opt_home;
 
-		mkdir(opt_home, 0750);
-		chown(opt_home, opt_uid, opt_gid);
-		chmod(opt_home, 0750);
+		mkdir_user(opt_home, "", opt_uid, opt_gid);
+		mkdir_user(opt_home, "/Desktop", opt_uid, opt_gid);
 
 		char new_password[1024] = {0};
 		char confirm_password[1024] = {0};
