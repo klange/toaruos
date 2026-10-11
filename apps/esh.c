@@ -2161,7 +2161,7 @@ int main(int argc, char ** argv) {
 
 	if (argc > 1) {
 		int c;
-		while ((c = getopt(argc, argv, "c:v?")) != -1) {
+		while ((c = getopt(argc, argv, "+c:v?")) != -1) {
 			switch (c) {
 				case 'c':
 					shell_interactive = 0;
