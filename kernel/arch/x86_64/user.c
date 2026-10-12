@@ -30,11 +30,13 @@
  * @param stack      Userspace stack address.
  */
 void arch_enter_user(uintptr_t entrypoint, int argc, char * argv[], char * envp[], uintptr_t stack) {
+	uintptr_t rflags = this_core->current_process->syscall_registers ?
+	                 this_core->current_process->syscall_registers->rflags : 0;
 	struct regs ret;
 	ret.cs = 0x28 | 0x03;
 	ret.ss = 0x20 | 0x03;
 	ret.rip = entrypoint;
-	ret.rflags = (1 << 21) | (1 << 9);
+	ret.rflags = (1 << 21) | (1 << 9) | (rflags & (1 << 8));
 	ret.rsp = stack;
 
 	ret.rsp = (ret.rsp & (uintptr_t)-16) - 8;
