@@ -717,6 +717,7 @@ void process_delete(process_t * proc) {
 	node_t * n = list_find(process_list, proc);
 	list_delete(process_list, n);
 	free(n);
+	proc->tree_entry = NULL;
 	spin_unlock(tree_lock);
 
 	if (has_children) {
@@ -726,7 +727,6 @@ void process_delete(process_t * proc) {
 	}
 
 	// FIXME bitset_clear(&pid_set, proc->id);
-	proc->tree_entry = NULL;
 
 	if (proc->supplementary_group_list) {
 		proc->supplementary_group_count = 0;
@@ -1338,7 +1338,7 @@ process_t * process_get_parent(process_t * process) {
 
 	tree_node_t * entry = process->tree_entry;
 
-	if (entry->parent) {
+	if (entry && entry->parent) {
 		result = entry->parent->value;
 	}
 
