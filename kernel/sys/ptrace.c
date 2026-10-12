@@ -305,9 +305,6 @@ long ptrace_getregs(pid_t pid, void * data) {
 
 	/* Copy registers */
 	memcpy(data, tracee->syscall_registers, sizeof(struct regs));
-#ifdef __aarch64__
-	memcpy((char*)data + sizeof(struct regs), &tracee->thread.context.saved[10], sizeof(uintptr_t));
-#endif
 
 	return 0;
 }
@@ -327,10 +324,11 @@ long ptrace_setregs(pid_t pid, void * data) {
 	if (!tracee || (tracee->tracer != this_core->current_process->id) || !(tracee->flags & PROC_FLAG_SUSPENDED)) return -ESRCH;
 
 	/* Copy registers */
-	memcpy(tracee->syscall_registers, data, sizeof(struct regs));
-#ifdef __aarch64__
-	memcpy(&tracee->thread.context.saved[10], (char*)data + sizeof(struct regs), sizeof(uintptr_t));
-#endif
+	struct regs tmp;
+	memcpy(&tmp, data, sizeof(struct regs));
+
+	arch_filter_regs(&tmp);
+	memcpy(tracee->syscall_registers, &tmp, sizeof(struct regs));
 
 	return 0;
 }

@@ -33,19 +33,20 @@
  * @param stack      Userspace stack address.
  */
 void arch_enter_user(uintptr_t entrypoint, int argc, char * argv[], char * envp[], uintptr_t stack) {
+
+	uintptr_t spsr = this_core->current_process->syscall_registers ?
+	                 this_core->current_process->syscall_registers->spsr : 0;
+
 	asm volatile(
 		"msr ELR_EL1, %0\n" /* entrypoint */
 		"msr SP_EL0, %1\n" /* stack */
 		"msr SPSR_EL1, %2\n" /* EL 0 */
 		::
-		"r"(entrypoint), "r"(stack), "r"(0));
+		"r"(entrypoint), "r"(stack), "r"(spsr));
 
 	/* Maintain single-step state across exec */
-	if (this_core->current_process->thread.context.saved[11] & 0x200000) {
+	if (spsr & 0x200000) {
 		asm volatile (
-			"mrs x0, SPSR_EL1\n" /* EL 0 */
-			"orr x0, x0, #0x200000\n"
-			"msr SPSR_EL1, x0\n"
 			"mrs x0, MDSCR_EL1\n"
 			"orr x0, x0, #1\n"
 			"msr MDSCR_EL1, x0\n"
@@ -87,8 +88,11 @@ static void _kill_it(uintptr_t addr, const char * action, const char * desc, siz
 	stack += sizeof(type); \
 } while (0)
 
+void arch_filter_regs(struct regs *r) {
+	r->spsr &= 0xf0200000;
+}
+
 int arch_return_from_signal_handler(struct regs *r) {
-	uintptr_t spsr;
 	uintptr_t sp = r->user_sp;
 
 	POP(sp, sigset_t, this_core->current_process->blocked_signals);
@@ -106,15 +110,11 @@ int arch_return_from_signal_handler(struct regs *r) {
 	}
 	arch_restore_floating((process_t*)this_core->current_process);
 
-	/* Process state */
-	POP(sp, uintptr_t, spsr);
-	this_core->current_process->thread.context.saved[11] = (spsr & 0xf0200000);
-	asm volatile ("msr SPSR_EL1, %0" :: "r"(this_core->current_process->thread.context.saved[11]));
-	POP(sp, uintptr_t, this_core->current_process->thread.context.saved[10]);
-	asm volatile ("msr ELR_EL1, %0" :: "r"(this_core->current_process->thread.context.saved[10]));
-
 	/* Interrupt context registers */
 	POP(sp, struct regs, *r);
+
+	/* Filter */
+	arch_filter_regs(r);
 
 	/* Anything before this doesn't need to be popped anywhere */
 
@@ -158,12 +158,6 @@ void arch_enter_signal_handler(struct signal_config * config, siginfo_t * cause,
 
 	/* Save essential registers */
 	PUSH(sp, struct regs, *r);
-
-	/* Save context that wasn't pushed above... */
-	asm volatile ("mrs %0, ELR_EL1" : "=r"(this_core->current_process->thread.context.saved[10]));
-	PUSH(sp, uintptr_t, this_core->current_process->thread.context.saved[10]);
-	asm volatile ("mrs %0, SPSR_EL1" : "=r"(this_core->current_process->thread.context.saved[11]));
-	PUSH(sp, uintptr_t, this_core->current_process->thread.context.saved[11]);
 
 	/* Save floating point */
 	arch_save_floating((process_t*)this_core->current_process);
@@ -672,8 +666,16 @@ void procfs_install_aarch64(void) {
 
 void arch_set_singlestep(process_t * proc, int enabled) {
 	if (enabled) {
-		proc->thread.context.saved[11] |= (1 << 21);
+		proc->syscall_registers->spsr |= (1 << 21);
 	} else {
-		proc->thread.context.saved[11] &= ~(1 << 21);
+		proc->syscall_registers->spsr &= (1 << 21);
 	}
+}
+
+void arch_prepare_thread_entry(struct regs *r, uintptr_t arg, uintptr_t thread_func, uintptr_t new_stack) {
+	r->x0 = arg;
+	r->x30 = 0;
+	r->user_sp = new_stack;
+	r->x29 = new_stack;
+	r->elr = thread_func;
 }

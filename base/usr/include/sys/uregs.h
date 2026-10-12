@@ -65,9 +65,6 @@ _Begin_C_Header
 
 struct URegs {
 	struct regs;
-#if defined(__aarch64__)
-	uint64_t elr;
-#endif
 };
 
 

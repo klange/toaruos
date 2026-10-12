@@ -1524,15 +1524,6 @@ pid_t fork(void) {
 	arch_save_context(&parent->thread);
 	memcpy(new_proc->thread.context.saved, parent->thread.context.saved, sizeof(parent->thread.context.saved));
 
-	#if 0
-	printf("fork(): resuming with register context\n");
-	extern void aarch64_regs(struct regs *);
-	aarch64_regs(&r);
-	printf("fork(): and arch context:\n");
-	extern void aarch64_context(process_t * proc);
-	aarch64_context(new_proc);
-	#endif
-
 	if (parent->flags & PROC_FLAG_IS_TASKLET) new_proc->flags |= PROC_FLAG_IS_TASKLET;
 	if ((parent->flags & PROC_FLAG_TRACE_FORK) && parent->tracer) ptrace_trace(process_from_pid(parent->tracer), new_proc);
 
@@ -1561,25 +1552,9 @@ pid_t clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg) {
 	sp = new_proc->image.stack;
 	bp = sp;
 
-	/* different calling convention */
-	#if defined(__x86_64__)
-	r.rdi = arg;
-	PUSH(new_stack, uintptr_t, (uintptr_t)0);
-	#elif defined(__aarch64__)
-	r.x0 = arg;
-	r.x30 = 0;
-	#endif
 	PUSH(sp, struct regs, r);
 	new_proc->syscall_registers = (void*)sp;
-	#if defined(__x86_64__)
-	new_proc->syscall_registers->rsp = new_stack;
-	new_proc->syscall_registers->rbp = new_stack;
-	new_proc->syscall_registers->rip = thread_func;
-	#elif defined(__aarch64__)
-	new_proc->syscall_registers->user_sp = new_stack;
-	new_proc->syscall_registers->x29 = new_stack;
-	new_proc->thread.context.saved[10] = thread_func;
-	#endif
+	arch_prepare_thread_entry(new_proc->syscall_registers, arg, thread_func, new_stack);
 	new_proc->thread.context.sp = sp;
 	new_proc->thread.context.bp = bp;
 	new_proc->thread.context.tls_base = this_core->current_process->thread.context.tls_base;

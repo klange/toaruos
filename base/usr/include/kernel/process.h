@@ -334,4 +334,5 @@ extern void arch_wakeup_others(void);
 extern int arch_return_from_signal_handler(struct regs *r);
 extern void arch_clear_icache(uintptr_t,uintptr_t);
 extern void arch_set_singlestep(process_t * proc, int enabled);
-
+extern void arch_filter_regs(struct regs *r);
+extern void arch_prepare_thread_entry(struct regs *r, uintptr_t arg, uintptr_t thread_func, uintptr_t new_stack);

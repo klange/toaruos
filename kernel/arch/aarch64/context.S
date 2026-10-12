@@ -58,6 +58,9 @@ _restore_context_same:
  */
 .globl arch_resume_user
 arch_resume_user:
+    ldp x21, x22, [sp], #16
+    msr SPSR_EL1, x22
+    msr ELR_EL1, x21
     ldp x30, x0, [sp], #16
     msr SP_EL0, x0
     ldp x28, x29, [sp], #16

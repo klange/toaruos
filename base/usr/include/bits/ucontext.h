@@ -17,8 +17,6 @@ typedef struct {
 	uintptr_t mc_fpu_flags_13;
 	uintptr_t mc_fpu_flags_12;
 	uint64_t  mc_fpu_regs[64];
-	uintptr_t mc_spsr;
-	uintptr_t mc_elr;
 	struct regs mc_regs;
 } mcontext_t;
 #else

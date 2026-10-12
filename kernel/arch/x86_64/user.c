@@ -53,6 +53,10 @@ void arch_enter_user(uintptr_t entrypoint, int argc, char * argv[], char * envp[
 	    "D"(argc), "S"(argv), "d"(envp));
 }
 
+void arch_filter_regs(struct regs *r) {
+	r->rflags = (r->rflags & 0xcd5) | (1 << 21) | (1 << 9);
+}
+
 static void _kill_it(void) {
 	dprintf("core %d (pid=%d %s): invalid stack for signal return\n",
 		this_core->cpu_id, this_core->current_process->id, this_core->current_process->name);
@@ -90,7 +94,10 @@ int arch_return_from_signal_handler(struct regs *r) {
 	struct regs out;
 	POP(r->rsp, struct regs, out);
 
+	arch_filter_regs(&out);
+
 #define R(n) r-> n = out. n
+
 
 	R(r15); R(r14); R(r13); R(r12);
 	R(r11); R(r10); R(r9); R(r8);
@@ -99,7 +106,7 @@ int arch_return_from_signal_handler(struct regs *r) {
 	R(rip);
 	R(rsp);
 
-	r->rflags = (out.rflags & 0xcd5) | (1 << 21) | (1 << 9) | ((r->rflags & (1 << 8)) ? (1 << 8) : 0);
+	r->rflags = out.rflags | ((r->rflags & (1 << 8)) ? (1 << 8) : 0);
 	return originalSignal;
 }
 
@@ -336,4 +343,13 @@ void arch_set_singlestep(process_t * proc, int enabled) {
 	} else {
 		target->rflags &= ~(1 << 8);
 	}
+}
+
+void arch_prepare_thread_entry(struct regs *r, uintptr_t arg, uintptr_t thread_func, uintptr_t new_stack) {
+	new_stack -= 8;
+	memset((void*)new_stack, 0, 8);
+	r->rdi = arg;
+	r->rsp = new_stack;
+	r->rbp = new_stack;
+	r->rip = thread_func;
 }

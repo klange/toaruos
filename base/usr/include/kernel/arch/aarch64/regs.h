@@ -2,6 +2,7 @@
 #include <stdint.h>
 
 struct regs {
+	uint64_t elr, spsr;
 	uint64_t x30, user_sp;
 	uint64_t x28, x29;
 	uint64_t x26, x27;

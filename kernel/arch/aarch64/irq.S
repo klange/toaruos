@@ -25,6 +25,9 @@ sync_common:
     /* combine x30 (link register) with stack */
     mrs x0, SP_EL0
     stp x30, x0, [sp, #-16]!
+    mrs x21, ELR_EL1
+    mrs x22, SPSR_EL1
+    stp x21, x22, [sp, #-16]!
     /* Pass the current stack as the first arg (struct regs *r) */
     mov x0, sp
     /* Make sure x18 has our kernel CPU-local pointer */
@@ -32,12 +35,15 @@ sync_common:
     .extern aarch64_sync_enter
     bl aarch64_sync_enter
 
-    mrs x0, SPSR_EL1
-    and w0, w0, #0x200000
-    cbz w0, _sync_cont
-    mrs x0, MDSCR_EL1
-    orr x0, x0, #1
-    msr MDSCR_EL1, x0
+    ldp x21, x22, [sp], #16
+    msr ELR_EL1, x21
+    msr SPSR_EL1, x22
+
+    and w22, w22, #0x200000
+    cbz w22, _sync_cont
+    mrs x22, MDSCR_EL1
+    orr x22, x22, #1
+    msr MDSCR_EL1, x22
     _sync_cont:
 
     ldp x30, x0, [sp], #16
@@ -77,10 +83,17 @@ fault_common:
     stp x28, x29, [sp, #-16]!
     mrs x0, SP_EL0
     stp x30, x0, [sp, #-16]!
+    mrs x21, ELR_EL1
+    mrs x22, SPSR_EL1
+    stp x21, x22, [sp, #-16]!
     mov x0, sp
     mrs x18, TPIDR_EL1
     .extern aarch64_fault_enter
     bl aarch64_fault_enter
+    ldp x21, x22, [sp], #16
+    msr ELR_EL1, x21
+    msr SPSR_EL1, x22
+
     ldp x30, x0, [sp], #16
     msr SP_EL0, x0
     ldp x28, x29, [sp], #16
@@ -119,15 +132,21 @@ irq_common:
     mrs x0, SP_EL0
     stp x30, x0, [sp, #-16]!
     mov x0, sp
+    mrs x21, ELR_EL1
+    mrs x22, SPSR_EL1
+    stp x21, x22, [sp, #-16]!
     mrs x18, TPIDR_EL1
     .extern aarch64_irq_enter
     bl aarch64_irq_enter
-    mrs x0, SPSR_EL1
-    and w0, w0, #0x200000
-    cbz w0, _irq_cont
-    mrs x0, MDSCR_EL1
-    orr x0, x0, #1
-    msr MDSCR_EL1, x0
+    ldp x21, x22, [sp], #16
+    msr ELR_EL1, x21
+    msr SPSR_EL1, x22
+
+    and w22, w22, #0x200000
+    cbz w22, _irq_cont
+    mrs x22, MDSCR_EL1
+    orr x22, x22, #1
+    msr MDSCR_EL1, x22
     _irq_cont:
     ldp x30, x0, [sp], #16
     msr SP_EL0, x0
