@@ -92,7 +92,7 @@ _retry: (void)0;
 		}
 	}
 
-	if (!fail_on_retry && addr < proc->image.userstack && addr >= proc->image.userstack - 0x10000) {
+	if (!fail_on_retry && proc == (process_t*)this_core->current_process && addr < proc->image.userstack && addr >= proc->image.userstack - 0x10000) {
 		size_t align_down = addr & ~0xFFF;
 		do_mmap(align_down, proc->image.userstack - align_down, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE|MAP_FIXED, NULL, 0);
 		proc->image.userstack = align_down;

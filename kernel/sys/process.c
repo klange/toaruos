@@ -545,7 +545,7 @@ process_t * spawn_init(void) {
 	return init;
 }
 
-process_t * spawn_process(volatile process_t * parent, int flags, int close_at_fork) {
+static process_t * spawn_process(process_t * parent, int flags, int close_at_fork) {
 	process_t * proc = calloc(1,sizeof(process_t));
 
 	proc->id          = get_next_pid();
@@ -748,7 +748,7 @@ void process_delete(process_t * proc) {
  * The process must not otherwise have been in a scheduling
  * queue before it is placed in the ready queue.
  */
-void make_process_ready(volatile process_t * proc) {
+void make_process_ready(process_t * proc) {
 	int sleep_lock_is_mine = sleep_lock.owner == (this_core->cpu_id + 1);
 	if (!sleep_lock_is_mine) spin_lock(sleep_lock);
 	if (proc->sleep_node.owner != NULL) {
@@ -792,7 +792,7 @@ void make_process_ready(volatile process_t * proc) {
  *
  * TODO This needs more locking for SMP...
  */
-volatile process_t * next_ready_process(void) {
+process_t * next_ready_process(void) {
 	spin_lock(process_queue_lock);
 
 	if (!process_queue->head) {
@@ -814,7 +814,7 @@ volatile process_t * next_ready_process(void) {
 		arch_dump_traceback();
 		arch_fatal();
 	}
-	volatile process_t * next = np->value;
+	process_t * next = np->value;
 
 	if ((next->flags & PROC_FLAG_RUNNING) && (next->owner != this_core->cpu_id)) {
 		/* We pulled a process too soon, switch to idle for a bit so the
@@ -1076,7 +1076,7 @@ void tasking_start(void) {
 	this_core->kernel_idle_task = spawn_kidle(1);
 }
 
-static int wait_candidate(volatile process_t * parent, int pid, int options, volatile process_t * proc) {
+static int wait_candidate(process_t * parent, int pid, int options, process_t * proc) {
 	if (!proc) return 0;
 
 	if (options & WNOKERN) {
@@ -1099,10 +1099,10 @@ static int wait_candidate(volatile process_t * parent, int pid, int options, vol
 }
 
 int waitpid(int pid, int * status, int options) {
-	volatile process_t * volatile proc = (process_t*)this_core->current_process;
+	process_t * proc = (process_t*)this_core->current_process;
 
 	do {
-		volatile process_t * candidate = NULL;
+		process_t * candidate = NULL;
 		int has_children = 0;
 		int is_parent = 0;
 		int candidate_from_trace = 0;
@@ -1114,7 +1114,7 @@ int waitpid(int pid, int * status, int options) {
 			if (!node->value) {
 				continue;
 			}
-			volatile process_t * volatile child = ((tree_node_t *)node->value)->value;
+			process_t * child = ((tree_node_t *)node->value)->value;
 
 			if (child == proc) continue; /* Don't allow a thread to wait on itself */
 

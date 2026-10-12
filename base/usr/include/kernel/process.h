@@ -221,7 +221,7 @@ struct ProcessorLocal {
 	 * contexts, we mark them as volatile to avoid making assumptions
 	 * based on register-stored cached values.
 	 */
-	volatile process_t * current_process;
+	process_t * current_process;
 	/**
 	 * @brief Idle loop.
 	 *
@@ -235,7 +235,7 @@ struct ProcessorLocal {
 	/**
 	 * @brief Process this core was last scheduled to run.
 	 */
-	volatile process_t * previous_process;
+	process_t * previous_process;
 
 	int cpu_id;
 	union PML * current_pml;
@@ -280,8 +280,8 @@ extern void initialize_process_tree(void);
 extern process_t * process_from_pid(pid_t pid);
 
 extern void process_delete(process_t * proc);
-extern void make_process_ready(volatile process_t * proc);
-extern volatile process_t * next_ready_process(void);
+extern void make_process_ready(process_t * proc);
+extern process_t * next_ready_process(void);
 extern int wakeup_queue(list_t * queue);
 extern int wakeup_queue_interrupted(list_t * queue);
 extern int sleep_on(list_t * queue);
