@@ -5,7 +5,7 @@
  * These are still very hacky and rudimentary and we're
  * probably saving way more context than we actually need.
  */
-sync_common:
+.macro PUSH_REGS
     /* Push all regular registers */
     stp x0, x1, [sp, #-16]!
     stp x2, x3, [sp, #-16]!
@@ -30,141 +30,72 @@ sync_common:
     stp x21, x22, [sp, #-16]!
     /* Pass the current stack as the first arg (struct regs *r) */
     mov x0, sp
-    /* Make sure x18 has our kernel CPU-local pointer */
+.endm
+
+.macro POP_REGS_ELR_SPSR
+    ldp x21, x22, [sp], #16
+    msr ELR_EL1, x21
+    msr SPSR_EL1, x22
+.endm
+
+.macro POP_REGS_END
+    ldp x30, x0, [sp], #16
+    msr SP_EL0, x0
+    ldp x28, x29, [sp], #16
+    ldp x26, x27, [sp], #16
+    ldp x24, x25, [sp], #16
+    ldp x22, x23, [sp], #16
+    ldp x20, x21, [sp], #16
+    ldp x18, x19, [sp], #16
+    ldp x16, x17, [sp], #16
+    ldp x14, x15, [sp], #16
+    ldp x12, x13, [sp], #16
+    ldp x10, x11, [sp], #16
+    ldp x8, x9, [sp], #16
+    ldp x6, x7, [sp], #16
+    ldp x4, x5, [sp], #16
+    ldp x2, x3, [sp], #16
+    ldp x0, x1, [sp], #16
+.endm
+
+.macro POP_REGS_KERNEL
+    POP_REGS_ELR_SPSR
+    POP_REGS_END
+.endm
+
+.macro POP_REGS_SINGLE_STEP
+    POP_REGS_ELR_SPSR
+    and w22, w22, #0x200000
+    cbz w22, 1f
+    mrs x22, MDSCR_EL1
+    orr x22, x22, #1
+    msr MDSCR_EL1, x22
+1:
+    POP_REGS_END
+.endm
+
+sync_common:
+    PUSH_REGS
     mrs x18, TPIDR_EL1
     .extern aarch64_sync_enter
     bl aarch64_sync_enter
-
-    ldp x21, x22, [sp], #16
-    msr ELR_EL1, x21
-    msr SPSR_EL1, x22
-
-    and w22, w22, #0x200000
-    cbz w22, _sync_cont
-    mrs x22, MDSCR_EL1
-    orr x22, x22, #1
-    msr MDSCR_EL1, x22
-    _sync_cont:
-
-    ldp x30, x0, [sp], #16
-    msr SP_EL0, x0
-    ldp x28, x29, [sp], #16
-    ldp x26, x27, [sp], #16
-    ldp x24, x25, [sp], #16
-    ldp x22, x23, [sp], #16
-    ldp x20, x21, [sp], #16
-    ldp x18, x19, [sp], #16
-    ldp x16, x17, [sp], #16
-    ldp x14, x15, [sp], #16
-    ldp x12, x13, [sp], #16
-    ldp x10, x11, [sp], #16
-    ldp x8, x9, [sp], #16
-    ldp x6, x7, [sp], #16
-    ldp x4, x5, [sp], #16
-    ldp x2, x3, [sp], #16
-    ldp x0, x1, [sp], #16
+    POP_REGS_SINGLE_STEP
     eret
 
 fault_common:
-    stp x0, x1, [sp, #-16]!
-    stp x2, x3, [sp, #-16]!
-    stp x4, x5, [sp, #-16]!
-    stp x6, x7, [sp, #-16]!
-    stp x8, x9, [sp, #-16]!
-    stp x10, x11, [sp, #-16]!
-    stp x12, x13, [sp, #-16]!
-    stp x14, x15, [sp, #-16]!
-    stp x16, x17, [sp, #-16]!
-    stp x18, x19, [sp, #-16]!
-    stp x20, x21, [sp, #-16]!
-    stp x22, x23, [sp, #-16]!
-    stp x24, x25, [sp, #-16]!
-    stp x26, x27, [sp, #-16]!
-    stp x28, x29, [sp, #-16]!
-    mrs x0, SP_EL0
-    stp x30, x0, [sp, #-16]!
-    mrs x21, ELR_EL1
-    mrs x22, SPSR_EL1
-    stp x21, x22, [sp, #-16]!
-    mov x0, sp
+    PUSH_REGS
     mrs x18, TPIDR_EL1
     .extern aarch64_fault_enter
     bl aarch64_fault_enter
-    ldp x21, x22, [sp], #16
-    msr ELR_EL1, x21
-    msr SPSR_EL1, x22
-
-    ldp x30, x0, [sp], #16
-    msr SP_EL0, x0
-    ldp x28, x29, [sp], #16
-    ldp x26, x27, [sp], #16
-    ldp x24, x25, [sp], #16
-    ldp x22, x23, [sp], #16
-    ldp x20, x21, [sp], #16
-    ldp x18, x19, [sp], #16
-    ldp x16, x17, [sp], #16
-    ldp x14, x15, [sp], #16
-    ldp x12, x13, [sp], #16
-    ldp x10, x11, [sp], #16
-    ldp x8, x9, [sp], #16
-    ldp x6, x7, [sp], #16
-    ldp x4, x5, [sp], #16
-    ldp x2, x3, [sp], #16
-    ldp x0, x1, [sp], #16
+    POP_REGS_KERNEL
     eret
 
 irq_common:
-    stp x0, x1, [sp, #-16]!
-    stp x2, x3, [sp, #-16]!
-    stp x4, x5, [sp, #-16]!
-    stp x6, x7, [sp, #-16]!
-    stp x8, x9, [sp, #-16]!
-    stp x10, x11, [sp, #-16]!
-    stp x12, x13, [sp, #-16]!
-    stp x14, x15, [sp, #-16]!
-    stp x16, x17, [sp, #-16]!
-    stp x18, x19, [sp, #-16]!
-    stp x20, x21, [sp, #-16]!
-    stp x22, x23, [sp, #-16]!
-    stp x24, x25, [sp, #-16]!
-    stp x26, x27, [sp, #-16]!
-    stp x28, x29, [sp, #-16]!
-    mrs x0, SP_EL0
-    stp x30, x0, [sp, #-16]!
-    mov x0, sp
-    mrs x21, ELR_EL1
-    mrs x22, SPSR_EL1
-    stp x21, x22, [sp, #-16]!
+    PUSH_REGS
     mrs x18, TPIDR_EL1
     .extern aarch64_irq_enter
     bl aarch64_irq_enter
-    ldp x21, x22, [sp], #16
-    msr ELR_EL1, x21
-    msr SPSR_EL1, x22
-
-    and w22, w22, #0x200000
-    cbz w22, _irq_cont
-    mrs x22, MDSCR_EL1
-    orr x22, x22, #1
-    msr MDSCR_EL1, x22
-    _irq_cont:
-    ldp x30, x0, [sp], #16
-    msr SP_EL0, x0
-    ldp x28, x29, [sp], #16
-    ldp x26, x27, [sp], #16
-    ldp x24, x25, [sp], #16
-    ldp x22, x23, [sp], #16
-    ldp x20, x21, [sp], #16
-    ldp x18, x19, [sp], #16
-    ldp x16, x17, [sp], #16
-    ldp x14, x15, [sp], #16
-    ldp x12, x13, [sp], #16
-    ldp x10, x11, [sp], #16
-    ldp x8, x9, [sp], #16
-    ldp x6, x7, [sp], #16
-    ldp x4, x5, [sp], #16
-    ldp x2, x3, [sp], #16
-    ldp x0, x1, [sp], #16
+    POP_REGS_SINGLE_STEP
     eret
 
 .globl _exception_vector
