@@ -55,6 +55,10 @@ int main(int argc, char ** argv) {
 			while (*c) {
 				if (*c == '\\') {
 					c++;
+					if (!*c) {
+						putchar('\\');
+						break;
+					}
 					switch (*c) {
 						case '\\':
 							putchar('\\');
