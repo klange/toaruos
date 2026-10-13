@@ -628,10 +628,14 @@ static void update_menu_bar_tabs(void) {
 			}
 		}
 
-		asprintf(&priv->tab_title, "%c%s%s%s%s",
+		int fg_parens = priv->fg_name && (sanitized_size || priv->terminal_title_length);
+
+		asprintf(&priv->tab_title, "%c%s%s%s%s%s%s",
 			active ? '\v' : '\t',
 			sanitized_title ? sanitized_title : priv->terminal_title,
+			fg_parens ? " (" : "",
 			priv->fg_name ? priv->fg_name : "",
+			fg_parens ? ")" : "",
 			maybe_number,
 			notification);
 
@@ -1588,7 +1592,7 @@ static int check_for_exit(void) {
 				priv->fg_name = NULL;
 				struct process * fg_proc = procfs_get_pid(priv->fg_pid, PROCFSLIB_COLLECT_COMMANDLINE);
 				if (fg_proc) {
-					asprintf(&priv->fg_name, " (%s)", basename(fg_proc->cmdline));
+					priv->fg_name = strdup(basename(fg_proc->cmdline));
 					procfs_free(fg_proc);
 				}
 
