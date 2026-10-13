@@ -391,13 +391,13 @@ void aarch64_context(process_t * proc) {
 
 /* Syscall parameter accessors */
 void arch_syscall_return(struct regs * r, long retval) { r->x0 = retval; }
-long arch_syscall_number(struct regs * r) { return r->x0; }
-long arch_syscall_arg0(struct regs * r)   { return r->x1; }
-long arch_syscall_arg1(struct regs * r)   { return r->x2; }
-long arch_syscall_arg2(struct regs * r)   { return r->x3; }
-long arch_syscall_arg3(struct regs * r)   { return r->x4; }
-long arch_syscall_arg4(struct regs * r)   { return r->x5; }
-long arch_syscall_arg5(struct regs * r)   { return r->x8; }
+long arch_syscall_number(struct regs * r) { return r->x8; }
+long arch_syscall_arg0(struct regs * r)   { return r->x0; }
+long arch_syscall_arg1(struct regs * r)   { return r->x1; }
+long arch_syscall_arg2(struct regs * r)   { return r->x2; }
+long arch_syscall_arg3(struct regs * r)   { return r->x3; }
+long arch_syscall_arg4(struct regs * r)   { return r->x4; }
+long arch_syscall_arg5(struct regs * r)   { return r->x5; }
 long arch_stack_pointer(struct regs * r)  { return r->user_sp; }
 long arch_user_ip(struct regs * r)        {
 	if (r == this_core->current_process->syscall_registers) {

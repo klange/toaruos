@@ -90,30 +90,46 @@ _Begin_C_Header
 
 #define DEFN_SYSCALL0(fn, num) \
 	long syscall_##fn() { \
-		register long __res __asm__ ("x0") = num; \
+		register long __num __asm__ ("x8") = num; \
+		register long __res __asm__ ("x0"); \
 		__asm__ __volatile__("svc 0" : "=r" (__res) : \
-			"r" (__res) \
+			"r" (__num) \
 		); \
 		return __res; \
 	}
 
 #define DEFN_SYSCALL1(fn, num, P1) \
 	long syscall_##fn(P1 p1) { \
-		register long __res __asm__ ("x0") = num; \
-		register long x1 __asm__("x1") = (long)p1; \
+		register long __num __asm__ ("x8") = num; \
+		register long __res __asm__ ("x0") = (long)p1; \
 		__asm__ __volatile__("svc 0" : "=r" (__res) : \
-			"r" (__res), \
-			"r" (x1) \
+			"r" (__num), \
+			"r" (__res) \
 		); \
 		return __res; \
 	}
 
 #define DEFN_SYSCALL2(fn, num, P1, P2) \
 	long syscall_##fn(P1 p1, P2 p2) { \
-		register long __res __asm__ ("x0") = num; \
-		register long x1 __asm__("x1") = (long)p1; \
-		register long x2 __asm__("x2") = (long)p2; \
+		register long __num __asm__ ("x8") = num; \
+		register long __res __asm__ ("x0") = (long)p1; \
+		register long x1 __asm__("x1") = (long)p2; \
 		__asm__ __volatile__("svc 0" : "=r" (__res) : \
+			"r" (__num), \
+			"r" (__res), \
+			"r" (x1) \
+		); \
+		return __res; \
+	}
+
+#define DEFN_SYSCALL3(fn, num, P1, P2, P3) \
+	long syscall_##fn(P1 p1, P2 p2, P3 p3) { \
+		register long __num __asm__ ("x8") = num; \
+		register long __res __asm__ ("x0") = (long)p1; \
+		register long x1 __asm__("x1") = (long)p2; \
+		register long x2 __asm__("x2") = (long)p3; \
+		__asm__ __volatile__("svc 0" : "=r" (__res) : \
+			"r" (__num), \
 			"r" (__res), \
 			"r" (x1), \
 			"r" (x2) \
@@ -121,13 +137,15 @@ _Begin_C_Header
 		return __res; \
 	}
 
-#define DEFN_SYSCALL3(fn, num, P1, P2, P3) \
-	long syscall_##fn(P1 p1, P2 p2, P3 p3) { \
-		register long __res __asm__ ("x0") = num; \
-		register long x1 __asm__("x1") = (long)p1; \
-		register long x2 __asm__("x2") = (long)p2; \
-		register long x3 __asm__("x3") = (long)p3; \
+#define DEFN_SYSCALL4(fn, num, P1, P2, P3, P4) \
+	long syscall_##fn(P1 p1, P2 p2, P3 p3, P4 p4) { \
+		register long __num __asm__ ("x8") = num; \
+		register long __res __asm__ ("x0") = (long)p1; \
+		register long x1 __asm__("x1") = (long)p2; \
+		register long x2 __asm__("x2") = (long)p3; \
+		register long x3 __asm__("x3") = (long)p4; \
 		__asm__ __volatile__("svc 0" : "=r" (__res) : \
+			"r" (__num), \
 			"r" (__res), \
 			"r" (x1), \
 			"r" (x2), \
@@ -136,14 +154,16 @@ _Begin_C_Header
 		return __res; \
 	}
 
-#define DEFN_SYSCALL4(fn, num, P1, P2, P3, P4) \
-	long syscall_##fn(P1 p1, P2 p2, P3 p3, P4 p4) { \
-		register long __res __asm__ ("x0") = num; \
-		register long x1 __asm__("x1") = (long)p1; \
-		register long x2 __asm__("x2") = (long)p2; \
-		register long x3 __asm__("x3") = (long)p3; \
-		register long x4 __asm__("x4") = (long)p4; \
+#define DEFN_SYSCALL5(fn, num, P1, P2, P3, P4, P5) \
+	long syscall_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) { \
+		register long __num __asm__ ("x8") = num; \
+		register long __res __asm__ ("x0") = (long)p1; \
+		register long x1 __asm__("x1") = (long)p2; \
+		register long x2 __asm__("x2") = (long)p3; \
+		register long x3 __asm__("x3") = (long)p4; \
+		register long x4 __asm__("x4") = (long)p5; \
 		__asm__ __volatile__("svc 0" : "=r" (__res) : \
+			"r" (__num), \
 			"r" (__res), \
 			"r" (x1), \
 			"r" (x2), \
@@ -153,42 +173,23 @@ _Begin_C_Header
 		return __res; \
 	}
 
-#define DEFN_SYSCALL5(fn, num, P1, P2, P3, P4, P5) \
-	long syscall_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) { \
-		register long __res __asm__ ("x0") = num; \
-		register long x1 __asm__("x1") = (long)p1; \
-		register long x2 __asm__("x2") = (long)p2; \
-		register long x3 __asm__("x3") = (long)p3; \
-		register long x4 __asm__("x4") = (long)p4; \
-		register long x5 __asm__("x5") = (long)p5; \
+#define DEFN_SYSCALL6(fn, num, P1, P2, P3, P4, P5, P6) \
+	long syscall_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5, P6 p6) { \
+		register long __num __asm__ ("x8") = num; \
+		register long __res __asm__ ("x0") = (long)p1; \
+		register long x1 __asm__("x1") = (long)p2; \
+		register long x2 __asm__("x2") = (long)p3; \
+		register long x3 __asm__("x3") = (long)p4; \
+		register long x4 __asm__("x4") = (long)p5; \
+		register long x5 __asm__("x5") = (long)p6; \
 		__asm__ __volatile__("svc 0" : "=r" (__res) : \
+			"r" (__num), \
 			"r" (__res), \
 			"r" (x1), \
 			"r" (x2), \
 			"r" (x3), \
 			"r" (x4), \
 			"r" (x5) \
-		); \
-		return __res; \
-	}
-
-#define DEFN_SYSCALL6(fn, num, P1, P2, P3, P4, P5, P6) \
-	long syscall_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5, P6 p6) { \
-		register long __res __asm__ ("x0") = num; \
-		register long x1 __asm__("x1") = (long)p1; \
-		register long x2 __asm__("x2") = (long)p2; \
-		register long x3 __asm__("x3") = (long)p3; \
-		register long x4 __asm__("x4") = (long)p4; \
-		register long x5 __asm__("x5") = (long)p5; \
-		register long x8 __asm__("x8") = (long)p6; \
-		__asm__ __volatile__("svc 0" : "=r" (__res) : \
-			"r" (__res), \
-			"r" (x1), \
-			"r" (x2), \
-			"r" (x3), \
-			"r" (x4), \
-			"r" (x5), \
-			"r" (x8) \
 		); \
 		return __res; \
 	}
