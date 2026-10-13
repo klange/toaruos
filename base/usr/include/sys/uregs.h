@@ -17,6 +17,7 @@ _Begin_C_Header
 # define uregs_syscall_arg6(r)   ((r)->r9)
 # define uregs_ip(r)             ((r)->rip)
 # define uregs_bp(r)             ((r)->rbp)
+# define uregs_sp(r)             ((r)->rsp)
 # define UREGS_FMT \
 		"  $rip=0x%016lx\n" \
 		"  $rsi=0x%016lx,$rdi=0x%016lx,$rbp=0x%016lx,$rsp=0x%016lx\n" \
@@ -43,6 +44,7 @@ _Begin_C_Header
 # define uregs_syscall_arg6(r)   ((r)->x5)
 # define uregs_ip(r)             ((r)->elr)
 # define uregs_bp(r)             ((r)->x29)
+# define uregs_sp(r)             ((r)->user_sp)
 # define UREGS_FMT \
 		" $x00=0x%016lx,$x01=0x%016lx,$x02=0x%016lx,$x03=0x%016lx\n" \
 		" $x04=0x%016lx,$x05=0x%016lx,$x06=0x%016lx,$x07=0x%016lx\n" \

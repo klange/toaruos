@@ -34,6 +34,7 @@
 #include <kernel/spinlock.h>
 #include <kernel/ptrace.h>
 #include <kernel/syscall.h>
+#include <sys/uregs.h>
 
 #define SIG_DISP_Ign  0
 #define SIG_DISP_Term 1
@@ -96,22 +97,22 @@ static char sig_defaults[] = {
  */
 static void maybe_restart_system_call(struct regs * r, int signum, int no_handler) {
 	if (signum < 0 || signum >= NUMSIGNALS) return;
-	if (this_core->current_process->interrupted_system_call && arch_syscall_number(r) == -ERESTARTSYS) {
+	if (this_core->current_process->interrupted_system_call && (long)uregs_syscall_num(r) == -ERESTARTSYS) {
 		if (sig_defaults[signum] == SIG_DISP_Cont || (this_core->current_process->signals[signum].flags & SA_RESTART)) {
-			arch_syscall_return(r, this_core->current_process->interrupted_system_call);
+			uregs_syscall_result(r) = this_core->current_process->interrupted_system_call;
 			this_core->current_process->interrupted_system_call = 0;
 			syscall_handler(r);
 		} else {
 			this_core->current_process->interrupted_system_call = 0;
-			arch_syscall_return(r, -EINTR);
+			uregs_syscall_result(r) = -EINTR;
 		}
-	} else if (this_core->current_process->interrupted_system_call && arch_syscall_number(r) == -ERESTARTSIGSUSPEND) {
-		arch_syscall_return(r, this_core->current_process->interrupted_system_call);
+	} else if (this_core->current_process->interrupted_system_call && (long)uregs_syscall_num(r) == -ERESTARTSIGSUSPEND) {
+		uregs_syscall_result(r) = this_core->current_process->interrupted_system_call;
 		this_core->current_process->interrupted_system_call = 0;
 		if (no_handler) {
 			syscall_handler(r);
 		} else {
-			arch_syscall_return(r, -EINTR);
+			uregs_syscall_result(r) = -EINTR;
 		}
 		if (this_core->current_process->flags & PROC_FLAG_RESTORE_SIGMASK) {
 			__sync_and_and_fetch(&this_core->current_process->flags, ~(PROC_FLAG_RESTORE_SIGMASK));

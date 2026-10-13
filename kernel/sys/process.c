@@ -41,15 +41,7 @@
 #include <kernel/args.h>
 #include <sys/wait.h>
 #include <sys/signal_defs.h>
-
-/* FIXME: This only needs the size of the regs struct... */
-#if defined(__x86_64__)
-#include <kernel/arch/x86_64/regs.h>
-#elif defined(__aarch64__)
-#include <kernel/arch/aarch64/regs.h>
-#else
-#error "no regs"
-#endif
+#include <sys/uregs.h>
 
 tree_t * process_tree;  /* Stores the parent-child process relationships; the root of this graph is 'init'. */
 list_t * process_list;  /* Stores all existing processes. Mostly used for sanity checking or for places where iterating over all processes is useful. */
@@ -1513,7 +1505,7 @@ pid_t fork(void) {
 	sp = new_proc->image.stack;
 	bp = sp;
 
-	arch_syscall_return(&r, 0);
+	uregs_syscall_result(&r) = 0;
 	PUSH(sp, struct regs, r);
 
 	new_proc->syscall_registers = (void*)sp;

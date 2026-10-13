@@ -29,17 +29,4 @@ static inline void fd_set_mode_flags(int fd, uintptr_t modes) {
 	do { if (ptr_validate((void *)(PTR), __func__)) return -EFAULT; } while (0)
 extern int ptr_validate(void * ptr, const char * syscall);
 
-extern long arch_syscall_number(struct regs * r);
-extern long arch_syscall_arg0(struct regs * r);
-extern long arch_syscall_arg1(struct regs * r);
-extern long arch_syscall_arg2(struct regs * r);
-extern long arch_syscall_arg3(struct regs * r);
-extern long arch_syscall_arg4(struct regs * r);
-extern long arch_syscall_arg5(struct regs * r);
-
-extern long arch_stack_pointer(struct regs * r);
-extern long arch_user_ip(struct regs * r);
-
-extern void arch_syscall_return(struct regs * r, long retval);
-
 extern void syscall_handler(struct regs * r);

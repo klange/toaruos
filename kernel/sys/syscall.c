@@ -19,6 +19,7 @@
 #include <sys/resource.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
+#include <sys/uregs.h>
 #include <kernel/printf.h>
 #include <kernel/process.h>
 #include <kernel/string.h>
@@ -1090,7 +1091,7 @@ long sys_sigaltstack(const stack_t * ss, stack_t * oss) {
 	stack_t cas = this_core->current_process->altstack;
 	cas.ss_flags = 0;
 	if (cas.ss_size) {
-		uintptr_t current_sp = arch_stack_pointer(this_core->current_process->syscall_registers);
+		uintptr_t current_sp = uregs_sp(this_core->current_process->syscall_registers);
 		if (current_sp > (uintptr_t)cas.ss_sp && current_sp - (uintptr_t)cas.ss_sp <= cas.ss_size) {
 			cas.ss_flags = SS_ONSTACK;
 		}
@@ -1550,11 +1551,11 @@ void syscall_handler(struct regs * r) {
 
 	this_core->current_process->syscall_registers = r;
 
-	if (!mmu_check_syscall_capability(this_core->current_process->process, arch_user_ip(r))) {
+	if (!mmu_check_syscall_capability(this_core->current_process->process, uregs_ip(r))) {
 		siginfo_t cause = {0};
 		cause.si_code = SYS_USER_DISPATCH;
-		cause.si_addr = (void*)arch_user_ip(r);
-		cause.si_syscall = arch_syscall_number(r);
+		cause.si_addr = (void*)uregs_ip(r);
+		cause.si_syscall = uregs_syscall_num(r);
 
 		/*
 		 * There are two expected situations for a system call to be made outside of the
@@ -1575,7 +1576,7 @@ void syscall_handler(struct regs * r) {
 		 * blocked or ignored do we overwrite the return register (in our ABI) with -EFAULT.
 		 */
 		if (raise_signal(SIGSYS, &cause)) {
-			arch_syscall_return(r, -EFAULT);
+			uregs_syscall_result(r) = -EFAULT;
 		}
 
 		return;
@@ -1588,21 +1589,21 @@ void syscall_handler(struct regs * r) {
 	long result;
 	scall_func func;
 
-	if (arch_syscall_number(r) < 0 || arch_syscall_number(r) >= num_syscalls || !(func = syscalls[arch_syscall_number(r)])) {
+	if ((intptr_t)uregs_syscall_num(r) < 0 || (intptr_t)uregs_syscall_num(r) >= num_syscalls || !(func = syscalls[uregs_syscall_num(r)])) {
 		result = -EINVAL;
 		goto _finish_syscall;
 	}
 
 	result = func(
-		arch_syscall_arg0(r), arch_syscall_arg1(r), arch_syscall_arg2(r),
-		arch_syscall_arg3(r), arch_syscall_arg4(r), arch_syscall_arg5(r));
+		uregs_syscall_arg1(r), uregs_syscall_arg2(r), uregs_syscall_arg3(r),
+		uregs_syscall_arg4(r), uregs_syscall_arg5(r), uregs_syscall_arg6(r));
 
 	if (result == -ERESTARTSYS || result == -ERESTARTSIGSUSPEND) {
-		this_core->current_process->interrupted_system_call = arch_syscall_number(r);
+		this_core->current_process->interrupted_system_call = uregs_syscall_num(r);
 	}
 
 _finish_syscall:
-	arch_syscall_return(r, result);
+	uregs_syscall_result(r) = result;
 
 	if (this_core->current_process->flags & PROC_FLAG_TRACE_SYSCALLS) {
 		ptrace_signal(SIGTRAP, PTRACE_EVENT_SYSCALL_EXIT, NULL);

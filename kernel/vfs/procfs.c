@@ -37,6 +37,7 @@
 #include <kernel/ksym.h>
 #include <bits/errno.h>
 #include <sys/mman.h>
+#include <sys/uregs.h>
 
 #define PROCFS_STANDARD_ENTRIES (sizeof(std_entries) / sizeof(struct procfs_entry))
 #define PROCFS_PROCDIR_ENTRIES  (sizeof(procdir_entries) / sizeof(struct procfs_entry))
@@ -389,15 +390,15 @@ static void proc_status_func(fs_node_t *node) {
 			proc->job,
 			proc->session,
 			proc->user,
-			proc->syscall_registers ? arch_user_ip(proc->syscall_registers) : 0,
-			proc->syscall_registers ? arch_syscall_number(proc->syscall_registers) : 0,
-			proc->syscall_registers ? arch_syscall_arg0(proc->syscall_registers) : 0,
-			proc->syscall_registers ? arch_syscall_arg1(proc->syscall_registers) : 0,
-			proc->syscall_registers ? arch_syscall_arg2(proc->syscall_registers) : 0,
-			proc->syscall_registers ? arch_syscall_arg3(proc->syscall_registers) : 0,
-			proc->syscall_registers ? arch_syscall_arg4(proc->syscall_registers) : 0,
-			proc->syscall_registers ? arch_syscall_arg5(proc->syscall_registers) : 0,
-			proc->syscall_registers ? arch_stack_pointer(proc->syscall_registers) : 0,
+			proc->syscall_registers ? uregs_ip(proc->syscall_registers) : 0,
+			proc->syscall_registers ? uregs_syscall_num(proc->syscall_registers) : 0,
+			proc->syscall_registers ? uregs_syscall_arg1(proc->syscall_registers) : 0,
+			proc->syscall_registers ? uregs_syscall_arg2(proc->syscall_registers) : 0,
+			proc->syscall_registers ? uregs_syscall_arg3(proc->syscall_registers) : 0,
+			proc->syscall_registers ? uregs_syscall_arg4(proc->syscall_registers) : 0,
+			proc->syscall_registers ? uregs_syscall_arg5(proc->syscall_registers) : 0,
+			proc->syscall_registers ? uregs_syscall_arg6(proc->syscall_registers) : 0,
+			proc->syscall_registers ? uregs_sp(proc->syscall_registers) : 0,
 			mem_usage, res_usage, res_anon, res_file, res_shm, mem_permille,
 			proc->owner,
 			proc->time_total / arch_cpu_mhz(),
