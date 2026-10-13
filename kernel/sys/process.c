@@ -28,7 +28,6 @@
 #include <kernel/string.h>
 #include <kernel/vfs.h>
 #include <kernel/spinlock.h>
-#include <kernel/tree.h>
 #include <kernel/list.h>
 #include <kernel/mmu.h>
 #include <kernel/signal.h>
@@ -43,7 +42,7 @@
 #include <sys/signal_defs.h>
 #include <sys/uregs.h>
 
-tree_t * process_tree;  /* Stores the parent-child process relationships; the root of this graph is 'init'. */
+process_t * process_tree;  /* Stores the parent-child process relationships; the root of this graph is 'init'. */
 list_t * process_list;  /* Stores all existing processes. Mostly used for sanity checking or for places where iterating over all processes is useful. */
 list_t * process_queue; /* Scheduler ready queue. This the round-robin source. The head is the next process to run. */
 list_t * sleep_queue;   /* Ordered list of processes waiting to be awoken by timeouts. The head is the earliest thread to awaken. */
@@ -215,7 +214,6 @@ static process_t dummy_process = {0};
  * the schedule uses to track processes.
  */
 void initialize_process_tree(void) {
-	process_tree = tree_create();
 	process_list = list_create("global process list",NULL);
 	process_queue = list_create("global scheduler queue",NULL);
 	sleep_queue = list_create("global timed sleep queue",NULL);
@@ -486,10 +484,10 @@ process_t * spawn_kidle(int bsp) {
 
 process_t * spawn_init(void) {
 	process_t * init = calloc(1,sizeof(process_t));
-	tree_set_root(process_tree, (void*)init);
+
+	process_tree = init;
 
 	init->process = init;
-	init->tree_entry = process_tree->root;
 	init->id         = 1;
 	init->tgid       = 1;
 	init->job        = 1;
@@ -600,17 +598,13 @@ static process_t * spawn_process(process_t * parent, int flags, int close_at_for
 	proc->sleep_node.value = proc;
 
 	gettimeofday(&proc->start, NULL);
-	tree_node_t * entry = tree_node_create(proc);
-	proc->tree_entry = entry;
 
 	spin_lock(tree_lock);
-	tree_node_insert_child_node(process_tree, parent->tree_entry, entry);
+	etree_insert_child(parent, proc, tree_node);
 	list_insert(process_list, (void*)proc);
 	spin_unlock(tree_lock);
 	return proc;
 }
-
-extern void tree_remove_reparent_root(tree_t * tree, tree_node_t * node);
 
 void process_reap(process_t * proc) {
 	if (proc->tracees) {
@@ -693,29 +687,24 @@ void process_release_big_lock(void) {
 void process_delete(process_t * proc) {
 	assert(proc != this_core->current_process);
 
-	tree_node_t * entry = proc->tree_entry;
-	if (!entry) {
-		printf("Tried to delete process with no tree entry?\n");
-		return;
-	}
-	if (process_tree->root == entry) {
-		printf("Tried to delete process init...\n");
+	if (proc == process_tree) {
+		dprintf("tried to delete init\n");
 		return;
 	}
 
 	spin_lock(tree_lock);
-	int has_children = entry->children->length;
-	tree_remove_reparent_root(process_tree, entry);
+	int has_children = !!proc->tree_node.et_children;
+
+	etree_detach_reparent(proc, process_tree, tree_node);
+
 	node_t * n = list_find(process_list, proc);
 	list_delete(process_list, n);
 	free(n);
-	proc->tree_entry = NULL;
 	spin_unlock(tree_lock);
 
 	if (has_children) {
 		/* Wake up init */
-		process_t * init = process_tree->root->value;
-		wakeup_queue(init->wait_queue);
+		wakeup_queue(process_tree->wait_queue);
 	}
 
 	// FIXME bitset_clear(&pid_set, proc->id);
@@ -1020,7 +1009,7 @@ void sleep_until(process_t * process, unsigned long seconds, unsigned long subse
 	spin_unlock(sleep_lock);
 }
 
-uint8_t process_compare(void * proc_v, void * pid_v) {
+static int process_compare(void * proc_v, void * pid_v) {
 	pid_t pid = (*(pid_t *)pid_v);
 	process_t * proc = (process_t *)proc_v;
 
@@ -1029,14 +1018,10 @@ uint8_t process_compare(void * proc_v, void * pid_v) {
 
 process_t * process_from_pid(pid_t pid) {
 	if (pid < 0) return NULL;
-
 	spin_lock(tree_lock);
-	tree_node_t * entry = tree_find(process_tree,&pid,process_compare);
+	process_t * proc = etree_find(process_tree, tree_node, &pid, process_compare);
 	spin_unlock(tree_lock);
-	if (entry) {
-		return (process_t *)entry->value;
-	}
-	return NULL;
+	return proc;
 }
 
 
@@ -1102,12 +1087,7 @@ int waitpid(int pid, int * status, int options) {
 		spin_lock(proc->wait_lock);
 
 		/* First, find out if there is anyone to reap */
-		foreach(node, proc->process->tree_entry->children) {
-			if (!node->value) {
-				continue;
-			}
-			process_t * child = ((tree_node_t *)node->value)->value;
-
+		etree_children_foreach(child, proc, tree_node) {
 			if (child == proc) continue; /* Don't allow a thread to wait on itself */
 
 			if (wait_candidate(proc->process, pid, options, child)) {
@@ -1325,15 +1305,8 @@ int process_alert_node(process_t * process, void * value) {
 }
 
 process_t * process_get_parent(process_t * process) {
-	process_t * result = NULL;
 	spin_lock(tree_lock);
-
-	tree_node_t * entry = process->tree_entry;
-
-	if (entry && entry->parent) {
-		result = entry->parent->value;
-	}
-
+	process_t * result = etree_parent(process, tree_node);
 	spin_unlock(tree_lock);
 	return result;
 }
@@ -1596,11 +1569,9 @@ process_t * spawn_worker_thread(void (*entrypoint)(void * argp), const char * na
 	proc->sleep_node.value = proc;
 
 	gettimeofday(&proc->start, NULL);
-	tree_node_t * entry = tree_node_create(proc);
-	proc->tree_entry = entry;
 
 	spin_lock(tree_lock);
-	tree_node_insert_child_node(process_tree, this_core->current_process->tree_entry, entry);
+	etree_insert_child(this_core->current_process, proc, tree_node);
 	list_insert(process_list, (void*)proc);
 	spin_unlock(tree_lock);
 

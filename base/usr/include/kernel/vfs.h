@@ -7,6 +7,7 @@
 #include <bits/dirent.h>
 #include <kernel/mmu.h>
 #include <kernel/spinlock.h>
+#include <kernel/etree.h>
 #include <bits/timespec.h>
 
 #define PATH_SEPARATOR '/'
@@ -137,6 +138,8 @@ struct vfs_entry {
 	fs_node_t * file;
 	char * device;
 	char * fs_type;
+
+	struct etree tree_entry;
 };
 
 extern fs_node_t *fs_root;

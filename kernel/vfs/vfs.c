@@ -28,13 +28,12 @@
 
 #include <kernel/list.h>
 #include <kernel/hashmap.h>
-#include <kernel/tree.h>
 #include <kernel/spinlock.h>
 
 #define MAX_SYMLINK_DEPTH 8
 #define MAX_SYMLINK_SIZE 4096
 
-tree_t    * fs_tree = NULL; /* File system mountpoint tree */
+struct vfs_entry * vfs_root = NULL;
 fs_node_t * fs_root = NULL; /* Pointer to the root mount fs_node (must be some form of filesystem, even ramdisk) */
 
 hashmap_t * fs_types = NULL;
@@ -569,18 +568,11 @@ static char *canonicalize_path(const char *cwd, const char *input) {
 }
 
 void vfs_install(void) {
-	/* Initialize the mountpoint tree */
-	fs_tree = tree_create();
-
-	struct vfs_entry * root = malloc(sizeof(struct vfs_entry));
-
-	root->name = strdup("[root]");
-	root->file = NULL; /* Nothing mounted as root */
-	root->fs_type = NULL;
-	root->device = NULL;
-
-	tree_set_root(fs_tree, root);
-
+	vfs_root = calloc(1, sizeof(struct vfs_entry));
+	vfs_root->name = strdup("[root]");
+	vfs_root->file = NULL; /* Nothing mounted as root */
+	vfs_root->fs_type = NULL;
+	vfs_root->device = NULL;
 	fs_types = hashmap_create(5);
 }
 
@@ -687,21 +679,21 @@ static spin_lock_t tmp_vfs_lock = { 0 };
  * Paths here must be absolute.
  */
 static void * vfs_mount(const char * path, fs_node_t * local_root, const char * type, const char * options) {
-	if (!fs_tree || !path || *path != '/') return NULL;
+	if (!vfs_root || !path || *path != '/') return NULL;
 
 	if (!strcmp(path,"/")) {
-		struct vfs_entry * root = (struct vfs_entry *)fs_tree->root->value;
-		root->file = local_root;
-		root->device = strdup(options);
-		root->fs_type = strdup(type);
+		/* TODO clear the existing root */
+		vfs_root->file = local_root;
+		vfs_root->device = strdup(options);
+		vfs_root->fs_type = strdup(type);
 		local_root->refcount++;
 		fs_root = local_root;
-		return fs_tree->root;
+		return vfs_root;
 	}
 
 	spin_lock(tmp_vfs_lock);
 	vfs_lock(local_root);
-	tree_node_t * ret_val = NULL;
+	struct vfs_entry * ret_val = NULL;
 
 	char * p = strdup(path);
 	char * i = p;
@@ -711,37 +703,39 @@ static void * vfs_mount(const char * path, fs_node_t * local_root, const char * 
 	p[path_len] = '\0';
 	i = p + 1;
 
-	tree_node_t * root_node = fs_tree->root;
 
-	tree_node_t * node = root_node;
+	struct vfs_entry * node = vfs_root;
 	char * at = i;
 	while (1) {
 		if (at >= p + path_len) break;
 		int found = 0;
-		foreach(child, node->children) {
-			tree_node_t * tchild = (tree_node_t *)child->value;
-			struct vfs_entry * ent = (struct vfs_entry *)tchild->value;
+
+		etree_children_foreach(ent, node, tree_entry) {
 			if (!strcmp(ent->name, at)) {
 				found = 1;
-				node = tchild;
-				ret_val = node;
+				node = ent;
+				ret_val = ent;
 				break;
 			}
 		}
+
 		if (!found) {
-			struct vfs_entry * ent = malloc(sizeof(struct vfs_entry));
+			struct vfs_entry * ent = calloc(1, sizeof(struct vfs_entry));
 			ent->name = strdup(at);
 			ent->file = NULL;
 			ent->device = NULL;
 			ent->fs_type = NULL;
-			node = tree_node_insert_child(fs_tree, node, ent);
+
+			etree_insert_child(node, ent, tree_entry);
+
+			node = ent;
 		}
 		at = at + strlen(at) + 1;
 	}
-	struct vfs_entry * ent = (struct vfs_entry *)node->value;
-	ent->file = local_root;
-	ent->device = strdup(options);
-	ent->fs_type = strdup(type);
+
+	node->file = local_root;
+	node->device = strdup(options);
+	node->fs_type = strdup(type);
 	ret_val = node;
 
 	free(p);

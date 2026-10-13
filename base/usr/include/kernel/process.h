@@ -3,9 +3,9 @@
 #include <stdint.h>
 #include <kernel/types.h>
 #include <kernel/vfs.h>
-#include <kernel/tree.h>
 #include <kernel/list.h>
 #include <kernel/spinlock.h>
+#include <kernel/etree.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/signal_defs.h>
@@ -156,8 +156,9 @@ typedef struct process {
 	spin_lock_t sched_lock;
 	spin_lock_t wait_lock;
 
+	struct etree tree_node;
+
 	/* Scheduling stuff, all of this is garbage. */
-	tree_node_t * tree_entry;  /* FIXME Replace with reference to parent, siblings, first child? */
 	list_t * wait_queue;       /* This is for wait(), but this process can be in it? */
 	list_t * node_waits;       /* This gets one entry for each fs node we are waiting on */
 	node_t sched_node;         /* This goes in the scheduler queue for running processes */
@@ -315,7 +316,6 @@ extern size_t process_erase_field(off_t field, size_t fieldSize, void * target);
 extern size_t process_get_tty(process_t * proc, size_t len, char * out);
 extern void process_free_cmdline(process_t *, char **);
 
-extern tree_t * process_tree;  /* Parent->Children tree */
 extern list_t * process_list;  /* Flat storage */
 extern list_t * process_queue; /* Ready queue */
 extern list_t * sleep_queue;
