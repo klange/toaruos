@@ -1247,8 +1247,7 @@ static void term_clear(term_state_t * state, int i) {
 
 
 static void full_reset(term_state_t * state) {
-	struct Terminal_Private * term = state->priv;
-	term->terminal_title_length = 0;
+	set_title(state, "");
 }
 
 static void term_state_change(term_state_t * state) {
