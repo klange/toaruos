@@ -26,7 +26,7 @@
 #include <getopt.h>
 #include <errno.h>
 #include <pty.h>
-#include <sys/fswait.h>
+#include <poll.h>
 
 #include <kernel/video.h>
 
@@ -876,8 +876,7 @@ int main(int argc, char ** argv) {
 	signal(SIGCONT, sig_cont);
 
 	size_t fds_size = 1;
-	int * fds = malloc(sizeof(int));
-	int * res = malloc(sizeof(int));
+	struct pollfd * fds = calloc(1, sizeof(struct pollfd));
 	term_state_t ** term = malloc(sizeof(term_state_t*));
 	int _kfd_offset = 0;
 	int _mfd_offset = 0;
@@ -894,27 +893,30 @@ int main(int argc, char ** argv) {
 
 		if (fds_size != 3 + terminals->length) {
 			fds_size = 3 + terminals->length;
-			fds = realloc(fds, fds_size * sizeof(int));
+			fds = realloc(fds, fds_size * sizeof(struct pollfd));
 			term = realloc(term, fds_size * sizeof(term_state_t *));
 			size_t i = 0;
 			foreach(node, terminals) {
 				term[i] = node->value;
 				struct Terminal_Private * priv = term[i]->priv;
-				fds[i] = priv->fd_manager;
+				fds[i].fd = priv->fd_manager;
+				fds[i].events = POLLIN;
 				i++;
 			}
-			fds[(_kfd_offset = (i++))] = kfd;
-			fds[(_mfd_offset = (i++))] = mfd;
-			fds[(_amfd_offset = (i++))] = amfd;
-			res = realloc(res, fds_size * sizeof(int));
+			fds[(_kfd_offset = (i++))].fd = kfd;
+			fds[_kfd_offset].events = POLLIN;
+			fds[(_mfd_offset = (i++))].fd = mfd;
+			fds[_kfd_offset].events = POLLIN;
+			fds[(_amfd_offset = (i++))].fd = amfd;
+			fds[_amfd_offset].events = POLLIN;
 		}
 
-		fswait3(fds_size + (amfd == -1 ? -1 : 0), fds, 200, res);
+		poll(fds, fds_size, 200);
 
 		termemu_maybe_flip_cursor(current_terminal());
 
 		for (size_t i = 0; i < terminals->length; ++i) {
-			if (res[i]) {
+			if (fds[i].revents) {
 				struct Terminal_Private * priv = term[i]->priv;
 				ssize_t r = read(priv->fd_manager, buf, BUF_SIZE);
 				for (ssize_t j = 0; j < r; ++j) {
@@ -923,7 +925,7 @@ int main(int argc, char ** argv) {
 			}
 		}
 
-		if (res[_kfd_offset]) {
+		if (fds[_kfd_offset].revents) {
 			int r = read(kfd, buf, 1);
 			for (int i = 0; i < r; ++i) {
 				if (kbd_scancode(&kbd_state, buf[i], &event)) {
@@ -932,7 +934,7 @@ int main(int argc, char ** argv) {
 			}
 		}
 
-		if (res[_mfd_offset]) {
+		if (fds[_mfd_offset].revents) {
 			/* mouse event */
 			int r = read(mfd, (char *)&packet, sizeof(mouse_device_packet_t));
 			if (r > 0) {
@@ -941,7 +943,7 @@ int main(int argc, char ** argv) {
 			}
 		}
 
-		if (amfd != -1 && res[_amfd_offset]) {
+		if (amfd != -1 && fds[_amfd_offset].revents) {
 			int r = read(amfd, (char *)&packet, sizeof(mouse_device_packet_t));
 			if (r > 0) {
 				if (!vmmouse) {
