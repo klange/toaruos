@@ -17,6 +17,7 @@
 #include <signal.h>
 #include <dirent.h>
 #include <time.h>
+#include <poll.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <sys/signal.h>
@@ -937,6 +938,32 @@ static void struct_timespec_array_arg(pid_t pid, uintptr_t ptr) {
 	struct_timespec_arg(pid, ptr, 1, 1);
 	fprintf(logfile, ", ");
 	struct_timespec_arg(pid, ptr + sizeof(struct timespec), 1, 1);
+	fprintf(logfile, "]");
+}
+
+static void pollfd_array_arg(pid_t pid, uintptr_t ptr, uintptr_t cnt, int abbrev) {
+	if (!ptr) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+
+	fprintf(logfile, "[");
+	for (uintptr_t i = 0; i < cnt && i < (abbrev ? 10 : (size_t)-1); ++i) {
+		struct pollfd fd = {0};
+		data_read_bytes(pid, ptr + i * sizeof(struct pollfd), (char*)&fd, sizeof(struct pollfd));
+		fprintf(logfile, "{fd=");
+		fd_arg(pid, fd.fd);
+
+		fprintf(logfile, ", events=");
+		long flags = fd.events;
+		H(POLLIN);
+		H(POLLOUT);
+		H(POLLPRI);
+		if (flags) fprintf(logfile, "%ld", flags);
+
+		fprintf(logfile, "}");
+		if (i + 1 != cnt) COMMA;
+	}
 	fprintf(logfile, "]");
 }
 
@@ -2032,7 +2059,7 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			int_arg(uregs_syscall_arg1(r));
 			break;
 		case SYS_POLL:
-			pointer_arg(uregs_syscall_arg1(r)); COMMA; /* TOOD pollfd array */
+			pollfd_array_arg(pid, uregs_syscall_arg1(r), uregs_syscall_arg2(r), is_abbrev); COMMA;
 			uint_arg(uregs_syscall_arg2(r)); COMMA;
 			int_arg(uregs_syscall_arg3(r));
 			break;
