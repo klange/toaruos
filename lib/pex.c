@@ -24,7 +24,7 @@
 
 #include <toaru/pex.h>
 
-size_t pex_send(FILE * sock, uintptr_t rcpt, size_t size, char * blob) {
+ssize_t pex_send(FILE * sock, uintptr_t rcpt, size_t size, char * blob) {
 	if (size > MAX_PACKET_SIZE) return -E2BIG;
 	struct sockaddr_pex_client dest;
 	dest.spexc_family = AF_PEX;
@@ -33,11 +33,11 @@ size_t pex_send(FILE * sock, uintptr_t rcpt, size_t size, char * blob) {
 	return sendto(fileno(sock), blob, size, 0, (struct sockaddr*)&dest, sizeof(struct sockaddr_pex_client));
 }
 
-size_t pex_broadcast(FILE * sock, size_t size, char * blob) {
+ssize_t pex_broadcast(FILE * sock, size_t size, char * blob) {
 	return pex_send(sock, 0, size, blob);
 }
 
-size_t pex_listen(FILE * sock, pex_packet_t * packet) {
+ssize_t pex_listen(FILE * sock, pex_packet_t * packet) {
 	struct iovec _iovec = { &packet->data, 1024 };
 	struct sockaddr_pex_client source;
 	socklen_t source_size = sizeof(struct sockaddr_pex_client);
@@ -61,11 +61,11 @@ size_t pex_listen(FILE * sock, pex_packet_t * packet) {
 	return len;
 }
 
-size_t pex_reply(FILE * sock, size_t size, char * blob) {
+ssize_t pex_reply(FILE * sock, size_t size, char * blob) {
 	return send(fileno(sock), blob, size, 0);
 }
 
-size_t pex_recv(FILE * sock, char * blob) {
+ssize_t pex_recv(FILE * sock, char * blob) {
 	memset(blob, 0, MAX_PACKET_SIZE);
 	return recv(fileno(sock), blob, MAX_PACKET_SIZE, 0);
 }
@@ -112,6 +112,6 @@ FILE * pex_bind(char * target) {
 	return out;
 }
 
-size_t pex_query(FILE * sock) {
+ssize_t pex_query(FILE * sock) {
 	return ioctl(fileno(sock), IOCTL_PACKETFS_QUEUED, NULL);
 }

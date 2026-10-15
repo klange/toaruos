@@ -29,6 +29,7 @@ enum ino_type {
 };
 
 struct fs_node;
+struct fs_file_description;
 
 typedef ssize_t (*read_type_t) (struct fs_node *,  off_t, size_t, uint8_t *);
 typedef ssize_t (*write_type_t) (struct fs_node *, off_t, size_t, uint8_t *);
@@ -52,6 +53,7 @@ typedef int (*rename_type_t) (struct fs_node *, struct fs_node *, const char *, 
 typedef int (*fault_map_t) (struct fs_node *, union PML *, off_t offset, int fault_flags, int map_flags, int prot, int *mmu_flags);
 typedef int (*utimens_type_t) (struct fs_node *, struct timespec access, struct timespec modify);
 typedef int (*hardlink_type_t) (struct fs_node *, const char *, struct fs_node *);
+typedef int (*poll_type_t) (struct fs_file_description *, void *);
 
 typedef struct fs_vtable {
 	read_type_t read;
@@ -77,6 +79,7 @@ typedef struct fs_vtable {
 	utimens_type_t utimens;
 	hardlink_type_t hardlink;
 	int can_mount;
+	poll_type_t poll;
 } fs_vtable_t;
 
 /* These paths are a temporary stop-gap implementation.

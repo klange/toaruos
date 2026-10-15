@@ -122,7 +122,6 @@ static void delay_yield(size_t subticks) {
 	unsigned long s, ss;
 	relative_time(0, subticks, &s, &ss);
 	sleep_until((process_t *)this_core->current_process, s, ss);
-	switch_task(0);
 }
 
 static int eeprom_detect(struct e1000_nic * device) {

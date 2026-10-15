@@ -218,7 +218,6 @@ int net_ipv4_send(struct ipv4_packet * response, fs_node_t * nic) {
 			unsigned long s, ss;
 			relative_time(0, 1000, &s, &ss);
 			sleep_until((process_t *)this_core->current_process, s, ss);
-			switch_task(0);
 
 			resp = net_arp_cache_get(ipdest);
 		}
@@ -1010,7 +1009,6 @@ static void delay_yield(size_t subticks) {
 	unsigned long s, ss;
 	relative_time(0, subticks, &s, &ss);
 	sleep_until((process_t *)this_core->current_process, s, ss);
-	switch_task(0);
 }
 
 static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags) {

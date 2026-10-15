@@ -17,6 +17,7 @@
  */
 
 #include <bits/errno.h>
+#include <bits/poll.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <kernel/printf.h>
@@ -93,21 +94,6 @@ static inline void pipe_increment_write_by(pipe_device_t * pipe, size_t amount) 
 	pipe->write_ptr = (pipe->write_ptr + amount) % pipe->size;
 }
 
-static void pipe_alert_waiters(pipe_device_t * pipe) {
-	spin_lock(pipe->alert_lock);
-	while (pipe->alert_waiters->head) {
-		node_t * node = list_dequeue(pipe->alert_waiters);
-		process_t * p = node->value;
-		free(node);
-		spin_unlock(pipe->alert_lock);
-
-		process_alert_node(p, pipe);
-
-		spin_lock(pipe->alert_lock);
-	}
-	spin_unlock(pipe->alert_lock);
-}
-
 ssize_t read_pipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	/* Retreive the pipe object associated with this file node */
 	pipe_device_t * pipe = (pipe_device_t *)node->device;
@@ -128,12 +114,14 @@ ssize_t read_pipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 				collected++;
 			}
 		}
-		wakeup_queue(pipe->wait_queue_writers);
+		waitable_awaken_all(&pipe->wr_queue, (void*)1);
 		/* Deschedule and switch */
 		if (collected == 0) {
-			if (sleep_on_unlocking(pipe->wait_queue_readers, &pipe->lock_read)) {
-				if (!collected) return -ERESTARTSYS;
-				break;
+			if (waitable_await_unlocking(&pipe->rd_queue, &pipe->lock_read)) {
+				if (has_pending()) {
+					if (!collected) return -ERESTARTSYS;
+					break;
+				}
 			}
 		} else {
 			spin_unlock(pipe->lock_read);
@@ -164,12 +152,13 @@ ssize_t write_pipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) 
 				written++;
 			}
 		}
-		wakeup_queue(pipe->wait_queue_readers);
-		pipe_alert_waiters(pipe);
+		waitable_awaken_all(&pipe->rd_queue, (void*)1);
 		if (written < size) {
-			if (sleep_on_unlocking(pipe->wait_queue_writers, &pipe->lock_read)) {
-				if (!written) return -ERESTARTSYS;
-				break;
+			if (waitable_await_unlocking(&pipe->wr_queue, &pipe->lock_read)) {
+				if (has_pending()) {
+					if (!written) return -ERESTARTSYS;
+					break;
+				}
 			}
 		} else {
 			spin_unlock(pipe->lock_read);
@@ -201,8 +190,6 @@ void close_pipe(fs_node_t * node) {
 #if 0
 		/* No other references exist, free the pipe (but not its buffer) */
 		free(pipe->buffer);
-		list_free(pipe->wait_queue);
-		free(pipe->wait_queue);
 		free(pipe);
 		/* And let the creator know there are no more references */
 		node->device = 0;
@@ -224,30 +211,36 @@ static int pipe_check(fs_node_t * node) {
 
 static int pipe_wait(fs_node_t * node, void * process) {
 	pipe_device_t * pipe = (pipe_device_t *)node->device;
-
-	spin_lock(pipe->alert_lock);
-	if (!list_find(pipe->alert_waiters, process)) {
-		list_insert(pipe->alert_waiters, process);
-	}
-	spin_unlock(pipe->alert_lock);
-
-	spin_lock(pipe->wait_lock);
-	list_insert(((process_t *)process)->node_waits, pipe);
-	spin_unlock(pipe->wait_lock);
-
+	extern int add_poll_wait(void *, struct waitable_queue *);
+	add_poll_wait(process, &pipe->rd_queue);
 	return 0;
+}
+
+static int pipe_poll(struct fs_file_description *fd, void * table) {
+	pipe_device_t * pipe = (pipe_device_t *)fd->inode->device;
+	int mask = 0;
+
+	if (fd->flags & PROC_FD_MODE_READ) {
+		if (pipe_unread(pipe) > 0) mask |= POLLIN;
+		if (pipe->dead) mask |= POLLHUP;
+		add_poll_wait(table, &pipe->rd_queue);
+	}
+
+	if (fd->flags & PROC_FD_MODE_WRITE) {
+		if (pipe_available(pipe) > 0) mask |= POLLOUT;
+		if (pipe->dead) mask |= POLLERR;
+		add_poll_wait(table, &pipe->wr_queue);
+	}
+
+	return mask;
 }
 
 void pipe_destroy(fs_node_t * node) {
 	pipe_device_t * pipe = (pipe_device_t *)node->device;
 	spin_lock(pipe->ptr_lock);
 	pipe->dead = 1;
-	pipe_alert_waiters(pipe);
-	wakeup_queue(pipe->wait_queue_writers);
-	wakeup_queue(pipe->wait_queue_readers);
-	free(pipe->alert_waiters);
-	free(pipe->wait_queue_writers);
-	free(pipe->wait_queue_readers);
+	waitable_awaken_all(&pipe->wr_queue, (void*)1);
+	waitable_awaken_all(&pipe->rd_queue, (void*)1);
 	free(pipe->buffer);
 	spin_unlock(pipe->ptr_lock);
 	free(pipe);
@@ -261,6 +254,7 @@ static fs_vtable_t pipe_ops = {
 	.get_size = pipe_size,
 	.selectcheck = pipe_check,
 	.selectwait  = pipe_wait,
+	.poll = pipe_poll,
 };
 
 fs_node_t * make_pipe(size_t size) {
@@ -292,9 +286,8 @@ fs_node_t * make_pipe(size_t size) {
 	spin_init(pipe->wait_lock);
 	spin_init(pipe->ptr_lock);
 
-	pipe->wait_queue_writers = list_create("pipe writers",pipe);
-	pipe->wait_queue_readers = list_create("pip readers",pipe);
-	pipe->alert_waiters = list_create("pipe alert waiters",pipe);
+	waitable_queue_init(&pipe->rd_queue);
+	waitable_queue_init(&pipe->wr_queue);
 
 	return fnode;
 }

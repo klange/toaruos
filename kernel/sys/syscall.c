@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <bits/errno.h>
 #include <bits/timespec.h>
+#include <bits/poll.h>
 #include <sys/utsname.h>
 #include <sys/time.h>
 #include <sys/times.h>
@@ -1004,7 +1005,6 @@ long sys_nanosleep(const struct timespec *rqtp, struct timespec *rmtp) {
 	relative_time(secs, usecs, &target_ticks, &target_subticks);
 
 	sleep_until((process_t *)this_core->current_process, target_ticks, target_subticks);
-	switch_task(0);
 
 	unsigned long timer_ticks = 0, timer_subticks = 0;
 	relative_time(0,0,&timer_ticks,&timer_subticks);
@@ -1042,7 +1042,7 @@ long sys_pipe2(int pipes[2], int flag) {
 	open_fs(outpipes[0], 0);
 	open_fs(outpipes[1], 0);
 
-	int flags = PROC_FD_MODE__RW;
+	int flags = 0;
 	if (flag & O_CLOEXEC) flags |= PROC_FD_MODE_CLOEXEC;
 	if (flag & O_CLOFORK) flags |= PROC_FD_MODE_CLOFORK;
 
@@ -1050,8 +1050,8 @@ long sys_pipe2(int pipes[2], int flag) {
 	uint64_t pipe_cnt = pipe_count++;
 
 	/* TODO paths on descriptions... */
-	pipes[0] = process_new_fd((process_t *)this_core->current_process, outpipes[0], flags, fs_path_printf("pipe:[%zu]", pipe_cnt));
-	pipes[1] = process_new_fd((process_t *)this_core->current_process, outpipes[1], flags, fs_path_printf("pipe:[%zu]", pipe_cnt));
+	pipes[0] = process_new_fd((process_t *)this_core->current_process, outpipes[0], flags | PROC_FD_MODE_READ, fs_path_printf("pipe:[%zu]", pipe_cnt));
+	pipes[1] = process_new_fd((process_t *)this_core->current_process, outpipes[1], flags | PROC_FD_MODE_WRITE, fs_path_printf("pipe:[%zu]", pipe_cnt));
 
 	return 0;
 }
@@ -1206,33 +1206,12 @@ long sys_sigwait(sigset_t * set, siginfo_t *info) {
 	return ret;
 }
 
-long sys_fswait(int c, int fds[]) {
-	if (c < 0) return -EFAULT;
-	PTRCHECK(fds, sizeof(int) * c, 0);
-	for (int i = 0; i < c; ++i) {
-		if (!FD_CHECK(fds[i])) return -EBADF;
-	}
-	fs_node_t ** nodes = malloc(sizeof(fs_node_t *)*(c+1));
-	for (int i = 0; i < c; ++i) {
-		nodes[i] = FD_ENTRY(fds[i]);
-	}
-	nodes[c] = NULL;
-
-	int result = process_wait_nodes((process_t *)this_core->current_process, nodes, -1);
-	free(nodes);
-	return result;
-}
-
 long sys_fswait_timeout(int c, int fds[], int timeout) {
 	if (c < 0) return -EFAULT;
 	PTRCHECK(fds, sizeof(int) * c, 0);
-	for (int i = 0; i < c; ++i) {
-		if (!FD_CHECK(fds[i])) return -EBADF;
-	}
+	for (int i = 0; i < c; ++i) if (!FD_CHECK(fds[i])) return -EBADF;
 	fs_node_t ** nodes = malloc(sizeof(fs_node_t *)*(c+1));
-	for (int i = 0; i < c; ++i) {
-		nodes[i] = FD_ENTRY(fds[i]);
-	}
+	for (int i = 0; i < c; ++i) nodes[i] = FD_ENTRY(fds[i]);
 	nodes[c] = NULL;
 
 	int result = process_wait_nodes((process_t *)this_core->current_process, nodes, timeout);
@@ -1240,29 +1219,25 @@ long sys_fswait_timeout(int c, int fds[], int timeout) {
 	return result;
 }
 
+long sys_fswait(int c, int fds[]) {
+	return sys_fswait_timeout(c, fds, -1);
+}
+
 long sys_fswait_multi(int c, int fds[], int timeout, int out[]) {
 	if (!fds || !out || c < 0) return -EFAULT;
 	PTRCHECK(fds, sizeof(int) * c, 0);
 	PTRCHECK(out, sizeof(int) * c, MMU_PTR_WRITE);
-	int has_match = -1;
-	for (int i = 0; i < c; ++i) {
-		if (!FD_CHECK(fds[i])) {
-			return -EBADF;
-		}
-		if (selectcheck_fs(FD_ENTRY(fds[i])) == 0) {
-			out[i] = 1;
-			has_match = (has_match == -1) ? i : has_match;
-		} else {
-			out[i] = 0;
-		}
-	}
 
-	/* Already found a match, return immediately with the first match */
-	if (has_match != -1) return has_match;
+	extern int do_fswait3(int c, int fds[], int timeout, int out[]);
+	return do_fswait3(c, fds, timeout, out);
+}
 
-	int result = sys_fswait_timeout(c, fds, timeout);
-	if (result >= 0 && result < c) out[result] = 1;
-	return result;
+long sys_poll(struct pollfd *fds, nfds_t cnt, int timeout) {
+	if (cnt && !fds) return -EFAULT;
+	PTRCHECK(fds, sizeof(struct pollfd) * cnt, MMU_PTR_WRITE);
+
+	extern int do_poll(struct pollfd *, unsigned long, int);
+	return do_poll(fds, cnt, timeout);
 }
 
 long sys_openpty(int * manager, int * subsidiary, char * name, struct termios * termp, struct winsize * size) {
@@ -1530,6 +1505,7 @@ static scall_func syscalls[] = {
 	[SYS_RENAMEAT]     = (scall_func)(uintptr_t)sys_renameat,
 	[SYS_UNLINKAT]     = (scall_func)(uintptr_t)sys_unlinkat,
 	[SYS_LINKAT]       = (scall_func)(uintptr_t)sys_linkat,
+	[SYS_POLL]         = (scall_func)(uintptr_t)sys_poll,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

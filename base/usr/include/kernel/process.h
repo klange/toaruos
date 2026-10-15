@@ -6,6 +6,7 @@
 #include <kernel/list.h>
 #include <kernel/spinlock.h>
 #include <kernel/etree.h>
+#include <kernel/waitable.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/signal_defs.h>
@@ -157,17 +158,10 @@ typedef struct process {
 	spin_lock_t wait_lock;
 
 	struct etree tree_node;
-
-	/* Scheduling stuff, all of this is garbage. */
-	list_t * wait_queue;       /* This is for wait(), but this process can be in it? */
-	list_t * node_waits;       /* This gets one entry for each fs node we are waiting on */
-	node_t sched_node;         /* This goes in the scheduler queue for running processes */
-	node_t sleep_node;         /* This gets put in queues we @c sleep_on() */
-	node_t * timed_sleep_node; /* When we @c sleep_until() this is an allocated node for some reason */
-	node_t * timeout_node;     /* When we @c process_timeout_sleep() this is an allocated node as well */
+	struct elist rq_node; /* runqueue node */
+	struct waitable_queue child_queue; /* wait()-able children */
 
 	struct timeval start;    /* Only used for procfs... */
-	long awoken_index;       /* Index into an fswait array of the thing responsible for waking us up. */
 
 	/* Process times */
 	uint64_t time_prev;         /* user time from previous update of usage[] */
@@ -286,12 +280,7 @@ extern process_t * process_from_pid(pid_t pid);
 extern void process_delete(process_t * proc);
 extern void make_process_ready(process_t * proc);
 extern process_t * next_ready_process(void);
-extern int wakeup_queue(list_t * queue);
-extern int wakeup_queue_interrupted(list_t * queue);
-extern int sleep_on(list_t * queue);
-extern int sleep_on_unlocking(list_t * queue, spin_lock_t * release);
-extern int process_alert_node(process_t * process, void * value);
-extern void sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds);
+extern int sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds);
 extern void switch_task(uint8_t reschedule);
 extern int process_wait_nodes(process_t * process,fs_node_t * nodes[], int timeout);
 extern process_t * process_get_parent(process_t * process);
@@ -299,7 +288,6 @@ extern int process_is_ready(process_t * proc);
 extern void wakeup_sleepers(unsigned long seconds, unsigned long subseconds);
 extern void task_exit(long retval);
 extern __attribute__((noreturn)) void switch_next(void);
-extern int process_awaken_from_fswait(process_t * process, int index);
 extern void process_awaken_signal(process_t * process);
 extern void process_release_directory(page_directory_t * dir);
 extern process_t * spawn_worker_thread(void (*entrypoint)(void * argp), const char * name, void * argp);
@@ -320,8 +308,6 @@ extern size_t process_get_tty(process_t * proc, size_t len, char * out);
 extern void process_free_cmdline(process_t *, char **);
 
 extern list_t * process_list;  /* Flat storage */
-extern list_t * process_queue; /* Ready queue */
-extern list_t * sleep_queue;
 
 extern void arch_enter_tasklet(void);
 extern __attribute__((noreturn)) void arch_resume_user(void);
@@ -339,3 +325,4 @@ extern void arch_clear_icache(uintptr_t,uintptr_t);
 extern void arch_set_singlestep(process_t * proc, int enabled);
 extern void arch_filter_regs(struct regs *r);
 extern void arch_prepare_thread_entry(struct regs *r, uintptr_t arg, uintptr_t thread_func, uintptr_t new_stack);
+extern int add_poll_wait(void *, struct waitable_queue *);

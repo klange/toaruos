@@ -123,6 +123,10 @@ static void maybe_restart_system_call(struct regs * r, int signum, int no_handle
 
 #define PENDING (this_core->current_process->pending_signals & ((~this_core->current_process->blocked_signals) | shift_signal(SIGSTOP) | shift_signal(SIGKILL)))
 
+int has_pending(void) {
+	return PENDING;
+}
+
 /**
  * @brief Examine the pending signal and perform an appropriate action.
  *
@@ -169,7 +173,7 @@ int handle_signal(process_t * proc, int signum, struct regs *r, siginfo_t * caus
 			this_core->current_process->status = 0x7F | (signum << 8) | 0xFF0000;
 			process_t * parent = process_get_parent((process_t *)this_core->current_process);
 			if (!(config.flags & SA_NOCLDSTOP)) process_send_sigchld(proc, parent, CLD_STOPPED, signum);
-			else if (parent) wakeup_queue(parent->wait_queue);
+			else if (parent) waitable_awaken_all(&parent->child_queue, (void*)(uintptr_t)proc->id);
 
 			do {
 				switch_task(0);

@@ -3,6 +3,7 @@
 #include <kernel/vfs.h>
 #include <kernel/list.h>
 #include <kernel/spinlock.h>
+#include <kernel/waitable.h>
 #include <sys/socket.h>
 
 #define htonl(l)  ( (((l) & 0xFF) << 24) | (((l) & 0xFF00) << 8) | (((l) & 0xFF0000) >> 8) | (((l) & 0xFF000000) >> 24))
@@ -16,11 +17,9 @@ fs_node_t * net_if_route(uint32_t addr);
 
 typedef struct SockData {
 	fs_node_t _fnode;
-	spin_lock_t alert_lock;
 	spin_lock_t rx_lock;
-	list_t * alert_wait;
-	list_t * rx_wait;
 	list_t * rx_queue;
+	struct waitable_queue rx_wait_queue;
 
 	uint16_t priv[4];
 

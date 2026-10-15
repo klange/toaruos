@@ -38,14 +38,27 @@
 #include <kernel/pty.h>
 #include <kernel/ptrace.h>
 #include <kernel/args.h>
+#include <kernel/waitable.h>
 #include <sys/wait.h>
 #include <sys/signal_defs.h>
 #include <sys/uregs.h>
+#include <bits/poll.h>
+
+static struct elist readyqueue = {0};
+
+struct timer_sleep {
+	struct elist el;
+	uint64_t end_tick;
+	uint64_t end_subtick;
+	int (*callback)(struct timer_sleep *, void *);
+	void * priv;
+	void * key;
+};
+
+static struct elist sleep_list = {0};
 
 process_t * process_tree;  /* Stores the parent-child process relationships; the root of this graph is 'init'. */
 list_t * process_list;  /* Stores all existing processes. Mostly used for sanity checking or for places where iterating over all processes is useful. */
-list_t * process_queue; /* Scheduler ready queue. This the round-robin source. The head is the next process to run. */
-list_t * sleep_queue;   /* Ordered list of processes waiting to be awoken by timeouts. The head is the earliest thread to awaken. */
 list_t * reap_queue;    /* Processes that could not be cleaned up and need to be deleted. */
 
 struct ProcessorLocal processor_local_data[32] = {0};
@@ -217,9 +230,10 @@ static process_t dummy_process = {0};
  * the schedule uses to track processes.
  */
 void initialize_process_tree(void) {
+	elist_init(&readyqueue);
+	elist_init(&sleep_list);
+
 	process_list = list_create("global process list",NULL);
-	process_queue = list_create("global scheduler queue",NULL);
-	sleep_queue = list_create("global timed sleep queue",NULL);
 	reap_queue = list_create("processes awaiting later cleanup",NULL);
 
 	this_core->current_process = &dummy_process;
@@ -466,6 +480,7 @@ process_t * spawn_kidle(int bsp) {
 	idle->id = -1;
 	idle->name = strdup("[kidle]");
 	idle->flags = PROC_FLAG_IS_TASKLET | PROC_FLAG_STARTED | PROC_FLAG_RUNNING;
+	elist_init(&idle->rq_node);
 	setup_kernel_stack(idle);
 
 	/* TODO arch_initialize_context(uintptr_t) ? */
@@ -478,7 +493,6 @@ process_t * spawn_kidle(int bsp) {
 
 	/* FIXME Why does the idle thread have wait queues and shm mappings?
 	 *       Can we make sure these are never referenced and not allocate them? */
-	idle->wait_queue = list_create("process wait queue (kidle)",idle);
 	gettimeofday(&idle->start, NULL);
 	idle->thread.page_directory = calloc(1, sizeof(page_directory_t));
 	idle->thread.page_directory->refcount = 1;
@@ -505,6 +519,8 @@ process_t * spawn_init(void) {
 	init->mask       = 022;
 	init->status     = 0;
 	init->signals    = calloc(NUMSIGNALS+1, sizeof(struct signal_config));
+	elist_init(&init->rq_node);
+	waitable_queue_init(&init->child_queue);
 
 	init->fds           = calloc(1, sizeof(fd_table_t));
 	init->fds->refs     = 1;
@@ -519,17 +535,6 @@ process_t * spawn_init(void) {
 	setup_kernel_stack(init);
 
 	init->flags         = PROC_FLAG_STARTED | PROC_FLAG_RUNNING;
-	init->wait_queue    = list_create("process wait queue (init)", init);
-
-	init->sched_node.prev = NULL;
-	init->sched_node.next = NULL;
-	init->sched_node.value = init;
-
-	init->sleep_node.prev = NULL;
-	init->sleep_node.next = NULL;
-	init->sleep_node.value = init;
-
-	init->timed_sleep_node = NULL;
 
 	init->thread.page_directory = calloc(1, sizeof(page_directory_t));
 	init->thread.page_directory->refcount = 1;
@@ -547,6 +552,9 @@ static process_t * spawn_process(process_t * parent, int flags, int close_at_for
 	proc->id          = get_next_pid();
 	proc->tgid        = proc->id;
 	proc->name        = strdup(parent->name);
+
+	elist_init(&proc->rq_node);
+	waitable_queue_init(&proc->child_queue);
 
 	proc->user        = parent->user;
 	proc->real_user   = parent->real_user;
@@ -598,11 +606,6 @@ static process_t * spawn_process(process_t * parent, int flags, int close_at_for
 	proc->exe = parent->exe ? (void*)fs_clone_desc(parent->exe, 0) : 0;
 	proc->wd  = parent->wd  ? (void*)fs_clone_desc(parent->wd, 0) : 0;
 
-	proc->wait_queue   = list_create("process wait queue",proc);
-
-	proc->sched_node.value = proc;
-	proc->sleep_node.value = proc;
-
 	gettimeofday(&proc->start, NULL);
 
 	spin_lock(tree_lock);
@@ -622,11 +625,6 @@ void process_reap(process_t * proc) {
 
 	if (proc == proc->process) {
 		free(proc->signals);
-	}
-
-	if (proc->wait_queue) {
-		list_free(proc->wait_queue);
-		free(proc->wait_queue);
 	}
 
 	/* Then unmap the pages entirely */
@@ -710,7 +708,7 @@ void process_delete(process_t * proc) {
 
 	if (has_children) {
 		/* Wake up init */
-		wakeup_queue(process_tree->wait_queue);
+		waitable_awaken_all(&process_tree->child_queue, (void*)(uintptr_t)proc->id);
 	}
 
 	// FIXME bitset_clear(&pid_set, proc->id);
@@ -736,38 +734,18 @@ void process_delete(process_t * proc) {
  * queue before it is placed in the ready queue.
  */
 void make_process_ready(process_t * proc) {
-	int sleep_lock_is_mine = sleep_lock.owner == (this_core->cpu_id + 1);
-	if (!sleep_lock_is_mine) spin_lock(sleep_lock);
-	if (proc->sleep_node.owner != NULL) {
-		if (proc->sleep_node.owner == sleep_queue) {
-			/* The sleep queue is slightly special... */
-			if (proc->timed_sleep_node) {
-				list_delete(sleep_queue, proc->timed_sleep_node);
-				proc->sleep_node.owner = NULL;
-				free(proc->timed_sleep_node->value);
-				free(proc->timed_sleep_node);
-				proc->timed_sleep_node = NULL;
-			}
-		} else {
-			/* This was blocked on a semaphore we can interrupt. */
-			__sync_or_and_fetch(&proc->flags, PROC_FLAG_SLEEP_INT);
-			list_delete((list_t*)proc->sleep_node.owner, (node_t*)&proc->sleep_node);
-		}
-	}
-	if (!sleep_lock_is_mine) spin_unlock(sleep_lock);
-
 	spin_lock(process_queue_lock);
-	if (proc->sched_node.owner) {
-		/* There's only one ready queue, so this means the process was already ready, which
-		 * is indicative of a bug somewhere as we shouldn't be added processes to the ready
-		 * queue multiple times. */
+
+	if (proc->rq_node.el_next != &proc->rq_node) {
+		/* Already scheduled */
 		spin_unlock(process_queue_lock);
 		return;
 	}
 
-	list_append(process_queue, (node_t*)&proc->sched_node);
-	spin_unlock(process_queue_lock);
+	/* TODO pick CPU, use per-CPU ready queue, etc. */
+	elist_insert_tail(&readyqueue, &proc->rq_node);
 
+	spin_unlock(process_queue_lock);
 	arch_wakeup_others();
 }
 
@@ -776,170 +754,40 @@ void make_process_ready(process_t * proc) {
  *
  * Gets the next available process from the round-robin scheduling
  * queue. If there is no process to run, the idle task is returned.
- *
- * TODO This needs more locking for SMP...
  */
 process_t * next_ready_process(void) {
 	spin_lock(process_queue_lock);
 
-	if (!process_queue->head) {
-		if (process_queue->length) {
-			arch_fatal_prepare();
-			printf("Queue has a length but head is NULL\n");
-			arch_dump_traceback();
-			arch_fatal();
-		}
+	if (!elist_peek_obj(&readyqueue, process_t, rq_node)) {
 		spin_unlock(process_queue_lock);
 		return this_core->kernel_idle_task;
 	}
 
-	node_t * np = list_dequeue(process_queue);
-
-	if ((uintptr_t)np < 0xFFFFff0000000000UL || (uintptr_t)np > 0xFFFFfff000000000UL) {
-		arch_fatal_prepare();
-		printf("Suspicious pointer in queue: %#zx\n", (uintptr_t)np);
-		arch_dump_traceback();
-		arch_fatal();
-	}
-	process_t * next = np->value;
+	process_t * next = elist_pop_obj(&readyqueue, process_t, rq_node);
 
 	if ((next->flags & PROC_FLAG_RUNNING) && (next->owner != this_core->cpu_id)) {
 		/* We pulled a process too soon, switch to idle for a bit so the
 		 * core that marked this process as ready can finish switching away from it. */
-		list_append(process_queue, (node_t*)&next->sched_node);
+		elist_insert_tail(&readyqueue, &next->rq_node);
 		spin_unlock(process_queue_lock);
 		return this_core->kernel_idle_task;
 	}
-
-	spin_unlock(process_queue_lock);
 
 	if (!(next->flags & PROC_FLAG_FINISHED)) {
 		__sync_or_and_fetch(&next->flags, PROC_FLAG_RUNNING);
 	}
 
 	next->owner = this_core->cpu_id;
-
+	spin_unlock(process_queue_lock);
 	return next;
-}
-
-/**
- * @brief Signal a semaphore.
- *
- * Okay, so toaru32 used these general-purpose lists of processes
- * as a sort of sempahore system, so often when you see 'queue' it
- * can be read as 'semaphore' and be equally valid (outside of the
- * 'ready queue', I guess). This will awaken all processes currently
- * in the semaphore @p queue, unless they were marked as finished in
- * which case they will be discarded.
- *
- * Note that these "semaphore queues" are binary semaphores - simple
- * locks, but with smarter logic than the "spin_lock" primitive also
- * used throughout the kernel, as that just blindly switches tasks
- * until its atomic swap succeeds.
- *
- * @param queue The semaphore to signal
- * @returns the number of processes successfully awoken
- */
-int wakeup_queue(list_t * queue) {
-	int awoken_processes = 0;
-	spin_lock(wait_lock_tmp);
-	while (queue->length > 0) {
-		node_t * node = list_pop(queue);
-		spin_unlock(wait_lock_tmp);
-		if (!(((process_t *)node->value)->flags & PROC_FLAG_FINISHED)) {
-			make_process_ready(node->value);
-		}
-		spin_lock(wait_lock_tmp);
-		awoken_processes++;
-	}
-	spin_unlock(wait_lock_tmp);
-	return awoken_processes;
-}
-
-/**
- * @brief Signal a semaphore, exceptionally.
- *
- * Wake up everything in the semaphore @p queue but mark every
- * waiter as having been interrupted, rather than gracefully awoken.
- * Generally that means the event they were waiting for did not
- * happen and may never happen.
- *
- * Otherwise, same semantics as @ref wakeup_queue.
- */
-int wakeup_queue_interrupted(list_t * queue) {
-	int awoken_processes = 0;
-	spin_lock(wait_lock_tmp);
-	while (queue->length > 0) {
-		node_t * node = list_pop(queue);
-		spin_unlock(wait_lock_tmp);
-		if (!(((process_t *)node->value)->flags & PROC_FLAG_FINISHED)) {
-			process_t * proc = node->value;
-			__sync_or_and_fetch(&proc->flags, PROC_FLAG_SLEEP_INT);
-			make_process_ready(proc);
-		}
-		spin_lock(wait_lock_tmp);
-		awoken_processes++;
-	}
-	spin_unlock(wait_lock_tmp);
-	return awoken_processes;
-}
-
-int wakeup_queue_one(list_t * queue) {
-	int awoken_processes = 0;
-	spin_lock(wait_lock_tmp);
-	if (queue->length > 0) {
-		node_t * node = list_pop(queue);
-		spin_unlock(wait_lock_tmp);
-		if (!(((process_t *)node->value)->flags & PROC_FLAG_FINISHED)) {
-			make_process_ready(node->value);
-		}
-		spin_lock(wait_lock_tmp);
-		awoken_processes++;
-	}
-	spin_unlock(wait_lock_tmp);
-	return awoken_processes;
-}
-
-/**
- * @brief Wait for a binary semaphore.
- *
- * Wait for an event with everyone else in @p queue.
- *
- * @returns 1 if the wait was interrupted (eg. the event did not occur); 0 otherwise.
- */
-int sleep_on(list_t * queue) {
-	if (this_core->current_process->sleep_node.owner) {
-		switch_task(0);
-		return 0;
-	}
-	__sync_and_and_fetch(&this_core->current_process->flags, ~(PROC_FLAG_SLEEP_INT));
-	spin_lock(wait_lock_tmp);
-	list_append(queue, (node_t*)&this_core->current_process->sleep_node);
-	spin_unlock(wait_lock_tmp);
-	switch_task(0);
-	return !!(this_core->current_process->flags & PROC_FLAG_SLEEP_INT);
-}
-
-int sleep_on_unlocking(list_t * queue, spin_lock_t * release) {
-	__sync_and_and_fetch(&this_core->current_process->flags, ~(PROC_FLAG_SLEEP_INT));
-	spin_lock(wait_lock_tmp);
-	list_append(queue, (node_t*)&this_core->current_process->sleep_node);
-	spin_unlock(wait_lock_tmp);
-
-	spin_unlock(*release);
-
-	switch_task(0);
-	return !!(this_core->current_process->flags & PROC_FLAG_SLEEP_INT);
 }
 
 /**
  * @brief Indicates whether a process is ready to be run but not currently running.
  */
 int process_is_ready(process_t * proc) {
-	return (proc->sched_node.owner != NULL && !(proc->flags & PROC_FLAG_RUNNING));
+	return (proc->rq_node.el_next != &proc->rq_node && !(proc->flags & PROC_FLAG_RUNNING));
 }
-
-int process_alert_node_locked(process_t * process, void * value);
 
 /**
  * @brief Wake up processes that were sleeping on timers.
@@ -951,31 +799,23 @@ int process_alert_node_locked(process_t * process, void * value);
  */
 void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
 	spin_lock(sleep_lock);
-	if (sleep_queue->length) {
-		sleeper_t * proc = ((sleeper_t *)sleep_queue->head->value);
-		while (proc && (proc->end_tick < seconds || (proc->end_tick == seconds && proc->end_subtick <= subseconds))) {
-
-			if (proc->is_fswait) {
-				proc->is_fswait = -1;
-				process_alert_node_locked(proc->process,proc);
-			} else {
-				process_t * process = proc->process;
-				process->sleep_node.owner = NULL;
-				process->timed_sleep_node = NULL;
-				if (!process_is_ready(process)) {
-					make_process_ready(process);
-				}
-			}
-			free(proc);
-			free(list_dequeue(sleep_queue));
-			if (sleep_queue->length) {
-				proc = ((sleeper_t *)sleep_queue->head->value);
-			} else {
-				break;
-			}
-		}
+	for (struct elist * elem = sleep_list.el_next; elem != &sleep_list;) {
+		struct timer_sleep * t = (void*)((char*)elem - offsetof(struct timer_sleep, el));
+		if (!(t->end_tick < seconds || (t->end_tick == seconds && t->end_subtick <= subseconds))) break;
+		t->callback(t, (void*)1);
+		struct elist * next = elem->el_next;
+		__elist_del(elem);
+		elem = next;
 	}
 	spin_unlock(sleep_lock);
+	return;
+}
+
+static int sleep_callback(struct timer_sleep *t, void * key) {
+	/* mark t as sleep completed? */
+	t->key = key;
+	make_process_ready(t->priv);
+	return 0;
 }
 
 /**
@@ -985,34 +825,32 @@ void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
  * still be resumed by a signal or other mechanism, in which case the
  * sleep will not be resumed by the kernel.
  */
-void sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds) {
-	spin_lock(sleep_lock);
-	if (this_core->current_process->sleep_node.owner) {
-		spin_unlock(sleep_lock);
-		/* Can't sleep, sleeping already */
-		return;
-	}
-	process->sleep_node.owner = sleep_queue;
+int sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds) {
+	struct timer_sleep t;
+	t.callback = sleep_callback;
+	t.priv = process;
+	t.end_tick = seconds;
+	t.end_subtick = subseconds;
+	t.key = NULL;
+	elist_init(&t.el);
 
-	node_t * before = NULL;
-	foreach(node, sleep_queue) {
-		sleeper_t * candidate = ((sleeper_t *)node->value);
-		if (!candidate) {
-			printf("null candidate?\n");
-			continue;
-		}
-		if (candidate->end_tick > seconds || (candidate->end_tick == seconds && candidate->end_subtick > subseconds)) {
-			break;
-		}
-		before = node;
+	spin_lock(sleep_lock);
+	struct elist * before = &sleep_list;
+	for (struct elist * elem = sleep_list.el_next; elem != &sleep_list; elem = elem->el_next) {
+		struct timer_sleep * _t = (void*)((char*)elem - offsetof(struct timer_sleep, el));
+		if (_t->end_tick > seconds || (_t->end_tick == seconds && _t->end_subtick > subseconds)) break;
+		before = elem;
 	}
-	sleeper_t * proc = calloc(1, sizeof(sleeper_t));
-	proc->process     = process;
-	proc->end_tick    = seconds;
-	proc->end_subtick = subseconds;
-	proc->is_fswait = 0;
-	process->timed_sleep_node = list_insert_after(sleep_queue, before, proc);
+	elist_insert_after(before, &t.el);
 	spin_unlock(sleep_lock);
+
+	switch_task(0);
+
+	spin_lock(sleep_lock);
+	__elist_del(&t.el);
+	spin_unlock(sleep_lock);
+
+	return t.key == (void*)1;
 }
 
 static int process_compare(void * proc_v, void * pid_v) {
@@ -1135,12 +973,12 @@ int waitpid(int pid, int * status, int options) {
 		}
 
 		if (candidate) {
-			spin_unlock(proc->wait_lock);
 			if (status) {
-				*status = candidate->status;
+				*status = *(volatile int*)&candidate->status;
 			}
 			int pid = candidate->id;
 			if (is_parent) candidate->status &= ~0xFF;
+			spin_unlock(proc->wait_lock);
 			if (is_parent && (candidate->flags & PROC_FLAG_FINISHED)) {
 				while (*((volatile int *)&candidate->flags) & PROC_FLAG_RUNNING);
 				proc->time_children += candidate->time_children + candidate->time_total;
@@ -1157,157 +995,15 @@ int waitpid(int pid, int * status, int options) {
 				return 0;
 			}
 			/* Wait */
-			if (sleep_on_unlocking(proc->process->wait_queue, &proc->wait_lock) != 0) {
+			if (waitable_await_unlocking(&proc->process->child_queue, &proc->wait_lock)) {
 				return -EINTR;
 			}
 		}
 	} while (1);
 }
 
-int process_timeout_sleep(process_t * process, int timeout) {
-	unsigned long s, ss;
-	relative_time(0, timeout * 1000, &s, &ss);
-
-	node_t * before = NULL;
-	foreach(node, sleep_queue) {
-		sleeper_t * candidate = ((sleeper_t *)node->value);
-		if (candidate->end_tick > s || (candidate->end_tick == s && candidate->end_subtick > ss)) {
-			break;
-		}
-		before = node;
-	}
-	sleeper_t * proc = calloc(1, sizeof(sleeper_t));
-	proc->process     = process;
-	proc->end_tick    = s;
-	proc->end_subtick = ss;
-	proc->is_fswait = 1;
-	list_insert(((process_t *)process)->node_waits, proc);
-	process->timeout_node = list_insert_after(sleep_queue, before, proc);
-
-	return 0;
-}
-
-int process_wait_nodes(process_t * process,fs_node_t * nodes[], int timeout) {
-	fs_node_t ** n = nodes;
-	int index = 0;
-	if (*n) {
-		do {
-			int result = selectcheck_fs(*n);
-			if (result < 0) {
-				return -EBADF;
-			}
-			if (result == 0) {
-				return index;
-			}
-			n++;
-			index++;
-		} while (*n);
-	}
-
-	if (timeout == 0) {
-		return index;
-	}
-
-	n = nodes;
-
-	spin_lock(sleep_lock);
-	spin_lock(process->sched_lock);
-	process->node_waits = list_create("process fswaiters",process);
-	if (*n) {
-		do {
-			if (selectwait_fs(*n, process) < 0) {
-				printf("bad selectwait?\n");
-			}
-			n++;
-		} while (*n);
-	}
-
-	if (timeout > 0) {
-		process_timeout_sleep(process, timeout);
-	} else {
-		process->timeout_node = NULL;
-	}
-
-	process->awoken_index = -1;
-	spin_unlock(process->sched_lock);
-	spin_unlock(sleep_lock);
-
-	/* Wait. */
-	switch_task(0);
-
-	return process->awoken_index;
-}
-
-int process_awaken_from_fswait(process_t * process, int index) {
-	must_have_lock(sleep_lock);
-
-	process->awoken_index = index;
-	list_free(process->node_waits);
-	free(process->node_waits);
-	process->node_waits = NULL;
-
-	if (process->timeout_node && process->timeout_node->owner == sleep_queue) {
-		sleeper_t * proc = process->timeout_node->value;
-		if (proc->is_fswait != -1) {
-			list_delete(sleep_queue, process->timeout_node);
-			free(process->timeout_node->value);
-			free(process->timeout_node);
-		}
-	}
-	process->timeout_node = NULL;
-
-	make_process_ready(process);
-	spin_unlock(process->sched_lock);
-	return 0;
-}
-
 void process_awaken_signal(process_t * process) {
-	spin_lock(sleep_lock);
-	spin_lock(process->sched_lock);
-	if (process->node_waits) {
-		process_awaken_from_fswait(process, -EINTR);
-	} else {
-		spin_unlock(process->sched_lock);
-	}
-	spin_unlock(sleep_lock);
-}
-
-int process_alert_node_locked(process_t * process, void * value) {
-	must_have_lock(sleep_lock);
-
-	if (!is_valid_process(process)) {
-		if (args_present("debug")) {
-			dprintf("core %d (pid=%d %s) attempted to alert invalid process %#zx\n",
-				this_core->cpu_id, this_core->current_process->id, this_core->current_process->name,
-				(uintptr_t)process);
-		}
-		return 0;
-	}
-
-	spin_lock(process->sched_lock);
-
-	if (!process->node_waits) {
-		spin_unlock(process->sched_lock);
-		return 0; /* Possibly already returned. Wait for another call. */
-	}
-
-	int index = 0;
-	foreach(node, process->node_waits) {
-		if (value == node->value) {
-			return process_awaken_from_fswait(process, index);
-		}
-		index++;
-	}
-
-	spin_unlock(process->sched_lock);
-	return -1;
-}
-
-int process_alert_node(process_t * process, void * value) {
-	spin_lock(sleep_lock);
-	int result = process_alert_node_locked(process, value);
-	spin_unlock(sleep_lock);
-	return result;
+	make_process_ready(process);
 }
 
 process_t * process_get_parent(process_t * process) {
@@ -1329,12 +1025,6 @@ void task_exit(long retval) {
 			send_signal(children[i], SIGKILL, 1);
 		}
 		if (children) free(children);
-	}
-
-	if (this_core->current_process->node_waits) {
-		list_free(this_core->current_process->node_waits);
-		free(this_core->current_process->node_waits);
-		this_core->current_process->node_waits = NULL;
 	}
 
 	if (this_core->current_process->fds) {
@@ -1394,7 +1084,7 @@ void task_exit(long retval) {
 		this_core->current_process->tracer = 0;
 		if (tracer && tracer != parent) {
 			spin_lock(tracer->wait_lock);
-			wakeup_queue(tracer->wait_queue);
+			waitable_awaken_all(&tracer->process->child_queue, (void*)(uintptr_t)this_core->current_process->id);
 			spin_unlock(tracer->wait_lock);
 		}
 	}
@@ -1548,6 +1238,8 @@ process_t * spawn_worker_thread(void (*entrypoint)(void * argp), const char * na
 	proc->tgid        = proc->id;
 	proc->name        = strdup(name);
 	proc->cmdline     = NULL;
+	elist_init(&proc->rq_node);
+	waitable_queue_init(&proc->child_queue);
 
 	proc->job         = proc->id;
 	proc->session     = proc->id;
@@ -1567,12 +1259,6 @@ process_t * spawn_worker_thread(void (*entrypoint)(void * argp), const char * na
 	proc->thread.context.sp = proc->image.stack;
 	proc->thread.context.bp = proc->image.stack;
 	proc->thread.context.ip = (uintptr_t)&arch_enter_tasklet;
-
-
-	proc->wait_queue   = list_create("worker thread wait queue",proc);
-
-	proc->sched_node.value = proc;
-	proc->sleep_node.value = proc;
 
 	gettimeofday(&proc->start, NULL);
 
@@ -1756,8 +1442,9 @@ void process_send_sigchld(process_t * proc, process_t * parent, int reason, int 
 		cause.si_uid = proc->real_user;
 		cause.si_status = status;
 
+		waitable_awaken_all(&parent->child_queue, (void*)(uintptr_t)proc->id);
 		send_signal_info(parent->tgid, SIGCHLD, 1, &cause);
-		wakeup_queue(parent->wait_queue);
+
 		spin_unlock(parent->wait_lock);
 	}
 }
@@ -1783,3 +1470,229 @@ size_t process_get_tty(process_t * proc, size_t len, char * out) {
 	spin_unlock(tree_lock);
 	return ret;
 }
+
+struct pollable_waiter {
+	struct waitable_waiter _waiter;
+	struct waitable_queue * queue;
+};
+
+struct poll_table_page {
+	struct poll_table_page * next;
+	struct pollable_waiter * entry;
+	struct pollable_waiter entries[];
+};
+
+struct poll_table {
+	process_t * proc;
+	spin_lock_t lock;
+	int accepting;
+	size_t cnt;
+	struct poll_table_page * next;
+	struct pollable_waiter waiters[10];
+};
+
+static int poll_wake(struct waitable_waiter *waiter, void *key) {
+	struct poll_table * pt = waiter->priv;
+	process_t * proc = pt->proc;
+	waiter->key = key;
+	make_process_ready(proc);
+	return 1;
+}
+
+int add_poll_wait(void * poll_table, struct waitable_queue * queue) {
+	struct poll_table * pt = poll_table;
+	if (!pt->accepting) return 0;
+
+	spin_lock(pt->lock);
+	struct pollable_waiter * w;
+
+	if (pt->cnt < 10) {
+		w = &pt->waiters[pt->cnt++];
+	} else {
+		if (!pt->next || ((uintptr_t)(pt->next->entry + 1) > (uintptr_t)pt->next + 4096)) {
+			uintptr_t index = mmu_allocate_a_frame();
+			struct poll_table_page * np = mmu_map_from_physical(index << 12);
+			np->entry = np->entries;
+			np->next = pt->next;
+			pt->next = np;
+		}
+		w = pt->next->entry++;
+	}
+
+	memset(w, 0, sizeof(struct pollable_waiter));
+	waitable_waiter_init((void*)w, poll_wake, poll_table);
+	w->queue = queue;
+	spin_unlock(pt->lock);
+
+	spin_lock(queue->lock);
+	elist_insert_tail(&queue->queue, &w->_waiter.list_node);
+	spin_unlock(queue->lock);
+
+	return 0;
+}
+
+static inline void poll_init(struct poll_table *pt) {
+	pt->proc = this_core->current_process;
+	pt->cnt = 0;
+	pt->accepting = 1;
+	pt->next = NULL;
+	spin_init(pt->lock);
+}
+
+static inline void poll_cleanup(struct poll_table *pt) {
+	for (size_t i = 0; i < pt->cnt; ++i) {
+		struct pollable_waiter * w = &pt->waiters[i];
+		spin_lock(w->queue->lock);
+		__elist_del(&w->_waiter.list_node);
+		spin_unlock(w->queue->lock);
+	}
+	struct poll_table_page * n = pt->next;
+	while (n) {
+		struct poll_table_page *next = n->next;
+		struct pollable_waiter * w = n->entry;
+		do {
+			w--;
+			spin_lock(w->queue->lock);
+			__elist_del(&w->_waiter.list_node);
+			spin_unlock(w->queue->lock);
+		} while (w > n->entries);
+		mmu_frame_release(mmu_map_to_physical(this_core->current_pml, (uintptr_t)n));
+		n = next;
+	}
+}
+
+int do_fswait3(int c, int fds[], int timeout, int out[]) {
+	unsigned long target_ticks = 0, target_subticks = 0;
+	if (timeout > 0) relative_time(0, timeout * 1000, &target_ticks, &target_subticks);
+
+	int has_match = -1;
+	for (int i = 0; i < c; ++i) {
+		if (!FD_CHECK(fds[i])) return -EBADF;
+		if ((out[i] = (selectcheck_fs(FD_ENTRY(fds[i])) == 0)) && has_match == -1) has_match = i;
+	}
+
+	/* Already found a match, return immediately with the first match */
+	if (has_match != -1) return has_match;
+	if (timeout == 0)  return c;
+
+	/* Prep sleepy boys */
+	while (1) {
+		struct poll_table pt;
+		poll_init(&pt);
+
+		for (int i = 0; i < c; ++i) {
+			if (!FD_CHECK(fds[i])) continue;
+			selectwait_fs(FD_ENTRY(fds[i]), &pt);
+		}
+
+		int timed_out = 0;
+		if (timeout != -1) timed_out = sleep_until(this_core->current_process, target_ticks, target_subticks);
+		else switch_task(0);
+
+		poll_cleanup(&pt);
+
+		for (int i = 0; i < c; ++i) {
+			if (!FD_CHECK(fds[i])) continue;
+			if ((out[i] |= (selectcheck_fs(FD_ENTRY(fds[i])) == 0)) && has_match == -1) has_match = i;
+		}
+
+		if (has_match != -1) return has_match;
+		if (timed_out) return c;
+
+		if (has_pending()) return -EINTR;
+	}
+}
+
+int do_poll(struct pollfd *fds, unsigned long count, int timeout) {
+	/* Spot check file descriptors */
+	for (unsigned long i = 0; i < count; ++i) {
+		fds[i].revents = 0;
+		if (fds[i].fd < 0) continue;
+		if (!FD_CHECK(fds[i].fd)) fds[i].revents |= POLLNVAL;
+	}
+
+	unsigned long target_ticks = 0, target_subticks = 0;
+	if (timeout > 0) relative_time(0, timeout * 1000, &target_ticks, &target_subticks);
+
+	int timed_out = 0;
+	int match = 0;
+
+	while (1) {
+		struct poll_table pt;
+		poll_init(&pt);
+
+		for (unsigned long i = 0; i < count; ++i) {
+			if (fds[i].fd < 0) continue;
+			if (!FD_CHECK(fds[i].fd)) continue;
+			struct fs_file_description * f = FD_FILE(fds[i].fd);
+
+			int mask = 0;
+			if (f->inode->ops->poll) {
+				mask = f->inode->ops->poll(f, &pt);
+			} else if (f->inode->ops->selectwait) {
+				f->inode->ops->selectwait(f->inode, &pt);
+				int r = f->inode->ops->selectcheck(f->inode);
+				if (!r) mask = POLLIN;
+			}
+
+			if ((mask | POLLHUP | POLLERR) & fds[i].events) {
+				fds[i].revents |= ((mask | POLLHUP | POLLERR) & fds[i].events);
+				match += 1;
+				pt.accepting = 0;
+			}
+		}
+
+		if (timed_out) timeout = 0;
+
+		if (!match && timeout != 0) {
+			if (timeout > 0) timed_out = sleep_until(this_core->current_process, target_ticks, target_subticks);
+			else switch_task(0);
+		}
+
+		poll_cleanup(&pt);
+
+		if (match || (!timed_out && timeout == 0)) return match;
+		if (timed_out && timeout == 0) return 0;
+		if (has_pending()) return -EINTR;
+	}
+}
+
+int process_wait_nodes(process_t * process,fs_node_t * nodes[], int timeout) {
+	unsigned long target_ticks = 0, target_subticks = 0;
+	if (timeout > 0) relative_time(0, timeout * 1000, &target_ticks, &target_subticks);
+
+	int index = 0;
+	for (fs_node_t **n = nodes; *n; n++) {
+		int result = selectcheck_fs(*n);
+		if (result < 0) return -EBADF;
+		if (result == 0) return index;
+		index++;
+	}
+
+	if (timeout == 0) return index;
+
+	/* Prep sleepy boys */
+	while (1) {
+		struct poll_table pt;
+		poll_init(&pt);
+
+		for (fs_node_t **n = nodes; *n; n++) selectwait_fs(*n, &pt);
+
+		int timed_out = 0;
+		if (timeout != -1) timed_out = sleep_until(this_core->current_process, target_ticks, target_subticks);
+		else switch_task(0);
+
+		poll_cleanup(&pt);
+
+		index = 0;
+		for (fs_node_t **n = nodes; *n; n++) {
+			if (selectcheck_fs(*n) == 0) return index;
+			index++;
+		}
+
+		if (timed_out) return index;
+
+		if (has_pending()) return -EINTR;
+	}
+}
+

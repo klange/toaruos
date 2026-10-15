@@ -27,6 +27,7 @@
 #include <kernel/time.h>
 #include <kernel/misc.h>
 #include <kernel/mutex.h>
+#include <kernel/waitable.h>
 
 #include <kernel/arch/x86_64/ports.h>
 #include <kernel/arch/x86_64/irq.h>
@@ -154,7 +155,7 @@ typedef struct {
 static char ata_drive_char = 'a';
 static int  cdrom_number = 0;
 static uint32_t ata_pci = 0x00000000;
-static list_t * atapi_waiter;
+static struct waitable_queue atapi_waiter;
 static int  found_something = 0;
 
 typedef union {
@@ -530,7 +531,7 @@ static int ata_irq_handler(struct regs *r) {
 	inportb(dev->io_base + ATA_REG_STATUS);
 
 	spin_lock(atapi_cmd_lock);
-	wakeup_queue(atapi_waiter);
+	waitable_awaken_all(&atapi_waiter, (void*)1);
 	spin_unlock(atapi_cmd_lock);
 	irq_ack(r->int_no);
 
@@ -802,7 +803,7 @@ static void ata_device_read_sector_actual(struct ata_device * dev, uint64_t lba)
 	ata_io_wait(dev);
 
 	outportb(dev->bar4, 0x08 | 0x01);
-	sleep_on_unlocking(atapi_waiter, &atapi_cmd_lock);
+	waitable_await_unlocking(&atapi_waiter, &atapi_cmd_lock);
 
 	while (1) {
 		int status = inportb(dev->bar4 + 0x02);
@@ -861,7 +862,7 @@ static void ata_device_read_sector_atapi_actual(struct ata_device * dev, uint64_
 		outports(bus, command.command_words[i]);
 	}
 
-	sleep_on_unlocking(atapi_waiter, &atapi_cmd_lock);
+	waitable_await_unlocking(&atapi_waiter, &atapi_cmd_lock);
 
 	while (1) {
 		uint8_t status = inportb(dev->io_base + ATA_REG_STATUS);
@@ -931,7 +932,7 @@ static void ata_device_write_sector_actual(struct ata_device * dev, uint64_t lba
 	ata_io_wait(dev);
 
 	outportb(dev->bar4, 0x00 | 0x01);
-	sleep_on_unlocking(atapi_waiter, &atapi_cmd_lock);
+	waitable_await_unlocking(&atapi_waiter, &atapi_cmd_lock);
 
 	#if 0
 	ata_wait(dev, 0);
@@ -1039,7 +1040,7 @@ static int ata_initialize(int argc, char * argv[]) {
 	irq_install_handler(14, ata_irq_handler, "ide master");
 	irq_install_handler(15, ata_irq_handler, "ide slave");
 
-	atapi_waiter = list_create("atapi waiter", NULL);
+	waitable_queue_init(&atapi_waiter);
 
 	cache_entries = malloc(sizeof(struct CacheEntry) * CACHE_COUNT);
 	memset(cache_entries, 0, sizeof(struct CacheEntry) * CACHE_COUNT);

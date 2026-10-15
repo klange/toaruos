@@ -512,7 +512,7 @@ void isr_handler_inner(struct regs * r) {
 		default: panic("Unexpected interrupt",r,0);
 	}
 
-	if (this_core->current_process == this_core->kernel_idle_task && process_queue && process_queue->head) {
+	if (this_core->current_process == this_core->kernel_idle_task) {
 		/* If this is kidle and we got here, instead of finishing the interrupt
 		 * we can just switch task and there will probably be something else
 		 * to run that was awoken by the interrupt. */

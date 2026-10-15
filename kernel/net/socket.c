@@ -10,6 +10,7 @@
  * Copyright (C) 2021 K. Lange
  */
 #include <bits/errno.h>
+#include <bits/poll.h>
 #include <kernel/types.h>
 #include <kernel/string.h>
 #include <kernel/printf.h>
@@ -37,16 +38,7 @@ extern long net_unix_socket(int,int,int,int);
 extern long net_pex_socket(int,int,int,int);
 
 void net_sock_alert(sock_t * sock) {
-	spin_lock(sock->alert_lock);
-	while (sock->alert_wait->head) {
-		node_t * node = list_dequeue(sock->alert_wait);
-		process_t * p = node->value;
-		free(node);
-		spin_unlock(sock->alert_lock);
-		process_alert_node(p, (fs_node_t*)sock);
-		spin_lock(sock->alert_lock);
-	}
-	spin_unlock(sock->alert_lock);
+	waitable_awaken_all(&sock->rx_wait_queue, (void*)1);
 }
 
 void net_sock_add(sock_t * sock, void * frame, size_t size) {
@@ -55,20 +47,17 @@ void net_sock_add(sock_t * sock, void * frame, size_t size) {
 	*(size_t*)bleh = size;
 	memcpy(bleh + sizeof(size_t), frame, size);
 	list_insert(sock->rx_queue, bleh);
-	wakeup_queue(sock->rx_wait);
-	net_sock_alert(sock);
+	waitable_awaken_all(&sock->rx_wait_queue, (void*)1);
 	spin_unlock(sock->rx_lock);
 }
 
 void * net_sock_get(sock_t * sock) {
+	spin_lock(sock->rx_lock);
 	while (!sock->rx_queue->length) {
-		if (sleep_on(sock->rx_wait)) {
-			if (!sock->rx_queue->length)
-				return NULL;
-		}
+		if (waitable_await_unlocking(&sock->rx_wait_queue, &sock->rx_lock) && !sock->rx_queue->length) return NULL;
+		spin_lock(sock->rx_lock);
 	}
 
-	spin_lock(sock->rx_lock);
 	node_t * n = list_dequeue(sock->rx_queue);
 	void* value = n->value;
 	free(n);
@@ -87,13 +76,27 @@ int sock_generic_check(fs_node_t *node) {
 int sock_generic_wait(fs_node_t *node, void * process) {
 	sock_t * sock = (sock_t*)node;
 
-	spin_lock(sock->alert_lock);
-	if (!list_find(sock->alert_wait, process)) {
-		list_insert(sock->alert_wait, process);
-	}
-	list_insert(((process_t *)process)->node_waits, sock);
-	spin_unlock(sock->alert_lock);
+	add_poll_wait(process, &sock->rx_wait_queue);
+
 	return 0;
+}
+
+int sock_generic_poll(struct fs_file_description * fd, void * table) {
+	sock_t * sock = (sock_t*)fd->inode;
+	int mask = 0;
+
+	if (fd->flags & PROC_FD_MODE_READ) {
+		if (sock->rx_queue->length || sock->unread) mask |= POLLIN;
+		add_poll_wait(table, &sock->rx_wait_queue);
+	}
+
+	if (fd->flags & PROC_FD_MODE_WRITE) {
+		mask |= POLLOUT; /* TODO sockets are always writable */
+	}
+
+	/* TODO disconnected stuff for HUP, ERR */
+
+	return mask;
 }
 
 void sock_generic_close(fs_node_t *node) {
@@ -160,6 +163,7 @@ fs_vtable_t sock_ops = {
 	.ioctl = sock_generic_ioctl,
 	.read = sock_generic_read,
 	.write = sock_generic_write,
+	.poll = sock_generic_poll,
 };
 
 sock_t * net_sock_create(void) {
@@ -169,9 +173,9 @@ sock_t * net_sock_create(void) {
 	sock->_fnode.device = NULL;
 	sock->_fnode.ops = &sock_ops;
 	sock->_fnode.uid = this_core->current_process->real_user;
-	sock->alert_wait = list_create("socket alert wait", sock);
-	sock->rx_wait    = list_create("socket rx wait", sock);
 	sock->rx_queue   = list_create("socket rx queue", sock);
+	waitable_queue_init(&sock->rx_wait_queue);
+	spin_init(sock->rx_lock);
 	open_fs((fs_node_t*)sock,0);
 	return sock;
 }

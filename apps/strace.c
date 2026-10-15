@@ -221,6 +221,7 @@ static const char * syscall_names[SYS__COUNT] = {
 	[SYS_RENAMEAT]     = "renameat",
 	[SYS_UNLINKAT]     = "unlinkat",
 	[SYS_LINKAT]       = "linkat",
+	[SYS_POLL]         = "poll",
 };
 
 static const int syscall_set_net[] = {
@@ -241,7 +242,7 @@ static const int syscall_set_desc[] = {
 	SYS_FSWAIT2, SYS_FSWAIT3, SYS_SEEK, SYS_IOCTL, SYS_PIPE2,
 	SYS_DUP2, SYS_READDIR, SYS_OPENPTY, SYS_PREAD, SYS_PWRITE, SYS_FCNTL,
 	SYS_FCHMOD, SYS_FCHOWN, SYS_FTRUNCATE, SYS_DUP3, SYS_INSMOD, SYS_FUTIMENS,
-	SYS_OPENAT, SYS_FCHDIR, SYS_FEXECVE, -1
+	SYS_OPENAT, SYS_FCHDIR, SYS_FEXECVE, SYS_POLL, -1
 };
 
 static const int syscall_set_memory[] = {
@@ -2029,6 +2030,11 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 		case SYS_GETPGID:
 		case SYS_GETSID:
 			int_arg(uregs_syscall_arg1(r));
+			break;
+		case SYS_POLL:
+			pointer_arg(uregs_syscall_arg1(r)); COMMA; /* TOOD pollfd array */
+			uint_arg(uregs_syscall_arg2(r)); COMMA;
+			int_arg(uregs_syscall_arg3(r));
 			break;
 		/* These have no arguments: */
 		case SYS_YIELD:

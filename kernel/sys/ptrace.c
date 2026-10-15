@@ -184,7 +184,7 @@ long ptrace_self(void) {
  * @returns Signal number from tracee status upon resumption.
  */
 long ptrace_signal(int signal, int reason, void * cause) {
-	this_core->current_process->status = 0x7F | (signal << 8) | (reason << 16);
+	(*(volatile int*)&this_core->current_process->status) = 0x7F | (signal << 8) | (reason << 16);
 	__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_SUSPENDED);
 
 	this_core->current_process->sig_cause = cause;
@@ -192,15 +192,18 @@ long ptrace_signal(int signal, int reason, void * cause) {
 	process_t * parent = process_from_pid(this_core->current_process->tracer);
 	if (parent && !(parent->flags & PROC_FLAG_FINISHED)) {
 		spin_lock(parent->wait_lock);
-		wakeup_queue(parent->wait_queue);
+		waitable_awaken_all(&parent->child_queue, (void*)(uintptr_t)this_core->current_process->id);
 		spin_unlock(parent->wait_lock);
 	}
-	switch_task(0);
+
+	do {
+		switch_task(0);
+	} while (*(volatile unsigned int *)&this_core->current_process->flags & PROC_FLAG_SUSPENDED);
 
 	this_core->current_process->sig_cause = NULL;
 
 	int signum = (this_core->current_process->status >> 8);
-	this_core->current_process->status = 0;
+	(*(volatile int*)&this_core->current_process->status) = 0;
 	return signum;
 }
 

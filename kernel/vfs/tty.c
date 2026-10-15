@@ -421,8 +421,6 @@ void     close_pty_manager(fs_node_t * node) {
 	pty_t * pty = (pty_t *)node->device;
 	ring_buffer_interrupt(pty->in);
 	ring_buffer_interrupt(pty->out);
-	ring_buffer_alert_waiters(pty->in);
-	ring_buffer_alert_waiters(pty->out);
 	if (pty->ct_proc) session_send_signal(pty->ct_proc, SIGHUP, 1);
 
 	spin_lock(pty->teardown);
@@ -568,6 +566,16 @@ static int wait_pty_subsidiary(fs_node_t * node, void * process) {
 	return 0;
 }
 
+static int poll_pty_manager(struct fs_file_description * fd, void * table) {
+	pty_t * pty = (pty_t *)fd->inode->device;
+	return ring_buffer_poll(pty->out, fd, table);
+}
+
+static int poll_pty_subsidiary(struct fs_file_description * fd, void * table) {
+	pty_t * pty = (pty_t *)fd->inode->device;
+	return ring_buffer_poll(pty->in, fd, table);
+}
+
 static fs_vtable_t pty_manager_ops = {
 	.read  =  read_pty_manager,
 	.write = write_pty_manager,
@@ -577,6 +585,7 @@ static fs_vtable_t pty_manager_ops = {
 	.selectwait  = wait_pty_manager,
 	.ioctl = ioctl_pty_manager,
 	.get_size = pty_available_output,
+	.poll = poll_pty_manager,
 };
 
 fs_node_t * pty_manager_create(pty_t * pty) {
@@ -618,6 +627,7 @@ static fs_vtable_t pty_subsidiary_ops = {
 	.chmod = chmod_pty_subsidiary,
 	.chown = chown_pty_subsidiary,
 	.get_size = pty_available_input,
+	.poll = poll_pty_subsidiary,
 };
 
 fs_node_t * pty_subsidiary_create(pty_t * pty) {

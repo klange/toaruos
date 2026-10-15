@@ -23,7 +23,7 @@ sched_mutex_t * mutex_init(const char * name) {
 	spin_init(out->inner_lock);
 	out->status = 0;
 	out->owner = NULL;
-	out->waiters = list_create(name, out);
+	waitable_queue_init(&out->waiters);
 
 	return out;
 }
@@ -31,7 +31,7 @@ sched_mutex_t * mutex_init(const char * name) {
 int mutex_acquire(sched_mutex_t * mutex) {
 	spin_lock(mutex->inner_lock);
 	while (mutex->status) {
-		sleep_on_unlocking(mutex->waiters, &mutex->inner_lock);
+		waitable_await_unlocking(&mutex->waiters, &mutex->inner_lock);
 		spin_lock(mutex->inner_lock);
 	}
 	mutex->status = 1;
@@ -45,7 +45,7 @@ int mutex_release(sched_mutex_t * mutex) {
 	spin_lock(mutex->inner_lock);
 	mutex->owner  = NULL;
 	mutex->status = 0;
-	wakeup_queue_one(mutex->waiters);
+	waitable_awaken_one(&mutex->waiters, (void*)1);
 	spin_unlock(mutex->inner_lock);
 
 	return 0;

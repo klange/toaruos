@@ -9,6 +9,7 @@
 #include <sys/signal.h>
 #include <sys/resource.h>
 #include <bits/timespec.h>
+#include <bits/poll.h>
 
 #include <libc/internal.h>
 
@@ -306,6 +307,8 @@ DECL_SYSCALL4(renameat, int, const char *, int, const char *);
 DECL_SYSCALL3(unlinkat, int, const char *, int);
 DECL_SYSCALL5(linkat, int, const char *, int, const char *, int);
 DECL_SYSCALL3(fexecve, int, char * const *, char * const *);
+
+DECL_SYSCALL3(poll, struct pollfd *, unsigned int, int);
 
 _End_C_Header
 

@@ -4,6 +4,7 @@
 #include <kernel/list.h>
 #include <kernel/vfs.h>
 #include <kernel/spinlock.h>
+#include <kernel/waitable.h>
 
 typedef struct {
 	unsigned char * buffer;
@@ -11,12 +12,11 @@ typedef struct {
 	size_t read_ptr;
 	size_t size;
 	spin_lock_t lock;
-	list_t * wait_queue_readers;
-	list_t * wait_queue_writers;
 	int internal_stop;
-	list_t * alert_waiters;
 	int discard;
 	int soft_stop;
+	struct waitable_queue rd_queue;
+	struct waitable_queue wr_queue;
 } ring_buffer_t;
 
 size_t ring_buffer_unread(ring_buffer_t * ring_buffer);
@@ -28,8 +28,8 @@ ssize_t ring_buffer_write(ring_buffer_t * ring_buffer, size_t size, uint8_t * bu
 ring_buffer_t * ring_buffer_create(size_t size);
 void ring_buffer_destroy(ring_buffer_t * ring_buffer);
 void ring_buffer_interrupt(ring_buffer_t * ring_buffer);
-void ring_buffer_alert_waiters(ring_buffer_t * ring_buffer);
 void ring_buffer_select_wait(ring_buffer_t * ring_buffer, void * process);
 void ring_buffer_eof(ring_buffer_t * ring_buffer);
 void ring_buffer_discard(ring_buffer_t * ring_buffer);
 
+int ring_buffer_poll(ring_buffer_t *, struct fs_file_description *, void *);

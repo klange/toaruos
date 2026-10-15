@@ -105,6 +105,6 @@
 #define SYS_GETSID 102
 #define SYS_GETRESUID 103
 #define SYS_GETRESGID 104
+#define SYS_POLL 105
 
-
-#define SYS__COUNT 105
+#define SYS__COUNT 106

@@ -37,10 +37,11 @@
 yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type) {
 	do {
 		yutani_msg_t * out;
-		size_t size;
+		ssize_t size;
 		{
 			char tmp[MAX_PACKET_SIZE];
 			size = pex_recv(y->sock, tmp);
+			if (size <= 0) continue;
 			out = malloc(size);
 			memcpy(out, tmp, size);
 		}
@@ -61,7 +62,9 @@ yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type) {
  */
 size_t yutani_query(yutani_t * y) {
 	if (y->queued->length > 0) return 1;
-	return pex_query(y->sock);
+	ssize_t r = pex_query(y->sock);
+	if (r < 0) return 0;
+	return r;
 }
 
 /**

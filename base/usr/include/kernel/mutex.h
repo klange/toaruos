@@ -8,12 +8,13 @@
 #include <kernel/list.h>
 #include <kernel/spinlock.h>
 #include <kernel/process.h>
+#include <kernel/waitable.h>
 
 typedef struct {
 	spin_lock_t inner_lock;
 	volatile int status;
 	process_t * owner;
-	list_t * waiters;
+	struct waitable_queue waiters;
 } sched_mutex_t;
 
 extern sched_mutex_t * mutex_init(const char * name);

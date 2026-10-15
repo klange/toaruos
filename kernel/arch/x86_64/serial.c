@@ -87,7 +87,6 @@ static void process_serial(void * argp) {
 		unsigned long s, ss;
 		relative_time(1, 0, &s, &ss);
 		sleep_until((process_t *)this_core->current_process, s, ss);
-		switch_task(0);
 		_did_something = 1;
 		while (_did_something) {
 			_did_something = 0;

@@ -10,6 +10,7 @@
  * Copyright (C) 2014-2021 K. Lange
  */
 #include <bits/errno.h>
+#include <bits/poll.h>
 #include <kernel/types.h>
 #include <kernel/printf.h>
 #include <kernel/pipe.h>
@@ -77,9 +78,6 @@ static void close_write_pipe(fs_node_t * node) {
 	self->write_closed = 1;
 	if (!self->read_closed) {
 		ring_buffer_interrupt(self->buffer);
-		if (!ring_buffer_unread(self->buffer)) {
-			ring_buffer_alert_waiters(self->buffer);
-		}
 		spin_unlock(self->buffer->lock);
 	} else {
 		close_complete(self);
@@ -101,16 +99,26 @@ static int wait_pipe(fs_node_t * node, void * process) {
 	return 0;
 }
 
+static int poll_pipe(struct fs_file_description * fd, void * table) {
+	struct unix_pipe * self = fd->inode->device;
+	int mask = ring_buffer_poll(self->buffer, fd, table);
+	if ((fd->flags & PROC_FD_MODE_WRITE) && self->read_closed) mask |= POLLERR;
+	if ((fd->flags & PROC_FD_MODE_READ) && self->write_closed) mask |= POLLHUP;
+	return mask;
+}
+
 static fs_vtable_t read_end_ops = {
 	.read = read_unixpipe,
 	.close = close_read_pipe,
 	.selectcheck = check_pipe,
 	.selectwait = wait_pipe,
+	.poll = poll_pipe,
 };
 
 static fs_vtable_t write_end_ops = {
 	.write = write_unixpipe,
 	.close = close_write_pipe,
+	.poll = poll_pipe,
 };
 
 int make_unix_pipe(fs_node_t ** pipes) {

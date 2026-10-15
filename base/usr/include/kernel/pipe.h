@@ -4,6 +4,7 @@
 #include <kernel/vfs.h>
 #include <kernel/list.h>
 #include <kernel/spinlock.h>
+#include <kernel/waitable.h>
 
 typedef struct _pipe_device {
 	uint8_t * buffer;
@@ -11,8 +12,8 @@ typedef struct _pipe_device {
 	size_t read_ptr;
 	size_t size;
 	size_t refcount;
-	list_t * wait_queue_readers;
-	list_t * wait_queue_writers;
+	struct waitable_queue rd_queue;
+	struct waitable_queue wr_queue;
 	int dead;
 	list_t * alert_waiters;
 

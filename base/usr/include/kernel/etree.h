@@ -107,3 +107,53 @@ static inline void * __etree_parent(struct etree * node, size_t field_offset) {
 
 #define etree_parent(node, field) \
 	__etree_parent(&(node -> field), offsetof(typeof(*node), field))
+
+struct elist {
+	struct elist * el_prev;
+	struct elist * el_next;
+};
+
+#define elist_init(lst) \
+	do { (lst)->el_prev = (lst)->el_next = (lst); } while (0)
+
+static inline void elist_insert_tail(struct elist * head, struct elist * elem) {
+	struct elist * prev = head->el_prev;
+	elem->el_next = head;
+	elem->el_prev = prev;
+	head->el_prev = elem;
+	prev->el_next = elem;
+}
+
+static inline void elist_insert_after(struct elist * before, struct elist * elem) {
+	elem->el_next = before->el_next;
+	elem->el_prev = before;
+	before->el_next->el_prev = elem;
+	before->el_next = elem;
+}
+
+static inline void * __elist_peek_obj(struct elist * head, size_t field_offset) {
+	if (head == head->el_next) return NULL;
+	return (void*)((char*)head->el_next - field_offset);
+}
+
+#define elist_peek_obj(head, type, field) \
+	__elist_peek_obj(head, offsetof(type, field))
+
+static inline void __elist_del(struct elist * elem) {
+	struct elist * prev = elem->el_prev;
+	struct elist * next = elem->el_next;
+	elem->el_next = elem->el_prev = elem;
+	prev->el_next = next;
+	next->el_prev = prev;
+}
+
+static inline void * __elist_pop_obj(struct elist * head, size_t field_offset) {
+	struct elist * next = head->el_next;
+	if (next == head) return NULL;
+	__elist_del(next);
+	return (void*)((char*)next - field_offset);
+}
+
+#define elist_pop_obj(head, type, field) \
+	__elist_pop_obj(head, offsetof(type, field))
+

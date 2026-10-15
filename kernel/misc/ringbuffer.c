@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <bits/errno.h>
+#include <bits/poll.h>
 #include <kernel/types.h>
 #include <kernel/ringbuffer.h>
 #include <kernel/process.h>
@@ -21,6 +22,7 @@
 #include <kernel/vfs.h>
 #include <kernel/printf.h>
 #include <kernel/mmu.h>
+#include <kernel/signal.h>
 
 size_t ring_buffer_unread(ring_buffer_t * ring_buffer) {
 	if (ring_buffer->read_ptr == ring_buffer->write_ptr) {
@@ -64,26 +66,8 @@ static inline void ring_buffer_increment_write(ring_buffer_t * ring_buffer) {
 	}
 }
 
-void ring_buffer_alert_waiters(ring_buffer_t * ring_buffer) {
-	if (ring_buffer->alert_waiters) {
-		while (ring_buffer->alert_waiters->head) {
-			node_t * node = list_dequeue(ring_buffer->alert_waiters);
-			process_t * p = node->value;
-			process_alert_node(p, ring_buffer);
-			free(node);
-		}
-	}
-}
-
 void ring_buffer_select_wait(ring_buffer_t * ring_buffer, void * process) {
-	if (!ring_buffer->alert_waiters) {
-		ring_buffer->alert_waiters = list_create("ringbuffer alerts", ring_buffer);
-	}
-
-	if (!list_find(ring_buffer->alert_waiters, process)) {
-		list_insert(ring_buffer->alert_waiters, process);
-	}
-	list_insert(((process_t *)process)->node_waits, ring_buffer);
+	add_poll_wait(process, &ring_buffer->rd_queue);
 }
 
 void ring_buffer_discard(ring_buffer_t * ring_buffer) {
@@ -101,21 +85,22 @@ ssize_t ring_buffer_read(ring_buffer_t * ring_buffer, size_t size, uint8_t * buf
 			ring_buffer_increment_read(ring_buffer);
 			collected++;
 		}
-		wakeup_queue(ring_buffer->wait_queue_writers);
+		waitable_awaken_all(&ring_buffer->wr_queue, (void*)1);
 		if (collected == 0) {
 			if (ring_buffer->internal_stop || ring_buffer->soft_stop) {
 				ring_buffer->soft_stop = 0;
 				spin_unlock(ring_buffer->lock);
 				return 0;
 			}
-			if (sleep_on_unlocking(ring_buffer->wait_queue_readers, &ring_buffer->lock)) {
-				return -ERESTARTSYS;
+
+			if (waitable_await_unlocking(&ring_buffer->rd_queue, &ring_buffer->lock)) {
+				if (has_pending()) return -ERESTARTSYS;
 			}
 		} else {
 			spin_unlock(ring_buffer->lock);
 		}
 	}
-	wakeup_queue(ring_buffer->wait_queue_writers);
+	waitable_awaken_all(&ring_buffer->wr_queue, (void*)1);
 	return collected;
 }
 
@@ -130,27 +115,26 @@ ssize_t ring_buffer_write(ring_buffer_t * ring_buffer, size_t size, uint8_t * bu
 			written++;
 		}
 
-		wakeup_queue(ring_buffer->wait_queue_readers);
-		ring_buffer_alert_waiters(ring_buffer);
+		waitable_awaken_all(&ring_buffer->rd_queue, (void*)1);
+
 		if (written < size) {
 			if (ring_buffer->discard) {
 				spin_unlock(ring_buffer->lock);
 				break;
 			}
-			if (sleep_on_unlocking(ring_buffer->wait_queue_writers, &ring_buffer->lock)) {
-				if (!written) return -ERESTARTSYS;
-				break;
+			if (waitable_await_unlocking(&ring_buffer->wr_queue, &ring_buffer->lock)) {
+				if (has_pending()) {
+					if (!written) return -ERESTARTSYS;
+					break;
+				}
 			}
-			if (ring_buffer->internal_stop) {
-				break;
-			}
+			if (ring_buffer->internal_stop) break;
 		} else {
 			spin_unlock(ring_buffer->lock);
 		}
 	}
 
-	wakeup_queue(ring_buffer->wait_queue_readers);
-	ring_buffer_alert_waiters(ring_buffer);
+	waitable_awaken_all(&ring_buffer->rd_queue, (void*)1);
 	return written;
 }
 
@@ -165,7 +149,6 @@ ring_buffer_t * ring_buffer_create(size_t size) {
 	out->write_ptr  = 0;
 	out->read_ptr   = 0;
 	out->size       = size;
-	out->alert_waiters = NULL;
 
 	spin_init(out->lock);
 
@@ -173,8 +156,8 @@ ring_buffer_t * ring_buffer_create(size_t size) {
 	out->discard = 0;
 	out->soft_stop = 0;
 
-	out->wait_queue_readers = list_create("ringbuffer readers",out);
-	out->wait_queue_writers = list_create("ringbuffer writers",out);
+	waitable_queue_init(&out->rd_queue);
+	waitable_queue_init(&out->wr_queue);
 
 	return out;
 }
@@ -186,31 +169,35 @@ void ring_buffer_destroy(ring_buffer_t * ring_buffer) {
 		free(ring_buffer->buffer);
 	}
 
-	wakeup_queue(ring_buffer->wait_queue_writers);
-	wakeup_queue(ring_buffer->wait_queue_readers);
-	ring_buffer_alert_waiters(ring_buffer);
-
-	list_free(ring_buffer->wait_queue_writers);
-	list_free(ring_buffer->wait_queue_readers);
-
-	free(ring_buffer->wait_queue_writers);
-	free(ring_buffer->wait_queue_readers);
-
-	if (ring_buffer->alert_waiters) {
-		list_free(ring_buffer->alert_waiters);
-		free(ring_buffer->alert_waiters);
-	}
+	waitable_awaken_all(&ring_buffer->wr_queue, (void*)1);
+	waitable_awaken_all(&ring_buffer->rd_queue, (void*)1);
 }
 
 void ring_buffer_interrupt(ring_buffer_t * ring_buffer) {
 	ring_buffer->internal_stop = 1;
-	wakeup_queue(ring_buffer->wait_queue_readers);
-	wakeup_queue(ring_buffer->wait_queue_writers);
+	waitable_awaken_all(&ring_buffer->rd_queue, (void*)1);
+	waitable_awaken_all(&ring_buffer->wr_queue, (void*)1);
 }
 
 void ring_buffer_eof(ring_buffer_t * ring_buffer) {
 	ring_buffer->soft_stop = 1;
-	wakeup_queue(ring_buffer->wait_queue_readers);
-	wakeup_queue(ring_buffer->wait_queue_writers);
+	waitable_awaken_all(&ring_buffer->rd_queue, (void*)1);
+	waitable_awaken_all(&ring_buffer->wr_queue, (void*)1);
 }
 
+int ring_buffer_poll(ring_buffer_t * ring_buffer, struct fs_file_description * fd, void * table) {
+	int mask = 0;
+
+	if (fd->flags & PROC_FD_MODE_READ) {
+		if (ring_buffer_unread(ring_buffer) > 0) mask |= POLLIN;
+		if (ring_buffer->internal_stop) mask |= POLLHUP;
+		add_poll_wait(table, &ring_buffer->rd_queue);
+	}
+
+	if (fd->flags & PROC_FD_MODE_WRITE) {
+		if (ring_buffer_available(ring_buffer) > 0) mask |= POLLOUT;
+		add_poll_wait(table, &ring_buffer->wr_queue);
+	}
+
+	return mask;
+}
