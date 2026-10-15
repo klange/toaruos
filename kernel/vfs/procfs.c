@@ -473,10 +473,10 @@ static void proc_stat_func(fs_node_t *node) {
 			parent ? parent->id : 0,
 			proc->job,
 			proc->session,
-			(proc->time_total - proc->time_sys) / arch_cpu_mhz(),
-			proc->time_sys / arch_cpu_mhz(),
-			(proc->time_children - proc->time_sys_children) / arch_cpu_mhz(),
-			proc->time_sys_children / arch_cpu_mhz(),
+			(proc->time_total - proc->time_sys) / arch_cpu_mhz() / 1000,
+			proc->time_sys / arch_cpu_mhz() / 1000,
+			(proc->time_children - proc->time_sys_children) / arch_cpu_mhz() / 1000,
+			proc->time_sys_children / arch_cpu_mhz() / 1000,
 			(proc->start.tv_sec - arch_boot_time) * 1000000 + proc->start.tv_usec,
 			mem_usage,
 			res_usage
@@ -883,6 +883,34 @@ static void self_func(fs_node_t *fnode) {
 	procfs_printf(fnode, "%d", this_core->current_process->id);
 }
 
+static void root_stat_func(fs_node_t *fnode) {
+	uint64_t time_total = 0;
+	uint64_t time_sys   = 0;
+	uint64_t time_idle  = 0;
+
+	for (int i = 0; i < processor_count; ++i) {
+		time_total += processor_local_data[i].time_total / arch_cpu_mhz();
+		time_sys += processor_local_data[i].time_sys / arch_cpu_mhz();
+		time_idle += processor_local_data[i].kernel_idle_task->time_total / arch_cpu_mhz();
+	}
+
+	procfs_printf(fnode, "cpu %lu 0 %lu %lu 0 0 0 0 0 0\n",
+		(time_total - time_sys) / 1000,
+		(time_sys - time_idle) / 1000,
+		time_idle / 1000);
+
+	for (int i = 0; i < processor_count; ++i) {
+		uint64_t time_total = processor_local_data[i].time_total / arch_cpu_mhz();
+		uint64_t time_sys = processor_local_data[i].time_sys / arch_cpu_mhz();
+		uint64_t time_idle = processor_local_data[i].kernel_idle_task->time_total / arch_cpu_mhz();
+		procfs_printf(fnode, "cpu%d %lu 0 %lu %lu 0 0 0 0 0 0\n",
+			i,
+			(time_total - time_sys) / 1000,
+			(time_sys - time_idle) / 1000,
+			time_idle / 1000);
+	}
+}
+
 static struct procfs_entry std_entries[] = {
 	{-1, "self",     self_func, INO_LNK},
 	{-2, "meminfo",  meminfo_func, 0},
@@ -897,6 +925,7 @@ static struct procfs_entry std_entries[] = {
 	{-11,"idle",     idle_func, 0},
 	{-12,"kallsyms", kallsyms_func, 0},
 	{-13,"pci",      pci_func, 0},
+	{-14,"stat",     root_stat_func, 0},
 };
 
 static list_t * extended_entries = NULL;

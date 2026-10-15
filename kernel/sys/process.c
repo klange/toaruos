@@ -67,11 +67,13 @@ void update_process_times(void) {
 	uint64_t pTime = arch_perf_timer();
 	if (this_core->current_process->time_in && this_core->current_process->time_in < pTime) {
 		this_core->current_process->time_total +=  pTime - this_core->current_process->time_in;
+		this_core->time_total += pTime - this_core->current_process->time_in;
 	}
 	this_core->current_process->time_in = 0;
 
 	if (this_core->current_process->time_switch && this_core->current_process->time_switch < pTime) {
 		this_core->current_process->time_sys += pTime - this_core->current_process->time_switch;
+		this_core->time_sys += pTime - this_core->current_process->time_switch;
 	}
 	this_core->current_process->time_switch = 0;
 }
@@ -84,6 +86,7 @@ void update_process_times_on_exit(void) {
 	uint64_t pTime = arch_perf_timer();
 	if (this_core->current_process->time_switch && this_core->current_process->time_switch < pTime) {
 		this_core->current_process->time_sys += pTime - this_core->current_process->time_switch;
+		this_core->time_sys += pTime - this_core->current_process->time_switch;
 	}
 	this_core->current_process->time_switch = 0;
 }
@@ -469,6 +472,9 @@ process_t * spawn_kidle(int bsp) {
 	idle->thread.context.ip = (uintptr_t)&_kidle;
 	idle->thread.context.sp = idle->image.stack;
 	idle->thread.context.bp = idle->image.stack;
+
+	this_core->time_total = 0;
+	this_core->time_sys = 0;
 
 	/* FIXME Why does the idle thread have wait queues and shm mappings?
 	 *       Can we make sure these are never referenced and not allocate them? */

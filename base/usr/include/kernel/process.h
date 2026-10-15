@@ -256,6 +256,9 @@ struct ProcessorLocal {
 	uintptr_t sp_el1;
 	uint64_t  midr;
 #endif
+
+	uint64_t time_total;
+	uint64_t time_sys;
 };
 
 extern struct ProcessorLocal processor_local_data[];
