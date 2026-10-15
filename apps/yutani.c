@@ -27,10 +27,10 @@
 #include <assert.h>
 #include <getopt.h>
 #include <errno.h>
+#include <poll.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/wait.h>
-#include <sys/fswait.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <net/if.h>
@@ -2561,7 +2561,7 @@ int main(int argc, char * argv[]) {
 		exit(127);
 	}
 
-	int fds[4];
+	struct pollfd fds[4];
 	int mfd = -1;
 	int kfd = -1;
 	int amfd = -1;
@@ -2570,10 +2570,12 @@ int main(int argc, char * argv[]) {
 	key_event_t event;
 	key_event_state_t state = {0};
 
-	fds[0] = fileno(server);
+	fds[0].fd = fileno(server);
+	fds[0].events = POLLIN;
 
 	if (yutani_options.nested) {
-		fds[1] = fileno(yg->host_context->sock);
+		fds[1].fd = fileno(yg->host_context->sock);
+		fds[1].events = POLLIN;
 	} else {
 		mfd = open("/dev/mouse", O_RDONLY | O_CLOEXEC);
 		kfd = open("/dev/kbd", O_RDONLY | O_CLOEXEC);
@@ -2585,9 +2587,12 @@ int main(int argc, char * argv[]) {
 		yg->vbox_rects = open("/dev/vboxrects", O_WRONLY | O_CLOEXEC);
 		yg->vbox_pointer = open("/dev/vboxpointer", O_WRONLY | O_CLOEXEC);
 
-		fds[1] = mfd;
-		fds[2] = kfd;
-		fds[3] = amfd;
+		fds[1].fd = mfd;
+		fds[2].fd = kfd;
+		fds[3].fd = amfd;
+		fds[1].events = POLLIN;
+		fds[2].events = POLLIN;
+		fds[3].events = POLLIN;
 	}
 
 	uint64_t last_redraw = 0;
@@ -2604,9 +2609,9 @@ int main(int argc, char * argv[]) {
 		if (child > 0 && waitpid(child, NULL, WNOHANG) == child) child = -1;
 
 		if (yutani_options.nested) {
-			int index = fswait2(2, fds, 16 - frameTime);
+			int count = poll(fds, 2, 16 - frameTime);
 
-			if (index == 1) {
+			if (count > 0 && fds[1].revents) {
 				yutani_msg_t * m = yutani_poll(yg->host_context);
 				if (m) {
 					switch (m->type) {
@@ -2659,13 +2664,13 @@ int main(int argc, char * argv[]) {
 				}
 				free(m);
 				continue;
-			} else if (index > 0) {
+			} else if (count < 1) {
 				continue;
 			}
 		} else {
-			int index = fswait2(amfd == -1 ? 3 : 4, fds, 16 - frameTime);
+			int count = poll(fds, amfd == -1 ? 3 : 4, 16 - frameTime);
 
-			if (index == 2) {
+			if (count > 0 && fds[2].revents) {
 				unsigned char buf[1];
 				int r = read(kfd, buf, 1);
 				if (r > 0) {
@@ -2676,7 +2681,7 @@ int main(int argc, char * argv[]) {
 					}
 				}
 				continue;
-			} else if (index == 1) {
+			} else if (count > 0 && fds[1].revents) {
 				int r = read(mfd, (char *)&packet, sizeof(mouse_device_packet_t));
 				if (r > 0) {
 					yg->last_mouse_buttons = packet.buttons;
@@ -2685,7 +2690,7 @@ int main(int argc, char * argv[]) {
 					handle_mouse_event(yg, (struct yutani_msg_mouse_event *)m->data);
 				}
 				continue;
-			} else if (amfd != -1 && index == 3) {
+			} else if (amfd != -1 && count > 0 && fds[3].revents) {
 				int r = read(amfd, (char *)&packet, sizeof(mouse_device_packet_t));
 				if (r > 0) {
 					if (!vmmouse) {
@@ -2698,7 +2703,7 @@ int main(int argc, char * argv[]) {
 					handle_mouse_event(yg, (struct yutani_msg_mouse_event *)m->data);
 				}
 				continue;
-			} else if (index > 0) {
+			} else if (count < 1) {
 				continue;
 			}
 		}
