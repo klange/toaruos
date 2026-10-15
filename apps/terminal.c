@@ -28,12 +28,12 @@
 #include <dlfcn.h>
 #include <pthread.h>
 #include <libgen.h>
+#include <poll.h>
 
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <sys/time.h>
-#include <sys/fswait.h>
 
 #define TRACE_APP_NAME "terminal"
 #include <toaru/trace.h>
@@ -3052,8 +3052,7 @@ int main(int argc, char ** argv) {
 	int next_wait = 200;
 
 	size_t fds_size = 1;
-	int * fds = malloc(sizeof(int));
-	int * res = malloc(sizeof(int));
+	struct pollfd * fds = malloc(sizeof(struct pollfd));
 	term_state_t ** term = malloc(sizeof(term_state_t*));
 
 	while (!exit_application) {
@@ -3063,21 +3062,22 @@ int main(int argc, char ** argv) {
 
 		if (fds_size != 1 + terminals->length) {
 			fds_size = 1 + terminals->length;
-			fds = realloc(fds, fds_size * sizeof(int));
+			fds = realloc(fds, fds_size * sizeof(struct pollfd));
 			term = realloc(term, fds_size * sizeof(term_state_t *));
-			fds[0] = fileno(yctx->sock);
+			fds[0].fd = fileno(yctx->sock);
+			fds[0].events = POLLIN;
 			size_t i = 1;
 			foreach(node, terminals) {
 				term[i] = node->value;
 				struct Terminal_Private * priv = term[i]->priv;
-				fds[i] = priv->fd_manager;
+				fds[i].fd = priv->fd_manager;
+				fds[i].events = POLLIN;
 				i++;
 			}
-			res = realloc(res, fds_size * sizeof(int));
 		}
 
 		/* Wait for something to happen. */
-		fswait3(fds_size,fds,next_wait,res);
+		poll(fds, fds_size, next_wait);
 
 		termemu_maybe_flip_cursor(current_terminal());
 
@@ -3085,7 +3085,7 @@ int main(int argc, char ** argv) {
 		int force_flip = (next_wait == 10);
 		next_wait = 200;
 		for (size_t i = 1; i < fds_size; ++i) {
-			if (res[i]) {
+			if (fds[i].revents) {
 				struct Terminal_Private * priv = term[i]->priv;
 				if (term[i] == current_terminal()) {
 					force_flip = 0;
@@ -3102,7 +3102,7 @@ int main(int argc, char ** argv) {
 			}
 		}
 
-		if (res[0]) {
+		if (fds[0].revents) {
 			/* Handle Yutani events. */
 			handle_incoming();
 		}
