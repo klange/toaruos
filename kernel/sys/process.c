@@ -1093,7 +1093,7 @@ int waitpid(int pid, int * status, int options) {
 		spin_lock(proc->wait_lock);
 
 		/* First, find out if there is anyone to reap */
-		etree_children_foreach(child, proc, tree_node) {
+		etree_children_foreach(child, proc->process, tree_node) {
 			if (child == proc) continue; /* Don't allow a thread to wait on itself */
 
 			if (wait_candidate(proc->process, pid, options, child)) {
