@@ -2159,20 +2159,16 @@ int main(int argc, char ** argv) {
 	int err = fcntl(STDERR_FILENO, F_DUPFD_CLOEXEC, 3);
 	shell_stderr = fdopen(err, "w");
 
+	int command_string = 0;
+
 	if (argc > 1) {
 		int c;
-		while ((c = getopt(argc, argv, "+c:v?")) != -1) {
+		while ((c = getopt(argc, argv, "+cv?")) != -1) {
 			switch (c) {
 				case 'c':
 					shell_interactive = 0;
-					{
-						char * out = NULL;
-						do {
-							last_ret = shell_exec(optarg, strlen(optarg), NULL, &out, NULL, NULL);
-							optarg = out;
-						} while (optarg);
-					}
-					return (last_ret == -1) ? 0 : last_ret;
+					command_string = 1;
+					break;
 				case 'v':
 					show_version();
 					return 0;
@@ -2180,6 +2176,22 @@ int main(int argc, char ** argv) {
 					return show_usage(argc, argv);
 			}
 		}
+	}
+
+	if (command_string) {
+		if (optind == argc) {
+			fprintf(stderr, "%s: -c requires an argument\n", argv[0]);
+			return 2;
+		}
+		shell_argc = argc - optind;
+		shell_argv = &argv[optind+1];
+		char * out = NULL;
+		char * optarg = argv[optind];
+		do {
+			last_ret = shell_exec(optarg, strlen(optarg), NULL, &out, NULL, NULL);
+			optarg = out;
+		} while (optarg);
+		return (last_ret == -1) ? 0 : last_ret;
 	}
 
 	if (optind < argc) {
