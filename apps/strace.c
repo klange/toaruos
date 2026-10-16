@@ -2389,7 +2389,7 @@ int main(int argc, char * argv[]) {
 				p = atoi(optarg);
 				break;
 			case 'o':
-				logfile = fopen(optarg, "w");
+				logfile = fopen(optarg, "we");
 				if (!logfile) {
 					fprintf(stderr, "%s: %s: %s\n", argv[0], optarg, strerror(errno));
 					return 1;
