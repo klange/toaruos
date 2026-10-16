@@ -18,8 +18,6 @@
 #include <sched.h>
 #include <math.h>
 
-#include <sys/fswait.h>
-
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
@@ -122,8 +120,7 @@ int main (int argc, char ** argv) {
 	redraw_full();
 
 	while (!should_exit) {
-		int fds[1] = {fileno(yctx->sock)};
-		int index = fswait2(1,fds,20);
+		int index = yutani_poll_wait(yctx, 20);
 		if (index == 0) {
 			yutani_msg_t * m = yutani_poll(yctx);
 			while (m) {

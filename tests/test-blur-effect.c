@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <time.h>
 #include <math.h>
-#include <sys/fswait.h>
 #include <sys/time.h>
 #include <toaru/yutani.h>
 #include <toaru/text.h>
@@ -69,8 +68,7 @@ int main(int argc, char * argv[]) {
 	yutani_window_advertise_icon(yctx, wina, "blur demo", "drawlines");
 	int should_exit = 0;
 	while (!should_exit) {
-		int fds[1] = {fileno(yctx->sock)};
-		int index = fswait2(1,fds,10);
+		int index = yutani_poll_wait(yctx, 10);
 		if (index == 0) {
 			yutani_msg_t * m = yutani_poll(yctx);
 			while (m) {

@@ -24,7 +24,6 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <sys/wait.h>
-#include <sys/fswait.h>
 #include <sys/auxv.h>
 #include <sys/mman.h>
 
@@ -1096,8 +1095,6 @@ int main (int argc, char ** argv) {
 
 	time_t last_tick = 0;
 
-	int fds[1] = {fileno(yctx->sock)};
-
 	fprintf(stderr, "entering loop?\n");
 
 	while (_continue) {
@@ -1120,7 +1117,7 @@ int main (int argc, char ** argv) {
 			do_background_refresh = 0;
 		}
 
-		int index = fswait2(1,fds,prev_bg_blob ? 10 : (force_updates ? 50 : 200)); /* ~20 fps? */
+		int index = yutani_poll_wait(yctx, prev_bg_blob ? 10 : (force_updates ? 50 : 200)); /* ~20 fps? */
 
 		if (index == 0) {
 			/* Respond to Yutani events */

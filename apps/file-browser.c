@@ -24,7 +24,6 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/wait.h>
-#include <sys/fswait.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -2105,8 +2104,7 @@ int main(int argc, char * argv[]) {
 
 	while (application_running) {
 		waitpid(-1, NULL, WNOHANG);
-		int fds[1] = {fileno(yctx->sock)};
-		int index = fswait2(1,fds,wallpaper_old ? 10 : 200);
+		int index = yutani_poll_wait(yctx, wallpaper_old ? 10 : 200);
 
 		if (index < 0 && signalResponse) {
 			if (signalResponse & 1) {

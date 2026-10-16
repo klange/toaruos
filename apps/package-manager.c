@@ -14,8 +14,6 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 
-#include <sys/fswait.h>
-
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
 #include <toaru/decorations.h>
@@ -560,10 +558,8 @@ int main(int argc, char * argv[]) {
 		/* also redraws window */
 	}
 
-	int fds[1] = {fileno(yctx->sock)};
-
 	while (application_running) {
-		int index = fswait2(1,fds,200);
+		int index = yutani_poll_wait(yctx, 200);
 
 		/* Were we waiting for a package to install? */
 		if (currently_installing) {

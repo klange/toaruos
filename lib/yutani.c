@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <errno.h>
 #include <va_list.h>
 #include <sys/mman.h>
@@ -145,6 +146,23 @@ yutani_msg_t * yutani_poll(yutani_t * y) {
 	}
 
 	return _handle_internal(y, out);
+}
+
+/**
+ * Convenience function to replace several things that
+ * were just polling on the socket.
+ */
+int yutani_poll_wait(yutani_t * y, int timeout) {
+	struct pollfd fd;
+	fd.fd = fileno(y->sock);
+	fd.events = POLLIN;
+
+	int result = poll(&fd, 1, timeout);
+
+	/* Convert result to approximation of fswait result */
+	if (result > 0) return 0;
+	else if (result == 0) return 1;
+	return -1; /* error */
 }
 
 /**

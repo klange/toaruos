@@ -22,7 +22,6 @@
 
 #include <sys/ioctl.h>
 #include <sys/times.h>
-#include <sys/fswait.h>
 
 #include <toaru/yutani.h>
 #include <toaru/graphics.h>
@@ -627,8 +626,7 @@ int main (int argc, char ** argv) {
 	refresh(times(NULL));
 
 	while (!should_exit) {
-		int fds[1] = {fileno(yctx->sock)};
-		int index = fswait2(1,fds,20);
+		int index = yutani_poll_wait(yctx, 20);
 		if (index == 0) {
 			yutani_msg_t * m = yutani_poll(yctx);
 			while (m) {

@@ -617,6 +617,7 @@ extern yutani_msg_t * yutani_wait_for(yutani_t * y, uint32_t type);
 extern yutani_msg_t * yutani_poll(yutani_t * y);
 extern yutani_msg_t * yutani_poll_async(yutani_t * y);
 extern size_t yutani_query(yutani_t * y);
+extern int yutani_poll_wait(yutani_t * y, int timeout);
 
 extern int yutani_msg_send(yutani_t * y, yutani_msg_t * msg);
 extern yutani_t * yutani_context_create(FILE * socket);

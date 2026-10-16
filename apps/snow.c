@@ -14,7 +14,6 @@
 #include <math.h>
 #include <getopt.h>
 
-#include <sys/fswait.h>
 #include <sys/time.h>
 
 #include <toaru/yutani.h>
@@ -154,8 +153,7 @@ int main (int argc, char ** argv) {
 	flip(ctx);
 
 	while (!should_exit) {
-		int fds[1] = {fileno(yctx->sock)};
-		int index = fswait2(1,fds,10);
+		int index = yutani_poll_wait(yctx, 10);
 		if (index == 0) {
 			yutani_msg_t * m = yutani_poll(yctx);
 			while (m) {
