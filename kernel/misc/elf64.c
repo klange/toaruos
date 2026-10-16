@@ -45,6 +45,39 @@ hashmap_t * modules_get_list(void) {
 }
 
 /**
+ * @brief Examine the module table to find which module owns an address.
+ *
+ * Looks through the loaded module list to find what module
+ * owns @p addr, setting @p name and returning the corresponding module
+ * entry. Since we know how big modules are in memory, we can also know
+ * if an address doesn't belong to any module, in which case we return NULL.
+ *
+ * @param addr Address to look for
+ * @param name (out) Name of the matching module
+ * @return Pointer to LoadedModule for the matched module, or NULL.
+ */
+struct LoadedModule * modules_find_module(uintptr_t addr, char ** name) {
+	hashmap_t * modules = _modules_table;
+
+	if (!modules) return NULL;
+
+	for (size_t i = 0; i < modules->size; ++i) {
+		hashmap_entry_t * x = modules->entries[i];
+		while (x) {
+			struct LoadedModule * info = x->value;
+			if (info->baseAddress <= addr && addr <= info->baseAddress + info->loadedSize) {
+				*name = (char*)x->key;
+				return info;
+			}
+			x = x->next;
+		}
+	}
+
+	return NULL;
+}
+
+
+/**
  * Encode immediate for ADR(p) instruction
  */
 static uint32_t aarch64_imm_adr(uint32_t val) {

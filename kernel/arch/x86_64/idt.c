@@ -26,6 +26,8 @@
 #include <kernel/mmu.h>
 #include <kernel/syscall.h>
 #include <kernel/mman.h>
+#include <kernel/traceback.h>
+#include <kernel/args.h>
 
 #include <sys/time.h>
 #include <sys/utsname.h>
@@ -184,98 +186,6 @@ void irq_install_handler(size_t irq, irq_handler_chain_t handler, const char * d
 /* We used to have a function here that incorrectly uninstalled IRQ handlers... */
 
 /**
- * @brief Examine the module table to find which module owns an address.
- *
- * Looks through the loaded module list to find what module
- * owns @p addr, setting @p name and returning the corresponding module
- * entry. Since we know how big modules are in memory, we can also know
- * if an address doesn't belong to any module, in which case we return NULL.
- *
- * @param addr Address to look for
- * @param name (out) Name of the matching module
- * @return Pointer to LoadedModule for the matched module, or NULL.
- */
-static struct LoadedModule * find_module(uintptr_t addr, char ** name) {
-	hashmap_t * modules = modules_get_list();
-
-	if (!modules) return NULL;
-
-	for (size_t i = 0; i < modules->size; ++i) {
-		hashmap_entry_t * x = modules->entries[i];
-		while (x) {
-			struct LoadedModule * info = x->value;
-			if (info->baseAddress <= addr && addr <= info->baseAddress + info->loadedSize) {
-				*name = (char*)x->key;
-				return info;
-			}
-			x = x->next;
-		}
-	}
-
-	return NULL;
-}
-
-/**
- * @brief Use brute force to determine if an address is mapped.
- *
- * Examines the current page table to see if @p base and up to @p size
- * is a valid region of memory. Useful for determining if a stack entry
- * is a valid base pointer to a calling frame.
- *
- * @param base Address to validate
- * @param size How many bytes after @p base are going to be examined.
- * @return 1 if the range is mapped, 0 otherwise.
- */
-static int validate_pointer(uintptr_t base, size_t size) {
-	uintptr_t end  = size ? (base + (size - 1)) : base;
-	uintptr_t page_base = base >> 12;
-	uintptr_t page_end  =  end >> 12;
-	for (uintptr_t page = page_base; page <= page_end; ++page) {
-		if ((page & 0xffff800000000) != 0 && (page & 0xffff800000000) != 0xffff800000000) return 0;
-		union PML * page_entry = mmu_get_page_other(this_core->current_pml, page << 12);
-		if (!page_entry) return 0;
-		if (!page_entry->bits.present) return 0;
-	}
-	return 1;
-}
-
-extern char end[];
-
-/**
- * @brief Find the closest preceding symbol to an address.
- *
- * Scans the kernel symbol table to find the closest preceding
- * symbol to the address @p ip and stores its name in @p name,
- * returning the actual address of the symbol.
- *
- * As this uses the kernel symbol linkage table, it is only aware
- * of exported functions and objects, and can not provide any
- * information on static functions.
- *
- * @param ip Address to scan for
- * @param name (out) Name of matching symbol
- * @return Address of matching symbol
- */
-static uintptr_t matching_symbol(uintptr_t ip, char ** name) {
-	hashmap_t * symbols = ksym_get_map();
-	if (!symbols) return 0;
-	uintptr_t best_match = 0;
-	for (size_t i = 0; i < symbols->size; ++i) {
-		hashmap_entry_t * x = symbols->entries[i];
-		while (x) {
-			void* sym_addr = x->value;
-			char* sym_name = x->key;
-			if ((uintptr_t)sym_addr < ip && (uintptr_t)sym_addr > best_match) {
-				best_match = (uintptr_t)sym_addr;
-				*name = sym_name;
-			}
-			x = x->next;
-		}
-	}
-	return best_match;
-}
-
-/**
  * @brief Display a traceback from the given ip and stack base.
  *
  * Walks the stack referenced by @p bp and attempts to find
@@ -302,27 +212,7 @@ static void dump_traceback(uintptr_t ip, uintptr_t bp) {
 	int max_depth = 20;
 
 	while (bp && ip && depth < max_depth) {
-		dprintf(" 0x%016zx ", ip);
-		if (ip <= 0x800000000000) {
-			dprintf("\a in userspace\n");
-		} else if (ip >= 0xffffffff80000000UL) {
-			char * name = NULL;
-			uintptr_t addr = matching_symbol(ip, &name);
-			struct LoadedModule * mod = find_module(ip, &name);
-			if (addr && (!mod || addr >= mod->baseAddress)) {
-				dprintf("\a %s+0x%zx", name, ip-addr);
-			}
-			if (mod) {
-				dprintf("\a in module '%s', base address %#zx (offset %#zx)",
-					name, mod->baseAddress, ip - mod->baseAddress);
-			}
-			dprintf("\a\n");
-		} else {
-			dprintf("\a (unknown)\n");
-		}
-		if (!validate_pointer(bp, sizeof(uintptr_t)) || !validate_pointer(bp + sizeof(uintptr_t), sizeof(uintptr_t))) {
-			break;
-		}
+		if (traceback_print_line(ip, bp)) break;
 		ip = *(uintptr_t*)(bp + sizeof(uintptr_t));
 		bp = *(uintptr_t*)(bp);
 		depth++;
@@ -347,6 +237,23 @@ void arch_dump_traceback(void) {
 	dump_traceback((uintptr_t)arch_dump_traceback+1, (uintptr_t)__builtin_frame_address(0));
 }
 
+static void dump_regs(const struct regs *r) {
+	dprintf(
+		"  $rip=0x%016lx\n"
+		"  $rsi=0x%016lx,$rdi=0x%016lx,$rbp=0x%016lx,$rsp=0x%016lx\n"
+		"  $rax=0x%016lx,$rbx=0x%016lx,$rcx=0x%016lx,$rdx=0x%016lx\n"
+		"  $r8= 0x%016lx,$r9= 0x%016lx,$r10=0x%016lx,$r11=0x%016lx\n"
+		"  $r12=0x%016lx,$r13=0x%016lx,$r14=0x%016lx,$r15=0x%016lx\n"
+		"  cs=0x%016lx  ss=0x%016lx rflags=0x%016lx int=0x%02lx err=0x%02lx\n",
+		r->rip,
+		r->rsi, r->rdi, r->rbp, r->rsp,
+		r->rax, r->rbx, r->rcx, r->rdx,
+		r->r8, r->r9, r->r10, r->r11,
+		r->r12, r->r13, r->r14, r->r15,
+		r->cs, r->ss, r->rflags, r->int_no, r->err_code
+	);
+}
+
 /**
  * @brief Handle fatal exceptions.
  *
@@ -369,22 +276,9 @@ static void panic(const char * desc, struct regs * r, uintptr_t faulting_address
 		faulting_address
 	);
 
-	/* Dump register state */
-	dprintf(
-		"Registers at interrupt:\n"
-		"  $rip=0x%016lx\n"
-		"  $rsi=0x%016lx,$rdi=0x%016lx,$rbp=0x%016lx,$rsp=0x%016lx\n"
-		"  $rax=0x%016lx,$rbx=0x%016lx,$rcx=0x%016lx,$rdx=0x%016lx\n"
-		"  $r8= 0x%016lx,$r9= 0x%016lx,$r10=0x%016lx,$r11=0x%016lx\n"
-		"  $r12=0x%016lx,$r13=0x%016lx,$r14=0x%016lx,$r15=0x%016lx\n"
-		"  cs=0x%016lx  ss=0x%016lx rflags=0x%016lx int=0x%02lx err=0x%02lx\n",
-		r->rip,
-		r->rsi, r->rdi, r->rbp, r->rsp,
-		r->rax, r->rbx, r->rcx, r->rdx,
-		r->r8, r->r9, r->r10, r->r11,
-		r->r12, r->r13, r->r14, r->r15,
-		r->cs, r->ss, r->rflags, r->int_no, r->err_code
-	);
+	dprintf("Registers at interrupt:\n");
+
+	dump_regs(r);
 
 	/* Dump GS segment register information */
 	uint32_t gs_base_low, gs_base_high;
@@ -490,6 +384,13 @@ static void _page_fault(struct regs * r) {
 	/* Was this a kernel page fault? Those are always a panic. */
 	if (!this_core->current_process || r->cs == 0x08) {
 		panic("Page fault in kernel", r, faulting_address);
+	}
+
+	if (args_present("debug")) {
+		dprintf("In process %d (%s)\n", this_core->current_process->id, this_core->current_process->name);
+		dprintf(" cr2=%#zx\n", faulting_address);
+		dump_regs(r);
+		arch_dump_traceback();
 	}
 
 	int signo = SIGSEGV;

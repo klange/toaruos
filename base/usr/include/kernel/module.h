@@ -16,3 +16,4 @@ struct LoadedModule {
 };
 
 hashmap_t * modules_get_list(void);
+struct LoadedModule * modules_find_module(uintptr_t addr, char ** name);
