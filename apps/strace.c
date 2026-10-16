@@ -941,7 +941,7 @@ static void struct_timespec_array_arg(pid_t pid, uintptr_t ptr) {
 	fprintf(logfile, "]");
 }
 
-static void pollfd_array_arg(pid_t pid, uintptr_t ptr, uintptr_t cnt, int abbrev) {
+static void pollfd_array_arg(pid_t pid, uintptr_t ptr, uintptr_t cnt, int results, int abbrev) {
 	if (!ptr) {
 		fprintf(logfile, "NULL");
 		return;
@@ -954,10 +954,14 @@ static void pollfd_array_arg(pid_t pid, uintptr_t ptr, uintptr_t cnt, int abbrev
 		fprintf(logfile, "{fd=");
 		fd_arg(pid, fd.fd);
 
-		fprintf(logfile, ", events=");
-		long flags = fd.events;
+		fprintf(logfile, ", %sevents=", results ? "r" : "");
+		long flags = results ? fd.revents : fd.events;
 		H(POLLIN);
 		H(POLLOUT);
+		H(POLLRDHUP);
+		H(POLLERR);
+		H(POLLHUP);
+		H(POLLNVAL);
 		H(POLLPRI);
 		if (flags) fprintf(logfile, "%ld", flags);
 
@@ -2059,7 +2063,7 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			int_arg(uregs_syscall_arg1(r));
 			break;
 		case SYS_POLL:
-			pollfd_array_arg(pid, uregs_syscall_arg1(r), uregs_syscall_arg2(r), is_abbrev); COMMA;
+			pollfd_array_arg(pid, uregs_syscall_arg1(r), uregs_syscall_arg2(r), 0, is_abbrev); COMMA;
 			uint_arg(uregs_syscall_arg2(r)); COMMA;
 			int_arg(uregs_syscall_arg3(r));
 			break;
@@ -2095,22 +2099,23 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 	child->unfinished = false;
 
 	int is_abbrev = syscall_mask[syscall] & SYSCALL_MASK_ABBREV;
+	intptr_t ires = r ? (intptr_t)uregs_syscall_result(r) : 0;
 
 	switch (syscall) {
 		case -1:
 			break; /* This is ptrace(PTRACE_TRACEME)... probably... */
 		/* read() returns data in second value */
 		case SYS_OPENAT:
-			if ((intptr_t)uregs_syscall_result(r) >= 0) {
+			if (ires >= 0) {
 				fprintf(logfile, ") = ");
-				fd_arg(pid, uregs_syscall_result(r));
+				fd_arg(pid, ires);
 				fprintf(logfile, "\n");
 			} else {
 				maybe_errno(r);
 			}
 			break;
 		case SYS_READ:
-			if ((intptr_t)uregs_syscall_result(r) >= 0) {
+			if (ires >= 0) {
 				buffer_arg(pid, uregs_syscall_arg2(r), uregs_syscall_result(r)); COMMA;
 			} else {
 				pointer_arg(uregs_syscall_arg2(r)); COMMA;
@@ -2119,7 +2124,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			maybe_errno(r);
 			break;
 		case SYS_PREAD:
-			if ((intptr_t)uregs_syscall_result(r) >= 0) {
+			if (ires >= 0) {
 				buffer_arg(pid, uregs_syscall_arg2(r), uregs_syscall_result(r)); COMMA;
 			} else {
 				pointer_arg(uregs_syscall_arg2(r)); COMMA;
@@ -2191,7 +2196,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			maybe_errno(r);
 			break;
 		case SYS_MMAP:
-			if ((intptr_t)uregs_syscall_result(r) >= 0) fprintf(logfile, ") = %#zx\n", uregs_syscall_result(r));
+			if (ires >= 0) fprintf(logfile, ") = %#zx\n", uregs_syscall_result(r));
 			else maybe_errno(r);
 			break;
 		case SYS_GETRUSAGE:
@@ -2199,7 +2204,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			maybe_errno(r);
 			break;
 		case SYS_UMASK:
-			if ((intptr_t)uregs_syscall_result(r) >= 0) {
+			if (ires >= 0) {
 				fprintf(logfile, ") = ");
 				mode_arg(uregs_syscall_result(r));
 				fprintf(logfile, "\n");
@@ -2208,7 +2213,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			}
 			break;
 		case SYS_STAT:
-			if ((intptr_t)uregs_syscall_result(r) >= 0) {
+			if (ires >= 0) {
 				struct_stat_arg(pid, uregs_syscall_arg2(r), is_abbrev);
 			} else {
 				pointer_arg(uregs_syscall_arg2(r));
@@ -2216,7 +2221,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			maybe_errno(r);
 			break;
 		case SYS_FSTATAT:
-			if ((intptr_t)uregs_syscall_result(r) >= 0) {
+			if (ires >= 0) {
 				struct_stat_arg(pid, uregs_syscall_arg3(r), is_abbrev); COMMA;
 			} else {
 				pointer_arg(uregs_syscall_arg3(r)); COMMA;
@@ -2225,9 +2230,9 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			maybe_errno(r);
 			break;
 		case SYS_READDIR:
-			if (uregs_syscall_result(r) > 0) {
+			if (ires > 0) {
 				struct_dirent_arg(pid, uregs_syscall_arg3(r));
-			} else if (uregs_syscall_result(r) == 0) {
+			} else if (ires == 0) {
 				fprintf(logfile, "...");
 			} else {
 				pointer_arg(uregs_syscall_arg3(r));
@@ -2235,7 +2240,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			maybe_errno(r);
 			break;
 		case SYS_READLINKAT:
-			if ((intptr_t)uregs_syscall_result(r) >= 0) {
+			if (ires >= 0) {
 				buffer_arg(pid, uregs_syscall_arg3(r), uregs_syscall_result(r)); COMMA;
 			} else {
 				pointer_arg(uregs_syscall_arg3(r)); COMMA;
@@ -2244,7 +2249,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			maybe_errno(r);
 			break;
 		case SYS_WAITPID:
-			if ((intptr_t)uregs_syscall_result(r) >= 0) {
+			if (ires >= 0) {
 				wait_status_ptr_arg(pid, uregs_syscall_arg2(r)); COMMA;
 			} else {
 				pointer_arg(uregs_syscall_arg2(r)); COMMA;
@@ -2273,10 +2278,21 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			maybe_errno(r);
 			break;
 		case SYS_FCNTL:
-			if ((intptr_t)uregs_syscall_result(r) >= 0) {
+			if (ires >= 0) {
 				fprintf(logfile, ") = ");
 				fcntl_ret(pid, uregs_syscall_arg2(r), uregs_syscall_result(r));
 				fprintf(logfile, "\n");
+			} else {
+				maybe_errno(r);
+			}
+			break;
+		case SYS_POLL:
+			if (ires == 0) {
+				fprintf(logfile, ") = 0 (Timeout)\n");
+			} else if (ires > 0) {
+				fprintf(logfile, ") = %zd (", ires);
+				pollfd_array_arg(pid, uregs_syscall_arg1(r), uregs_syscall_arg2(r), 1, is_abbrev);
+				fprintf(logfile, ")\n");
 			} else {
 				maybe_errno(r);
 			}
