@@ -73,6 +73,9 @@ debug: system
 run-vga: system
 	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=--vga ramfb vid=preset" ${EMU_RAMDISK} ${EMU_KERNEL}
 
+debug-vga: system
+	${QEMU} ${EMU_ARGS} -kernel bootstub  -append "root=/dev/ram0 migrate start=--vga ramfb vid=preset qemu-serial-log debug" ${EMU_RAMDISK} ${EMU_KERNEL}
+
 shell: system
 	@${QEMU} -M ${EMU_MACH} -m ${RAM} -smp ${SMP} -cpu ${EMU_CPU} ${EMU_KVM} -no-reboot -display none -serial mon:stdio -d guest_errors \
 		-net user -netdev hubport,id=u1,hubid=0, -device e1000e,netdev=u1 \
