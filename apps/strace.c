@@ -1563,6 +1563,10 @@ static void ioctl_cmd_arg(uintptr_t arg) {
 		C(SND_MIXER_GET_DEVICES);
 
 		/* Terminal stuff */
+		C(TCGETS);
+		C(TCSETS);
+		C(TCSETSW);
+		C(TCSETSF);
 		C(TCSBRK);
 		C(TCXONC);
 		C(TCFLSH);
