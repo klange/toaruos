@@ -1079,7 +1079,7 @@ static void term_shift_region(term_state_t * state, int top, int height, int how
 
 	int destination, source;
 	int count, new_top, new_bottom;
-	if (how_much > height) {
+	if (how_much > height || (how_much < 0 && -how_much > height)) {
 		count = 0;
 		new_top = top;
 		new_bottom = top + height;
@@ -1110,16 +1110,9 @@ static void term_shift_region(term_state_t * state, int top, int height, int how
 	termemu_redraw_all(state);
 }
 
-
 static void term_insert_delete_lines(term_state_t * state, int how_many) {
 	if (how_many == 0) return;
-
-	if (how_many > 0) {
-		/* Insert lines is equivalent to scrolling from the current line */
-		term_shift_region(state,state->y,state->height-state->y,-how_many);
-	} else {
-		term_shift_region(state,state->y,state->height-state->y,-how_many);
-	}
+	term_shift_region(state,state->y,state->height-state->y,-how_many);
 }
 
 
