@@ -478,8 +478,8 @@ static void proc_stat_func(fs_node_t *node) {
 			(proc->time_children - proc->time_sys_children) / arch_cpu_mhz() / 1000,
 			proc->time_sys_children / arch_cpu_mhz() / 1000,
 			(proc->start.tv_sec - arch_boot_time) * 1000000 + proc->start.tv_usec,
-			mem_usage,
-			res_usage
+			mem_usage * 1024,
+			res_usage * 1024
 			);
 
 	process_release_big_lock();
