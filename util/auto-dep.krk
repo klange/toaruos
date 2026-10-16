@@ -45,6 +45,7 @@ class Classifier:
     def __init__(self, filename: str):
         self.export_dynamic_hint = False
         self.pie_hint = False
+        self.debug_hint = False
         self.filename  = filename
         self.includes, self.libs = self._depends()
 
@@ -88,6 +89,8 @@ class Classifier:
                         self.export_dynamic_hint = True
                     else if hint == 'pie':
                         self.pie_hint = True
+                    else if hint == 'debug':
+                        self.debug_hint = True
                     else:
                         print(f"auto-dep: \[[31mwarning\[[0m: {self.filename}: unrecognized auto-dep hint '{hint}'", file=fileio.stderr)
         depends = self._calculate([], depends)
@@ -110,6 +113,17 @@ class Classifier:
 
         if self.pie_hint:
             hints.append('-fPIE -pie')
+
+        if self.debug_hint:
+            hints.append('-g')
+
+        return ' '.join(hints)
+
+    def build_lib_hints(self):
+        let hints = []
+
+        if self.debug_hint:
+            hints.append('-g')
 
         return ' '.join(hints)
 
@@ -186,7 +200,7 @@ if __name__ == "__main__":
     elif command == "--makelib":
         let libname = basename(filename).replace('.c++','').replace(".c","")
         let _libs = [x for x in c.libs if not x.startswith('-ltoaru_') or x.replace("-ltoaru_","") != libname]
-        print("base/lib/libtoaru_{lib}.so: {source} {headers} util/auto-dep.krk | {libraryfiles} $(LC)\n\t{comp} {includes} -shared -fPIC -o $@ $< {libraries}".format(
+        print("base/lib/libtoaru_{lib}.so: {source} {headers} util/auto-dep.krk | {libraryfiles} $(LC)\n\t{comp} {includes} -shared -fPIC {extra} -o $@ $< {libraries}".format(
             lib=libname,
             source=filename,
             headers=" ".join([toheader(x) for x in c.libs]),
@@ -194,6 +208,7 @@ if __name__ == "__main__":
             libraries=" ".join([x for x in _libs]),
             includes=" ".join([x for x in c.includes if x is not None]),
             comp="$(CC) $(CFLAGS)" if '.c++' not in filename else "$(CXX) $(CXXFLAGS)",
+            extra=c.build_lib_hints()
             ))
     elif command == "--makekurokomod":
         let libname = basename(filename).replace('.c++','').replace(".c","").replace("module_","")
