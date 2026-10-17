@@ -257,6 +257,7 @@ struct ProcessorLocal {
 	uint64_t time_sys;
 
 	struct elist readyqueue;
+	struct elist *readyqueue_p;
 };
 
 extern struct ProcessorLocal processor_local_data[];

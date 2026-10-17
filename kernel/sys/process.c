@@ -230,6 +230,7 @@ static process_t dummy_process = {0};
 void initialize_process_tree(void) {
 	for (size_t i = 0; i < sizeof(processor_local_data)/sizeof(*processor_local_data); ++i) {
 		elist_init(&processor_local_data[i].readyqueue);
+		processor_local_data[i].readyqueue_p = &processor_local_data[i].readyqueue;
 	}
 	elist_init(&sleep_list);
 
@@ -808,12 +809,12 @@ void make_process_ready(process_t * proc) {
 process_t * next_ready_process(void) {
 	spin_lock(process_queue_lock);
 
-	if (!elist_peek_obj(&this_core->readyqueue, process_t, rq_node)) {
+	if (!elist_peek_obj(this_core->readyqueue_p, process_t, rq_node)) {
 		spin_unlock(process_queue_lock);
 		return this_core->kernel_idle_task;
 	}
 
-	process_t * next = elist_pop_obj(&this_core->readyqueue, process_t, rq_node);
+	process_t * next = elist_pop_obj(this_core->readyqueue_p, process_t, rq_node);
 
 	if ((next->flags & PROC_FLAG_RUNNING) && (next->owner != this_core->cpu_id)) {
 		/* We pulled a process too soon, switch to idle for a bit so the
