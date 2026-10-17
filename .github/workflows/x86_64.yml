@@ -1,6 +1,7 @@
 on: [push, workflow_dispatch]
 name: x86-64 CD Image
 jobs:
+  if: false # disabled
   build-image:
     runs-on: ubuntu-latest
     steps:

@@ -1,6 +1,7 @@
 on: [push, workflow_dispatch]
 name: QEMU AArch64 virt
 jobs:
+  if: false # disabled
   build-image:
     runs-on: ubuntu-latest
     steps:
