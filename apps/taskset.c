@@ -48,14 +48,14 @@ int main(int argc, char * argv[]) {
 		if (optind + 1 < argc) {
 			/* Set */
 			mask = read_mask(argv[optind]);
-			if (sched_setaffinity_t(p, mask) < 0) err(1, "sched_setaffinity");
+			if (sched_setaffinity_t(p, mask) < 0) err(1, "failed to set pid %d's affinity", p);
 			if (sched_getaffinity_t(p, &mask) < 0) err(1, "sched_getaffinity");
 			printf("pid %d's new affinity mask: %zx\n", p, mask);
 		}
 	} else {
 		if (optind + 2 > argc) return show_usage(argv);
 		mask = read_mask(argv[optind]);
-		if (sched_setaffinity_t(0, mask) < 0) err(1, "sched_setaffinity");
+		if (sched_setaffinity_t(0, mask) < 0) err(1, "failed to set pid %d's affinity", getpid());
 		if (execvp(argv[optind+1], &argv[optind+1])) err(1, "execvp");
 	}
 
