@@ -1,0 +1,37 @@
+on: [push, workflow_dispatch]
+name: QEMU AArch64 virt
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone Repository
+        uses: actions/checkout@v2
+        with:
+            fetch-depth: 0
+      - name: Clone Kuroko
+        uses: actions/checkout@v2
+        with:
+          repository: kuroko-lang/kuroko
+          path: kuroko
+      - name: Checkout Kuroko
+        run: git submodule update --init kuroko
+      - name: Checkout Bim
+        run: git submodule update --init bim
+      - name: Pull Builder Image
+        run: docker pull toaruos/build-tools:aarch64
+      - name: Run Builder
+        run: docker run -v ${GITHUB_WORKSPACE}:/root/misaka -w /root/misaka -e LANG=C.UTF-8 -t toaruos/build-tools:aarch64 util/build-in-docker-aarch64.sh
+      - name: Upload virt Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aarch64-virt
+          path: |
+            misaka-kernel
+            ramdisk.igz
+            bootstub
+      - name: Upload rpi400 Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aarch64-rpi400
+          path: |
+            kernel8.img

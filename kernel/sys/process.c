@@ -761,7 +761,7 @@ static void pick_core_and_wakeup(process_t * proc) {
 
 	int target;
 
-	if (proc->affinity && __builtin_popcountl(proc->affinity) == 1) {
+	if (proc->affinity && (proc->affinity ^ (proc->affinity - 1)) >= proc->affinity) { /* popcount(affinity) == 1 */
 		/* Pinned to one core, always use that one. */
 		target = __builtin_ctzl(proc->affinity);
 	} else if (proc_on_cpu(proc, proc->owner) && (proc->usage[0] > 500 || queue_is_empty(&processor_local_data[proc->owner].readyqueue))) {

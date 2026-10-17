@@ -1,0 +1,29 @@
+on: [push, workflow_dispatch]
+name: x86-64 CD Image
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone Repository
+        uses: actions/checkout@v2
+        with:
+            fetch-depth: 0
+      - name: Clone Kuroko
+        uses: actions/checkout@v2
+        with:
+          repository: kuroko-lang/kuroko
+          path: kuroko
+      - name: Checkout Kuroko
+        run: git submodule update --init kuroko
+      - name: Checkout Bim
+        run: git submodule update --init bim
+      - name: Pull Builder Image
+        run: docker pull toaruos/build-tools:1.99.x
+      - name: Run Builder
+        run: docker run -v ${GITHUB_WORKSPACE}:/root/misaka -w /root/misaka -e LANG=C.UTF-8 -t toaruos/build-tools:1.99.x util/build-in-docker.sh
+      - name: Upload Branch Image
+        uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: |
+            image.iso
