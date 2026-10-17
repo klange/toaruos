@@ -1436,7 +1436,11 @@ long sys_get_affinity(pid_t pid, uint64_t *cores) {
 		!(this_core->current_process->user == proc->user ||
 			this_core->current_process->user != proc->real_user)) return -EPERM;
 
-	*cores = proc->affinity;
+	if (!proc->affinity) {
+		*cores = (1UL << processor_count) - 1;
+	} else {
+		*cores = proc->affinity;
+	}
 
 	return 0;
 }
