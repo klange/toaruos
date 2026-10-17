@@ -1,0 +1,41 @@
+.TH TASKSET 1 "October, 2026"
+
+.SH NAME
+\fBtaskset\fP \- Set processor affinity
+
+.SH SYNOPSIS
+\fBtaskset\fP \fImask\fP \fIcommand\fP [\fIargument\fP...]
+.br
+\fBtaskset\fP \fB\-p\fP [\fImask\fP] \fIpid\fP
+
+.SH DESCRIPTION
+View or set the processor affinity of a process or new command.
+.PP
+In the first form, run a new command with the affinity described
+by \fImask\fP, which is a hexadecimal representation of the bitmap
+of available processor cores.
+.PP
+In the second form, if no \fImask\fP is provided, the current
+affinity of \fIpid\fP will be queried and displayed, and if
+a \fImask\fP is provided the affinity for \fIpid\fP will be
+updated.
+
+.SS Options
+
+.TP
+.B \-p
+View or change the affinity for an existing process.
+
+.SH STANDARDS
+This utility is vaguely based on the one from \fButil\-linux\fP,
+but with fewer options.
+
+.SH NOTES
+Processor affinity is per-thread, is inhereted from the parent process
+on \fBfork\fP, and is maintained through \fBexecve\fP.
+.PP
+The affinity must include at least one processor that exists when
+it is set.
+Misaka does not allow the affinity of a thread to be empty; as a special
+case, if 0 is specified as the \fImask\fP, the processor affinity
+will be unset - that is, any processor will be available to that thread.
