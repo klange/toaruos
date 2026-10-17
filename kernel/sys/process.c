@@ -44,8 +44,6 @@
 #include <sys/uregs.h>
 #include <bits/poll.h>
 
-static struct elist readyqueue = {0};
-
 struct timer_sleep {
 	struct elist el;
 	uint64_t end_tick;
@@ -230,7 +228,9 @@ static process_t dummy_process = {0};
  * the schedule uses to track processes.
  */
 void initialize_process_tree(void) {
-	elist_init(&readyqueue);
+	for (size_t i = 0; i < sizeof(processor_local_data)/sizeof(*processor_local_data); ++i) {
+		elist_init(&processor_local_data[i].readyqueue);
+	}
 	elist_init(&sleep_list);
 
 	process_list = list_create("global process list",NULL);
@@ -552,6 +552,7 @@ static process_t * spawn_process(process_t * parent, int flags, int close_at_for
 	proc->id          = get_next_pid();
 	proc->tgid        = proc->id;
 	proc->name        = strdup(parent->name);
+	proc->owner = -1;
 
 	elist_init(&proc->rq_node);
 	waitable_queue_init(&proc->child_queue);
@@ -722,6 +723,57 @@ void process_delete(process_t * proc) {
 	process_reap_later(proc);
 }
 
+extern void arch_wakeup_other(int id);
+
+static int most_idle_of(uint64_t cpus) {
+	int cpu = 0;
+	int best = -1;
+
+	for (int i = 0; i < processor_count; ++i) {
+		if (cpus && !((1UL << i) & cpus)) continue;
+		if (processor_local_data[i].kernel_idle_task->usage[0] >= best) {
+			best = processor_local_data[i].kernel_idle_task->usage[0];
+			cpu = i;
+		}
+	}
+
+	return cpu;
+}
+
+static inline int queue_is_empty(struct elist * queue) {
+	return queue == queue->el_next;
+}
+
+static inline int proc_on_cpu(process_t * proc, int cpu) {
+	if (cpu < 0) return 0;
+	if (!proc->affinity) return 1;
+	if ((1UL << cpu) & proc->affinity) return 1;
+	return 0;
+}
+
+static void pick_core_and_wakeup(process_t * proc) {
+	if (processor_count == 1) {
+		elist_insert_tail(&processor_local_data[0].readyqueue, &proc->rq_node);
+		return;
+	}
+
+	int target;
+
+	if (proc->affinity && __builtin_popcount(proc->affinity) == 1) {
+		/* Pinned to one core, always use that one. */
+		target = __builtin_ffs(proc->affinity) - 1;
+	} else if (proc_on_cpu(proc, proc->owner) && (proc->usage[0] > 500 || queue_is_empty(&processor_local_data[proc->owner].readyqueue))) {
+		/* Prefer last CPU if it's empty, or if we're hogging it. */
+		target = proc->owner;
+	} else {
+		/* Schedule on the least busy CPU. */
+		target = most_idle_of(proc->affinity);
+	}
+
+	elist_insert_tail(&processor_local_data[target].readyqueue, &proc->rq_node);
+	arch_wakeup_other(target);
+}
+
 /**
  * @brief Place an available process in the ready queue.
  *
@@ -742,11 +794,9 @@ void make_process_ready(process_t * proc) {
 		return;
 	}
 
-	/* TODO pick CPU, use per-CPU ready queue, etc. */
-	elist_insert_tail(&readyqueue, &proc->rq_node);
+	pick_core_and_wakeup(proc);
 
 	spin_unlock(process_queue_lock);
-	arch_wakeup_others();
 }
 
 /**
@@ -758,17 +808,17 @@ void make_process_ready(process_t * proc) {
 process_t * next_ready_process(void) {
 	spin_lock(process_queue_lock);
 
-	if (!elist_peek_obj(&readyqueue, process_t, rq_node)) {
+	if (!elist_peek_obj(&this_core->readyqueue, process_t, rq_node)) {
 		spin_unlock(process_queue_lock);
 		return this_core->kernel_idle_task;
 	}
 
-	process_t * next = elist_pop_obj(&readyqueue, process_t, rq_node);
+	process_t * next = elist_pop_obj(&this_core->readyqueue, process_t, rq_node);
 
 	if ((next->flags & PROC_FLAG_RUNNING) && (next->owner != this_core->cpu_id)) {
 		/* We pulled a process too soon, switch to idle for a bit so the
 		 * core that marked this process as ready can finish switching away from it. */
-		elist_insert_tail(&readyqueue, &next->rq_node);
+		pick_core_and_wakeup(next);
 		spin_unlock(process_queue_lock);
 		return this_core->kernel_idle_task;
 	}

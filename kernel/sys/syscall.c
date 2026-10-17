@@ -1407,6 +1407,40 @@ long sys_insmod(int fd, int argc, char **argv) {
 	return elf_module(FD_ENTRY(fd), argc, argv);
 }
 
+long sys_set_affinity(pid_t pid, uint64_t cores) {
+	if (__builtin_ffs(cores) > processor_count) return -EINVAL;
+	if (pid < 0) return -ESRCH;
+
+	process_t * proc = (pid == 0 ? this_core->current_process : process_from_pid(pid));
+
+	if (!proc) return -ESRCH;
+
+	if (this_core->current_process->user != USER_ROOT_UID &&
+		!(this_core->current_process->user == proc->user ||
+			this_core->current_process->user != proc->real_user)) return -EPERM;
+
+	proc->affinity = cores;
+
+	return 0;
+}
+
+long sys_get_affinity(pid_t pid, uint64_t *cores) {
+	PTRCHECK(cores, sizeof(uint64_t), MMU_PTR_WRITE);
+	if (pid < 0) return -ESRCH;
+
+	process_t * proc = (pid == 0 ? this_core->current_process : process_from_pid(pid));
+
+	if (!proc) return -ESRCH;
+
+	if (this_core->current_process->user != USER_ROOT_UID &&
+		!(this_core->current_process->user == proc->user ||
+			this_core->current_process->user != proc->real_user)) return -EPERM;
+
+	*cores = proc->affinity;
+
+	return 0;
+}
+
 extern long ptrace_handle(long,pid_t,void*,void*);
 
 typedef long (*scall_func)(long,long,long,long,long,long);
@@ -1506,6 +1540,8 @@ static scall_func syscalls[] = {
 	[SYS_UNLINKAT]     = (scall_func)(uintptr_t)sys_unlinkat,
 	[SYS_LINKAT]       = (scall_func)(uintptr_t)sys_linkat,
 	[SYS_POLL]         = (scall_func)(uintptr_t)sys_poll,
+	[SYS_SET_AFFINITY] = (scall_func)(uintptr_t)sys_set_affinity,
+	[SYS_GET_AFFINITY] = (scall_func)(uintptr_t)sys_get_affinity,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

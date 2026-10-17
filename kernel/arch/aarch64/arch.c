@@ -324,6 +324,12 @@ void arch_wakeup_others(void) {
 	#endif
 }
 
+void arch_wakeup_other(int i) {
+	if (i == this_core->cpu_id) return;
+	if (!processor_local_data[i].current_process || (processor_local_data[i].current_process != processor_local_data[i].kernel_idle_task)) return;
+	gic_send_sgi(1,i);
+}
+
 
 /**
  * @brief Reboot the computer.

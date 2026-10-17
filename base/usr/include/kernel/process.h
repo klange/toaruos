@@ -177,6 +177,8 @@ typedef struct process {
 	pid_t tracer;               /* ptrace tracer; this should probably be a pointer... */
 	list_t * tracees;           /* threads this process is tracing in ptrace FIXME inline, can only have one tracer */
 	siginfo_t * sig_cause;      /* cause of the current signal we are stopped for tracing by */
+
+	uint64_t affinity; /* bitmask */
 } process_t;
 
 _Static_assert((__builtin_offsetof(process_t,flags) == 0), "flags must be the head of process struct");
@@ -253,6 +255,8 @@ struct ProcessorLocal {
 
 	uint64_t time_total;
 	uint64_t time_sys;
+
+	struct elist readyqueue;
 };
 
 extern struct ProcessorLocal processor_local_data[];
@@ -320,6 +324,7 @@ extern void arch_enter_user(uintptr_t entrypoint, int argc, char * argv[], char 
 __attribute__((noreturn))
 extern void arch_enter_signal_handler(struct signal_config *, siginfo_t *,struct regs*);
 extern void arch_wakeup_others(void);
+extern void arch_wakeup_other(int i);
 extern int arch_return_from_signal_handler(struct regs *r);
 extern void arch_clear_icache(uintptr_t,uintptr_t);
 extern void arch_set_singlestep(process_t * proc, int enabled);

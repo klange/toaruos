@@ -309,6 +309,8 @@ DECL_SYSCALL5(linkat, int, const char *, int, const char *, int);
 DECL_SYSCALL3(fexecve, int, char * const *, char * const *);
 
 DECL_SYSCALL3(poll, struct pollfd *, unsigned int, int);
+DECL_SYSCALL2(set_affinity, int, uint64_t);
+DECL_SYSCALL2(get_affinity, int, uint64_t*);
 
 _End_C_Header
 

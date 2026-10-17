@@ -465,9 +465,6 @@ _pit_fallback:
  * fires. This is a soft interrupt: It should be ignored by the receiving
  * cores if they are busy with other things - we only want it to wake up
  * the HLT in the kernel idle task.
- *
- * TODO We could make this more fine-grained and deliver only to processors
- *      we think are ready, or to specific processors to aid in affinity?
  */
 void arch_wakeup_others(void) {
 	if (!lapic_final || processor_count < 2) return;
@@ -475,6 +472,11 @@ void arch_wakeup_others(void) {
 	 * that just nudges idle cores out of their HLT states.
 	 * It should be gentle enough that busy cores dont't care. */
 	lapic_send_ipi(0, 0x7E | (3 << 18));
+}
+
+void arch_wakeup_other(int i) {
+	if (!lapic_final || processor_count < 2) return;
+	lapic_send_ipi(processor_local_data[i].lapic_id, 0x7E);
 }
 
 /**

@@ -223,6 +223,8 @@ static const char * syscall_names[SYS__COUNT] = {
 	[SYS_UNLINKAT]     = "unlinkat",
 	[SYS_LINKAT]       = "linkat",
 	[SYS_POLL]         = "poll",
+	[SYS_SET_AFFINITY] = "set_affinity",
+	[SYS_GET_AFFINITY] = "get_affinity",
 };
 
 static const int syscall_set_net[] = {
@@ -1109,6 +1111,16 @@ static void sigset_ptr_arg(pid_t pid, uintptr_t ptr) {
 	uint64_t sigset = data_read_ptr(pid, ptr);
 
 	sigset_arg(sigset);
+}
+
+static void uint_ptr_arg(pid_t pid, uintptr_t ptr) {
+	if (!ptr) {
+		fprintf(logfile, "NULL");
+		return;
+	}
+
+	uintptr_t p = data_read_ptr(pid, ptr);
+	fprintf(logfile, "{%lu}", p);
 }
 
 static void stack_t_ptr_arg(pid_t pid, uintptr_t ptr) {
@@ -2071,6 +2083,14 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			uint_arg(uregs_syscall_arg2(r)); COMMA;
 			int_arg(uregs_syscall_arg3(r));
 			break;
+		case SYS_SET_AFFINITY:
+			int_arg(uregs_syscall_arg1(r)); COMMA; /* pid_arg? */
+			uint_arg(uregs_syscall_arg2(r));
+			break;
+		case SYS_GET_AFFINITY:
+			int_arg(uregs_syscall_arg1(r)); COMMA; /* pid_arg? */
+			/* one result */
+			break;
 		/* These have no arguments: */
 		case SYS_YIELD:
 		case SYS_FORK:
@@ -2300,6 +2320,14 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			} else {
 				maybe_errno(r);
 			}
+			break;
+		case SYS_GET_AFFINITY:
+			if (ires == 0) {
+				uint_ptr_arg(pid, uregs_syscall_arg2(r));
+			} else {
+				pointer_arg(uregs_syscall_arg2(r));
+			}
+			maybe_errno(r);
 			break;
 		/* Most things return -errno, or positive valid result */
 		default:

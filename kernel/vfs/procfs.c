@@ -381,6 +381,7 @@ static void proc_status_func(fs_node_t *node) {
 			"SigIgn:\t%016zx\n"
 			"SigCgt:\t%016zx\n"
 			"Tty:\t%s\n"
+			"Cpus_allowed:\t%x\n"
 			,
 			proc->name,
 			state,
@@ -409,7 +410,8 @@ static void proc_status_func(fs_node_t *node) {
 			proc->blocked_signals,
 			ignored,
 			caught,
-			tty_name
+			tty_name,
+			proc->affinity ? proc->affinity : ((1ULL << processor_count) - 1)
 			);
 
 	process_release_big_lock();
