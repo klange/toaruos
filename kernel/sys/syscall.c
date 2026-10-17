@@ -1416,8 +1416,8 @@ long sys_set_affinity(pid_t pid, uint64_t cores) {
 	if (!proc) return -ESRCH;
 
 	if (this_core->current_process->user != USER_ROOT_UID &&
-		!(this_core->current_process->user == proc->user ||
-			this_core->current_process->user != proc->real_user)) return -EPERM;
+		this_core->current_process->user != proc->user &&
+		this_core->current_process->user != proc->real_user) return -EPERM;
 
 	proc->affinity = cores;
 
@@ -1431,10 +1431,6 @@ long sys_get_affinity(pid_t pid, uint64_t *cores) {
 	process_t * proc = (pid == 0 ? this_core->current_process : process_from_pid(pid));
 
 	if (!proc) return -ESRCH;
-
-	if (this_core->current_process->user != USER_ROOT_UID &&
-		!(this_core->current_process->user == proc->user ||
-			this_core->current_process->user != proc->real_user)) return -EPERM;
 
 	if (!proc->affinity) {
 		*cores = (1UL << processor_count) - 1;
