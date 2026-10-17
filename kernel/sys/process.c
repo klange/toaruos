@@ -567,6 +567,7 @@ static process_t * spawn_process(process_t * parent, int flags, int close_at_for
 	proc->mask        = parent->mask;
 	proc->job         = parent->job;
 	proc->session     = parent->session;
+	proc->affinity    = parent->affinity;
 
 	if (parent->supplementary_group_count) {
 		proc->supplementary_group_count = parent->supplementary_group_count;
