@@ -1408,7 +1408,7 @@ long sys_insmod(int fd, int argc, char **argv) {
 }
 
 long sys_set_affinity(pid_t pid, uint64_t cores) {
-	if (__builtin_ffs(cores) > processor_count) return -EINVAL;
+	if (__builtin_ctzl(cores) >= processor_count) return -EINVAL;
 	if (pid < 0) return -ESRCH;
 
 	process_t * proc = (pid == 0 ? this_core->current_process : process_from_pid(pid));
