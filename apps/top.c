@@ -405,25 +405,63 @@ static void get_mem_info(ssize_t * total, ssize_t * used) {
 	fclose(f);
 }
 
+struct cpu_info {
+	unsigned long user;
+	unsigned long sys;
+	unsigned long idle;
+	unsigned long total;
+	unsigned long used;
+};
+
 /**
  * @brief Collect CPU usage information from /proc/idle
  *
  * @p cpus (out) Array of CPU usage in permilles.
  */
-static void get_cpu_info(int cpus[]) {
-	FILE * f = fopen("/proc/idle","r");
-	char buf[4096];
-	fread(buf, 4096, 1, f);
+static void get_cpu_info(struct cpu_info cpus[]) {
+	FILE * f = fopen("/proc/stat","re");
 
-	char * buffer = buf;
-	for (int i = 0; i < cpu_count; ++i) {
-		char * b = strchr(buffer, ':');
-		b++;
-		cpus[i] = 1000 - atoi(b);
-		if (cpus[i] < 0) cpus[i] = 0;
-		buffer = strchr(b, '\n');
+	char *line = NULL;
+	size_t avail = NULL;
+	ssize_t len = 0;
+
+	int cpu = 0;
+
+	while ((len = getline(&line, &avail, f)) != -1) {
+		if (!strncmp(line, "cpu", 3) && line[3] != ' ') {
+			/* Assume these are in order */
+			char * x = strchr(line, ' ');
+			if (!x) continue;
+			char * user_time = ++x;
+			x = strchr(x, ' ');
+			if (!x) continue;
+			*x = '\0';
+			++x; /* unused, nice time */
+			x = strchr(x, ' ');
+			if (!x) continue;
+			*x = '\0';
+			char * sys_time = ++x;
+			x = strchr(x, ' ');
+			if (!x) continue;
+			*x = '\0';
+			char * idle_time = ++x;
+			x = strchr(x, ' ');
+			if (!x) continue;
+			*x = '\0';
+
+			cpus[cpu].user = strtoul(user_time, NULL, 0);
+			cpus[cpu].sys  = strtoul(sys_time,  NULL, 0);
+			cpus[cpu].idle = strtoul(idle_time, NULL, 0);
+
+			cpus[cpu].total = cpus[cpu].user + cpus[cpu].sys + cpus[cpu].idle;
+			cpus[cpu].used  = cpus[cpu].user + cpus[cpu].sys;
+
+			cpu++;
+			if (cpu == 32) break;
+		}
 	}
 
+	free(line);
 	fclose(f);
 }
 
@@ -447,10 +485,6 @@ static void get_tmpfs_info(size_t * size) {
 	*size = strtoul(b,NULL,10) * 4; /* Expressed in pages, so * 4 for kilobytes */
 }
 
-static int fill_colors[] = {
-	1, 3, 4, 5, 6
-};
-
 /**
  * @brief Display a progress-bar-style usage meter.
  *
@@ -461,19 +495,29 @@ static int fill_colors[] = {
  * @p filled Values to stack in the meter.
  * @p maximum Maximum value of the meter.
  */
-static void print_meter(const char * title, const char * label, int width, int count, ssize_t filled[], size_t maximum) {
+static void print_meter(const char * title, const char * label, int width, int count, ssize_t filled[], size_t maximum, int fill_colors[], int fill_colors_cnt) {
 	int available = width - strlen(title) - 4;
 	int remaining = available;
 	int fillSlots = 0;
 
-	/* Count total fill slots */
+	size_t total = 0;
 	for (int i = 0; i < count; ++i) {
+		total += filled[i];
+	}
+
+	int want_fill = total * available / maximum;
+
+	/* Count total fill slots */
+	for (int i = 0; i + 1 < count; ++i) {
 		filled[i] = filled[i] * available / maximum;
 		if (filled[i] < 0) filled[i] = 0;
 		if (filled[i] > remaining) filled[i] = remaining;
 		fillSlots += filled[i];
 		remaining = available - fillSlots;
 	}
+
+	filled[count - 1] = want_fill - fillSlots;
+	fillSlots = want_fill;
 
 	int emptSlots = available - fillSlots;
 
@@ -492,7 +536,7 @@ static void print_meter(const char * title, const char * label, int width, int c
 	j = 0;
 
 	for (int c = 0; c < count; ++c) {
-		printf(T_FC, fill_colors[c % (sizeof(fill_colors) / sizeof(int))]);
+		printf(T_FC, fill_colors[c % fill_colors_cnt]);
 		for (int i = 0; i < filled[c]; ++i, j++) printf("%c",fill[j]);
 	}
 	printf(T_BR);
@@ -548,6 +592,12 @@ static void toggle_mode(void) {
 	if (name_mode > 2) name_mode = 0;
 }
 
+static struct cpu_info last_cpus[32];
+static void preseed_run(void) {
+	get_cpu_info(last_cpus);
+	usleep(150000);
+}
+
 /**
  * @brief Collect information on running processes.
  */
@@ -597,7 +647,7 @@ static int do_once(int delay) {
 	get_tmpfs_info(&mem_tmpfs);
 
 	/* Gather per-CPU usage from /proc/idle */
-	int cpus[32];
+	struct cpu_info cpus[32];
 	get_cpu_info(cpus);
 
 	/* Gather screen size */
@@ -649,8 +699,19 @@ static int do_once(int delay) {
 	for (int cpu = 0; cpu < cpu_count; ++cpu) {
 		char name[20], usage[30];
 		sprintf(name, "%3d", cpu + 1);
-		sprintf(usage, "%d.%01d%%", cpus[cpu] / 10, cpus[cpu] % 10);
-		print_meter(name, usage, left_side ? meter_width : info_width, 1, (ssize_t[]){cpus[cpu]}, 1000);
+
+		unsigned long total_diff = (cpus[cpu].total - last_cpus[cpu].total);
+		unsigned long used_diff  = (cpus[cpu].used  - last_cpus[cpu].used);
+		int permille = used_diff * 1000 / total_diff;
+
+		sprintf(usage, "%d.%01d%%", permille / 10, permille % 10);
+
+		unsigned long user_pmille  = (cpus[cpu].user  - last_cpus[cpu].user) * 1000 / total_diff;
+		unsigned long sys_pmille = permille - user_pmille; /* makes meter work better */
+
+		int fill_colors_cpu[] = {2, 1};
+
+		print_meter(name, usage, left_side ? meter_width : info_width, 2, (ssize_t[]){user_pmille, sys_pmille}, 1000, fill_colors_cpu, 2);
 
 		if (current_row < info_rows) {
 			printf("%s" T_K "\n", info_row[current_row]);
@@ -667,10 +728,13 @@ static int do_once(int delay) {
 		}
 	}
 
+	memcpy(last_cpus, cpus, sizeof(last_cpus));
+
 	/* Display memory usage widget */
+	int fill_colors_mem[] = {2,4};
 	char memUsed[100];
 	sprintf(memUsed, "%zdM/%zdM", mem_used / 1024, mem_total / 1024);
-	print_meter("Mem", memUsed, left_side ? meter_width : info_width, 2, (ssize_t[]){mem_used-mem_tmpfs,mem_tmpfs}, mem_total);
+	print_meter("Mem", memUsed, left_side ? meter_width : info_width, 2, (ssize_t[]){mem_used-mem_tmpfs,mem_tmpfs}, mem_total, fill_colors_mem, 2);
 	if (left_side && current_row < info_rows) {
 		printf("%s", info_row[current_row]);
 	}
@@ -757,7 +821,7 @@ static int do_log(void) {
 	get_tmpfs_info(&mem_tmpfs);
 
 	/* Gather per-CPU usage from /proc/idle */
-	int cpus[32];
+	struct cpu_info cpus[32];
 	get_cpu_info(cpus);
 
 	/* Hostname */
@@ -784,9 +848,15 @@ static int do_log(void) {
 
 	/* CPU usage; all on one line; formatted best for small counts and <100% usage */
 	for (int cpu = 0; cpu < cpu_count; ++cpu) {
-		printf("CPU%2d:%3d.%01d%%%s", cpu + 1, cpus[cpu] / 10, cpus[cpu] % 10,
+		unsigned long total_diff = (cpus[cpu].total - last_cpus[cpu].total);
+		unsigned long used_diff  = (cpus[cpu].used  - last_cpus[cpu].used);
+		int permille = used_diff * 1000 / total_diff;
+
+		printf("CPU%2d:%3d.%01d%%%s", cpu + 1, permille / 10, permille % 10,
 			(cpu + 1 == cpu_count) ? "\n" : "   ");
 	}
+
+	memcpy(last_cpus, cpus, sizeof(last_cpus));
 
 	/* Blank line to separator process table */
 	printf("\n");
@@ -901,6 +971,8 @@ int main (int argc, char * argv[]) {
 
 	/* Assume CPU count doesn't change... */
 	cpu_count = sysconf(_SC_NPROCESSORS_ONLN);
+
+	preseed_run();
 
 	/* Simple log format */
 	if (log_samples) {
