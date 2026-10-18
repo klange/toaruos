@@ -95,6 +95,7 @@ _Begin_C_Header
 		register long __res __asm__ ("x0"); \
 		__asm__ __volatile__("svc 0" : "=r" (__res) : \
 			"r" (__num) \
+			: "memory" \
 		); \
 		return __res; \
 	}
@@ -106,6 +107,7 @@ _Begin_C_Header
 		__asm__ __volatile__("svc 0" : "=r" (__res) : \
 			"r" (__num), \
 			"r" (__res) \
+			: "memory" \
 		); \
 		return __res; \
 	}
@@ -119,6 +121,7 @@ _Begin_C_Header
 			"r" (__num), \
 			"r" (__res), \
 			"r" (x1) \
+			: "memory" \
 		); \
 		return __res; \
 	}
@@ -134,6 +137,7 @@ _Begin_C_Header
 			"r" (__res), \
 			"r" (x1), \
 			"r" (x2) \
+			: "memory" \
 		); \
 		return __res; \
 	}
@@ -151,6 +155,7 @@ _Begin_C_Header
 			"r" (x1), \
 			"r" (x2), \
 			"r" (x3) \
+			: "memory" \
 		); \
 		return __res; \
 	}
@@ -170,6 +175,7 @@ _Begin_C_Header
 			"r" (x2), \
 			"r" (x3), \
 			"r" (x4) \
+			: "memory" \
 		); \
 		return __res; \
 	}
@@ -191,6 +197,7 @@ _Begin_C_Header
 			"r" (x3), \
 			"r" (x4), \
 			"r" (x5) \
+			: "memory" \
 		); \
 		return __res; \
 	}
