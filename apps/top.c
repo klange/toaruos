@@ -691,7 +691,7 @@ static int do_once(int delay) {
 	if (show_help) {
 		for (ent = 0; ent < sizeof(help_text) / sizeof(*help_text); ++i, ++ent) {
 			if (i >= w.ws_row - current_row - 2) break;
-			printf("%*s" T_K "\n", (int)w.ws_col, help_text[ent]);
+			printf("%-*s" T_K "\n", (int)w.ws_col, help_text[ent]);
 		}
 	} else {
 		for (ent = 0; ent < count; ++i, ++ent) {
