@@ -349,22 +349,16 @@ static void proc_status_func(fs_node_t *node) {
 
 	procfs_printf(node,
 			"Name:\t%s\n"  /* name */
+			"Umask:\t%04o\n"
 			"State:\t%c\n"
 			"Tgid:\t%d\n"  /* group ? group : pid */
 			"Pid:\t%d\n"   /* pid */
 			"PPid:\t%d\n"  /* parent pid */
+			"TracerPid:\t%d\n"
 			"Pgid:\t%d\n"  /* progress group id (job) */
 			"Sid:\t%d\n"   /* session id */
-			"Uid:\t%d\n"
-			"Ueip:\t%#zx\n"
-			"SCid:\t%zu\n"
-			"SC0:\t%#zx\n"
-			"SC1:\t%#zx\n"
-			"SC2:\t%#zx\n"
-			"SC3:\t%#zx\n"
-			"SC4:\t%#zx\n"
-			"SC5:\t%#zx\n"
-			"UserStack:\t%#zx\n"
+			"Uid:\t%d\t%d\t%d\n"
+			"Gid:\t%d\t%d\t%d\n"
 			"VmSize:\t %lu kB\n"
 			"VmRSS:\t %lu kB\n"
 			"RssAnon:\t %lu kB\n"
@@ -384,22 +378,16 @@ static void proc_status_func(fs_node_t *node) {
 			"Cpus_allowed:\t%x\n"
 			,
 			proc->name,
+			proc->mask,
 			state,
 			proc->tgid,
 			proc->id,
 			parent ? parent->id : 0,
+			proc->tracer,
 			proc->job,
 			proc->session,
-			proc->user,
-			proc->syscall_registers ? uregs_ip(proc->syscall_registers) : 0,
-			proc->syscall_registers ? uregs_syscall_num(proc->syscall_registers) : 0,
-			proc->syscall_registers ? uregs_syscall_arg1(proc->syscall_registers) : 0,
-			proc->syscall_registers ? uregs_syscall_arg2(proc->syscall_registers) : 0,
-			proc->syscall_registers ? uregs_syscall_arg3(proc->syscall_registers) : 0,
-			proc->syscall_registers ? uregs_syscall_arg4(proc->syscall_registers) : 0,
-			proc->syscall_registers ? uregs_syscall_arg5(proc->syscall_registers) : 0,
-			proc->syscall_registers ? uregs_syscall_arg6(proc->syscall_registers) : 0,
-			proc->syscall_registers ? uregs_sp(proc->syscall_registers) : 0,
+			proc->real_user, proc->user, proc->saved_user,
+			proc->real_user_group, proc->user_group, proc->saved_user_group,
 			mem_usage, res_usage, res_anon, res_file, res_shm, mem_permille,
 			proc->owner,
 			(proc->time_user + proc->time_sys) / arch_cpu_mhz(),
