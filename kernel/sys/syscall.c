@@ -632,22 +632,25 @@ long sys_setgroups(int size, const gid_t list[]) {
 	if (size < 0) return -EINVAL;
 	if (size > 32) return -EINVAL; /* Arbitrary decision */
 
-	/* Free the current set. */
-	if (this_core->current_process->supplementary_group_count) {
-		free(this_core->current_process->supplementary_group_list);
-		this_core->current_process->supplementary_group_list = NULL;
+	gid_t * new_list = NULL;
+
+	if (size) {
+		PTRCHECK(list,sizeof(gid_t)*size,0); /* We already checked for 0 size */
+		new_list = malloc(sizeof(gid_t)*size);
+		memcpy(new_list, list, sizeof(gid_t)*size);
 	}
 
+	gid_t * old_list = this_core->current_process->supplementary_group_list;
+
+	extern void process_acquire_big_lock(void);
+	extern void process_release_big_lock(void);
+
+	process_acquire_big_lock();
+	this_core->current_process->supplementary_group_list = new_list;
 	this_core->current_process->supplementary_group_count = size;
-	if (size == 0) return 0;
+	process_release_big_lock();
 
-	this_core->current_process->supplementary_group_list = malloc(sizeof(gid_t) * size);
-
-	PTRCHECK(list,sizeof(gid_t)*size,0); /* We already checked for 0 size */
-	for (int i = 0; i < size; ++i) {
-		this_core->current_process->supplementary_group_list[i] = list[i];
-	}
-
+	free(old_list);
 	return 0;
 }
 
