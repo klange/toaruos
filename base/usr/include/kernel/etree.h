@@ -157,3 +157,5 @@ static inline void * __elist_pop_obj(struct elist * head, size_t field_offset) {
 #define elist_pop_obj(head, type, field) \
 	__elist_pop_obj(head, offsetof(type, field))
 
+#define elist_container(list, type, field) \
+	(type *)((char*)(list) - offsetof(type, field))

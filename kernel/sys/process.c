@@ -243,29 +243,6 @@ void initialize_process_tree(void) {
 }
 
 /**
- * @brief Determines if a process is alive and valid.
- *
- * Scans @ref process_list to see if @p process is a valid
- * process object or not.
- *
- * XXX This is horribly inefficient, and its very existence
- *     is likely indicative of bugs whereever it needed to
- *     be called...
- *
- * @param process Process object to check.
- * @returns 1 if the process is valid, 0 if it is not.
- */
-int is_valid_process(process_t * process) {
-	foreach(lnode, process_list) {
-		if (lnode->value == process) {
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-/**
  * @brief Grow the FD table for a process by doubling its capacity.
  */
 static void process_fds_grow(process_t * proc) {
@@ -475,14 +452,21 @@ static void setup_kernel_stack(process_t * proc) {
 		MMU_FLAG_KERNEL);
 }
 
+static void task_init_common(process_t * proc) {
+	setup_kernel_stack(proc);
+	elist_init(&proc->rq_node);
+	elist_init(&proc->trace_node);
+	elist_init(&proc->tracees);
+	waitable_queue_init(&proc->child_queue);
+}
+
 process_t * spawn_kidle(int bsp) {
 	process_t * idle = calloc(1,sizeof(process_t));
 	idle->process = idle;
 	idle->id = -1;
 	idle->name = strdup("[kidle]");
 	idle->flags = PROC_FLAG_IS_TASKLET | PROC_FLAG_STARTED | PROC_FLAG_RUNNING;
-	elist_init(&idle->rq_node);
-	setup_kernel_stack(idle);
+	task_init_common(idle);
 
 	/* TODO arch_initialize_context(uintptr_t) ? */
 	idle->thread.context.ip = (uintptr_t)&_kidle;
@@ -520,8 +504,7 @@ process_t * spawn_init(void) {
 	init->mask       = 022;
 	init->status     = 0;
 	init->signals    = calloc(NUMSIGNALS+1, sizeof(struct signal_config));
-	elist_init(&init->rq_node);
-	waitable_queue_init(&init->child_queue);
+	task_init_common(init);
 
 	init->fds           = calloc(1, sizeof(fd_table_t));
 	init->fds->refs     = 1;
@@ -531,10 +514,7 @@ process_t * spawn_init(void) {
 	spin_init(init->fds->lock);
 
 	init->wd = NULL;
-
 	init->image.heap     = 0;
-	setup_kernel_stack(init);
-
 	init->flags         = PROC_FLAG_STARTED | PROC_FLAG_RUNNING;
 
 	init->thread.page_directory = calloc(1, sizeof(page_directory_t));
@@ -555,8 +535,7 @@ static process_t * spawn_process(process_t * parent, int flags, int close_at_for
 	proc->name        = strdup(parent->name);
 	proc->owner = -1;
 
-	elist_init(&proc->rq_node);
-	waitable_queue_init(&proc->child_queue);
+	task_init_common(proc);
 
 	proc->user        = parent->user;
 	proc->real_user   = parent->real_user;
@@ -583,7 +562,6 @@ static process_t * spawn_process(process_t * parent, int flags, int close_at_for
 
 	/* Entry is only stored for reference. */
 	proc->image.heap        = parent->image.heap;
-	setup_kernel_stack(proc);
 
 	if (flags & PROC_REUSE_FDS) {
 		spin_lock(parent->fds->lock);
@@ -619,13 +597,6 @@ static process_t * spawn_process(process_t * parent, int flags, int close_at_for
 }
 
 void process_reap(process_t * proc) {
-	if (proc->tracees) {
-		while (proc->tracees->length) {
-			free(list_pop(proc->tracees));
-		}
-		free(proc->tracees);
-	}
-
 	if (proc == proc->process) {
 		free(proc->signals);
 	}
@@ -1004,9 +975,9 @@ int waitpid(int pid, int * status, int options) {
 			}
 		}
 
-		if (!candidate && proc->tracees) {
-			foreach(node, proc->tracees) {
-				process_t * child = node->value;
+		if (!candidate) {
+			for (struct elist * n = proc->tracees.el_next; n != &proc->tracees; n = n->el_next) {
+				process_t * child = elist_container(n, process_t, trace_node);
 				if (wait_candidate(proc,pid,options,child)) {
 					has_children = 1;
 					if (child->flags & (PROC_FLAG_SUSPENDED | PROC_FLAG_FINISHED)) {
@@ -1066,82 +1037,86 @@ process_t * process_get_parent(process_t * process) {
 }
 
 void task_exit(long retval) {
-	this_core->current_process->status = retval & 0xFFFF;
+	process_t * proc = this_core->current_process;
 
-	if (this_core->current_process->process == this_core->current_process) {
+	proc->status = retval & 0xFFFF;
+	update_process_times();
+
+	spin_lock(process_queue_lock);
+	__sync_or_and_fetch(&proc->flags, PROC_FLAG_FINISHED);
+	__elist_del(&proc->rq_node);
+	spin_unlock(process_queue_lock);
+
+	if (proc->process == proc) {
 		/* If is thread leader, kill threads */
 		pid_t * children = NULL;
-		size_t thread_count = process_collect_by(offsetof(process_t,tgid), sizeof(pid_t), (void*)&this_core->current_process->tgid, &children, 1);
+		size_t thread_count = process_collect_by(offsetof(process_t,tgid), sizeof(pid_t), (void*)&proc->tgid, &children, 1);
 		for (size_t i = 0; i < thread_count; ++i) {
-			if (children[i] == this_core->current_process->tgid) continue;
+			if (children[i] == proc->tgid) continue;
 			send_signal(children[i], SIGKILL, 1);
 		}
 		if (children) free(children);
 	}
 
-	if (this_core->current_process->fds) {
-		spin_lock(this_core->current_process->fds->lock);
-		this_core->current_process->fds->refs--;
-		if (this_core->current_process->fds->refs == 0) {
-			for (uint32_t i = 0; i < this_core->current_process->fds->length; ++i) {
-				if (this_core->current_process->fds->entries[i]) {
-					fs_close_desc(FD_PTR_MASK(this_core->current_process->fds->entries[i]));
-					this_core->current_process->fds->entries[i] = 0;
+	/* Close all file descriptors */
+	if (proc->fds) {
+		spin_lock(proc->fds->lock);
+		proc->fds->refs--;
+		if (proc->fds->refs == 0) {
+			for (uint32_t i = 0; i < proc->fds->length; ++i) {
+				if (proc->fds->entries[i]) {
+					fs_close_desc(FD_PTR_MASK(proc->fds->entries[i]));
+					proc->fds->entries[i] = 0;
 				}
 			}
-			free(this_core->current_process->fds->entries);
-			free(this_core->current_process->fds);
-			this_core->current_process->fds = NULL;
+			free(proc->fds->entries);
+			free(proc->fds);
+			proc->fds = NULL;
 		} else {
-			spin_unlock(this_core->current_process->fds->lock);
+			spin_unlock(proc->fds->lock);
 		}
 	}
 
-	if (this_core->current_process->exe) {
-		fs_close_desc(this_core->current_process->exe);
-		this_core->current_process->exe = NULL;
+	/* And I do mean all. */
+	if (proc->exe) {
+		fs_close_desc(proc->exe);
+		proc->exe = NULL;
 	}
-	if (this_core->current_process->wd) {
-		fs_close_desc(this_core->current_process->wd);
-		this_core->current_process->wd = NULL;
+	if (proc->wd) {
+		fs_close_desc(proc->wd);
+		proc->wd = NULL;
 	}
 
-	if (this_core->current_process->tracees) {
-		spin_lock(this_core->current_process->wait_lock);
-		while (this_core->current_process->tracees->length) {
-			node_t * n = list_pop(this_core->current_process->tracees);
-			process_t * tracee = n->value;
-			free(n);
-			if (is_valid_process(tracee)) {
-				if (tracee->tracer == this_core->current_process->id) {
-					tracee->tracer = 0;
-					__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAGS_TRACE));
-					if (tracee->flags & PROC_FLAG_SUSPENDED) {
-						__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_SUSPENDED));
-						make_process_ready(tracee);
-					}
-				}
-			}
+	spin_lock(proc->wait_lock);
+	for (struct elist * n = proc->tracees.el_next; n != &proc->tracees;) {
+		struct elist * next = n->el_next;
+		process_t * tracee = elist_container(n, process_t, trace_node);
+		__elist_del(n);
+		tracee->tracer = 0;
+
+		__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAGS_TRACE));
+		if (tracee->flags & PROC_FLAG_SUSPENDED) {
+			__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_SUSPENDED));
+			make_process_ready(tracee);
 		}
-		spin_unlock(this_core->current_process->wait_lock);
+
+		n = next;
 	}
+	spin_unlock(proc->wait_lock);
 
-	update_process_times();
+	process_t * parent = process_get_parent(proc);
 
-	process_t * parent = process_get_parent((process_t *)this_core->current_process);
-	__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_FINISHED);
-
-	if (this_core->current_process->tracer) {
-		process_t * tracer = process_from_pid(this_core->current_process->tracer);
-		this_core->current_process->tracer = 0;
+	if (proc->tracer) {
+		process_t * tracer = process_from_pid(proc->tracer);
+		proc->tracer = 0;
 		if (tracer && tracer != parent) {
 			spin_lock(tracer->wait_lock);
-			waitable_awaken_all(&tracer->process->child_queue, (void*)(uintptr_t)this_core->current_process->id);
+			waitable_awaken_all(&tracer->process->child_queue, (void*)(uintptr_t)proc->id);
 			spin_unlock(tracer->wait_lock);
 		}
 	}
 
-	process_send_sigchld((process_t*)this_core->current_process, parent,
+	process_send_sigchld(proc, parent,
 		(retval & 0xFF) ? CLD_KILLED : CLD_EXITED,
 		(retval & 0xFF) ? (retval & 0xFF) : (retval >> 8));
 
@@ -1290,8 +1265,7 @@ process_t * spawn_worker_thread(void (*entrypoint)(void * argp), const char * na
 	proc->tgid        = proc->id;
 	proc->name        = strdup(name);
 	proc->cmdline     = NULL;
-	elist_init(&proc->rq_node);
-	waitable_queue_init(&proc->child_queue);
+	task_init_common(proc);
 
 	proc->job         = proc->id;
 	proc->session     = proc->id;
@@ -1302,8 +1276,6 @@ process_t * spawn_worker_thread(void (*entrypoint)(void * argp), const char * na
 	proc->thread.page_directory->refcount = 1;
 	proc->thread.page_directory->directory = mmu_clone(mmu_get_kernel_directory());
 	spin_init(proc->thread.page_directory->lock);
-
-	setup_kernel_stack(proc);
 
 	PUSH(proc->image.stack, uintptr_t, (uintptr_t)entrypoint);
 	PUSH(proc->image.stack, void*, argp);

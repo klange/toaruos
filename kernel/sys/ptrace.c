@@ -60,22 +60,10 @@ void ptrace_trace(process_t * tracer, process_t * tracee) {
 	spin_lock(tracer->wait_lock);
 	__sync_or_and_fetch(&tracee->flags, (PROC_FLAG_TRACE_SYSCALLS | PROC_FLAG_TRACE_SIGNALS));
 
-	if (!tracer->tracees) {
-		tracer->tracees = list_create("debug tracees", tracer);
+	if (tracee->trace_node.el_next == &tracee->trace_node) {
+		elist_insert_tail(&tracer->tracees, &tracee->trace_node);
+		tracee->tracer = tracer->id;
 	}
-
-	int already = 0;
-	foreach (node, tracer->tracees) {
-		process_t * p = node->value;
-		if (p == tracee) {
-			already = 1;
-			break;
-		}
-	}
-
-	if (!already) list_insert(tracer->tracees, tracee);
-
-	tracee->tracer = tracer->id;
 
 	spin_unlock(tracer->wait_lock);
 }
@@ -88,17 +76,10 @@ void ptrace_trace(process_t * tracer, process_t * tracee) {
  */
 void ptrace_untrace(process_t * tracer, process_t * tracee) {
 	spin_lock(tracer->wait_lock);
-
-	if (tracer->tracees) {
-		foreach (node, tracer->tracees) {
-			process_t * p = node->value;
-			if (p == tracee) {
-				list_delete(tracer->tracees, node);
-				break;
-			}
-		}
+	if (tracee->tracer == tracer->id) {
+		__elist_del(&tracee->trace_node);
+		tracer->id = 0;
 	}
-
 	spin_unlock(tracer->wait_lock);
 }
 

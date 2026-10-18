@@ -175,7 +175,8 @@ typedef struct process {
 
 	/* Tracing */
 	pid_t tracer;               /* ptrace tracer; this should probably be a pointer... */
-	list_t * tracees;           /* threads this process is tracing in ptrace FIXME inline, can only have one tracer */
+	struct elist tracees;       /* List head */
+	struct elist trace_node;    /* List node */
 	siginfo_t * sig_cause;      /* cause of the current signal we are stopped for tracing by */
 
 	uint64_t affinity; /* bitmask */
