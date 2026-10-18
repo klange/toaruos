@@ -176,8 +176,8 @@ typedef struct process {
 	struct timeval start;    /* Only used for procfs... */
 
 	/* Process times */
-	uint64_t time_prev;         /* user time from previous update of usage[] */
-	uint64_t time_total;        /* user time */
+	uint64_t time_prev;         /* total time from previous update of usage[] */
+	uint64_t time_user;         /* user time */
 	uint64_t time_sys;          /* system time */
 	uint64_t time_in;           /* tsc stamp of when this process last entered the running state */
 	uint64_t time_switch;       /* tsc stamp of when this process last started doing system things */
@@ -267,7 +267,7 @@ struct ProcessorLocal {
 	uint64_t  midr;
 #endif
 
-	uint64_t time_total;
+	uint64_t time_user;
 	uint64_t time_sys;
 
 	struct elist readyqueue;
@@ -317,6 +317,7 @@ extern int exec(const char * path, int argc, char * argv[], char * env[], int in
 extern int fexec(struct fs_file_description *, int, char * argv[], char * envp[]);
 extern void update_process_usage(uint64_t clock_ticks, uint64_t perf_scale);
 extern void update_process_times_on_exit(void);
+extern void update_process_times_on_enter(void);
 extern size_t process_collect_by(off_t field, size_t fieldSize, void * target, pid_t ** into, int threads);
 extern int process_close_fds(process_t * proc, int for_what);
 extern int process_close_fd(process_t * proc, int fd);

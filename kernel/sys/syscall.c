@@ -1312,9 +1312,9 @@ long sys_times(struct tms *buf) {
 	if (buf) {
 		PTRCHECK(buf,sizeof(struct tms),MMU_PTR_WRITE);
 
-		buf->tms_utime  = (this_core->current_process->time_total - this_core->current_process->time_sys) / arch_cpu_mhz();
+		buf->tms_utime  = this_core->current_process->time_user / arch_cpu_mhz();
 		buf->tms_stime  = this_core->current_process->time_sys          / arch_cpu_mhz();
-		buf->tms_cutime = (this_core->current_process->time_children - this_core->current_process->time_sys_children) / arch_cpu_mhz();
+		buf->tms_cutime = this_core->current_process->time_children / arch_cpu_mhz();
 		buf->tms_cstime = this_core->current_process->time_sys_children / arch_cpu_mhz();
 	}
 
@@ -1327,10 +1327,10 @@ long sys_getrusage(int who, struct rusage *buf) {
 
 	uint64_t utime, stime;
 	if (who == RUSAGE_SELF) {
-		utime = (this_core->current_process->time_total - this_core->current_process->time_sys) / arch_cpu_mhz();
+		utime = this_core->current_process->time_user / arch_cpu_mhz();
 		stime = this_core->current_process->time_sys / arch_cpu_mhz();
 	} else {
-		utime = (this_core->current_process->time_children - this_core->current_process->time_sys_children) / arch_cpu_mhz();
+		utime = this_core->current_process->time_children / arch_cpu_mhz();
 		stime = this_core->current_process->time_sys_children / arch_cpu_mhz();
 	}
 

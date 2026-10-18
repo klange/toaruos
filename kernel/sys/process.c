@@ -62,35 +62,35 @@ static spin_lock_t sleep_lock = { 0 };
 static spin_lock_t reap_lock = { 0 };
 
 /**
- * Update both the total time and the system time when switching to a new thread
- * or exiting the current thread.
+ * @brief Get the total/sys/idle time for a core.
  */
-void update_process_times(void) {
-	uint64_t pTime = arch_perf_timer();
-	if (this_core->current_process->time_in && this_core->current_process->time_in < pTime) {
-		this_core->current_process->time_total +=  pTime - this_core->current_process->time_in;
-		this_core->time_total += pTime - this_core->current_process->time_in;
-	}
-	this_core->current_process->time_in = 0;
-
-	if (this_core->current_process->time_switch && this_core->current_process->time_switch < pTime) {
-		this_core->current_process->time_sys += pTime - this_core->current_process->time_switch;
-		this_core->time_sys += pTime - this_core->current_process->time_switch;
-	}
-	this_core->current_process->time_switch = 0;
+void get_core_timers(int i, uint64_t * user, uint64_t * sys, uint64_t * idle) {
+	*user  = processor_local_data[i].time_user / arch_cpu_mhz();
+	*sys   = processor_local_data[i].time_sys / arch_cpu_mhz();
+	*idle  = processor_local_data[i].kernel_idle_task->time_sys / arch_cpu_mhz();
 }
 
-/**
- * Add time spent in kernel to time_sys when returning to userspace, such as through
- * an interrupt return or entry into a signal handler.
- */
+void update_process_times_on_enter(void) {
+	uint64_t pTime = arch_perf_timer();
+	process_t * p= this_core->current_process;
+	if (p->time_switch) {
+		p->time_user += pTime - p->time_switch;
+		this_core->time_user += pTime - p->time_switch;
+		p->time_switch = 0;
+		p->time_in = pTime;
+	}
+}
+
 void update_process_times_on_exit(void) {
 	uint64_t pTime = arch_perf_timer();
-	if (this_core->current_process->time_switch && this_core->current_process->time_switch < pTime) {
-		this_core->current_process->time_sys += pTime - this_core->current_process->time_switch;
-		this_core->time_sys += pTime - this_core->current_process->time_switch;
+	process_t * p = this_core->current_process;
+
+	if (p->time_in) {
+		p->time_sys += pTime - p->time_in;
+		this_core->time_sys += pTime - p->time_in;
+		p->time_in = 0;
+		p->time_switch = pTime;
 	}
-	this_core->current_process->time_switch = 0;
 }
 
 #define must_have_lock(lck) if (lck.owner != this_core->cpu_id+1) { arch_fatal_prepare(); printf("Failed lock check.\n"); arch_dump_traceback(); arch_fatal(); }
@@ -121,7 +121,7 @@ void update_process_times_on_exit(void) {
  */
 void switch_next(void) {
 	this_core->previous_process = this_core->current_process;
-	update_process_times();
+	update_process_times_on_exit();
 
 	/* Get the next available process, discarded anything in the queue
 	 * marked as finished. */
@@ -130,7 +130,7 @@ void switch_next(void) {
 	} while (this_core->current_process->flags & PROC_FLAG_FINISHED);
 
 	this_core->current_process->time_in = arch_perf_timer();
-	this_core->current_process->time_switch = this_core->current_process->time_in;
+	this_core->current_process->time_switch = 0;
 
 	/* Restore paging and task switch context. */
 	mmu_set_directory(this_core->current_process->thread.page_directory->directory);
@@ -465,7 +465,7 @@ process_t * spawn_kidle(int bsp) {
 	idle->thread.context.sp = idle->image.stack;
 	idle->thread.context.bp = idle->image.stack;
 
-	this_core->time_total = 0;
+	this_core->time_user = 0;
 	this_core->time_sys = 0;
 
 	/* FIXME Why does the idle thread have wait queues and shm mappings?
@@ -1004,7 +1004,7 @@ int waitpid(int pid, int * status, int options) {
 			spin_unlock(proc->wait_lock);
 			if (is_parent && (candidate->flags & PROC_FLAG_FINISHED)) {
 				while (*((volatile int *)&candidate->flags) & PROC_FLAG_RUNNING);
-				proc->time_children += candidate->time_children + candidate->time_total;
+				proc->time_children += candidate->time_children + candidate->time_user;
 				proc->time_sys_children += candidate->time_sys_children + candidate->time_sys;
 				process_delete((process_t*)candidate);
 			}
@@ -1040,7 +1040,7 @@ void task_exit(long retval) {
 	process_t * proc = this_core->current_process;
 
 	proc->status = retval & 0xFFFF;
-	update_process_times();
+	update_process_times_on_exit();
 
 	spin_lock(process_queue_lock);
 	__sync_or_and_fetch(&proc->flags, PROC_FLAG_FINISHED);
@@ -1302,8 +1302,8 @@ static void update_one_process(uint64_t clock_ticks, uint64_t perf_scale, proces
 	proc->usage[3] = proc->usage[2];
 	proc->usage[2] = proc->usage[1];
 	proc->usage[1] = proc->usage[0];
-	proc->usage[0] = (1000 * (proc->time_total - proc->time_prev)) / (clock_ticks * perf_scale);
-	proc->time_prev = proc->time_total;
+	proc->usage[0] = (1000 * (proc->time_user + proc->time_sys - proc->time_prev)) / (clock_ticks * perf_scale);
+	proc->time_prev = proc->time_user + proc->time_sys;
 }
 
 void update_process_usage(uint64_t clock_ticks, uint64_t perf_scale) {

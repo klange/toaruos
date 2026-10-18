@@ -523,9 +523,7 @@ void isr_handler_inner(struct regs * r) {
 void isr_handler(struct regs * r) {
 	int from_userspace = r->cs != 0x08;
 
-	if (from_userspace && this_core->current_process) {
-		this_core->current_process->time_switch = arch_perf_timer();
-	}
+	if (from_userspace && this_core->current_process) update_process_times_on_enter();
 
 	isr_handler_inner(r);
 
@@ -536,7 +534,7 @@ void isr_handler(struct regs * r) {
 }
 
 void syscall_centry(struct regs * r) {
-	this_core->current_process->time_switch = arch_perf_timer();
+	update_process_times_on_enter();
 
 	syscall_handler(r);
 

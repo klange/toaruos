@@ -293,9 +293,7 @@ void aarch64_sync_enter(struct regs * r) {
 		esr, far, elr, spsr);
 	#endif
 
-	if (this_core->current_process) {
-		this_core->current_process->time_switch = arch_perf_timer();
-	}
+	if (this_core->current_process) update_process_times_on_enter();
 
 	if (esr == 0x2000000) {
 #if 0
@@ -436,9 +434,7 @@ int aarch64_interrupt_dispatch(int from_wfi) {
 }
 
 void aarch64_irq_enter(struct regs * r) {
-	if (this_core->current_process) {
-		this_core->current_process->time_switch = arch_perf_timer();
-	}
+	if (this_core->current_process) update_process_times_on_enter();
 
 	aarch64_interrupt_dispatch(0);
 

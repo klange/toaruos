@@ -402,7 +402,7 @@ static void proc_status_func(fs_node_t *node) {
 			proc->syscall_registers ? uregs_sp(proc->syscall_registers) : 0,
 			mem_usage, res_usage, res_anon, res_file, res_shm, mem_permille,
 			proc->owner,
-			proc->time_total / arch_cpu_mhz(),
+			(proc->time_user + proc->time_sys) / arch_cpu_mhz(),
 			proc->time_sys / arch_cpu_mhz(),
 			proc->usage[0], proc->usage[1], proc->usage[2], proc->usage[3],
 			proc->image.heap,
@@ -475,7 +475,7 @@ static void proc_stat_func(fs_node_t *node) {
 			parent ? parent->id : 0,
 			proc->job,
 			proc->session,
-			(proc->time_total - proc->time_sys) / arch_cpu_mhz() / 1000,
+			proc->time_user / arch_cpu_mhz() / 1000,
 			proc->time_sys / arch_cpu_mhz() / 1000,
 			(proc->time_children - proc->time_sys_children) / arch_cpu_mhz() / 1000,
 			proc->time_sys_children / arch_cpu_mhz() / 1000,
@@ -752,7 +752,15 @@ static void meminfo_func(fs_node_t *node) {
 static void uptime_func(fs_node_t *node) {
 	unsigned long timer_ticks, timer_subticks;
 	relative_time(0,0,&timer_ticks,&timer_subticks);
-	procfs_printf(node, "%lu.%06lu\n", timer_ticks, timer_subticks);
+
+	unsigned long time_idle = 0;
+	for (int i = 0; i < processor_count; ++i) {
+		time_idle += (processor_local_data[i].kernel_idle_task->time_sys / arch_cpu_mhz() / 10000);
+	}
+
+	procfs_printf(node, "%lu.%02lu %lu.%02lu\n",
+		timer_ticks, timer_subticks / 10000,
+		time_idle / 100, time_idle % 100);
 }
 
 static void cmdline_func(fs_node_t *node) {
@@ -886,28 +894,32 @@ static void self_func(fs_node_t *fnode) {
 }
 
 static void root_stat_func(fs_node_t *fnode) {
-	uint64_t time_total = 0;
+	uint64_t time_user = 0;
 	uint64_t time_sys   = 0;
 	uint64_t time_idle  = 0;
 
+	extern void get_core_timers(int i, uint64_t * user, uint64_t * sys, uint64_t * idle);
+
 	for (int i = 0; i < processor_count; ++i) {
-		time_total += processor_local_data[i].time_total / arch_cpu_mhz();
-		time_sys += processor_local_data[i].time_sys / arch_cpu_mhz();
-		time_idle += processor_local_data[i].kernel_idle_task->time_total / arch_cpu_mhz();
+		uint64_t user, sys, idle;
+		get_core_timers(i, &user, &sys, &idle);
+		time_user += user;
+		time_sys += sys;
+		time_idle += idle;
 	}
 
 	procfs_printf(fnode, "cpu %lu 0 %lu %lu 0 0 0 0 0 0\n",
-		(time_total - time_sys) / 1000,
+		time_user / 1000,
 		(time_sys - time_idle) / 1000,
 		time_idle / 1000);
 
 	for (int i = 0; i < processor_count; ++i) {
-		uint64_t time_total = processor_local_data[i].time_total / arch_cpu_mhz();
-		uint64_t time_sys = processor_local_data[i].time_sys / arch_cpu_mhz();
-		uint64_t time_idle = processor_local_data[i].kernel_idle_task->time_total / arch_cpu_mhz();
+		uint64_t time_user, time_sys, time_idle;
+		get_core_timers(i, &time_user, &time_sys, &time_idle);
+
 		procfs_printf(fnode, "cpu%d %lu 0 %lu %lu 0 0 0 0 0 0\n",
 			i,
-			(time_total - time_sys) / 1000,
+			time_user / 1000,
 			(time_sys - time_idle) / 1000,
 			time_idle / 1000);
 	}
