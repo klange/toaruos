@@ -75,27 +75,58 @@ static int should_exit = 0;
 static clock_t last_redraw = 0;
 static int cpu_count = 1;
 
-static void get_cpu_info(int cpus[]) {
-	FILE * f = fopen("/proc/idle","r");
-	char buf[4096];
-	fread(buf, 4096, 1, f);
+struct cpu_info {
+	unsigned long user;
+	unsigned long sys;
+	unsigned long idle;
+	unsigned long total;
+	unsigned long used;
+};
 
-	char * buffer = buf;
-	for (int i = 0; i < cpu_count; ++i) {
-		/* pid */
-		char * a = strchr(buffer, ':');
-		a++;
-		cpus[i] = strtoul(a, &a, 10);
-		cpus[i] += strtoul(a, &a, 10);
-		cpus[i] += strtoul(a, &a, 10);
-		cpus[i] += strtoul(a, &a, 10);
-		cpus[i] /= 4;
+static void get_cpu_info(struct cpu_info cpus[]) {
+	FILE * f = fopen("/proc/stat","re");
 
-		if (cpus[i] < 0) cpus[i] = 0;
-		if (cpus[i] > 1000) cpus[i] = 1000;
-		buffer = strchr(a, '\n');
+	char *line = NULL;
+	size_t avail = 0;
+	ssize_t len = 0;
+
+	int cpu = 0;
+
+	while ((len = getline(&line, &avail, f)) != -1) {
+		if (!strncmp(line, "cpu", 3) && line[3] != ' ') {
+			/* Assume these are in order */
+			char * x = strchr(line, ' ');
+			if (!x) continue;
+			char * user_time = ++x;
+			x = strchr(x, ' ');
+			if (!x) continue;
+			*x = '\0';
+			++x; /* unused, nice time */
+			x = strchr(x, ' ');
+			if (!x) continue;
+			*x = '\0';
+			char * sys_time = ++x;
+			x = strchr(x, ' ');
+			if (!x) continue;
+			*x = '\0';
+			char * idle_time = ++x;
+			x = strchr(x, ' ');
+			if (!x) continue;
+			*x = '\0';
+
+			cpus[cpu].user = strtoul(user_time, NULL, 0);
+			cpus[cpu].sys  = strtoul(sys_time,  NULL, 0);
+			cpus[cpu].idle = strtoul(idle_time, NULL, 0);
+
+			cpus[cpu].total = cpus[cpu].user + cpus[cpu].sys + cpus[cpu].idle;
+			cpus[cpu].used  = cpus[cpu].user + cpus[cpu].sys;
+
+			cpu++;
+			if (cpu == 32) break;
+		}
 	}
 
+	free(line);
 	fclose(f);
 }
 
@@ -172,6 +203,11 @@ static void draw_lines(gfx_context_t * ctx) {
 	}
 }
 
+static struct cpu_info last_cpus[32];
+static void preseed_run(void) {
+	get_cpu_info(last_cpus);
+}
+
 static void draw_cpu_graphs(gfx_context_t * ctx, float shift) {
 	draw_fill(ctx, rgb(0xF8,0xF8,0xF8));
 	draw_lines(ctx);
@@ -181,13 +217,19 @@ static void draw_cpu_graphs(gfx_context_t * ctx, float shift) {
 }
 
 static void next_cpu(gfx_context_t * ctx) {
-	int cpus_new[32];
+	struct cpu_info cpus_new[32];
 	get_cpu_info(cpus_new);
 
 	for (int i = 0; i < cpu_count; ++i) {
+		unsigned long total_diff = (cpus_new[i].total - last_cpus[i].total);
+		unsigned long used_diff  = (cpus_new[i].used  - last_cpus[i].used);
+		int permille = used_diff * 1000 / total_diff;
+
 		memmove(&cpu_samples[i][0], &cpu_samples[i][1], 99 * sizeof(long));
-		cpu_samples[i][99] = 1000-cpus_new[i];
+		cpu_samples[i][99] = permille;
 	}
+
+	memcpy(last_cpus, cpus_new, sizeof(last_cpus));
 
 	draw_cpu_graphs(ctx, 0.0);
 }
@@ -573,6 +615,9 @@ int main (int argc, char ** argv) {
 		fprintf(stderr, "%s: failed to connect to compositor\n", argv[0]);
 		return 1;
 	}
+
+	preseed_run();
+	usleep(100000);
 
 	srand(time(NULL));
 	for (int i = 0; i < cpu_count; ++i) {
