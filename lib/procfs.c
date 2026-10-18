@@ -202,3 +202,55 @@ struct process * procfs_get_pid(pid_t pid, int flags) {
 	snprintf(dent.d_name, sizeof(dent.d_name), "%d", pid);
 	return build_entry(&dent, flags);
 }
+
+int procfs_get_cpu_info(struct procfs_cpu_info *cpus, int max_cpus) {
+	FILE * f = fopen("/proc/stat","re");
+
+	if (!f) return 1;
+
+	char *line = NULL;
+	size_t avail = 0;
+	ssize_t len = 0;
+
+	int cpu = 0;
+
+	while ((len = getline(&line, &avail, f)) != -1) {
+		if (!strncmp(line, "cpu", 3) && line[3] != ' ') {
+			/* Assume these are in order */
+			char * x = strchr(line, ' ');
+			if (!x) continue;
+			char * user_time = ++x;
+			x = strchr(x, ' ');
+			if (!x) continue;
+			*x = '\0';
+			++x; /* unused, nice time */
+			x = strchr(x, ' ');
+			if (!x) continue;
+			*x = '\0';
+			char * sys_time = ++x;
+			x = strchr(x, ' ');
+			if (!x) continue;
+			*x = '\0';
+			char * idle_time = ++x;
+			x = strchr(x, ' ');
+			if (!x) continue;
+			*x = '\0';
+
+			cpus[cpu].user = strtoul(user_time, NULL, 0);
+			cpus[cpu].sys  = strtoul(sys_time,  NULL, 0);
+			cpus[cpu].idle = strtoul(idle_time, NULL, 0);
+
+			cpus[cpu].total = cpus[cpu].user + cpus[cpu].sys + cpus[cpu].idle;
+			cpus[cpu].used  = cpus[cpu].user + cpus[cpu].sys;
+
+			cpu++;
+			if (cpu == max_cpus) break;
+		}
+	}
+
+	free(line);
+	fclose(f);
+
+	return 0;
+}
+

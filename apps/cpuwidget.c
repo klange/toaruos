@@ -28,6 +28,7 @@
 #include <toaru/decorations.h>
 #include <toaru/text.h>
 #include <toaru/menu.h>
+#include <toaru/procfs.h>
 
 static int left, top, width, height;
 
@@ -74,61 +75,6 @@ uint32_t hsv_to_rgb(float h, float s, float v) {
 static int should_exit = 0;
 static clock_t last_redraw = 0;
 static int cpu_count = 1;
-
-struct cpu_info {
-	unsigned long user;
-	unsigned long sys;
-	unsigned long idle;
-	unsigned long total;
-	unsigned long used;
-};
-
-static void get_cpu_info(struct cpu_info cpus[]) {
-	FILE * f = fopen("/proc/stat","re");
-
-	char *line = NULL;
-	size_t avail = 0;
-	ssize_t len = 0;
-
-	int cpu = 0;
-
-	while ((len = getline(&line, &avail, f)) != -1) {
-		if (!strncmp(line, "cpu", 3) && line[3] != ' ') {
-			/* Assume these are in order */
-			char * x = strchr(line, ' ');
-			if (!x) continue;
-			char * user_time = ++x;
-			x = strchr(x, ' ');
-			if (!x) continue;
-			*x = '\0';
-			++x; /* unused, nice time */
-			x = strchr(x, ' ');
-			if (!x) continue;
-			*x = '\0';
-			char * sys_time = ++x;
-			x = strchr(x, ' ');
-			if (!x) continue;
-			*x = '\0';
-			char * idle_time = ++x;
-			x = strchr(x, ' ');
-			if (!x) continue;
-			*x = '\0';
-
-			cpus[cpu].user = strtoul(user_time, NULL, 0);
-			cpus[cpu].sys  = strtoul(sys_time,  NULL, 0);
-			cpus[cpu].idle = strtoul(idle_time, NULL, 0);
-
-			cpus[cpu].total = cpus[cpu].user + cpus[cpu].sys + cpus[cpu].idle;
-			cpus[cpu].used  = cpus[cpu].user + cpus[cpu].sys;
-
-			cpu++;
-			if (cpu == 32) break;
-		}
-	}
-
-	free(line);
-	fclose(f);
-}
 
 static uint32_t colors[32];
 static uint32_t if_colors[32];
@@ -203,9 +149,9 @@ static void draw_lines(gfx_context_t * ctx) {
 	}
 }
 
-static struct cpu_info last_cpus[32];
+static struct procfs_cpu_info last_cpus[32];
 static void preseed_run(void) {
-	get_cpu_info(last_cpus);
+	procfs_get_cpu_info(last_cpus, 32);
 }
 
 static void draw_cpu_graphs(gfx_context_t * ctx, float shift) {
@@ -217,8 +163,8 @@ static void draw_cpu_graphs(gfx_context_t * ctx, float shift) {
 }
 
 static void next_cpu(gfx_context_t * ctx) {
-	struct cpu_info cpus_new[32];
-	get_cpu_info(cpus_new);
+	struct procfs_cpu_info cpus_new[32];
+	procfs_get_cpu_info(cpus_new, 32);
 
 	for (int i = 0; i < cpu_count; ++i) {
 		unsigned long total_diff = (cpus_new[i].total - last_cpus[i].total);

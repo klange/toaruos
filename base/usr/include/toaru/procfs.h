@@ -36,3 +36,13 @@ typedef struct process {
 extern  void procfs_free(struct process * proc);
 extern int procfs_iterate(int (*callback)(struct process *,void*), void *ctx, int flags);
 extern struct process * procfs_get_pid(pid_t pid, int flags);
+
+struct procfs_cpu_info {
+	unsigned long user;
+	unsigned long sys;
+	unsigned long idle;
+	unsigned long total;
+	unsigned long used;
+};
+
+extern int procfs_get_cpu_info(struct procfs_cpu_info *cpus, int max_cpus);
