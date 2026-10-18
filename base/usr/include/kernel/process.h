@@ -87,6 +87,18 @@ struct signal_config {
 	int flags;
 };
 
+struct timer_event {
+	struct elist el;
+	uint64_t end_tick;
+	uint64_t end_subtick;
+	int (*callback)(struct timer_event *, void *);
+	void * priv;
+	void * key;
+};
+
+extern int timer_set(struct timer_event * t);
+extern int timer_cancel(struct timer_event * t);
+
 #define PROC_FLAG_IS_TASKLET 0x01
 #define PROC_FLAG_FINISHED   0x02
 #define PROC_FLAG_STARTED    0x04
@@ -180,6 +192,7 @@ typedef struct process {
 	siginfo_t * sig_cause;      /* cause of the current signal we are stopped for tracing by */
 
 	uint64_t affinity; /* bitmask */
+	struct timer_event alarm;
 } process_t;
 
 _Static_assert((__builtin_offsetof(process_t,flags) == 0), "flags must be the head of process struct");

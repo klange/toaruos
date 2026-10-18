@@ -1441,6 +1441,66 @@ long sys_get_affinity(pid_t pid, uint64_t *cores) {
 	return 0;
 }
 
+static void time_until(unsigned long timer_ticks, unsigned long timer_subticks, unsigned long *diff_ticks, unsigned long *diff_subticks) {
+	unsigned long current_ticks = 0, current_subticks = 0;
+	relative_time(0, 0, &current_ticks, &current_subticks);
+
+	if (current_ticks > timer_ticks || (current_ticks == timer_ticks && current_subticks > timer_subticks)) {
+		*diff_ticks = *diff_subticks = 0;
+	} else if (current_ticks == timer_ticks) {
+		*diff_ticks = 0;
+		*diff_subticks = timer_ticks - current_subticks;
+	} else if (current_subticks > timer_subticks) {
+		*diff_ticks = timer_ticks - current_ticks - 1;
+		*diff_subticks = (1000000 + timer_subticks) - current_subticks;
+	} else {
+		*diff_ticks = timer_ticks - current_ticks;
+		*diff_subticks = timer_subticks - current_subticks;
+	}
+}
+
+static int alarm_callback(struct timer_event * t, void * key) {
+	process_t * proc = t->priv;
+	t->key = key;
+	send_signal(proc->id, SIGALRM, 1);
+	return 0;
+}
+
+long sys_alarm(const struct timespec *new_alarm, struct timespec *old_alarm) {
+	if (old_alarm) PTRCHECK(old_alarm, sizeof(struct timespec), MMU_PTR_WRITE);
+	if (new_alarm) PTRCHECK(new_alarm, sizeof(struct timespec), 0);
+
+	process_t * p = this_core->current_process->process;
+	timer_cancel(&p->alarm);
+
+	if (old_alarm) {
+		if ((intptr_t)p->alarm.key == 0) {
+			unsigned long timer_ticks = 0, timer_subticks = 0;
+			time_until(p->alarm.end_tick, p->alarm.end_subtick, &timer_ticks, &timer_subticks);
+			old_alarm->tv_sec = timer_ticks;
+			old_alarm->tv_nsec = timer_subticks * 1000;
+		} else {
+			old_alarm->tv_sec = 0;
+			old_alarm->tv_nsec = 0;
+		}
+	}
+
+	if (!new_alarm) {
+		p->alarm.key = (void*)(intptr_t)-1;
+	} else {
+		unsigned long timer_ticks = 0, timer_subticks = 0;
+		relative_time(new_alarm->tv_sec, new_alarm->tv_nsec / 1000, &timer_ticks, &timer_subticks);
+		p->alarm.end_tick = timer_ticks;
+		p->alarm.end_subtick = timer_subticks;
+		p->alarm.key = (void*)(intptr_t)0;
+		p->alarm.priv = p;
+		p->alarm.callback = alarm_callback;
+		timer_set(&p->alarm);
+	}
+
+	return 0;
+}
+
 extern long ptrace_handle(long,pid_t,void*,void*);
 
 typedef long (*scall_func)(long,long,long,long,long,long);
@@ -1542,6 +1602,7 @@ static scall_func syscalls[] = {
 	[SYS_POLL]         = (scall_func)(uintptr_t)sys_poll,
 	[SYS_SET_AFFINITY] = (scall_func)(uintptr_t)sys_set_affinity,
 	[SYS_GET_AFFINITY] = (scall_func)(uintptr_t)sys_get_affinity,
+	[SYS_ALARM]        = (scall_func)(uintptr_t)sys_alarm,
 
 	[SYS_SOCKET]       = (scall_func)(uintptr_t)net_socket,
 	[SYS_SETSOCKOPT]   = (scall_func)(uintptr_t)net_setsockopt,

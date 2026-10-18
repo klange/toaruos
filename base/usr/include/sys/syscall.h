@@ -108,5 +108,6 @@
 #define SYS_POLL 105
 #define SYS_SET_AFFINITY 106
 #define SYS_GET_AFFINITY 107
+#define SYS_ALARM 108
 
-#define SYS__COUNT 108
+#define SYS__COUNT 109

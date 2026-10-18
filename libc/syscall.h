@@ -319,5 +319,7 @@ DECL_SYSCALL3(poll, struct pollfd *, unsigned int, int);
 DECL_SYSCALL2(set_affinity, int, uint64_t);
 DECL_SYSCALL2(get_affinity, int, uint64_t*);
 
+DECL_SYSCALL2(alarm, const struct timespec *, struct timespec *);
+
 _End_C_Header
 

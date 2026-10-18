@@ -48,4 +48,8 @@ extern int clock_gettime(clockid_t clk_id, struct timespec *tp);
 extern int clock_getres(clockid_t clk_id, struct timespec *res);
 extern int nanosleep(const struct timespec *rqtp, struct timespec *rmtp);
 
+#if defined(_TOARU_SOURCE)
+extern int nanoalarm(const struct timespec *, struct timespec *);
+#endif
+
 _End_C_Header

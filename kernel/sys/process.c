@@ -44,15 +44,6 @@
 #include <sys/uregs.h>
 #include <bits/poll.h>
 
-struct timer_sleep {
-	struct elist el;
-	uint64_t end_tick;
-	uint64_t end_subtick;
-	int (*callback)(struct timer_sleep *, void *);
-	void * priv;
-	void * key;
-};
-
 static struct elist sleep_list = {0};
 
 process_t * process_tree;  /* Stores the parent-child process relationships; the root of this graph is 'init'. */
@@ -457,6 +448,7 @@ static void task_init_common(process_t * proc) {
 	elist_init(&proc->rq_node);
 	elist_init(&proc->trace_node);
 	elist_init(&proc->tracees);
+	elist_init(&proc->alarm.el);
 	waitable_queue_init(&proc->child_queue);
 }
 
@@ -823,7 +815,7 @@ int process_is_ready(process_t * proc) {
 void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
 	spin_lock(sleep_lock);
 	for (struct elist * elem = sleep_list.el_next; elem != &sleep_list;) {
-		struct timer_sleep * t = (void*)((char*)elem - offsetof(struct timer_sleep, el));
+		struct timer_event * t = (void*)((char*)elem - offsetof(struct timer_event, el));
 		if (!(t->end_tick < seconds || (t->end_tick == seconds && t->end_subtick <= subseconds))) break;
 		t->callback(t, (void*)1);
 		struct elist * next = elem->el_next;
@@ -834,10 +826,30 @@ void wakeup_sleepers(unsigned long seconds, unsigned long subseconds) {
 	return;
 }
 
-static int sleep_callback(struct timer_sleep *t, void * key) {
+static int sleep_callback(struct timer_event *t, void * key) {
 	/* mark t as sleep completed? */
 	t->key = key;
 	make_process_ready(t->priv);
+	return 0;
+}
+
+int timer_set(struct timer_event * t) {
+	spin_lock(sleep_lock);
+	struct elist * before = &sleep_list;
+	for (struct elist * elem = sleep_list.el_next; elem != &sleep_list; elem = elem->el_next) {
+		struct timer_event * _t = (void*)((char*)elem - offsetof(struct timer_event, el));
+		if (_t->end_tick > t->end_tick || (_t->end_tick == t->end_tick && _t->end_subtick > t->end_subtick)) break;
+		before = elem;
+	}
+	elist_insert_after(before, &t->el);
+	spin_unlock(sleep_lock);
+	return 0;
+}
+
+int timer_cancel(struct timer_event * t) {
+	spin_lock(sleep_lock);
+	__elist_del(&t->el);
+	spin_unlock(sleep_lock);
 	return 0;
 }
 
@@ -849,7 +861,7 @@ static int sleep_callback(struct timer_sleep *t, void * key) {
  * sleep will not be resumed by the kernel.
  */
 int sleep_until(process_t * process, unsigned long seconds, unsigned long subseconds) {
-	struct timer_sleep t;
+	struct timer_event t;
 	t.callback = sleep_callback;
 	t.priv = process;
 	t.end_tick = seconds;
@@ -857,21 +869,9 @@ int sleep_until(process_t * process, unsigned long seconds, unsigned long subsec
 	t.key = NULL;
 	elist_init(&t.el);
 
-	spin_lock(sleep_lock);
-	struct elist * before = &sleep_list;
-	for (struct elist * elem = sleep_list.el_next; elem != &sleep_list; elem = elem->el_next) {
-		struct timer_sleep * _t = (void*)((char*)elem - offsetof(struct timer_sleep, el));
-		if (_t->end_tick > seconds || (_t->end_tick == seconds && _t->end_subtick > subseconds)) break;
-		before = elem;
-	}
-	elist_insert_after(before, &t.el);
-	spin_unlock(sleep_lock);
-
+	timer_set(&t);
 	switch_task(0);
-
-	spin_lock(sleep_lock);
-	__elist_del(&t.el);
-	spin_unlock(sleep_lock);
+	timer_cancel(&t);
 
 	return t.key == (void*)1;
 }
@@ -1046,6 +1046,8 @@ void task_exit(long retval) {
 	__sync_or_and_fetch(&proc->flags, PROC_FLAG_FINISHED);
 	__elist_del(&proc->rq_node);
 	spin_unlock(process_queue_lock);
+
+	timer_cancel(&proc->alarm);
 
 	if (proc->process == proc) {
 		/* If is thread leader, kill threads */

@@ -225,6 +225,7 @@ static const char * syscall_names[SYS__COUNT] = {
 	[SYS_POLL]         = "poll",
 	[SYS_SET_AFFINITY] = "set_affinity",
 	[SYS_GET_AFFINITY] = "get_affinity",
+	[SYS_ALARM]        = "alarm",
 };
 
 static const int syscall_set_net[] = {
@@ -1876,6 +1877,7 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 			/* One output arg */
 			break;
 		case SYS_NANOSLEEP:
+		case SYS_ALARM:
 			struct_timespec_arg(pid, uregs_syscall_arg1(r), 0, 0); COMMA
 			/* One output */
 			break;
@@ -2282,6 +2284,7 @@ static void finish_syscall(struct Pid * child, pid_t pid, int syscall, struct UR
 			maybe_errno(r);
 			break;
 		case SYS_NANOSLEEP:
+		case SYS_ALARM:
 			struct_timespec_arg(pid, uregs_syscall_arg2(r), 0, 0);
 			maybe_errno(r);
 			break;
