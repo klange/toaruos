@@ -422,7 +422,7 @@ static void get_cpu_info(struct cpu_info cpus[]) {
 	FILE * f = fopen("/proc/stat","re");
 
 	char *line = NULL;
-	size_t avail = NULL;
+	size_t avail = 0;
 	ssize_t len = 0;
 
 	int cpu = 0;

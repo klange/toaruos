@@ -910,7 +910,7 @@ static void root_stat_func(fs_node_t *fnode) {
 
 	procfs_printf(fnode, "cpu %lu 0 %lu %lu 0 0 0 0 0 0\n",
 		time_user / 1000,
-		(time_sys - time_idle) / 1000,
+		time_sys / 1000,
 		time_idle / 1000);
 
 	for (int i = 0; i < processor_count; ++i) {
@@ -920,7 +920,7 @@ static void root_stat_func(fs_node_t *fnode) {
 		procfs_printf(fnode, "cpu%d %lu 0 %lu %lu 0 0 0 0 0 0\n",
 			i,
 			time_user / 1000,
-			(time_sys - time_idle) / 1000,
+			time_sys / 1000,
 			time_idle / 1000);
 	}
 }

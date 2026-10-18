@@ -75,7 +75,7 @@ void update_process_times_on_enter(void) {
 	process_t * p= this_core->current_process;
 	if (p->time_switch) {
 		p->time_user += pTime - p->time_switch;
-		this_core->time_user += pTime - p->time_switch;
+		if (p != this_core->kernel_idle_task) this_core->time_user += pTime - p->time_switch;
 		p->time_switch = 0;
 		p->time_in = pTime;
 	}
@@ -87,7 +87,7 @@ void update_process_times_on_exit(void) {
 
 	if (p->time_in) {
 		p->time_sys += pTime - p->time_in;
-		this_core->time_sys += pTime - p->time_in;
+		if (p != this_core->kernel_idle_task) this_core->time_sys += pTime - p->time_in;
 		p->time_in = 0;
 		p->time_switch = pTime;
 	}
