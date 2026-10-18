@@ -23,6 +23,7 @@
 #include <toaru/menu.h>
 #include <toaru/text.h>
 #include <toaru/panel.h>
+#include <toaru/procfs.h>
 
 #define EASE_WIDTH 2
 #define NSAMPLE    32
@@ -85,45 +86,29 @@ static void plot_graph(gfx_context_t * ctx, size_t scale, long samples[NSAMPLE],
 	free(contour);
 }
 
-static void get_cpu_info(int cpus[]) {
-	FILE * f = fopen("/proc/idle","r");
-	char buf[4096];
-	fread(buf, 4096, 1, f);
-
-	char * buffer = buf;
-	for (int i = 0; i < cpu_count; ++i) {
-		/* pid */
-		char * a = strchr(buffer, ':');
-		a++;
-		cpus[i] = strtoul(a, &a, 10);
-		cpus[i] += strtoul(a, &a, 10);
-		cpus[i] += strtoul(a, &a, 10);
-		cpus[i] += strtoul(a, &a, 10);
-		cpus[i] /= 4;
-
-		if (cpus[i] < 0) cpus[i] = 0;
-		if (cpus[i] > 1000) cpus[i] = 1000;
-		buffer = strchr(a, '\n');
-	}
-
-	fclose(f);
-}
+static struct procfs_cpu_info last_cpus[32];
 
 static int widget_update_cpu(struct PanelWidget * this, int * force_updates) {
 	clock_t ticks = times(NULL);
 
 	if (ticks >= last_tick + CLOCKS_PER_SEC) {
 		last_tick = ticks;
-		int cpus_new[32];
-		get_cpu_info(cpus_new);
+		struct procfs_cpu_info cpus_new[32];
+		procfs_get_cpu_info(cpus_new, 32);
 
 		float total_usage = 0.0;
 		for (int i = 0; i < cpu_count; ++i) {
-			total_usage += cpus_new[i];
+			unsigned long total_diff = (cpus_new[i].total - last_cpus[i].total);
+			unsigned long used_diff  = (cpus_new[i].used  - last_cpus[i].used);
+			int permille = used_diff * 1000 / total_diff;
+
+			total_usage += permille;
 		}
 
+		memcpy(last_cpus, cpus_new, sizeof(last_cpus));
+
 		memmove(&cpu_samples[0], &cpu_samples[1], (NSAMPLE-1) * sizeof(long));
-		cpu_samples[NSAMPLE-1] = 1000 - (int)(total_usage / cpu_count);
+		cpu_samples[NSAMPLE-1] = (int)(total_usage / cpu_count);
 	}
 
 
@@ -186,10 +171,12 @@ struct PanelWidget * widget_init_cpu(void) {
 	struct PanelWidget * widget = widget_new();
 
 	cpu_count = sysconf(_SC_NPROCESSORS_ONLN);
+	procfs_get_cpu_info(last_cpus, 32);
 
 	for (int j = 0; j < NSAMPLE; ++j) {
 		cpu_samples[j] = -1;
 	}
+
 
 	last_tick = times(NULL);
 
