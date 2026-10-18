@@ -359,6 +359,28 @@ static void proc_status_func(fs_node_t *node) {
 			"Sid:\t%d\n"   /* session id */
 			"Uid:\t%d\t%d\t%d\n"
 			"Gid:\t%d\t%d\t%d\n"
+			"FDSize:\t%zu\n"
+			"Groups:\t",
+			proc->name,
+			proc->mask,
+			state,
+			proc->tgid,
+			proc->id,
+			parent ? parent->id : 0,
+			proc->tracer,
+			proc->job,
+			proc->session,
+			proc->real_user, proc->user, proc->saved_user,
+			proc->real_user_group, proc->user_group, proc->saved_user_group,
+			proc->fds ? proc->fds->capacity : 0);
+
+	/* Now do groups */
+	for (int i = 0; i < proc->supplementary_group_count; ++i) {
+		procfs_printf(node, "%d ", proc->supplementary_group_list[i]);
+	}
+
+	procfs_printf(node,
+			"\n"
 			"VmSize:\t %lu kB\n"
 			"VmRSS:\t %lu kB\n"
 			"RssAnon:\t %lu kB\n"
@@ -375,19 +397,7 @@ static void proc_status_func(fs_node_t *node) {
 			"SigIgn:\t%016zx\n"
 			"SigCgt:\t%016zx\n"
 			"Tty:\t%s\n"
-			"Cpus_allowed:\t%x\n"
-			,
-			proc->name,
-			proc->mask,
-			state,
-			proc->tgid,
-			proc->id,
-			parent ? parent->id : 0,
-			proc->tracer,
-			proc->job,
-			proc->session,
-			proc->real_user, proc->user, proc->saved_user,
-			proc->real_user_group, proc->user_group, proc->saved_user_group,
+			"Cpus_allowed:\t%x\n",
 			mem_usage, res_usage, res_anon, res_file, res_shm, mem_permille,
 			proc->owner,
 			(proc->time_user + proc->time_sys) / arch_cpu_mhz(),
