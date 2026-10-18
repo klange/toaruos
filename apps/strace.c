@@ -225,7 +225,7 @@ static const char * syscall_names[SYS__COUNT] = {
 	[SYS_POLL]         = "poll",
 	[SYS_SET_AFFINITY] = "set_affinity",
 	[SYS_GET_AFFINITY] = "get_affinity",
-	[SYS_ALARM]        = "alarm",
+	[SYS_ALARM]        = "nanoalarm",
 };
 
 static const int syscall_set_net[] = {
