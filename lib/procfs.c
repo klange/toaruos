@@ -86,6 +86,7 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 		} else if (strstr(line, "TotalTime:") == line) {
 			proc->time = strtoul(tab,NULL,0);
 		} else if (strstr(line, "State:") == line) {
+			if (*tab) tab[1] = '\0'; /* We only want one character; rest is a description we won't include */
 			proc->state = strdup(tab);
 		} else if (strstr(line, "Tty:") == line) {
 			proc->tty = strdup(tab);
