@@ -38,7 +38,8 @@ enum ColorMode {
 	COLOR_MODE_NONE = 0,
 	COLOR_MODE_AGE = 1,
 	COLOR_MODE_MINE = 2,
-	COLOR_MODE_MEM = 3,
+	COLOR_MODE_CPU = 3,
+	COLOR_MODE_MEM = 4,
 	COLOR_MODE_INVALID = -1,
 };
 
@@ -111,7 +112,7 @@ void print_process_tree_node(struct PstreeContext * ctx, tree_node_t * node, siz
 		depth += 3;
 	}
 
-	if (proc->user_data) printf("\033[1m");
+	if (proc->user_pdata) printf("\033[1m");
 	if (ctx->color_mode == COLOR_MODE_AGE) {
 		time_t now = time(NULL);
 		if (now - proc->starttime < 60) {
@@ -124,6 +125,18 @@ void print_process_tree_node(struct PstreeContext * ctx, tree_node_t * node, siz
 	} else if (ctx->color_mode == COLOR_MODE_MINE) {
 		if (proc->uid == getuid()) {
 			printf("\033[32m");
+		}
+	} else if (ctx->color_mode == COLOR_MODE_CPU) {
+		if (proc->user_data > 1000) { /* 100% (multi-threaded apps using more than one core) */
+			printf("\033[1;31m");
+		} else if (proc->user_data > 500) { /* 50% */
+			printf("\033[31m");
+		} else if (proc->user_data > 50) { /* 5% */
+			printf("\033[33m");
+		} else if (proc->user_data > 5) { /* 0.5% */
+			printf("\033[32m");
+		} else {
+			printf("\033[34m");
 		}
 	} else if (ctx->color_mode == COLOR_MODE_MEM) {
 		if (proc->mem > 666) {
@@ -160,7 +173,7 @@ void print_process_tree_node(struct PstreeContext * ctx, tree_node_t * node, siz
 		}
 	}
 
-	if (proc->user_data || ctx->color_mode) printf("\033[0m");
+	if (proc->user_pdata || ctx->color_mode) printf("\033[0m");
 
 	if (!node->children->length) {
 		printf("\n");
@@ -182,7 +195,24 @@ int pstree_callback(struct process * proc, void *_ctx) {
 	struct PstreeContext * ctx = _ctx;
 	tree_t * procs = ctx->procs;
 
+	proc->user_data = 0;
+
+	if (ctx->color_mode == COLOR_MODE_CPU) {
+		struct timespec now;
+		clock_gettime(CLOCK_MONOTONIC, &now);
+		unsigned long now_usec = now.tv_sec * 1000000 + now.tv_nsec / 1000;
+		unsigned long start_usec = proc->starttime * 1000000 + proc->starttimensec / 1000;
+		proc->user_data = proc->time * 1000 / (now_usec - start_usec);
+		if (proc->user_data > 1000) proc->user_data = 1000;
+	}
+
 	if (ctx->hide_threads && proc->pid != proc->tgid) {
+		if (ctx->color_mode == COLOR_MODE_CPU) {
+			tree_node_t * v = tree_find(procs,(void *)(uintptr_t)proc->tgid,find_pid);
+			if (v) {
+				((struct process *)v->value)->user_data += proc->user_data;
+			}
+		}
 		procfs_free(proc);
 		return 0;
 	}
@@ -203,6 +233,7 @@ int pstree_callback(struct process * proc, void *_ctx) {
 static int parse_color_mode(char * str) {
 	if (!strcasecmp(str, "age")) return COLOR_MODE_AGE;
 	if (!strcasecmp(str, "mine")) return COLOR_MODE_MINE;
+	if (!strcasecmp(str, "cpu")) return COLOR_MODE_CPU;
 	if (!strcasecmp(str, "mem")) return COLOR_MODE_MEM;
 	return -1;
 }
@@ -226,6 +257,7 @@ int usage(char * argv[]) {
 			"    age    " X_S "New proceses are green; older processs are yellow;" X_E "\n"
 			"           " X_S "oldest processes are red. (60s, 1hr, etc.)" X_E "\n"
 			"    mine   " X_S "Color processes belonging to the calling user green." X_E "\n"
+			"    cpu    " X_S "Color processes by core usage." X_E "\n"
 			"    mem    " X_S "Color processes by memory usage." X_E "\n"
 			"\n"
 			"If a " X_S "pid" X_E " argument is provided, the tree will be rooted\n"
@@ -302,7 +334,7 @@ int main (int argc, char * argv[]) {
 	ctx.procs = tree_create();
 
 	int flags = PROCFSLIB_NO_FREE;
-	if (ctx.color_mode == COLOR_MODE_AGE) flags |= PROCFSLIB_COLLECT_STARTTIME;
+	if (ctx.color_mode == COLOR_MODE_AGE || ctx.color_mode == COLOR_MODE_CPU) flags |= PROCFSLIB_COLLECT_STARTTIME;
 	if (ctx.show_cmdline) flags |= PROCFSLIB_COLLECT_COMMANDLINE;
 
 	procfs_iterate(pstree_callback,&ctx, flags);
@@ -311,7 +343,7 @@ int main (int argc, char * argv[]) {
 		tree_node_t * proc = tree_find(ctx.procs, (void*)(uintptr_t)hilight_pid, find_pid);
 		while (proc) {
 			struct process * p = proc->value;
-			p->user_data = 1;
+			p->user_pdata = (void*)1;
 			proc = proc->parent;
 		}
 	}
