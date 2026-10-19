@@ -44,16 +44,6 @@ A list of the names of available mountable filesystems.
 Information on the graphical framebuffer, if a driver has set one up.
 
 .TP
-.I /proc/idle
-CPU non\-usage data. One line is printed for each core consisting of the core
-ID, a colon, a space, and then the 4 latest core usage samples. These values
-represent the inverse of usage. The timing used to generate these numbers is
-subject to variance: Generally, 1000 means fully idle, but the value may be
-slightly more than that. Numbers under 1000 indicate core usage. 0 means a
-core has been fully pegged and not reported any idle time during that sample
-window.
-
-.TP
 .I /proc/kallsyms
 An \fBnm\fP\-style listing of dynamic symbols known to the kernel. These symbols
 come from both the kernel's symbol table and the symbol tables of loaded modules.
