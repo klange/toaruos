@@ -166,7 +166,7 @@ long ptrace_self(void) {
  */
 long ptrace_signal(int signal, int reason, void * cause) {
 	(*(volatile int*)&this_core->current_process->status) = 0x7F | (signal << 8) | (reason << 16);
-	__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_SUSPENDED);
+	__sync_or_and_fetch(&this_core->current_process->flags, PROC_FLAG_SUSPENDED | PROC_FLAG_TRACING_STOP);
 
 	this_core->current_process->sig_cause = cause;
 
@@ -201,7 +201,7 @@ long ptrace_signal(int signal, int reason, void * cause) {
  */
 static void signal_and_continue(pid_t pid, process_t * tracee, int sig) {
 	/* Unsuspend */
-	__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_SUSPENDED));
+	__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_SUSPENDED | PROC_FLAG_TRACING_STOP));
 
 	/* Does the process have a pending signal? */
 	if ((tracee->status >> 8) & 0xFF && (!(tracee->status >> 16) || ((tracee->status >> 16) == 0xFF))) {
@@ -449,7 +449,7 @@ long ptrace_singlestep(pid_t pid, int sig) {
 
 	arch_set_singlestep(tracee, 1);
 
-	__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_SUSPENDED));
+	__sync_and_and_fetch(&tracee->flags, ~(PROC_FLAG_SUSPENDED | PROC_FLAG_TRACING_STOP));
 	tracee->status = (sig << 8);
 	make_process_ready(tracee);
 

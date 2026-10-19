@@ -113,6 +113,7 @@ extern int timer_cancel(struct timer_event * t);
 #define PROC_FLAGS_TRACE (PROC_FLAG_TRACE_SIGNALS | PROC_FLAG_TRACE_SYSCALLS | PROC_FLAG_TRACE_FORK | PROC_FLAG_TRACE_CLONE)
 
 #define PROC_FLAG_RESTORE_SIGMASK    0x100
+#define PROC_FLAG_TRACING_STOP       0x800
 
 typedef struct process {
 	unsigned int flags;      /* finished, started, running, isTasklet */
