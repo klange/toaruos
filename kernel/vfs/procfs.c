@@ -866,18 +866,6 @@ static void pci_func(fs_node_t *node) {
 	pci_scan(&scan_hit_list, -1, node);
 }
 
-static void idle_func(fs_node_t *node) {
-	for (int i = 0; i < processor_count; ++i) {
-		procfs_printf(node, "%d: %4d %4d %4d %4d\n",
-			i,
-			processor_local_data[i].kernel_idle_task->usage[0],
-			processor_local_data[i].kernel_idle_task->usage[1],
-			processor_local_data[i].kernel_idle_task->usage[2],
-			processor_local_data[i].kernel_idle_task->usage[3]
-		);
-	}
-}
-
 static void kallsyms_func(fs_node_t *fnode) {
 	/* This doesn't include module symbols at the moment... */
 	hashmap_foreach(iter, ksym_get_map()) {
@@ -935,10 +923,9 @@ static struct procfs_entry std_entries[] = {
 	{-8, "modules",  modules_func, 0},
 	{-9, "filesystems", filesystems_func, 0},
 	{-10,"loader",   loader_func, 0},
-	{-11,"idle",     idle_func, 0},
-	{-12,"kallsyms", kallsyms_func, 0},
-	{-13,"pci",      pci_func, 0},
-	{-14,"stat",     root_stat_func, 0},
+	{-11,"kallsyms", kallsyms_func, 0},
+	{-12,"pci",      pci_func, 0},
+	{-13,"stat",     root_stat_func, 0},
 };
 
 static list_t * extended_entries = NULL;
