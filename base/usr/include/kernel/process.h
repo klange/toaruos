@@ -272,6 +272,7 @@ struct ProcessorLocal {
 
 	struct elist readyqueue;
 	struct elist *readyqueue_p;
+	int64_t rq_count;
 };
 
 extern struct ProcessorLocal processor_local_data[];

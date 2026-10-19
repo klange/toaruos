@@ -690,23 +690,24 @@ void process_delete(process_t * proc) {
 
 extern void arch_wakeup_other(int id);
 
+static inline int queue_is_empty(struct elist * queue) {
+	return queue == queue->el_next;
+}
+
 static int most_idle_of(uint64_t cpus) {
 	int cpu = 0;
-	int best = -1;
+	int64_t best = 9223372036854775807L;
 
 	for (int i = 0; i < processor_count; ++i) {
 		if (cpus && !((1UL << i) & cpus)) continue;
-		if (processor_local_data[i].kernel_idle_task->usage[0] >= best) {
-			best = processor_local_data[i].kernel_idle_task->usage[0];
+		if (queue_is_empty(&processor_local_data[i].readyqueue)) return i;
+		if (processor_local_data[i].rq_count < best) {
+			best = processor_local_data[i].rq_count;
 			cpu = i;
 		}
 	}
 
 	return cpu;
-}
-
-static inline int queue_is_empty(struct elist * queue) {
-	return queue == queue->el_next;
 }
 
 static inline int proc_on_cpu(process_t * proc, int cpu) {
@@ -719,6 +720,7 @@ static inline int proc_on_cpu(process_t * proc, int cpu) {
 static void pick_core_and_wakeup(process_t * proc) {
 	if (processor_count == 1) {
 		elist_insert_tail(&processor_local_data[0].readyqueue, &proc->rq_node);
+		processor_local_data[0].rq_count++;
 		return;
 	}
 
@@ -727,7 +729,7 @@ static void pick_core_and_wakeup(process_t * proc) {
 	if (proc->affinity && (proc->affinity ^ (proc->affinity - 1)) >= proc->affinity) { /* popcount(affinity) == 1 */
 		/* Pinned to one core, always use that one. */
 		target = __builtin_ctzl(proc->affinity);
-	} else if (proc_on_cpu(proc, proc->owner) && (proc->usage[0] > 500 || queue_is_empty(&processor_local_data[proc->owner].readyqueue))) {
+	} else if (proc_on_cpu(proc, proc->owner) && queue_is_empty(&processor_local_data[proc->owner].readyqueue)) {
 		/* Prefer last CPU if it's empty, or if we're hogging it. */
 		target = proc->owner;
 	} else {
@@ -736,6 +738,7 @@ static void pick_core_and_wakeup(process_t * proc) {
 	}
 
 	elist_insert_tail(&processor_local_data[target].readyqueue, &proc->rq_node);
+	processor_local_data[target].rq_count++;
 	arch_wakeup_other(target);
 }
 
@@ -774,11 +777,14 @@ process_t * next_ready_process(void) {
 	spin_lock(process_queue_lock);
 
 	if (!elist_peek_obj(this_core->readyqueue_p, process_t, rq_node)) {
+		this_core->rq_count = 0;
 		spin_unlock(process_queue_lock);
 		return this_core->kernel_idle_task;
 	}
 
 	process_t * next = elist_pop_obj(this_core->readyqueue_p, process_t, rq_node);
+
+	this_core->rq_count--;
 
 	if ((next->flags & PROC_FLAG_RUNNING) && (next->owner != this_core->cpu_id)) {
 		/* We pulled a process too soon, switch to idle for a bit so the
