@@ -62,7 +62,7 @@ int ps_callback(struct process * proc, void * ctx) {
 
 	proc->user_data = 0;
 
-	if (show_cpu) {
+	if (show_cpu && proc->pid != me->pid) {
 		struct timespec now;
 		clock_gettime(CLOCK_MONOTONIC, &now);
 		unsigned long now_usec = now.tv_sec * 1000000 + now.tv_nsec / 1000;
