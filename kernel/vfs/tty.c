@@ -440,6 +440,23 @@ static int ignoring(int sig) {
 	return 0;
 }
 
+static int soft_stop_pty(struct timer_event * t, void * key) {
+	t->key = key;
+	pty_t * pty = t->priv;
+	ring_buffer_eof(pty->in);
+	return 0;
+}
+
+static void set_vtime(struct timer_event * vtime, pty_t * pty, int timeout) {
+	unsigned long timer_ticks = 0, timer_subticks = 0;
+	relative_time(timeout / 10, (timeout % 10) * 100000, &timer_ticks, &timer_subticks);
+	vtime->end_tick = timer_ticks;
+	vtime->end_subtick = timer_subticks;
+	vtime->key = (void*)(intptr_t)0;
+	vtime->callback = soft_stop_pty;
+	vtime->priv = pty;
+}
+
 ssize_t read_pty_subsidiary(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
 	pty_t * pty = (pty_t *)node->device;
 
@@ -452,22 +469,60 @@ ssize_t read_pty_subsidiary(fs_node_t * node, off_t offset, size_t size, uint8_t
 		return -ERESTARTSYS;
 	}
 
-	if (pty->tios.c_lflag & ICANON) {
-		return ring_buffer_read(pty->in, size, buffer);
-	} else {
+	/* Request for size of zero always returns immediately, regardless. */
+	if (size == 0) return 0;
+
+	/* Canonical mode ignores vmin, vtime */
+	if (pty->tios.c_lflag & ICANON) return ring_buffer_read(pty->in, size, buffer);
+
+	ssize_t c = 0;
+	ssize_t r = 0;
+	ssize_t vmin = MIN(pty->tios.c_cc[VMIN], size);
+
+	if (pty->tios.c_cc[VTIME]) {
+		int timeout = pty->tios.c_cc[VTIME];
+		struct timer_event vtime;
+
 		if (pty->tios.c_cc[VMIN] == 0) {
-			return ring_buffer_read(pty->in, size, buffer);
+			/* VMIN == 0, TIME > 0: Read whatever we get within VTIME deciseconds. */
+			set_vtime(&vtime, pty, timeout);
+			timer_set(&vtime);
+			r = ring_buffer_read(pty->in, size, buffer);
+			timer_cancel(&vtime);
+			return r;
 		} else {
-			ssize_t c = 0;
-			ssize_t vmin = MIN(pty->tios.c_cc[VMIN], size);
+			/* VMIN > 0, TIME > 0: Read at least one byte, then read up to VMIN-1 more bytes,
+			 *                     resetting the timeout each time. */
+			r = ring_buffer_read(pty->in, size - c, buffer + c);
+			if (r <= 0) return c ? c : r;
+			c += r;
+
 			while (c < vmin) {
-				ssize_t r = ring_buffer_read(pty->in, size - c, buffer + c);
+				set_vtime(&vtime, pty, timeout);
+				timer_set(&vtime);
+				r = ring_buffer_read(pty->in, size - c, buffer + c);
+				timer_cancel(&vtime);
 				if (r <= 0) return c ? c : r;
 				c += r;
 			}
+
 			return c;
 		}
 	}
+
+	/* VTIME == 0, VMIN == 0: Return immediately, regardless. */
+	if (pty->tios.c_cc[VMIN] == 0) {
+		if (!ring_buffer_unread(pty->in)) return 0;
+		return ring_buffer_read(pty->in, size, buffer);
+	}
+
+	/* VTIME == 0, VMIN > 0: Collect the lesser of VMIN and size */
+	while (c < vmin) {
+		r = ring_buffer_read(pty->in, size - c, buffer + c);
+		if (r <= 0) return c ? c : r;
+		c += r;
+	}
+	return c;
 }
 
 ssize_t write_pty_subsidiary(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
