@@ -1,6 +1,8 @@
 /**
  * @brief Show processes sorted by resource usage.
  *
+ * @auto-dep debug
+ *
  * @copyright
  * This file is part of ToaruOS and is released under the terms
  * of the NCSA / University of Illinois License - see LICENSE.md
@@ -21,6 +23,7 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
+#include <sys/times.h>
 #include <sys/signal.h>
 
 #include <toaru/list.h>
@@ -36,7 +39,6 @@ enum header_columns {
 	COLUMN_RES,
 	COLUMN_SHM,
 	COLUMN_MEM,
-	COLUMN_CPUA,
 	COLUMN_CPU,
 	COLUMN_S
 };
@@ -55,6 +57,9 @@ enum header_columns {
 #define T_BR "\033[90m"
 
 static hashmap_t * process_ents = NULL;
+static hashmap_t * previous_ents = NULL;
+static unsigned long previous_tick = 0;
+static unsigned long current_tick = 1;
 static list_t * ents_list = NULL;
 static int cpu_count = 1;
 static int sort_column = COLUMN_CPU;
@@ -96,14 +101,13 @@ struct columns {
 	[COLUMN_RES]  = {"RES",  offsetof(struct process, res),   FORMATTER_MEM, 0, SORT_DEC},
 	[COLUMN_SHM]  = {"SHM",  offsetof(struct process, shm),   FORMATTER_MEM, 0, SORT_DEC},
 	[COLUMN_MEM]  = {"%MEM", offsetof(struct process, mem),   FORMATTER_PERCENT, 0, SORT_DEC},
-	[COLUMN_CPU]  = {"%CPU", offsetof(struct process, cpu),   FORMATTER_PERCENT, 0, SORT_DEC},
-	[COLUMN_CPUA] = {"CPUA", offsetof(struct process, user_data), FORMATTER_PERCENT, 0, SORT_DEC},
+	[COLUMN_CPU]  = {"%CPU", offsetof(struct process, user_data),   FORMATTER_PERCENT, 0, SORT_DEC},
 	[COLUMN_USER] = {"USER", offsetof(struct process, user_pdata), FORMATTER_STRING,    0, SORT_ASC},
 	[COLUMN_S]    = {"S",    offsetof(struct process, state),FORMATTER_STRING,  0, SORT_ASC},
 };
 
-static int columns_default[] = { COLUMN_PID, COLUMN_USER, COLUMN_VSZ, COLUMN_RES, COLUMN_SHM, COLUMN_S, COLUMN_CPU, COLUMN_CPUA, COLUMN_MEM, COLUMN_NONE };
-static int columns_threads[] = { COLUMN_PID, COLUMN_TID, COLUMN_USER, COLUMN_VSZ, COLUMN_RES, COLUMN_SHM, COLUMN_S, COLUMN_CPU, COLUMN_CPUA, COLUMN_MEM, COLUMN_NONE };
+static int columns_default[] = { COLUMN_PID, COLUMN_USER, COLUMN_VSZ, COLUMN_RES, COLUMN_SHM, COLUMN_S, COLUMN_CPU, COLUMN_MEM, COLUMN_NONE };
+static int columns_threads[] = { COLUMN_PID, COLUMN_TID, COLUMN_USER, COLUMN_VSZ, COLUMN_RES, COLUMN_SHM, COLUMN_S, COLUMN_CPU, COLUMN_MEM, COLUMN_NONE };
 static int * columns = NULL;
 
 /**
@@ -282,30 +286,26 @@ struct process * process_from_pid(pid_t pid) {
 	return hashmap_get(process_ents, (void*)(uintptr_t)pid);
 }
 
+struct process * previous_process_from_pid(pid_t pid) {
+	return previous_ents ? hashmap_get(previous_ents, (void*)(uintptr_t)pid) : NULL;
+}
+
 
 int top_callback(struct process * out, void * ctx) {
+	struct process * previous = previous_process_from_pid(out->pid);
+
+	out->user_data = previous ? (out->time - previous->time) * 1000 / (current_tick - previous_tick) : 0;
+
+	hashmap_set(process_ents, (void*)(uintptr_t)out->pid, out);
+
 	if (out->tgid != out->pid && combine_threads) {
 		struct process * parent = process_from_pid(out->tgid);
-		if (parent) {
-			int t = 0;
-			for (int i = 0; i < 4; ++i) {
-				parent->cpu[i] += out->cpu[i];
-				t += out->cpu[i];
-			}
-			parent->user_data = t / 4;
-		}
-		procfs_free(out);
+		if (parent) parent->user_data += out->user_data;
 		return 0;
 	}
 
 	hashmap_set(process_ents, (void*)(uintptr_t)out->pid, out);
 	list_insert(ents_list, (void *)out);
-
-	out->user_data = 0;
-	for (int i = 0; i < 4; ++i) {
-		out->user_data += out->cpu[i];
-	}
-	out->user_data /= 4;
 
 	out->user_pdata = format_username(out->uid);
 
@@ -534,10 +534,6 @@ static void toggle_mode(void) {
 }
 
 static struct procfs_cpu_info last_cpus[32];
-static void preseed_run(void) {
-	procfs_get_cpu_info(last_cpus, 32);
-	usleep(150000);
-}
 
 /**
  * @brief Collect information on running processes.
@@ -550,10 +546,22 @@ static struct process ** read_processes(size_t * count) {
 	ents_list = list_create();
 	process_ents = hashmap_create_int(10);
 
+	current_tick = times(NULL);
+
 	procfs_iterate(top_callback, NULL, PROCFSLIB_NO_FREE | PROCFSLIB_COLLECT_COMMANDLINE | PROCFSLIB_NO_CURLY_THREADS | PROCFSLIB_COLLECT_EXE);
 
-	hashmap_free(process_ents);
-	free(process_ents);
+	if (previous_ents) {
+		hashmap_foreach(iter, previous_ents) {
+			struct process * p;
+			hashmap_iter_get(&iter, NULL, &p);
+			free_entry(p);
+		}
+		hashmap_free(previous_ents);
+		free(previous_ents);
+	}
+
+	previous_ents = process_ents;
+	previous_tick = current_tick;
 
 	/* Turn list into an array */
 	*count = ents_list->length;
@@ -571,6 +579,14 @@ static struct process ** read_processes(size_t * count) {
 	qsort(processList, *count, sizeof(struct process*), sort_processes);
 
 	return processList;
+}
+
+static void preseed_run(void) {
+	procfs_get_cpu_info(last_cpus, 32);
+	size_t count;
+	struct process ** processList = read_processes(&count);
+	free(processList);
+	usleep(150000);
 }
 
 /**
@@ -715,9 +731,6 @@ static int do_once(int delay) {
 	fflush(stdout);
 
 	/* Clean up process data from this round */
-	for (ent = 0; ent < count; ++ent) {
-		free_entry(processList[ent]);
-	}
 	free(processList);
 
 	/* Wait for command or 2 seconds for next refresh... */
@@ -813,7 +826,6 @@ static int do_log(void) {
 			print_column(out, *c, 0);
 		}
 		printf("%s%s\n", out->exe, out->cmdline);
-		free_entry(out);
 	}
 	free(processList);
 
