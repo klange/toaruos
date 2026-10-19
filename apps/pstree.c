@@ -197,7 +197,7 @@ int pstree_callback(struct process * proc, void *_ctx) {
 
 	proc->user_data = 0;
 
-	if (ctx->color_mode == COLOR_MODE_CPU) {
+	if (ctx->color_mode == COLOR_MODE_CPU && proc->pid != getpid()) {
 		struct timespec now;
 		clock_gettime(CLOCK_MONOTONIC, &now);
 		unsigned long now_usec = now.tv_sec * 1000000 + now.tv_nsec / 1000;
