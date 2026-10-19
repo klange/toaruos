@@ -307,15 +307,19 @@ static void proc_status_func(fs_node_t *node) {
 
 	process_t * parent = process_get_parent(proc->process);
 
-	char state = 'S';
+	const char * state = "S (sleeping)";
 
 	/* Base state */
 	if ((proc->flags & PROC_FLAG_RUNNING) || process_is_ready(proc)) {
-		state = 'R'; /* Running or runnable */
+		state = "R (running)"; /* Running or runnable */
 	} else if ((proc->flags & PROC_FLAG_FINISHED)) {
-		state = 'Z'; /* Zombie - exited but not yet reaped */
+		state = "Z (zombie)"; /* Zombie - exited but not yet reaped */
 	} else if ((proc->flags & PROC_FLAG_SUSPENDED)) {
-		state = 'T'; /* Stopped; TODO can we differentiate stopped tracees correctly? */
+		if ((proc->flags & PROC_FLAG_TRACING_STOP)) {
+			state = "t (tracing stop)";
+		} else {
+			state = "T (stopped)"; /* Stopped; TODO can we differentiate stopped tracees correctly? */
+		}
 	}
 
 	/* Calculate process memory usage */
@@ -350,7 +354,7 @@ static void proc_status_func(fs_node_t *node) {
 	procfs_printf(node,
 			"Name:\t%s\n"  /* name */
 			"Umask:\t%04o\n"
-			"State:\t%c\n"
+			"State:\t%s\n"
 			"Tgid:\t%d\n"  /* group ? group : pid */
 			"Pid:\t%d\n"   /* pid */
 			"PPid:\t%d\n"  /* parent pid */
