@@ -183,7 +183,6 @@ typedef struct process {
 	uint64_t time_switch;       /* tsc stamp of when this process last started doing system things */
 	uint64_t time_children;     /* sum of user times from waited-for children */
 	uint64_t time_sys_children; /* sum of sys times from waited-for children */
-	uint16_t usage[4];          /* four permille samples over some period (currently 4Hz) */
 
 	/* Tracing */
 	pid_t tracer;               /* ptrace tracer; this should probably be a pointer... */
@@ -316,7 +315,6 @@ extern pid_t clone(uintptr_t new_stack, uintptr_t thread_func, uintptr_t arg);
 extern int waitpid(int pid, int * status, int options);
 extern int exec(const char * path, int argc, char * argv[], char * env[], int interp_depth);
 extern int fexec(struct fs_file_description *, int, char * argv[], char * envp[]);
-extern void update_process_usage(uint64_t clock_ticks, uint64_t perf_scale);
 extern void update_process_times_on_exit(void);
 extern void update_process_times_on_enter(void);
 extern size_t process_collect_by(off_t field, size_t fieldSize, void * target, pid_t ** into, int threads);

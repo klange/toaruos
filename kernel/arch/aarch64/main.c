@@ -193,20 +193,10 @@ void timer_start(void) {
 	gic_regs[160] = 0xFFFFffff; //(1 << TIMER_IRQ);
 }
 
-static volatile uint64_t time_slice_basis = 0; /**< When the last clock update happened */
-static spin_lock_t ticker_lock;
 static void update_clock(void) {
 	uint64_t clock_ticks = arch_perf_timer() / sys_timer_freq;
 	uint64_t timer_ticks, timer_subticks;
 	update_ticks(clock_ticks, &timer_ticks, &timer_subticks);
-
-	spin_lock(ticker_lock);
-	if (time_slice_basis + SUBSECONDS_PER_SECOND/4 <= clock_ticks) {
-		update_process_usage(clock_ticks - time_slice_basis, sys_timer_freq);
-		time_slice_basis = clock_ticks;
-	}
-	spin_unlock(ticker_lock);
-
 	wakeup_sleepers(timer_ticks, timer_subticks);
 }
 

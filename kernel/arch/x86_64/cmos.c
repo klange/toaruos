@@ -377,9 +377,6 @@ void relative_time(unsigned long seconds, unsigned long subseconds, unsigned lon
 	}
 }
 
-static uint64_t time_slice_basis = 0; /**< When the last clock update happened */
-static spin_lock_t clock_lock = { 0 }; /**< Allow only one core to do this */
-
 /**
  * @brief Update the global timer tick values.
  *
@@ -387,7 +384,6 @@ static spin_lock_t clock_lock = { 0 }; /**< Allow only one core to do this */
  * based on the current TSC time.
  */
 void arch_update_clock(void) {
-	spin_lock(clock_lock);
 
 	/* Obtain TSC timestamp, in microseconds */
 	uint64_t clock_ticks = read_tsc() / tsc_mhz;
@@ -395,21 +391,6 @@ void arch_update_clock(void) {
 	/* Convert it to seconds and subseconds */
 	uint64_t timer_ticks, timer_subticks;
 	update_ticks(clock_ticks, &timer_ticks, &timer_subticks);
-
-	/**
-	 * Update per-process quarter-second usage statistics
-	 *
-	 * XXX I think this was a bad idea and it should be removed.
-	 *     We store four quarter-second usage values in a sliding
-	 *     array and update them for every process, so that we can
-	 *     query CPU% without having to sample, but that's a lot
-	 *     more work in the kernel than we need...
-	 */
-	if (time_slice_basis + SUBSECONDS_PER_SECOND/4 <= clock_ticks) {
-		update_process_usage(clock_ticks - time_slice_basis, tsc_mhz);
-		time_slice_basis = clock_ticks;
-	}
-	spin_unlock(clock_lock);
 
 	/* Wake up any processes that have expired timeouts */
 	wakeup_sleepers(timer_ticks, timer_subticks);
