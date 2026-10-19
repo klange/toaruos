@@ -838,6 +838,8 @@ long sys_fcntl(int fd, int cmd, long arg) {
 		case F_DUPFD_QUERY:
 			if (!FD_CHECK(arg)) return -EBADF;
 			return FD_FILE(arg) == FD_FILE(fd);
+		case F_CREATED_QUERY:
+			return !!(FD_MODE(fd) & PROC_FD_MODE_CREATED);
 		case F_GETLK:
 		case F_SETLK:
 		case F_SETLKW:

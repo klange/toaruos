@@ -780,6 +780,7 @@ static void fcntl_cmd_arg(long cmd) {
 		C(F_DUPFD_CLOEXEC);
 		C(F_DUPFD_CLOFORK);
 		C(F_DUPFD_QUERY);
+		C(F_CREATED_QUERY);
 		default:
 			fprintf(logfile, "%ld", cmd);
 			break;

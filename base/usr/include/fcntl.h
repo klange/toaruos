@@ -32,6 +32,7 @@ _Begin_C_Header
 #define F_DUPFD_CLOEXEC 11
 #define F_DUPFD_CLOFORK 12
 #define F_DUPFD_QUERY   13
+#define F_CREATED_QUERY 14
 
 /* Advisory locks are not currently supported;
  * these definitions are stubs. */
