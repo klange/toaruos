@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <pwd.h>
+#include <time.h>
 
 #include <toaru/list.h>
 #include <toaru/hashmap.h>
@@ -59,11 +60,22 @@ int ps_callback(struct process * proc, void * ctx) {
 	if (!show_all && proc->uid != getuid()) return procfs_free(proc), 0;
 	if (!show_nontty && !*proc->tty) return procfs_free(proc), 0;
 
+	proc->user_data = 0;
+
+	if (show_cpu) {
+		struct timespec now;
+		clock_gettime(CLOCK_MONOTONIC, &now);
+		unsigned long now_usec = now.tv_sec * 1000000 + now.tv_nsec / 1000;
+		unsigned long start_usec = proc->starttime * 1000000 + proc->starttimensec / 1000;
+		proc->user_data = proc->time * 1000 / (now_usec - start_usec);
+		if (proc->user_data > 1000) proc->user_data = 1000;
+	}
+
 	if (!show_threads && proc->tgid != proc->pid) {
 		struct process * parent = process_from_pid(proc->tgid);
 		if (parent) {
-			parent->cpu[0] += proc->cpu[0];
-			parent->time =+ proc->time;
+			parent->user_data += proc->user_data;
+			parent->time += proc->time;
 		}
 
 		procfs_free(proc);
@@ -80,7 +92,7 @@ int ps_callback(struct process * proc, void * ctx) {
 	if ((len = snprintf(NULL, 0, "%d", proc->vsz)) > widths[3]) widths[3] = len;
 	if ((len = snprintf(NULL, 0, "%d", proc->shm)) > widths[4]) widths[4] = len;
 	if ((len = snprintf(NULL, 0, "%d.%01d", proc->mem / 10, proc->mem % 10)) > widths[5]) widths[5] = len;
-	if ((len = snprintf(NULL, 0, "%d.%01d", proc->cpu[0] / 10, proc->cpu[0] % 10)) > widths[6]) widths[6] = len;
+	if ((len = snprintf(NULL, 0, "%d.%01d", proc->user_data / 10, proc->user_data % 10)) > widths[6]) widths[6] = len;
 	if ((len = snprintf(NULL, 0, "%lu:%02lu.%02lu",
 		(proc->time / (1000000UL * 60 * 60)),
 		(proc->time / (1000000UL * 60)) % 60,
@@ -145,7 +157,7 @@ void print_entry(struct process * out) {
 	}
 	if (show_cpu) {
 		char tmp[10];
-		sprintf(tmp, "%*d.%01d", widths[6]-2, out->cpu[0] / 10, out->cpu[0] % 10);
+		sprintf(tmp, "%*d.%01d", widths[6]-2, out->user_data / 10, out->user_data % 10);
 		printf("%*s ", widths[6], tmp);
 	}
 	if (show_mem) {
@@ -244,6 +256,7 @@ int main (int argc, char * argv[]) {
 
 	int flags = PROCFSLIB_NO_FREE;
 	if (collect_commandline) flags |= PROCFSLIB_COLLECT_COMMANDLINE;
+	if (show_cpu) flags |= PROCFSLIB_COLLECT_STARTTIME;
 
 	procfs_iterate(ps_callback, NULL, flags);
 
