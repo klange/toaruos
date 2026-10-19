@@ -730,9 +730,8 @@ static fs_node_t * procfs_procdir_create(process_t * process) {
 	fnode->mask = 0555;
 	fnode->type    = INO_DIR;
 	fnode->nlink   = 1;
-	fnode->ctime   = process->start.tv_sec;
-	fnode->mtime   = process->start.tv_sec;
-	fnode->atime   = process->start.tv_sec;
+	fnode->ctime = fnode->mtime = fnode->atime = process->start.tv_sec;
+	fnode->ctime_nsec = fnode->mtime_nsec = fnode->atime_nsec  = process->start.tv_usec * 1000;
 	fnode->ops     = &procfs_procdir_ops;
 	return fnode;
 }
