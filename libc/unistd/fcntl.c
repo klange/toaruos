@@ -17,6 +17,7 @@ int fcntl(int fd, int cmd, ...) {
 		case F_DUPFD:
 		case F_DUPFD_CLOEXEC:
 		case F_DUPFD_CLOFORK:
+		case F_DUPFD_QUERY:
 			arg = va_arg(ap, int); /* "taken as an integer of type int" */
 			break;
 		case F_GETLK:

@@ -779,13 +779,14 @@ static void fcntl_cmd_arg(long cmd) {
 		C(F_SETLKW);
 		C(F_DUPFD_CLOEXEC);
 		C(F_DUPFD_CLOFORK);
+		C(F_DUPFD_QUERY);
 		default:
 			fprintf(logfile, "%ld", cmd);
 			break;
 	}
 }
 
-static void fcntl_arg_arg(long cmd, long arg) {
+static void fcntl_arg_arg(pid_t pid, long cmd, long arg) {
 	long flags = arg;
 	int force = 1;
 	switch (cmd) {
@@ -804,6 +805,11 @@ static void fcntl_arg_arg(long cmd, long arg) {
 			/* O_SYNC, etc. ? */
 			break;
 		}
+
+		case F_DUPFD_QUERY:
+			COMMA;
+			fd_arg(pid, arg);
+			break;
 
 		case F_DUPFD:
 		case F_DUPFD_CLOEXEC:
@@ -1899,7 +1905,7 @@ static void handle_syscall(struct Pid * child, pid_t pid, struct URegs * r) {
 		case SYS_FCNTL:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;
 			fcntl_cmd_arg(uregs_syscall_arg2(r)); /* Comma is printed by fcntl_arg_arg */
-			fcntl_arg_arg(uregs_syscall_arg2(r), uregs_syscall_arg3(r));
+			fcntl_arg_arg(pid, uregs_syscall_arg2(r), uregs_syscall_arg3(r));
 			break;
 		case SYS_FTRUNCATE:
 			fd_arg(pid, uregs_syscall_arg1(r)); COMMA;

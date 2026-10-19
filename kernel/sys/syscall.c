@@ -833,6 +833,9 @@ long sys_fcntl(int fd, int cmd, long arg) {
 			if (cmd == F_DUPFD_CLOFORK) flags = PROC_FD_MODE_CLOFORK;
 			return process_fd_dup_least((process_t*)this_core->current_process, fd, arg, flags);
 		}
+		case F_DUPFD_QUERY:
+			if (!FD_CHECK(arg)) return -EBADF;
+			return FD_FILE(arg) == FD_FILE(fd);
 		case F_GETLK:
 		case F_SETLK:
 		case F_SETLKW:
