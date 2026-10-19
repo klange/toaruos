@@ -989,8 +989,8 @@ static int readdir_procfs_root(fs_node_t *node, uint64_t index, struct dirent * 
 
 	pid_t pid = 0;
 
-	foreach(lnode, process_list) {
-		process_t * proc = (process_t *)lnode->value;
+	for (struct elist * n = process_list.el_next; n != &process_list; n = n->el_next) {
+		process_t * proc = elist_container(n, process_t, pl_node);
 		if (proc->tgid != proc->id) continue;
 		i--;
 		if (i == 0) {

@@ -45,10 +45,9 @@
 #include <bits/poll.h>
 
 static struct elist sleep_list = {0};
-
+static struct elist reap_queue = {0}; /* Processes that could not be cleaned up and need to be deleted. */
+struct elist process_list = {0};
 process_t * process_tree;  /* Stores the parent-child process relationships; the root of this graph is 'init'. */
-list_t * process_list;  /* Stores all existing processes. Mostly used for sanity checking or for places where iterating over all processes is useful. */
-list_t * reap_queue;    /* Processes that could not be cleaned up and need to be deleted. */
 
 struct ProcessorLocal processor_local_data[32] = {0};
 int processor_count = 1;
@@ -224,9 +223,8 @@ void initialize_process_tree(void) {
 		processor_local_data[i].readyqueue_p = &processor_local_data[i].readyqueue;
 	}
 	elist_init(&sleep_list);
-
-	process_list = list_create("global process list",NULL);
-	reap_queue = list_create("processes awaiting later cleanup",NULL);
+	elist_init(&process_list);
+	elist_init(&reap_queue);
 
 	this_core->current_process = &dummy_process;
 
@@ -449,6 +447,7 @@ static void task_init_common(process_t * proc) {
 	elist_init(&proc->trace_node);
 	elist_init(&proc->tracees);
 	elist_init(&proc->alarm.el);
+	elist_init(&proc->pl_node);
 	waitable_queue_init(&proc->child_queue);
 }
 
@@ -514,7 +513,7 @@ process_t * spawn_init(void) {
 	init->thread.page_directory->directory = mmu_clone(NULL);
 	mmu_set_directory(init->thread.page_directory->directory);
 	spin_init(init->thread.page_directory->lock);
-	list_insert(process_list, (void*)init);
+	elist_insert_tail(&process_list, &init->pl_node);
 
 	return init;
 }
@@ -583,7 +582,7 @@ static process_t * spawn_process(process_t * parent, int flags, int close_at_for
 
 	spin_lock(tree_lock);
 	etree_insert_child(parent, proc, tree_node);
-	list_insert(process_list, (void*)proc);
+	elist_insert_tail(&process_list, &proc->pl_node);
 	spin_unlock(tree_lock);
 	return proc;
 }
@@ -622,18 +621,16 @@ static int process_is_owned(process_t * proc) {
 
 void process_reap_later(process_t * proc) {
 	spin_lock(reap_lock);
+
 	/* See if we can delete anything */
-	while (reap_queue->head) {
-		process_t * proc = reap_queue->head->value;
-		if (!process_is_owned(proc)) {
-			free(list_dequeue(reap_queue));
-			process_reap(proc);
-		} else {
-			break;
-		}
+	while (1) {
+		process_t * proc = elist_peek_obj(&reap_queue, process_t, pl_node);
+		if (!proc || process_is_owned(proc)) break;
+		__elist_del(&proc->pl_node);
+		process_reap(proc);
 	}
-	/* And delete this thing later */
-	list_insert(reap_queue, proc);
+
+	elist_insert_tail(&reap_queue, &proc->pl_node);
 	spin_unlock(reap_lock);
 }
 
@@ -667,9 +664,7 @@ void process_delete(process_t * proc) {
 
 	etree_detach_reparent(proc, process_tree, tree_node);
 
-	node_t * n = list_find(process_list, proc);
-	list_delete(process_list, n);
-	free(n);
+	__elist_del(&proc->pl_node);
 	spin_unlock(tree_lock);
 
 	if (has_children) {
@@ -1296,7 +1291,7 @@ process_t * spawn_worker_thread(void (*entrypoint)(void * argp), const char * na
 
 	spin_lock(tree_lock);
 	etree_insert_child(this_core->current_process, proc, tree_node);
-	list_insert(process_list, (void*)proc);
+	elist_insert_tail(&process_list, &proc->pl_node);
 	spin_unlock(tree_lock);
 
 	make_process_ready(proc);
@@ -1328,8 +1323,8 @@ size_t process_collect_by(off_t field, size_t fieldSize, void * target, pid_t **
 	*into = NULL;
 
 	spin_lock(tree_lock);
-	foreach(node, process_list) {
-		process_t * proc = node->value;
+	for (struct elist * n = process_list.el_next; n != &process_list; n = n->el_next) {
+		process_t * proc = elist_container(n, process_t, pl_node);
 		if (!threads && proc->tgid != proc->id) continue; /* Only collect thread group leaders */
 		if (!memcmp((char*)proc + field, target, fieldSize)) {
 			if (count == cap) {
@@ -1462,8 +1457,8 @@ void process_send_sigchld(process_t * proc, process_t * parent, int reason, int 
 size_t process_erase_field(off_t field, size_t fieldSize, void * target) {
 	size_t count = 0;
 	spin_lock(tree_lock);
-	foreach(node, process_list) {
-		process_t * proc = node->value;
+	for (struct elist * n = process_list.el_next; n != &process_list; n = n->el_next) {
+		process_t * proc = elist_container(n, process_t, pl_node);
 		if (!memcmp((char*)proc + field, target, fieldSize)) {
 			memset((char*)proc + field, 0, fieldSize);
 			count++;

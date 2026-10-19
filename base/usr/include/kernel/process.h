@@ -192,6 +192,8 @@ typedef struct process {
 
 	uint64_t affinity; /* bitmask */
 	struct timer_event alarm;
+
+	struct elist pl_node;
 } process_t;
 
 _Static_assert((__builtin_offsetof(process_t,flags) == 0), "flags must be the head of process struct");
@@ -326,7 +328,7 @@ extern size_t process_erase_field(off_t field, size_t fieldSize, void * target);
 extern size_t process_get_tty(process_t * proc, size_t len, char * out);
 extern void process_free_cmdline(process_t *, char **);
 
-extern list_t * process_list;  /* Flat storage */
+extern struct elist process_list;
 
 extern void arch_enter_tasklet(void);
 extern __attribute__((noreturn)) void arch_resume_user(void);
