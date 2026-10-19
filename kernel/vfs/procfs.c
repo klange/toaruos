@@ -391,7 +391,6 @@ static void proc_status_func(fs_node_t *node) {
 			"TotalTime:\t %ld us\n"
 			"UserTime:\t %ld us\n"
 			"SysTime:\t %ld us\n"
-			"CpuPermille:\t %d %d %d %d\n"
 			"UserBrk:\t%#zx\n"
 			"SigPnd:\t%016zx\n"
 			"SigBlk:\t%016zx\n"
@@ -404,7 +403,6 @@ static void proc_status_func(fs_node_t *node) {
 			(proc->time_user + proc->time_sys) / arch_cpu_mhz(),
 			proc->time_user / arch_cpu_mhz(),
 			proc->time_sys / arch_cpu_mhz(),
-			proc->usage[0], proc->usage[1], proc->usage[2], proc->usage[3],
 			proc->image.heap,
 			proc->pending_signals,
 			proc->blocked_signals,
