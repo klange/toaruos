@@ -822,6 +822,8 @@ long sys_fcntl(int fd, int cmd, long arg) {
 		case F_SETFL: {
 			if (arg & O_APPEND) FD_MODE(fd) |= PROC_FD_MODE_APPEND;
 			else FD_MODE(fd) &= ~(PROC_FD_MODE_APPEND);
+			if (arg & O_NONBLOCK) FD_MODE(fd) |= PROC_FD_MODE_NONBLOCK;
+			else FD_MODE(fd) &= ~(PROC_FD_MODE_NONBLOCK);
 			return 0;
 		}
 		case F_DUPFD_CLOEXEC:
@@ -1051,6 +1053,7 @@ long sys_pipe2(int pipes[2], int flag) {
 	int flags = 0;
 	if (flag & O_CLOEXEC) flags |= PROC_FD_MODE_CLOEXEC;
 	if (flag & O_CLOFORK) flags |= PROC_FD_MODE_CLOFORK;
+	if (flag & O_NONBLOCK) flags |= PROC_FD_MODE_NONBLOCK;
 
 	static uint64_t pipe_count = 0;
 	uint64_t pipe_cnt = pipe_count++;

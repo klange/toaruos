@@ -1076,6 +1076,7 @@ struct fs_file_description * kopen_at(
 	}
 
 	if (flags & O_APPEND) access_bits |= PROC_FD_MODE_APPEND;
+	if (flags & O_NONBLOCK) access_bits |= PROC_FD_MODE_NONBLOCK;
 
 	return fs_fresh_descriptor(node, access_bits, path);
 }
@@ -1217,6 +1218,7 @@ uint64_t fs_convert_descriptor_flags(uintptr_t desc_ptr) {
 	else if (desc->flags & PROC_FD_MODE_WRITE) flags |= O_WRONLY;
 
 	if (desc->flags & PROC_FD_MODE_APPEND) flags |= O_APPEND;
+	if (desc->flags & PROC_FD_MODE_NONBLOCK) flags |= O_NONBLOCK;
 
 	return flags;
 }

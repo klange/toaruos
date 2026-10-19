@@ -842,6 +842,7 @@ static void fcntl_ret(pid_t pid, long cmd, long ret) {
 			H(O_WRONLY);
 			H(O_RDWR);
 			H(O_APPEND);
+			H(O_NONBLOCK);
 			break;
 		case F_DUPFD_CLOEXEC:
 		case F_DUPFD_CLOFORK:
