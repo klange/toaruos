@@ -83,11 +83,6 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 			proc->shm = atoi(tab);
 		} else if (strstr(line, "MemPermille:") == line) {
 			proc->mem = atoi(tab);
-		} else if (strstr(line, "CpuPermille:") == line) {
-			proc->cpu[0] = strtoul(tab, &tab, 10);
-			proc->cpu[1] = strtoul(tab, &tab, 10);
-			proc->cpu[2] = strtoul(tab, &tab, 10);
-			proc->cpu[3] = strtoul(tab, &tab, 10);
 		} else if (strstr(line, "TotalTime:") == line) {
 			proc->time = strtoul(tab,NULL,0);
 		} else if (strstr(line, "State:") == line) {
@@ -147,6 +142,7 @@ static p_t * build_entry(struct dirent * dent, int flags) {
 		asprintf(&tmp, "/proc/%s", dent->d_name);
 		if (stat(tmp, &st) == 0) {
 			proc->starttime = st.st_ctime;
+			proc->starttimensec = st.st_ctim.tv_nsec;
 		}
 		free(tmp);
 	}

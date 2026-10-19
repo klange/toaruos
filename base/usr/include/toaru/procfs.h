@@ -8,7 +8,6 @@ typedef struct process {
 	int tgid;
 	int pgid;
 	int uid, mem, vsz, shm;
-	int cpu[4];
 	unsigned long time;
 	char *name;
 	char * state;
@@ -24,6 +23,7 @@ typedef struct process {
 
 	char * tty;
 	int res;
+	unsigned long starttimensec;
 } p_t;
 
 #define PROCFSLIB_NO_FREE             (1 << 0) /* Don't free the p_t's after the callback handles them */
