@@ -121,7 +121,7 @@ static void plot_graph(gfx_context_t * ctx, size_t scale, long samples[100], uin
 	if (!contour) return;
 
 	struct TT_Shape * stroke = tt_contour_stroke_shape(contour, 0.5);
-	tt_path_paint(ctx, stroke, color);
+	tt_path_paint_gamma_correct(ctx, stroke, color);
 	free(stroke);
 
 	contour = tt_contour_line_to(contour, ctx->width + shift, ctx->height);
@@ -129,8 +129,8 @@ static void plot_graph(gfx_context_t * ctx, size_t scale, long samples[100], uin
 
 	struct TT_Shape * shape = tt_contour_finish(contour);
 
-	uint32_t c = premultiply(rgba(_RED(color),_GRE(color),_BLU(color),_ALP(color) * 0.25));
-	tt_path_paint(ctx, shape, c);
+	uint32_t c = premultiply(rgba(_RED(color),_GRE(color),_BLU(color),_ALP(color) * 0.4));
+	tt_path_paint_gamma_correct(ctx, shape, c);
 	free(shape);
 	free(contour);
 }
