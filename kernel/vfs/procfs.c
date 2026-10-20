@@ -652,6 +652,7 @@ static void proc_task_func(fs_node_t * node) {
 		ent->flags = INO_LNK;
 		list_insert(self->files, ent);
 	}
+	free(threads);
 }
 
 static struct procfs_entry procdir_entries[] = {
