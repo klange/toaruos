@@ -1848,19 +1848,31 @@ KRK_Method(TTContour,finish) {
 
 KRK_Method(TTContour,stroke) {
 	float width;
-	if (!krk_parseArgs(".f", (const char*[]){"width"}, &width)) return NONE_VAL();
+	int sides = 0;
+	int had_sides = 0;
+	if (!krk_parseArgs(".f|i?", (const char*[]){"width", "sides"}, &width, &had_sides, &sides)) return NONE_VAL();
 	INIT_CHECK(TTContour);
 	struct _yutani_TTShape * newShape = (struct _yutani_TTShape*)krk_newInstance(TTShape);
-	newShape->shape = tt_contour_stroke_shape(self->contour, width);
+	if (had_sides) {
+		newShape->shape = tt_contour_stroke_shape_sides(self->contour, width, sides);
+	} else {
+		newShape->shape = tt_contour_stroke_shape(self->contour, width);
+	}
 	return OBJECT_VAL(newShape);
 }
 
 KRK_Method(TTContour,stroke_path) {
 	float width;
-	if (!krk_parseArgs(".f", (const char*[]){"width"}, &width)) return NONE_VAL();
+	int sides = 0;
+	int had_sides = 0;
+	if (!krk_parseArgs(".f|i?", (const char*[]){"width", "sides"}, &width, &had_sides, &sides)) return NONE_VAL();
 	INIT_CHECK(TTContour);
 	struct _yutani_TTContour * newContour = (struct _yutani_TTContour*)krk_newInstance(TTContour);
-	newContour->contour = tt_contour_stroke_contour(self->contour, width);
+	if (had_sides) {
+		newContour->contour = tt_contour_stroke_contour_sides(self->contour, width, sides);
+	} else {
+		newContour->contour = tt_contour_stroke_contour(self->contour, width);
+	}
 	return OBJECT_VAL(newContour);
 }
 

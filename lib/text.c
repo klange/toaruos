@@ -1175,11 +1175,10 @@ static int best_angle(int sides, struct PenPoly * pen, float s) {
 }
 
 __attribute__((visibility("protected")))
-struct TT_Contour * tt_contour_stroke_contour(const struct TT_Contour * in, float width) {
+struct TT_Contour * tt_contour_stroke_contour_sides(const struct TT_Contour * in, float width, int sides) {
 	struct TT_Contour * stroke = tt_contour_start(0,0);
 
 	if (in->edgeCount) {
-		int sides = width < 1.0 ? 4 : 16;
 		float inner = 2.0 * M_PI / (float)sides;
 		float outer = (M_PI - inner) / 2.0;
 		struct PenPoly * pen = malloc(sizeof(struct PenPoly) * sides); /* Arbitrary */
@@ -1257,8 +1256,20 @@ struct TT_Contour * tt_contour_stroke_contour(const struct TT_Contour * in, floa
 	return stroke;
 }
 
+struct TT_Contour * tt_contour_stroke_contour(const struct TT_Contour * in, float width) {
+	int sides = width < 1.0 ? 4 : 16;
+	return tt_contour_stroke_contour_sides(in, width, sides);
+}
+
 struct TT_Shape * tt_contour_stroke_shape(const struct TT_Contour * in, float width) {
 	struct TT_Contour * stroke = tt_contour_stroke_contour(in,width);
+	struct TT_Shape * out = tt_contour_finish(stroke);
+	free(stroke);
+	return out;
+}
+
+struct TT_Shape * tt_contour_stroke_shape_sides(const struct TT_Contour * in, float width, int sides) {
+	struct TT_Contour * stroke = tt_contour_stroke_contour_sides(in,width, sides);
 	struct TT_Shape * out = tt_contour_finish(stroke);
 	free(stroke);
 	return out;
