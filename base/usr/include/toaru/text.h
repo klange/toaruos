@@ -53,6 +53,7 @@ extern struct TT_Shape * tt_contour_stroke_shape_sides(const struct TT_Contour *
 extern struct TT_Contour * tt_contour_line_to(struct TT_Contour * shape, float x, float y);
 extern struct TT_Contour * tt_contour_move_to(struct TT_Contour * shape, float x, float y);
 extern void tt_path_paint(gfx_context_t * ctx, const struct TT_Shape * shape, uint32_t color);
+extern void tt_path_paint_gamma_correct(gfx_context_t * ctx, const struct TT_Shape * shape, uint32_t color);
 extern void tt_contour_transform(struct TT_Contour * cnt, gfx_matrix_t matrix);
 extern long tt_contour_get_edge(const struct TT_Contour * cnt, long index, float *x1, float *y1, float *x2, float *y2);
 extern int tt_path_contains(const struct TT_Shape * shape, float x, float y);

@@ -1913,16 +1913,19 @@ KRK_Method(TTShape,__init__) {
 KRK_Method(TTShape,paint) {
 	struct _yutani_GraphicsContext * ctx;
 	uint32_t color;
+	int gamma_correct = 0;
 
 	if (!krk_parseArgs(
-		".O!I", (const char*[]){"ctx","color"},
-		GraphicsContext, &ctx, &color)) {
+		".O!I|p", (const char*[]){"ctx","color","gamma_correct"},
+		GraphicsContext, &ctx, &color, &gamma_correct)) {
 		return NONE_VAL();
 	}
 
 	INIT_CHECK(TTShape);
 
-	tt_path_paint(ctx->ctx, self->shape, color);
+	extern void tt_path_paint_gamma_correct(gfx_context_t * ctx, const struct TT_Shape * shape, uint32_t color);
+
+	(gamma_correct ? tt_path_paint_gamma_correct : tt_path_paint)(ctx->ctx, self->shape, color);
 
 	return NONE_VAL();
 }

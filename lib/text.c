@@ -188,32 +188,100 @@ static inline uint32_t tt_rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
 	return (a << 24U) | (r << 16) | (g << 8) | (b);
 }
 
-static inline uint32_t tt_apply_alpha(uint32_t color, uint16_t alpha) {
-	uint8_t r = ((uint32_t)(_RED(color) * alpha + 0x80) * 0x101) >> 16UL;
-	uint8_t g = ((uint32_t)(_GRE(color) * alpha + 0x80) * 0x101) >> 16UL;
-	uint8_t b = ((uint32_t)(_BLU(color) * alpha + 0x80) * 0x101) >> 16UL;
-	uint8_t a = ((uint32_t)(_ALP(color) * alpha + 0x80) * 0x101) >> 16UL;
-	return tt_rgba(r,g,b,a);
+static unsigned long times_fixed(unsigned long a, unsigned long fixed) {
+	return ((a * fixed + 0xFF) * 0x101) >> 16UL;
 }
 
-static inline uint32_t tt_alpha_blend_rgba(uint32_t bottom, uint32_t top) {
-	if (_ALP(bottom) == 0) return top;
-	if (_ALP(top) == 255) return top;
-	if (_ALP(top) == 0) return bottom;
-	uint8_t a = _ALP(top);
-	uint16_t t = 0xFF ^ a;
-	uint8_t d_r = _RED(top) + (((uint32_t)(_RED(bottom) * t + 0x80) * 0x101) >> 16UL);
-	uint8_t d_g = _GRE(top) + (((uint32_t)(_GRE(bottom) * t + 0x80) * 0x101) >> 16UL);
-	uint8_t d_b = _BLU(top) + (((uint32_t)(_BLU(bottom) * t + 0x80) * 0x101) >> 16UL);
-	uint8_t d_a = _ALP(top) + (((uint32_t)(_ALP(bottom) * t + 0x80) * 0x101) >> 16UL);
+static const uint16_t rgb_to_linear[] = {
+	0, 0, 1, 3, 7, 11, 17, 24, 32, 41, 52, 65, 78, 93, 110, 128, 148, 169, 192, 216, 242, 269, 298, 329, 361,
+	395, 431, 468, 507, 548, 591, 635, 681, 729, 778, 829, 882, 937, 994, 1052, 1113, 1175, 1239, 1305, 1373,
+	1442, 1514, 1587, 1662, 1739, 1818, 1899, 1982, 2067, 2154, 2243, 2333, 2426, 2521, 2617, 2716, 2817, 2919,
+	3024, 3130, 3239, 3350, 3462, 3577, 3694, 3813, 3934, 4057, 4182, 4309, 4438, 4569, 4702, 4838, 4975, 5115,
+	5257, 5401, 5546, 5695, 5845, 5997, 6152, 6308, 6467, 6628, 6791, 6956, 7124, 7294, 7465, 7639, 7815, 7994,
+	8174, 8357, 8542, 8729, 8919, 9110, 9304, 9500, 9699, 9899, 10102, 10307, 10514, 10724, 10935, 11150,
+	11366, 11584, 11805, 12028, 12254, 12481, 12711, 12944, 13178, 13415, 13654, 13896, 14140, 14386, 14634,
+	14885, 15138, 15393, 15651, 15911, 16174, 16438, 16705, 16975, 17247, 17521, 17797, 18076, 18357, 18641,
+	18927, 19215, 19506, 19799, 20095, 20393, 20693, 20996, 21301, 21608, 21918, 22231, 22545, 22862, 23182,
+	23504, 23828, 24155, 24484, 24816, 25150, 25487, 25826, 26167, 26511, 26857, 27206, 27557, 27911, 28267,
+	28626, 28987, 29351, 29717, 30085, 30456, 30830, 31206, 31584, 31965, 32349, 32735, 33123, 33514, 33907,
+	34303, 34702, 35103, 35506, 35912, 36321, 36732, 37145, 37561, 37980, 38401, 38825, 39251, 39680, 40111,
+	40545, 40981, 41420, 41862, 42306, 42753, 43202, 43653, 44108, 44565, 45024, 45486, 45951, 46418, 46888,
+	47360, 47835, 48312, 48792, 49275, 49760, 50248, 50738, 51232, 51727, 52225, 52726, 53230, 53736, 54245,
+	54756, 55270, 55786, 56305, 56827, 57352, 57879, 58408, 58941, 59476, 60013, 60553, 61096, 61642, 62190,
+	62741, 63294, 63850, 64409, 64970, 65535
+};
+
+static const short linear_to_rgb_compressed[] = {
+1,1,2,4,4,6,7,8,9,11,13,13,15,17,18,20,21,23,24,26,27,29,31,32,34,36,37,39,41,43,44,46,48,49,51,53,55,57,58,
+61,62,64,66,68,69,72,73,75,77,79,81,83,85,87,89,90,93,95,96,99,101,102,105,106,109,111,112,115,117,119,121,
+123,125,127,129,131,133,136,137,140,142,144,145,149,150,152,155,156,159,161,163,165,168,170,171,174,176,179,
+180,183,185,187,190,191,194,196,199,200,203,205,207,210,211,215,216,218,221,223,226,227,230,233,234,237,239,
+242,244,246,248,251,253,255,258,260,263,264,267,270,272,274,276,279,281,284,286,288,291,293,296,298,300,303,
+305,307,310,313,314,317,320,322,324,327,329,332,334,337,339,341,344,346,349,351,354,356,359,361,364,366,368,
+371,374,376,378,381,384,386,388,391,393,396,399,401,403,406,409,411,413,416,419,421,424,426,429,431,434,436,
+439,442,444,447,449,451,455,457,459,462,465,467,470,472,475,477,480,483,485,488,490,494,495,498,501,504,506,
+509,511,514,516,519,522,525,527,529,533,535,537,540,543,546,548,551,553,556,559,561,564,1,0
+};
+
+static uint8_t * linear_to_rgb = NULL;
+
+static uint8_t unpre(uint8_t c, uint8_t a) {
+	return a ? ((unsigned long)c * 255) / a : 0;
+}
+
+static inline uint32_t tt_alpha_blend_linear(uint32_t bottom, uint32_t top, uint16_t na) {
+	uint8_t  b_a = _ALP(bottom);
+	uint16_t b_r = rgb_to_linear[unpre(_RED(bottom), b_a)];
+	uint16_t b_g = rgb_to_linear[unpre(_GRE(bottom), b_a)];
+	uint16_t b_b = rgb_to_linear[unpre(_BLU(bottom), b_a)];
+
+	uint8_t  t_a = _ALP(top);
+	uint16_t t_r = rgb_to_linear[unpre(_RED(top), t_a)];
+	uint16_t t_g = rgb_to_linear[unpre(_GRE(top), t_a)];
+	uint16_t t_b = rgb_to_linear[unpre(_BLU(top), t_a)];
+	t_a = times_fixed(t_a, na);
+
+	uint8_t  d_a = t_a + times_fixed(b_a, 255 - t_a);
+	uint16_t d_r = times_fixed(times_fixed(t_r, t_a) + times_fixed(times_fixed(b_r, b_a), 255 - t_a), d_a);
+	uint16_t d_g = times_fixed(times_fixed(t_g, t_a) + times_fixed(times_fixed(b_g, b_a), 255 - t_a), d_a);
+	uint16_t d_b = times_fixed(times_fixed(t_b, t_a) + times_fixed(times_fixed(b_b, b_a), 255 - t_a), d_a);
+
+	return tt_rgba(linear_to_rgb[d_r], linear_to_rgb[d_g], linear_to_rgb[d_b], d_a);
+}
+
+static inline uint32_t tt_alpha_blend_rgba(uint32_t bottom, uint32_t top, uint16_t na) {
+	uint8_t  b_a = _ALP(bottom);
+	uint16_t b_r = _RED(bottom);
+	uint16_t b_g = _GRE(bottom);
+	uint16_t b_b = _BLU(bottom);
+
+	uint8_t  t_a = times_fixed(_ALP(top), na);
+	uint16_t t_r = times_fixed(_RED(top), na);
+	uint16_t t_g = times_fixed(_GRE(top), na);
+	uint16_t t_b = times_fixed(_BLU(top), na);
+
+	uint8_t  d_a = t_a + times_fixed(b_a, 255 - t_a);
+	uint16_t d_r = t_r + times_fixed(b_r, 255 - t_a);
+	uint16_t d_g = t_g + times_fixed(b_g, 255 - t_a);
+	uint16_t d_b = t_b + times_fixed(b_b, 255 - t_a);
+
 	return tt_rgba(d_r, d_g, d_b, d_a);
 }
 
+typedef void (*scanline_painter_t)(gfx_context_t*,int,const struct TT_Shape*, float*, uint32_t);
 
 static void paint_scanline(gfx_context_t * ctx, int y, const struct TT_Shape * shape, float * subsamples, uint32_t color) {
 	for (int x = shape->startX < 0 ? 0 : shape->startX; x < shape->lastX && x < ctx->width; ++x) {
 		uint16_t na = (int)(255 * subsamples[x - shape->startX]) >> 2;
-		GFX(ctx, x, y) = na ? tt_alpha_blend_rgba(GFX(ctx, x, y), tt_apply_alpha(color,na)) : GFX(ctx,x,y);
+		GFX(ctx, x, y) = na ? tt_alpha_blend_rgba(GFX(ctx, x, y), color, na) : GFX(ctx,x,y);
+		subsamples[x-shape->startX] = 0;
+	}
+}
+
+static void paint_scanline_linear(gfx_context_t * ctx, int y, const struct TT_Shape * shape, float * subsamples, uint32_t color) {
+	for (int x = shape->startX < 0 ? 0 : shape->startX; x < shape->lastX && x < ctx->width; ++x) {
+		uint16_t na = (int)(255 * subsamples[x - shape->startX]) >> 2;
+		GFX(ctx, x, y) = na ? tt_alpha_blend_linear(GFX(ctx, x, y), color, na) : GFX(ctx,x,y);
 		subsamples[x-shape->startX] = 0;
 	}
 }
@@ -224,7 +292,7 @@ static inline int _is_in_clip(gfx_context_t * ctx, int32_t y) {
 	return ctx->clips[y];
 }
 
-void tt_path_paint(gfx_context_t * ctx, const struct TT_Shape * shape, uint32_t color) {
+static inline void tt_path_paint_with(gfx_context_t * ctx, const struct TT_Shape * shape, uint32_t color, scanline_painter_t painter) {
 	size_t size = shape->edgeCount;
 	struct TT_Intersection * crosses = malloc(sizeof(struct TT_Intersection) * size);
 
@@ -246,11 +314,26 @@ void tt_path_paint(gfx_context_t * ctx, const struct TT_Shape * shape, uint32_t 
 			}
 			_y += 1.0/4.0;
 		}
-		paint_scanline(ctx, y, shape, subsamples, color);
+		painter(ctx, y, shape, subsamples, color);
 	}
 
 	free(subsamples);
 	free(crosses);
+}
+
+void tt_path_paint(gfx_context_t * ctx, const struct TT_Shape * shape, uint32_t color) {
+	return tt_path_paint_with(ctx, shape, color, paint_scanline);
+}
+
+void tt_path_paint_gamma_correct(gfx_context_t * ctx, const struct TT_Shape * shape, uint32_t color) {
+	if (!linear_to_rgb) {
+		/* Until we use this regularly, this is generated the first time around. */
+		linear_to_rgb = mmap(0, 4096 * 16, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, -1);
+		size_t v = 0, j = 0;
+		for (const short * x = linear_to_rgb_compressed; *x; x++, v++)
+			for (short i = 0; i < *x; ++i, ++j) linear_to_rgb[j] = v;
+	}
+	return tt_path_paint_with(ctx, shape, color, paint_scanline_linear);
 }
 
 int tt_path_contains(const struct TT_Shape * shape, float x, float y) {
@@ -1371,8 +1454,7 @@ static inline void paint_scanline_sprite(gfx_context_t * ctx, int y, const struc
 	for (int x = shape->startX < 0 ? 0 : shape->startX; x < shape->lastX && x < ctx->width; ++x) {
 		uint16_t na = (int)(255 * subsamples[x - shape->startX]) >> 2;
 		uint32_t color = sprite_interp(sprite, u, v, pixel_getter);
-		uint32_t nc = tt_apply_alpha(color, na);
-		GFX(ctx, x, y) = tt_alpha_blend_rgba(GFX(ctx, x, y), nc);
+		GFX(ctx, x, y) = tt_alpha_blend_rgba(GFX(ctx, x, y), color, na);
 		subsamples[x-shape->startX] = 0;
 		u += filter_dxx;
 		v += filter_dxy;
