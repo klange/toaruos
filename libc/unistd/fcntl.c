@@ -10,22 +10,7 @@ DEFN_SYSCALL3(fcntl, SYS_FCNTL, int, int, long);
 int fcntl(int fd, int cmd, ...) {
 	va_list ap;
 	va_start(ap, cmd);
-	long arg = 0;
-	switch (cmd) {
-		case F_SETFD:
-		case F_SETFL:
-		case F_DUPFD:
-		case F_DUPFD_CLOEXEC:
-		case F_DUPFD_CLOFORK:
-		case F_DUPFD_QUERY:
-			arg = va_arg(ap, int); /* "taken as an integer of type int" */
-			break;
-		case F_GETLK:
-		case F_SETLK:
-		case F_SETLKW:
-			arg = (long)(uintptr_t)va_arg(ap, struct flock *);
-			break;
-	}
+	unsigned long arg = va_arg(ap, unsigned long);
 	va_end(ap);
 	__sets_errno(syscall_fcntl(fd, cmd, arg));
 }
