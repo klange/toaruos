@@ -1,0 +1,455 @@
+#!/bin/kuroko
+'''
+Incomplete port of the old painting.py app from ToaruOS 1.x
+'''
+from _yutani2 import *
+from yutani_mainloop import Window, AsyncMainloop, Task, sleep
+import kuroko
+
+let mainloop = AsyncMainloop()
+let app_name = 'ToaruPaint'
+let app_version = '3.0'
+
+let key_colors = {
+    ord('0'): rgb(0,0,0),
+    ord('1'): rgb(255,0,0),
+    ord('2'): rgb(0,255,0),
+    ord('3'): rgb(0,0,255),
+    ord('4'): rgb(255,255,0),
+    ord('5'): rgb(0,255,255),
+    ord('6'): rgb(255,0,255),
+    ord('7'): rgb(255,255,255),
+}
+
+let global_windows = set()
+
+class ColorWindow(Window):
+    def __init__(self, owner):
+        super().__init__(300, 300, title='Pick Color', doublebuffer=True)
+        self.owner = owner
+
+    def draw(self):
+        self.fill(rgb(0,0,0))
+        self.flip()
+
+    def close(self):
+        super().close()
+        self.owner.color_window = None
+
+class PaintingWindow(Window):
+    def __init__(self, file=None, size=None):
+        let bounds = decor_get_bounds()
+        super().__init__(600, 600, title=f'{app_name}', icon='applications-painting', doublebuffer=True)
+
+        global_windows.add(self)
+
+        self.set_minimum_size(200,200)
+        self.move(100,100)
+        self.mb = MenuBar((("File",'file'),("Tools",'tools'),("Help",'help')))
+
+        let _menu_File = MenuList()
+        _menu_File.insert(MenuEntrySubmenu('New...', action='new', icon='new')) # TODO should be submenu
+        _menu_File.insert((self.open_button = MenuEntry('Open', lambda m: None, icon='open')))
+        _menu_File.insert(MenuEntry('Save', lambda m: self.save(), icon='save'))
+        _menu_File.insert(MenuEntrySeparator())
+        _menu_File.insert(MenuEntry('Close', lambda m: self.close(), icon='close'))
+        _menu_File.insert(MenuEntry('Exit', lambda m: self.exit(), icon='exit'))
+        self.mb.insert('file', _menu_File)
+
+        self.open_button.update_enabled(False)
+
+        let _menu_New = MenuList()
+        for w in (500, 1000, 2000):
+            let _w = w
+            _menu_New.insert(MenuEntry(f'{_w}×{_w}', lambda m: self.new_window(_w,_w)))
+        self.mb.insert('new', _menu_New)
+
+        let _menu_Tools = MenuList()
+        _menu_Tools.insert(MenuEntrySubmenu('Color...', action='color'))
+        _menu_Tools.insert(MenuEntry('Clear Everything', lambda m: self.clear_context()))
+        self.mb.insert('tools', _menu_Tools)
+
+        let _menu_Help = MenuList()
+        _menu_Help.insert(MenuEntry('About ToaruPaint', self.launch_about, icon='star'))
+        self.mb.insert('help', _menu_Help)
+
+        let _menu_Color = MenuList()
+        _menu_Color.insert((self.color_sample = MenuEntry('', lambda m: None)))
+        _menu_Color.insert((self.slider_r = MenuEntrySlider(None, lambda menu: self.set_channel('r', menu.value), 0.0)))
+        _menu_Color.insert((self.slider_g = MenuEntrySlider(None, lambda menu: self.set_channel('g', menu.value), 0.0)))
+        _menu_Color.insert((self.slider_b = MenuEntrySlider(None, lambda menu: self.set_channel('b', menu.value), 0.0)))
+        self.mb.insert('color', _menu_Color)
+        self.set_color(rgb(0,0,0))
+
+        self.mb.callback = lambda x: self.queue_redraw()
+        self.top_height = bounds['top_height'] + self.mb.height
+
+        self.undo_stack = []
+        self.redo_stack = []
+
+        self.make_checker()
+        self.file_name = 'unsaved'
+
+        self.scale = 1.0
+        self.moving = False
+        self.redraw_pending = False
+        self.line_width = 5.0
+        self.was_drawing = False
+        self.color = rgb(0,0,0)
+        self.last_x = 0
+        self.last_y = 0
+        self.color_window = None
+        self.stroke_sides = 50
+
+        if size:
+            self.new_buffer(*size)
+        else if file:
+            self.open_file(file)
+        else:
+            self.new_buffer(500, 500)
+
+    def save(self, name='drawing.tga'):
+        self.file_name = name
+        self.modified = False
+        self.title = f'{self.file_name} - {app_name}'
+        self.buf.write(name)
+        self.queue_redraw()
+
+    def new_window(self, w, h):
+        PaintingWindow(size=(w,h))
+        self.queue_redraw()
+
+    def open_file(self, path):
+        let bounds = decor_get_bounds()
+        self.file_name = path
+        self.modified = False
+        self.title = f'{self.file_name} - {app_name}'
+        self.buf = Sprite(path)
+        self.offset_x = (self.width - bounds['width'] - self.buf.width) // 2
+        self.offset_y = (self.height - bounds['height'] - self.mb.height - self.buf.height) // 2
+
+    def launch_about(self, menu):
+        import os
+        if not os.fork():
+            os.execvp('about-dialog', ['about-dialog',
+                '--title-about', app_name,
+                '--logo', 'applications-painting',
+                '--icon', 'star',
+                '--name', f'{app_name} {app_version}',
+                '--at', f'{self.x + self.width//2},{self.y + self.height//2}',
+                '--',
+                '© 2017-2026 K. Lange',
+                '-',
+                'Part of ToaruOS, which is free software',
+                'released under the NCSA/University of Illinois',
+                'license.',
+                '-',
+                '%https://toaruos.org',
+                '%https://github.com/klange/toaruos'
+            ])
+            os.exit(127)
+        self.queue_redraw()
+
+    def color_to_tuple(self, color):
+        let r = (self.color & 0xFF0000) >> 16
+        let g = (self.color & 0xFF00) >> 8
+        let b = (self.color & 0xFF)
+        return (r,g,b)
+
+    def set_color_sample(self, r, g, b):
+        let hex_color = f'{r:02x}{g:02x}{b:02x}'
+        self.color_sample.update_title(f'<bgcolor #{hex_color}>   </bgcolor> <mono>#{hex_color}</mono>')
+
+    def set_channel(self, channel, value):
+        value = int(value * 255)
+        let r, g, b = self.color_to_tuple(self.color)
+        # Extract color
+        if channel == 'r': r = value
+        if channel == 'g': g = value
+        if channel == 'b': b = value
+        self.color = rgb(r,g,b)
+        self.set_color_sample(r,g,b)
+
+    def set_color(self, c):
+        self.color = c
+        let r, g, b = self.color_to_tuple(c)
+        self.slider_r.value = r / 255
+        self.slider_g.value = g / 255
+        self.slider_b.value = b / 255
+        self.set_color_sample(r,g,b)
+
+    def show_color_window(self, menu):
+        '''
+        if self.color_window is None:
+            self.color_window = ColorWindow(self)
+            self.color_window.draw()
+        '''
+        
+        return True
+
+    def make_checker(self):
+        self.checker = Sprite(width=24,height=24)
+        self.checker.rect(0,0,24,24,rgb(128,128,128))
+        self.checker.rect(12,0,12,12,rgb(200,200,200))
+        self.checker.rect(0,12,12,12,rgb(200,200,200))
+
+    def init_buffer(self, w, h):
+        let bounds = decor_get_bounds()
+        self.modified = False
+        self.buf = Sprite(width=w,height=h)
+        self.offset_x = (self.width - bounds['width'] - self.buf.width) // 2
+        self.offset_y = (self.height - bounds['height'] - self.mb.height - self.buf.height) // 2
+
+    def new_buffer(self, w, h):
+        self.init_buffer(w, h)
+        self.buf.fill(rgb(255,255,255))
+
+    def draw_checker(self, subctx):
+        let ct = TTContour(0,0)
+        ct.line_to(subctx.width, 0)
+        ct.line_to(subctx.width, subctx.height)
+        ct.line_to(0, subctx.height)
+        let sh = ct.finish()
+        ct.free()
+        sh.paint_sprite(subctx,self.checker,TransformMatrix(),TTShape.TT_PATH_FILTER_NEAREST,TTShape.TT_PATH_WRAP_REPEAT)
+        sh.free()
+
+    def draw_cursor(self, subctx):
+        '''
+        subctx.rect(
+            self.last_x - int(self.line_width * self.scale),
+            self.last_y - int(self.line_width * self.scale),
+            int(self.line_width * 2 * self.scale),
+            int(self.line_width * 2 * self.scale),
+            rgb(0,0,0,0.5),
+            radius=int(self.line_width * self.scale))
+        '''
+        def draw_circle(rad, clr):
+            let ct = TTContour(self.last_x + 0.5, self.last_y + 0.5)
+            ct.line_to(self.last_x + 0.501, self.last_y + 0.5)
+            let pt = ct.stroke_path(rad, 16)
+            ct.free()
+            let sh = pt.stroke(0.5 * self.scale)
+            pt.free()
+            sh.paint(subctx, clr)
+            sh.free()
+        draw_circle((self.line_width + 0.5) * self.scale, rgb(0,0,0,0.7))
+        draw_circle((self.line_width - 0.5) * self.scale, rgb(255,255,255,0.7,premul=True))
+
+    def draw_buffer(self, subctx):
+        let tm = TransformMatrix()
+        tm.translate(self.offset_x, self.offset_y)
+        tm.scale(self.scale, self.scale)
+        let Rect = TTContour(0,0)
+        Rect.line_to(self.buf.width,0)
+        Rect.line_to(self.buf.width,self.buf.height)
+        Rect.line_to(0,self.buf.height)
+        Rect.transform(tm)
+        let SRect = Rect.finish()
+        Rect.free()
+        SRect.paint_sprite(subctx, self.buf, tm, TTShape.TT_PATH_FILTER_NEAREST, TTShape.TT_PATH_WRAP_PAD)
+        SRect.free()
+        '''
+        subctx.draw_sprite(self.buf,
+            self.offset_x, self.offset_y,
+            scale=(int(self.buf.width * self.scale), int(self.buf.height * self.scale)))
+        '''
+
+    def draw(self):
+        let bounds = decor_get_bounds(self)
+
+        # Draw chrome
+        self.fill(rgb(204,204,204))
+        self.mb.place(bounds['left_width'],bounds['top_height'],self.width-bounds['width'],self)
+        self.mb.render(self)
+
+        # Draw contents
+        let subctx = Subregion(self,
+            bounds['left_width'],
+            bounds['top_height'] + self.mb.height,
+            self.width - bounds['width'],
+            self.height - bounds['height'] - self.mb.height)
+
+        self.draw_checker(subctx)
+        self.draw_buffer(subctx)
+
+        self.draw_cursor(subctx)
+
+        decor_render(self)
+        self.flip()
+
+    async def redraw(self):
+        await sleep(0.002)
+        self.redraw_pending = False
+        self.draw()
+
+    def adjust_scale(self, x, y, amt):
+        let o_scale = self.scale
+        let x_rel = (x - self.offset_x)
+        let y_rel = (y - self.offset_y)
+        self.scale += amt
+        if self.scale < 0.1:
+            self.scale = 0.1
+        self.offset_x -= int(x_rel * (self.scale / o_scale) - x_rel)
+        self.offset_y -= int(y_rel * (self.scale / o_scale) - y_rel)
+        self.queue_redraw()
+
+    def append_undo_stack(self):
+        let buf_copy = Sprite(width=self.buf.width, height=self.buf.height)
+        del self.redo_stack[:]
+        buf_copy.draw_sprite(self.buf)
+        self.undo_stack.append(buf_copy)
+
+    def do_undo(self):
+        if not self.undo_stack:
+            return
+        self.redo_stack.append(self.buf)
+        self.buf = self.undo_stack.pop()
+
+    def do_redo(self):
+        if not self.redo_stack:
+            return
+        self.undo_stack.append(self.buf)
+        self.buf = self.redo_stack.pop()
+
+    def mouse_event(self, msg):
+        let bounds = decor_get_bounds(self)
+        let decResponse = decor_handle_event(msg)
+        if decResponse == DECOR_CLOSE:
+            self.close()
+            return True
+        else if decResponse == DECOR_RIGHT:
+            decor_show_default_menu(self, self.x + msg.new_x, self.y + msg.new_y)
+        else if decResponse == DECOR_REDRAW:
+            self.draw()
+
+        let x, y = msg.new_x, msg.new_y
+        let w, h = self.width, self.height
+
+        if x >= 0 and x < w and y < self.top_height:
+            self.mb.mouse_event(self, msg)
+            return
+
+        x -= bounds['left_width']
+        y -= bounds['top_height'] + self.mb.height
+
+        if not msg.modifiers:
+            if msg.buttons & msg.MOUSE_SCROLL_UP:
+                self.line_width *= 1.1
+                self.queue_redraw()
+            else if msg.buttons & msg.MOUSE_SCROLL_DOWN:
+                self.line_width /= 1.1
+                self.queue_redraw()
+        else if msg.modifiers & 1: # left ctrl
+            if msg.buttons & msg.MOUSE_SCROLL_UP:
+                self.adjust_scale(x, y, 0.1)
+            else if msg.buttons & msg.MOUSE_SCROLL_DOWN:
+                self.adjust_scale(x, y, -0.1)
+
+        if not (msg.buttons & 1):
+            self.was_drawing = False
+
+        if msg.buttons & 6: # middle or right?
+            if not self.moving:
+                self.initial = x, y
+                self.initial_off = self.offset_x, self.offset_y
+                self.moving = True
+            self.offset_x = self.initial_off[0] + x - self.initial[0]
+            self.offset_y = self.initial_off[1] + y - self.initial[1]
+            self.queue_redraw()
+        else:
+            self.moving = False
+
+        let cur_x_old = msg.old_x - bounds['left_width']
+        let cur_y_old = msg.old_y - bounds['top_height'] - self.mb.height
+
+        if (msg.command == msg.MOUSE_EVENT_DRAG or msg.command == msg.MOUSE_EVENT_DOWN) and msg.buttons & 1:
+            self.was_drawing = True
+            self.set_modified()
+            let x_1 = 0.0 + (x - self.offset_x) / self.scale
+            let y_1 = 0.0 + (y - self.offset_y) / self.scale
+            let x_0, y_0
+            if msg.command == msg.MOUSE_EVENT_DOWN:
+                self.append_undo_stack()
+                x_0 = x_1 + 0.0001
+                y_0 = y_1
+            else:
+                x_0 = 0.0 + (cur_x_old - self.offset_x) / self.scale
+                y_0 = 0.0 + (cur_y_old - self.offset_y) / self.scale
+
+            let ct = TTContour(x_0, y_0)
+            ct.line_to(x_1, y_1)
+            let shape = ct.stroke(self.line_width, self.stroke_sides)
+            ct.free()
+            shape.paint(self.buf, self.color, gamma_correct=True)
+            shape.free()
+            self.queue_redraw()
+
+        if x != self.last_x or y != self.last_y:
+            self.last_x = x
+            self.last_y = y
+            self.queue_redraw()
+
+    def queue_redraw(self):
+        if not self.redraw_pending:
+            self.redraw_pending = True
+            Task(self.redraw())
+
+    def set_modified(self):
+        if not self.modified:
+            self.modified = True
+            self.title = f'{self.file_name}* - {app_name}'
+
+    def clear_context(self):
+        self.append_undo_stack()
+        self.buf.fill(rgb(255,255,255))
+        self.set_modified()
+        self.queue_redraw()
+
+    def keyboard_event(self, msg):
+        if msg.action == 1: # down
+            let c = key_colors.get(msg.keycode, None)
+            if c is not None:
+                self.set_color(c)
+            else if msg.keycode == 260: # arrow left
+                self.offset_x += int(10 * self.scale)
+                self.queue_redraw()
+            else if msg.keycode == 259: # arrow right
+                self.offset_x -= int(10 * self.scale)
+                self.queue_redraw()
+            else if msg.keycode == 258: # arrow down
+                self.offset_y -= int(10 * self.scale)
+                self.queue_redraw()
+            else if msg.keycode == 257: # arrow up
+                self.offset_y += int(10 * self.scale)
+                self.queue_redraw()
+            else if msg.keycode == ord('u'):
+                self.do_undo()
+                self.queue_redraw()
+            else if msg.keycode == ord('r'):
+                self.do_redo()
+                self.queue_redraw()
+
+    def close(self):
+        super().close()
+        global_windows.remove(self)
+        if not global_windows:
+            mainloop.exit()
+
+    def exit(self):
+        mainloop.exit()
+
+if __name__ == '__main__':
+    let path = None
+    if len(kuroko.argv) > 1:
+        path = kuroko.argv[1]
+
+    def menu_closed_callback():
+        for win in global_windows:
+            win.queue_redraw()
+
+    mainloop.menu_closed_callback = menu_closed_callback
+
+    let window = PaintingWindow(path)
+    window.draw()
+    mainloop.run()

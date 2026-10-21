@@ -11,6 +11,7 @@ log-out,exit,Log Out
 exec calculator,calculator,Calculator
 exec file-browser,folder,File Browser
 exec terminal,utilities-terminal,Terminal
+exec painting.krk,applications-painting,ToaruPaint
 :demos
 exec drawlines,drawlines,Draw Lines
 exec julia,julia,Julia Fractals
