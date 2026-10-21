@@ -50,6 +50,16 @@ static void _init_menus(void) {
 	markup_text_init();
 }
 
+int menu_any_belong_to(yutani_window_t * w) {
+	hashmap_foreach(iter, menu_windows) {
+		yutani_window_t * window;
+		hashmap_iter_get(&iter, NULL, &window);
+		struct MenuList * menu = window->user_data;
+		if (menu->main_window == w) return 1;
+	}
+	return 0;
+}
+
 hashmap_t * menu_get_windows_hash(void) {
 	return menu_windows;
 }
