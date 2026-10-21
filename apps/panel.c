@@ -652,7 +652,7 @@ static void update_window_list(void) {
 
 /* TODO: Share this with file-browser */
 static void blorp_wallpaper(uint32_t *outputs) {
-	sprite_t * wallpaper = malloc(sizeof(sprite_t));
+	sprite_t * wallpaper = calloc(1,sizeof(sprite_t));
 	char * wallpaper_path = WALLPAPER_PATH;
 	int free_it = 0;
 	char * home = getenv("HOME");
@@ -724,7 +724,7 @@ static uint32_t fill_pattern(int32_t x, int32_t y, double alpha, void * extra) {
 }
 
 static void refresh_background(void) {
-	uint32_t colors[6];
+	uint32_t colors[6] = {0};
 	blorp_wallpaper(colors);
 
 	/* Figure out if the selected colors are dark or light */
