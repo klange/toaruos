@@ -1583,6 +1583,17 @@ KRK_Method(MenuEntry,update_title) {
 	return NONE_VAL();
 }
 
+KRK_Method(MenuEntry,update_enabled) {
+	int enabled;
+	if (!krk_parseArgs(".p", (const char*[]){"enabled"}, &enabled)) return NONE_VAL();
+
+	INIT_CHECK(MenuEntry);
+
+	menu_update_enabled(self->menuEntry, enabled);
+
+	return NONE_VAL();
+}
+
 #undef CURRENT_CTYPE
 
 #define IS_MenuEntrySubmenu(o) (krk_isInstanceOf(o,MenuEntrySubmenu))
@@ -2490,6 +2501,7 @@ KRK_Module(_yutani2) {
 	BIND_PROP(MenuEntry,offset);
 	BIND_METHOD(MenuEntry,update_icon);
 	BIND_METHOD(MenuEntry,update_title);
+	BIND_METHOD(MenuEntry,update_enabled);
 	krk_finalizeClass(MenuEntry);
 
 	/*
