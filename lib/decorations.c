@@ -279,34 +279,54 @@ static int within_decors(yutani_window_t * window, int x, int y) {
 #define TOP_SIDE (me->new_y <= (int)bounds.top_height)
 #define BOTTOM_SIDE (me->new_y >= (int)window->height - (int)bounds.bottom_height)
 
-static yutani_scale_direction_t check_resize_direction(struct yutani_msg_window_mouse_event * me, yutani_window_t * window) {
+static int is_resize(int32_t mouse_state) {
+	switch (mouse_state) {
+		case YUTANI_CURSOR_TYPE_RESIZE_VERTICAL:
+		case YUTANI_CURSOR_TYPE_RESIZE_HORIZONTAL:
+		case YUTANI_CURSOR_TYPE_RESIZE_UP_DOWN:
+		case YUTANI_CURSOR_TYPE_RESIZE_DOWN_UP:
+			return 1;
+		default:
+			return 0;
+	}
+}
+
+static yutani_scale_direction_t check_resize_direction(struct yutani_msg_window_mouse_event * me, yutani_window_t * window, int32_t *cursor) {
 	struct decor_bounds bounds;
 	decor_get_bounds(window, &bounds);
 	yutani_scale_direction_t resize_direction = SCALE_NONE;
+	if (cursor) *cursor = YUTANI_CURSOR_TYPE_RESET;
 
 	int df = window->decorator_flags & DECOR_FLAG_TILED;
 
 	if (LEFT_SIDE && !TOP_SIDE && !BOTTOM_SIDE && !(df & DECOR_FLAG_TILE_LEFT)) {
 		resize_direction = SCALE_LEFT;
+		if (cursor) *cursor = YUTANI_CURSOR_TYPE_RESIZE_HORIZONTAL;
 	} else if (RIGHT_SIDE && !TOP_SIDE && !BOTTOM_SIDE && !(df & DECOR_FLAG_TILE_RIGHT)) {
 		resize_direction = SCALE_RIGHT;
+		if (cursor) *cursor = YUTANI_CURSOR_TYPE_RESIZE_HORIZONTAL;
 	} else if (BOTTOM_SIDE && !LEFT_SIDE && !RIGHT_SIDE && !(df & DECOR_FLAG_TILE_DOWN)) {
 		resize_direction = SCALE_DOWN;
+		if (cursor) *cursor = YUTANI_CURSOR_TYPE_RESIZE_VERTICAL;
 	} else if (BOTTOM_SIDE && LEFT_SIDE && !(df & (DECOR_FLAG_TILE_LEFT | DECOR_FLAG_TILE_DOWN))) {
 		resize_direction = SCALE_DOWN_LEFT;
+		if (cursor) *cursor = YUTANI_CURSOR_TYPE_RESIZE_DOWN_UP;
 	} else if (BOTTOM_SIDE && RIGHT_SIDE && !(df & (DECOR_FLAG_TILE_RIGHT | DECOR_FLAG_TILE_DOWN))) {
 		resize_direction = SCALE_DOWN_RIGHT;
+		if (cursor) *cursor = YUTANI_CURSOR_TYPE_RESIZE_UP_DOWN;
 	} else if (TOP_SIDE && LEFT_SIDE && !(df & (DECOR_FLAG_TILE_UP | DECOR_FLAG_TILE_LEFT))) {
 		resize_direction = SCALE_UP_LEFT;
+		if (cursor) *cursor = YUTANI_CURSOR_TYPE_RESIZE_UP_DOWN;
 	} else if (TOP_SIDE && RIGHT_SIDE && !(df & (DECOR_FLAG_TILE_UP | DECOR_FLAG_TILE_RIGHT))) {
 		resize_direction = SCALE_UP_RIGHT;
+		if (cursor) *cursor = YUTANI_CURSOR_TYPE_RESIZE_DOWN_UP;
 	} else if (TOP_SIDE && (me->new_y < 5) && !(df & (DECOR_FLAG_TILE_UP))) {
 		resize_direction = SCALE_UP;
+		if (cursor) *cursor = YUTANI_CURSOR_TYPE_RESIZE_VERTICAL;
 	}
 	return resize_direction;
 }
 
-static yutani_scale_direction_t old_resize_direction = SCALE_NONE;
 int decor_hover_button = 0;
 int decor_down_button  = 0;
 yutani_window_t * decor_hover_window = NULL;
@@ -370,7 +390,7 @@ int decor_handle_event_flags(yutani_t * yctx, yutani_msg_t * m, int flags) {
 						if (me->command == YUTANI_MOUSE_EVENT_DOWN && me->buttons & YUTANI_MOUSE_BUTTON_LEFT) {
 							if (!button || button == DECOR_OTHER) {
 								/* Resize edges */
-								yutani_scale_direction_t resize_direction = check_resize_direction(me, window);
+								yutani_scale_direction_t resize_direction = check_resize_direction(me, window, NULL);
 
 								if (resize_direction != SCALE_NONE) {
 									yutani_window_resize_start(yctx, window, resize_direction);
@@ -410,38 +430,13 @@ int decor_handle_event_flags(yutani_t * yctx, yutani_msg_t * m, int flags) {
 						if (me->command == YUTANI_MOUSE_EVENT_MOVE) {
 							if (!button) {
 								/* Resize edges */
-								yutani_scale_direction_t resize_direction = check_resize_direction(me, window);
-								if (resize_direction != old_resize_direction) {
-									if (resize_direction == SCALE_NONE) {
-										yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESET);
-									} else {
-										switch (resize_direction) {
-											case SCALE_UP:
-											case SCALE_DOWN:
-												yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESIZE_VERTICAL);
-												break;
-											case SCALE_LEFT:
-											case SCALE_RIGHT:
-												yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESIZE_HORIZONTAL);
-												break;
-											case SCALE_DOWN_RIGHT:
-											case SCALE_UP_LEFT:
-												yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESIZE_UP_DOWN);
-												break;
-											case SCALE_DOWN_LEFT:
-											case SCALE_UP_RIGHT:
-												yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESIZE_DOWN_UP);
-												break;
-											case SCALE_AUTO:
-											case SCALE_NONE:
-												break;
-										}
-									}
-									old_resize_direction = resize_direction;
+								int32_t cursor = YUTANI_CURSOR_TYPE_RESET;
+								check_resize_direction(me, window, &cursor);
+								if (is_resize(cursor) || (is_resize(window->mouse_state) && cursor != window->mouse_state)) {
+									yutani_window_show_mouse(yctx, window, cursor);
 								}
-							} else if (old_resize_direction != SCALE_NONE) {
+							} else if (is_resize(window->mouse_state)) {
 								yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESET);
-								old_resize_direction = SCALE_NONE;
 							}
 						}
 						if (me->command == YUTANI_MOUSE_EVENT_CLICK ||
@@ -479,9 +474,8 @@ int decor_handle_event_flags(yutani_t * yctx, yutani_msg_t * m, int flags) {
 						if (decor_down_button && (me->command == YUTANI_MOUSE_EVENT_CLICK || me->command == YUTANI_MOUSE_EVENT_RAISE)) {
 							decor_down_button = 0;
 						}
-						if (old_resize_direction != SCALE_NONE) {
+						if (is_resize(window->mouse_state)) {
 							yutani_window_show_mouse(yctx, window, YUTANI_CURSOR_TYPE_RESET);
-							old_resize_direction = SCALE_NONE;
 						}
 						if (decor_hover_window == window) {
 							decor_hover_button = 0;
