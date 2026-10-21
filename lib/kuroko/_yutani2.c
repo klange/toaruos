@@ -1572,6 +1572,16 @@ KRK_Method(MenuEntry,update_icon) {
 	return NONE_VAL();
 }
 
+KRK_Method(MenuEntry,update_title) {
+	char * title;
+	if (!krk_parseArgs(".z", (const char*[]){"title"}, &title)) return NONE_VAL();
+
+	INIT_CHECK(MenuEntry);
+
+	menu_update_title(self->menuEntry, title);
+
+	return NONE_VAL();
+}
 
 #undef CURRENT_CTYPE
 
@@ -2479,6 +2489,7 @@ KRK_Module(_yutani2) {
 	BIND_PROP(MenuEntry,hilight);
 	BIND_PROP(MenuEntry,offset);
 	BIND_METHOD(MenuEntry,update_icon);
+	BIND_METHOD(MenuEntry,update_title);
 	krk_finalizeClass(MenuEntry);
 
 	/*
