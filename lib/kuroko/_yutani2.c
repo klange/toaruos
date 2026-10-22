@@ -74,6 +74,88 @@ KRK_Method(Message,__repr__) {
 
 #undef CURRENT_CTYPE
 
+typedef uint32_t (fill_pattern_func_t)(int32_t x, int32_t y, double alpha, void * extra);
+
+WRAP_TYPE(FillPattern,fill_pattern_func_t,func,const char * func_name; void * data; void (*data_free)(void*););
+#define IS_FillPattern(o) (krk_isInstanceOf(o,FillPattern))
+#define AS_FillPattern(o) ((struct _yutani_FillPattern*)AS_OBJECT(o))
+
+static void _yutani_FillPattern_gcsweep(KrkInstance * _self) {
+	struct _yutani_FillPattern * self = (void*)_self;
+	if (self->data && self->data_free) {
+		self->data_free(self->data);
+	}
+}
+
+#define CURRENT_CTYPE struct _yutani_FillPattern*
+
+KRK_StaticMethod(FillPattern,__new__) {
+	return krk_runtimeError(vm.exceptions->typeError, "can not instantiate FillPattern");
+}
+
+KRK_StaticMethod(FillPattern,vertical_gradient) {
+	int height, y;
+	uint32_t top, bottom;
+
+	if (!krk_parseArgs("iiII", (const char*[]){"height","y","top","bottom"},
+		&height, &y, &top, &bottom)) return NONE_VAL();
+
+	CURRENT_CTYPE self = (CURRENT_CTYPE)krk_newInstance(FillPattern);
+	krk_push(OBJECT_VAL(self));
+
+	struct gradient_definition * data = malloc(sizeof(struct gradient_definition));
+
+	data->height = height;
+	data->y = y;
+	data->top = top;
+	data->bottom = bottom;
+
+	self->func = gfx_vertical_gradient_pattern;
+	self->data = data;
+	self->data_free = free;
+
+	return krk_pop();
+}
+
+static uint32_t fill_pattern_custom(int32_t x, int32_t y, double alpha, void * extra) {
+	struct _yutani_FillPattern * self = extra;
+
+	KrkValue callback;
+	if (krk_tableGet(&self->inst.fields, OBJECT_VAL(S("_callback")), &callback)) {
+		krk_push(callback);
+		krk_push(INTEGER_VAL(x));
+		krk_push(INTEGER_VAL(y));
+		krk_push(FLOATING_VAL(alpha));
+		KrkValue v = krk_callStack(3);
+		if (IS_INTEGER(v)) return (uint32_t)AS_INTEGER(v);
+	}
+
+	return 0;
+}
+
+KRK_StaticMethod(FillPattern,custom) {
+	KrkValue callback;
+	if (!krk_parseArgs("V", (const char*[]){"callback"}, &callback)) return NONE_VAL();
+
+	CURRENT_CTYPE self = (CURRENT_CTYPE)krk_newInstance(FillPattern);
+	krk_push(OBJECT_VAL(self));
+
+	self->func = fill_pattern_custom;
+	self->data = self;
+	self->data_free = NULL;
+
+	krk_attachNamedValue(&self->inst.fields, "_callback", callback);
+
+	return krk_pop();
+}
+
+KRK_Method(FillPattern,__repr__) {
+	INIT_CHECK(FillPattern);
+	return krk_stringFromFormat("<FillPattern '%s' %p>", self->func, self->data);
+}
+
+#undef CURRENT_CTYPE
+
 /* Subclass stuff */
 #define MSG_CLS(type) Message_ ## type
 #define WRAP_PROP_INT(cls,kname) KRK_Method(cls,kname) { return INTEGER_VAL(self->kname); }
@@ -430,6 +512,22 @@ KRK_Method(GraphicsContext,rect) {
 	} else {
 		draw_rectangle(self->ctx, x, y, width, height, color);
 	}
+
+	return NONE_VAL();
+}
+
+KRK_Method(GraphicsContext,pattern_rect) {
+	int x, y;
+	unsigned int width, height;
+	unsigned int radius = 0;
+	struct _yutani_FillPattern * pattern = NULL;
+
+	if (!krk_parseArgs(".iiIIO!|I", (const char*[]){"x","y","width","height","pattern","radius"},
+		&x, &y, &width, &height, FillPattern, &pattern, &radius)) return NONE_VAL();
+
+	CHECK_GFX();
+
+	draw_rounded_rectangle_pattern(self->ctx, x, y, width, height, radius, pattern->func, pattern->data);
 
 	return NONE_VAL();
 }
@@ -2333,6 +2431,7 @@ KRK_Module(_yutani2) {
 	BIND_METHOD(GraphicsContext,blur);
 	BIND_METHOD(GraphicsContext,line);
 	BIND_METHOD(GraphicsContext,rect);
+	BIND_METHOD(GraphicsContext,pattern_rect);
 	BIND_METHOD(GraphicsContext,draw_sprite);
 	BIND_METHOD(GraphicsContext,write);
 	BIND_METHOD(GraphicsContext,__setitem__);
@@ -2601,6 +2700,15 @@ KRK_Module(_yutani2) {
 	BIND_PROP(TransformMatrix,d);
 	BIND_PROP(TransformMatrix,ty);
 	krk_finalizeClass(TransformMatrix);
+
+	krk_makeClass(module, &FillPattern, "FillPattern", KRK_BASE_CLASS(object));
+	FillPattern->allocSize = sizeof(struct _yutani_FillPattern);
+	FillPattern->_ongcsweep = _yutani_FillPattern_gcsweep;
+	BIND_STATICMETHOD(FillPattern,__new__);
+	BIND_STATICMETHOD(FillPattern,vertical_gradient);
+	BIND_STATICMETHOD(FillPattern,custom);
+	BIND_METHOD(FillPattern,__repr__);
+	krk_finalizeClass(FillPattern);
 
 	BIND_FUNC(module,decor_get_bounds);
 	BIND_FUNC(module,decor_render);
