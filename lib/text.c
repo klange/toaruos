@@ -325,14 +325,18 @@ void tt_path_paint(gfx_context_t * ctx, const struct TT_Shape * shape, uint32_t 
 	return tt_path_paint_with(ctx, shape, color, paint_scanline);
 }
 
+static void init_gamma(void) {
+	/* Until we use this regularly, this is generated the first time around. */
+	linear_to_rgb = mmap(0, 4096 * 16, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, -1);
+	size_t v = 0, j = 0;
+	for (const short * x = linear_to_rgb_compressed; *x; x++, v++)
+		for (short i = 0; i < *x; ++i, ++j) linear_to_rgb[j] = v;
+}
+
+#define NEEDS_GAMMA() do { if (!linear_to_rgb) init_gamma(); } while (0)
+
 void tt_path_paint_gamma_correct(gfx_context_t * ctx, const struct TT_Shape * shape, uint32_t color) {
-	if (!linear_to_rgb) {
-		/* Until we use this regularly, this is generated the first time around. */
-		linear_to_rgb = mmap(0, 4096 * 16, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, -1);
-		size_t v = 0, j = 0;
-		for (const short * x = linear_to_rgb_compressed; *x; x++, v++)
-			for (short i = 0; i < *x; ++i, ++j) linear_to_rgb[j] = v;
-	}
+	NEEDS_GAMMA();
 	return tt_path_paint_with(ctx, shape, color, paint_scanline_linear);
 }
 
@@ -1537,6 +1541,46 @@ void tt_path_paint_sprite_options(gfx_context_t * ctx, const struct TT_Shape * s
 
 	tt_path_paint_sprite_internal(ctx,shape,sprite,matrix,sprite_interp,pixel_getter);
 }
+
+typedef uint32_t (fill_pattern_func_t)(int32_t x, int32_t y, double alpha, void * extra);
+static void paint_scanline_linear_pattern(gfx_context_t * ctx, int y, const struct TT_Shape * shape, float * subsamples, fill_pattern_func_t *pattern, void *extra) {
+	for (int x = shape->startX < 0 ? 0 : shape->startX; x < shape->lastX && x < ctx->width; ++x) {
+		uint16_t na = (int)(255 * subsamples[x - shape->startX]) >> 2;
+		GFX(ctx, x, y) = na ? tt_alpha_blend_linear(GFX(ctx, x, y), pattern(x,y,1.0,extra), na) : GFX(ctx,x,y);
+		subsamples[x-shape->startX] = 0;
+	}
+}
+
+void tt_path_paint_with_pattern(gfx_context_t * ctx, const struct TT_Shape * shape, fill_pattern_func_t *pattern, void *extra) {
+	NEEDS_GAMMA();
+	size_t size = shape->edgeCount;
+	struct TT_Intersection * crosses = malloc(sizeof(struct TT_Intersection) * size);
+
+	size_t subsample_width = shape->lastX - shape->startX;
+	float * subsamples = malloc(sizeof(float) * subsample_width);
+	memset(subsamples, 0, sizeof(float) * subsample_width);
+
+	int startY = shape->startY < 0 ? 0 : shape->startY;
+	int endY = shape->lastY <= ctx->height ? shape->lastY : ctx->height;
+
+	for (int y = startY; y < endY; ++y) {
+		if (!_is_in_clip(ctx,y)) continue;
+		float _y = y + 0.0001;
+		for (int l = 0; l < 4; ++l) {
+			size_t cnt;
+			if ((cnt = prune_edges(size, _y, shape->edges, crosses))) {
+				sort_intersections(cnt, crosses);
+				process_scanline(_y, shape, subsample_width, subsamples, cnt, crosses);
+			}
+			_y += 1.0/4.0;
+		}
+		paint_scanline_linear_pattern(ctx, y, shape, subsamples, pattern, extra);
+	}
+
+	free(subsamples);
+	free(crosses);
+}
+
 
 char * tt_ellipsify(const char * input, int font_size, struct TT_Font * font, int max_width, int * out_width) {
 	int width;
