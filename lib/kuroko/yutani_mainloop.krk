@@ -100,6 +100,12 @@ async def sleep(delay, result=None):
     current_loop.call_later(delay, future.set_result, result)
     return await future
 
+async def poll(fileno, result=None):
+    let future = Future()
+    future.fileno = lambda: fileno
+    current_loop.add_poll(future)
+    return await future
+
 class Timer():
     def __init__(self, time, func, args):
         self.time = time
@@ -125,6 +131,7 @@ class AsyncMainloop():
         self.schedule = []
         self.fileno = yctx.fileno()
         self.menu_closed_callback = None
+        self.pollees = [yctx,]
 
     def exit(self, arg=0):
         self.status_code = arg
@@ -187,11 +194,20 @@ class AsyncMainloop():
             timeout = max(0,self.schedule[0].time - now)
 
         # Poll
-        let res = _yutani2.fswait((self.fileno,), int(timeout * 1000))
+        let res = _yutani2.fswait(self.pollables(), int(timeout * 1000))
 
         # TODO probably hooks if these have callbacks
         if res[0]:
             self.handle_message()
+
+        if len(res) > 1:
+            let j = 1
+            for i in range(1,len(res)):
+                if res[i]:
+                    self.pollees[j].set_result(True)
+                    del self.pollees[j]
+                else:
+                    j++
 
         # Schedule future stuff
         while self.schedule and self.schedule[0].time <= now:
@@ -204,10 +220,16 @@ class AsyncMainloop():
             let func, args = self.ready.pop(0)
             func(*args)
 
+    def pollables(self):
+        return tuple(x.fileno() for x in self.pollees)
+
     def run(self):
         current_loop = self
         while not self.should_exit:
             self.run_once()
+
+    def add_poll(self, future):
+        self.pollees.append(future)
 
     def activate(self):
         current_loop = self

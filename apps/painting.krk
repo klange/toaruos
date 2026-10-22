@@ -3,8 +3,9 @@
 Incomplete port of the old painting.py app from ToaruOS 1.x
 '''
 from _yutani2 import *
-from yutani_mainloop import Window, AsyncMainloop, Task, sleep
+from yutani_mainloop import Window, AsyncMainloop, Task, sleep, poll
 import kuroko
+import os
 
 let mainloop = AsyncMainloop()
 let app_name = 'ToaruPaint'
@@ -49,14 +50,12 @@ class PaintingWindow(Window):
 
         let _menu_File = MenuList()
         _menu_File.insert(MenuEntrySubmenu('New...', action='new', icon='new')) # TODO should be submenu
-        _menu_File.insert((self.open_button = MenuEntry('Open', lambda m: None, icon='open')))
+        _menu_File.insert(MenuEntry('Open', lambda m: self.open(), icon='open'))
         _menu_File.insert(MenuEntry('Save', lambda m: self.save(), icon='save'))
         _menu_File.insert(MenuEntrySeparator())
         _menu_File.insert(MenuEntry('Close', lambda m: self.close(), icon='close'))
         _menu_File.insert(MenuEntry('Exit', lambda m: self.exit(), icon='exit'))
         self.mb.insert('file', _menu_File)
-
-        self.open_button.update_enabled(False)
 
         let _menu_New = MenuList()
         for w in (500, 1000, 2000):
@@ -100,13 +99,39 @@ class PaintingWindow(Window):
         self.last_y = 0
         self.color_window = None
         self.stroke_sides = 50
+        self.untouched = False
 
         if size:
             self.new_buffer(*size)
         else if file:
             self.open_file(file)
         else:
+            self.untouched = True
             self.new_buffer(500, 500)
+
+    async def open_dialog(self):
+        #
+        let a, b = os.pipe()
+        let pid = os.fork()
+        if pid == 0:
+            os.close(a)
+            os.dup2(b,1)
+            os.close(b)
+            os.execvp('file-browser',['file-browser','--picker'])
+            os.exit(127)
+        os.close(b)
+        await poll(a)
+        let filename = os.read(a, 1024)
+        print('file-browser returned', filename)
+        os.close(a)
+        if self.untouched:
+            self.open_file(filename.decode().strip())
+        else:
+            PaintingWindow(file=filename.decode().strip())
+
+
+    def open(self):
+        Task(self.open_dialog())
 
     def save(self, name='drawing.tga'):
         self.file_name = name
@@ -116,7 +141,10 @@ class PaintingWindow(Window):
         self.queue_redraw()
 
     def new_window(self, w, h):
-        PaintingWindow(size=(w,h))
+        if self.untouched:
+            self.new_buffer(w,h)
+        else:
+            PaintingWindow(size=(w,h))
         self.queue_redraw()
 
     def open_file(self, path):
@@ -396,6 +424,7 @@ class PaintingWindow(Window):
             Task(self.redraw())
 
     def set_modified(self):
+        self.untouched = False
         if not self.modified:
             self.modified = True
             self.title = f'{self.file_name}* - {app_name}'
