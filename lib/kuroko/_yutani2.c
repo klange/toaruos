@@ -75,6 +75,7 @@ KRK_Method(Message,__repr__) {
 #undef CURRENT_CTYPE
 
 typedef uint32_t (fill_pattern_func_t)(int32_t x, int32_t y, double alpha, void * extra);
+extern void tt_path_paint_with_pattern(gfx_context_t * ctx, const struct TT_Shape * shape, fill_pattern_func_t *pattern, void *extra);
 
 WRAP_TYPE(FillPattern,fill_pattern_func_t,func,const char * func_name; void * data; void (*data_free)(void*););
 #define IS_FillPattern(o) (krk_isInstanceOf(o,FillPattern))
@@ -885,7 +886,7 @@ KRK_Method(Window,move) {
 	if (!krk_parseArgs(".ii|O!", (const char*[]){"x","y","parent"}, &x, &y, Window, &parent)) return NONE_VAL();
 	INIT_CHECK(Window);
 	if (parent) {
-		_init_check_Window(parent);
+		if (!_init_check_Window(parent))  return krk_runtimeError(vm.exceptions->typeError, "bad parent");
 		yutani_window_move_relative(yctxInstance->yctx, self->window, parent->window, x, y);
 	} else {
 		yutani_window_move(yctxInstance->yctx, self->window, x, y);
@@ -2049,6 +2050,22 @@ KRK_Method(TTShape,paint) {
 	return NONE_VAL();
 }
 
+KRK_Method(TTShape,paint_pattern) {
+	struct _yutani_GraphicsContext * ctx;
+	struct _yutani_FillPattern * pattern;
+
+	if (!krk_parseArgs(".O!O!", (const char*[]){"ctx","pattern"},
+		GraphicsContext, &ctx, FillPattern, &pattern)) return NONE_VAL();
+
+	INIT_CHECK(TTShape);
+	if (!_init_check_GraphicsContext(ctx)) return krk_runtimeError(vm.exceptions->typeError, "bad ctx");
+	if (!_init_check_FillPattern(pattern)) return krk_runtimeError(vm.exceptions->typeError, "bad pattern");
+
+	tt_path_paint_with_pattern(ctx->ctx, self->shape, pattern->func, pattern->data);
+
+	return NONE_VAL();
+}
+
 extern void tt_path_paint_sprite(gfx_context_t * ctx, const struct TT_Shape * shape, sprite_t * sprite, gfx_matrix_t matrix);
 extern void tt_path_paint_sprite_options(gfx_context_t * ctx, const struct TT_Shape * shape, sprite_t * sprite, gfx_matrix_t matrix, int, int);
 KRK_Method(TTShape,paint_sprite) {
@@ -2673,6 +2690,7 @@ KRK_Module(_yutani2) {
 	TTShape->_ongcsweep = _TTShape_ongcsweep;
 	BIND_METHOD(TTShape,__init__);
 	BIND_METHOD(TTShape,paint);
+	BIND_METHOD(TTShape,paint_pattern);
 	BIND_METHOD(TTShape,paint_sprite);
 	BIND_METHOD(TTShape,free);
 #define CONST(n) krk_attachNamedValue(&TTShape->methods, #n, INTEGER_VAL(n))
