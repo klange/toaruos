@@ -94,7 +94,7 @@ misaka-kernel: ${KERNEL_ASMOBJS} ${KERNEL_OBJS} kernel/arch/${ARCH}/link.ld
 $(BASE)/mod/%.ko: modules/%.c | dirs
 	${CC} -c ${KERNEL_CFLAGS} -fno-pie -mcmodel=large  -o $@ $<
 
-ramdisk.tar: $(wildcard $(BASE)/* $(BASE)/*/* $(BASE)/*/*/* $(BASE)/*/*/*/* $(BASE)/*/*/*/*/*) $(APPS_X) $(LIBS_X) $(KRK_MODS_X) $(BASE)/bin/kuroko $(BASE)/bin/bim $(BIM_FILES) $(BASE)/lib/libm.so $(APPS_KRK_X) $(KRK_MODS) $(APPS_SH_X) $(MODULES) $(BASE)/etc/issue $(BASE)/etc/os-release util/createramdisk.krk | $(TOOLCHAIN)/local/bin/kuroko
+ramdisk.tar: $(wildcard $(BASE)/* $(BASE)/*/* $(BASE)/*/*/* $(BASE)/*/*/*/* $(BASE)/*/*/*/*/*) $(APPS_X) $(LIBS_X) $(KRK_MODS_X) $(BASE)/bin/kuroko $(BASE)/bin/bim $(BIM_FILES) $(BASE)/lib/libm.so $(APPS_KRK_X) $(KRK_MODS) $(APPS_SH_X) $(MODULES) $(BASE)/etc/issue $(BASE)/etc/os-release $(BASE)/usr/share/gamma.lut util/createramdisk.krk | $(TOOLCHAIN)/local/bin/kuroko
 	kuroko util/createramdisk.krk
 
 ramdisk.igz: ramdisk.tar
@@ -105,6 +105,9 @@ $(BASE)/etc/issue: kernel/sys/version.c util/generate-etc-issue.krk | dirs
 
 $(BASE)/etc/os-release: kernel/sys/version.c util/generate-etc-os-release.krk | dirs
 	kuroko util/generate-etc-os-release.krk > $@
+
+$(BASE)/usr/share/gamma.lut: util/generate-gamma-lut.krk | dirs
+	kuroko util/generate-gamma-lut.krk
 
 $(BASE)/usr/share/bim/%.krk: bim/%.krk
 	mkdir -p $(dir $@)
@@ -160,6 +163,7 @@ clean:
 	-rm -f $(GCC_SHARED)
 	-rm -f boot/efi/*.o boot/bios/*.o
 	-rm -f $(BASE)/etc/issue $(BASE)/etc/os-release
+	-rm -f $(BASE)/usr/share/gamma.lut
 
 libc/%.o: libc/%.c libc/syscall.h
 	$(CC) ${LIBC_CFLAGS} -fPIC -c -o $@ $<
