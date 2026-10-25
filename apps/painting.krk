@@ -327,6 +327,8 @@ class PaintingWindow(Window):
         del self.redo_stack[:]
         buf_copy.draw_sprite(self.buf)
         self.undo_stack.append(buf_copy)
+        while len(self.undo_stack) > 5:
+            del self.undo_stack[0]
 
     def do_undo(self):
         if not self.undo_stack:
