@@ -94,7 +94,7 @@ static inline void pipe_increment_write_by(pipe_device_t * pipe, size_t amount) 
 	pipe->write_ptr = (pipe->write_ptr + amount) % pipe->size;
 }
 
-ssize_t read_pipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+ssize_t read_pipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	/* Retreive the pipe object associated with this file node */
 	pipe_device_t * pipe = (pipe_device_t *)node->device;
 
@@ -131,7 +131,7 @@ ssize_t read_pipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	return collected;
 }
 
-ssize_t write_pipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+ssize_t write_pipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	/* Retreive the pipe object associated with this file node */
 	pipe_device_t * pipe = (pipe_device_t *)node->device;
 

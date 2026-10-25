@@ -399,7 +399,7 @@ static int vga_height(void) {
 	return vga_height_override ? vga_height_override : get_height();
 }
 
-static ssize_t write_vga_emul(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t write_vga_emul(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	if (offset < 0) return -EIO;
 	if (size % 2 || offset % 2) return -EIO;
 	size_t written = 0;

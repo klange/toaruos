@@ -97,7 +97,7 @@ int dprintf(const char * fmt, ...) {
 	return out;
 }
 
-static ssize_t write_fs_console(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
+static ssize_t write_fs_console(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer, uint64_t flags) {
 	if (size > 0x1000) return -EINVAL;
 	size_t size_in = size;
 	if (size && *buffer == '\r') {

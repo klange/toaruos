@@ -39,7 +39,7 @@ struct dos_partition_entry {
 	partition_t partition;
 };
 
-static ssize_t read_part(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t read_part(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	struct dos_partition_entry * device = (struct dos_partition_entry *)node->device;
 
 	if ((size_t)offset > device->partition.sector_count * SECTORSIZE) {
@@ -53,7 +53,7 @@ static ssize_t read_part(fs_node_t *node, off_t offset, size_t size, uint8_t *bu
 	return read_fs(device->device, offset + device->partition.lba_first_sector * SECTORSIZE, size, buffer);
 }
 
-static ssize_t write_part(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t write_part(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	struct dos_partition_entry * device = (struct dos_partition_entry *)node->device;
 
 	if ((size_t)offset > device->partition.sector_count * SECTORSIZE) {

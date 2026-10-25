@@ -450,7 +450,7 @@ static int ioctl_e1000(fs_node_t * node, unsigned long request, void * argp) {
 	}
 }
 
-static ssize_t write_e1000(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t write_e1000(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	struct e1000_nic * nic = node->device;
 	/* write packet */
 	send_packet(nic, buffer, size);

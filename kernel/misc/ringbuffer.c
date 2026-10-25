@@ -76,7 +76,7 @@ void ring_buffer_discard(ring_buffer_t * ring_buffer) {
 	spin_unlock(ring_buffer->lock);
 }
 
-ssize_t ring_buffer_read(ring_buffer_t * ring_buffer, size_t size, uint8_t * buffer) {
+ssize_t ring_buffer_read(ring_buffer_t * ring_buffer, size_t size, uint8_t * buffer, uint64_t flags) {
 	size_t collected = 0;
 	while (collected == 0) {
 		spin_lock(ring_buffer->lock);
@@ -93,6 +93,11 @@ ssize_t ring_buffer_read(ring_buffer_t * ring_buffer, size_t size, uint8_t * buf
 				return 0;
 			}
 
+			if (flags & PROC_FD_MODE_NONBLOCK) {
+				spin_unlock(ring_buffer->lock);
+				return -EAGAIN;
+			}
+
 			if (waitable_await_unlocking(&ring_buffer->rd_queue, &ring_buffer->lock)) {
 				if (has_pending()) return -ERESTARTSYS;
 			}
@@ -104,7 +109,7 @@ ssize_t ring_buffer_read(ring_buffer_t * ring_buffer, size_t size, uint8_t * buf
 	return collected;
 }
 
-ssize_t ring_buffer_write(ring_buffer_t * ring_buffer, size_t size, uint8_t * buffer) {
+ssize_t ring_buffer_write(ring_buffer_t * ring_buffer, size_t size, uint8_t * buffer, uint64_t flags) {
 	size_t written = 0;
 	while (written < size) {
 		spin_lock(ring_buffer->lock);
@@ -118,7 +123,7 @@ ssize_t ring_buffer_write(ring_buffer_t * ring_buffer, size_t size, uint8_t * bu
 		waitable_awaken_all(&ring_buffer->rd_queue, (void*)1);
 
 		if (written < size) {
-			if (ring_buffer->discard) {
+			if (ring_buffer->discard || (flags & PROC_FD_MODE_NONBLOCK)) {
 				spin_unlock(ring_buffer->lock);
 				break;
 			}

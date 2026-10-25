@@ -31,8 +31,8 @@ typedef struct pty {
 	pid_t ct_proc; /* Controlling process (shell) */
 	pid_t fg_proc; /* Foreground process (might also be shell) */
 
-	ssize_t (*write_in)(struct pty *, uint8_t);
-	ssize_t (*write_out)(struct pty *, uint8_t);
+	ssize_t (*write_in)(struct pty *, uint8_t, uint64_t);
+	ssize_t (*write_out)(struct pty *, uint8_t, uint64_t);
 
 	int next_is_verbatim;
 
@@ -45,7 +45,5 @@ typedef struct pty {
 	int subsidiary_closed;
 } pty_t;
 
-ssize_t tty_output_process_subsidiary(pty_t * pty, uint8_t c);
-ssize_t tty_output_process(pty_t * pty, uint8_t c);
-ssize_t tty_input_process(pty_t * pty, uint8_t c);
+ssize_t tty_input_process(pty_t * pty, uint8_t c, uint64_t flags);
 pty_t * pty_new(struct winsize * size, int index);

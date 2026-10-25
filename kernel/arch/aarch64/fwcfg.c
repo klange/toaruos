@@ -133,7 +133,7 @@ void fwcfg_load_initrd(uintptr_t * ramdisk_phys_base, size_t * ramdisk_size) {
 	}
 }
 
-static ssize_t read_fwcfg(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
+static ssize_t read_fwcfg(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer, uint64_t flags) {
 	volatile uint8_t * addr;
 	if (offset == 0x510) {
 		/* Read selector. Must be 16 bit; selector will be byte swapped from big-endian. */
@@ -153,7 +153,7 @@ static ssize_t read_fwcfg(fs_node_t * node, off_t offset, size_t size, uint8_t *
 	return size;
 }
 
-static ssize_t write_fwcfg(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
+static ssize_t write_fwcfg(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer, uint64_t flags) {
 	volatile uint8_t * addr;
 	if (offset == 0x510) {
 		/* Write selector. Must be 16 bit; selector will be byte swapped to big-endian. */

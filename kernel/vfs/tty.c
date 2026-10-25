@@ -43,18 +43,18 @@ static void pty_teardown(pty_t * pty) {
 	free(pty);
 }
 
-static ssize_t pty_write_in(pty_t * pty, uint8_t c) {
-	return ring_buffer_write(pty->in, 1, &c);
+static ssize_t pty_write_in(pty_t * pty, uint8_t c, uint64_t flags) {
+	return ring_buffer_write(pty->in, 1, &c, flags);
 }
 
-static ssize_t pty_write_out(pty_t * pty, uint8_t c) {
-	return ring_buffer_write(pty->out, 1, &c);
+static ssize_t pty_write_out(pty_t * pty, uint8_t c, uint64_t flags) {
+	return ring_buffer_write(pty->out, 1, &c, flags);
 }
 
-#define IN(character)   do { ssize_t written = pty->write_in(pty, (uint8_t)character); if (written < 0) return written; } while (0)
-#define OUT(character)  do { ssize_t written = pty->write_out(pty, (uint8_t)character); if (written < 0) return written; } while (0)
+#define IN(character)   do { ssize_t written = pty->write_in(pty, (uint8_t)character, flags); if (written < 0) return written; } while (0)
+#define OUT(character)  do { ssize_t written = pty->write_out(pty, (uint8_t)character, flags); if (written < 0) return written; } while (0)
 
-static ssize_t dump_input_buffer(pty_t * pty) {
+static ssize_t dump_input_buffer(pty_t * pty, uint64_t flags) {
 	char * c = pty->canon_buffer;
 	ssize_t written = 0;
 	while (pty->canon_buflen > 0) {
@@ -71,7 +71,7 @@ static void clear_input_buffer(pty_t * pty) {
 	pty->canon_buffer[0] = '\0';
 }
 
-ssize_t tty_output_process(pty_t * pty, uint8_t c) {
+static ssize_t tty_output_process(pty_t * pty, uint8_t c, uint64_t flags) {
 	if (!(pty->tios.c_oflag & OPOST)) {
 		OUT(c);
 		return 1;
@@ -99,13 +99,13 @@ ssize_t tty_output_process(pty_t * pty, uint8_t c) {
 	return 1;
 }
 
-#define output_process(pty, chr) do { ssize_t written = tty_output_process(pty, chr); if (written < 0) return written; } while (0)
+#define output_process(pty, chr) do { ssize_t written = tty_output_process(pty, chr,  flags); if (written < 0) return written; } while (0)
 
 static int is_control(int c) {
 	return c < ' ' || c == 0x7F;
 }
 
-static ssize_t tty_erase_one(pty_t * pty, int erase) {
+static ssize_t tty_erase_one(pty_t * pty, int erase, uint64_t flags) {
 	if (pty->canon_buflen > 0) {
 		/* How many do we backspace? */
 		int vwidth = 1;
@@ -128,9 +128,9 @@ static ssize_t tty_erase_one(pty_t * pty, int erase) {
 	return 0;
 }
 
-#define erase_one(pty, erase) do { ssize_t written = tty_erase_one(pty, erase); if (written < 0) return written; } while (0)
+#define erase_one(pty, erase) do { ssize_t written = tty_erase_one(pty, erase, flags); if (written < 0) return written; } while (0)
 
-ssize_t tty_input_process(pty_t * pty, uint8_t c) {
+ssize_t tty_input_process(pty_t * pty, uint8_t c, uint64_t flags) {
 	pty->subsidiary->mtime = now();
 	if (pty->next_is_verbatim) {
 		pty->next_is_verbatim = 0;
@@ -257,7 +257,7 @@ ssize_t tty_input_process(pty_t * pty, uint8_t c) {
 		}
 		if (c == pty->tios.c_cc[VEOF]) {
 			if (pty->canon_buflen) {
-				dump_input_buffer(pty);
+				dump_input_buffer(pty, flags);
 			} else {
 				ring_buffer_eof(pty->in);
 			}
@@ -281,7 +281,7 @@ ssize_t tty_input_process(pty_t * pty, uint8_t c) {
 				output_process(pty, c);
 			}
 			pty->canon_buffer[pty->canon_buflen-1] = c;
-			dump_input_buffer(pty);
+			dump_input_buffer(pty, flags);
 			return 1;
 		}
 		return 1;
@@ -381,7 +381,7 @@ int pty_ioctl(fs_node_t * node, pty_t * pty, unsigned long request, void * argp)
 			/* TODO wait on output for SETSW */
 			if (!(((struct termios *)argp)->c_lflag & ICANON) && (pty->tios.c_lflag & ICANON)) {
 				/* Switch out of canonical mode, the dump the input buffer */
-				dump_input_buffer(pty);
+				dump_input_buffer(pty, 0);
 			}
 			memcpy(&pty->tios, argp, sizeof(struct termios));
 			return 0;
@@ -397,18 +397,18 @@ int pty_ioctl(fs_node_t * node, pty_t * pty, unsigned long request, void * argp)
 	}
 }
 
-ssize_t  read_pty_manager(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
+ssize_t  read_pty_manager(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	pty_t * pty = (pty_t *)node->device;
 
 	/* Standard pipe read */
-	return ring_buffer_read(pty->out, size, buffer);
+	return ring_buffer_read(pty->out, size, buffer, flags);
 }
-ssize_t write_pty_manager(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
+ssize_t write_pty_manager(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	pty_t * pty = (pty_t *)node->device;
 
 	size_t l = 0;
 	for (uint8_t * c = buffer; l < size; ++c, ++l) {
-		ssize_t o = tty_input_process(pty, *c);
+		ssize_t o = tty_input_process(pty, *c, flags);
 		if (o < 0 && !l) return o;
 	}
 
@@ -457,7 +457,7 @@ static void set_vtime(struct timer_event * vtime, pty_t * pty, int timeout) {
 	vtime->priv = pty;
 }
 
-ssize_t read_pty_subsidiary(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
+ssize_t read_pty_subsidiary(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	pty_t * pty = (pty_t *)node->device;
 
 	/* If this process *is* part of this tty's session, but is NOT in the foreground job
@@ -472,8 +472,10 @@ ssize_t read_pty_subsidiary(fs_node_t * node, off_t offset, size_t size, uint8_t
 	/* Request for size of zero always returns immediately, regardless. */
 	if (size == 0) return 0;
 
+	if ((flags & PROC_FD_MODE_NONBLOCK) && !ring_buffer_unread(pty->in)) return -EAGAIN;
+
 	/* Canonical mode ignores vmin, vtime */
-	if (pty->tios.c_lflag & ICANON) return ring_buffer_read(pty->in, size, buffer);
+	if (pty->tios.c_lflag & ICANON) return ring_buffer_read(pty->in, size, buffer, flags);
 
 	ssize_t c = 0;
 	ssize_t r = 0;
@@ -487,20 +489,20 @@ ssize_t read_pty_subsidiary(fs_node_t * node, off_t offset, size_t size, uint8_t
 			/* VMIN == 0, TIME > 0: Read whatever we get within VTIME deciseconds. */
 			set_vtime(&vtime, pty, timeout);
 			timer_set(&vtime);
-			r = ring_buffer_read(pty->in, size, buffer);
+			r = ring_buffer_read(pty->in, size, buffer, 0);
 			timer_cancel(&vtime);
 			return r;
 		} else {
 			/* VMIN > 0, TIME > 0: Read at least one byte, then read up to VMIN-1 more bytes,
 			 *                     resetting the timeout each time. */
-			r = ring_buffer_read(pty->in, size - c, buffer + c);
+			r = ring_buffer_read(pty->in, size - c, buffer + c, 0);
 			if (r <= 0) return c ? c : r;
 			c += r;
 
 			while (c < vmin) {
 				set_vtime(&vtime, pty, timeout);
 				timer_set(&vtime);
-				r = ring_buffer_read(pty->in, size - c, buffer + c);
+				r = ring_buffer_read(pty->in, size - c, buffer + c, 0);
 				timer_cancel(&vtime);
 				if (r <= 0) return c ? c : r;
 				c += r;
@@ -513,19 +515,19 @@ ssize_t read_pty_subsidiary(fs_node_t * node, off_t offset, size_t size, uint8_t
 	/* VTIME == 0, VMIN == 0: Return immediately, regardless. */
 	if (pty->tios.c_cc[VMIN] == 0) {
 		if (!ring_buffer_unread(pty->in)) return 0;
-		return ring_buffer_read(pty->in, size, buffer);
+		return ring_buffer_read(pty->in, size, buffer, 0);
 	}
 
 	/* VTIME == 0, VMIN > 0: Collect the lesser of VMIN and size */
 	while (c < vmin) {
-		r = ring_buffer_read(pty->in, size - c, buffer + c);
+		r = ring_buffer_read(pty->in, size - c, buffer + c, 0);
 		if (r <= 0) return c ? c : r;
 		c += r;
 	}
 	return c;
 }
 
-ssize_t write_pty_subsidiary(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
+ssize_t write_pty_subsidiary(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	pty_t * pty = (pty_t *)node->device;
 
 	if (pty->tios.c_lflag & TOSTOP) {
@@ -543,7 +545,7 @@ ssize_t write_pty_subsidiary(fs_node_t * node, off_t offset, size_t size, uint8_
 
 	size_t l = 0;
 	for (uint8_t * c = buffer; l < size; ++c, ++l) {
-		ssize_t o = tty_output_process(pty, *c);
+		ssize_t o = tty_output_process(pty, *c, flags);
 		if (o < 0) {
 			if (l) return l;
 			return o;

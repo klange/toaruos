@@ -13,6 +13,7 @@
 #include <kernel/printf.h>
 #include <kernel/pty.h>
 #include <kernel/mmu.h>
+#include <bits/errno.h>
 
 #include <kernel/arch/aarch64/dtb.h>
 #include <kernel/arch/aarch64/gic.h>
@@ -91,8 +92,9 @@ static ssize_t miniuart_fill_name(pty_t * pty, size_t len, char * name) {
 	return snprintf(name, len, "/dev/ttyUART1");
 }
 
-static ssize_t miniuart_write_out(pty_t * pty, uint8_t c) {
+static ssize_t miniuart_write_out(pty_t * pty, uint8_t c, uint64_t flags) {
 	uintptr_t uart_mapped = (uintptr_t)pty->_private;
+	if (!(mmio_read(uart_mapped + AUX_MU_LSR_REG) & 0x20) && (flags & PROC_FD_MODE_NONBLOCK)) return -EAGAIN;
 	while (!(mmio_read(uart_mapped + AUX_MU_LSR_REG) & 0x20));
 	mmio_write(uart_mapped + AUX_MU_IO_REG, (uint8_t)c);
 	return 1;
@@ -144,7 +146,7 @@ static void miniuart_thread(void * arg) {
 		}
 
 		uint8_t rx = mmio_read(uart_mapped + AUX_MU_IO_REG);
-		tty_input_process(pty, rx);
+		tty_input_process(pty, rx, 0);
 	}
 }
 

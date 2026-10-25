@@ -83,7 +83,7 @@ snd_unregister_cleanup:
 	return rv;
 }
 
-static ssize_t snd_dsp_write(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t snd_dsp_write(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	if (!_devices.length) return -EPIPE; /* No sink available. */
 
 	struct dsp_node * dsp = node->device;
@@ -91,9 +91,9 @@ static ssize_t snd_dsp_write(fs_node_t * node, off_t offset, size_t size, uint8_
 	size_t s = ring_buffer_available(dsp->rb);
 	size_t out;
 	if (size > s && dsp->realtime) {
-		out = ring_buffer_write(dsp->rb, s & ~0x3, buffer);
+		out = ring_buffer_write(dsp->rb, s & ~0x3, buffer, flags);
 	} else {
-		out = ring_buffer_write(dsp->rb, size, buffer);
+		out = ring_buffer_write(dsp->rb, size, buffer, flags);
 	}
 	dsp->written += out / 4;
 
@@ -246,7 +246,7 @@ int snd_request_buf(snd_device_t * device, uint32_t size, uint8_t *buffer) {
 		int16_t * adding_ptr = (int16_t *) buffer;
 		while (bytes_left) {
 			size_t this_read_size = MIN(bytes_left, sizeof(tmp_buf));
-			ring_buffer_read(buf, this_read_size, (uint8_t *)tmp_buf);
+			ring_buffer_read(buf, this_read_size, (uint8_t *)tmp_buf, 0);
 			dsp->samples += this_read_size / 4; /* 16 bits, 2 channels */
 			/*
 			 * Reduce the sample by a half so that multiple sources won't immediately

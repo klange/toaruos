@@ -217,7 +217,7 @@ static uint64_t tmpfs_ext_getblock(struct tmpfs_file *t, off_t offset) {
 	return page;
 }
 
-static ssize_t read_tmpfs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t read_tmpfs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	struct tmpfs_file * t = (struct tmpfs_file *)node;
 
 	spin_lock(t->lock);
@@ -269,7 +269,7 @@ static ssize_t read_tmpfs(fs_node_t *node, off_t offset, size_t size, uint8_t *b
 	return size_to_read;
 }
 
-static ssize_t write_tmpfs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t write_tmpfs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	struct tmpfs_file * t = (struct tmpfs_file *)node;
 
 	spin_lock(t->lock);

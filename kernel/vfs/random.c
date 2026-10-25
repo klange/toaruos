@@ -27,7 +27,7 @@ uint32_t rand(void) {
 	return w = w ^ (w >> 19) ^ t ^ (t >> 8);
 }
 
-static ssize_t read_random(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t read_random(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	size_t remaining = size;
 	size_t written = 0;
 	while (remaining) {

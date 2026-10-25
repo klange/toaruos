@@ -261,7 +261,7 @@ cleanup:
 	return found;
 }
 
-static ssize_t read_iso(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
+static ssize_t read_iso(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer, uint64_t flags) {
 	iso_9660_fs_t * this = node->device;
 	char * tmp = malloc(this->block_size);
 	read_sector(this, node->inode, tmp);

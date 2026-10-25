@@ -225,7 +225,7 @@ void dtb_pcie_base(void) {
 	}
 }
 
-static ssize_t read_dtb(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t read_dtb(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	if ((size_t)offset > node->length) {
 		return 0;
 	}

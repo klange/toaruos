@@ -38,7 +38,7 @@ static ssize_t pl011_fill_name(pty_t * pty, size_t len, char * name) {
 	return snprintf(name, len, "/dev/ttyS0");
 }
 
-static ssize_t pl011_write_out(pty_t * pty, uint8_t c) {
+static ssize_t pl011_write_out(pty_t * pty, uint8_t c, uint64_t flags) {
 	volatile uint32_t * uart_mapped = (volatile uint32_t *)pty->_private;
 	uart_mapped[0] = c;
 	return 1;
@@ -74,7 +74,7 @@ static void pl011_thread(void * arg) {
 		}
 
 		uint8_t rx = uart_mapped[0];
-		tty_input_process(pty, rx);
+		tty_input_process(pty, rx, 0);
 	}
 }
 

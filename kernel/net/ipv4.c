@@ -291,13 +291,13 @@ static void sock_icmp_close(sock_t * sock) {
 	hashmap_remove(icmp_sockets, (void*)(uintptr_t)sock->priv32[SOCK_PRIV32_ICMP_IDENT]);
 }
 
-static long sock_icmp_recv(sock_t * sock, struct msghdr * msg, int flags) {
+static long sock_icmp_recv(sock_t * sock, struct msghdr * msg, int flags, uint64_t fdflags) {
 	if (msg->msg_iovlen > 1) {
 		return -ENOTSUP;
 	}
 	if (msg->msg_iovlen == 0) return 0;
 
-	if (!sock->rx_queue->length && sock->nonblocking) return -EAGAIN;
+	if (!sock->rx_queue->length && (fdflags & PROC_FD_MODE_NONBLOCK)) return -EAGAIN;
 
 	char * packet = net_sock_get(sock);
 	if (!packet) return -EINTR;
@@ -327,7 +327,7 @@ static long sock_icmp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	return packet_size;
 }
 
-static long sock_icmp_send(sock_t * sock, const struct msghdr *msg, int flags) {
+static long sock_icmp_send(sock_t * sock, const struct msghdr *msg, int flags, uint64_t fdflags) {
 	if (msg->msg_iovlen > 1) return -ENOTSUP;
 	if (msg->msg_iovlen == 0) return 0;
 	if (msg->msg_namelen != sizeof(struct sockaddr_in)) return -EINVAL;
@@ -367,14 +367,13 @@ static long sock_icmp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 	return 0;
 }
 
-static int icmp_socket(int flags, int nb) {
+static int icmp_socket(int flags) {
 	if (hashmap_has(icmp_sockets, (void*)(uintptr_t)this_core->current_process->id)) return -EINVAL;
 	sock_t * sock = net_sock_create();
 	sock->sock_recv = sock_icmp_recv;
 	sock->sock_send = sock_icmp_send;
 	sock->sock_close = sock_icmp_close;
 	sock->priv32[SOCK_PRIV32_ICMP_IDENT] = this_core->current_process->id;
-	sock->nonblocking = nb;
 	hashmap_set(icmp_sockets, (void*)(uintptr_t)sock->priv32[SOCK_PRIV32_ICMP_IDENT], sock);
 
 	return net_socket_to_fd(sock, flags, "icmp", this_core->current_process->id);
@@ -578,7 +577,7 @@ long sock_udp_getsockname(sock_t * sock, struct sockaddr *addr, socklen_t * addr
 	return 0;
 }
 
-static long sock_udp_send(sock_t * sock, const struct msghdr *msg, int flags) {
+static long sock_udp_send(sock_t * sock, const struct msghdr *msg, int flags, uint64_t fdflags) {
 	printf("udp: send called\n");
 	if (msg->msg_iovlen > 1) {
 		printf("net: todo: can't send multiple iovs\n");
@@ -637,7 +636,7 @@ static long sock_udp_send(sock_t * sock, const struct msghdr *msg, int flags) {
 	return msg->msg_iov[0].iov_len;
 }
 
-static long sock_udp_recv(sock_t * sock, struct msghdr * msg, int flags) {
+static long sock_udp_recv(sock_t * sock, struct msghdr * msg, int flags, uint64_t fdflags) {
 	printf("udp: recv called\n");
 	if (!sock->priv[SOCK_PRIV_IPV4_PORT]) {
 		printf("udp: recv() but socket has no port\n");
@@ -650,7 +649,7 @@ static long sock_udp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	}
 	if (msg->msg_iovlen == 0) return 0;
 
-	if (!sock->rx_queue->length && sock->nonblocking) return -EAGAIN;
+	if (!sock->rx_queue->length && (fdflags & PROC_FD_MODE_NONBLOCK)) return -EAGAIN;
 
 	char * packet = net_sock_get(sock);
 	if (!packet) return -EINTR;
@@ -690,7 +689,7 @@ static void sock_udp_close(sock_t * sock) {
 }
 
 
-static long sock_udp_bind(sock_t * sock, const struct sockaddr *addr, socklen_t addrlen) {
+static long sock_udp_bind(sock_t * sock, const struct sockaddr *addr, socklen_t addrlen, uint64_t fdflags) {
 	if (sock->priv[SOCK_PRIV_IPV4_PORT]) return -EINVAL; /* Already bound */
 
 	/* Get port */
@@ -721,7 +720,7 @@ static long sock_udp_bind(sock_t * sock, const struct sockaddr *addr, socklen_t 
 	return 0;
 }
 
-static int udp_socket(int flags, int nb) {
+static int udp_socket(int flags) {
 	printf("udp socket...\n");
 	sock_t * sock = net_sock_create();
 	sock->sock_recv = sock_udp_recv;
@@ -729,7 +728,6 @@ static int udp_socket(int flags, int nb) {
 	sock->sock_close = sock_udp_close;
 	sock->sock_bind = sock_udp_bind;
 	sock->sock_getsockname = sock_udp_getsockname;
-	sock->nonblocking = nb;
 
 	static uint64_t udp_sock_count = 0;
 	return net_socket_to_fd(sock, flags, "udp", udp_sock_count++);
@@ -797,7 +795,7 @@ static int tcp_get_port(sock_t * sock) {
 	return out;
 }
 
-static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
+static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags, uint64_t fdflags) {
 	if (!sock->priv[SOCK_PRIV_IPV4_PORT]) {
 		printf("tcp: recv() but socket has no port\n");
 		return -EINVAL;
@@ -833,7 +831,7 @@ static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 		return 0; /* EOF */
 	}
 
-	if (!sock->rx_queue->length && sock->nonblocking) return -EAGAIN;
+	if (!sock->rx_queue->length && (fdflags & PROC_FD_MODE_NONBLOCK)) return -EAGAIN;
 
 	unsigned long s = 0, ss = 0;
 	unsigned long ns = 0, nss = 0;
@@ -895,7 +893,7 @@ static long sock_tcp_recv(sock_t * sock, struct msghdr * msg, int flags) {
 
 extern uint32_t rand(void);
 
-static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen_t addrlen) {
+static long sock_tcp_connect(sock_t * sock, const struct sockaddr *addr, socklen_t addrlen, uint64_t fdflags) {
 	const struct sockaddr_in * dest = (const struct sockaddr_in *)addr;
 	char deststr[16];
 	ip_ntoa(ntohl(dest->sin_addr.s_addr), deststr);
@@ -1011,7 +1009,7 @@ static void delay_yield(size_t subticks) {
 	sleep_until((process_t *)this_core->current_process, s, ss);
 }
 
-static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags) {
+static long sock_tcp_send(sock_t * sock, const struct msghdr *msg, int flags, uint64_t fdflags) {
 	printf("tcp: send called\n");
 	if (msg->msg_iovlen > 1) {
 		printf("net: todo: can't send multiple iovs\n");
@@ -1118,7 +1116,7 @@ static long sock_tcp_getpeername(sock_t * sock, struct sockaddr *addr, socklen_t
 	return 0;
 }
 
-static long sock_tcp_bind(sock_t * sock, const struct sockaddr *addr, socklen_t addrlen) {
+static long sock_tcp_bind(sock_t * sock, const struct sockaddr *addr, socklen_t addrlen, uint64_t fdflags) {
 	const struct sockaddr_in * addr_in = (const struct sockaddr_in*)addr;
 	dprintf("tcp_bind({port=%u})\n", ntohs(addr_in->sin_port));
 
@@ -1149,7 +1147,7 @@ static long sock_tcp_listen(sock_t * sock, int backlog) {
 	return 0;
 }
 
-static long sock_tcp_accept(sock_t * sock, struct sockaddr *addr, socklen_t *addrlen) {
+static long sock_tcp_accept(sock_t * sock, struct sockaddr *addr, socklen_t *addrlen, uint64_t fdflags) {
 	if (!sock->priv[SOCK_PRIV_IPV4_PORT]) return -EINVAL; /* Not a bound socket. */
 
 	// spin_lock(...)
@@ -1192,7 +1190,7 @@ static long sock_tcp_accept(sock_t * sock, struct sockaddr *addr, socklen_t *add
 	return -EINVAL;
 }
 
-static int tcp_socket(int flags, int nb) {
+static int tcp_socket(int flags) {
 	printf("tcp socket...\n");
 	sock_t * sock = net_sock_create();
 	sock->sock_recv = sock_tcp_recv;
@@ -1209,17 +1207,17 @@ static int tcp_socket(int flags, int nb) {
 	return net_socket_to_fd(sock, flags, "tcp", tcp_sock_count++);
 }
 
-long net_ipv4_socket(int type, int protocol, int flags, int nb) {
+long net_ipv4_socket(int type, int protocol, int flags) {
 	/* Ignore protocol, make socket for 'type' only... */
 	switch (type) {
 		case SOCK_DGRAM:
 			if (!protocol || protocol == IPPROTO_UDP)
-				return udp_socket(flags, nb);
+				return udp_socket(flags);
 			if (protocol == IPPROTO_ICMP)
-				return icmp_socket(flags, nb);
+				return icmp_socket(flags);
 			return -EINVAL;
 		case SOCK_STREAM:
-			return tcp_socket(flags, nb);
+			return tcp_socket(flags);
 		default:
 			return -EINVAL;
 	}

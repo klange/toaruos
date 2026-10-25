@@ -136,12 +136,15 @@ int selectwait_fs(fs_node_t * node, void * process) {
  */
 ssize_t read_fs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	if (!node) return -ENOENT;
-	if (node->ops->read) {
-		return node->ops->read(node, offset, size, buffer);
-	} else {
-		if (node->type == INO_DIR) return -EISDIR;
-		return -EINVAL;
-	}
+	if (node->ops->read) return node->ops->read(node, offset, size, buffer, 0);
+	if (node->type == INO_DIR) return -EISDIR;
+	return -EINVAL;
+}
+
+ssize_t read_fs_ex(struct fs_file_description * fd, off_t offset, size_t size, uint8_t *buffer) {
+	if (fd->inode->ops->read) return fd->inode->ops->read(fd->inode, offset, size, buffer, fd->flags);
+	if (fd->inode->type == INO_DIR) return -EISDIR;
+	return -EINVAL;
 }
 
 /**
@@ -155,12 +158,15 @@ ssize_t read_fs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
  */
 ssize_t write_fs(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
 	if (!node) return -ENOENT;
-	if (node->ops->write) {
-		return node->ops->write(node, offset, size, buffer);
-	} else {
-		if (node->type == INO_DIR) return -EISDIR;
-		return -EROFS;
-	}
+	if (node->ops->write) return node->ops->write(node, offset, size, buffer, 0);
+	if (node->type == INO_DIR) return -EISDIR;
+	return -EROFS;
+}
+
+ssize_t write_fs_ex(struct fs_file_description * fd, off_t offset, size_t size, uint8_t *buffer) {
+	if (fd->inode->ops->write) return fd->inode->ops->write(fd->inode, offset, size, buffer, fd->flags);
+	if (fd->inode->type == INO_DIR) return -EISDIR;
+	return -EROFS;
 }
 
 /**

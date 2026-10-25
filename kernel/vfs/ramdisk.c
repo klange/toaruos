@@ -26,12 +26,12 @@
 #include <kernel/process.h>
 #include <kernel/mmu.h>
 
-static ssize_t read_ramdisk(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer);
-static ssize_t write_ramdisk(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer);
+static ssize_t read_ramdisk(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags);
+static ssize_t write_ramdisk(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags);
 static void     open_ramdisk(fs_node_t *node, unsigned int flags);
 static void     close_ramdisk(fs_node_t *node);
 
-static ssize_t read_ramdisk(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t read_ramdisk(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 
 	if ((size_t)offset > node->length) {
 		return 0;
@@ -47,7 +47,7 @@ static ssize_t read_ramdisk(fs_node_t *node, off_t offset, size_t size, uint8_t 
 	return size;
 }
 
-static ssize_t write_ramdisk(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t write_ramdisk(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	if ((size_t)offset > node->length) {
 		return 0;
 	}

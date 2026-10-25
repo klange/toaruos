@@ -33,9 +33,9 @@
  *       Thinking this should work like the VFS, with method tables for different
  *       protocol handlers, but a lot of this stuff is also just generic...
  */
-extern long net_ipv4_socket(int,int,int,int);
-extern long net_unix_socket(int,int,int,int);
-extern long net_pex_socket(int,int,int,int);
+extern long net_ipv4_socket(int,int,int);
+extern long net_unix_socket(int,int,int);
+extern long net_pex_socket(int,int,int);
 
 void net_sock_alert(sock_t * sock) {
 	waitable_awaken_all(&sock->rx_wait_queue, (void*)1);
@@ -111,18 +111,10 @@ void sock_generic_close(fs_node_t *node) {
 }
 
 int sock_generic_ioctl(fs_node_t * node, unsigned long request, void * argp) {
-	sock_t * sock = (sock_t*)node;
-	switch (request) {
-		case FIONBIO: {
-			if (!mmu_validate_user_pointer(argp, sizeof(int), 0)) return -EFAULT;
-			sock->nonblocking = (!!*(int*)argp);
-			return 0;
-		}
-	}
 	return -EINVAL;
 }
 
-ssize_t sock_generic_read(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+ssize_t sock_generic_read(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	sock_t * sock = (sock_t*)node;
 	struct iovec _iovec = {
 		buffer, size
@@ -136,10 +128,10 @@ ssize_t sock_generic_read(fs_node_t *node, off_t offset, size_t size, uint8_t *b
 		.msg_controllen = 0,
 		.msg_flags = 0,
 	};
-	return sock->sock_recv(sock, &_header, 0);
+	return sock->sock_recv(sock, &_header, 0, flags);
 }
 
-ssize_t sock_generic_write(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+ssize_t sock_generic_write(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	sock_t * sock = (sock_t*)node;
 	struct iovec _iovec = {
 		(void*)buffer, size
@@ -153,7 +145,7 @@ ssize_t sock_generic_write(fs_node_t *node, off_t offset, size_t size, uint8_t *
 		.msg_controllen = 0,
 		.msg_flags = 0,
 	};
-	return sock->sock_send(sock, &_header, 0);
+	return sock->sock_send(sock, &_header, 0, flags);
 }
 
 fs_vtable_t sock_ops = {
@@ -183,13 +175,14 @@ sock_t * net_sock_create(void) {
 spin_lock_t net_raw_sockets_lock = {0};
 list_t * net_raw_sockets_list = NULL;
 
-static long sock_raw_recv(sock_t * sock, struct msghdr * msg, int flags) {
+static long sock_raw_recv(sock_t * sock, struct msghdr * msg, int flags, uint64_t fdflags) {
 	if (!sock->_fnode.device) return -EINVAL;
 	if (msg->msg_iovlen > 1) {
 		printf("net: todo: can't recv multiple iovs\n");
 		return -ENOTSUP;
 	}
 	if (msg->msg_iovlen == 0) return 0;
+	if (!sock->rx_queue->length && (fdflags & PROC_FD_MODE_NONBLOCK)) return -EAGAIN;
 	char * data = net_sock_get(sock);
 	if (!data) return -EINTR;
 	size_t packet_size = *(size_t*)data;
@@ -202,7 +195,7 @@ static long sock_raw_recv(sock_t * sock, struct msghdr * msg, int flags) {
 	return 4096;
 }
 
-static long sock_raw_send(sock_t * sock, const struct msghdr *msg, int flags) {
+static long sock_raw_send(sock_t * sock, const struct msghdr *msg, int flags, uint64_t fdflags) {
 	if (!sock->_fnode.device) return -EINVAL;
 	if (msg->msg_iovlen > 1) {
 		printf("net: todo: can't send multiple iovs\n");
@@ -228,7 +221,7 @@ long net_socket_to_fd(sock_t * sock, int flags, const char * sock_type_name, uin
 /**
  * Raw sockets
  */
-long net_raw_socket(int type, int protocol, int flags, int nb) {
+long net_raw_socket(int type, int protocol, int flags) {
 	if (type != SOCK_RAW) return -ESOCKTNOSUPPORT;
 	if (this_core->current_process->user != 0) return -EACCES;
 
@@ -242,17 +235,14 @@ long net_raw_socket(int type, int protocol, int flags, int nb) {
 	list_insert(net_raw_sockets_list, sock);
 	spin_unlock(net_raw_sockets_lock);
 
-	if (nb) sock->nonblocking = 1;
-
 	static uint64_t raw_sock_count = 0;
 	return net_socket_to_fd(sock, flags, "raw", raw_sock_count++);
 }
 
 long net_socket(int domain, int type, int protocol) {
 	int flags = 0;
-	int nonblocking = 0;
 
-	if (type & SOCK_NONBLOCK) nonblocking = 1;
+	if (type & SOCK_NONBLOCK) flags |= PROC_FD_MODE_NONBLOCK;
 	if (type & SOCK_CLOEXEC)  flags |= PROC_FD_MODE_CLOEXEC;
 	if (type & SOCK_CLOFORK)  flags |= PROC_FD_MODE_CLOFORK;
 
@@ -260,13 +250,13 @@ long net_socket(int domain, int type, int protocol) {
 
 	switch (domain) {
 		case AF_INET:
-			return net_ipv4_socket(type, protocol, flags, nonblocking);
+			return net_ipv4_socket(type, protocol, flags);
 		case AF_RAW:
-			return net_raw_socket(type, protocol, flags, nonblocking);
+			return net_raw_socket(type, protocol, flags);
 		case AF_UNIX:
-			return net_unix_socket(type, protocol, flags, nonblocking);
+			return net_unix_socket(type, protocol, flags);
 		case AF_PEX:
-			return net_pex_socket(type, protocol, flags, nonblocking);
+			return net_pex_socket(type, protocol, flags);
 		default:
 			return -EAFNOSUPPORT;
 	}
@@ -343,14 +333,14 @@ long net_bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 	CHECK_SOCK(sockfd);
 	sock_t * node = (sock_t*)FD_ENTRY(sockfd);
 	if (!node->sock_bind) return -EINVAL;
-	return node->sock_bind(node, addr, addrlen);
+	return node->sock_bind(node, addr, addrlen, FD_MODE(sockfd));
 }
 
 long net_accept(int sockfd, struct sockaddr * addr, socklen_t * addrlen) {
 	CHECK_SOCK(sockfd);
 	sock_t * node = (sock_t*)FD_ENTRY(sockfd);
 	if (!node->sock_accept) return -EINVAL;
-	return node->sock_accept(node, addr, addrlen);
+	return node->sock_accept(node, addr, addrlen, FD_MODE(sockfd));
 }
 
 long net_listen(int sockfd, int backlog) {
@@ -364,7 +354,7 @@ long net_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 	CHECK_SOCK(sockfd);
 	sock_t * node = (sock_t*)FD_ENTRY(sockfd);
 	if (!node->sock_connect) return -EINVAL;
-	return node->sock_connect(node,addr,addrlen);
+	return node->sock_connect(node,addr,addrlen, FD_MODE(sockfd));
 }
 
 static int validate_msg(const struct msghdr * msg, int readonly) {
@@ -391,7 +381,7 @@ long net_recv(int sockfd, struct msghdr * msg, int flags) {
 	PTR_VALIDATE(msg);
 	if (validate_msg(msg,0)) return -EFAULT;
 	sock_t * node = (sock_t*)FD_ENTRY(sockfd);
-	return node->sock_recv(node,msg,flags);
+	return node->sock_recv(node,msg,flags,FD_MODE(sockfd));
 }
 
 long net_send(int sockfd, const struct msghdr * msg, int flags) {
@@ -399,7 +389,7 @@ long net_send(int sockfd, const struct msghdr * msg, int flags) {
 	PTR_VALIDATE(msg);
 	if (validate_msg(msg,1)) return -EFAULT;
 	sock_t * node = (sock_t*)FD_ENTRY(sockfd);
-	return node->sock_send(node,msg,flags);
+	return node->sock_send(node,msg,flags,FD_MODE(sockfd));
 }
 
 long net_shutdown(int sockfd, int how) {

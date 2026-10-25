@@ -23,11 +23,11 @@ typedef struct SockData {
 
 	uint16_t priv[4];
 
-	long (*sock_recv)(struct SockData * sock, struct msghdr * msg, int flags);
-	long (*sock_send)(struct SockData * sock, const struct msghdr *msg, int flags);
+	long (*sock_recv)(struct SockData * sock, struct msghdr * msg, int flags, uint64_t fdflags);
+	long (*sock_send)(struct SockData * sock, const struct msghdr *msg, int flags, uint64_t fdflags);
 	void (*sock_close)(struct SockData * sock);
-	long (*sock_connect)(struct SockData * sock, const struct sockaddr *addr, socklen_t addrlen);
-	long (*sock_bind)(struct SockData * sock, const struct sockaddr *addr, socklen_t addrlen);
+	long (*sock_connect)(struct SockData * sock, const struct sockaddr *addr, socklen_t addrlen, uint64_t fdflags);
+	long (*sock_bind)(struct SockData * sock, const struct sockaddr *addr, socklen_t addrlen, uint64_t fdflags);
 	long (*sock_getsockname)(struct SockData * sock, struct sockaddr *addr, socklen_t *addrlen);
 	long (*sock_getpeername)(struct SockData * sock, struct sockaddr *addr, socklen_t *addrlen);
 
@@ -36,11 +36,10 @@ typedef struct SockData {
 
 	size_t unread;
 	char * buf;
-	int nonblocking;
 
 	unsigned long timeout_s, timeout_us;
 
-	long (*sock_accept)(struct SockData * sock, struct sockaddr *addr, socklen_t *addrlen);
+	long (*sock_accept)(struct SockData * sock, struct sockaddr *addr, socklen_t *addrlen, uint64_t fdflags);
 	long (*sock_listen)(struct SockData * sock, int backlog);
 } sock_t;
 

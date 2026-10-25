@@ -31,8 +31,8 @@ enum ino_type {
 struct fs_node;
 struct fs_file_description;
 
-typedef ssize_t (*read_type_t) (struct fs_node *,  off_t, size_t, uint8_t *);
-typedef ssize_t (*write_type_t) (struct fs_node *, off_t, size_t, uint8_t *);
+typedef ssize_t (*read_type_t) (struct fs_node *,  off_t, size_t, uint8_t *, uint64_t flags);
+typedef ssize_t (*write_type_t) (struct fs_node *, off_t, size_t, uint8_t *, uint64_t flags);
 typedef void (*open_type_t) (struct fs_node *, unsigned int flags);
 typedef void (*close_type_t) (struct fs_node *);
 typedef int (*readdir_type_t) (struct fs_node *, unsigned long, struct dirent *);
@@ -201,3 +201,7 @@ int fs_close_desc(struct fs_file_description *);
 uintptr_t fs_clone_desc(struct fs_file_description *, int);
 uint64_t fs_convert_descriptor_flags(uintptr_t desc_ptr);
 const char * fs_basename(const char * path);
+
+/* New interfaces to support O_NONBLOCK */
+ssize_t read_fs_ex(struct fs_file_description * fd, off_t offset, size_t size, uint8_t *buffer);
+ssize_t write_fs_ex(struct fs_file_description * fd, off_t offset, size_t size, uint8_t *buffer);

@@ -47,8 +47,8 @@ static uint32_t pex_client_handles = 1;
 #define  PEX_STATE_BOUND       1
 #define  PEX_STATE_CONNECTED   2
 
-static long recv_disconnected(sock_t * sock, struct msghdr * msg, int flags) { return -ENOTCONN; }
-static long send_disconnected(sock_t * sock, const struct msghdr *msg, int flags) { return -ENOTCONN; }
+static long recv_disconnected(sock_t * sock, struct msghdr * msg, int flags, uint64_t fdflags) { return -ENOTCONN; }
+static long send_disconnected(sock_t * sock, const struct msghdr *msg, int flags, uint64_t fdflags) { return -ENOTCONN; }
 
 static void procfs_net_pex_func(fs_node_t * node) {
 	hashmap_foreach(iter, pex_servers) {
@@ -129,10 +129,10 @@ static void sock_pex_close(sock_t * sock) {
 	}
 }
 
-static long pex_recv_client(sock_t * sock, struct msghdr * msg, int flags) {
+static long pex_recv_client(sock_t * sock, struct msghdr * msg, int flags, uint64_t fdflags) {
 	if (msg->msg_iovlen > 1) return -EINVAL;
 	if (msg->msg_iovlen == 0) return 0;
-	if (!sock->rx_queue->length && sock->nonblocking) return -EAGAIN;
+	if (!sock->rx_queue->length && (fdflags & PROC_FD_MODE_NONBLOCK)) return -EAGAIN;
 	char * packet = net_sock_get(sock);
 	if (!packet) return -EINTR;
 	size_t size;
@@ -149,7 +149,7 @@ static long pex_recv_client(sock_t * sock, struct msghdr * msg, int flags) {
 	return size;
 }
 
-static long pex_send_client(sock_t * sock, const struct msghdr *msg, int flags) {
+static long pex_send_client(sock_t * sock, const struct msghdr *msg, int flags, uint64_t fdflags) {
 	if (msg->msg_iovlen > 1) return -EINVAL;
 	if (msg->msg_iovlen == 0) return 0;
 
@@ -168,7 +168,7 @@ static long pex_send_client(sock_t * sock, const struct msghdr *msg, int flags) 
 }
 
 
-static long sock_pex_connect(sock_t * sock, const struct sockaddr *addr, socklen_t addrlen) {
+static long sock_pex_connect(sock_t * sock, const struct sockaddr *addr, socklen_t addrlen, uint64_t fdflags) {
 	const struct sockaddr_pex *pex_addr = (void*)addr;
 	if (sock->priv[PEX_PRIV_STATE] != PEX_STATE_NONE) return -EALREADY;
 	sock_t * server = hashmap_get(pex_servers, pex_addr->spex_target);
@@ -184,10 +184,10 @@ static long sock_pex_connect(sock_t * sock, const struct sockaddr *addr, socklen
 	return 0;
 }
 
-static long pex_recv_server(sock_t * sock, struct msghdr * msg, int flags) {
+static long pex_recv_server(sock_t * sock, struct msghdr * msg, int flags, uint64_t fdflags) {
 	if (msg->msg_iovlen > 1) return -EINVAL;
 	if (msg->msg_iovlen == 0) return 0;
-	if (!sock->rx_queue->length && sock->nonblocking) return -EAGAIN;
+	if (!sock->rx_queue->length && (fdflags & PROC_FD_MODE_NONBLOCK)) return -EAGAIN;
 
 	char * packet = net_sock_get(sock);
 	if (!packet) return -EINTR;
@@ -219,7 +219,7 @@ static long pex_recv_server(sock_t * sock, struct msghdr * msg, int flags) {
 	return size;
 }
 
-static long pex_send_server(sock_t * sock, const struct msghdr *msg, int flags) {
+static long pex_send_server(sock_t * sock, const struct msghdr *msg, int flags, uint64_t fdflags) {
 	if (msg->msg_iovlen > 1) return -EINVAL;
 	if (msg->msg_iovlen == 0) return 0;
 	if (msg->msg_namelen != sizeof(struct sockaddr_pex_client)) return -EINVAL;
@@ -246,7 +246,7 @@ static long pex_send_server(sock_t * sock, const struct msghdr *msg, int flags) 
 	return size;
 }
 
-static long sock_pex_bind(sock_t * sock, const struct sockaddr *addr, socklen_t addrlen) {
+static long sock_pex_bind(sock_t * sock, const struct sockaddr *addr, socklen_t addrlen, uint64_t fdflags) {
 	const struct sockaddr_pex *pex_addr = (void*)addr;
 	if (sock->priv[PEX_PRIV_STATE] != PEX_STATE_NONE) return -EALREADY;
 	if (hashmap_has(pex_servers, pex_addr->spex_target)) return -EADDRINUSE;
@@ -263,7 +263,7 @@ static long sock_pex_bind(sock_t * sock, const struct sockaddr *addr, socklen_t 
 	return 0;
 }
 
-long net_pex_socket(int type, int protocol, int flags, int nb) {
+long net_pex_socket(int type, int protocol, int flags) {
 	if (type != SOCK_DGRAM) return -EINVAL;
 
 	sock_t * sock = net_sock_create();

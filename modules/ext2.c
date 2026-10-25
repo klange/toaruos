@@ -1235,7 +1235,7 @@ static ext2_inodetable_t * read_inode(ext2_fs_t * this, size_t inode) {
 	return inodet;
 }
 
-static ssize_t read_ext2(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t read_ext2(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	ext2_fs_t * this = (ext2_fs_t *)node->device;
 	ext2_inodetable_t * inode = read_inode(this, node->inode);
 	uint32_t end;
@@ -1322,7 +1322,7 @@ static ssize_t write_inode_buffer(ext2_fs_t * this, ext2_inodetable_t * inode, u
 	return size_to_read;
 }
 
-static ssize_t write_ext2(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t write_ext2(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	ext2_fs_t * this = (ext2_fs_t *)node->device;
 	if (!(this->flags & EXT2_FLAG_READWRITE)) return -EROFS;
 
@@ -1453,7 +1453,7 @@ static ssize_t readlink_ext2(fs_node_t * node, char * buf, size_t size) {
 	ext2_inodetable_t * inode = read_inode(this, node->inode);
 	size_t read_size = size < inode->size ? size : inode->size;
 	if (inode->size > 60) { //sizeof(_symlink(inode))) {
-		read_ext2(node, 0, read_size, (uint8_t *)buf);
+		read_ext2(node, 0, read_size, (uint8_t *)buf, 0);
 	} else {
 		memcpy(buf, _symlink(inode), read_size);
 	}

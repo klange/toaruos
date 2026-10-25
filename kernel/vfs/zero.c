@@ -14,15 +14,15 @@
 #include <kernel/vfs.h>
 #include <kernel/string.h>
 
-static ssize_t read_null(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t read_null(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	return 0;
 }
 
-static ssize_t write_null_zero(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t write_null_zero(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	return size;
 }
 
-static ssize_t read_zero(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t read_zero(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	memset(buffer, 0x00, size);
 	return size;
 }

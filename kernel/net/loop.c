@@ -84,7 +84,7 @@ static int ioctl_loop(fs_node_t * node, unsigned long request, void * argp) {
 	}
 }
 
-static ssize_t write_loop(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t write_loop(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	struct loop_nic * nic = node->device;
 	nic->counts.rx_count++;
 	nic->counts.tx_count++;

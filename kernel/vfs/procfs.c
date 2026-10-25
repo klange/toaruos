@@ -42,7 +42,7 @@
 #define PROCFS_STANDARD_ENTRIES (sizeof(std_entries) / sizeof(struct procfs_entry))
 #define PROCFS_PROCDIR_ENTRIES  (sizeof(procdir_entries) / sizeof(struct procfs_entry))
 
-static ssize_t procfs_entry_read(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t procfs_entry_read(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	procfs_entry_t * entry = (void*)node;
 	if ((size_t)offset > entry->used) return 0;
 	if (size > entry->used - offset) size = entry->used - offset;
@@ -84,9 +84,9 @@ static void procfs_entry_open(fs_node_t * node, unsigned int flags) {
 	node->length = entry->used;
 }
 
-static ssize_t procfs_entry_write(fs_node_t * node, off_t off, size_t len, uint8_t * buf) {
+static ssize_t procfs_entry_write(fs_node_t * node, off_t off, size_t len, uint8_t * buf, uint64_t flags) {
 	procfs_entry_t * entry = (void*)node;
-	if (entry->write_func) return entry->write_func(node, off, len, buf);
+	if (entry->write_func) return entry->write_func(node, off, len, buf, flags);
 	return -EPERM;
 }
 
@@ -258,7 +258,7 @@ static void proc_cmdline_func(fs_node_t *node) {
 	}
 }
 
-static ssize_t proc_comm_write(fs_node_t * node, off_t off, size_t len, uint8_t * buf) {
+static ssize_t proc_comm_write(fs_node_t * node, off_t off, size_t len, uint8_t * buf, uint64_t flags) {
 	process_t * proc = process_from_pid(node->impl);
 	char tmp[16] = {0};
 	size_t size = len > 15 ? 15 : len;

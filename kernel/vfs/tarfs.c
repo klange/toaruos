@@ -223,7 +223,7 @@ static int readdir_tar_root(fs_node_t *node, unsigned long index, struct dirent 
 	return 0;
 }
 
-static ssize_t read_tarfs(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
+static ssize_t read_tarfs(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer, uint64_t flags) {
 	struct tarfs * self = node->device;
 	struct ustar * file = malloc(sizeof(struct ustar));
 	ustar_from_offset(self, node->inode, file);

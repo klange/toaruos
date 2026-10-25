@@ -40,22 +40,23 @@ static void close_complete(struct unix_pipe * self) {
 	free(self);
 }
 
-static ssize_t read_unixpipe(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t read_unixpipe(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	struct unix_pipe * self = node->device;
-	if (self->write_closed && !ring_buffer_unread(self->buffer)) {
-		return 0;
+	if (!ring_buffer_unread(self->buffer)) {
+		if (self->write_closed) return 0;
+		if (flags & PROC_FD_MODE_NONBLOCK) return -EAGAIN;
 	}
-	return ring_buffer_read(self->buffer, size, buffer);
+	return ring_buffer_read(self->buffer, size, buffer, flags);
 }
 
-static ssize_t write_unixpipe(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t write_unixpipe(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	struct unix_pipe * self = node->device;
 	if (self->read_closed) {
 		siginfo_t cause = {.si_errno = EPIPE};
 		raise_signal(SIGPIPE, &cause);
 		return -EPIPE;
 	}
-	return ring_buffer_write(self->buffer, size, buffer);
+	return ring_buffer_write(self->buffer, size, buffer, flags);
 }
 
 static void close_read_pipe(fs_node_t * node) {

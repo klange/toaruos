@@ -79,16 +79,14 @@ long sys_write(int fd, char * ptr, unsigned long len) {
 	if (!FD_CHECK(fd)) return -EBADF;
 	if (!(FD_MODE(fd) & PROC_FD_MODE_WRITE)) return -EBADF;
 	PTRCHECK(ptr,len,MMU_PTR_NULL);
-
-	fs_node_t * node = FD_ENTRY(fd);
 	if (!len) return 0;
 
 	off_t off = FD_OFFSET(fd);
 	if (FD_MODE(fd) & PROC_FD_MODE_APPEND) {
-		off = FD_OFFSET(fd) = node->length;
+		off = FD_OFFSET(fd) = FD_ENTRY(fd)->length;
 	}
 
-	int64_t out = write_fs(node, off, len, (uint8_t*)ptr);
+	int64_t out = write_fs_ex(FD_FILE(fd), off, len, (uint8_t*)ptr);
 	if (out > 0) FD_OFFSET(fd) = off + out;
 	return out;
 }
@@ -98,23 +96,18 @@ long sys_pwrite(int fd, void * ptr, size_t count, off_t offset) {
 	if (!(FD_MODE(fd) & PROC_FD_MODE_WRITE)) return -EBADF;
 	if ((FD_ENTRY(fd)->type == INO_FIFO) || (FD_ENTRY(fd)->type == INO_CHR) || (FD_ENTRY(fd)->type == INO_SOCK)) return -ESPIPE;
 	PTRCHECK(ptr,count,MMU_PTR_NULL);
-
-	fs_node_t * node = FD_ENTRY(fd);
 	if (!count) return 0;
 
-	return write_fs(node, offset, count, (uint8_t*)ptr);
+	return write_fs_ex(FD_FILE(fd), offset, count, (uint8_t*)ptr);
 }
 
 long sys_read(int fd, char * ptr, unsigned long len) {
 	if (!FD_CHECK(fd)) return -EBADF;
 	if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
 	PTRCHECK(ptr,len,MMU_PTR_NULL|MMU_PTR_WRITE);
-
-	fs_node_t * node = FD_ENTRY(fd);
 	if (!len) return 0;
-
 	off_t off = FD_OFFSET(fd);
-	int64_t out = read_fs(node, off, len, (uint8_t *)ptr);
+	int64_t out = read_fs_ex(FD_FILE(fd), off, len, (uint8_t *)ptr);
 	if (out > 0) FD_OFFSET(fd) = off + out;
 	return out;
 }
@@ -124,11 +117,8 @@ long sys_pread(int fd, void * ptr, size_t count, off_t offset) {
 	if (!(FD_MODE(fd) & PROC_FD_MODE_READ)) return -EBADF;
 	if ((FD_ENTRY(fd)->type == INO_FIFO) || (FD_ENTRY(fd)->type == INO_CHR) || (FD_ENTRY(fd)->type == INO_SOCK)) return -ESPIPE;
 	PTRCHECK(ptr,count,MMU_PTR_NULL|MMU_PTR_WRITE);
-
-	fs_node_t * node = FD_ENTRY(fd);
 	if (!count) return 0;
-
-	return read_fs(node, offset, count, (uint8_t *)ptr);
+	return read_fs_ex(FD_FILE(fd), offset, count, (uint8_t *)ptr);
 }
 
 static long stat_node(fs_node_t * fn, struct stat * f) {
@@ -267,9 +257,20 @@ long sys_seek(int fd, long offset, long whence) {
 
 long sys_ioctl(int fd, unsigned long request, void * argp) {
 	if (!FD_CHECK(fd)) return -EBADF;
+
+	/* Common stuff which requires no specific permissions */
+	if (request == FIONBIO) {
+		PTRCHECK(argp, sizeof(int), 0);
+		if (!!*(int*)argp) {
+			FD_MODE(fd) |= PROC_FD_MODE_NONBLOCK;
+		} else {
+			FD_MODE(fd) &= ~(PROC_FD_MODE_NONBLOCK);
+		}
+		return 0;
+	}
+
 	if (!(FD_MODE(fd) & PROC_FD_MODE__RW)) return -EBADF;
 	PTR_VALIDATE(argp);
-
 	return ioctl_fs(FD_ENTRY(fd), request, argp);
 }
 
