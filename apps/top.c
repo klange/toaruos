@@ -586,7 +586,7 @@ static void preseed_run(void) {
 	size_t count;
 	struct process ** processList = read_processes(&count);
 	free(processList);
-	usleep(150000);
+	usleep(15000);
 }
 
 /**
