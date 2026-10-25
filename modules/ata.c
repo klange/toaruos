@@ -246,7 +246,7 @@ static off_t atapi_max_offset(struct ata_device * dev) {
 	return (max_sector + 1) * dev->atapi_sector_size;
 }
 
-static ssize_t read_ata(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t read_ata(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	struct ata_device * dev = (struct ata_device *)node->device;
 	unsigned int start_block = offset / ATA_CACHE_SIZE;
 	unsigned int end_block = (offset + size - 1) / ATA_CACHE_SIZE;
@@ -297,7 +297,7 @@ static ssize_t read_ata(fs_node_t *node, off_t offset, size_t size, uint8_t *buf
 	return size;
 }
 
-static ssize_t read_atapi(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t read_atapi(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 
 	struct ata_device * dev = (struct ata_device *)node->device;
 
@@ -351,7 +351,7 @@ static ssize_t read_atapi(fs_node_t *node, off_t offset, size_t size, uint8_t *b
 }
 
 
-static ssize_t write_ata(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t write_ata(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	struct ata_device * dev = (struct ata_device *)node->device;
 
 	unsigned int start_block = offset / ATA_CACHE_SIZE;

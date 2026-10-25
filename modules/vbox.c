@@ -268,7 +268,7 @@ static int ioctl_mouse(fs_node_t * node, unsigned long request, void * argp) {
 	return -ENOTTY;
 }
 
-static ssize_t write_pointer(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t write_pointer(fs_node_t * node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	if (!mouse_state) {
 		return -1;
 	}
@@ -279,7 +279,7 @@ static ssize_t write_pointer(fs_node_t * node, off_t offset, size_t size, uint8_
 	return size;
 }
 
-static ssize_t write_rectpipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t write_rectpipe(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	(void)node;
 	(void)offset;
 

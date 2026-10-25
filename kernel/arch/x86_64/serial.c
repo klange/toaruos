@@ -21,6 +21,7 @@
 #include <kernel/arch/x86_64/regs.h>
 #include <kernel/arch/x86_64/ports.h>
 #include <kernel/arch/x86_64/irq.h>
+#include <bits/errno.h>
 
 #define SERIAL_PORT_A 0x3F8
 #define SERIAL_PORT_B 0x2F8
@@ -72,9 +73,11 @@ static int serial_transmit_empty(int device) {
 	return inportb(device + 5) & 0x20;
 }
 
-static void serial_send(int device, char out) {
+static ssize_t serial_send(int device, char out, uint64_t flags) {
+	if ((flags & PROC_FD_MODE_NONBLOCK) && serial_transmit_empty(device) == 0) return -EAGAIN;
 	while (serial_transmit_empty(device) == 0) switch_task(1);
 	outportb(device, out);
+	return 1;
 }
 
 static process_t * serial_ac_handler = NULL;
@@ -96,14 +99,14 @@ static void process_serial(void * argp) {
 			if (port_a_status != 0xFF && (port_a_status & 1)) {
 				char ch = inportb(portBase);
 				pty_t * pty = *pty_for_port(portBase);
-				tty_input_process(pty, ch);
+				tty_input_process(pty, ch, 0);
 				_did_something = 1;
 			}
 
 			if (port_c_status != 0xFF && (port_c_status & 1)) {
 				char ch = inportb(portBase - 0x10);
 				pty_t * pty = *pty_for_port(portBase - 0x10);
-				tty_input_process(pty, ch);
+				tty_input_process(pty, ch, 0);
 				_did_something = 1;
 			}
 		}
@@ -175,14 +178,13 @@ static void serial_enable(int port, tcflag_t cflags) {
 static int have_installed_ac = 0;
 static int have_installed_bd = 0;
 
-static ssize_t serial_write_out(pty_t * pty, uint8_t c) {
+static ssize_t serial_write_out(pty_t * pty, uint8_t c, uint64_t flags) {
 	struct serial_port_map * me = pty->_private;
 	if (pty->tios.c_cflag != me->cflags) {
 		me->cflags = pty->tios.c_cflag;
 		serial_enable(me->port, pty->tios.c_cflag);
 	}
-	serial_send(me->port, c);
-	return 1;
+	return serial_send(me->port, c, flags);
 }
 
 #define DEV_PATH "/dev/ttyS"

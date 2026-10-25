@@ -54,7 +54,7 @@ struct spkr {
 	int frequency;
 };
 
-static ssize_t write_spkr(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t write_spkr(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	if (!size % (sizeof(struct spkr))) {
 		return 0;
 	}

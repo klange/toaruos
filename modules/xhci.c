@@ -132,7 +132,7 @@ static int xhci_command(struct XHCIControllerData * controller, uint32_t p1, uin
 	return 0;
 }
 
-static ssize_t xhci_write(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer) {
+static ssize_t xhci_write(fs_node_t * node, off_t offset, size_t size, uint8_t * buffer, uint64_t flags) {
 	struct XHCIControllerData * controller = node->device;
 
 	if (size != sizeof(struct xhci_trb)) return -EINVAL;

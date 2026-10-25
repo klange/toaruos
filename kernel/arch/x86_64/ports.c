@@ -50,7 +50,7 @@ void inportsm(unsigned short port, unsigned char * data, unsigned long size) {
 	asm volatile ("rep insw" : "+D" (data), "+c" (size) : "d" (port) : "memory");
 }
 
-static ssize_t read_port(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t read_port(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	switch (size) {
 		case 1:
 			buffer[0] = inportb(offset);
@@ -71,7 +71,7 @@ static ssize_t read_port(fs_node_t *node, off_t offset, size_t size, uint8_t *bu
 	return size;
 }
 
-static ssize_t write_port(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer) {
+static ssize_t write_port(fs_node_t *node, off_t offset, size_t size, uint8_t *buffer, uint64_t flags) {
 	switch (size) {
 		case 1:
 			outportb(offset, buffer[0]);
